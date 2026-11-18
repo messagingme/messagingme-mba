@@ -867,3 +867,102 @@ describe('le vrai câblage donne ces envois à l’exécuteur', () => {
     ]);
   });
 });
+
+/**
+ * 🔴 UN TEMPLATE NON APPROUVÉ NE PART PAS CHEZ META (menu « Scénario », lot 3, décision 27) : un refus nommé, après une
+ * relecture hors du cache de cinq minutes, au lieu d'une erreur de Meta inexpliquée. Le lien de test joue le brouillon,
+ * donc un template écrit depuis un bloc et encore en validation : c'est le cas qu'il rend courant.
+ */
+describe('🔴 la garde de statut à l’envoi d’un template (lot 3, décision 27)', () => {
+  const lecture = (statut: string, langue = LANGUE): TplInfo => ({ ...LECTURE, statut, langue });
+  /** Une lecture par appel : la première (cache) puis la relecture fraîche, notées. */
+  function lectures(cache: TplInfo, frais: TplInfo) {
+    const options: Array<{ frais?: boolean } | null> = [];
+    const templateVarInfo = vi.fn(async (_t: string, _n: string, _l: string, o?: { frais?: boolean }) => {
+      options.push(o ?? null);
+      return o?.frais ? frais : cache;
+    });
+    return { templateVarInfo, options };
+  }
+
+  it('en validation dans le cache, approuvé à la relecture : l’envoi part', async () => {
+    const l = lectures(lecture('PENDING'), lecture('APPROVED'));
+    const { envois, appels } = monter({ templateVarInfo: l.templateVarInfo });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [])).toEqual({ messageId: MESSAGE_ID });
+    expect(appels).toHaveLength(1);
+    expect(l.options).toEqual([null, { frais: true }]);
+  });
+
+  it('🔴 toujours en validation à la relecture : refus nommé, et AUCUN appel à Meta', async () => {
+    const l = lectures(lecture('PENDING'), lecture('PENDING'));
+    const { envois, appels, journal } = monter({ templateVarInfo: l.templateVarInfo });
+    const r = await envois.sendTemplate(T, W, NOM, LANGUE, []);
+    expect(typeof r).toBe('string');
+    expect(r).toContain('en validation chez Meta');
+    expect(appels).toEqual([]);
+    expect(journal).toEqual([]);
+  });
+
+  it('refusé, en pause, désactivé : la raison le dit', async () => {
+    for (const [statut, phrase] of [['REJECTED', 'refusé par Meta'], ['PAUSED', 'mis en pause par Meta'], ['DISABLED', 'désactivé par Meta']] as const) {
+      const l = lectures(lecture(statut), lecture(statut));
+      const { envois, appels } = monter({ templateVarInfo: l.templateVarInfo });
+      expect(await envois.sendTemplate(T, W, NOM, LANGUE, [])).toContain(phrase);
+      expect(appels).toEqual([]);
+    }
+  });
+
+  it('un statut approuvé en minuscules part, sans relecture', async () => {
+    const l = lectures(lecture('approved'), lecture('PENDING'));
+    const { envois, appels } = monter({ templateVarInfo: l.templateVarInfo });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [])).toEqual({ messageId: MESSAGE_ID });
+    expect(appels).toHaveLength(1);
+    expect(l.options).toEqual([null]);
+  });
+
+  it('un repli sur une autre langue (nom seul) : comme avant, Meta tranche', async () => {
+    const l = lectures(lecture('PENDING', 'en_US'), lecture('PENDING', 'en_US'));
+    const { envois, appels } = monter({ templateVarInfo: l.templateVarInfo });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [])).toEqual({ messageId: MESSAGE_ID });
+    expect(appels).toHaveLength(1);
+    expect(l.options).toEqual([null]);
+  });
+
+  it('la campagne (variables déjà résolues) n’est pas concernée : comportement d’avant', async () => {
+    const l = lectures(lecture('PENDING'), lecture('PENDING'));
+    const { envois, appels } = monter({ templateVarInfo: l.templateVarInfo });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [], [])).toEqual({ messageId: MESSAGE_ID });
+    expect(appels).toHaveLength(1);
+  });
+
+  it('une relecture qui échoue garde la première lecture : refus si elle disait « en validation »', async () => {
+    const templateVarInfo = vi.fn(async (_t: string, _n: string, _l: string, o?: { frais?: boolean }) => {
+      if (o?.frais) throw new Error('Meta injoignable');
+      return lecture('PENDING');
+    });
+    const { envois, appels } = monter({ templateVarInfo });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [])).toContain('en validation chez Meta');
+    expect(appels).toEqual([]);
+  });
+});
+
+describe('🔴 la garde de statut, dans le VRAI câblage et sur un statut absent', () => {
+  it('le cache dit « en validation », Meta dit « approuvé » : la relecture saute le cache, et l’envoi part', async () => {
+    const liste = [template({ status: 'PENDING' })];
+    const { deps, templateVarInfo, appels } = cablage({ templates: liste });
+    expect(await templateVarInfo(T, NOM, LANGUE)).toMatchObject({ statut: 'PENDING' });
+    liste[0] = template({ status: 'APPROVED' });
+    // Le cache de cinq minutes tient encore l’ancienne lecture : c’est lui que la garde ne doit pas croire.
+    expect(await templateVarInfo(T, NOM, LANGUE)).toMatchObject({ statut: 'PENDING' });
+    expect(await deps.sendTemplate(T, W, NOM, LANGUE, [])).toEqual({ messageId: MESSAGE_ID });
+    expect(appels).toHaveLength(1);
+    // Et la relecture a rafraîchi le cache.
+    expect(await templateVarInfo(T, NOM, LANGUE)).toMatchObject({ statut: 'APPROVED' });
+  });
+
+  it('un statut absent ne bloque pas : Meta tranche, comme avant la garde', async () => {
+    const { envois, appels } = monter({ templateVarInfo: vi.fn(async () => ({ ...LECTURE, statut: '' })) });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [])).toEqual({ messageId: MESSAGE_ID });
+    expect(appels).toHaveLength(1);
+  });
+});

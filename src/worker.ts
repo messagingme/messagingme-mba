@@ -28,6 +28,8 @@ import { PgVentesStore } from './shopify/ventes.pg';
 import { FILE_PREUVE_UTM, traiterPreuveUtm, type DepsPreuveUtm } from './shopify/preuve-utm';
 import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
 import { activerSelonStatut, FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsActivation, type ProgrammerOubli } from './shopify/preparation';
+import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
+import { surStatutDesModeles, trancherModeleDeBloc, type DepsMiseEnLigne } from './workflow/modeles-de-bloc';
 import { PgTemplateHintStore } from './crm/template-hints.pg';
 import { campaignRunJob, type CapacitesMoteur } from './campaign/run-job';
 import { PgCampaignRunLock } from './campaign/run-lock';
@@ -527,6 +529,19 @@ export async function demarrerWorker(): Promise<void> {
   await queue.work(FILE_OUBLI_MODELE, async (data) => { await traiterOubli(oubliShopify, data); });
 
   /**
+   * Les templates écrits depuis un bloc du constructeur (menu « Scénario », lot 3) : au statut que Meta tranche, la ligne
+   * se tranche une fois, puis les versions programmées qui nomment ce template tentent leur mise en ligne. Le worker
+   * reçoit le statut : il ne relit rien chez Meta (le filet de l'API le fait).
+   */
+  const miseEnLigneDesScenarios: DepsMiseEnLigne = {
+    lignes: new PgModelesDeBloc(pool),
+    scenarios: workflowStore,
+    emails: { emettre: (e) => emetteurEmails.emettre(e) },
+    audit: (tenant, actor, action, target, detail) => auditStore.record(tenant, actor, action, target, detail),
+    lienScenario: (id) => `${config.APP_URL.trim().replace(/\/+$/, '')}/workflows?open=${id}`,
+  };
+
+  /**
    * La preuve par UTM d'une vente (plan 2026-10-28, tâche 6b) : 30 minutes après la commande, le parcours client relu chez
    * Shopify ; si sa dernière visite vient de nos liens, la vente devient prouvée. Seule une panne de notre base lève.
    */
@@ -569,7 +584,11 @@ export async function demarrerWorker(): Promise<void> {
       statutsModeles: {
         espaceDuCompte: (waba) => repo.espaceDuCompteWhatsapp(waba),
         distribuer: async (t, ev) => { await distribuerEvenementEspace(depsDistributionEspace, t, ev); },
-        surStatut: (t, s) => activerSelonStatut(activationShopify, t, s),
+        // L'assistant Shopify, puis les templates de bloc du constructeur (lot 3) : chacun dans sa capture.
+        surStatut: surStatutDesModeles([
+          { nom: 'shopify', traiter: (t, s) => activerSelonStatut(activationShopify, t, s) },
+          { nom: 'bloc', traiter: (t, s) => trancherModeleDeBloc(miseEnLigneDesScenarios, t, s) },
+        ]),
       },
       /**
        * Les deux files qui voient des statuts reçoivent la remise du fil, celle-ci et `webhook-status` : un

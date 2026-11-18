@@ -606,6 +606,14 @@ position, la source choisie dans le bloc (`node.data.variables`, jugée une par 
 « transaction » fait la même fusion (`modeleDOuverture` rend les choix du bloc). Le bloc n'enregistre que les
 positions qui diffèrent du template (`web/lib/variables-bloc-template.ts`) : les autres continuent de le suivre.
 
+🔴 **Un template non approuvé ne part pas chez Meta** (menu « Scénario », lot 3, décision 27). La branche des indices de
+`sendTemplate` (`src/workflow/envois-bloc.ts`) refuse un statut autre qu'approuvé, relu HORS du cache de cinq minutes
+(`templateVarInfo(..., { frais: true })` : un template tout juste approuvé serait sinon refusé), sur la langue du bloc
+seulement (un repli sur le nom seul laisse Meta trancher) ; un statut absent ne bloque pas. Le refus nomme la cause
+(« en validation chez Meta », « refusé par Meta », « mis en pause par Meta »...) au lieu d'une erreur de Meta : c'est le
+cas courant du lien de test, qui joue le brouillon, donc un template écrit depuis un bloc et encore en validation. Le
+premier template d'une campagne (valeurs déjà résolues) n'est pas concerné.
+
 🔴 **La fenêtre de 24 h de WhatsApp gouverne ce qui peut OUVRIR et ce qui peut SUIVRE, et ce sont deux règles
 distinctes.** Peuvent ouvrir à froid : un **template** WhatsApp, ou un **bloc RCS** configuré (le RCS n'a
 aucune fenêtre, c'est une règle de WhatsApp et pas du monde). Après une attente, seul un template part encore ;
@@ -2082,7 +2090,7 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
 **Scénarios**
 
 - `workflows` (`graph jsonb`, plus un brouillon : l'enregistrement automatique n'atteint pas les contacts,
-  seul « Publier » met en ligne), `workflow_runs` (`status` ∈ waiting | sleeping | inbox | done, `resume_at`,
+  seul « Publier » met en ligne, ou la mise en ligne d'une version programmée, ci-dessous), `workflow_runs` (`status` ∈ waiting | sleeping | inbox | done, `resume_at`,
   `channel`, `last_message_id` pour la dédup d'avance, posé dès la naissance quand le lancement nomme le message
   qui le déclenche), `workflow_node_events`.
 - 🔴 **UN SCÉNARIO SYSTÈME N'EXISTE POUR AUCUNE LECTURE PUBLIQUE** (`workflows.systeme`, liste fermée
@@ -2141,6 +2149,23 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   seul chemin d'exécution à jouer le brouillon, et le RÉPONDEUR, dont le graphe est construit au démarrage et que
   sa ligne de scénario ne porte pas. La poser par campagne recopierait le même objet une fois par destinataire. La colonne est REQUISE dans `WorkflowRunRow` et dans `DueRun`, donc le compilateur oblige
   chaque lecture de parcours à la transporter, balayage des endormis compris.
+- **La publication programmée** (menu « Scénario », lot 3, décision 18 ; migration 0296). « Publier » pendant la
+  validation d'un template écrit depuis un bloc copie le brouillon JUGÉ dans `workflows.programmed_graph`
+  (`programmed_at` à la milliseconde, `programmed_by`) ; la mise en ligne se fait à la dernière approbation, jamais sous
+  une campagne active (elle attend, le filet la retente), par `mettreEnLigneLaVersionProgrammee`, UNE instruction
+  conditionnée à `programmed_at`. Toute publication explicite (`publish`, `remplacerPublieParApi`) remet les trois
+  colonnes à null : elle l'emporte. Un template refusé, ou un contrôle de publication qui ne passe plus (un « Aller à »
+  sans cible), annule la programmation à sa date. Les e-mails `scenario_programme_en_ligne` et
+  `scenario_programme_refuse` vont aux administrateurs, une fois par programmation (`occasion` = scénario et date).
+- `modeles_de_bloc` (migration 0296) : un template écrit depuis un bloc du constructeur (`src/workflow/modeles-de-bloc.ts`),
+  clé (espace, nom, langue), et son état tranché par Meta (`en_validation`, `approuve`, `refuse`, raison bornée à 300).
+  La ligne est la marque « créé par le builder » : le nom naît côté serveur (`nomDuModeleDeBloc`, nom du scénario puis
+  horodatage en base 36), jamais dans le corps reçu. `trancher` n'écrit que si la ligne est encore en validation : le
+  statut rejoué par Meta et le filet ne trouvent ensuite plus rien. Un scénario dont le brouillon ne nomme aucun
+  template de bloc se publie exactement comme avant, sans aucune lecture de Meta. Le filet de l'API, au tour de celui de
+  Shopify (toutes les dix minutes), relit chez Meta vingt templates encore en validation depuis plus de dix minutes,
+  tirés au hasard, puis retente vingt programmations anciennes (`relireModelesDeBloc`) ; le worker tranche au statut
+  reçu, après l'assistant Shopify et dans sa propre capture (`surStatutDesModeles`).
 - 🔴 **UN CONTACT RÉEL NE TOMBE JAMAIS DANS UN BROUILLON.** `grapheEditable(wf)` n'apparaît qu'à UN endroit
   des chemins d'exécution : l'entrée des lancements (`src/workflow/lancements.ts`), pour le seul type dont la
   politique joue le brouillon (`lien_de_test`, `graphe: 'brouillon_fige'`) ; tous les autres types jouent
@@ -6740,6 +6765,12 @@ Ajouté par le lot 4 de l'API publique :
    état, les routes HTTP répondent 200. Pour un formulaire (`src/flow/lifecycle.ts`) : la confirmation locale est
    reprise une fois après l'accord de Meta ; une création qui ne s'écrit toujours pas supprime son brouillon chez
    Meta, et si cette compensation échoue, l'erreur rend l'identifiant Meta à réconcilier.
+64. **Un graphe ne passe en ligne que par une publication explicite ou par la mise en ligne d'une version programmée,
+   et la première efface la seconde** (menu « Scénario », lot 3). La mise en ligne programmée est UNE instruction
+   conditionnée à sa date : une publication à la main ou une écriture de l'API entre-temps l'emporte, et deux mises en
+   ligne concurrentes n'en font qu'une. Elle ne se fait jamais sous une campagne active. Le nom d'un template écrit
+   depuis un bloc naît côté serveur, et un tel template n'est jamais modifié chez Meta : une modification en crée un
+   nouveau, et l'ancien est gardé (décision 27).
 
 ### Sur les contrats externes
 

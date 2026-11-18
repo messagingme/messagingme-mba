@@ -269,12 +269,13 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     }
   };
 
-  const templateVarInfo = async (tenant: string, name: string, language: string): Promise<TplInfo | null> => {
+  const templateVarInfo = async (tenant: string, name: string, language: string, opts?: { frais?: boolean }): Promise<TplInfo | null> => {
     const waba = await tenantWabaId(tenant);
     if (!waba) return null;
     const key = `${waba}|${name}|${language}`;
     const cached = tplVarCache.get(key);
-    if (cached && Date.now() - cached.at < TPL_CACHE_MS) {
+    // `frais` (la garde de statut, lot 3) saute le cache et le rafraîchit : la lecture ci-dessous le réécrit.
+    if (!opts?.frais && cached && Date.now() - cached.at < TPL_CACHE_MS) {
       const { at: _at, ...info } = cached;
       return info;
     }

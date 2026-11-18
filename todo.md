@@ -141,8 +141,8 @@ Le panneau Attente et l'aide de l'action « dernier message » sont corrigés da
 - L'avertissement du bloc racine (`WorkflowConfigPanel.tsx`, vers 538) attribue à « le premier message doit être un
   template » l'inéligibilité d'une racine Attente, dont la vraie cause est l'attente (`ouverture-scenario.ts`).
 - Le résumé sur la toile d'une action « dernier message » affiche « Champ = … » (`WorkflowNode.tsx`, vers 62).
-- Deux commentaires faux : le « repli sur les exemples du template » (`template-send.ts`, vers 21) n'existe pas, et
-  `campaign-eligibility.ts` (vers 193) dit que le serveur refuse « attente puis message », ce qu'il ne fait pas.
+- Un commentaire faux : `campaign-eligibility.ts` (vers 193) dit que le serveur refuse « attente puis message », ce qu'il
+  ne fait pas.
 
 ## 🟡 Restes des fiches par bloc, lot 3 (2026-11-17)
 

@@ -11,6 +11,11 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'contact.optin': ['Passage en opt-in', 'Marked as opted in'],
   'contact.optout': ['Passage en opt-out', 'Marked as opted out'],
   'workflow.published': ['Scénario mis en ligne', 'Scenario published'],
+  // Menu « Scénario », lot 3 : un template écrit depuis un bloc (le détail porte l'état rendu par Meta), et la mise en
+  // ligne programmée pendant sa validation (le détail porte le nombre de templates attendus).
+  'workflow.modele_soumis': ['Template écrit depuis un bloc', 'Template written from a block'],
+  'workflow.publication_programmee': ['Mise en ligne programmée', 'Publication scheduled'],
+  'workflow.programmation_annulee': ['Mise en ligne programmée annulée', 'Scheduled publication cancelled'],
   // Un scénario supprimé par l'API ou le MCP (spec 2026-11-02-scenarios-api) : le détail ne porte que l'origine.
   'workflow.deleted': ['Scénario supprimé', 'Scenario deleted'],
   // Effacement irréversible : la trace ne porte que l'identifiant interne et le nombre de messages effacés.

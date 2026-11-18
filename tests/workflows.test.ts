@@ -7,7 +7,7 @@ import type { ScenariosDep, WorkflowRouteDeps } from '../src/http/workflows';
 import type { WorkflowResumeRow, WorkflowRow } from '../src/workflow/store.pg';
 import { WorkflowUtiliseParLienChaine } from '../src/workflow/store.pg';
 import { aucunePubliciteUtilise } from './pubs-fixtures';
-import { scenariosDepInerte, scenariosInertes } from './routes-inertes';
+import { modelesDeBlocInertes, scenariosDepInerte, scenariosInertes } from './routes-inertes';
 
 const SECRET = 'test-secret';
 // Un identifiant qui a la FORME d'un uuid : les routes refusent desormais en 404 ce qui n'en est pas un,
@@ -633,5 +633,205 @@ describe('🔴 GET /workflows/:id rend les départs du scénario (menu « Scéna
     expect(corps.workflow.id).toBe(W1);
     expect(corps.departs).toEqual([{ noeudId: null, fenetre: 'ouverte', raison: '' }]);
     await server.close();
+  });
+});
+
+/**
+ * ─── Écrire un template depuis un bloc, et la publication programmée (menu « Scénario », lot 3, décision 18) ───
+ * Les décisions sont tenues par `tests/workflow-modeles-de-bloc.test.ts` et `tests/workflow-publication-programmee.test.ts` ;
+ * ici, que les routes les posent au bon endroit : avant `publish`, sur le BROUILLON, avec l'auteur de la session.
+ */
+describe('🔴 templates de bloc et publication programmée (menu « Scénario », lot 3)', () => {
+  const brouillonA = { nodes: [{ id: 'n1', type: 'template' as const, position: { x: 0, y: 0 }, data: { templateName: 'relance_a', language: 'fr' } }], edges: [] };
+  const ligneA = (etat: 'en_validation' | 'approuve' | 'refuse', raison: string | null = null) =>
+    ({ workflowId: W1, modele: 'relance_a', langue: 'fr', etat, raison, creeLe: '2026-11-18T10:00:00.000Z', trancheLe: null });
+
+  /** Un montage dont la publication voit une ligne de template de bloc, et dont Meta rend `statut`. */
+  function appAvec(o: { etat: 'en_validation' | 'approuve' | 'refuse'; statutMeta?: string; raison?: string; campagnes?: string[] }) {
+    const programmes: Array<{ id: string; par: string | null; graphe: unknown }> = [];
+    const lectures: string[] = [];
+    const r = app({
+      scenarios: {
+        getById: async (id) => (id === W1 ? sampleRow({ draftGraph: brouillonA }) : null),
+        programmer: async (id, _t, par, graphe) => { programmes.push({ id, par, graphe }); return { le: '2026-11-18T15:00:00.000Z' }; },
+      },
+      modelesDeBloc: {
+        ...modelesDeBlocInertes,
+        publication: {
+          ...modelesDeBlocInertes.publication,
+          lignes: { ...modelesDeBlocInertes.publication.lignes, desModeles: async () => [ligneA(o.etat, o.raison ?? null)] },
+          scenarios: {
+            ...modelesDeBlocInertes.publication.scenarios,
+            lanceursDuScenario: async () => (o.campagnes ?? []).map((nom) => ({ type: 'campagne' as const, nom, declencheur: null, blocDeDepart: null })),
+          },
+          statutModele: async (_t, modele) => { lectures.push(modele); return o.statutMeta ? { statut: o.statutMeta, raison: o.raison ?? null } : null; },
+        },
+      },
+    });
+    return { ...r, programmes, lectures };
+  }
+
+  it('🔴 un template de bloc en validation : 202, la mise en ligne se PROGRAMME sur le brouillon jugé, par l’auteur, sans publier', async () => {
+    const { server, cap, programmes, lectures } = appAvec({ etat: 'en_validation', statutMeta: 'PENDING' });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ id: W1, programmee: { le: '2026-11-18T15:00:00.000Z', attend: [{ modele: 'relance_a', langue: 'fr' }] } });
+    expect(programmes).toEqual([{ id: W1, par: 'u1', graphe: brouillonA }]);
+    expect(lectures).toEqual(['relance_a']);
+    expect(cap.publies).toEqual([]);
+    expect(cap.journal).toEqual([{ action: 'workflow.publication_programmee', userId: 'u1', target: W1 }]);
+    await server.close();
+  });
+
+  it('🔴 un template de bloc refusé par Meta : 422 avec sa raison, rien n’est publié ni programmé', async () => {
+    const { server, cap, programmes } = appAvec({ etat: 'refuse', raison: 'INVALID_FORMAT' });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ code: string; error: string }>()).toMatchObject({ code: 'modele_refuse' });
+    expect(res.json<{ error: string }>().error).toContain('INVALID_FORMAT');
+    expect(cap.publies).toEqual([]);
+    expect(programmes).toEqual([]);
+    await server.close();
+  });
+
+  it('🔴 en validation sous une campagne active : 422 qui nomme la campagne, rien n’est programmé', async () => {
+    const { server, cap, programmes } = appAvec({ etat: 'en_validation', statutMeta: 'PENDING', campagnes: ['Soldes'] });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ code: string }>().code).toBe('campagne_active');
+    expect(res.json<{ error: string }>().error).toContain('Soldes');
+    expect(cap.publies).toEqual([]);
+    expect(programmes).toEqual([]);
+    await server.close();
+  });
+
+  it('approuvé (relu chez Meta) : publication immédiate, comme avant', async () => {
+    const { server, cap, programmes } = appAvec({ etat: 'en_validation', statutMeta: 'APPROVED' });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(200);
+    expect(cap.publies).toEqual([W1]);
+    expect(programmes).toEqual([]);
+    await server.close();
+  });
+
+  it('🔴 un brouillon sans template de bloc se publie SANS aucune lecture de Meta', async () => {
+    const lectures: string[] = [];
+    const { server, cap } = app({
+      scenarios: { getById: async (id) => (id === W1 ? sampleRow({ draftGraph: brouillonA }) : null) },
+      modelesDeBloc: { ...modelesDeBlocInertes, publication: { ...modelesDeBlocInertes.publication, statutModele: async (_t, m) => { lectures.push(m); return null; } } },
+    });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(200);
+    expect(cap.publies).toEqual([W1]);
+    expect(lectures).toEqual([]);
+    await server.close();
+  });
+
+  it('POST …/blocs/:nodeId/modele : 201, le template est créé par l’auteur de la session, et journalisé', async () => {
+    const creations: string[] = [];
+    const inseres: Array<{ tenant: string; workflowId: string; par: string | null }> = [];
+    const { server, cap } = app({
+      modelesDeBloc: {
+        ...modelesDeBlocInertes,
+        creation: {
+          ...modelesDeBlocInertes.creation,
+          scenarios: { getById: async (id, t) => (id === W1 && t === 't1' ? sampleRow({ draftGraph: brouillonA }) : null) },
+          gestion: {
+            ...modelesDeBlocInertes.creation.gestion,
+            repo: { ...modelesDeBlocInertes.creation.gestion.repo, getTenantWabaId: async () => 'waba1' },
+            meta: {
+              templateClientForTenant: async () => ({
+                create: async (_w: string, input: { name: string }) => { creations.push(input.name); return { id: 'tid', status: 'PENDING', category: 'UTILITY' }; },
+              }) as never,
+            },
+          },
+          lignes: { inserer: async (tenant, l) => { inseres.push({ tenant, workflowId: l.workflowId, par: l.par }); } },
+          maintenant: () => new Date('2026-11-18T15:00:00.000Z'),
+        },
+      },
+    });
+    const res = await server.inject({
+      method: 'POST', url: `/tenants/t1/workflows/${W1}/blocs/n1/modele`, ...h(adminTok),
+      payload: { category: 'UTILITY', language: 'fr', body: 'Votre panier vous attend', name: 'pirate' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json<{ modele: string; etat: string }>()).toMatchObject({ etat: 'en_validation', langue: 'fr', categorie: 'UTILITY' });
+    expect(res.json<{ modele: string }>().modele).toMatch(/^onboarding_[a-z0-9]+$/);
+    expect(creations).toEqual([res.json<{ modele: string }>().modele]);
+    expect(inseres).toEqual([{ tenant: 't1', workflowId: W1, par: 'u1' }]);
+    expect(cap.journal).toEqual([{ action: 'workflow.modele_soumis', userId: 'u1', target: W1 }]);
+    await server.close();
+  });
+
+  it('POST …/blocs/:nodeId/modele : identifiant mal formé 404 sans rien lire ; réservé aux admins', async () => {
+    const lus: string[] = [];
+    const { server } = app({
+      modelesDeBloc: {
+        ...modelesDeBlocInertes,
+        creation: { ...modelesDeBlocInertes.creation, scenarios: { getById: async (id) => { lus.push(id); return null; } } },
+      },
+    });
+    const malForme = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/blocs/a.b/modele`, ...h(adminTok), payload: {} });
+    expect(malForme.statusCode).toBe(404);
+    const pasUuid = await server.inject({ method: 'POST', url: '/tenants/t1/workflows/pas-un-uuid/blocs/n1/modele', ...h(adminTok), payload: {} });
+    expect(pasUuid.statusCode).toBe(404);
+    const agent = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/blocs/n1/modele`, ...h(agentTok), payload: {} });
+    expect(agent.statusCode).toBe(403);
+    expect(lus).toEqual([]);
+    // Un identifiant bien formé atteint la lecture du scénario (inconnu ici : 404, sans jamais atteindre Meta).
+    const inconnu = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/blocs/n1/modele`, ...h(adminTok), payload: {} });
+    expect(inconnu.statusCode).toBe(404);
+    expect(lus).toEqual([W1]);
+    await server.close();
+  });
+
+  it('GET …/modeles : les lignes du scénario, et la version programmée avec ce qu’elle attend', async () => {
+    const { server } = app({
+      scenarios: { publicationProgrammee: async () => ({ graphe: brouillonA, le: '2026-11-18T15:00:00.000Z', par: 'u1' }) },
+      modelesDeBloc: {
+        ...modelesDeBlocInertes,
+        lignes: { duScenario: async () => [ligneA('en_validation')] },
+        publication: { ...modelesDeBlocInertes.publication, lignes: { ...modelesDeBlocInertes.publication.lignes, desModeles: async () => [ligneA('en_validation')] } },
+      },
+    });
+    const res = await server.inject({ method: 'GET', url: `/tenants/t1/workflows/${W1}/modeles`, ...h(adminTok) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      modeles: [{ modele: 'relance_a', langue: 'fr', etat: 'en_validation', raison: null, creeLe: '2026-11-18T10:00:00.000Z' }],
+      programmee: { le: '2026-11-18T15:00:00.000Z', attend: [{ modele: 'relance_a', langue: 'fr', etat: 'en_validation', raison: null }], campagnes: [] },
+    });
+    const inconnu = await server.inject({ method: 'GET', url: '/tenants/t1/workflows/22222222-2222-4222-8222-222222222222/modeles', ...h(adminTok) });
+    expect(inconnu.statusCode).toBe(404);
+    await server.close();
+  });
+
+  it('GET …/modeles : tout approuvé, la version programmée dit la campagne qui la retient', async () => {
+    const { server } = app({
+      scenarios: {
+        publicationProgrammee: async () => ({ graphe: brouillonA, le: '2026-11-18T15:00:00.000Z', par: null }),
+        lanceursDuScenario: async () => [{ type: 'campagne', nom: 'Soldes', declencheur: null, blocDeDepart: null }],
+      },
+      modelesDeBloc: {
+        ...modelesDeBlocInertes,
+        publication: { ...modelesDeBlocInertes.publication, lignes: { ...modelesDeBlocInertes.publication.lignes, desModeles: async () => [ligneA('approuve')] } },
+      },
+    });
+    const res = await server.inject({ method: 'GET', url: `/tenants/t1/workflows/${W1}/modeles`, ...h(adminTok) });
+    expect(res.json<{ programmee: unknown }>().programmee).toEqual({ le: '2026-11-18T15:00:00.000Z', attend: [], campagnes: ['Soldes'] });
+    await server.close();
+  });
+
+  it('DELETE …/programmation : 204 et journal ; sans programmation, 404', async () => {
+    const annulees: Array<string | null> = [];
+    const avec = app({ scenarios: { annulerProgrammation: async (_id, _t, le) => { annulees.push(le); return true; } } });
+    const ok = await avec.server.inject({ method: 'DELETE', url: `/tenants/t1/workflows/${W1}/programmation`, ...h(adminTok) });
+    expect(ok.statusCode).toBe(204);
+    expect(annulees).toEqual([null]);
+    expect(avec.cap.journal).toEqual([{ action: 'workflow.programmation_annulee', userId: 'u1', target: W1 }]);
+    await avec.server.close();
+    const sans = app();
+    const non = await sans.server.inject({ method: 'DELETE', url: `/tenants/t1/workflows/${W1}/programmation`, ...h(adminTok) });
+    expect(non.statusCode).toBe(404);
+    await sans.server.close();
   });
 });

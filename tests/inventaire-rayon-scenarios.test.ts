@@ -43,6 +43,7 @@ const GETBYID_TOUS_RAYONS: Record<string, string> = {
   'src/stats/chiffrage.ts': 'le chiffrage d’une campagne déjà créée, affiché',
   'src/workflow/branche-humain.ts': 'la relecture du graphe d’un parcours en cours',
   'src/workflow/lancements.ts': 'compare le rayon par `rayonAdmis`',
+  'src/workflow/modeles-de-bloc.ts': 'écrire un template depuis le bloc d’un scénario, par identifiant dans l’espace : tous les rayons (les rayons Shopify et HubSpot s’en serviront aux lots 5 et 6)',
   'src/workflow/wiring.ts': 'la relecture du graphe d’un parcours, et l’origine d’un saut dont on lit le rayon',
 };
 

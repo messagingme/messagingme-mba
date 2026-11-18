@@ -534,21 +534,62 @@ export const membresDepInertes: Pick<MembresDep, 'createPending' | 'getById' | '
   getPasswordHash: neDevraitPasEtreAppelee('getPasswordHash'),
 };
 
-export const scenariosDepInerte: Pick<ScenariosDep, 'publish' | 'ensureTestToken' | 'utilisationsDuScenario' | 'lanceursDuScenario'> = {
+export const scenariosDepInerte: Pick<
+  ScenariosDep,
+  'publish' | 'ensureTestToken' | 'utilisationsDuScenario' | 'lanceursDuScenario' | 'programmer' | 'publicationProgrammee' | 'annulerProgrammation'
+> = {
   // Aucun lanceur : le scénario part ouvert à l'entrée, le comportement d'avant le lot 2 du menu « Scénario ».
   lanceursDuScenario: async () => [],
   publish: async () => null,
   ensureTestToken: async () => null,
   // Absente : rien n'utilise le scénario.
   utilisationsDuScenario: async () => [],
+  // Le lot 3 du menu « Scénario » : aucune version programmée. Programmer serait une écriture : elle lève.
+  programmer: neDevraitPasEtreAppelee('programmer'),
+  publicationProgrammee: async () => null,
+  annulerProgrammation: async () => false,
 };
 
-export const scenariosInertes: Pick<WorkflowRouteDeps, 'audit' | 'declareTags' | 'getDisplayPhoneNumber'> = {
+/**
+ * Les templates écrits depuis un bloc (menu « Scénario », lot 3) : AUCUNE ligne, donc « Publier » publie exactement comme
+ * avant le lot, sans lire Meta. Créer serait une écriture chez Meta : sans scénario lisible, elle s'arrête en 404 avant.
+ */
+export const modelesDeBlocInertes: WorkflowRouteDeps['modelesDeBloc'] = {
+  creation: {
+    gestion: {
+      ...modelesInertes,
+      meta: { templateClientForTenant: neDevraitPasEtreAppelee('templateClientForTenant') },
+      repo: { getTenantWabaId: async () => null, listActiveCampaignsForTemplate: aucuneCampagneActive },
+    },
+    scenarios: { getById: async () => null },
+    lignes: { inserer: neDevraitPasEtreAppelee('inserer') },
+    maintenant: () => new Date(0),
+  },
+  publication: {
+    lignes: { desModeles: async () => [], trancher: async () => null, attentesAnciennes: async () => [] },
+    scenarios: {
+      lanceursDuScenario: async () => [],
+      list: async () => [],
+      programmeesDeLEspace: async () => [],
+      programmeesAnciennes: async () => [],
+      mettreEnLigneLaVersionProgrammee: neDevraitPasEtreAppelee('mettreEnLigneLaVersionProgrammee'),
+      annulerProgrammation: async () => false,
+    },
+    statutModele: async () => null,
+    emails: { emettre: neDevraitPasEtreAppelee('emettre') },
+    audit: journalMuet,
+    lienScenario: (id: string) => `/workflows?open=${id}`,
+  },
+  lignes: { duScenario: async () => [] },
+};
+
+export const scenariosInertes: Pick<WorkflowRouteDeps, 'audit' | 'declareTags' | 'getDisplayPhoneNumber' | 'modelesDeBloc'> = {
   audit: journalMuet,
   // Absente : aucune déclaration.
   declareTags: async () => {},
   // Absente : aucun numéro, donc lien wa.me sans numéro.
   getDisplayPhoneNumber: async () => null,
+  modelesDeBloc: modelesDeBlocInertes,
 };
 
 export const mcpInerte: Pick<DepsMcp['inbox'], 'getControlOwner' | 'getAssignee' | 'setAssignee' | 'contactIdsDesConversations'> = {

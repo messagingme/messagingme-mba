@@ -187,6 +187,7 @@ describe('SEUL le lien de test joue le brouillon : l’inventaire de `grapheEdit
       ['src/http/workflows.ts', 'la DUPLICATION d’un scénario : on recopie le travail en cours, on n’exécute rien'],
       ['src/ops/duplication/store.pg.ts', 'la DUPLICATION vers un autre espace, depuis /ops : on recopie le travail en cours, on n’exécute rien'],
       ['src/workflow/lancements.ts', 'l’entrée des lancements, pour le seul type dont la politique joue le brouillon (`lien_de_test`)'],
+      ['src/workflow/modeles-de-bloc.ts', 'écrire un template depuis un bloc (lot 3 du menu « Scénario ») : le bloc se cherche là où l’éditeur le voit, on n’exécute rien'],
     ]);
     // ⚠️ `--untracked` N'EST PAS DÉCORATIF (mesuré par la seconde passe de revue) : sans lui, `git grep` ne
     // voit que les fichiers SUIVIS, et un nouvel appelant pas encore `git add` passait en VERT chez son

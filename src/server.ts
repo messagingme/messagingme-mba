@@ -889,7 +889,7 @@ export function modulesDeRoutes(
     entree('support', 'tenant', deps.support, (app, d, g) => registerSupport(app, d, g.auth)),
     entree('aide', 'tenant', deps.aide, (app, d, g) => registerAide(app, d, g.auth), toutes('aide')),
     entree('contacts', 'tenant', deps.contacts, (app, d, g) => registerContacts(app, d, g.admin, g.encadrement, g.limiteCouteuse)),
-    entree('workflows', 'tenant', deps.workflows, (app, d, g) => registerWorkflows(app, d, g.admin), ecritures('scenarios')),
+    entree('workflows', 'tenant', deps.workflows, (app, d, g) => registerWorkflows(app, d, g.admin, g.limiteCouteuse), ecritures('scenarios')),
     entree('workflowReports', 'tenant', deps.workflowReports, (app, d, g) => registerWorkflowReports(app, d, g.admin), toutes('performance_lab')),
     entree('automations', 'tenant', deps.automations, (app, d, g) => registerAutomations(app, d, g.auth)),
     // `auth` et non `admin` : les écrans de la chaîne se lisent avec un compte agent, et les six

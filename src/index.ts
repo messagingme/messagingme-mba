@@ -112,6 +112,9 @@ import { demanderJeton, verifierBoutique } from './shopify/connexion';
 import { lireClientsAbonnes } from './shopify/clients';
 import { abonnerWebhooks } from './shopify/abonnements';
 import { FILE_OUBLI_MODELE, relireAttentes, type DepsPreparation, type ProgrammerOubli } from './shopify/preparation';
+import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
+import { relireModelesDeBloc, type DepsPublication } from './workflow/modeles-de-bloc';
+import type { ModelesDeBlocDep } from './http/workflows';
 import { importContacts } from './crm/import';
 import type { DepsGestionShopify } from './shopify/gestion';
 import { traiterWebhookShopify, type DepsTraitementShopify } from './shopify/traitement';
@@ -1795,6 +1798,27 @@ async function main(): Promise<void> {
   let toursFiletAttentes = 0;
 
   /**
+   * Les templates écrits depuis un bloc du constructeur et la publication programmée (menu « Scénario », lot 3) : la même
+   * relecture de statut chez Meta que le filet Shopify (hors de tout cache), les e-mails aux administrateurs, et un filet
+   * qui tourne au même tour que celui de Shopify.
+   */
+  const modelesDeBlocStore = new PgModelesDeBloc(pool);
+  const publicationDesScenarios: DepsPublication = {
+    lignes: modelesDeBlocStore,
+    scenarios: workflowStore,
+    statutModele: filetAttentesShopify.statutModele,
+    emails: emetteurEmails,
+    audit: auditSink,
+    lienScenario: (id) => `${config.APP_URL.trim().replace(/\/+$/, '')}/workflows?open=${id}`,
+  };
+  const modelesDeBloc: ModelesDeBlocDep = {
+    creation: { gestion: depsModeles, scenarios: workflowStore, lignes: modelesDeBlocStore, maintenant: () => new Date() },
+    publication: publicationDesScenarios,
+    lignes: modelesDeBlocStore,
+  };
+  let filetModelesDeBlocEnCours = false;
+
+  /**
    * Les campagnes : la route de la console ET les outils de campagne de l'assistant (`prepare_campaign`,
    * `launch_campaign`) lisent ce MÊME objet. Un second câblage dériverait, et l'assistant préparerait ou lancerait
    * avec d'autres garde-fous (plafond de destinataires, modèles du mois, groupe de l'espace).
@@ -3236,6 +3260,8 @@ async function main(): Promise<void> {
       declareTags: async (tenant, tags) => { for (const t of tags) await tagStore.create(tenant, t); },
       // Le numéro affiché, pour construire le lien wa.me du lien de test.
       getDisplayPhoneNumber: async (tenant) => (await phoneStatusStore.getPhoneNumber(tenant))?.displayPhoneNumber ?? null,
+      // Écrire un template depuis un bloc, et la publication programmée pendant sa validation (lot 3).
+      modelesDeBloc,
     },
     // Node « Envoi de mail » : boîtes SMTP + modèles (Contenu), et le résolveur qu'invalident les routes
     // d'écriture pour ne jamais garder un transport périmé (hôte/mot de passe changés).
@@ -4084,6 +4110,16 @@ async function main(): Promise<void> {
           console.error('shopify-attentes: passage en échec:', messageDe(err));
         })
         .finally(() => { filetAttentesEnCours = false; }));
+    }
+    // Le filet des templates de bloc et des mises en ligne programmées (lot 3) : au même tour, vingt au plus.
+    if (toursFiletAttentes === 0 && !filetModelesDeBlocEnCours) {
+      filetModelesDeBlocEnCours = true;
+      void travauxEnVol.suivre(relireModelesDeBloc(publicationDesScenarios, 10, 20)
+        .catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error('modeles-de-bloc: passage en échec:', messageDe(err));
+        })
+        .finally(() => { filetModelesDeBlocEnCours = false; }));
     }
   }, 60_000);
   minuteriePoolAttentes.unref?.();

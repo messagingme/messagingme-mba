@@ -143,6 +143,30 @@ export const NOM_SCENARIO_SYSTEME: Readonly<Record<SystemeScenario, string>> = {
 const PUBLIC = 'systeme is null';
 
 /**
+ * Le graphe sans la position de ses blocs, que le moteur ne lit jamais : déplacer un bloc est du rangement, pas une
+ * modification à publier. `update` et la mise en ligne programmée comparent par lui. `g` est une expression SQL.
+ */
+const forme = (g: string): string => `jsonb_build_object(
+  'edges', ${g}->'edges',
+  'nodes', (select coalesce(jsonb_agg(n - 'position' order by ord), '[]'::jsonb)
+              from jsonb_array_elements(coalesce(${g}->'nodes', '[]'::jsonb)) with ordinality as t(n, ord))
+)`;
+
+/** Remettre à rien une publication programmée : toute publication EXPLICITE (console, API) l'emporte sur elle. */
+const SANS_PROGRAMMATION = 'programmed_graph = null, programmed_at = null, programmed_by = null';
+
+/**
+ * Une version programmée (menu « Scénario », lot 3, décision 18) : le brouillon jugé quand « Publier » est tombé pendant
+ * la validation d'un template de bloc. `le` est la date à la MILLISECONDE (écrite tronquée) : la mise en ligne la
+ * compare à celle de la base, et JS ne garde pas les microsecondes de Postgres.
+ */
+export interface Programmation {
+  graphe: WorkflowGraph;
+  le: string;
+  par: string | null;
+}
+
+/**
  * Résultat d'un enregistrement de l'éditeur. `brouillon` est l'état après écriture : un enregistrement
  * identique au publié ne laisse aucun brouillon (cf. `update`), et l'éditeur ne doit pas proposer de publier
  * le vide.
@@ -255,8 +279,9 @@ export class WorkflowUtiliseParLienChaine extends Error {
  * Store Postgres des workflows (bot builder). Scopé tenant.
  *
  * Deux graphes : `graph` est le publié (ce qui tourne), `draft_graph` le brouillon (ce qui s'édite). Toute
- * écriture de l'éditeur va au brouillon ; `graph` ne bouge que par `publish`. L'écrire ailleurs remettrait
- * l'édition en direct sur la production.
+ * écriture de l'éditeur va au brouillon ; `graph` ne bouge que par une publication explicite (`publish`, l'API) ou par
+ * la mise en ligne d'une version programmée (`mettreEnLigneLaVersionProgrammee`, lot 3), que toute publication
+ * explicite efface. L'écrire ailleurs remettrait l'édition en direct sur la production.
  */
 export class PgWorkflowStore {
   constructor(private readonly pool: Pool) {}
@@ -380,19 +405,11 @@ export class PgWorkflowStore {
       // `forme` : le graphe sans la position des blocs, que le moteur ne lit jamais : déplacer un bloc est du
       // rangement, pas une modification à publier.
       `with sans_positions as (
-         select jsonb_build_object(
-           'edges', w.graph->'edges',
-           'nodes', (select coalesce(jsonb_agg(n - 'position' order by ord), '[]'::jsonb)
-                       from jsonb_array_elements(coalesce(w.graph->'nodes', '[]'::jsonb)) with ordinality as t(n, ord))
-         ) as forme
+         select ${forme('w.graph')} as forme
          from workflows w where w.id = $1 and w.tenant_id = $2 and w.${PUBLIC}
        ),
        neuf as (
-         select $4::jsonb as g, jsonb_build_object(
-           'edges', $4::jsonb->'edges',
-           'nodes', (select coalesce(jsonb_agg(n - 'position' order by ord), '[]'::jsonb)
-                       from jsonb_array_elements(coalesce($4::jsonb->'nodes', '[]'::jsonb)) with ordinality as t(n, ord))
-         ) as forme
+         select $4::jsonb as g, ${forme('$4::jsonb')} as forme
        )
        update workflows w set
          name = coalesce($3, name),
@@ -441,6 +458,8 @@ export class PgWorkflowStore {
          -- est en ligne.
          published_at = case when draft_graph is not null then now() else published_at end,
          draft_graph = null,
+         -- Une publication à la main l'emporte sur une version programmée (lot 3) : elle ne partira plus.
+         ${SANS_PROGRAMMATION},
          updated_at = now()
        where id = $1 and tenant_id = $2 and ${PUBLIC}
        returning ${COLS}`,
@@ -448,6 +467,102 @@ export class PgWorkflowStore {
     );
     const r = res.rows[0];
     return r ? toRow(r) : null;
+  }
+
+  /**
+   * ─── La publication programmée (menu « Scénario », lot 3, décision 18) ───
+   *
+   * « Publier » pendant la validation d'un template de bloc copie ici le graphe JUGÉ (pas le brouillon du moment : une
+   * sauvegarde entre le jugement et cette écriture programmerait des templates non jugés). Une programmation plus récente
+   * remplace la précédente. null : scénario inconnu de cet espace.
+   */
+  async programmer(id: string, tenantId: string, par: string | null, graphe: WorkflowGraph): Promise<{ le: string } | null> {
+    const r = await this.pool.query<{ le: Date }>(
+      `update workflows set programmed_graph = $3::jsonb, programmed_at = date_trunc('milliseconds', now()), programmed_by = $4
+        where id = $1 and tenant_id = $2 and ${PUBLIC}
+        returning programmed_at as le`,
+      [id, tenantId, JSON.stringify(graphe), par],
+    );
+    return r.rows[0] ? { le: r.rows[0].le.toISOString() } : null;
+  }
+
+  /** La version programmée de ce scénario, ou null. */
+  async publicationProgrammee(id: string, tenantId: string): Promise<Programmation | null> {
+    const r = await this.pool.query<{ graphe: WorkflowGraph; le: Date; par: string | null }>(
+      `select programmed_graph as graphe, programmed_at as le, programmed_by as par from workflows
+        where id = $1 and tenant_id = $2 and ${PUBLIC} and programmed_graph is not null`,
+      [id, tenantId],
+    );
+    const l = r.rows[0];
+    return l ? { graphe: l.graphe, le: l.le.toISOString(), par: l.par } : null;
+  }
+
+  /** Les versions programmées de l'espace (tous rayons) : celles qu'un statut tranché par Meta peut mettre en ligne. */
+  async programmeesDeLEspace(tenantId: string): Promise<Array<Programmation & { id: string; nom: string; rayon: Rayon }>> {
+    const r = await this.pool.query<{ id: string; name: string; rayon: string; graphe: WorkflowGraph; le: Date; par: string | null }>(
+      `select id, name, rayon, programmed_graph as graphe, programmed_at as le, programmed_by as par from workflows
+        where tenant_id = $1 and ${PUBLIC} and programmed_graph is not null`,
+      [tenantId],
+    );
+    return r.rows.flatMap((l) => (estRayon(l.rayon)
+      ? [{ id: l.id, nom: l.name, rayon: l.rayon, graphe: l.graphe, le: l.le.toISOString(), par: l.par }]
+      : []));
+  }
+
+  /**
+   * LECTURE TRANSVERSE (tous espaces), pour le filet seulement : les programmations de plus de `minutes`, tirées au
+   * hasard. Elles se retentent (celle qui attend la fin d'une campagne, celle dont le statut est arrivé sans que la
+   * mise en ligne ait pu se faire). Sans index : quelques lignes au plus, sur une table de quelques milliers.
+   */
+  async programmeesAnciennes(
+    minutes: number, limite: number,
+  ): Promise<Array<Programmation & { tenantId: string; id: string; nom: string; rayon: Rayon }>> {
+    const r = await this.pool.query<{ tenant_id: string; id: string; name: string; rayon: string; graphe: WorkflowGraph; le: Date; par: string | null }>(
+      `select tenant_id, id, name, rayon, programmed_graph as graphe, programmed_at as le, programmed_by as par from workflows
+        where programmed_graph is not null and programmed_at <= now() - make_interval(mins => $1::int) and ${PUBLIC}
+        order by random() limit $2`,
+      [minutes, limite],
+    );
+    return r.rows.flatMap((l) => (estRayon(l.rayon)
+      ? [{ tenantId: l.tenant_id, id: l.id, nom: l.name, rayon: l.rayon, graphe: l.graphe, le: l.le.toISOString(), par: l.par }]
+      : []));
+  }
+
+  /**
+   * Met en ligne la version programmée À SA DATE, en UNE instruction : si une publication explicite (console, API) ou
+   * une programmation plus récente est passée entre-temps, la date ne correspond plus et rien ne bouge (null). Le
+   * brouillon tombe s'il est la version programmée aux positions près ; seulement déplacé depuis, c'est lui qui part,
+   * avec sa disposition (même règle que `update`) ; modifié depuis, il reste un brouillon.
+   */
+  async mettreEnLigneLaVersionProgrammee(id: string, tenantId: string, le: string): Promise<WorkflowRow | null> {
+    const memeForme = `(w.draft_graph is not null and ${forme('w.draft_graph')} = ${forme('w.programmed_graph')})`;
+    const res = await this.pool.query<Row>(
+      `update workflows w set
+         graph = case when ${memeForme} then w.draft_graph else w.programmed_graph end,
+         draft_graph = case when ${memeForme} then null else w.draft_graph end,
+         published_at = now(),
+         ${SANS_PROGRAMMATION},
+         updated_at = now()
+       where w.id = $1 and w.tenant_id = $2 and w.${PUBLIC} and w.programmed_graph is not null and w.programmed_at = $3::timestamptz
+       returning ${COLS}`,
+      [id, tenantId, le],
+    );
+    const r = res.rows[0];
+    return r ? toRow(r) : null;
+  }
+
+  /**
+   * Annule la version programmée : à sa date seulement (un refus de Meta ne doit pas emporter une programmation plus
+   * récente), ou sans condition (`le` null : le marchand l'annule). Le graphe en ligne ne bouge pas.
+   */
+  async annulerProgrammation(id: string, tenantId: string, le: string | null): Promise<boolean> {
+    const r = await this.pool.query(
+      `update workflows set ${SANS_PROGRAMMATION}
+        where id = $1 and tenant_id = $2 and ${PUBLIC} and programmed_graph is not null
+          and ($3::timestamptz is null or programmed_at = $3::timestamptz)`,
+      [id, tenantId, le],
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   /**
@@ -515,7 +630,8 @@ export class PgWorkflowStore {
       const pris = await nomPrisSousVerrou(c, tenantId, nom, id, 'general');
       if (pris) return { nomPris: pris };
       await c.query(
-        `update workflows set name = $3, graph = $4::jsonb, draft_graph = null, published_at = now(), updated_at = now()
+        `update workflows set name = $3, graph = $4::jsonb, draft_graph = null, published_at = now(), ${SANS_PROGRAMMATION},
+                updated_at = now()
           where id = $1 and tenant_id = $2 and ${PUBLIC} and ${DU_BUILDER}`,
         [id, tenantId, nom, JSON.stringify(graphe)],
       );

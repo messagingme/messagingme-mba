@@ -22,6 +22,8 @@ function banc() {
     id: 'w1', tenant_id: 't1', name: 'n', code: null, graph: { nodes: [], edges: [] }, draft_graph: null,
     published_at: null, created_at: new Date(), updated_at: new Date(), node_count: 0, has_draft: false,
     brouillon: false, test_token: 'jeton', systeme: null, origine: 'api', rayon: 'general',
+    // Les colonnes de la publication programmée (lot 3), sous leurs alias de lecture.
+    graphe: { nodes: [], edges: [] }, le: new Date(), par: null,
   };
   const query = async (sql: string, params: unknown[] = []) => {
     requetes.push({ sql: sql.replace(/\s+/g, ' '), params });
@@ -64,6 +66,10 @@ const SANS_FILTRE = [
   // Lot 2 : les lanceurs d'un scénario désigné par son identifiant (ne lit pas `workflows`), et les graphes publiés des
   // scénarios d'une liste d'automations, par identifiant (le rayon de l'automation est déjà celui de son scénario).
   'lanceursDuScenario', 'graphesPublies',
+  // Lot 3 : la publication programmée, par identifiant dans l’espace comme `publish` ; et ses lectures pour la mise en
+  // ligne et le filet, qui servent toutes les versions programmées, quel que soit leur rayon.
+  'programmer', 'publicationProgrammee', 'programmeesDeLEspace', 'programmeesAnciennes', 'mettreEnLigneLaVersionProgrammee',
+  'annulerProgrammation',
 ];
 
 describe('🔴 le magasin de scénarios ne liste que le rayon demandé', () => {

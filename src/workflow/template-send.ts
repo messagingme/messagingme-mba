@@ -18,8 +18,9 @@ export function sourcesDuBloc(hints: ParamHint[], duBloc: ParamHint[] | undefine
 /**
  * Construit les `components` Meta d'un envoi de template dans un workflow. Pur : la lecture du contact, des
  * hints et du corps live du template reste dans worker.ts.
- *  1) Variables du corps : attributs du contact collés via `template_param_hints` (ex. {{1}} -> prenom), repli
- *     sur les exemples du template. Exactement `varCount` valeurs, le compte attendu par Meta (sinon 132000).
+ *  1) Variables du corps : attributs du contact collés via `template_param_hints` (ex. {{1}} -> prenom). Une valeur
+ *     manquante rend sa position dans `missing`, et l'appelant n'envoie pas : jamais l'exemple du template à la place.
+ *     Exactement `varCount` valeurs, le compte attendu par Meta (sinon 132000).
  *  2) Payload contrôlé sur chaque bouton quick-reply (`btn:<index>`) -> branche déterministe au tap.
  * Ordre attendu par l'API Cloud : body avant boutons.
  */

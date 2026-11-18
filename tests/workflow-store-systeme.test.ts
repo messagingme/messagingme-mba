@@ -22,6 +22,8 @@ function banc() {
     id: 'w1', tenant_id: 't1', name: 'n', code: null, graph: { nodes: [], edges: [] }, draft_graph: null,
     published_at: null, created_at: new Date(), updated_at: new Date(), node_count: 0, has_draft: false,
     brouillon: false, test_token: 'jeton', systeme: null, origine: 'api', rayon: 'general',
+    // Les colonnes de la publication programmée (lot 3), sous leurs alias de lecture.
+    graphe: { nodes: [], edges: [] }, le: new Date(), par: null,
   };
   const query = async (sql: string) => { requetes.push(sql.replace(/\s+/g, ' ')); return { rows: [ligne], rowCount: 1 }; };
   // Les écritures de l'API passent par un client du pool (transaction et verrou) : il note pareil.
@@ -47,6 +49,13 @@ const FILTREES: Record<string, (s: PgWorkflowStore) => Promise<unknown>> = {
   supprimerParApi: (s) => s.supprimerParApi('w1', 't1'),
   utilisationsDuScenario: (s) => s.utilisationsDuScenario('t1', 'w1'),
   graphesPublies: (s) => s.graphesPublies('t1', ['w1']),
+  // Lot 3 : la publication programmée.
+  programmer: (s) => s.programmer('w1', 't1', null, { nodes: [], edges: [] }),
+  publicationProgrammee: (s) => s.publicationProgrammee('w1', 't1'),
+  programmeesDeLEspace: (s) => s.programmeesDeLEspace('t1'),
+  programmeesAnciennes: (s) => s.programmeesAnciennes(10, 20),
+  mettreEnLigneLaVersionProgrammee: (s) => s.mettreEnLigneLaVersionProgrammee('w1', 't1', '2026-11-18T15:00:00.000Z'),
+  annulerProgrammation: (s) => s.annulerProgrammation('w1', 't1', null),
 };
 
 /**

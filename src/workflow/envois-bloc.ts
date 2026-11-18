@@ -84,8 +84,11 @@ export interface DepsEnvoisDeBloc {
    * avant de chercher le numéro.
    */
   clientWhatsApp(tenant: string, qui: string, quoiNonEnvoye: string): Promise<ClientDesEnvois | string>;
-  /** La lecture du template chez Meta (`null` = introuvable ou espace sans WABA), en cache court. */
-  templateVarInfo(tenant: string, name: string, language: string): Promise<TplInfo | null>;
+  /**
+   * La lecture du template chez Meta (`null` = introuvable ou espace sans WABA), en cache court. `frais` saute le cache
+   * et le rafraîchit : la garde de statut relit ainsi un template que le cache dit encore en validation.
+   */
+  templateVarInfo(tenant: string, name: string, language: string, opts?: { frais?: boolean }): Promise<TplInfo | null>;
   /** Les visuels d'un template re-téléversés sur le numéro d'envoi (`meta/template-media.ts`). */
   prepareCarouselMedia(tenant: string, cards: OutboundCarouselCard[]): Promise<OutboundCarouselCard[]>;
   prepareHeaderMedia(tenant: string, mediaUrl: string): Promise<string | null>;
@@ -141,6 +144,21 @@ function envoyerModele(client: ClientDesEnvois, waId: string, spec: TemplateSpec
   return categorie === 'marketing'
     ? client.sendMarketing({ ...messagingTarget(waId), template: spec })
     : client.sendTemplate(waId, spec);
+}
+
+/**
+ * Ce qu'un statut de Meta dit d'un template qui ne peut pas partir, ou null s'il peut partir. Comparé sans casse : la
+ * lecture d'un compte 360dialog le met déjà en majuscules, mais une casse imprévue ne doit jamais bloquer un envoi
+ * approuvé. Un statut ABSENT ne bloque pas non plus : on ne sait rien, Meta tranche, comme avant la garde.
+ */
+function statutQuiBloque(statut: string | undefined): string | null {
+  const s = (statut ?? '').trim().toUpperCase();
+  if (s === 'APPROVED' || s === '') return null;
+  if (s === 'PENDING' || s === 'IN_APPEAL') return 'en validation chez Meta : il partira une fois approuvé';
+  if (s === 'REJECTED') return 'refusé par Meta : choisissez ou écrivez-en un autre dans le bloc';
+  if (s === 'PAUSED') return 'mis en pause par Meta (qualité)';
+  if (s === 'DISABLED') return 'désactivé par Meta';
+  return `non envoyable chez Meta (statut ${s})`;
 }
 
 export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
@@ -254,6 +272,21 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
         // eslint-disable-next-line no-console
         console.error(`workflow sendTemplate: variables de « ${name} » indéterminables (WABA/template/réseau) -> non envoyé à ${waId}`);
         return `template « ${name} » introuvable chez Meta (nom, langue, ou WhatsApp momentanément injoignable)`;
+      }
+      /**
+       * 🔴 UN TEMPLATE NON APPROUVÉ NE PART PAS CHEZ META (menu « Scénario », lot 3, décision 27) : un refus nommé au lieu
+       * d'une erreur de Meta inexpliquée. Relu HORS du cache de cinq minutes avant de refuser, sinon un template tout juste
+       * approuvé serait refusé jusqu'à cinq minutes ; une relecture qui échoue garde la première lecture. Sur la langue du
+       * bloc seulement : un repli sur le nom seul (`templateVarInfo`) laisse Meta trancher, comme avant.
+       */
+      if (info.langue === language && statutQuiBloque(info.statut) !== null) {
+        info = (await templateVarInfo(tenant, name, language, { frais: true }).catch(() => null)) ?? info;
+        const bloque = info.langue === language ? statutQuiBloque(info.statut) : null;
+        if (bloque !== null) {
+          // eslint-disable-next-line no-console
+          console.error(`workflow sendTemplate: « ${name} » non envoyé à ${waId} : ${bloque}`);
+          return `template « ${name} » ${bloque}`;
+        }
       }
       let hints: Awaited<ReturnType<typeof hintStore.get>> = [];
       let contact = null as Awaited<ReturnType<typeof contactStore.getResolvableByPhone>>;

@@ -12,8 +12,8 @@
  * contact : seulement l'espace, des dates, des liens de la console et des pages publiques du centre d'aide.
  */
 import {
-  AIDE_AGENT_IA, AIDE_BULLE, AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION, AIDE_GUIDE, AIDE_INBOX, AIDE_OFFRE, AIDE_PAYER_META,
-  AIDE_SHOPIFY, type AdresseAide,
+  AIDE_AGENT_IA, AIDE_BLOC_TEMPLATE, AIDE_BULLE, AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION, AIDE_GUIDE, AIDE_INBOX, AIDE_OFFRE,
+  AIDE_PAYER_META, AIDE_SHOPIFY, type AdresseAide,
 } from '../../web/lib/partage/aide-connexion';
 
 export const LANGUES = ['fr', 'en'] as const;
@@ -89,6 +89,7 @@ export const LIGNES_AIDE = {
   payerMeta: ligne(AIDE_PAYER_META, 'Payer Meta : votre carte, ou la ligne de crédit', 'Pay Meta: your card, or the credit line'),
   offre: ligne(AIDE_OFFRE, 'Choisir mon offre : ce que chacune comprend', 'Choose my plan: what each one includes'),
   shopify: ligne(AIDE_SHOPIFY, 'Brancher ma boutique Shopify, pas à pas', 'Connect my Shopify store, step by step'),
+  blocTemplate: ligne(AIDE_BLOC_TEMPLATE, 'Le bloc « Envoyer un template », pas à pas', 'The “Send a template” block, step by step'),
 } as const satisfies Record<string, LigneAide>;
 
 /** Les variables que tout texte peut citer. */
@@ -103,6 +104,9 @@ const LIMITE: Variable = { description: 'La limite de l’offre de l’espace', 
 const BOUTIQUE_SHOPIFY: Variable = { description: 'Le domaine de la boutique Shopify branchée', forme: 'texte', exemple: 'ma-boutique.myshopify.com' };
 const MESSAGE_SHOPIFY: Variable = { description: 'Le message Shopify réglé dans la console', forme: 'texte', exemple: 'Relance de panier abandonné' };
 const LIEN_PARAMETRES: Variable = { description: 'La carte Shopify de la console (Tools > Intégrations)', forme: 'lien', exemple: 'https://console.messagingme.app/integrations#integration-shopify' };
+const NOM_SCENARIO: Variable = { description: 'Le nom du scénario dans le constructeur', forme: 'texte', exemple: 'Relance panier' };
+const LIEN_SCENARIO: Variable = { description: 'Le scénario ouvert dans le constructeur de la console', forme: 'lien', exemple: 'https://console.messagingme.app/workflows?open=00000000-0000-0000-0000-000000000000' };
+const RAISON_MISE_EN_LIGNE: Variable = { description: 'Ce qui a empêché la mise en ligne : la raison du refus de Meta, ou la règle du constructeur', forme: 'texte', exemple: 'Meta a refusé le template « relance_panier_mi3k2x1a » (raison : INVALID_FORMAT)' };
 const RAISON_REFUS: Variable = { description: 'La raison du refus, telle que Meta la donne', forme: 'texte', exemple: 'INVALID_FORMAT' };
 /** La limite de contacts du Pro, lue dans la grille (`DROITS.pro`), que l'e-mail de la Free cite (spec offres v2, livraison 5). */
 const LIMITE_PRO: Variable = { description: 'La limite de contacts de l’offre Pro', forme: 'texte', exemple: '5000' };
@@ -1149,6 +1153,54 @@ export const CATALOGUE = [
           + '{{raison}}). Nothing changed for your customers: the previous message, if any, still goes out.\n\n'
           + 'Rework the text from the Shopify card of the console.',
         bouton: { libelle: 'Rework the text', lien: '{{lien_parametres}}' },
+      },
+    },
+  },
+  // La publication programmée du constructeur (menu « Scénario », lot 3, décision 18) : « Publier » pendant la validation
+  // d’un template écrit depuis un bloc programme la mise en ligne, qui se fait seule à l’approbation.
+  {
+    cle: 'scenario_programme_en_ligne',
+    categorie: 'service',
+    aide: LIGNES_AIDE.blocTemplate,
+    nom: 'Scénario : la mise en ligne programmée est faite',
+    quand: 'Meta approuve le dernier template écrit depuis un bloc d’un scénario publié pendant sa validation : la version publiée part.',
+    variables: { scenario: NOM_SCENARIO, lien_scenario: LIEN_SCENARIO },
+    textes: {
+      fr: {
+        sujet: 'Votre scénario « {{scenario}} » est en ligne',
+        corps: 'Bonjour,\n\nMeta a approuvé le template que vous avez écrit dans le scénario « {{scenario}} » : la version que '
+          + 'vous avez publiée est en ligne, et vos contacts la reçoivent désormais.',
+        bouton: { libelle: 'Ouvrir le scénario', lien: '{{lien_scenario}}' },
+      },
+      en: {
+        sujet: 'Your “{{scenario}}” scenario is live',
+        corps: 'Hello,\n\nMeta approved the template you wrote in the “{{scenario}}” scenario: the version you published '
+          + 'is live, and your contacts now receive it.',
+        bouton: { libelle: 'Open the scenario', lien: '{{lien_scenario}}' },
+      },
+    },
+  },
+  {
+    cle: 'scenario_programme_refuse',
+    categorie: 'service',
+    aide: LIGNES_AIDE.blocTemplate,
+    nom: 'Scénario : la mise en ligne programmée n’a pas eu lieu',
+    quand: 'Meta refuse un template écrit depuis un bloc d’un scénario publié pendant sa validation, ou une règle du constructeur bloque la mise en ligne. La version en ligne ne change pas.',
+    variables: { scenario: NOM_SCENARIO, raison: RAISON_MISE_EN_LIGNE, lien_scenario: LIEN_SCENARIO },
+    textes: {
+      fr: {
+        sujet: 'La mise en ligne de « {{scenario}} » n’a pas eu lieu',
+        corps: 'Bonjour,\n\nLa version du scénario « {{scenario}} » que vous avez publiée n’est pas partie : {{raison}}. '
+          + 'Rien n’a changé pour vos contacts : la version précédente continue de tourner.\n\nCorrigez le bloc dans le '
+          + 'constructeur, puis publiez à nouveau.',
+        bouton: { libelle: 'Corriger le scénario', lien: '{{lien_scenario}}' },
+      },
+      en: {
+        sujet: '“{{scenario}}” did not go live',
+        corps: 'Hello,\n\nThe version of the “{{scenario}}” scenario you published did not go out: {{raison}}. '
+          + 'Nothing changed for your contacts: the previous version keeps running.\n\nFix the block in the builder, '
+          + 'then publish again.',
+        bouton: { libelle: 'Fix the scenario', lien: '{{lien_scenario}}' },
       },
     },
   },

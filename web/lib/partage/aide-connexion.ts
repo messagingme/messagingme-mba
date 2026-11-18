@@ -74,9 +74,14 @@ export const AIDE_SHOPIFY: AdresseAide = {
   fr: `${VITRINE_AIDE}/aide/brancher-ma-boutique-shopify/`,
   en: `${VITRINE_AIDE}/en/help/connect-my-shopify-store/`,
 };
+/** Le bloc « Envoyer un template » du constructeur (menu « Scénario », lot 3 : écrire un template depuis le bloc). */
+export const AIDE_BLOC_TEMPLATE: AdresseAide = {
+  fr: `${VITRINE_AIDE}/aide/bloc-envoi-template/`,
+  en: `${VITRINE_AIDE}/en/help/send-template-block/`,
+};
 
 /** Toutes les adresses de ce fichier, pour le test qui les vérifie. */
 export const ADRESSES_AIDE_CONNEXION: readonly string[] = [
   AIDE_GARDER_APPLICATION, AIDE_NUMERO_FOURNI, AIDE_PAYER_META, AIDE_COMPTE_META_BUSINESS, AIDE_GUIDE, AIDE_DEPANNAGE,
-  AIDE_AGENT_IA, AIDE_BULLE, AIDE_INBOX, AIDE_OFFRE, AIDE_SHOPIFY,
+  AIDE_AGENT_IA, AIDE_BULLE, AIDE_INBOX, AIDE_OFFRE, AIDE_SHOPIFY, AIDE_BLOC_TEMPLATE,
 ].flatMap((p) => [p.fr, p.en]);

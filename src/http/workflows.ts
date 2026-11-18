@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import type { Guard } from '../auth/middleware';
+import { gardeEtendue, type Guard, type PreHandler } from '../auth/middleware';
 import { parseGraph, isWorkflowNodeType } from '../workflow/graph';
 import type { WorkflowGraph } from '../workflow/graph';
-import type { WorkflowRow, MajScenario } from '../workflow/store.pg';
+import type { WorkflowRow, MajScenario, Programmation } from '../workflow/store.pg';
 import type { WorkflowResumeRow } from '../workflow/store.pg';
 import { mintNodeCodes } from '../workflow/node-codes';
 import { collectNodes } from '../workflow/node-list';
@@ -11,9 +11,12 @@ import { grapheEditable, WorkflowUtiliseParLienChaine } from '../workflow/store.
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { espaceVerifie, nonEmpty, estUuid } from './scope';
 import { executerFonctionJs } from '../workflow/fonction-js';
-import { refusDePublication, sautsDeLaCopie } from '../workflow/aller-a';
-import { refusFichierSansSuite } from '../workflow/question-piece';
-import { refusSuiteQuiAttend } from '../workflow/engine';
+import { sautsDeLaCopie } from '../workflow/aller-a';
+import { controlesDePublication } from '../workflow/publication';
+import {
+  creerModeleDuBloc, jugerPublication, modelesDuGraphe, type DepsCreationDeBloc, type DepsPublication,
+} from '../workflow/modeles-de-bloc';
+import type { PgModelesDeBloc } from '../workflow/modeles-de-bloc.pg';
 import { tagsInGraph } from '../workflow/tags-du-graphe';
 import type { Rayon } from '../workflow/rayon';
 import { departsDuScenario, type Lanceur } from '../../web/lib/partage/fenetre-scenario';
@@ -39,15 +42,31 @@ export interface ScenariosDep {
   getById(id: string, tenantId: string): Promise<WorkflowRow | null>;
   update(id: string, tenantId: string, patch: { name?: string; graph?: WorkflowGraph }): Promise<MajScenario>;
   /**
-   * Met le brouillon en ligne, seul chemin qui touche le graphe exécuté. Rend la ligne à jour, null si le
-   * scénario n'est pas au tenant.
+   * Met le brouillon en ligne, seul chemin de la console qui touche le graphe exécuté (et qui efface une version
+   * programmée). Rend la ligne à jour, null si le scénario n'est pas au tenant.
    */
   publish(id: string, tenantId: string): Promise<WorkflowRow | null>;
+  /** Programme la mise en ligne du graphe jugé (lot 3, décision 18). null si le scénario n'est pas au tenant. */
+  programmer(id: string, tenantId: string, par: string | null, graphe: WorkflowGraph): Promise<{ le: string } | null>;
+  /** La version programmée de ce scénario, ou null. */
+  publicationProgrammee(id: string, tenantId: string): Promise<Programmation | null>;
+  /** Annule la version programmée (à sa date, ou sans condition quand `le` est null). false : il n'y en avait pas. */
+  annulerProgrammation(id: string, tenantId: string, le: string | null): Promise<boolean>;
   remove(id: string, tenantId: string): Promise<boolean>;
   /** Ce qui utilise ce scénario (automation, widget, répondeur, campagne, « Aller à »…), en phrases : vide = il peut partir. */
   utilisationsDuScenario(tenantId: string, id: string): Promise<string[]>;
   /** Pose (une fois) le jeton de test du scénario et le renvoie. null si le scénario n'est pas au tenant. */
   ensureTestToken(id: string, tenantId: string, token: string): Promise<string | null>;
+}
+
+/**
+ * Les templates écrits depuis un bloc et la publication programmée (menu « Scénario », lot 3). Requis : la valeur inerte
+ * des tests (`modelesDeBlocInertes`, aucune ligne) reproduit exactement la publication d'avant le lot.
+ */
+export interface ModelesDeBlocDep {
+  creation: DepsCreationDeBloc;
+  publication: DepsPublication;
+  lignes: Pick<PgModelesDeBloc, 'duScenario'>;
 }
 
 export interface WorkflowRouteDeps {
@@ -69,14 +88,34 @@ export interface WorkflowRouteDeps {
   declareTags(tenantId: string, tags: string[]): Promise<void>;
   /** Numéro WhatsApp affiché du tenant, pour construire le lien wa.me. null si aucun numéro connecté. */
   getDisplayPhoneNumber(tenantId: string): Promise<string | null>;
+  modelesDeBloc: ModelesDeBlocDep;
+}
+
+/** L'identifiant d'un bloc tel que l'éditeur le pose (`n1`, `node_…`) : rien d'autre n'entre dans l'adresse. */
+const ID_DE_BLOC = /^[A-Za-z0-9_-]{1,100}$/;
+
+/**
+ * Ce que l'éditeur affiche d'une version programmée : les templates qu'elle attend encore (non approuvés), et, quand il
+ * n'en reste aucun, les campagnes actives qui retiennent sa mise en ligne.
+ */
+async function vueDeLaProgrammation(
+  deps: WorkflowRouteDeps, tenant: string, id: string, p: Programmation,
+): Promise<{ le: string; attend: Array<{ modele: string; langue: string; etat: string; raison: string | null }>; campagnes: string[] }> {
+  const lignes = await deps.modelesDeBloc.publication.lignes.desModeles(tenant, modelesDuGraphe(p.graphe));
+  const attend = lignes.filter((l) => l.etat !== 'approuve').map(({ modele, langue, etat, raison }) => ({ modele, langue, etat, raison }));
+  const campagnes = attend.length > 0 ? []
+    : (await deps.scenarios.lanceursDuScenario(tenant, id)).filter((l) => l.type === 'campagne').map((l) => l.nom);
+  return { le: p.le, attend, campagnes };
 }
 
 /**
  * Routes du bot builder (workflows), admin via `garde`, espace du JWT. Le graphe est toujours validé par
  * `parseGraph` avant persistance (400 si invalide). bodyLimit relevé : un graphe porte de la config par bloc.
+ * `limiteCouteuse` borne la création d'un template chez Meta depuis un bloc, comme l'assistant Shopify.
  */
-export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps, garde: Guard): void {
+export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps, garde: Guard, limiteCouteuse?: PreHandler): void {
   const opts = { preHandler: garde, bodyLimit: 2 * 1024 * 1024 };
+  const optsLourds = gardeEtendue(garde, limiteCouteuse);
   const journal = makeJournal(deps.audit);
 
   /**
@@ -220,18 +259,23 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
      * scénario inconnu tombe plus bas, sur le 404 de `publish`, comme avant.
      */
     const avant = await deps.scenarios.getById(id, tenant);
-    // 🔴 Une Question qui attend un fichier relie « Fichier reçu » (décision de Julien du 2026-11-02) : sans suite, une
-    // pièce d'identité reçue n'irait nulle part. Lu sur le brouillon, sans aucune lecture de plus.
-    const sansSuite = avant?.draftGraph ? refusFichierSansSuite(avant.draftGraph) : null;
-    if (sansSuite !== null) return reply.code(422).send({ error: `Publication refusée : ${sansSuite}.`, code: 'fichier_sans_suite' });
-    // 🔴 « Puis, sans attendre » ne mène qu'à des blocs qui n'attendent rien (décision de Julien du 2026-11-10) : le moteur
-    // s'arrêterait en silence devant le premier qui attend. Même lecture du brouillon.
-    const suiteQuiAttend = avant?.draftGraph ? refusSuiteQuiAttend(avant.draftGraph) : null;
-    if (suiteQuiAttend !== null) return reply.code(422).send({ error: `Publication refusée : ${suiteQuiAttend}.`, code: 'suite_qui_attend' });
-    if (avant?.draftGraph && avant.draftGraph.nodes.some((n) => n.type === 'aller_a')) {
-      // Un « Aller à » ne vise qu'un scénario du même rayon : les autres n'existent pas pour lui.
-      const refus = refusDePublication(avant.draftGraph, id, await deps.scenarios.list(tenant, avant.rayon));
-      if (refus !== null) return reply.code(422).send({ error: `Publication refusée : ${refus}.`, code: 'aller_a_invalide' });
+    if (avant?.draftGraph) {
+      const brouillon = avant.draftGraph;
+      // Les contrôles du graphe (Question qui attend un fichier, « Puis, sans attendre », « Aller à » du même rayon) :
+      // les mêmes que la mise en ligne d'une version programmée rejoue (`controlesDePublication`).
+      const refus = await controlesDePublication(brouillon, id, () => deps.scenarios.list(tenant, avant.rayon));
+      if (refus !== null) return reply.code(422).send({ error: `Publication refusée : ${refus.message}.`, code: refus.code });
+      // 🔴 Un template écrit depuis un bloc et encore en validation chez Meta (lot 3, décision 18) : la mise en ligne se
+      // PROGRAMME (202), sous réserve qu'aucune campagne active n'utilise le scénario. Un scénario sans template de bloc
+      // passe ici sans aucune lecture de plus, et se publie comme avant.
+      const jugement = await jugerPublication(deps.modelesDeBloc.publication, tenant, id, brouillon);
+      if (jugement.type === 'refus') return reply.code(422).send({ error: `Publication refusée : ${jugement.erreur}`, code: jugement.code });
+      if (jugement.type === 'programmer') {
+        const programmee = await deps.scenarios.programmer(id, tenant, req.auth?.userId ?? null, brouillon);
+        if (!programmee) return reply.code(404).send({ error: 'workflow inconnu' });
+        await journal(tenant, req, 'workflow.publication_programmee', { kind: 'workflow', id }, { modeles: jugement.attend.length });
+        return reply.code(202).send({ id, programmee: { le: programmee.le, attend: jugement.attend } });
+      }
     }
     const row = await deps.scenarios.publish(id, tenant);
     if (!row) return reply.code(404).send({ error: 'workflow inconnu' });
@@ -239,6 +283,49 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     // (un nombre de blocs), comme partout dans ce journal.
     await journal(tenant, req, 'workflow.published', { kind: 'workflow', id }, { blocs: row.graph.nodes.length });
     return reply.code(200).send({ id, graph: row.graph, publishedAt: row.publishedAt ?? null });
+  });
+
+  /**
+   * ─── Écrire un template depuis un bloc (menu « Scénario », lot 3) ───
+   *
+   * Le corps est celui de `POST /templates`, sans le nom : il naît côté serveur (décision 19). Le bloc doit exister dans
+   * le graphe que l'éditeur ouvre : la console vide son enregistrement automatique avant d'appeler. Sous le plafond des
+   * opérations coûteuses (une création chez Meta par appel).
+   */
+  app.post('/tenants/:tenantId/workflows/:id/blocs/:nodeId/modele', optsLourds, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const { id, nodeId } = req.params as { id: string; nodeId: string };
+    if (!estUuid(id)) return reply.code(404).send({ error: 'workflow inconnu' });
+    if (!ID_DE_BLOC.test(nodeId)) return reply.code(404).send({ error: 'bloc inconnu' });
+    const corps = (req.body ?? {}) as Record<string, unknown>;
+    const issue = await creerModeleDuBloc(deps.modelesDeBloc.creation, tenant, { workflowId: id, nodeId, corps, par: req.auth?.userId ?? null });
+    if (!issue.ok) return reply.code(issue.statut).send({ error: issue.erreur });
+    await journal(tenant, req, 'workflow.modele_soumis', { kind: 'workflow', id }, { etat: issue.etat });
+    return reply.code(201).send({ modele: issue.modele, langue: issue.langue, etat: issue.etat, categorie: issue.categorie, boutons: issue.boutons });
+  });
+
+  /** Les templates écrits depuis les blocs de ce scénario, et sa version programmée : l'éditeur les sonde. */
+  app.get('/tenants/:tenantId/workflows/:id/modeles', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const { id } = req.params as { id: string };
+    if (!estUuid(id)) return reply.code(404).send({ error: 'workflow inconnu' });
+    if (!(await deps.scenarios.getById(id, tenant))) return reply.code(404).send({ error: 'workflow inconnu' });
+    const lignes = await deps.modelesDeBloc.lignes.duScenario(tenant, id);
+    const p = await deps.scenarios.publicationProgrammee(id, tenant);
+    return reply.code(200).send({
+      modeles: lignes.map(({ modele, langue, etat, raison, creeLe }) => ({ modele, langue, etat, raison, creeLe })),
+      programmee: p ? await vueDeLaProgrammation(deps, tenant, id, p) : null,
+    });
+  });
+
+  /** Annuler la mise en ligne programmée : la version en ligne ne change pas, le brouillon non plus. */
+  app.delete('/tenants/:tenantId/workflows/:id/programmation', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const { id } = req.params as { id: string };
+    if (!estUuid(id)) return reply.code(404).send({ error: 'workflow inconnu' });
+    if (!(await deps.scenarios.annulerProgrammation(id, tenant, null))) return reply.code(404).send({ error: 'aucune mise en ligne programmée' });
+    await journal(tenant, req, 'workflow.programmation_annulee', { kind: 'workflow', id });
+    return reply.code(204).send();
   });
 
   app.delete('/tenants/:tenantId/workflows/:id', opts, async (req, reply) => {
