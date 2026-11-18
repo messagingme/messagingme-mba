@@ -34,7 +34,7 @@ describe('phrasesEnConflit', () => {
     expect(phrasesEnConflit('Je veux le guide !', 'Je veux le guide.')).toBe(true);
     expect(phrasesEnConflit('Promo!', 'promo?')).toBe(true);
     // La preuve que ce n'est pas un excès de zèle : le VRAI déclencheur du lien part sur le message du widget.
-    const lien: AutomationRow = {
+    const lien: AutomationRow = { rayon: 'general',
       id: 'a1', tenantId: 't1', name: 'lien', enabled: true, triggerKind: 'keyword',
       triggerConfig: { keywords: [motCleDepuisPhrase('Je veux le guide !')], mode: 'contains' },
       conditionGroup: null, workflowId: 'w1', startNodeId: null, possedePar: 'channelsme_link', accordMarketing: null,

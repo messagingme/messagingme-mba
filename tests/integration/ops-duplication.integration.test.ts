@@ -69,7 +69,7 @@ describe.skipIf(!url)('duplication de scénario entre espaces (Postgres)', () =>
     scenario = (await workflows.insert(source, 'Accueil', graphe('v1'), 'general')).id;
     await workflows.publish(scenario, source);
     await workflows.update(scenario, source, { graph: graphe('v2') });
-    await new PgAutomationStore(pool).create(source, {
+    await new PgAutomationStore(pool).create(source, { rayon: 'general',
       name: 'Accueil', triggerKind: 'keyword', triggerConfig: { keywords: ['bonjour'] }, conditionGroup: null,
       workflowId: scenario, startNodeId: 'q1', cooldownSeconds: null, enabled: true,
     });

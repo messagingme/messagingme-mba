@@ -55,7 +55,7 @@ const etat: EtatDuplication = {
       edges: [],
     },
   },
-  automationsDuScenario: [{
+  automationsDuScenario: [{ rayon: 'general',
     id: 'a', tenantId: 'src', name: 'Accueil', enabled: true, triggerKind: 'tag_added', triggerConfig: { tag: 'vip' }, conditionGroup: null,
     workflowId: 'wf', startNodeId: null, possedePar: null, cooldownSeconds: null, maxFiresPerHour: null, accordMarketing: null,
   }],

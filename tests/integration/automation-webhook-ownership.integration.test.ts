@@ -59,7 +59,7 @@ describe.skipIf(!url)('automations possédées par un webhook : hors de portée 
   });
 
   it('🔴 `list` ne la montre pas, mais montre l’automation ordinaire', async () => {
-    const noms = (await store.list(tenantId)).map((a) => a.name);
+    const noms = (await store.list(tenantId, 'general')).map((a) => a.name);
     expect(noms).toContain('Mot-clé rdv');
     expect(noms).not.toContain('Webhook : commandes');
   });

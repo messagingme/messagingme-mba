@@ -2,6 +2,7 @@ import type { ConditionGroup } from '../workflow/conditions';
 import type { AnalyseDeFiche } from '../analysis/fiche';
 import { estCleFiltrable, evaluerFiltreFiche, lireFiltreFiche, type FiltreFiche } from '../crm/filtre-fiche';
 import type { TypeDeLancementAutomatisme } from '../workflow/lancements';
+import type { Rayon } from '../workflow/rayon';
 import {
   AUTOMATION_TRIGGER_KINDS, OPERATEURS_CONVERSATION_ANALYSEE, OPERATEURS_DEVIENT, type AutomationTriggerKind,
 } from '../../web/lib/partage/automations';
@@ -108,6 +109,12 @@ export interface AutomationRow {
    * lien de chaîne cesserait de reprendre la main sans bruit.
    */
   possedePar: string | null;
+  /**
+   * Le rayon de l'automation (`src/workflow/rayon.ts`) : `general` pour l'écran Automation (« Autres »), `shopify` ou
+   * `hubspot` pour celles d'Automation > Shopify ou HubSpot. Fixé à la création ; son scénario est du MÊME rayon (la
+   * route le vérifie). Requis pour la même raison que `possedePar`.
+   */
+  rayon: Rayon;
   /** null = défaut serveur. 0 = aucun anti-rebond. */
   cooldownSeconds: number | null;
   /**

@@ -212,7 +212,7 @@ describe('campagne de scénario, numéro délié puis relié, avec le vrai exéc
 // --------------------------------------------------------------------------------------------------------
 
 const T = Date.parse('2026-08-23T10:00:00Z'); // 12 h à Paris
-const auto = (over: Partial<AutomationRow>): AutomationRow => ({
+const auto = (over: Partial<AutomationRow>): AutomationRow => ({ rayon: 'general',
   id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'tag_added', triggerConfig: { tag: 'vip' },
   conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,
 });

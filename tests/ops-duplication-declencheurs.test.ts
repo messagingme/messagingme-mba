@@ -11,7 +11,7 @@ import { AUTOMATION_TRIGGER_KINDS } from '../web/lib/partage/automations';
  * source (webhook entrant, étape HubSpot, publicité, action d'agent, automation possédée) ne suit pas.
  */
 
-const auto = (id: string, over: Partial<AutomationRow> = {}): AutomationRow => ({
+const auto = (id: string, over: Partial<AutomationRow> = {}): AutomationRow => ({ rayon: 'general',
   id, tenantId: 't-src', name: `auto ${id}`, enabled: true, triggerKind: 'keyword', triggerConfig: { keywords: ['bonjour'] },
   conditionGroup: null, workflowId: 'wf-src', startNodeId: null, possedePar: null, cooldownSeconds: null, maxFiresPerHour: null,
   accordMarketing: null, ...over,
@@ -25,7 +25,7 @@ describe('copierDeclencheurs', () => {
     })], []);
     expect(r.copies).toEqual([{
       name: 'auto a', triggerKind: 'tag_added', triggerConfig: { tag: 'VIP' }, conditionGroup: { match: 'all', clauses: [] },
-      startNodeId: 'q1', cooldownSeconds: 60, maxFiresPerHour: 5, enabled: false, possedePar: null, accordMarketing: null,
+      startNodeId: 'q1', cooldownSeconds: 60, maxFiresPerHour: 5, enabled: false, possedePar: null, accordMarketing: null, rayon: 'general',
     }]);
     expect(r.retires).toEqual([]);
   });

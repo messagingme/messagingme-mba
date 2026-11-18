@@ -137,6 +137,7 @@ describe('publication Channels Me', () => {
     ]);
     expect(automations.creees).toEqual([{
       name: 'Chaine : Je veux recevoir la newsletter.',
+      rayon: 'general',
       triggerKind: 'keyword',
       triggerConfig: { keywords: ['Je veux recevoir la newsletter'], mode: 'contains' },
       conditionGroup: null,

@@ -45,14 +45,16 @@ function app(
     automations: {
       list: async () => [],
       // État courant d'UNE automation : c'est lui que la garde anti-boucle relit sur un PATCH partiel.
-      getById: async (id) => (id === 'a1' ? { id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'conversation_analyzed', triggerConfig: {}, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 3600, maxFiresPerHour: null, possedePar: null, accordMarketing: null } : null),
+      getById: async (id) => (id === 'a1' ? { id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'conversation_analyzed', triggerConfig: {}, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 3600, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const } : null),
       create: async (tenant, input) => { cap.created.push({ tenant, input }); return { id: 'a1' }; },
       update: async (id, tenant, patch) => { cap.updated.push({ id, tenant, patch }); return id === 'a1'; },
       remove: async (id, tenant) => { cap.removed.push({ id, tenant }); return id === 'a1'; },
       ...over,
     },
-    // wf1 appartient à t1 ; tout le reste est refusé (scénario d'un autre client ou inexistant).
-    workflowBelongsToTenant: async (wfId, tenant) => wfId === 'wf1' && tenant === 't1',
+    // wf1 est un scénario du Builder de t1, wf-shopify un scénario Shopify de t1 ; tout le reste est refusé (scénario
+    // d'un autre client, inexistant, ou d'un autre rayon que celui demandé).
+    scenarioDuRayon: async (wfId, tenant, rayon) =>
+      tenant === 't1' && ((wfId === 'wf1' && rayon === 'general') || (wfId === 'wf-shopify' && rayon === 'shopify')),
     actionsDeLEspace: async (tenant) => (tenant === 't1' ? [{ id: ACTION_T1, nom: 'résiliation', agentId: 'ag1', agent: 'Accueil' }] : []),
     champsDeLEspace: async (tenant) => (tenant === 't1' ? [{ key: 'rdv', type: 'datetime' }, { key: 'ville', type: 'text' }] : []),
     // Par défaut l'analyse est ouverte (une Entreprise) : les cas qui la ferment le disent.
@@ -194,7 +196,7 @@ describe('routes automations', () => {
   it('réactiver une référence supprimée est refusé, mais la désactivation reste possible', async () => {
     const courante = { id: 'a1', tenantId: 't1', name: 'Rappel', enabled: false, triggerKind: 'avant_date' as const,
       triggerConfig: { fieldKey: 'supprime', delai: 2, unite: 'heures' }, conditionGroup: null, workflowId: 'wf1',
-      startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null };
+      startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const };
     const { server, cap } = app({ getById: async () => courante });
     const activer = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { enabled: true } });
     const desactiver = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { enabled: false } });
@@ -245,7 +247,7 @@ describe('routes automations', () => {
 
     it('sens 2 : basculer vers « conversation analysée » une automation au délai DÉJÀ court -> refusé', async () => {
       const { server, cap } = app({
-        getById: async () => ({ id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 0, maxFiresPerHour: null, possedePar: null, accordMarketing: null }),
+        getById: async () => ({ id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 0, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const }),
       });
       const res = await server.inject({
         method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok),
@@ -312,7 +314,7 @@ describe('routes automations', () => {
     const attestee = {
       id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] },
       conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null,
-      accordMarketing: { par: 'u1', email: 'admin@exemple.fr', le },
+      accordMarketing: { par: 'u1', email: 'admin@exemple.fr', le }, rayon: 'general' as const,
     };
     const { server } = app({ list: async () => [attestee, { ...attestee, id: 'a2', accordMarketing: null }] });
     const lire = async (tok: string) => (await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(tok) })).json().automations;
@@ -435,7 +437,7 @@ describe('les déclencheurs nés d’une analyse demandent l’offre qui l’ouv
   });
 
   it('🔴 changer le déclencheur d’une automation existante en un déclencheur d’analyse est une création : refusé', async () => {
-    const motCle = { id: 'a2', tenantId: 't1', name: 'B', enabled: false, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null };
+    const motCle = { id: 'a2', tenantId: 't1', name: 'B', enabled: false, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const };
     const { server, cap } = app({ getById: async (id) => (id === 'a2' ? motCle : null), update: async (id, tenant, patch) => { cap.updated.push({ id, tenant, patch }); return true; } }, sansAnalyse);
     const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a2', ...h(adminTok), payload: { triggerKind: 'analyse_devient', triggerConfig: { cle: 'analyse_sentiment', op: 'in', valeur: 'negatif' } } });
     expect(res.statusCode).toBe(402);
@@ -524,6 +526,55 @@ describe('la case d’accord marketing', () => {
     const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(agentTok), payload: { accordMarketing: true } });
     expect(res.statusCode).toBe(403);
     expect(cap.updated).toEqual([]);
+    await server.close();
+  });
+});
+
+describe('🔴 le rayon : l’écran Automation ne mène qu’au Builder (menu « Scénario », lot 1)', () => {
+  it('POST : l’automation naît dans le rayon général, et un scénario Shopify de l’espace est refusé comme inconnu', async () => {
+    const { server, cap } = app();
+    const ok = await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: VALID });
+    expect(ok.statusCode).toBe(201);
+    expect(cap.created[0]?.input.rayon).toBe('general');
+    const refus = await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: { ...VALID, workflowId: 'wf-shopify' } });
+    expect(refus.statusCode).toBe(400);
+    expect(refus.json<{ error: string }>().error).toBe('workflowId inconnu pour ce tenant');
+    expect(cap.created).toHaveLength(1);
+    await server.close();
+  });
+
+  it('POST : un `rayon` dans le corps est ignoré, jamais écrit', async () => {
+    const { server, cap } = app();
+    await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: { ...VALID, rayon: 'shopify' } });
+    expect(cap.created[0]?.input.rayon).toBe('general');
+    await server.close();
+  });
+
+  it('PATCH : le scénario visé doit être du rayon de l’AUTOMATION ; le rayon ne se modifie pas', async () => {
+    const shopify = { id: 'a-shop', tenantId: 't1', name: 'Panier', enabled: true, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['x'] }, conditionGroup: null, workflowId: 'wf-shopify', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'shopify' as const };
+    const { server, cap } = app({ getById: async (id) => (id === 'a-shop' ? shopify : null), update: async (id, tenant, patch) => { cap.updated.push({ id, tenant, patch }); return true; } });
+    const versBuilder = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-shop', ...h(adminTok), payload: { workflowId: 'wf1' } });
+    expect(versBuilder.statusCode).toBe(400);
+    const memeRayon = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-shop', ...h(adminTok), payload: { workflowId: 'wf-shopify', rayon: 'general' } });
+    expect(memeRayon.statusCode).toBe(200);
+    expect(cap.updated).toHaveLength(1);
+    expect(cap.updated[0]?.patch).not.toHaveProperty('rayon');
+    await server.close();
+  });
+
+  it('PATCH d’une automation du Builder vers un scénario Shopify : refusé comme inconnu', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { workflowId: 'wf-shopify' } });
+    expect(res.statusCode).toBe(400);
+    expect(cap.updated).toEqual([]);
+    await server.close();
+  });
+
+  it('GET : la liste demandée au magasin est celle du rayon général', async () => {
+    const demandes: string[] = [];
+    const { server } = app({ list: async (_t, rayon) => { demandes.push(rayon); return []; } });
+    await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(adminTok) });
+    expect(demandes).toEqual(['general']);
     await server.close();
   });
 });

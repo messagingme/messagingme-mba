@@ -88,7 +88,7 @@ export const MOTIF_ETIQUETTE_WIDGET = `^${PREFIXE_ETIQUETTE_WIDGET}[0-9a-hjkmnp-
  *   convention des deux côtés. Le CHECK `widgets_max_par_heure_chk` exclut 0, qui voudrait dire « aucun plafond ».
  */
 export function automationDuWidget(tenantId: string, widget: WidgetRow, workflowId: string): AutomationRow {
-  return {
+  return { rayon: 'general',
     id: widget.id,
     tenantId,
     name: `widget « ${widget.nom} »`,

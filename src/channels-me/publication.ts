@@ -120,7 +120,7 @@ export function creerPublicationChannelsMe(deps: PublicationChannelsMeDeps): Pub
       if (occurrences > 0) return { kind: 'phrase_deja_vue', occurrences };
 
       const token = nouveauJeton();
-      const { id: automationId } = await deps.automations.create(tenantId, {
+      const { id: automationId } = await deps.automations.create(tenantId, { rayon: 'general',
         name: `Chaine : ${phrase}`.slice(0, 200),
         triggerKind: 'keyword',
         triggerConfig: { keywords: [motCleDepuisPhrase(phrase)], mode: 'contains' },

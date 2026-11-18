@@ -14,7 +14,7 @@ import { aucunAccordEcrit } from './consentement';
 const T = new Date('2026-10-07T12:00:00Z').getTime();
 const MSG: AutomationEvent = { kind: 'message', waId: '33611', body: 'rdv', isNewContact: false, channel: 'whatsapp' };
 
-const auto = (id: string, over: Partial<AutomationRow> = {}): AutomationRow => ({
+const auto = (id: string, over: Partial<AutomationRow> = {}): AutomationRow => ({ rayon: 'general',
   id, tenantId: 't1', name: id, enabled: true,
   triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null,
   workflowId: `wf-${id}`, startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,

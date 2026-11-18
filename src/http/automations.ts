@@ -7,17 +7,18 @@ import { CLES_FILTRABLES, estCleFiltrable, lireFiltreFiche } from '../crm/filtre
 import { coerceConfigAvantDate, UNITES_DELAI, DELAI_MAX_MINUTES } from '../automation/avant-date';
 import type { AutomationRow, AutomationTriggerKind } from '../automation/match';
 import type { AutomationInput } from '../automation/store.pg';
+import type { Rayon } from '../workflow/rayon';
 import type { ActionDeLEspace } from '../agent/actions.pg';
 import type { UserFieldDef } from '../crm/types';
 import { STATUT_REFUS_OFFRE, corpsRefusFonction } from '../offres/refus';
 import { espaceVerifie, estUuid, nonEmpty } from './scope';
 
 export interface AutomationsDep {
-  list(tenantId: string): Promise<AutomationRow[]>;
+  list(tenantId: string, rayon: Rayon): Promise<AutomationRow[]>;
   /** Une automation par id (scopée tenant). Lecture ciblée : `list` est capée, donc aveugle au-delà du plafond. */
   getById(id: string, tenantId: string): Promise<AutomationRow | null>;
   create(tenantId: string, input: AutomationInput): Promise<{ id: string }>;
-  update(id: string, tenantId: string, patch: Partial<AutomationInput>): Promise<boolean>;
+  update(id: string, tenantId: string, patch: Partial<Omit<AutomationInput, 'rayon'>>): Promise<boolean>;
   remove(id: string, tenantId: string): Promise<boolean>;
 }
 
@@ -27,8 +28,12 @@ export interface AutomationRouteDeps {
   actionsDeLEspace(tenantId: string): Promise<ActionDeLEspace[]>;
   /** Les définitions de champs de l'espace : un rappel ne peut lire qu'un champ date et heure existant. */
   champsDeLEspace(tenantId: string): Promise<Array<Pick<UserFieldDef, 'key' | 'type'>>>;
-  /** Le scénario ciblé appartient-il bien à ce tenant ? Garde d'appartenance (comme la campagne workflow). */
-  workflowBelongsToTenant(workflowId: string, tenantId: string): Promise<boolean>;
+  /**
+   * Le scénario ciblé est-il un scénario de CET espace et de CE rayon ? Garde d'appartenance (comme la campagne
+   * workflow) et de cloisonnement (menu « Scénario », décision 1) : un scénario d'un autre rayon se refuse comme un
+   * inconnu.
+   */
+  scenarioDuRayon(workflowId: string, tenantId: string, rayon: Rayon): Promise<boolean>;
   /**
    * L'offre de l'espace ouvre-t-elle l'analyse des conversations (l'Entreprise seule depuis la spec offres v2, livraison
    * 5) ? Un déclencheur né d'une analyse ne se crée pas sans elle : l'automation ne partirait jamais.
@@ -192,7 +197,7 @@ async function validateTriggerReferences(
  * un booléen seulement (absent = inchangé, pour qu'une console d'avant restée ouverte n'efface rien). Son tampon
  * (`AutomationInput.accordMarketing`) n'est jamais lu du corps : la route le pose depuis la session.
  */
-function parseBody(body: unknown, partial: boolean): { error: string } | { input: Partial<AutomationInput>; accord?: boolean } {
+function parseBody(body: unknown, partial: boolean): { error: string } | { input: Partial<Omit<AutomationInput, 'rayon'>>; accord?: boolean } {
   const b = (body ?? {}) as Record<string, unknown>;
   const out: Partial<AutomationInput> = {};
   if (b.accordMarketing !== undefined && typeof b.accordMarketing !== 'boolean') return { error: 'accordMarketing (booléen)' };
@@ -281,7 +286,7 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
 
   app.get('/tenants/:tenantId/automations', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const automations = await deps.automations.list(tenant);
+    const automations = await deps.automations.list(tenant, 'general');
     // L'adresse de l'admin qui a coché la case d'accord marketing ne sort que pour un admin (relecture du lot 3b) : un
     // agent lit la liste, il n'a pas à connaître l'adresse d'un collègue. Qui (son identifiant) et quand restent.
     if (req.auth?.role === 'admin') return reply.code(200).send({ automations });
@@ -302,13 +307,14 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     if (forbidNonAdmin(req, reply)) return;
     const parsed = parseBody(req.body, false);
     if ('error' in parsed) return reply.code(400).send({ error: parsed.error });
-    const input = parsed.input as AutomationInput;
+    // L'écran Automation (« Autres ») ne crée que des automations du Builder ; un `rayon` du corps n'est jamais lu.
+    const input = { ...parsed.input, rayon: 'general' } as AutomationInput;
     if (DECLENCHEURS_D_ANALYSE.has(input.triggerKind) && !(await deps.analyseOuverte(tenant))) {
       return reply.code(STATUT_REFUS_OFFRE).send(corpsRefusFonction('analyse'));
     }
     // 🔴 Le scénario ciblé doit appartenir à l'espace, sinon une automation d'un client démarrerait le scénario
     // d'un autre.
-    if (!(await deps.workflowBelongsToTenant(input.workflowId, tenant))) {
+    if (!(await deps.scenarioDuRayon(input.workflowId, tenant, input.rayon))) {
       return reply.code(400).send({ error: 'workflowId inconnu pour ce tenant' });
     }
     const reference = await validateTriggerReferences(tenant, input.triggerKind, input.triggerConfig, deps);
@@ -328,8 +334,13 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     if ('error' in parsed) return reply.code(400).send({ error: parsed.error });
     // La case seule est une modification : cocher ou décocher sans renvoyer le déclencheur.
     if (Object.keys(parsed.input).length === 0 && parsed.accord === undefined) return reply.code(400).send({ error: 'rien à modifier' });
-    if (parsed.input.workflowId !== undefined && !(await deps.workflowBelongsToTenant(parsed.input.workflowId, tenant))) {
-      return reply.code(400).send({ error: 'workflowId inconnu pour ce tenant' });
+    if (parsed.input.workflowId !== undefined) {
+      // Le scénario visé doit être du rayon de l'AUTOMATION, relu en base : le rayon ne se modifie pas.
+      const visee = await deps.automations.getById(id, tenant);
+      if (!visee) return reply.code(404).send({ error: 'automation inconnue' });
+      if (!(await deps.scenarioDuRayon(parsed.input.workflowId, tenant, visee.rayon))) {
+        return reply.code(400).send({ error: 'workflowId inconnu pour ce tenant' });
+      }
     }
     // Relire l'état quand le corps ne suffit pas : un changement de délai peut rouvrir une boucle, et une
     // activation seule ne doit pas ranimer une référence supprimée depuis l'enregistrement précédent.

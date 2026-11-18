@@ -181,7 +181,7 @@ describe('POST /hubspot/deal-stage', () => {
     expect(job).not.toBeNull();
 
     // 2) et il déclenche bien une automation réglée sur cette étape
-    const automation: AutomationRow = {
+    const automation: AutomationRow = { rayon: 'general',
       id: 'a1', tenantId: 't1', name: 'Relance devis', enabled: true,
       triggerKind: 'hubspot_deal_stage', triggerConfig: { pipelineId: 'p1', stageId: 's-devis' },
       conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null,

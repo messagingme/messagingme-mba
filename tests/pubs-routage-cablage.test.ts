@@ -286,7 +286,7 @@ describe('processTriggers : la doctrine du standby, et son unique exception', ()
  * restriction qui l'écarte. Un test qui n'éprouverait que `matchesTrigger` ne verrait rien.
  */
 describe('la restriction écarte réellement les autres automations', () => {
-  const auto = (over: Partial<AutomationRow>): AutomationRow => ({
+  const auto = (over: Partial<AutomationRow>): AutomationRow => ({ rayon: 'general',
     id: 'a', tenantId: 't1', name: 'x', enabled: true, triggerKind: 'ctwa_ad', triggerConfig: {},
     conditionGroup: null, workflowId: 'wf', startNodeId: null, cooldownSeconds: 0,
     maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,

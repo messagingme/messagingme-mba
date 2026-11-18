@@ -17,7 +17,7 @@ import type { AutomationRow, AutomationEvent } from '../src/automation/match';
  *  4. L'anti-rebond est ce qui empêche la boucle scénario -> tag/mot-clé -> même scénario.
  */
 
-const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({
+const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({ rayon: 'general',
   id: 'a1', tenantId: 't1', name: 'Test', enabled: true,
   triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null,
   workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,
@@ -256,7 +256,7 @@ describe('déclencheur publicité (ctwa_ad)', () => {
     kind: 'message', waId: '33611', body: 'Bonjour', isNewContact: true, channel: 'whatsapp',
     ...(adId ? { adId } : {}),
   });
-  const autoPub = (cfg: Record<string, unknown> = {}): AutomationRow => ({
+  const autoPub = (cfg: Record<string, unknown> = {}): AutomationRow => ({ rayon: 'general',
     id: 'a1', tenantId: 't1', name: 'Pub', enabled: true, triggerKind: 'ctwa_ad', triggerConfig: cfg,
     workflowId: 'wf1', startNodeId: null, conditionGroup: null, cooldownSeconds: null, maxFiresPerHour: null,
     possedePar: null, accordMarketing: null,

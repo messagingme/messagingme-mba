@@ -306,7 +306,7 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
 
     const wf = (await pool.query<{ id: string }>(`insert into workflows (tenant_id, name) values ($1, 'itest-usage') returning id`, [t])).rows[0]!.id;
     const automations = new PgAutomationStore(pool);
-    const entree = (enabled: boolean, possedePar?: string): AutomationInput => ({
+    const entree = (enabled: boolean, possedePar?: string): AutomationInput => ({ rayon: 'general',
       name: 'a', enabled, triggerKind: 'tag_added', triggerConfig: { tag: 'x' }, conditionGroup: null,
       workflowId: wf, startNodeId: null, cooldownSeconds: null, ...(possedePar ? { possedePar } : {}),
     });

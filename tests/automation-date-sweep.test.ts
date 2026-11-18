@@ -10,7 +10,7 @@ import type { AutomationRow } from '../src/automation/match';
 
 const MAINTENANT = Date.parse('2026-08-23T10:00:00Z'); // 12 h à Paris
 
-const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({
+const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({ rayon: 'general',
   id: 'a1', tenantId: 't1', name: 'Rappel rendez-vous', enabled: true,
   triggerKind: 'avant_date', triggerConfig: { fieldKey: 'rdv', delai: 2, unite: 'heures' },
   conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null,

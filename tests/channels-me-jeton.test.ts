@@ -121,7 +121,7 @@ describe('texte pre-rempli', () => {
     // mode `contains` : c'est le cablage qui le decide, et un cablage n'a par construction aucun dependant.
     // On exerce donc le vrai `matchesTrigger`, avec la vraie automation.
     const phrase = 'Je veux mon code promo !';
-    const auto = (mode: string): AutomationRow => ({
+    const auto = (mode: string): AutomationRow => ({ rayon: 'general',
       id: 'a1', tenantId: 't1', name: 'Chaine', enabled: true,
       triggerKind: 'keyword', triggerConfig: { keywords: [phrase], mode }, conditionGroup: null,
       workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null,

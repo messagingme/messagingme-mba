@@ -25,7 +25,7 @@ import { aucunAccordEcrit } from './consentement';
 
 const T = new Date('2026-08-03T12:00:00Z').getTime();
 
-const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({
+const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({ rayon: 'general',
   id: 'a1', tenantId: 't1', name: 'A', enabled: true,
   triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null,
   workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,

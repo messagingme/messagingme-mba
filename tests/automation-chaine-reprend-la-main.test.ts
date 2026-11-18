@@ -41,7 +41,7 @@ const graphe: WorkflowGraph = {
   edges: [],
 };
 
-const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({
+const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({ rayon: 'general',
   id: 'a1', tenantId: 't1', name: 'Chaine : je veux mon code promo', enabled: true,
   triggerKind: 'keyword', triggerConfig: { keywords: ['je veux mon code promo'], mode: 'contains' },
   conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null,

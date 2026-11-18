@@ -37,7 +37,7 @@ describe('PgAutomationStore : une automation POSSEDEE est hors de portee de l ec
   it('🔴 les quatre requetes de pilotage excluent une automation possedee', async () => {
     const { pool, queries } = fakePool();
     const store = new PgAutomationStore(pool);
-    await store.list(TENANT);
+    await store.list(TENANT, 'general');
     await store.getById('a1', TENANT);
     await store.update('a1', TENANT, { name: 'x' });
     await store.remove('a1', TENANT);
@@ -70,7 +70,7 @@ describe('PgAutomationStore : une automation POSSEDEE est hors de portee de l ec
 
   it('`create` pose le proprietaire et le plafond, et met null quand ils sont absents', async () => {
     const possedee = fakePool();
-    await new PgAutomationStore(possedee.pool).create(TENANT, {
+    await new PgAutomationStore(possedee.pool).create(TENANT, { rayon: 'general',
       name: 'Chaine : newsletter',
       triggerKind: 'keyword',
       // Jeton FICTIF (aucun secret) : valeur figee pour rendre les assertions lisibles.
@@ -92,7 +92,7 @@ describe('PgAutomationStore : une automation POSSEDEE est hors de portee de l ec
     expect(ins.params[10]).toBe(2000);
 
     const ordinaire = fakePool();
-    await new PgAutomationStore(ordinaire.pool).create(TENANT, {
+    await new PgAutomationStore(ordinaire.pool).create(TENANT, { rayon: 'general',
       name: 'Mot-cle rdv', triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] },
       conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, enabled: false,
     });

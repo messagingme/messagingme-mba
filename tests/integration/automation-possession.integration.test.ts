@@ -40,14 +40,14 @@ describe.skipIf(!url)('automations possedees par un lien de chaine : hors de por
 
     // Ecrite PAR LE STORE, exactement comme un lien de chaine la fabriquera : c'est `create` qui doit
     // savoir poser un proprietaire, sinon aucune automation possedee ne peut naitre.
-    idPossedee = (await store.create(tenantId, {
+    idPossedee = (await store.create(tenantId, { rayon: 'general',
       name: 'Chaine : newsletter', triggerKind: 'keyword',
       // Jeton FICTIF (aucun secret) : valeur figee pour rendre les assertions lisibles.
       triggerConfig: { keywords: ['cm-a7k2m9p3'], mode: 'contains' },
       conditionGroup: null, workflowId, startNodeId: null, cooldownSeconds: 300, enabled: true,
       possedePar: POSSESSEUR_LIEN_CHAINE, maxFiresPerHour: 2000,
     })).id;
-    idNormale = (await store.create(tenantId, {
+    idNormale = (await store.create(tenantId, { rayon: 'general',
       name: 'Mot-cle rdv', triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] },
       conditionGroup: null, workflowId, startNodeId: null, cooldownSeconds: null, enabled: true,
     })).id;
@@ -59,7 +59,7 @@ describe.skipIf(!url)('automations possedees par un lien de chaine : hors de por
   });
 
   it('🔴 `list` ne montre pas la possedee, et montre l ordinaire', async () => {
-    const noms = (await store.list(tenantId)).map((a) => a.name);
+    const noms = (await store.list(tenantId, 'general')).map((a) => a.name);
     expect(noms).toContain('Mot-cle rdv');
     expect(noms).not.toContain('Chaine : newsletter');
   });
@@ -100,6 +100,6 @@ describe.skipIf(!url)('automations possedees par un lien de chaine : hors de por
     )).rows[0]!.id;
     // `possede_par` y vaut null : c'est le PREMIER terme qui doit continuer a l'exclure, tout seul.
     expect(await store.getById(idWebhook, tenantId)).toBeNull();
-    expect((await store.list(tenantId)).map((a) => a.id)).not.toContain(idWebhook);
+    expect((await store.list(tenantId, 'general')).map((a) => a.id)).not.toContain(idWebhook);
   });
 });

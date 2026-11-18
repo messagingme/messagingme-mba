@@ -29,7 +29,7 @@ describe.skipIf(!url)('automations : l attestation de l accord marketing', () =>
 
   const base = () => ({
     name: 'Mot-cle rdv', triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] },
-    conditionGroup: null, workflowId, startNodeId: null, cooldownSeconds: null, enabled: true,
+    conditionGroup: null, workflowId, startNodeId: null, cooldownSeconds: null, enabled: true, rayon: 'general' as const,
   });
   const colonnes = async (id: string) => (await pool.query<{ par: string | null; email: string | null; le: Date | null }>(
     'select accord_marketing_par as par, accord_marketing_email as email, accord_marketing_le as le from automations where id = $1',
@@ -64,7 +64,7 @@ describe.skipIf(!url)('automations : l attestation de l accord marketing', () =>
     expect(chaud?.accordMarketing).toMatchObject({ par: marie, email: 'itest-accord-marie@example.test' });
     expect(chaud?.accordMarketing?.le).toBeInstanceOf(Date);
     expect((await store.getById(id, tenantId))?.accordMarketing?.par).toBe(marie);
-    expect((await store.list(tenantId)).find((a) => a.id === id)?.accordMarketing?.par).toBe(marie);
+    expect((await store.list(tenantId, 'general')).find((a) => a.id === id)?.accordMarketing?.par).toBe(marie);
   });
 
   it('créée sans la case : non attestée, partout', async () => {

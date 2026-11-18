@@ -589,7 +589,7 @@ describe('décision 5 : un lead ne prend pas la main à un opérateur', () => {
     nodes: [{ id: 'a', type: 'quick_message', position: { x: 0, y: 0 }, data: { body: 'Merci pour votre clic !' } }],
     edges: [],
   };
-  const auto = (over: Partial<AutomationRow>): AutomationRow => ({
+  const auto = (over: Partial<AutomationRow>): AutomationRow => ({ rayon: 'general',
     id: 'a1', tenantId: 't1', name: 'automation', enabled: true,
     triggerKind: 'ctwa_ad', triggerConfig: { campaignId: 'camp-1' },
     conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null,

@@ -132,7 +132,7 @@ describe('l’empreinte', () => {
     const variantes: Array<Partial<EtatDuplication>> = [
       { scenario: { ...g, graphe: { ...g.graphe, nodes: g.graphe.nodes.slice(1) } } },
       { champsDestination: [{ key: 'ville', label: 'Ville', type: 'text' }] },
-      { automationsDeLaDestination: [{ id: 'a', tenantId: 'dst', name: 'x', enabled: true, triggerKind: 'new_contact', triggerConfig: {}, conditionGroup: null, workflowId: 'w', startNodeId: null, possedePar: null, cooldownSeconds: null, maxFiresPerHour: null, accordMarketing: null }] },
+      { automationsDeLaDestination: [{ rayon: 'general', id: 'a', tenantId: 'dst', name: 'x', enabled: true, triggerKind: 'new_contact', triggerConfig: {}, conditionGroup: null, workflowId: 'w', startNodeId: null, possedePar: null, cooldownSeconds: null, maxFiresPerHour: null, accordMarketing: null }] },
       { nomsPrisDestination: ['Accueil (copie)'] },
       { templatesDestination: [{ nom: 'bienvenue', langue: 'fr', statut: 'PENDING', boutons: [] }] },
     ];

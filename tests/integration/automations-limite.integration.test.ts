@@ -37,7 +37,7 @@ describe.skipIf(!url)('la limite d’automations de l’offre', () => {
     await pool.end();
   });
 
-  const entree = (enabled: boolean, possedePar?: string): AutomationInput => ({
+  const entree = (enabled: boolean, possedePar?: string): AutomationInput => ({ rayon: 'general',
     name: 'a', enabled, triggerKind: 'tag_added', triggerConfig: { tag: 'x' }, conditionGroup: null,
     workflowId: wf, startNodeId: null, cooldownSeconds: null, ...(possedePar ? { possedePar } : {}),
   });

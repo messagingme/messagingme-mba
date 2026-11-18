@@ -3,6 +3,7 @@ import { coerceConditionGroup } from '../workflow/conditions';
 import { isAutomationTriggerKind } from './match';
 import type { AutomationRow, AutomationTriggerKind } from './match';
 import { verifierPlaceAutomation } from '../offres/automations';
+import { estRayon, type Rayon } from '../workflow/rayon';
 
 /** Ce qu'une route peut créer ou modifier. `enabled` par défaut false : une automation ne part jamais sans un
  *  oui explicite. */
@@ -15,6 +16,8 @@ export interface AutomationInput {
   startNodeId: string | null;
   cooldownSeconds: number | null;
   enabled: boolean;
+  /** Le rayon (`AutomationRow.rayon`), REQUIS : chaque fabrique le nomme. Il ne se modifie plus après la création. */
+  rayon: Rayon;
   /**
    * Propriétaire de cette automation quand elle en a un ('channelsme_link' pour un lien de chaîne) ; null =
    * automation ordinaire. Jamais lu du corps d'une requête HTTP (`parseBody` recopie une liste fermée) : un
@@ -39,7 +42,7 @@ interface Raw {
   id: string; tenant_id: string; name: string; enabled: boolean;
   trigger_kind: string; trigger_config: unknown; condition_group: unknown;
   workflow_id: string; start_node_id: string | null; cooldown_seconds: number | null;
-  max_fires_per_hour: number | null; possede_par: string | null;
+  max_fires_per_hour: number | null; possede_par: string | null; rayon: string;
   accord_marketing_par: string | null; accord_marketing_email: string | null; accord_marketing_le: Date | null;
 }
 
@@ -48,7 +51,8 @@ interface Raw {
  * inconnu rend null et l'automation est ignorée plutôt que de faire planter le chemin chaud du webhook.
  */
 function toRow(r: Raw): AutomationRow | null {
-  if (!isAutomationTriggerKind(r.trigger_kind)) return null;
+  // Un rayon que le CHECK interdit rend l'automation inerte, comme un type inconnu : jamais un rayon deviné.
+  if (!isAutomationTriggerKind(r.trigger_kind) || !estRayon(r.rayon)) return null;
   const cfg = r.trigger_config && typeof r.trigger_config === 'object' && !Array.isArray(r.trigger_config)
     ? (r.trigger_config as Record<string, unknown>)
     : {};
@@ -71,6 +75,7 @@ function toRow(r: Raw): AutomationRow | null {
     // Lu par le chemin chaud : un déclenchement né d'un geste explicite du contact (bouton de chaîne, clic sur
     // une publicité ; le widget, lui, n'est pas en base) reprend la main sur le fil (`typeDeLancementDe`).
     possedePar: r.possede_par,
+    rayon: r.rayon,
     // Lu par le chemin chaud aussi : une automation attestée écrit l'accord sur la fiche à chaque déclenchement. La date
     // dit l'attestation (le CHECK de 0271 refuse un « qui » sans « quand »).
     accordMarketing: r.accord_marketing_le === null
@@ -81,7 +86,7 @@ function toRow(r: Raw): AutomationRow | null {
 
 // Liste tenue à la main : une colonne ajoutée ici doit l'être aussi dans `Raw` et `toRow`, sinon elle se
 // perd en silence dans le mapping.
-const COLS = 'id, tenant_id, name, enabled, trigger_kind, trigger_config, condition_group, workflow_id, start_node_id, cooldown_seconds, max_fires_per_hour, possede_par, accord_marketing_par, accord_marketing_email, accord_marketing_le';
+const COLS = 'id, tenant_id, name, enabled, trigger_kind, trigger_config, condition_group, workflow_id, start_node_id, cooldown_seconds, max_fires_per_hour, possede_par, accord_marketing_par, accord_marketing_email, accord_marketing_le, rayon';
 
 /**
  * L'adresse de l'attestant, résolue dans l'écriture même (comme `reglages_historique`) : dénormalisée pour qu'un départ
@@ -133,11 +138,11 @@ export class PgAutomationStore {
    * lien ou une publicité sont exclues (`HORS_WEBHOOK`) : les montrer offrirait un second endroit pour les
    * modifier.
    */
-  async list(tenantId: string): Promise<AutomationRow[]> {
+  async list(tenantId: string, rayon: Rayon): Promise<AutomationRow[]> {
     const res = await this.pool.query<Raw>(
       `select ${COLS} from automations
-        where tenant_id = $1 ${HORS_WEBHOOK} order by created_at desc limit 200`,
-      [tenantId],
+        where tenant_id = $1 ${HORS_WEBHOOK} and rayon = $2 order by created_at desc limit 200`,
+      [tenantId, rayon],
     );
     return res.rows.map(toRow).filter((a): a is AutomationRow => a !== null);
   }
@@ -188,23 +193,23 @@ export class PgAutomationStore {
     const accord = input.accordMarketing ?? null;
     const res = await this.pool.query<{ id: string }>(
       `insert into automations (tenant_id, name, enabled, trigger_kind, trigger_config, condition_group, workflow_id, start_node_id, cooldown_seconds, possede_par, max_fires_per_hour,
-                                accord_marketing_par, accord_marketing_email, accord_marketing_le)
+                                accord_marketing_par, accord_marketing_email, accord_marketing_le, rayon)
        values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11,
-               $12::uuid, ${EMAIL_DE('$12', '$1')}, case when $13::boolean then now() end) returning id`,
+               $12::uuid, ${EMAIL_DE('$12', '$1')}, case when $13::boolean then now() end, $14) returning id`,
       [
         tenantId, input.name, input.enabled, input.triggerKind,
         JSON.stringify(input.triggerConfig),
         input.conditionGroup === null ? null : JSON.stringify(input.conditionGroup),
         input.workflowId, input.startNodeId, input.cooldownSeconds,
         input.possedePar ?? null, input.maxFiresPerHour ?? null,
-        accord?.par ?? null, accord !== null,
+        accord?.par ?? null, accord !== null, input.rayon,
       ],
     );
     return { id: res.rows[0]!.id };
   }
 
   /** Mise à jour partielle (l'écran ne bascule souvent que `enabled`). false si l'id n'est pas au tenant. */
-  async update(id: string, tenantId: string, patch: Partial<AutomationInput>): Promise<boolean> {
+  async update(id: string, tenantId: string, patch: Partial<Omit<AutomationInput, 'rayon'>>): Promise<boolean> {
     // Rallumer compte dans la limite de l'offre (l'écran ne touche que les automations du client : `HORS_WEBHOOK`).
     if (patch.enabled === true && this.limiteAutomations) {
       await verifierPlaceAutomation(this.pool, tenantId, await this.limiteAutomations(tenantId), id);
