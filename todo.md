@@ -47,6 +47,19 @@ Relevés par la relecture de la livraison 2a (les points 1, 2, 4, 5, 8 et 9 part
 - Un outil de l'agent de Meta ou d'un agent IA qui vise un template est refusé à chaque appel dès que ce template reçoit
   un délai (`blocSeul`) : la console devrait le dire au moment où l'on pose le délai.
 
+Relevés par la relecture de la livraison 2b-1 (le rouge et les jaunes 1, 2, 4 et 6 sont corrigés avant le push) :
+
+- **Trois analyses de fenêtre coexistent** : `explorerLesAttentes` (montage impossible, refus des sauts), son miroir de
+  la console (`waitBeforeSessionMessage`) et l'analyse partagée des départs (`web/lib/partage/fenetre-scenario.ts`).
+  Leurs sémantiques diffèrent (l'échéance d'une Question, toutes les sorties ou la première, états exacts ou dominance) :
+  les fondre en une, la première gardant le refus des sauts après une longue attente.
+- Tests à compléter : le clic tardif doit aussi affirmer la clôture et la transmission au répondeur ; l'intégration de
+  `lanceursDuScenario` n'insère aucune campagne (ses deux branches « campagne » ne sont pas prouvées en base).
+- Approximations de l'avertissement (il ne fait que prévenir) : une campagne est listée deux fois (`campaigns` et son
+  étage 1), dédupliquée ; le bloc de départ d'une campagne lancée à un bloc est ignoré ; un mot-clé reçu en RCS compte
+  comme fenêtre ouverte ; un template sans choix, en mode agent de Meta, compte comme une réponse qui rouvre la fenêtre.
+- Mesure : un clic tardif compte comme réponse écrite du bloc courant, plutôt que comme le bouton de son bloc d'origine.
+
 ## 🟡 Restes de la page « Avec votre IA » (lot 2, 2026-11-18)
 
 Relevés par la relecture du lot (`site/site.js`, bloc « Avec votre IA », et `site/site.css`, règles `.ia-*`) :

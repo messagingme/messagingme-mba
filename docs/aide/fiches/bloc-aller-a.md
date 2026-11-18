@@ -2,7 +2,7 @@
 description: Le bloc Aller à d'un scénario WhatsApp : envoyer le contact sur un bloc de ce scénario ou d'un autre, et les règles du saut.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 11
@@ -32,6 +32,8 @@ bloc ».
   une réponse fonctionne.
 - Plus de 20 « Aller à » enchaînés sans pause sont arrêtés, et la conversation passe à votre équipe.
 - Après une attente de 24 heures ou plus, un saut vers un autre scénario dont le premier envoi est un message rapide,
-  une question, un formulaire ou un agent IA est refusé à la publication. Dans le même scénario, l'écran vous avertit seulement.
+  une question, un formulaire ou un agent IA est refusé à la publication. Dans le même scénario, l'écran vous avertit
+  seulement ; il vous avertit aussi d'un saut atteint avant toute réponse du client, derrière une sortie « Pas de
+  réponse » par exemple.
 - Placé avant le premier template, un saut vers un autre scénario empêche de lancer le scénario en campagne.
 - Il ne peut pas suivre la sortie « Puis, sans attendre » d'un message rapide : le scénario ne se publie pas.

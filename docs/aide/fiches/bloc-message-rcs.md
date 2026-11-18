@@ -2,7 +2,7 @@
 description: Le bloc Message RCS d'un scénario : le contenu, l'image, les boutons, et les sorties Envoyé, Non joignable et par bouton.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 13

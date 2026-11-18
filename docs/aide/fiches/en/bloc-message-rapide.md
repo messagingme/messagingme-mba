@@ -1,7 +1,7 @@
 ---
 description: The Quick message block of a WhatsApp scenario: the text, the file, the quick replies or the link button, and the outputs to connect.
 slug: quick-message-block
-traduit_de: fab54f
+traduit_de: 499a99
 ---
 # The Quick message block
 
@@ -14,7 +14,8 @@ needed.
 - "Variable" inserts a contact field, for example their city.
 - It only goes out in an open conversation: the contact wrote to you less than 24 hours ago. A scenario that starts
   with it therefore cannot go out as a campaign; to write first, use the Send template block.
-- Placed after a wait of 24 hours or more, it will not go out: the screen warns you.
+- Placed after a wait of 24 hours or more, or where the customer has not replied yet in a scenario started by an
+  event (a store, a date, a campaign), it will not go out: the screen warns you in yellow.
 
 **2. Attach a file, if needed.** An image, a video or a PDF, from your computer or the media library.
 

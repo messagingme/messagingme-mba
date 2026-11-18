@@ -24,6 +24,14 @@ Ce que ça change, concrètement :
   vous répondez ce que vous voulez.
 - **Un bloc Attente** ne garde pas la fenêtre ouverte : au réveil, c'est elle qui décide de ce qui peut partir. La
   fiche « Le bloc Attente » le détaille.
+- **Un scénario lancé par un événement** (une boutique Shopify, HubSpot, une date, une étiquette, une campagne) part
+  conversation close : tant que le client n'a pas répondu, seul un modèle approuvé passe. Le constructeur signale en
+  jaune chaque message libre placé là, et dit ce qui lance le scénario. Il ne refuse rien : remplacez ce bloc par un
+  modèle, ou placez-le après une réponse du client.
+- **La sortie « Pas de réponse »** d'un modèle ou d'une question part, elle aussi, sans réponse du client : la relance
+  qui la suit doit être un modèle approuvé quand la conversation n'était pas ouverte.
+- **Sur l'écran Automation**, une automation qui ne naît pas d'un message du client, et dont le scénario enverrait un
+  message libre avant toute réponse, porte l'avertissement sous son nom.
 
 **Bon à savoir.** Le réflexe à prendre : dès que le message s'adresse à quelqu'un qui ne vient pas de vous
 écrire, pensez modèle approuvé. Dès qu'il répond à quelqu'un qui vient de parler, écrivez librement.

@@ -1,7 +1,7 @@
 ---
 ecran: automations
 source_section: Automation (menu « Automation ») | Rappels avant ou après une date (menu Automation) | Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: b8651e | 08adbf | 02c6e1
+source_empreinte: b8651e | 08adbf | a3025d
 ---
 # Lancer un scénario tout seul, sans campagne
 
@@ -87,6 +87,11 @@ eux. Un contact désabonné ou bloqué ne déclenche jamais rien.
 à ce moment-là (un membre de l'équipe ou l'agent de Meta tient la conversation, ou le délai de relance court
 encore), il ne repartira qu'au prochain vrai changement. Le client n'écrivant plus quand l'analyse tourne,
 le scénario doit commencer par un envoi de modèle.
+
+**Un avertissement en jaune sous une automation** dit que son scénario enverrait un message libre (message rapide,
+question, formulaire, agent IA) avant toute réponse du client : un déclencheur qui ne naît pas d'un message (une date,
+une étiquette, un webhook) lance le scénario conversation close, et WhatsApp le refuserait. L'enregistrement passe
+quand même ; faites commencer le scénario par un modèle, ou choisissez un autre bloc de départ.
 
 **Une automation neuve est toujours créée éteinte.** Vous la relisez, puis vous l'allumez d'un clic sur son
 badge. Pour la changer, cliquez sur « Modifier » sur sa ligne : le formulaire se rouvre tel que vous l'avez

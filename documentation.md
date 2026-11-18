@@ -533,7 +533,7 @@ repos ; `executor` fait l'IO et persiste.
 | Repos rendu par `walk` | Ce que ça veut dire | Qui reprend |
 |---|---|---|
 | `waiting` | on attend une réponse du contact | `advance`, sur le message suivant |
-| `waiting` + `timeoutInMs` | bloc Question : la réponse OU l'échéance | `advance` ou `claimDueQuestions` |
+| `waiting` + `timeoutInMs` | bloc Question, ou template à délai « pas de réponse » : la réponse OU l'échéance | `advance` ou `claimDueQuestions` |
 | `sleeping` + `resumeInMs` | bloc Attente : on attend le temps | `wake-sweep` |
 | `rcs_send` | main rendue : `walk` ne peut pas savoir si le numéro est joignable | l'executor, après l'IO |
 | `agent_turn` | main rendue : `walk` ne peut pas savoir ce que le modèle décidera | l'executor, après le tour |
@@ -542,9 +542,32 @@ repos ; `executor` fait l'IO et persiste.
 | `vers_mba` | terminal, bloc « Envoyer au MBA » (RC6) : l'agent de Meta prend la conversation | l'executor, qui confie APRÈS avoir clos le parcours (`confierAuMbaParLeBloc`), sans second rendu |
 | `done` | fin de chaîne | |
 
-🔴 **Le bloc Question est le seul à attendre la réponse ET le temps.** Il reste `waiting` et porte EN PLUS un
-`resume_at` : le mettre en `sleeping` pour obtenir l'échéance ferait perdre la réponse du contact, ce qu'un
-bloc Question ne peut pas se permettre.
+🔴 **Le bloc Question et le template à délai sont les seuls à attendre la réponse ET le temps.** Ils restent `waiting`
+et portent EN PLUS un `resume_at` : les mettre en `sleeping` pour obtenir l'échéance ferait perdre la réponse du
+contact. Le délai d'un template (`timeoutValue`, `timeoutUnit`, lu par `delaiSansReponseMs`, mêmes unités et même
+plafond que la Question) ne vaut que si un template part (`actionOf` non nul) ; il retient le parcours même en mode agent
+de Meta (spec du menu « Scénario », décision 25). Sans délai, un template se comporte exactement comme avant, et une
+flèche `timeout` résiduelle n'est jamais suivie comme « suite » (`nextNodeHorsTimeout`).
+
+🔴 **La reprise d'une échéance réserve le tour, comme `advance`.** La réclamation du balayage ne pose qu'un bail sur
+`resume_at` et le parcours reste `waiting` : sans réservation, une réponse du contact arrivée pendant que le lot attend
+sa reprise passait par `advance`, puis la reprise rejouait l'instantané réclamé et envoyait la relance EN PLUS de la
+branche choisie. `resume` réserve donc le tour d'une échéance (`reserverAvance`, sous la condition du dernier message
+qu'elle a réclamé : une réponse traitée depuis, même si elle laisse le parcours sur son bloc, la fait renoncer ; refusé :
+on sort sans rien envoyer ni écrire), passe le battement du tour à ses envois comme `advance` (un bail perdu arrête les
+suivants), écrit par `setStateSiEncoreSur` avec le jeton et rend le tour dans un `finally`. Coût assumé : une réponse
+arrivée PENDANT la reprise n'avance pas le parcours et n'est pas transmise au répondeur (elle reste dans l'Inbox). Le
+réveil d'une Attente ne réserve rien : `advance` n'atteint pas un parcours `sleeping`. ⚠️ Les longues attentes
+(`explorerLesAttentes`, montage impossible et refus des sauts) ne suivent PAS la sortie « Pas de réponse » : ce qui la
+suit relève de l'analyse de fenêtre, qui prévient sans refuser (décision 16).
+
+🔴 **Un clic sur un ANCIEN message n'est pas un bouton du bloc courant.** Les sorties sont positionnelles (`btn:<i>`,
+`card:<c>:btn:<b>`, `row:<i>`) : un bouton du premier template, tapé une fois la relance partie, arrivait comme le bouton
+de même rang de la relance. Le webhook lit le message cité par le clic (`context.id`, `messageCite`) ; `advance`
+retrouve le bloc qui l'a envoyé dans les mesures d'envoi (`workflow_node_events.meta_message_id`, kind `sent`, filtré
+par espace, `blocDuMessage`) et, s'il s'agit d'un AUTRE bloc que celui où le parcours attend, lit le clic comme une
+réponse écrite. Message inconnu ou lecture en panne : la lecture positionnelle d'avant. Les payloads ne changent pas :
+l'API publique les expose tels quels (`buttonPayload`).
 
 🔴 **La réponse rangée d'un bloc Question, et la pièce jointe** (spec `docs/superpowers/specs/2026-11-02-question-fichier-champ-design.md`).
 Les réglages vivent dans `node.data` (`champReponse`, `rangerLigne`, `attendreFichier`, `genresFichier`), lus par
@@ -2086,6 +2109,18 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   identifiant qui VALIDE un choix compare donc `.rayon` elle-même, et `tests/inventaire-rayon-scenarios.test.ts` le
   tient (avec le SQL qui lit `workflows` hors du magasin) : une lecture ajoutée compare le rayon ou entre dans sa liste
   avec sa raison. Le moteur (`listEnabled`) sert les automations de tous les rayons.
+- 🔴 **LA FENÊTRE AU DÉPART : PRÉVENIR, JAMAIS REFUSER** (menu « Scénario », décisions 11, 16 et 17). Une seule analyse,
+  `analyserFenetre` (`web/lib/partage/fenetre-scenario.ts`), part des DÉPARTS d'un scénario (ouverts ou fermés) et relève
+  un message de session atteint fenêtre fermée, ou un « Aller à » vers un autre scénario atteint fermé. Une réponse ou un
+  clic rouvre la fenêtre ; la sortie « Pas de réponse » la laisse en l'état et ajoute son délai ; une Attente ajoute sa
+  durée ; 24 h cumulées ferment. Chaque délai compte au moins 60 s (le pas du balayage) : un cycle d'attentes minuscules
+  reste borné. Chaque côté fournit SA lecture des blocs (`REGLES_FENETRE_MOTEUR`, `REGLES_FENETRE_CONSOLE`), tenues
+  égales par `tests/fenetre-parite.test.ts`. Les départs viennent du serveur (`departsDuScenario`, rendus par
+  `GET /workflows/:id`) : fermé pour les rayons Shopify et HubSpot, ouvert à l'entrée pour le Builder, plus un départ
+  fermé par campagne active et par automation allumée dont le déclencheur ne naît pas d'un message
+  (`FENETRE_AU_DEPART`, aligné sur `kindsFor` du runner). `GET /automations` rend, par ligne, l'avertissement
+  (`avertissementDeLAutomation`), une seule lecture des graphes publiés pour toute la liste. Le builder affiche un bandeau
+  par constat, l'écran Automation la phrase sous la ligne ; aucune route ne refuse pour une raison de fenêtre.
 - **Les dossiers** (0229, `src/dossiers/`, routes `src/http/dossiers.ts`) : `dossiers` (`type` scenario | template,
   `nom` de 1 à 60 caractères par `char_length`, unique par espace et par type sur `lower(nom)`), `workflows.dossier_id`
   (nullable, `on delete set null`, index partiel `workflows_dossier_idx`) et `template_dossiers` (un template se range
@@ -6373,7 +6408,11 @@ suit est la règle, en une formulation courte.
    à faux (l'exécuteur publiant à part, selon le lancement).
 8. **Aucun chemin de MASSE n'émet** (action en masse, import CSV, API publique, campagne). Ajouter une
    émission sur l'un d'eux = envoi de masse involontaire et facturé. ⚠️ UNE exception, décidée et bornée : le
-   balayage du risque de désengagement émet `risque_eleve` (§ 6, « Les balayeurs du worker »).
+   balayage du risque de désengagement émet `risque_eleve` (§ 6, « Les balayeurs du worker »). ⚠️ Et la relance
+   « Pas de réponse » d'un parcours né d'un chemin de masse (campagne, workflow HubSpot, envoi à un bloc :
+   `workflow_runs.ne_en_masse`, migration 0295, figé à la naissance par `!publieLesEtiquettes`) n'émet rien tant que le
+   contact n'a pas répondu (`masseMuette` dans `resume`) ; un « Aller à » franchi alors saute en `aller_a_masse`. Le
+   réveil d'une Attente, lui, émet comme avant (question ouverte pour Julien, `todo.md`).
 9. **Un template avec en-tête média ou carousel EXIGE son média à CHAQUE envoi**, et il faut envoyer un
    `media id`, jamais un `link` : l'URL du CDN de Meta est ACCEPTÉE puis échoue deux secondes plus tard en
    `131053`, son propre téléchargeur se prenant un 403. Le piège est invisible à une sonde qui se contente de

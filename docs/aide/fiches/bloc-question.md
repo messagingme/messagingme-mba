@@ -2,7 +2,7 @@
 description: Le bloc Question d'un scénario WhatsApp : la question, le menu de réponses, la réponse rangée, le fichier attendu, le délai et les sorties.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 4
@@ -45,8 +45,11 @@ vidéo, vocal.
 
 **5. Prévoir l'absence de réponse.** « Si le contact ne répond pas » : un délai en minutes, en heures ou en jours.
 
-- 0 attend sans limite. Au-delà de 0, la sortie « Pas de réponse » apparaît sur le bloc.
+- 0 attend sans limite. Au-delà de 0, la sortie « Pas de réponse » apparaît sur le bloc ; revenir à 0 la retire, avec
+  sa flèche.
 - 30 jours au plus.
+- Ce qui suit « Pas de réponse » part sans que le client ait répondu : le constructeur signale en jaune un message
+  qui ne passerait pas la fenêtre de 24 heures.
 - « Pas de réponse » reliée à rien : le parcours s'arrête et la conversation revient à celui qui répond d'habitude à
   vos clients.
 

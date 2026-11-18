@@ -2,7 +2,7 @@
 description: Le bloc Envoyer au MBA d'un scénario WhatsApp : confier la conversation à l'agent de Meta en fin de parcours, et ce qui se passe s'il est éteint.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 10

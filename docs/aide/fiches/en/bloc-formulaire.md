@@ -1,7 +1,7 @@
 ---
 description: The Form block of a WhatsApp scenario: choose the form, its intro text, where to store the answers, and the outputs to connect.
 slug: form-block
-traduit_de: eb0842
+traduit_de: 355d13
 ---
 # The Form block
 
@@ -11,7 +11,7 @@ Sends a WhatsApp form to the contact and waits for them to submit it: their answ
 
 - Only published forms are offered. They are built in Content > WhatsApp > Forms.
 - It only goes out in an open conversation: the contact wrote to you less than 24 hours ago. A scenario that starts
-  with it therefore cannot go out as a campaign.
+  with it therefore cannot go out as a campaign. Placed where it would not get through, the screen warns you in yellow.
 - It always goes out on WhatsApp, even in an RCS journey.
 - Without a chosen form, nothing goes out and the journey stays on this block; if Meta's agent answers your
   customers, it goes through "Any other reply".

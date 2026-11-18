@@ -1,7 +1,7 @@
 ---
 description: The Question block of a WhatsApp scenario: the question, the menu of answers, the stored reply, the expected file, the delay and the outputs.
 slug: question-block
-traduit_de: b6568f
+traduit_de: ed1463
 ---
 # The Question block
 
@@ -39,8 +39,11 @@ taps to open it.
 
 **5. Plan for no reply.** "If the contact does not reply": a delay in minutes, hours or days.
 
-- 0 waits with no limit. Above 0, the "No reply" output appears on the block.
+- 0 waits with no limit. Above 0, the "No reply" output appears on the block; going back to 0 removes it, along with
+  its arrow.
 - 30 days at most.
+- What follows "No reply" goes out before the customer has replied: the builder flags in yellow a message that would
+  not get through the 24-hour window.
 - "No reply" connected to nothing: the journey stops and the conversation goes back to whoever usually answers your
   customers.
 

@@ -1156,7 +1156,7 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
 
   Un bloc dont le réglage n'est pas encore fait laisse simplement passer, il ne bloque personne.
   ⚠️ Les deux attentes datées n'ont pas de durée connue d'avance : elles comptent donc pour une attente
-  LONGUE, et le constructeur refuse un message rapide ou un formulaire derrière elles, comme après 24 h.
+  LONGUE, et le constructeur signale un message rapide ou un formulaire derrière elles, comme après 24 h.
   ⚠️ **Après une attente, seul un envoi de template peut encore partir.** WhatsApp n'accepte un message libre
   que dans les 24 h qui suivent le dernier message du client. Le constructeur signale donc en clair un montage
   « attendre 24 h ou plus, puis message rapide », en nommant les deux blocs concernés. Et si la fenêtre s'avère
@@ -1346,6 +1346,24 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
 - ✅ **Sortie par bouton** : un bloc « envoi template » affiche **une sortie par bouton de réponse rapide**
   (à relier vers le bloc suivant) ; les boutons lien/formulaire sont montrés grisés (ils sortent de WhatsApp,
   non reliables). Un bloc sans réponse rapide garde une sortie unique.
+- ✅ **« Pas de réponse après X » sur le bloc template** (2026-11-18, menu « Scénario », lot 2) : sous « Si le contact
+  ne répond pas », un délai (minutes, heures ou jours, 30 jours maximum) fait apparaître une sortie « Pas de
+  réponse », comme sur la Question. Passé ce délai sans réponse, le parcours part par là : c'est la relance
+  « template, attendre 30 min, second template ». Un clic ou une réponse écrite avant lui prennent leur sortie
+  habituelle ; un clic sur un ANCIEN message (le premier template, une fois la relance partie) compte comme une
+  réponse écrite. Un template à délai attend aussi quand l'agent de Meta répond aux clients. Repasser le délai à 0
+  retire la sortie et sa flèche.
+  - Une relance « Pas de réponse » d'un parcours né d'une campagne, d'un workflow HubSpot ou d'un envoi API à un bloc
+    **ne publie aucun « tag ajouté »** tant que le contact n'a pas répondu : sinon une campagne de mille contacts
+    lancerait mille automations au même instant.
+  - Une réponse qui arrive à l'instant même où la relance part n'avance pas le parcours : elle attend dans l'Inbox,
+    au lieu d'un double envoi.
+- ✅ **La fenêtre au départ, dite à l'écran** (2026-11-18) : un scénario lancé par un événement (boutique Shopify,
+  HubSpot, automation de date, d'étiquette ou de webhook, campagne) part conversation close. Le builder signale en
+  jaune chaque message libre (message rapide, question, formulaire, agent IA) qu'il atteindrait avant toute réponse
+  du client, avec ce qui lance le scénario et quoi faire ; la sortie « Pas de réponse » est suivie sans rouvrir la
+  fenêtre. L'écran Automation porte le même avertissement sous une automation concernée. **Rien n'est refusé** : la
+  publication et l'enregistrement passent.
 - ✅ **Exécution réelle par contact** : le scénario s'exécute vraiment, contact par contact, quel que soit son
   point de départ (campagne, déclencheur d'Automation, lien de test, appel d'API) : les blocs Action s'appliquent
   au passage (visibles sur la fiche), un bloc Condition choisit sa branche, un bloc template / formulaire /

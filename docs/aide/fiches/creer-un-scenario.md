@@ -2,7 +2,7 @@
 description: Créer un scénario WhatsApp : poser et relier les blocs, l'essayer sur son téléphone, le mettre en ligne, le ranger, puis la fiche de chaque bloc.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 1

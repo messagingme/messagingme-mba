@@ -1,7 +1,7 @@
 ---
 description: The Go to block of a WhatsApp scenario: send the contact to a block of this scenario or another one, and the rules of the jump.
 slug: go-to-block
-traduit_de: 654d2f
+traduit_de: 24451d
 ---
 # The Go to block
 
@@ -28,6 +28,7 @@ code".
   to the menu after a reply works.
 - More than 20 "Go to" chained without a pause are stopped, and the conversation goes to your team.
 - After a wait of 24 hours or more, a jump to another scenario whose first send is a quick message, a question, a form
-  or an AI agent is refused at publication. Within the same scenario, the screen only warns you.
+  or an AI agent is refused at publication. Within the same scenario, the screen only warns you; it also warns you of a
+  jump reached before any reply from the customer, behind a "No reply" output for example.
 - Placed before the first template, a jump to another scenario prevents launching the scenario as a campaign.
 - It cannot follow the "Then, without waiting" output of a quick message: the scenario cannot be published.

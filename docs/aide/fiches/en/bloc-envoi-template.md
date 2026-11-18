@@ -1,7 +1,7 @@
 ---
 description: The Send template block of a WhatsApp scenario: choose the approved template, connect its variables, its buttons and what follows.
 slug: send-template-block
-traduit_de: f234ca
+traduit_de: 33c9b0
 ---
 # The Send template block
 
@@ -42,9 +42,24 @@ arrow to the next block.
 - An emoji reaction to the template counts as another reply.
 - Connected to nothing, the journey stops and the conversation goes back to whoever usually answers your customers.
 
-**5. Chain after a template without buttons.** The block has only one dot, at the bottom: connect it to the next block.
+**5. Plan for no reply.** Under "If the contact does not reply", set a delay in minutes, hours or days (30 days at
+most): a "No reply" output appears on the block. Connect it to the follow-up.
 
-- What follows goes out when the contact replies, whatever the reply. Without a reply, the journey waits, with no time
-  limit.
-- Exception: if Meta's agent answers your customers, what follows goes out right away.
+- Once the delay passes without a reply, the journey goes that way; a button tapped or a message written before it
+  takes its usual output. The delay is kept to about the minute; on a large campaign, the follow-ups are spread out.
+- What follows this output goes out before the customer has replied: if the conversation was not open, it must be a
+  template. The builder flags it in yellow, without refusing anything.
+- A button tapped on an old message, once the follow-up has gone out, counts as a written message: it does not take
+  the branch of the follow-up's button in the same position.
+- A message that arrives at the very moment the follow-up goes out does not move the journey forward and gets no
+  automatic reply: it waits for you in the Inbox.
+- A template with a delay can no longer be sent on its own by an agent's tool.
+- Setting the delay back to 0 removes the output and its arrow.
+
+**6. Chain after a template without buttons.** The block has only one dot, at the bottom: connect it to the next block.
+
+- What follows goes out when the contact replies, whatever the reply. Without a reply, the journey waits with no time
+  limit, unless a delay is set (step 5).
+- Exception: if Meta's agent answers your customers, what follows goes out right away, unless a delay is set: the
+  block then waits for the reply.
 - If your team or Meta's agent took over the conversation, the contact's reply no longer moves the journey forward.

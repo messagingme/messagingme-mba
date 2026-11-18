@@ -2,7 +2,7 @@
 description: Le bloc Formulaire d'un scénario WhatsApp : choisir le formulaire, son accroche, où ranger les réponses, et les sorties à relier.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 5
@@ -15,7 +15,8 @@ Envoie un formulaire WhatsApp au contact et attend qu'il le renvoie : ses répon
 
 - Seuls les formulaires publiés sont proposés. Ils se construisent dans Contenu > WhatsApp > Formulaires.
 - Il ne part que dans une conversation ouverte : le contact vous a écrit il y a moins de 24 heures. Un scénario qui
-  commence par lui ne peut donc pas partir en campagne.
+  commence par lui ne peut donc pas partir en campagne. Placé là où il ne passerait pas, l'écran vous en avertit en
+  jaune.
 - Il part toujours par WhatsApp, même dans un parcours RCS.
 - Sans formulaire choisi, rien ne part et le parcours reste sur ce bloc ; si l'agent de Meta répond à vos clients, il
   passe par « Toute autre réponse ».

@@ -2,7 +2,7 @@
 description: Le bloc Assigner à un agent d'un scénario WhatsApp : arrêter le parcours et passer la conversation à un membre de l'équipe ou au pot commun.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 9

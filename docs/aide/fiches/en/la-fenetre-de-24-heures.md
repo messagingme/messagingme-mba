@@ -1,6 +1,6 @@
 ---
 slug: the-24-hour-window
-traduit_de: cc2f58
+traduit_de: f17864
 ---
 # Why my message does not go out: the 24-hour window
 
@@ -21,6 +21,14 @@ What it changes, in practice:
   whatever you want.
 - **A Wait block** does not keep the window open: when it wakes up, the window decides what can go out. The guide
   "The Wait block" explains it.
+- **A scenario started by an event** (a Shopify store, HubSpot, a date, a tag, a campaign) starts with the
+  conversation closed: until the customer replies, only an approved template gets through. The builder flags in
+  yellow each free message placed there, and says what starts the scenario. It refuses nothing: replace that block
+  with a template, or place it after a reply from the customer.
+- **The "No reply" output** of a template or a question also goes out before the customer has replied: the follow-up
+  after it must be an approved template when the conversation was not open.
+- **On the Automation screen**, an automation that does not come from a customer's message, and whose scenario would
+  send a free message before any reply, carries the warning under its name.
 
 **Good to know.** The reflex to adopt: as soon as the message goes to someone who has not just written to you, think
 approved template. As soon as it answers someone who has just spoken, write freely.

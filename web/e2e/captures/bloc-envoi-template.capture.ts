@@ -63,14 +63,26 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await capturer(page, CLE, 3, locale, undefined, 'haut', poignee(page, 'btn:1'), true);
       await capturer(page, CLE, 4, locale, undefined, 'haut', poignee(page, 'libre'), true);
 
-      // 5. Un template sans bouton et ce qui le suit.
+      // 5. La relance, sur la sortie « Pas de réponse » (un délai posé sous « Si le contact ne répond pas »).
+      const grapheRelance: Graphe = {
+        nodes: [
+          bloc('n1', 'template', 0, 60, { templateName: rdv.name, language: locale, templateButtons: rdv.buttons, variables: [], timeoutValue: 30, timeoutUnit: 'minutes' }),
+          message('n2', 360, -20, l.merci), message('n3', 360, 140, l.autreJour), envoi('n4', 360, 300, rappel),
+        ],
+        edges: [fleche('e1', 'n1', 'n2', 'btn:0'), fleche('e2', 'n1', 'n3', 'btn:1'), fleche('e3', 'n1', 'n4', 'timeout')],
+      };
+      await simulerEditeur(page, grapheRelance, l.nom[0], templates, INDICATIONS);
+      await ouvrir(page, false);
+      await capturer(page, CLE, 5, locale, undefined, 'haut', poignee(page, 'timeout'), true);
+
+      // 6. Un template sans bouton et ce qui le suit.
       const grapheRappel: Graphe = {
         nodes: [envoi('n1', 0, 0, rappel), message('n2', 0, 260, l.apresRappel)],
         edges: [fleche('e1', 'n1', 'n2')],
       };
       await simulerEditeur(page, grapheRappel, l.nom[1], templates, INDICATIONS);
       await ouvrir(page, false);
-      await capturer(page, CLE, 5, locale, undefined, 'haut', poignee(page, 'libre'), true);
+      await capturer(page, CLE, 6, locale, undefined, 'haut', poignee(page, 'libre'), true);
     });
   });
 }

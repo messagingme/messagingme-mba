@@ -2,7 +2,7 @@
 description: Le bloc Envoi template d'un scénario WhatsApp : choisir le template approuvé, relier ses variables, ses boutons et ce qui suit.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 2
@@ -47,8 +47,24 @@ bouton.
 - Un emoji en réaction au template compte comme une autre réponse.
 - Relié à rien, le parcours s'arrête et la conversation revient à celui qui répond d'habitude à vos clients.
 
-**5. Enchaîner après un template sans bouton.** Le bloc n'a qu'un point, en bas : reliez-le au bloc qui suit.
+**5. Prévoir l'absence de réponse.** Sous « Si le contact ne répond pas », posez un délai en minutes, en heures ou en
+jours (30 jours au plus) : une sortie « Pas de réponse » apparaît sur le bloc. Reliez-la à la relance.
 
-- La suite part quand le contact répond, quoi qu'il réponde. Sans réponse, le parcours attend, sans limite de temps.
-- Exception : si l'agent de Meta répond à vos clients, la suite part tout de suite.
+- Passé ce délai sans réponse, le parcours part par là ; un bouton tapé ou un message écrit avant lui prennent leur
+  sortie habituelle. Le délai est tenu à la minute près environ ; sur une grosse campagne, les relances s'étalent.
+- Ce qui suit cette sortie part sans que le client ait répondu : si la conversation n'était pas ouverte, ce doit être
+  un template. Le constructeur le signale en jaune, sans rien refuser.
+- Un bouton tapé sur un ancien message, une fois la relance partie, compte comme un message écrit : il ne prend pas
+  la branche du bouton de même rang de la relance.
+- Un message arrivé à l'instant même où la relance part ne fait pas avancer le parcours et ne reçoit pas de réponse
+  automatique : il vous attend dans l'Inbox.
+- Un template à délai ne peut plus être envoyé seul par l'outil d'un agent.
+- Repasser le délai à 0 retire la sortie et sa flèche.
+
+**6. Enchaîner après un template sans bouton.** Le bloc n'a qu'un point, en bas : reliez-le au bloc qui suit.
+
+- La suite part quand le contact répond, quoi qu'il réponde. Sans réponse, le parcours attend sans limite, sauf avec un
+  délai (étape 5).
+- Exception : si l'agent de Meta répond à vos clients, la suite part tout de suite, sauf avec un délai : le bloc
+  attend alors la réponse.
 - Si votre équipe ou l'agent de Meta a repris la conversation, la réponse du contact ne fait plus avancer le parcours.

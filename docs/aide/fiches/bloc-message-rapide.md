@@ -2,7 +2,7 @@
 description: Le bloc Message rapide d'un scénario WhatsApp : le texte, le fichier, les réponses rapides ou le bouton de lien, et les sorties à relier.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 02c6e1
+source_empreinte: a3025d
 publique: oui
 rubrique: construire-un-scenario
 rang: 3
@@ -18,7 +18,8 @@ qui ouvre une page.
 - « Variable » insère un champ du contact, par exemple sa ville.
 - Il ne part que dans une conversation ouverte : le contact vous a écrit il y a moins de 24 heures. Un scénario qui
   commence par lui ne peut donc pas partir en campagne ; pour écrire en premier, c'est le bloc Envoi template.
-- Placé après une attente de 24 heures ou plus, il ne partira pas : l'écran vous en avertit.
+- Placé après une attente de 24 heures ou plus, ou là où le client n'a pas encore répondu dans un scénario lancé par
+  un événement (une boutique, une date, une campagne), il ne partira pas : l'écran vous en avertit en jaune.
 
 **2. Joindre un fichier, si besoin.** Une image, une vidéo ou un PDF, depuis votre ordinateur ou la médiathèque.
 
