@@ -100,6 +100,39 @@ Les jaunes 1 à 4, 7, 10 et 12 à 14 de cette relecture sont corrigés avec la c
 - `GET /workflows/:id/modeles`, sondé toutes les 15 s quand un template attend : `getById` relit les deux graphes, puis
   `publicationProgrammee` un troisième.
 
+## 🟡 Le pont du parcours d'événement : ce qui reste après la relecture de 4b (2026-11-18, aucun rouge)
+
+Le pont est éteint : rien ne pose `campaigns.parcours_evenement` avant le lot 5. Les points 1 et 2 se tranchent dans le
+plan du lot 5, AVANT que le pont s'allume ; le reste part avec lui.
+
+- **Le clic sur le premier message d'un SECOND événement va au premier parcours.** Reproduit sur le vrai exécuteur :
+  panier A, son parcours naît sur `tpl` et attend ; panier B, même template, la naissance de B est refusée (place prise)
+  mais sa mesure « envoyé » pointe sur `tpl` ; un clic sur le message B trouve A (`parcoursDuClic`), qui envoie le lien
+  de l'ANCIEN panier. Sur un autre bloc, le clic sur « commande expédiée » est lu comme une réponse écrite par le
+  parcours « commande payée », qui se clôt (décision 22) : contraire à l'esprit de la décision 3. Cause : la mesure
+  désigne un bloc, pas un parcours. Piste : passer l'identifiant Meta du message à la naissance, le garder avec
+  l'événement, et ne router vers un parcours d'événement que le clic sur SON message (l'arbitrage de la tâche 3, « le
+  départ porte le modèle, pas l'identifiant ; coût : aucun », était faux).
+- **La relance automatique redemande le parcours** : `resetForRetry` reprend un destinataire `sent` dont la livraison a
+  échoué (131049, 131026), et le run redemande alors la naissance. Premier parcours vivant : refus, le destinataire dit
+  « Parcours non né » alors qu'il existe, et ce parcours né sur un message non livré tient la place jusqu'à 72 h.
+  Premier parcours fini : un second naît et la suite repart une seconde fois.
+- **L'ordre des écritures** : la naissance tourne entre l'acceptation de Meta et l'écriture du destinataire et du fil.
+  Quand la suite part aussitôt, un accusé traité pendant ce temps ne trouve pas son destinataire (un `failed` compté
+  comme l'échec d'un message libre, sans relance), et l'Inbox montre la suite avant le premier template. Même ordre que
+  « message et scénario » : à accepter ou à réordonner au lot 5.
+- **Tests manquants** : le numéro délié et le crédit levés par la naissance (deux mutations passent les tests du
+  commit) ; les cas « jamais sur un échec » un par un ; le test « sans la colonne » tourne sans les deux capacités que la
+  production câble toujours ; le filtre `!cible.workflowId && !cible.rcs` de `envoi-public` (sans effet aujourd'hui,
+  mais rien n'efface la colonne d'une campagne RCS).
+- **Code recopié** : `payloadsDesReponsesRapides` recopie la ligne des réponses rapides de `buildWorkflowTemplateComponents`
+  (`src/workflow/template-send.ts`), alors que `src/meta/template-components.ts` se dit le seul constructeur.
+- **DRY_RUN** : `mesurerEnvoiDuBloc` et `naitreParcoursEvenement` sont câblées hors du bloc `dryRun` du worker,
+  contrairement à `noterJoignabilite` : en DRY_RUN, une mesure inventée s'écrirait (sans effet en production, LIVE).
+- **Pour l'adaptateur du lot 5** : tirer `modele` et `boutons` du bloc par `actionOf` (sinon la naissance refuse, ou les
+  index des boutons dérivent) ; `r.variables` porte TOUTES les variables de l'événement, pas seulement celles du
+  premier template.
+
 ## 🟡 Le moteur des parcours d'événement : ce qui reste après la relecture de 4a (2026-11-18, aucun rouge)
 
 Rien ne fait naître de parcours d'événement avant le lot 5 : ces points sont à régler AVANT lui, avec lui. Le point 2 de
