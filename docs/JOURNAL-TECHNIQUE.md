@@ -4,6 +4,35 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-18 : le menu de la vitrine en cascade, et la page « Avec votre IA » (en ligne)
+
+**La demande** (Julien) : sous Solutions, trois sous-menus qui s'ouvrent à droite (Fonctionnalités, Secteurs dont SaaS
+et app builders, Intégrations : Shopify et Deep HubSpot), plus de Fonctionnalités au premier niveau ; dans Ressources,
+la documentation développeurs et ses cinq briques ; renommer « Développeurs » ; et que la page montre dès l'ouverture
+qu'on CONSTRUIT WhatsApp dans son app et qu'on PILOTE tout par MCP depuis n'importe quelle IA, scénarios compris.
+Spec `docs/superpowers/specs/2026-11-18-menu-solutions-et-page-avec-votre-ia-design.md`, deux plans (lots 1 et 2).
+
+**Décisions de Julien** : « Avec votre IA » (« With your AI ») ; les sept cas SaaS sortent du menu ; Ressources garde
+la page Intégrations sous le nom « Guides d'intégration » (Solutions = le fonctionnel, Ressources = l'aide technique) ;
+accordéons Build / Run face à face ; moteurs nommés ChatGPT, Mistral, Perplexity (plus Claude, Codex, Cursor), Gemini
+retiré ; une pastille d'offre par volet Run, calculée.
+
+**Lot 1, le menu** (`ecb4f3cc4`) : `<details name>` imbriqués, clic sans script, survol après un arrêt. Mesuré au
+navigateur : à 150 ms, une diagonale vers le panneau ouvert dépliait la ligne traversée en anglais ; 400 ms quand une
+voisine est ouverte tiennent des gestes de 0,1 à 0,3 s. La relecture a trouvé que le clic qui suit un survol refermait
+le panneau (reproduit : tout fermé), corrigé avant le push. Le test voisin `vitrine-aide` coupait Ressources au
+premier `</details>`, celui de la cascade.
+
+**Lot 2, la page** (`0cc171c75`) : premier écran Build (fenêtre Claude Code, gratuit) et Run (conversation neutre, un
+moteur par volet, pastille Pro ou Free par `offreDeLaCarte`), voie « Votre IA » (connecteur MCP), scénarios au
+catalogue. Trois écarts trouvés en route : `data-offre` servait déjà aux prix (attribut `data-offre-volet`) ; les
+logos ajoutés au jeu d'icônes de la tête se sont recopiés dans 130 pages générées (la page sert de gabarit à `cas.ts`
+et `aide.ts`), déplacés dans le `<main>` ; le lien de la ligne scénarios vers le centre d'aide entrait dans le README
+du plugin, ce que `aide-connexion-adresses` refuse. La relecture a trouvé un rouge : le volet scénario envoyait un
+scénario ouvrant par un message de session, que `send_scenario_to_contact` refuse en 422 ; il part désormais d'un
+modèle approuvé. CI verte job par job sur les deux commits. Restent : l'essai réel des connecteurs (ChatGPT, Mistral,
+Perplexity), la publication du plugin (README changé) et les jaunes de `todo.md`.
+
 ## 2026-11-18 : le numéro fourni qui n'a jamais servi revient au stock (en production)
 
 **La demande** : « si un numéro n'a pas pu être rattaché à un espace, parce que le code n'a pas pu être obtenu, ou qu'il
