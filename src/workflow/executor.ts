@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, lienPourLeContact, pauseEnSecondes, questionRows, valeurPourCible } from './engine';
+import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, lienPourLeContact, pauseEnSecondes, questionRows, valeurPourCible, delaiSansReponseMs } from './engine';
 import type { WalkStep } from './engine';
 import type { WorkflowAction, WalkRest, WorkflowButton, SendEmailAction, QuestionRow, LienBouton } from './engine';
 import type { WorkflowGraph, WorkflowNode, WorkflowNodeType } from './graph';
@@ -8,7 +8,7 @@ import { renderText } from '../crm/render';
 import type { ParamSource } from '../crm/template';
 import { besoinsDesClauses, clausesDuBloc, type BesoinsContexte, type EvalContext } from './conditions';
 import type { RunState, WorkflowRunRow, RunChannel, RunStatus } from './run-store.pg';
-import type { EvenementDuParcours } from './evenement';
+import { PLAFOND_ATTENTE_EVENEMENT_MS, type EvenementDuParcours } from './evenement';
 import type { RcsSender } from '../rcs/sender';
 import type { RcsOutbound, RcsSuggestion } from '../rcs/types';
 import { rcsSuggestionSchema, apercuRcsSortant } from '../rcs/schema';
@@ -591,6 +591,23 @@ function pieceAttendue(node: WorkflowNode, entrant: EntrantAvance): GenrePiece |
   if (genres === null || entrant.media === undefined) return null;
   const genre = classerPiece(entrant.type ?? '', entrant.media.mime);
   return genre !== null && genres.includes(genre) ? genre : null;
+}
+
+/**
+ * L'attente bornée d'un parcours d'événement (lot 4, décision 29) : un repos `waiting` sans échéance (template à boutons
+ * sans délai, message à boutons, formulaire, question sans délai) reçoit le plafond ; au réveil, `reprendre` le clôt. Le
+ * bloc agent (son inactivité a sa propre échéance), le sommeil et les autres repos ne changent pas.
+ */
+export function plafonnerAttente(rest: WalkRest, state: RunState, evenement: boolean, now: number): RunState {
+  if (!evenement || rest.status !== 'waiting' || rest.timeoutInMs !== undefined) return state;
+  return { ...state, resumeAt: new Date(now + PLAFOND_ATTENTE_EVENEMENT_MS) };
+}
+
+/** Le bloc a-t-il une échéance à lui (délai « pas de réponse » d'un template ou d'une question, inactivité d'un agent) ? */
+export function aUneEcheancePropre(node: WorkflowNode | undefined): boolean {
+  if (!node) return false;
+  if (node.type === 'agent') return true;
+  return (node.type === 'template' || node.type === 'question') && delaiSansReponseMs(node) > 0;
 }
 
 export function restToState(rest: WalkRest, now: number): RunState {
@@ -1257,6 +1274,16 @@ export class WorkflowExecutor {
     // réponse qui décide de la suite : `nextNode` enverrait un contact silencieux dans la branche du premier câblage venu.
     // Une échéance consommée sur un bloc agent est une inactivité. Les autres sorties de `resume` closent la
     // session en `erreur`, parce qu'elles tuent le parcours pour une autre raison que le silence du contact.
+    // 🔴 L'ATTENTE BORNÉE D'UN PARCOURS D'ÉVÉNEMENT (décision 29). Un bloc sans échéance propre ne peut s'être réveillé que
+    // par le plafond : le parcours se clôt sans rien envoyer, et ne suit JAMAIS une flèche `timeout` (même laissée sur un
+    // template sans délai, ce que `parseGraph` tolère).
+    if (parEcheance && run.evenement !== null && !aUneEcheancePropre(graph.nodes.find((n) => n.id === run.currentNode))) {
+      // eslint-disable-next-line no-console
+      console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} clos au plafond d’attente pour ${waId}`);
+      await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
+      await clore({ currentNode: null, status: 'done' });
+      return false;
+    }
     if (parEcheance) await this.cloreSessionDuRun(tenantId, run.id, 'inactivite', SORTIE_TIMEOUT);
     const suite = parEcheance
       ? nextNodeByHandle(graph, run.currentNode, SORTIE_TIMEOUT)
@@ -1273,7 +1300,7 @@ export class WorkflowExecutor {
       return false;
     }
     const ctx = await this.buildCtx(tenantId, waId, graph);
-    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, suite, ctx, true, run.id, run.channel ?? 'whatsapp', garde);
+    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, suite, ctx, true, run.id, run.channel ?? 'whatsapp', garde, run.evenement !== null);
     if (run.evenement !== null && (actions.length > 0 || rest.status !== 'done')) await this.prendreLaMain(tenantId, waId, run.id);
 
     // Fenêtre de service fermée : on écarte les seuls messages de session (131047) et on applique le reste,
@@ -1387,7 +1414,7 @@ export class WorkflowExecutor {
     }
     // Seulement si le parcours vit encore : un autre chemin a pu le clore pendant nos envois, et écrire sans
     // regarder le ressusciterait avec son échéance.
-    const etat = { ...restToState(rest, this.now()), channel: canal };
+    const etat = { ...plafonnerAttente(rest, restToState(rest, this.now()), run.evenement !== null, this.now()), channel: canal };
     if (!(await ecrireVivant(etat))) return false;
     // Un envoi refusé alors qu'un autre message de l'étape est parti : la raison va au journal.
     await this.journaliserRefus(tenantId, waId, origine, refusDesBlocs, 'partiel');
@@ -1590,6 +1617,8 @@ export class WorkflowExecutor {
     canalEntrant: RunChannel = 'whatsapp',
     /** Même garde que dans `apply` : ce parcours envoie du RCS en ligne, il n'est pas qu'un calcul. */
     garde?: GardeDuTour,
+    /** Le parcours d'un événement (lot 4, décision 29) : une étape sans choix ne le retient pas. */
+    evenement = false,
   ): Promise<{ actions: WalkStep[]; rest: WalkRest; canal: RunChannel }> {
     const actions: WalkStep[] = [];
     let canal: RunChannel = canalEntrant;
@@ -1597,7 +1626,7 @@ export class WorkflowExecutor {
     for (let i = 0; i < MAX_RCS_ENCHAINES; i++) {
       // `attendreLesAppels` : ce chemin sait reprendre un parcours endormi (réveil court), donc une Condition qui suit un
       // Appel API ou une Fonction JS lira la valeur rangée, pas celle d'avant l'appel (plan `2026-11-11-appel-api-puis-condition.md`).
-      const r = walk(graph, depart, ctx, { mbaActif: await this.mbaActif(tenantId), attendreLesAppels });
+      const r = walk(graph, depart, ctx, { mbaActif: await this.mbaActif(tenantId), attendreLesAppels, evenement });
       actions.push(...r.actions);
       if (r.rest.status !== 'rcs_send') return { actions, rest: r.rest, canal };
 
@@ -1929,7 +1958,8 @@ export class WorkflowExecutor {
     const ctx = await this.buildCtx(tenantId, contact.waId, graph);
     // `sendKey` aléatoire : le run n'existe pas encore en base. Ce qui protège d'un double envoi ici, c'est le
     // claim atomique du destinataire côté campagne, pas l'idempotence RBM.
-    const { actions: marchees, rest, canal: apresWalk } = await this.walkResolved(tenantId, contact.waId, graph, startNodeId, ctx, opts.politique.publieLesEtiquettes, randomUUID());
+    const { actions: marchees, rest, canal: apresWalk } = await this.walkResolved(tenantId, contact.waId, graph, startNodeId, ctx, opts.politique.publieLesEtiquettes, randomUUID(),
+      'whatsapp', undefined, (opts.evenement ?? null) !== null);
     // Départ `deja_envoye` : le template du bloc de départ est DÉJÀ parti (le moteur de campagne l'a envoyé, Meta l'a
     // accepté) ; seule sa suite part d'ici.
     const actions = opts.dejaEnvoye ? sansLEnvoiDuBloc(marchees, startNodeId) : marchees;
@@ -1988,7 +2018,7 @@ export class WorkflowExecutor {
     // message rapide suivant part en RCS. Le message qui a démarré le parcours, quand l'appelant le nomme, naît déjà
     // reçu : redélivré, `advance` le reconnaît (`lastMessageId`) au lieu de le prendre pour une réponse.
     const state = {
-      ...restToState(rest, this.now()), channel: canal,
+      ...plafonnerAttente(rest, restToState(rest, this.now()), (opts.evenement ?? null) !== null, this.now()), channel: canal,
       ...(opts.messageDeclencheur !== undefined ? { lastMessageId: opts.messageDeclencheur } : {}),
     };
     // Un « Aller à » vers un autre scénario remplace aussi, même sans rien avoir envoyé : la conversation CONTINUE
@@ -2510,7 +2540,7 @@ export class WorkflowExecutor {
       return;
     }
     const ctx = await this.buildCtx(tenantId, waId, graph);
-    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, next, ctx, true, run.id, run.channel ?? 'whatsapp', battement);
+    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, next, ctx, true, run.id, run.channel ?? 'whatsapp', battement, run.evenement !== null);
     if (run.evenement !== null) await this.prendreLaMain(tenantId, waId, run.id);
     // Le numéro avant tout effet : l'exception sort sans rien écrire, le parcours reste sur son bloc, et le message
     // suivant du contact (après le paiement ou le « Relier ») le fera avancer. Sans elle, chaque message rejouerait
@@ -2547,7 +2577,7 @@ export class WorkflowExecutor {
         return;
       }
     }
-    const etat = { ...restToState(rest, this.now()), lastMessageId: messageId, channel: canal };
+    const etat = { ...plafonnerAttente(rest, restToState(rest, this.now()), run.evenement !== null, this.now()), lastMessageId: messageId, channel: canal };
     const ecrit = await ecrire(etat);
     if (ecrit) await this.apresSommeil(tenantId, run.id, etat, canal, messageId, graph);
     // Un envoi refusé alors qu'un autre message de l'étape est parti : la raison va au journal, seulement si l'écriture a

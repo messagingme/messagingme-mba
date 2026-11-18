@@ -11,7 +11,8 @@ import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
 import type { WorkflowRow } from '../src/workflow/store.pg';
 import type { ControlOwner } from '../src/inbox/store.pg';
 import type { RunState, WorkflowRunRow } from '../src/workflow/run-store.pg';
-import type { EvenementDuParcours } from '../src/workflow/evenement';
+import { PLAFOND_ATTENTE_EVENEMENT_MS, type EvenementDuParcours } from '../src/workflow/evenement';
+import { walk } from '../src/workflow/engine';
 import { DROITS, type Offre } from '../src/offres/offres';
 
 /**
@@ -28,7 +29,7 @@ const n = (id: string, type: WorkflowNodeType, data: Record<string, unknown> = {
 /** Le panier abandonné : un template à deux boutons, chacun relié à sa suite. */
 const PANIER: WorkflowGraph = {
   nodes: [
-    n('tpl', 'template', { templateName: 'panier_relance', language: 'fr', templateButtons: ['Reprendre', 'Plus tard'] }),
+    n('tpl', 'template', { templateName: 'panier_relance', language: 'fr', templateButtons: [{ type: 'QUICK_REPLY', text: 'Reprendre' }, { type: 'QUICK_REPLY', text: 'Plus tard' }] }),
     n('qm1', 'quick_message', { body: 'Voici votre panier' }),
     n('qm2', 'quick_message', { body: 'À bientôt' }),
   ],
@@ -64,6 +65,10 @@ interface Options {
   /** `start` rend le refus de l'index unique (un autre événement a gagné la course). */
   courseperdue?: boolean;
   offre?: Offre;
+  /** L'horloge de l'exécuteur (`now`), pour lire une échéance. */
+  maintenant?: number;
+  /** Le scénario du panier, remplacé. */
+  scenario?: Pick<WorkflowRow, 'graph' | 'draftGraph' | 'rayon'>;
 }
 
 /** Le vrai exécuteur sur le vrai contrôle du fil ; le faux magasin note ce qu'on lui demande. */
@@ -100,12 +105,13 @@ function banc(o: Options = {}) {
     sendQuestion: async () => {},
     mayAct: b.fil.peutAgir,
     reclaimControl: b.fil.reprendrePourLApp,
+    ...(o.maintenant !== undefined ? { now: () => o.maintenant as number } : {}),
   };
   const executor = new WorkflowExecutor(deps);
   const offre = o.offre ?? 'entreprise';
   const lancements = creerLancements({
     executor,
-    scenarios: { getById: async (id) => SCENARIOS[id] ?? null },
+    scenarios: { getById: async (id) => (id === 'wf-panier' && o.scenario ? o.scenario : SCENARIOS[id] ?? null) },
     contacts: { findIdByWaId: async () => 'c-fiche' },
     offres: { offreDe: async () => ({ offre, droits: DROITS[offre], retourEnBaseLe: null }) },
   });
@@ -235,7 +241,7 @@ describe('devant un parcours d’événement actif : qui cède, qui coexiste, qu
  */
 const PANIER_DELAI: WorkflowGraph = {
   nodes: [
-    n('tpl', 'template', { templateName: 'panier_relance', language: 'fr', templateButtons: ['Reprendre', 'Plus tard'], timeoutValue: 30, timeoutUnit: 'minutes' }),
+    n('tpl', 'template', { templateName: 'panier_relance', language: 'fr', templateButtons: [{ type: 'QUICK_REPLY', text: 'Reprendre' }, { type: 'QUICK_REPLY', text: 'Plus tard' }], timeoutValue: 30, timeoutUnit: 'minutes' }),
     n('qm1', 'quick_message', { body: 'Voici votre panier' }),
     n('qm2', 'quick_message', { body: 'À bientôt' }),
     n('tpl2', 'template', { templateName: 'panier_rappel', language: 'fr' }),
@@ -273,6 +279,8 @@ interface OptionsReprise {
   voulu?: boolean;
   /** Le parcours le plus récent en attente (le défaut : celui de l'événement). */
   dernier?: WorkflowRunRow;
+  /** Le graphe du panier lu au réveil (le défaut : le panier à délai). */
+  graphe?: WorkflowGraph;
 }
 
 function bancReprise(o: OptionsReprise = {}) {
@@ -299,7 +307,7 @@ function bancReprise(o: OptionsReprise = {}) {
       closeActiveByWaId: async () => [],
       cloreAutresActifs: async (_t: string, _w: string, saufId: string) => { priseDeMain.push(saufId); return []; },
     }),
-    getGraph: async (wf) => (wf === 'wf-panier' ? PANIER_DELAI : wf === 'wf-repondeur' ? REPONDEUR : null),
+    getGraph: async (wf) => (wf === 'wf-panier' ? (o.graphe ?? PANIER_DELAI) : wf === 'wf-repondeur' ? REPONDEUR : null),
     applyTag: async () => true,
     setField: async () => {},
     removeTag: async () => {},
@@ -421,5 +429,74 @@ describe('le réveil d’un parcours d’événement (resume)', () => {
     expect(await m.executor.resume({ ...runOrdinaire(), status: 'waiting' })).toBe(true);
     expect(m.envois).toEqual(['tpl:repondeur_relance']);
     expect(m.priseDeMain).toEqual([]);
+  });
+});
+
+/**
+ * L'ATTENTE BORNÉE D'UN PARCOURS D'ÉVÉNEMENT (lot 4, décision 29). Sans elle, un template à boutons sans délai (ou un
+ * message à boutons, un formulaire, une question sans délai) garderait à vie la place unique du contact, et chaque
+ * événement suivant de ce client n'enverrait plus que son premier message.
+ */
+const MAINTENANT = 1_000_000_000;
+const PLAFOND_72_H = 72 * 3600 * 1000;
+
+describe('l’attente bornée d’un parcours d’événement (décision 29)', () => {
+  it('🔴 la marche d’un parcours d’événement ne s’arrête pas sur un template sans bouton ni délai ; celle d’un ordinaire, si', () => {
+    const g: WorkflowGraph = {
+      nodes: [n('a', 'template', { templateName: 'confirmation', language: 'fr' }), n('b', 'template', { templateName: 'merci', language: 'fr' })],
+      edges: [{ id: 'e', source: 'a', target: 'b' }],
+    };
+    const evenement = walk(g, 'a', undefined, { evenement: true });
+    expect(evenement.actions.map((s) => s.nodeId)).toEqual(['a', 'b']);
+    const ordinaire = walk(g, 'a', undefined, {});
+    expect(ordinaire.actions.map((s) => s.nodeId)).toEqual(['a']);
+    expect(ordinaire.rest).toEqual({ status: 'waiting', nodeId: 'a' });
+  });
+
+  it('🔴 à la naissance, une attente sans échéance (boutons, sans délai) reçoit le plafond de 72 h', async () => {
+    silence();
+    const m = banc({ maintenant: MAINTENANT });
+    expect(await m.lancements.lancer(naissance())).toBe(true);
+    expect(m.crees[0]!.state.resumeAt).toEqual(new Date(MAINTENANT + PLAFOND_72_H));
+    expect(PLAFOND_ATTENTE_EVENEMENT_MS).toBe(PLAFOND_72_H);
+  });
+
+  it('un template à délai garde SON délai, pas le plafond', async () => {
+    silence();
+    const m = banc({ maintenant: MAINTENANT, scenario: { graph: PANIER_DELAI, draftGraph: null, rayon: 'shopify' } });
+    expect(await m.lancements.lancer(naissance())).toBe(true);
+    expect(m.crees[0]!.state.resumeAt).toEqual(new Date(MAINTENANT + 30 * 60_000));
+  });
+
+  it('🔴 une confirmation sans bouton ni délai ne retient pas : la suite part aussitôt, et rien n’attend', async () => {
+    silence();
+    const confirmation: WorkflowGraph = {
+      nodes: [n('tpl', 'template', { templateName: 'panier_relance', language: 'fr' }), n('t2', 'template', { templateName: 'merci', language: 'fr' })],
+      edges: [{ id: 'e', source: 'tpl', target: 't2' }],
+    };
+    const m = banc({ scenario: { graph: confirmation, draftGraph: null, rayon: 'shopify' } });
+    expect(await m.lancements.lancer(naissance())).toBe(true);
+    expect(m.envois).toEqual(['tpl:merci']);
+    expect(m.crees).toEqual([]);
+  });
+
+  it('🔴 un parcours ORDINAIRE n’a pas de plafond : son attente sans délai reste sans échéance', async () => {
+    silence();
+    const m = banc({ detenteur: 'app_workflow', maintenant: MAINTENANT });
+    const issue = await m.lancements.lancer({ type: 'campagne_scenario', tenantId: ESPACE, workflowId: 'wf-builder', waId: WA, contactId: 'c1' });
+    expect(issue).toBe(true);
+    expect(m.crees[0]!.state.resumeAt).toBeUndefined();
+  });
+
+  it('🔴 au réveil par le plafond : clos, rien ne part, et la flèche « pas de réponse » laissée sur un template SANS délai n’est pas suivie', async () => {
+    silence();
+    const residuel: WorkflowGraph = {
+      nodes: [...PANIER.nodes, n('tpl2', 'template', { templateName: 'panier_rappel', language: 'fr' })],
+      edges: [...PANIER.edges, { id: 'e9', source: 'tpl', target: 'tpl2', sourceHandle: 'timeout' }],
+    };
+    const m = bancReprise({ graphe: residuel });
+    expect(await m.executor.resume({ ...runEvenement(), status: 'waiting' })).toBe(false);
+    expect(m.envois).toEqual([]);
+    expect(m.ecritures).toEqual(['r-evt:done']);
   });
 });

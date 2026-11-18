@@ -970,6 +970,12 @@ export interface WalkOptions {
    * relu. Posée par `walkResolved` seul : les autres appelants ne savent pas reprendre un parcours endormi.
    */
   attendreLesAppels?: boolean;
+  /**
+   * Le parcours d'un ÉVÉNEMENT (lot 4, décision 29) : comme sous l'agent de Meta, une étape qui n'offre aucun choix ne le
+   * retient pas (un template sans bouton ni délai, la confirmation d'une commande) ; sinon il garderait la place unique du
+   * contact sans rien attendre. Un template à délai attend toujours son délai.
+   */
+  evenement?: boolean;
 }
 
 /** Le sommeil d'un parcours arrêté après un appel : le plus court possible, le réveil court le reprend aussitôt. */
@@ -1101,7 +1107,7 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
       if (delai > 0) return { actions, rest: { status: 'waiting', nodeId: current, timeoutInMs: delai } };
       // Sans MBA : seul un message rapide sans bouton continue. Avec MBA : toute étape qui n'offre pas de choix
       // continue, l'agent de Meta répondant à sa place.
-      const continuer = !etapeOffreUnChoix(a) && (opts?.mbaActif === true || a?.kind === 'sendQuickMessage');
+      const continuer = !etapeOffreUnChoix(a) && (opts?.mbaActif === true || opts?.evenement === true || a?.kind === 'sendQuickMessage');
       if (continuer) {
         // Un formulaire traversé n'a rien envoyé, donc rien n'a pu être rempli : « Toute autre réponse » (l'arête
         // libre), jamais la 1re arête venue, qui peut être « Formulaire rempli ». Même règle pour tout bloc qui n'a rien
