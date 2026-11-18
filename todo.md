@@ -1,5 +1,19 @@
 # todo.md : backlog
 
+## 🟡 Numéro fourni, après les lots 3 à 5 (2026-11-17)
+
+Les jaunes des trois relectures sont au plan `docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md`
+(sections des lots 3, 4 et 5), pour le prochain lot de fonctionnalité. Les plus utiles :
+
+- Deux boutons du même nom, « Ouvrir la fenêtre de Meta » (la fenêtre ordinaire et celle qui garde l'application) : la
+  3e condition chez Meta, lue en `apporte`, désigne alors le mauvais. Désigner la voie plutôt que le libellé.
+- Dans la carte du numéro mis dans l'application, le prix vient avant « Puis, une fois cette opération faite » : le
+  placer après.
+- Les demandes à coller en Pro disent encore « (inclus en formule Pro) » sous le prix de l'essai.
+- Aucun e2e du prix en essai ni du numéro inclus (`simulerNumeroFourni` avec `essaiPro`, `inclusDansLePro`).
+- Le film du guide « Garder mon application WhatsApp Business » montre probablement l'ancien libellé du bouton.
+- Les essais réels des lots 1 à 3 et 5, dont le 2e compte dans l'application sur iPhone et sur Android.
+
 ## 🟡 Le rayon des scénarios, lot 1 du menu « Scénario » (relecture du 2026-11-18, aucun rouge) : avec le lot 2, au plus tard avant le lot 5
 
 Plan `docs/superpowers/plans/2026-11-18-menu-scenario-lot-1-rayons.md`. Inatteignable tant qu'aucun scénario n'est
