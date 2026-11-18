@@ -82,7 +82,11 @@ export function analyserFenetre<N extends NoeudOuverture>(
   for (const depart of effectifs) {
     const premier = depart.noeudId === null ? entreeDuGraphe(graph) : parId.get(depart.noeudId) ?? null;
     if (!premier) continue;
-    const vus = new Set<string>();
+    // 🔴 UNE SEULE VALEUR PAR BLOC, PAR DOMINANCE (relecture de 2b-1, rouge). Un état exact (bloc, ouverte, cumul) se
+    // multipliait par combinaison de durées : trois boucles d'attentes fractionnaires sur un même bloc faisaient 46 s et
+    // 1,4 Go. Or tout constat atteignable depuis un cumul ouvert l'est aussi depuis un cumul plus grand, et depuis une
+    // fenêtre fermée : on ne repart d'un bloc que si l'on y arrive « pire » qu'avant (comme `explorerLesAttentes`).
+    const meilleur = new Map<string, number>();
     const aExplorer: Array<{ id: string; ouverte: boolean; cumulMs: number }> = [
       { id: premier.id, ouverte: depart.fenetre === 'ouverte', cumulMs: 0 },
     ];
@@ -90,9 +94,10 @@ export function analyserFenetre<N extends NoeudOuverture>(
       const etat = aExplorer.pop()!;
       const cumul = Math.min(etat.cumulMs, FENETRE_MS);
       const ouverte = etat.ouverte && cumul < FENETRE_MS;
-      const cle = `${etat.id}|${ouverte ? 1 : 0}|${cumul}`;
-      if (vus.has(cle)) continue;
-      vus.add(cle);
+      const rang = ouverte ? cumul : Number.POSITIVE_INFINITY;
+      const deja = meilleur.get(etat.id);
+      if (deja !== undefined && deja >= rang) continue;
+      meilleur.set(etat.id, rang);
       const noeud = parId.get(etat.id);
       if (!noeud) continue;
 

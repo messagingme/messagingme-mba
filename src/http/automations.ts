@@ -15,6 +15,20 @@ import { espaceVerifie, estUuid, nonEmpty } from './scope';
 import type { WorkflowGraph } from '../workflow/graph';
 import { avertissementDeLAutomation } from '../workflow/fenetre-moteur';
 
+/**
+ * L'avertissement de fenêtre d'une automation, qui ne fait JAMAIS tomber la liste (relecture de 2b-1) : il ne fait que
+ * prévenir, et un graphe illisible ou une analyse en échec laissent la ligne sans phrase.
+ */
+function avertir(...args: Parameters<typeof avertissementDeLAutomation>): string | null {
+  try {
+    return avertissementDeLAutomation(...args);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('avertissement de fenêtre ignoré:', err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
 export interface AutomationsDep {
   list(tenantId: string, rayon: Rayon): Promise<AutomationRow[]>;
   /** Une automation par id (scopée tenant). Lecture ciblée : `list` est capée, donc aveugle au-delà du plafond. */
@@ -297,7 +311,7 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     const graphes = await deps.graphesPublies(tenant, [...new Set(lues.map((a) => a.workflowId))]);
     const automations = lues.map((a) => {
       const graphe = graphes.get(a.workflowId);
-      return { ...a, avertissementFenetre: graphe ? avertissementDeLAutomation(a.triggerKind, a.startNodeId, graphe) : null };
+      return { ...a, avertissementFenetre: graphe ? avertir(a.triggerKind, a.startNodeId, graphe) : null };
     });
     // L'adresse de l'admin qui a coché la case d'accord marketing ne sort que pour un admin (relecture du lot 3b) : un
     // agent lit la liste, il n'a pas à connaître l'adresse d'un collègue. Qui (son identifiant) et quand restent.

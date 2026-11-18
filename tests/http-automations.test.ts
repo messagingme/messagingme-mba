@@ -6,6 +6,7 @@ import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { AutomationRouteDeps, AutomationsDep } from '../src/http/automations';
 import type { AutomationInput } from '../src/automation/store.pg';
 import { AUTOMATION_TRIGGER_KINDS } from '../src/automation/match';
+import type { WorkflowGraph } from '../src/workflow/graph';
 
 /**
  * Routes Automation. Une automation ACTIVE écrit à des clients réels sans qu'un humain relise : ces routes
@@ -607,6 +608,22 @@ describe('🔴 GET /automations : l’avertissement de fenêtre de chaque ligne 
   it('un scénario sans graphe publié lisible : aucun avertissement, et la liste répond', async () => {
     const { server } = app({ list: async () => [ligne('date', 'avant_date')] });
     const res = await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(adminTok) });
+    expect(res.json<{ automations: Array<{ avertissementFenetre: string | null }> }>().automations[0]?.avertissementFenetre).toBeNull();
+    await server.close();
+  });
+});
+
+describe('🔴 GET /automations ne tombe jamais pour un avertissement (relecture de 2b-1)', () => {
+  it('une analyse qui jette laisse la ligne sans avertissement, et la liste répond', async () => {
+    const ligne = {
+      id: 'date', tenantId: 't1', name: 'date', enabled: true, triggerKind: 'avant_date' as const, triggerConfig: {}, conditionGroup: null,
+      workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const,
+    };
+    // Un graphe dont la lecture jette : `nodes` n'est pas un tableau.
+    const casse = { nodes: null, edges: [] } as unknown as WorkflowGraph;
+    const { server } = app({ list: async () => [ligne] }, { graphesPublies: async () => new Map([['wf1', casse]]) });
+    const res = await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(adminTok) });
+    expect(res.statusCode).toBe(200);
     expect(res.json<{ automations: Array<{ avertissementFenetre: string | null }> }>().automations[0]?.avertissementFenetre).toBeNull();
     await server.close();
   });

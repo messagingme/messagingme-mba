@@ -94,6 +94,30 @@ describe('🔴 l’analyse de fenêtre au départ', () => {
     expect(lectures).toBeLessThan(10_000);
   });
 
+  it('🔴 des boucles d’attentes de durées différentes restent bornées : une seule valeur par bloc, par dominance', () => {
+    // Relecture de 2b-1 (rouge) : l'état (bloc, ouverte, cumul exact) se multipliait par combinaison de durées. Trois
+    // boucles de 60,001, 60,013 et 60,169 s sur un même bloc : 46 s de calcul, 1,4 Go, puis « Set maximum size
+    // exceeded », dans `GET /automations`, qui analyse chaque automation de la liste.
+    const LIMITE = 50_000;
+    let lectures = 0;
+    const comptees: ReglesFenetre<N> = {
+      ...regles,
+      dureeAttenteMs: (x) => {
+        lectures += 1;
+        if (lectures > LIMITE) throw new Error('analyse non bornée');
+        return regles.dureeAttenteMs(x);
+      },
+    };
+    const g = {
+      nodes: [n('a', 'tag'), n('w1', 'wait', { dureeMs: 60_001 }), n('w2', 'wait', { dureeMs: 60_013 }), n('w3', 'wait', { dureeMs: 60_169 }), n('rapide', 'quick_message')],
+      edges: [e('a', 'w1'), e('w1', 'a'), e('a', 'w2'), e('w2', 'a'), e('a', 'w3'), e('w3', 'a'), e('a', 'rapide')],
+    };
+    for (const depart of [ouvert(), ferme()]) {
+      lectures = 0;
+      expect(analyserFenetre(g, [depart], comptees).map((c) => c.noeudId)).toEqual(['rapide']);
+    }
+  });
+
   it('une attente de 30 s compte pour une minute, une attente nulle pour rien', () => {
     // 1 439 attentes de 30 s font 23 h 59 au plancher : la fenêtre est encore ouverte ; une de plus la ferme.
     const chaine = (k: number) => {
