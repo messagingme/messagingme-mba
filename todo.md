@@ -60,6 +60,31 @@ Relevés par la relecture de la livraison 2b-1 (le rouge et les jaunes 1, 2, 4 e
   comme fenêtre ouverte ; un template sans choix, en mode agent de Meta, compte comme une réponse qui rouvre la fenêtre.
 - Mesure : un clic tardif compte comme réponse écrite du bloc courant, plutôt que comme le bouton de son bloc d'origine.
 
+Relevés par la relecture de la livraison 2b-2 (le rouge, une flèche perdue en corrigeant le délai au clavier, et les
+textes faux sont corrigés avant le push) :
+
+- **Faux avertissements en RCS** : le départ d'une campagne est fermé quel que soit le canal de l'étage (`DEPART_DE_CAMPAGNE`,
+  `departsDuScenario`) ; après un bloc RCS, un message rapide derrière une suggestion ou « Envoyé » est signalé alors
+  qu'il suit le canal du parcours. Visible dans l'assistant de campagne RCS.
+- **Chemins morts signalés** : l'analyse suit une arête `timeout` restée sur un bloc à délai 0, un template sans nom à
+  délai, et une arête qui sort d'un bloc Inbox. Ne suivre `timeout` que si le délai est positif et que le bloc attend une
+  réponse ; s'arrêter à `inbox` et `vers_mba`.
+- **Parité** : une Attente qui porte l'ancien champ `value` (le moteur lit `delay ?? value`, la console `delay`) ; le cas
+  manque à `tests/fenetre-parite.test.ts`.
+- **Écran Automation** : l'avertissement du formulaire est celui de l'automation enregistrée (périmé si l'on change le
+  déclencheur, le scénario ou le bloc de départ ; absent pour une automation neuve) ; la phrase vient du serveur en
+  français, même console en anglais.
+- **Textes de la console** : « 0 = on attend sans limite » est faux pour un template sans bouton en mode agent de Meta ;
+  pour un départ ouvert, la phrase « raccourcissez l'attente » ne dit pas qu'il faut raccourcir le délai sur une sortie
+  « Pas de réponse », ni ne traite une attente datée comme `attenteDite`.
+- `SORTIE_PAS_DE_REPONSE` (`web/lib/workflow-sorties.ts`) recopie `SORTIE_TIMEOUT` (`web/lib/partage/sorties-agent.ts`) :
+  n'en garder qu'une.
+- Les bandeaux de fenêtre ne se regroupent pas (un par couple départ, bloc) ; deux lanceurs partant du même bloc : seul le
+  premier est nommé.
+- Accessibilité : le libellé « Si le contact ne répond pas » n'est relié à son champ ni par `htmlFor` ni par `aria-label` ;
+  les bandeaux n'ont pas de `role="status"`.
+- E2E : « un départ ouvert, ou une API qui ne rend pas les départs » ne joue que l'absence de départs.
+
 ## 🟡 Restes de la page « Avec votre IA » (lot 2, 2026-11-18)
 
 Relevés par la relecture du lot (`site/site.js`, bloc « Avec votre IA », et `site/site.css`, règles `.ia-*`) :

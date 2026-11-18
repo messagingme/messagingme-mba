@@ -24,7 +24,7 @@ Ce que ça change, concrètement :
   vous répondez ce que vous voulez.
 - **Un bloc Attente** ne garde pas la fenêtre ouverte : au réveil, c'est elle qui décide de ce qui peut partir. La
   fiche « Le bloc Attente » le détaille.
-- **Un scénario lancé par un événement** (une boutique Shopify, HubSpot, une date, une étiquette, une campagne) part
+- **Un scénario lancé par un événement** (une automation de date, d'étiquette ou de webhook, une campagne) part
   conversation close : tant que le client n'a pas répondu, seul un modèle approuvé passe. Le constructeur signale en
   jaune chaque message libre placé là, et dit ce qui lance le scénario. Il ne refuse rien : remplacez ce bloc par un
   modèle, ou placez-le après une réponse du client.

@@ -188,15 +188,6 @@ export interface WaitThenSession {
 }
 
 /**
- * Miroir de `waitBeforeSessionMessage` (`src/workflow/engine.ts`). Cherche « attente cumulée >= 24 h PUIS
- * message rapide ou formulaire » : ce montage ne peut jamais partir (la fenêtre de service court depuis le
- * dernier message du contact, Meta refuse tout message de session hors fenêtre). Sert à le DIRE dans le
- * builder ; le blocage réel est au runtime.
- *
- * Cumul PLAFONNÉ à 24 h : au-delà la réponse ne change plus, et c'est ce qui fait terminer la recherche sur un
- * graphe cyclique (sans ce plafond, un cycle d'attentes ferait croître le cumul sans fin).
- */
-/**
  * Miroir de `waitEstimationMs` (serveur). Une attente « jusqu'à une date » ou « jusqu'aux prochaines heures ouvrées » n'a
  * pas de durée connue à la publication : elle compte pour la FENÊTRE ENTIÈRE (24 h). ⚠️ Un mode INCONNU retombe sur le
  * délai, comme `waitMode` côté serveur : le test de parité a montré qu'un mode inconnu devenait sinon une attente de 24 h
@@ -211,6 +202,15 @@ export function dureeAttenteMs(node: GraphNodeLike): number {
   return (unites[String(node.data.unit ?? 'hours')] ?? 0) * brut;
 }
 
+/**
+ * Miroir de `waitBeforeSessionMessage` (`src/workflow/engine.ts`). Cherche « attente cumulée >= 24 h PUIS
+ * message rapide ou formulaire » : ce montage ne peut jamais partir (la fenêtre de service court depuis le
+ * dernier message du contact, Meta refuse tout message de session hors fenêtre). Sert à le DIRE dans le
+ * builder ; le blocage réel est au runtime.
+ *
+ * Cumul PLAFONNÉ à 24 h : au-delà la réponse ne change plus, et c'est ce qui fait terminer la recherche sur un
+ * graphe cyclique (sans ce plafond, un cycle d'attentes ferait croître le cumul sans fin).
+ */
 export function waitBeforeSessionMessage(graph: GraphLike): WaitThenSession | null {
   const FENETRE_MS = 24 * 3_600_000;
   // Chaque attente compte pour au MOINS un pas de balayage (60 s), la granularité réelle d'un réveil. Sans ce

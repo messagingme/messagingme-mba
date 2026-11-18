@@ -2115,7 +2115,7 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   clic rouvre la fenêtre ; la sortie « Pas de réponse » la laisse en l'état et ajoute son délai ; une Attente ajoute sa
   durée ; 24 h cumulées ferment. Chaque délai compte au moins 60 s (le pas du balayage), et l'analyse ne garde qu'UNE
   valeur par bloc, par dominance (fenêtre fermée, sinon le plus grand cumul ouvert) : des boucles d'attentes de durées
-  différentes restaient sinon combinatoires (46 s et 1,4 Go pour trois boucles fractionnaires, relecture de 2b-1). Chaque côté fournit SA lecture des blocs (`REGLES_FENETRE_MOTEUR`, `REGLES_FENETRE_CONSOLE`), tenues
+  différentes resteraient sinon combinatoires. Chaque côté fournit SA lecture des blocs (`REGLES_FENETRE_MOTEUR`, `REGLES_FENETRE_CONSOLE`), tenues
   égales par `tests/fenetre-parite.test.ts`. Les départs viennent du serveur (`departsDuScenario`, rendus par
   `GET /workflows/:id`) : fermé pour les rayons Shopify et HubSpot, ouvert à l'entrée pour le Builder, plus un départ
   fermé par campagne active et par automation allumée dont le déclencheur ne naît pas d'un message
