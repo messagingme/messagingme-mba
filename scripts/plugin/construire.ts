@@ -302,6 +302,17 @@ export const CONSTRUIRE: readonly FamilleCapacites[] = [
         outils: ['find_contacts', 'prepare_campaign', 'launch_campaign'],
       },
       {
+        // Les scénarios entrent au catalogue avec la page « Avec votre IA » (Julien, 2026-11-18 : « même créer des
+        // scénarios, je sais pas si on a mis ça »). Ils n'y étaient pas, alors que le MCP les crée depuis le 2026-11-02.
+        texte: {
+          fr: 'Un scénario décrit en une phrase, construit par Claude à partir d’un modèle approuvé, puis envoyé à un contact pour l’essayer.',
+          en: 'A scenario described in one sentence, built by Claude from an approved template, then sent to a contact to try it.',
+        },
+        icone: 'lightning',
+        lien: { outil: 'create_scenario' },
+        outils: ['create_scenario', 'list_scenarios', 'send_scenario_to_contact'],
+      },
+      {
         texte: {
           fr: 'Vos modèles écrits par Claude et soumis à Meta, et le motif d’un refus.',
           en: 'Your templates written by Claude and submitted to Meta, and the reason for a rejection.',
@@ -371,7 +382,7 @@ export const CONSTRUIRE: readonly FamilleCapacites[] = [
     ],
   },
   {
-    titre: { fr: 'Piloter depuis Claude', en: 'Run it from Claude' },
+    titre: { fr: 'Piloter depuis votre IA', en: 'Run it from your AI' },
     icone: 'graphique',
     capacites: [
       {

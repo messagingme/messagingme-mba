@@ -48,6 +48,22 @@ d'un autre rayon que `general` ; le premier jaune devient rouge le jour où le l
   requête de verrou du webhook entrant (vérifier le rayon du seul `workflowVise`), `{ rayon: 'general',` collé à
   l'accolade dans quelques fabriques et tests.
 
+## 🟡 Restes de la page « Avec votre IA » (lot 2, 2026-11-18)
+
+Relevés par la relecture du lot (`site/site.js`, bloc « Avec votre IA », et `site/site.css`, règles `.ia-*`) :
+
+- En pause, la séance est affichée finie mais la boîte reste en `overflow:hidden` : on ne remonte pas les volets Build 1
+  et 2 (350 px pour 250). Ouvrir le défilement en pause (`.ia-colonne.pause .ia-demo{overflow-y:auto}`).
+- Un clic sur le volet déjà ouvert ne vide pas la minuterie d'avance (au téléphone, la colonne avance encore une fois) ;
+  et pause et reprise se croisent entre souris et focus (deux drapeaux).
+- Le nom qui tourne garde `.sort` : dès le deuxième tour, chaque nom entre par le haut.
+- Accessibilité : un lecteur d'écran lit la mascotte ASCII et les « … +27 lines » (marquer ces lignes `aria-hidden`) ; le
+  titre tourne sans bouton d'arrêt (WCAG 2.2.2) ; en mouvement réduit, on peut fermer le seul volet ouvert.
+- Restent nommés « Développeurs » : `site/llms.txt` (« ## Développeurs », « en une session Claude Code »),
+  `titreSite` de `scripts/vitrine/aide.ts` (titre des six guides), et l'image de partage `developpeurs.jpg`.
+- Le volet 4 de Build annonce « Added 6 lines » et en montre 5 ; un commentaire de `site.css` (porte du code) parle
+  encore de la séance.
+
 ## 🟡 Restes du menu en cascade de la vitrine (lot 1, 2026-11-18)
 
 Relevés par la relecture du lot, aucun ne bloque le menu :

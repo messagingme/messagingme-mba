@@ -127,6 +127,7 @@ Each line leads to its page: the use case with its film and its code, or the doc
 - [The welcome message at sign-up, with a button to the first use of your product.](https://app.messagingme.fr/en/use-cases/saas-onboarding-activation/)
 - [The failed payment reminder, with the link to update the card.](https://app.messagingme.fr/en/use-cases/failed-payment-recovery/)
 - [A campaign to your contacts, prepared by Claude and launched with your yes.](https://app.messagingme.fr/en/developers/prepare-a-campaign/) (`find_contacts`, `prepare_campaign`, `launch_campaign`; Pro plan)
+- [A scenario described in one sentence, built by Claude from an approved template, then sent to a contact to try it.](https://console.messagingme.app/developers/mcp?lang=en#create_scenario) (`create_scenario`, `list_scenarios`, `send_scenario_to_contact`; Pro plan)
 - [Your templates written by Claude and submitted to Meta, and the reason for a rejection.](https://console.messagingme.app/developers/api/templates?lang=en) (`create_template`, `get_template_status`)
 
 ### Connect it to your app
@@ -138,7 +139,7 @@ Each line leads to its page: the use case with its film and its code, or the doc
 - [Your sends through the API or the TypeScript SDK, safe to retry without duplicates thanks to the idempotency key.](https://console.messagingme.app/developers/api/sdk?lang=en)
 - [Your contacts and their consent kept up to date from your app, and your record fields created by Claude.](https://console.messagingme.app/developers/api/contacts?lang=en) (`create_field`)
 
-### Run it from Claude
+### Run it from your AI
 
 - [Your templates sent, delivered, read or failed: just ask Claude.](https://console.messagingme.app/developers/mcp?lang=en#get_message_stats) (`get_message_stats`)
 - [The estimated cost and clicks of your campaigns, and Meta’s errors.](https://app.messagingme.fr/en/features/cost-control/) (`get_campaign_stats`; Pro plan)

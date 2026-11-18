@@ -9,7 +9,8 @@ import { adresseDuScript, baliseDuScript } from '../src/widgets/adresses';
 import { API_PUBLIQUE, AUTORISATION_CODEX, COMMANDE_DEMARRAGE, COMMANDES_CODEX, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
 import { MARQUE_DEBUT } from '../scripts/plugin/generer';
 import { EXEMPLES_SDK, VERSION_SDK } from '../web/lib/exemples-code';
-import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
+import { CATALOGUE_MCP, type NomOutilMcp } from '../web/lib/partage/catalogue-mcp';
+import { NOMS_OFFRES, offreDeLaCarte } from '../scripts/vitrine/offres-outils';
 import { SITE, lire, pagesHtml, parAttribut, texte } from './vitrine-lecture';
 
 /**
@@ -27,6 +28,10 @@ const ADRESSE_FR = 'https://app.messagingme.fr/developpeurs/';
 const ADRESSE_EN = 'https://app.messagingme.fr/en/developers/';
 
 const PAGES = { fr: lire(FR), en: lire(EN) };
+
+/** Une colonne du premier écran (`build` ou `run`) : de son ouverture à celle de la suivante, ou aux portes du code. */
+const colonne = (html: string, nom: 'build' | 'run'): string =>
+  html.split(`data-colonne="${nom}"`)[1]?.split(/data-colonne="|<nav class="dev-portes"/)[0] ?? '';
 
 describe('les chiffres de l’offre sont ceux du code', () => {
   const ATTENDU: Record<string, number> = {
@@ -90,7 +95,10 @@ describe('les commandes qui branchent Claude Code sont celles du plugin (lot 10,
 describe('le terminal montre de vrais outils et la vraie balise', () => {
   for (const [langue, html] of Object.entries(PAGES)) {
     it(`page ${langue} : chaque outil existe, sous son nom, dans un ordre que le produit accepte`, () => {
-      const marques = parAttribut(html, 'data-outil');
+      // La séance de mise en service est la colonne Build (2026-11-18) ; la colonne Run montre d'autres outils, tenus
+      // par le test suivant.
+      const marques = parAttribut(colonne(html, 'build'), 'data-outil');
+      expect(marques.length).toBeGreaterThan(0);
       for (const { valeur, contenu } of marques) {
         expect(Object.keys(CATALOGUE_MCP), valeur).toContain(valeur);
         expect(texte(contenu), `le nom affiché de ${valeur}`).toBe(valeur);
@@ -131,9 +139,51 @@ describe('le terminal montre de vrais outils et la vraie balise', () => {
       expect(texte(installation?.contenu ?? '').trim()).toBe(`npm install github:messagingme/messagingme-sdk#v${VERSION_SDK}`);
     });
 
-    it(`page ${langue} : l’adresse donnée aux autres clients MCP est celle de l’API publique`, () => {
-      const autres = /<p class="dev-autres">[\s\S]*?<code>([^<]+)<\/code>/.exec(html)?.[1];
-      expect(autres).toBe(`${API_PUBLIQUE}/mcp`);
+    it(`page ${langue} : la voie « Votre IA » donne l’adresse du serveur MCP de l’API publique`, () => {
+      const [adresse, ...autres] = parAttribut(html, 'data-adresse');
+      expect(adresse?.valeur).toBe('mcp');
+      expect(texte(adresse!.contenu).trim()).toBe(`${API_PUBLIQUE}/mcp`);
+      expect(autres).toEqual([]);
+    });
+  }
+});
+
+/**
+ * LA PAGE « AVEC VOTRE IA » MONTRE BUILD ET RUN DÈS L'OUVERTURE (Julien, 2026-11-18, spec
+ * `2026-11-18-menu-solutions-et-page-avec-votre-ia-design.md`). Les volets Run montrent de vrais outils, et chacun porte
+ * l'offre qui l'ouvre, CALCULÉE comme les étiquettes du catalogue : une page qui dirait « Free » sur un geste du Pro
+ * ferait une promesse fausse en tête de page.
+ */
+describe('les volets Build et Run', () => {
+  const MOTEURS = ['Claude', 'ChatGPT', 'Mistral', 'Perplexity', 'Codex', 'Cursor'];
+  for (const [langue, html] of Object.entries(PAGES) as Array<['fr' | 'en', string]>) {
+    it(`page ${langue} : quatre volets Run, de vrais outils, et la pastille de l’offre qui les ouvre`, () => {
+      const volets = [...colonne(html, 'run').matchAll(/<details class="ia-volet"[^>]*data-offre-volet="(\w+)"[^>]*>([\s\S]*?)<\/details>/g)];
+      expect(volets).toHaveLength(4);
+      volets.forEach(([, offre, contenu], i) => {
+        const outils = parAttribut(contenu!, 'data-outil').map((o) => o.valeur);
+        expect(outils.length, `volet ${i + 1}`).toBeGreaterThan(0);
+        for (const o of outils) expect(Object.keys(CATALOGUE_MCP), o).toContain(o);
+        const attendue = offreDeLaCarte({ outils: outils as NomOutilMcp[] });
+        expect(offre, `volet ${i + 1} (${outils.join(', ')})`).toBe(attendue);
+        expect(contenu, `volet ${i + 1}`).toContain(`<span class="ia-offre">${NOMS_OFFRES[langue][attendue]}</span>`);
+      });
+      expect(parAttribut(volets[0]![2]!, 'data-outil').map((o) => o.valeur)).toEqual(['create_scenario', 'send_scenario_to_contact']);
+    });
+
+    it(`page ${langue} : la colonne Build est gratuite, quatre volets`, () => {
+      const build = colonne(html, 'build');
+      expect(build.match(/<details class="ia-volet"/g)).toHaveLength(4);
+      expect(build).toContain('class="dev-gratuit"');
+    });
+
+    it(`page ${langue} : le titre nomme les moteurs dans l’ordre, et jamais Gemini (Julien, 2026-11-18)`, () => {
+      const h1 = /<h1>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '';
+      const lu = texte(parAttribut(h1, 'data-moteurs')[0]?.contenu ?? '');
+      const rangs = MOTEURS.map((m) => lu.indexOf(m));
+      expect(rangs.every((r) => r >= 0), lu).toBe(true);
+      expect([...rangs].sort((a, b) => a - b)).toEqual(rangs);
+      expect(html).not.toMatch(/gemini/i);
     });
   }
 });

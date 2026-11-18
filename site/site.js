@@ -135,37 +135,79 @@
     });
   });
 
-  // Le terminal défile comme un vrai : chaque entrée apparaît à son `--t`, et la fenêtre suit la dernière ligne.
-  // Sans IntersectionObserver, ou pour qui a demandé moins de mouvement, la séance est affichée finie, la fenêtre
-  // descendue sur sa fin (la balise de la bulle).
-  var t = document.querySelector('.dev-terminal');
-  if (!t) return;
-  var fil = t.querySelector('.cc-fil'), entrees = [].slice.call(t.querySelectorAll('.dev-seance > li'));
-  var enBas = function (doux) { if (fil) fil.scrollTo({ top: fil.scrollHeight, behavior: doux ? 'smooth' : 'auto' }); };
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
-    t.classList.add('statique'); enBas(false); return;
-  }
+  // « Avec votre IA » : les volets Build et Run (2026-11-18). Dans chaque colonne, le volet ouvert rejoue sa séance
+  // (chaque ligne à son `--t`, la fenêtre suit la dernière), sa barre court, puis le volet suivant s'ouvre. Survol ou
+  // focus : pause, la séance affichée finie. Un clic choisit un volet et arrête la colonne. Rien ne tourne hors de
+  // l'écran. Sans IntersectionObserver ou pour qui a demandé moins de mouvement : volets finis, titre « votre IA ».
+  var colonnes = [].slice.call(document.querySelectorAll('.ia-colonne'));
+  if (!colonnes.length || matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) return;
+  document.documentElement.classList.add('ia-anime');
+  var noms = [].slice.call(document.querySelectorAll('.ia-moteur > .ia-nom')), n = 0;
+  if (noms.length) setInterval(function () {
+    var avant = noms[n]; n = (n + 1) % noms.length;
+    avant.classList.remove('actif'); avant.classList.add('sort');
+    noms[n].classList.remove('sort'); noms[n].classList.add('actif');
+  }, 2400);
   var quand = function (li) { return (parseFloat(li.style.getPropertyValue('--t')) || 0) * 1000; };
-  var fin = Math.max.apply(null, entrees.map(quand));
-  var minuteries = [], actif = false;
-  function arreter() { minuteries.forEach(clearTimeout); minuteries = []; }
-  function tour() {
-    arreter();
-    t.classList.remove('sortie', 'fini');
-    entrees.forEach(function (li) { li.classList.remove('vu'); });
-    t.classList.add('joue');
-    enBas(false);
-    entrees.forEach(function (li) {
-      minuteries.push(setTimeout(function () { li.classList.add('vu'); enBas(true); }, quand(li)));
+  colonnes.forEach(function (col) {
+    var volets = [].slice.call(col.querySelectorAll('details.ia-volet'));
+    var minuteries = [], courant = null, visible = false, choisi = false, enPause = false;
+    var arreter = function () { minuteries.forEach(clearTimeout); minuteries = []; };
+    var enBas = function (v, doux) { var d = v.querySelector('.ia-demo'); d.scrollTo({ top: d.scrollHeight, behavior: doux ? 'smooth' : 'auto' }); };
+    var suivant = function (v) { return volets[(volets.indexOf(v) + 1) % volets.length]; };
+    // La barre court sur `duree` puis le volet suivant s'ouvre, sauf si l'on a choisi un volet.
+    var avancer = function (v, duree) {
+      v.style.setProperty('--duree', duree + 'ms');
+      v.classList.remove('joue'); void v.offsetWidth; v.classList.add('joue');
+      if (!choisi) minuteries.push(setTimeout(function () { suivant(v).open = true; }, duree));
+    };
+    var jouer = function (v) {
+      arreter(); courant = v;
+      volets.forEach(function (w) { if (w !== v) w.classList.remove('joue', 'rejoue'); });
+      var lignes = [].slice.call(v.querySelectorAll('.ia-seance > li'));
+      lignes.forEach(function (li) { li.classList.remove('vu'); });
+      v.classList.add('rejoue'); enBas(v, false);
+      lignes.forEach(function (li) { minuteries.push(setTimeout(function () { li.classList.add('vu'); enBas(v, true); }, quand(li))); });
+      var fin = Math.max.apply(null, lignes.map(quand));
+      minuteries.push(setTimeout(function () { v.classList.remove('rejoue'); }, fin + 300));
+      avancer(v, fin + 2800);
+    };
+    volets.forEach(function (v) {
+      v.addEventListener('toggle', function () {
+        if (!v.open) return;
+        volets.forEach(function (w) { if (w !== v) { w.open = false; w.classList.remove('joue', 'rejoue'); } });
+        if (visible && !enPause) jouer(v);
+        else { courant = v; v.querySelectorAll('.ia-seance > li').forEach(function (li) { li.classList.add('vu'); }); }
+      });
+      // Le volet ouvert ne se referme pas sur lui-même : une colonne en montre toujours un.
+      v.querySelector('summary').addEventListener('click', function (e) {
+        choisi = true;
+        if (v.open) e.preventDefault();
+      });
     });
-    minuteries.push(setTimeout(function () { t.classList.add('fini'); }, fin + 400));
-    minuteries.push(setTimeout(function () { t.classList.add('sortie'); }, fin + 4600));
-    minuteries.push(setTimeout(tour, fin + 5200));
-  }
-  new IntersectionObserver(function (e) {
-    if (e[0].isIntersecting && !actif) { actif = true; tour(); }
-    else if (!e[0].isIntersecting && actif) { actif = false; arreter(); }
-  }, { threshold: 0.25 }).observe(t);
+    var pause = function () {
+      if (enPause || !courant) return;
+      enPause = true; arreter(); col.classList.add('pause');
+      courant.classList.remove('rejoue');
+      courant.querySelectorAll('.ia-seance > li').forEach(function (li) { li.classList.add('vu'); });
+    };
+    var reprise = function () {
+      if (!enPause) return;
+      enPause = false; col.classList.remove('pause');
+      if (courant && visible) { courant.classList.remove('joue'); avancer(courant, 2800); }
+    };
+    col.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') pause(); });
+    col.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') reprise(); });
+    col.addEventListener('focusin', pause);
+    col.addEventListener('focusout', function (e) { if (!col.contains(e.relatedTarget)) reprise(); });
+    new IntersectionObserver(function (e) {
+      visible = e[0].isIntersecting;
+      if (!visible) { arreter(); return; }
+      if (enPause) return;
+      var ouvert = volets.filter(function (v) { return v.open; })[0];
+      if (ouvert) jouer(ouvert); else volets[0].open = true;
+    }, { threshold: 0.3 }).observe(col);
+  });
 })();
 
 // Page contact. Le formulaire part SANS script (formulaire HTML natif, l'API répond par une redirection) ; ceci

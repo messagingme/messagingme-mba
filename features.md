@@ -55,6 +55,16 @@ au plugin (le Pro garde la création d'espace dans la console, qui mène depuis 
 `/signup?offre=pro`, et non au tunnel de la Free). « Créer mon espace », en haut de l'accueil, ouvre
 l'inscription de la console. Venu de la page anglaise, un lien ouvre la console en anglais.
 
+✅ **La page développeurs devient « Avec votre IA » et s'ouvre sur Build et Run** (2026-11-18, même adresse) : le titre
+« Construisez WhatsApp dans votre app. Pilotez-le depuis… » fait défiler Claude, ChatGPT, Mistral, Perplexity, Codex et
+Cursor, logo compris. Dessous, deux colonnes en accordéon : **Build** (la fenêtre de Claude Code, gratuite : brancher le
+numéro, un agent IA qui lit le site, la bulle WhatsApp, l'API et le SDK) et **Run** (une conversation, dans un moteur
+différent à chaque volet : créer un scénario, lancer une campagne, répondre à une conversation, lire ses chiffres, chacun
+avec la pastille de l'offre qui l'ouvre). Chaque volet rejoue sa séance avec les vrais outils du serveur MCP, puis passe
+au suivant ; survol ou focus le met en pause, un clic le choisit. Les étapes gagnent une troisième voie, « Votre IA » :
+l'adresse du serveur MCP à ajouter comme connecteur dans ChatGPT, Claude, Mistral, Perplexity ou Cursor. Les scénarios
+entrent dans « Ce que vous pouvez construire », et « Piloter depuis Claude » y devient « Piloter depuis votre IA ».
+
 ✅ **La vitrine a ses pages de cas d'usage** (2026-10-20) : la page chapeau « SaaS et app builders »
 (`app.messagingme.fr/solutions/saas-et-app-builders/`, jumelle `/en/solutions/saas-and-app-builders/`) les rassemble.
 Sa une montre Claude Code, Codex et GitHub en tuiles 3D reliées à WhatsApp (« Tout se fait depuis votre assistant IA »),

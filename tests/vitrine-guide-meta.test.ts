@@ -28,8 +28,10 @@ describe('le guide Meta Business de la vitrine', () => {
     expect(lire('en/developers/index.html')).toContain('<li>All you need is <a href="/en/developers/meta-business-account/">');
   });
 
-  it('le titre de la page Développeurs dit que c’est gratuit, dans les deux langues', () => {
-    expect(lire('developpeurs/index.html')).toContain('<span class="dev-gratuit">Gratuit et sans abonnement</span></span>');
-    expect(lire('en/developers/index.html')).toContain('<span class="dev-gratuit">Free, no subscription</span></span>');
+  // Depuis la une Build / Run (Julien, 2026-11-18), « gratuit » se pose sur la colonne Build, la seule entièrement en
+  // Free ; les volets Run portent chacun leur offre (tests/vitrine-developpeurs.test.ts).
+  it('la colonne Build de la page « Avec votre IA » dit que c’est gratuit, dans les deux langues', () => {
+    expect(lire('developpeurs/index.html')).toContain('<span class="ia-sous">Dans votre app</span><span class="dev-gratuit">Gratuit et sans abonnement</span></p>');
+    expect(lire('en/developers/index.html')).toContain('<span class="ia-sous">Into your app</span><span class="dev-gratuit">Free, no subscription</span></p>');
   });
 });

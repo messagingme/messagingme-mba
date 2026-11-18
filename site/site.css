@@ -1351,14 +1351,10 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .chantier{min-height:min(62vh,560px);align-content:center}
 
 /* ============================================================================================================
-   LA PAGE DÉVELOPPEURS (/developpeurs/ et sa jumelle /en/developers/, lot 18). Classes préfixées dev- (et cc- pour
-   la fenêtre Claude Code) : rien ici ne touche les autres pages. La une montre une séance Claude Code rejouée
-   (site.js montre chaque entrée à son heure, puis pose `fini` et `sortie`, en boucle, tant qu'elle est à l'écran) ;
-   sans script, ou pour qui a demandé moins de mouvement, la séance reste affichée, finie.
+   LA PAGE « AVEC VOTRE IA » (/developpeurs/ et sa jumelle /en/developers/, lot 18, refaite le 2026-11-18). Classes
+   préfixées dev-, ia- pour la une Build / Run, et cc- pour la fenêtre Claude Code : rien ici ne touche les autres pages.
    ============================================================================================================ */
 /* Deux colonnes égales au bureau seulement : sous 960 px, la une des pages fonctionnalités passe sur une colonne. */
-@media (min-width:961px){.dev-une{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
-.dev-une h1{font-size:clamp(2.2rem,3.6vw,3rem)}
 /* Ce qu'il ne faut PAS pour commencer (Julien, 2026-10-19) : aucun compte, un numéro fourni, un compte Meta Business seulement */
 .dev-sans{list-style:none;margin:26px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:10px 26px}
 .dev-sans li{position:relative;padding-left:26px;color:var(--muted);font-size:1rem}
@@ -1369,7 +1365,6 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .dev-gratuit{margin-left:12px;padding:4px 12px;border-radius:999px;background:#17C74E;color:#010630;font-size:.8rem;font-weight:800;letter-spacing:0;text-transform:none}
 /* La porte du code (Julien, 2026-10-30) : sous la séance Claude Code, sur toute la largeur de la une, la doc de l'API, la
    doc MCP, les deux dépôts et le contrat. Au téléphone, elle passe avant la séance : on y arrive sans la faire défiler. */
-.dev-une{row-gap:36px}
 .dev-portes{grid-column:1/-1;padding-top:24px;border-top:1px solid var(--line)}
 .dev-portes-titre{margin:0 0 16px;color:var(--muted);font-weight:600}
 .dev-portes ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
@@ -1379,7 +1374,6 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .dev-portes strong{display:block;font-size:.95rem;line-height:1.3}
 .dev-portes small{display:block;margin-top:2px;color:var(--muted);font-size:.8rem;line-height:1.35}
 @media (max-width:1200px){.dev-portes ul{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:960px){.dev-portes{order:1}.dev-une > figure{order:2}}
 /* Au téléphone, deux colonnes sans sous-titre : la bande ne repousse pas la séance de tout un écran. */
 @media (max-width:640px){.dev-portes ul{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.dev-portes a{padding:12px;gap:10px}.dev-porte-ic{width:32px;height:32px;font-size:1rem}.dev-portes small{display:none}}
 /* Le guide « Votre compte Meta Business, pas à pas » : ses étapes, générées depuis web/lib/partage/etapes-meta.ts */
@@ -1601,9 +1595,8 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 /* La fenêtre est celle de Claude Code, pas une fenêtre « à nous » (Julien, 2026-10-19 : la version bleue « ne
    ressemble pas du tout à Claude Code ») : la barre grise de macOS et ses trois feux, le thème sombre de Claude Code
    (couleurs relevées du film des cas d'usage, ~/engageme-motion/engageme-cas-agent-app), la mascotte orange, les
-   appels `messagingme - <outil> (MCP)(…)` et leurs réponses JSON tronquées, le champ de saisie entre deux traits et
-   le mode « accept edits ». La fenêtre a une hauteur fixe et DÉFILE comme un terminal : site.js montre chaque entrée
-   à son `--t` et descend sur la dernière ligne. */
+   appels `messagingme - <outil> (MCP)(…)` et leurs réponses JSON tronquées. Elle porte la colonne Build de la une :
+   chaque volet a une hauteur fixe et DÉFILE comme un terminal (site.js, plus bas, les règles `.ia-*`). */
 .dev-terminal{--cc-fond:#151515;--cc-texte:#E8E8E8;--cc-gris:#8E8E8E;--cc-claude:#D77757;--cc-vert:#4EBA65;--cc-saisi:#2B2B2B;--cc-mode:#AF87FF;--cc-trait:#3F3F3F;--cc-code:#B1B9F9;margin:0;border-radius:12px;overflow:hidden;background:var(--cc-fond);box-shadow:0 0 0 1px rgb(255 255 255 / .12),0 50px 110px -30px rgb(0 0 0 / .9);color:var(--cc-texte)}
 .cc-barre{position:relative;display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;background:#2A2A2C;border-bottom:1px solid #000}
 .cc-barre i{width:12px;height:12px;border-radius:50%;background:#FF5F57}
@@ -1611,9 +1604,6 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .cc-barre i:nth-child(3){background:#28C840}
 .cc-barre span{position:absolute;left:0;right:0;text-align:center;font:500 13px/38px system-ui,-apple-system,"Segoe UI",sans-serif;color:#9A9A9A;pointer-events:none}
 .cc-ecran{display:flex;flex-direction:column;height:560px;padding:14px 18px 10px;font:400 12.5px/1.45 var(--mono);overflow-wrap:anywhere}
-.cc-fil{flex:1;min-height:0;overflow:hidden}
-.dev-seance{list-style:none;margin:0;padding:0}
-.dev-seance > li + li{margin-top:.75em}
 /* Seule la LIGNE garde ses espaces (indentation du JSON, mascotte) : sur toute la fenêtre, les retours du code
    source entre deux entrées deviendraient des lignes vides. */
 .cc-ecran .l{display:block;min-height:1.45em;white-space:pre-wrap}
@@ -1626,20 +1616,109 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .cc-saisi .l{margin:0 -8px;padding:2px 8px;background:var(--cc-saisi);color:#D6D6D6}
 .cc-code{color:var(--cc-code)}
 .cc-balise{padding-left:1.3em}
-.cc-bas{flex:none;padding-top:6px}
-.cc-ecran .cc-spin{display:none;color:var(--cc-claude)}
-.cc-trait{display:block;border-top:1px solid var(--cc-trait);margin:6px 0}
-.cc-mode{color:var(--cc-mode)}
-.cc-curseur{display:inline-block;width:.6em;height:1.15em;vertical-align:-.22em;background:#D0D0D0}
 @media (max-width:640px){.cc-ecran{height:470px;padding:12px 12px 8px;font-size:10.5px}}
 @media (prefers-reduced-motion:no-preference){
-  .js .dev-terminal:not(.statique) .dev-seance > li:not(.vu){display:none}
-  .js .dev-terminal .dev-seance > li.vu{animation:cc-ligne .2s ease-out both}
-  .js .dev-terminal.joue:not(.fini) .cc-ecran .cc-spin{display:block}
-  .js .dev-terminal.sortie .cc-fil{animation:msg-sort .5s ease-in both}
-  .js .dev-terminal .cc-curseur{animation:cc-clignote 1.1s steps(1) infinite}
   @keyframes cc-ligne{from{opacity:0}to{opacity:1}}
-  @keyframes cc-clignote{50%{opacity:0}}
+}
+/* La une de « Avec votre IA » (Julien, 2026-11-18) : Build et Run face à face. Build est la fenêtre de Claude Code (la
+   palette de `.dev-terminal`), Run une conversation claire, neutre : seuls le logo et le nom du moteur changent, d'un
+   volet à l'autre (`:has`, sans script). Chaque colonne est un accordéon de `details[name]` ; site.js rejoue le volet
+   ouvert (`rejoue` cache ses lignes, `vu` les montre à leur `--t`), fait courir sa barre (`joue`, durée `--duree`), puis
+   ouvre le suivant. Sans script ou pour qui a demandé moins de mouvement, les volets s'ouvrent finis et le titre dit
+   « votre IA ». */
+.ia-une{display:grid;gap:36px;padding-top:40px;padding-bottom:96px}
+.ia-tete{display:grid;gap:24px 56px;align-items:start}
+@media (min-width:961px){.ia-tete{grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr)}.ia-promesse{padding-top:34px}}
+.ia-tete h1{grid-column:auto;margin:0;font-size:clamp(2.1rem,3.6vw,3.05rem)}
+.ia-pilotez{display:block}
+.ia-moteur{display:none;vertical-align:bottom}
+.ia-anime .ia-repli{display:none}
+.ia-anime .ia-moteur{display:inline-grid}
+.ia-nom{grid-area:1/1;display:inline-flex;align-items:center;gap:.28em;opacity:0;translate:0 .55em;transition:opacity .45s,translate .45s cubic-bezier(.16,1,.3,1)}
+.ia-nom.actif{opacity:1;translate:0 0}
+.ia-nom.sort{opacity:0;translate:0 -.55em}
+.ia-nom .ia-logo{width:.95em;height:.95em;border-radius:.24em}
+.ia-logo{display:inline-grid;place-items:center;flex:none;width:30px;height:30px;border-radius:8px;background:#FFFFFF}
+.ia-logo svg{width:62%;height:62%;fill:#0B0E24}
+.ia-l-claude{background:#F0EEE6}.ia-l-claude svg{fill:#D97757}
+.ia-l-mistral{background:#FFF1E8}.ia-l-mistral svg{fill:#FA520F}
+.ia-l-perplexity{background:#E8F6F7}.ia-l-perplexity svg{fill:#1F8A96}
+.ia-l-cursor{background:#0B0E24;box-shadow:inset 0 0 0 1px rgb(255 255 255 / .2)}.ia-l-cursor svg{fill:#FFFFFF}
+.ia-promesse .chapeau{margin:0 0 22px;font-size:1.05rem}
+.ia-promesse .dev-sans{margin-top:20px;gap:8px 20px}
+.ia-promesse .dev-sans li{font-size:.92rem}
+.ia-colonnes{display:grid;gap:28px}
+@media (min-width:961px){.ia-colonnes{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.ia-colonne{--ia-accent:#D77757;min-width:0}
+.ia-colonne[data-colonne="run"]{--ia-accent:#17C74E}
+.ia-colonne-tete{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin:0 0 12px}
+.ia-cle{font-size:1.6rem;font-weight:800;letter-spacing:-.01em;color:var(--ia-accent)}
+.ia-sous{color:var(--muted);font-weight:600}
+.ia-colonne-tete .dev-gratuit{margin-left:auto;align-self:center}
+.ia-fenetre{border-radius:14px;overflow:hidden}
+.ia-volet{border-top:1px solid rgb(255 255 255 / .08)}
+.ia-volet > summary{position:relative;display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;list-style:none;font-size:.95rem;font-weight:700;line-height:1.3;color:rgb(255 255 255 / .6);transition:color .2s,background-color .2s}
+.ia-volet > summary::-webkit-details-marker{display:none}
+.ia-volet > summary:hover,.ia-volet[open] > summary{color:#FFFFFF}
+.ia-volet > summary:hover{background:rgb(255 255 255 / .04)}
+.ia-volet > summary:focus-visible{outline:2px solid var(--ia-accent);outline-offset:-2px}
+.ia-num{display:grid;place-items:center;flex:none;width:24px;height:24px;border-radius:7px;background:rgb(255 255 255 / .09);font-size:.78rem;font-weight:800}
+.ia-volet[open] .ia-num{background:var(--ia-accent);color:#0B0E24}
+.ia-titre{flex:1}
+.ia-offre{flex:none;padding:2px 10px;border-radius:999px;background:#0B0E24;color:#FFFFFF;font-size:.72rem;font-weight:800}
+.ia-volet[data-offre-volet="base"] .ia-offre{background:#17C74E;color:#010630}
+.ia-barre{position:absolute;left:0;right:0;bottom:0;height:2px;overflow:hidden}
+.ia-barre::after{content:"";position:absolute;inset:0;background:var(--ia-accent);transform:scaleX(0);transform-origin:left}
+.ia-seance{list-style:none;margin:0;padding:0}
+.ia-seance > li + li{margin-top:.7em}
+.ia-demo{height:250px;overflow-y:auto;scrollbar-width:thin}
+.ia-demo.cc-ecran{display:block;height:250px;padding:10px 16px}
+.ia-anime .ia-demo{overflow:hidden}
+/* La conversation (Run) : claire, pour qu'on lise d'un coup d'œil que ce n'est plus le terminal. */
+.ia-chat{background:#FFFFFF;color:#0B0E24;box-shadow:0 0 0 1px rgb(255 255 255 / .12),0 50px 110px -30px rgb(0 0 0 / .9)}
+.ia-chat-barre{display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;font-weight:800;font-size:.95rem}
+.ia-chat-barre .ia-logo{width:26px;height:26px;box-shadow:0 0 0 1px rgb(11 14 36 / .1)}
+.ia-m{display:none;align-items:center;gap:8px}
+.ia-chat:has(.ia-volet[data-moteur="chatgpt"][open]) .ia-m[data-m="chatgpt"],.ia-chat:has(.ia-volet[data-moteur="mistral"][open]) .ia-m[data-m="mistral"],.ia-chat:has(.ia-volet[data-moteur="claude"][open]) .ia-m[data-m="claude"],.ia-chat:has(.ia-volet[data-moteur="perplexity"][open]) .ia-m[data-m="perplexity"]{display:inline-flex}
+.ia-branche{display:inline-flex;align-items:center;gap:6px;margin-left:auto;color:#15803D;font-size:.75rem;font-weight:700}
+.ia-branche::before{content:"";width:7px;height:7px;border-radius:50%;background:#17C74E}
+.ia-chat .ia-volet{border-top-color:#E3E6EF}
+.ia-chat .ia-volet > summary{color:#5B6075}
+.ia-chat .ia-volet > summary:hover,.ia-chat .ia-volet[open] > summary{color:#0B0E24}
+.ia-chat .ia-volet > summary:hover{background:#F4F6FB}
+.ia-chat .ia-num{background:#EEF0F7}
+.ia-chat .ia-demo{padding:14px 16px;background:#F6F7FB;font-size:.88rem;line-height:1.45}
+.ia-vous{display:flex;justify-content:flex-end}
+.ia-vous > span{max-width:85%;padding:8px 12px;border-radius:14px 14px 4px 14px;background:#E6EBFF}
+.ia-appel{display:flex;align-items:center;gap:8px;color:#5B6075;font:500 .76rem/1.3 var(--mono)}
+.ia-appel [data-outil]{color:#0B0E24;font-weight:700}
+.ia-puce{flex:none;width:8px;height:8px;border-radius:50%;background:#17C74E}
+.ia-resultat{display:flex}
+.ia-resultat:has(.ia-wa-moi){justify-content:flex-end}
+.ia-wa{max-width:85%;padding:8px 12px;border-radius:4px 12px 12px 12px;background:#FFFFFF;box-shadow:0 1px 2px rgb(11 14 36 / .14)}
+.ia-wa-moi{border-radius:12px 4px 12px 12px;background:#D9FDD3}
+.ia-wa-boutons{display:grid;gap:2px;margin-top:8px;padding-top:4px;border-top:1px solid #E9EDEF}
+.ia-wa-boutons span{padding:4px;text-align:center;color:#027EB5;font-weight:600}
+.ia-carte{display:grid;gap:2px;padding:10px 14px;border-radius:12px;background:#FFFFFF;border:1px solid #E3E6EF}
+.ia-carte small{color:#5B6075}
+.ia-chiffres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;width:100%}
+.ia-chiffres > span{padding:8px;border-radius:10px;background:#FFFFFF;border:1px solid #E3E6EF}
+.ia-chiffres strong{display:block;font-size:1.05rem}
+.ia-chiffres small{display:block;color:#5B6075;font-size:.7rem;line-height:1.25}
+/* La voie « Votre IA » : les logos des moteurs en tête, à la place du logo unique des deux autres voies. */
+.ia-logos{display:inline-flex;gap:6px}
+@media (max-width:640px){
+  .ia-demo,.ia-demo.cc-ecran{height:230px}
+  .ia-volet > summary{padding:11px 12px;font-size:.9rem}
+  .ia-chiffres{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ia-colonne-tete .dev-gratuit{margin-left:0}
+}
+@media (prefers-reduced-motion:no-preference){
+  .ia-anime .ia-volet.rejoue .ia-seance > li:not(.vu){display:none}
+  .ia-anime .ia-seance > li.vu{animation:cc-ligne .25s ease-out both}
+  .ia-volet.joue .ia-barre::after{animation:ia-progres var(--duree,6s) linear forwards}
+  .ia-colonne.pause .ia-volet.joue .ia-barre::after{animation-play-state:paused}
+  @keyframes ia-progres{to{transform:scaleX(1)}}
 }
 /* Les trois étapes, en trois cartes ; la commande revient à la ligne dans sa carte plutôt que de défiler. */
 .dev-pas{list-style:none;margin:40px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
@@ -1651,8 +1730,7 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .dev-voie + .dev-voie{margin-top:40px}
 .dev-voie-tete{display:flex;align-items:center;gap:12px;margin:40px 0 0;font-size:1.15rem;font-weight:800;color:var(--ink)}
 .dev-voie .dev-pas{margin-top:16px}
-.dev-autres{margin:28px 0 0;max-width:46em;color:var(--muted)}
-.dev-pas p code,.dev-autres code{font-family:var(--mono);font-size:.88em;color:var(--code-ink);background:rgb(255 255 255 / .08);padding:.1em .4em;border-radius:6px;overflow-wrap:anywhere}
+.dev-pas p code{font-family:var(--mono);font-size:.88em;color:var(--code-ink);background:rgb(255 255 255 / .08);padding:.1em .4em;border-radius:6px;overflow-wrap:anywhere}
 .dev-copier{display:none}
 .dev-copier.pret{display:inline-flex;align-items:center;padding:.4em 1em;border-radius:999px;border:1px solid rgb(255 255 255 / .28);background:transparent;color:var(--ink);font:600 .85rem var(--sans);cursor:pointer;transition:border-color .15s,color .15s}
 .dev-copier.pret:hover{border-color:var(--action);color:var(--action-ink)}
@@ -1833,7 +1911,7 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 /* Ce qui reste sombre dans la bande (blocs de code, terminal) garde les jetons du thème sombre ; le code en ligne et les
    boutons Copier passent en clair. */
 .bande-claire .code,.bande-claire .dev-terminal{--ink:#FFFFFF;--muted:rgb(255 255 255 / .66);--line:rgb(255 255 255 / .12);--action-ink:#6FC2FE;--surface:#0B1452}
-.bande-claire .dev-pas p code,.bande-claire .dev-autres code{color:#0B0E24;background:#E7EAF3}
+.bande-claire .dev-pas p code{color:#0B0E24;background:#E7EAF3}
 .bande-claire .dev-copier.pret{border-color:var(--line)}
 
 /* Le centre d'aide (/aide/, /en/help/), généré par npm run vitrine:aide depuis les fiches. Gabarit de la maquette validée
