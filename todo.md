@@ -100,6 +100,48 @@ Les jaunes 1 à 4, 7, 10 et 12 à 14 de cette relecture sont corrigés avec la c
 - `GET /workflows/:id/modeles`, sondé toutes les 15 s quand un template attend : `getById` relit les deux graphes, puis
   `publicationProgrammee` un troisième.
 
+## 🟡 Les templates écrits depuis un bloc : ce qui reste après la relecture de 3b (2026-11-18, aucun rouge)
+
+À prendre avec le prochain lot de fonctionnalité qui touche le Builder. Les trois premiers touchent le client :
+
+- **« Modifier ce template » est proposé sur un template que l'écran Templates refuse de modifier** (`modifiable`,
+  `web/components/WorkflowConfigPanel.tsx`, n'exclut que le carousel et l'en-tête média) : un bouton d'appel y est relu
+  comme une réponse rapide, sans l'avertissement de la duplication, et une offre limitée disparaît. Suivre
+  `editable !== false`, la règle de l'écran Templates et de `modifierUnModele`.
+- **Les choix de variables peuvent être écrasés pendant « Modifier »** : `initial` est recalculé à chaque rendu
+  (`web/components/WorkflowBuilder.tsx`), donc un rechargement de la liste par le sondage (un autre template tranché)
+  rejoue l'effet des indices de `TemplateForm` par-dessus les choix faits dans le formulaire. Figer `initial` et
+  `sourcesDuBloc` à l'ouverture.
+- **Fiche du bloc, étape 7** (français et anglais) : « et le bloc l'envoie aussitôt » contredit « il ne part pas » juste en
+  dessous ; écrire « le bloc le prend aussitôt » (page publique : `vitrine:aide`, puis `aide:charger`).
+- **Parcourir la liste des templates efface des flèches sans retour** (« Choisir… » ou un template intermédiaire ; au
+  clavier sous Windows, chaque template survolé) : la perte se voit (poignées rouges) mais ne s'annule pas. Calculer la
+  correspondance depuis les boutons pris à l'ouverture du panneau, ou rendre les flèches au retour sur l'ancien template.
+- **Après un 200, « Publier » disparaît alors qu'un brouillon reste** (enregistré pendant le jugement, que la publication du
+  graphe jugé laisse désormais en brouillon) : rendre `brouillon` dans la réponse et s'en servir.
+- **Un carousel dont les cartes répètent le même texte de bouton** : la correspondance par texte retombe sur la position,
+  donc retirer une carte du milieu décale la branche suivante (comme avant 3b). Inclure l'indice de carte pour les
+  poignées `card:`, ou nuancer « jamais une branche décalée » (`documentation.md`, `features.md`, la fiche).
+- **La suppression d'un scénario efface ses lignes de `modeles_de_bloc` (cascade)**, alors que l'état se lit désormais par
+  le nom : la copie d'un scénario supprimé publie sans programmation un template encore en validation, que la garde
+  refuse ensuite à chaque envoi jusqu'à l'approbation.
+- **Textes** : le panneau dit « se modifie dans Contenu > Templates » (cet écran crée un carousel ou un en-tête média, il
+  ne les modifie pas) ; « `etat` n'avance qu'une fois » (`src/workflow/modeles-de-bloc.ts`, `documentation.md`) est faux
+  depuis la réhabilitation ; « sans aucune lecture de plus » est resté dans `src/http/workflows.ts` ; « une rafale n'en
+  coûte qu'une » (`src/workflow/wiring.ts`) n'est vrai qu'en série, la lecture unique en vol n'étant pas faite ;
+  `features.md` dit « Envoyer un template » pour « Envoi template » ; le « il » du bandeau du formulaire renvoie au
+  scénario au lieu du template.
+- **Plan non tenu** : les deux boutons restent visibles sans compte WhatsApp Business (le refus arrive après le
+  formulaire) ; aucune ligne vers le bloc dans `faire-approuver-un-modele` (français et anglais) ; la capture 7 montre les
+  boutons, pas la fenêtre ni l'état en validation ; aucun e2e du refus `campagne_active` ni du passage à « approuvé » par
+  le sondage.
+- **Mineurs** : `rechargerTemplates()` est appelé dans l'updater de `setModelesDeBloc` ; la lecture des `variables` du bloc
+  est recopiée au lieu d'importer `lireSourcesDuBloc` ; `nonEmpty` est recopié dans `src/templates/corps.ts` ;
+  `vi.useRealTimers()` est hors d'un `finally` ; si l'enregistrement qui suit la création échoue, le sondage ne démarre
+  pas ; l'aperçu d'un bloc cherche son template par le nom seul, et la liste complète peut y faire prendre un homonyme non
+  approuvé d'une autre langue ; jusqu'à 30 s de refus « en validation » juste après une approbation (borne de la
+  relecture fraîche).
+
 ## 🟡 Restes de la page « Avec votre IA » (lot 2, 2026-11-18)
 
 Relevés par la relecture du lot (`site/site.js`, bloc « Avec votre IA », et `site/site.css`, règles `.ia-*`) :

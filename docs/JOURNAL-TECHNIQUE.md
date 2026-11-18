@@ -4,6 +4,56 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-18 : le menu « Scénario », lot 3 : écrire ou modifier un template depuis son bloc, la mise en ligne programmée (en production)
+
+**La demande** : la suite du menu « Scénario » (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`,
+plan `2026-11-18-menu-scenario-lot-3-template-sur-place.md`) : un bloc template écrit ou modifie son template sans quitter
+le scénario, sous un nom que le serveur génère (décisions 6, 14, 19, 27), et « Publier » pendant la validation de Meta
+PROGRAMME la mise en ligne à l'approbation, refusée sous une campagne active, avec un e-mail « en ligne » ou « refusé »
+(décision 18). Trois livraisons : la migration seule, le serveur, puis la console et l'aide.
+
+- **3a-0, la migration 0296** (`9b86ca309`, poussée SEULE, `migration=avant`, run 44337389122) : la table
+  `modeles_de_bloc` (la marque « créé par le builder » et l'état tranché par Meta, une seule fois) et trois colonnes
+  nulles sur `workflows` (`programmed_graph`, `programmed_at`, `programmed_by`). `pg_stat_activity` non lu avant (la
+  sonde de production m'est refusée) : le `lock_timeout` de 5 s bornait le risque.
+- **3a, le serveur** (`b5bb60b08`) : la création depuis un bloc (`POST /workflows/:id/blocs/:nodeId/modele`, sous le
+  plafond des opérations coûteuses, ni carousel ni en-tête média), la lecture des états (`GET .../modeles`),
+  l'annulation (`DELETE .../programmation`) ; « Publier » juge le brouillon (`jugerPublication` : relecture hors cache,
+  refus `modele_refuse` ou `campagne_active`, 202 quand il programme) ; la mise en ligne (`tenterMiseEnLigne`) au statut
+  reçu par le worker et au filet de l'API, en UNE écriture conditionnée par `programmed_at` ; la garde à l'envoi d'un
+  template non approuvé (relecture fraîche, puis refus nommé). La lecture du corps d'un template a quitté la route vers
+  `src/templates/corps.ts` (POST et PATCH `/templates` inchangés).
+- **3b, la console, l'aide et les jaunes de 3a** : « Écrire un nouveau template » et « Modifier ce template » ouvrent le
+  formulaire de Contenu > Templates en mode bloc ; le bloc envoie le nouveau template même en validation, avec son état
+  (« En validation chez Meta », « Refusé » et sa raison) ; les flèches suivent le TEXTE des boutons quand le template
+  d'un bloc change (`flechesSuivantLesBoutons`), jamais une branche décalée ; le bandeau « Mise en ligne programmée » et
+  son annulation ; l'état se sonde toutes les 15 s, onglet visible. Côté serveur : la relecture fraîche de la garde vaut
+  30 s, un template refusé puis approuvé est réhabilité, « Publier » met en ligne le brouillon JUGÉ, `GET .../modeles`
+  lit l'état par les noms que porte le brouillon. La fiche du bloc gagne son étape 7, en français et en anglais.
+
+**Mesures** :
+- **0296** : relecture en base par Julien sur la machine des workers (`relecture-0296.mjs`, lecture seule) : « tout est
+  conforme » (colonnes, nullabilité, défauts, contraintes sous leur nom, clés étrangères en cascade, prédicat exact de
+  l'index partiel `modeles_de_bloc_en_validation_idx`, trois colonnes nulles sur `workflows`).
+- **3a** : CI racine 44353930899 et console 44353930808 vertes job par job, CodeQL 44353931010 ; la relecture
+  indépendante unique n'a trouvé aucun rouge et quatorze jaunes : neuf corrigés avec 3b (J1, J2, J3, J4, J7, J10, J12,
+  J13, J14), cinq au `todo.md` (J5, J6, J8, J9, J11). Déploiement 44355563500 (`migration=aucune`, approuvé par Julien),
+  image `b5bb60b08`, `/health` à 200 juste après.
+- **Banc PGlite** : son horloge s'arrête à la milliseconde (mesuré : `now()` à trois décimales), donc la mutation qui
+  écrit `programmed_at` en microsecondes y reste verte ; seul le test d'intégration de la CI, sur un vrai Postgres, peut
+  la voir (vert sur le code, jamais joué contre la mutation). Si elle passait, aucune mise en ligne programmée ne se
+  ferait : c'est ce que l'essai réel 278 regarde en premier.
+- **3b** : la relecture indépendante unique n'a trouvé aucun rouge (11 mutations rejouées, toutes rouges) et laisse des
+  jaunes, au `todo.md` pour le prochain lot de fonctionnalité qui touche le Builder ; trois touchent le client (« Modifier
+  ce template » proposé sur un template que l'écran Templates refuse de modifier, des choix de variables écrasés si le
+  sondage recharge la liste pendant l'écriture, une phrase contradictoire de l'étape 7 de la fiche publique).
+- Avant le push, sur la base neuve (les commits voisins de la page Salesforce et du correctif de l'Inbox) : la vitrine
+  régénérée sans écart, suite racine 17 853 tests verts, console 1 312, banc PGlite 22/22 ; e2e : 4 neufs et 160 voisins
+  sur une console de production construite, les neufs vus rouges sur une console mutée.
+- Push `bf18e0ef7` ; CI racine 44367426093 et console 44367426193 vertes job par job ; la console, publiée par Vercel au
+  push, n'appelle que des routes de 3a déjà en production. Déploiement 44369024546 (`migration=aucune`, approuvé par
+  Julien), `/health` à 200 ; `aide:charger` sur l'image `bf18e0ef7` donné à Julien, puis l'essai réel 278.
+
 ## 2026-11-18 : le menu « Scénario », lot 2b : la relance « Pas de réponse » dans la console (en production)
 
 **La demande** : la suite du lot 2 (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`, plan
