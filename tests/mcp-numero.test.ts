@@ -310,8 +310,6 @@ describe('watch_whatsapp_connection', () => {
       [{ mode: 'fourni' }, { ...VIDE, destination: 'application' }],
       [{ mode: 'fourni_application' }, { ...VIDE, destination: 'api' }],
       [{ mode: 'fourni' }, VIDE],
-      [{ mode: 'coexistence' }, { ...VIDE, destination: 'api' }],
-      [{ mode: 'apporte' }, { ...VIDE, destination: 'application' }],
       [{ mode: 'inconnu' }, VIDE],
     ];
     for (const [args, etat] of refus) {
@@ -327,6 +325,26 @@ describe('watch_whatsapp_connection', () => {
     // Un numéro fourni mis dans l'application mais sans compte créé (aucun code capté) : la reprise est fourni_application,
     // pas encore la coexistence.
     expect(modeDuLienNeuf({ ...VIDE, fourni: '+441235619343', destination: 'application' }, 'api', 'coexistence')).toBeNull();
+    // Un numéro fourni ATTRIBUÉ : sa destination retenue écarte toujours apporte et coexistence (son code se perdrait).
+    expect(modeDuLienNeuf({ ...VIDE, fourni: '+441235619343', destination: 'api' }, 'api', 'coexistence')).toBeNull();
+    expect(modeDuLienNeuf({ ...VIDE, fourni: '+441235619343', destination: 'application' }, 'api', 'apporte')).toBeNull();
+    expect(modeDuLienNeuf({ ...VIDE, fourni: '+441235619343', destination: 'api' }, 'api', 'apporte')).toBeNull();
+  });
+
+  /**
+   * Julien, 2026-11-18 : il choisit un numéro fourni dans l'application, puis « finalement j'ai déjà un numéro sur mon
+   * app ». Avant de payer, aucun numéro n'est attribué : la destination retenue ne doit plus lui refuser le lien de son
+   * propre numéro, sinon il ne lui reste que la page « Payer 3,50 € ».
+   */
+  it('🔴 changement d’avis avant tout numéro attribué : le lien neuf de son propre numéro ou de son application', async () => {
+    for (const destination of ['application', 'api'] as const) {
+      for (const mode of ['coexistence', 'apporte'] as const) {
+        const { deps } = monter(() => ({ ...VIDE, destination }));
+        const r = await outil('watch_whatsapp_connection').executer(deps, 't1', { mode }, PERSONNE) as { lien: string | null };
+        expect(r.lien, `${destination} ${mode}`).toMatch(/\/brancher#/);
+        expect((await verifyLienNumero(r.lien!.split('#')[1]!, SECRET))?.mode, `${destination} ${mode}`).toBe(mode);
+      }
+    }
   });
 
   /**

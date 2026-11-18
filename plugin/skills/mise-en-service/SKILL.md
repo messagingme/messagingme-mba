@@ -88,6 +88,10 @@ remains, keeping the app, and you never give the account creation steps again. `
 app, whose account is not created yet. `fourni`: Meta's window. When `numero.reprise` is null, ask one thing only,
 about their phone: "Is the number (`numero.fourni`) in the WhatsApp Business app on your phone?" Yes: `coexistence`.
 No: question 3 below decides. When a tool refuses a mode and names another one, use the one it names.
+**When the user changes their mind** (another way, or their own number after asking for one we provide), call
+`start_whatsapp_connection` again in the new mode and give its new link in full, with its steps: a link keeps the
+mode it was made for (the link of a number we provide asks to pay for it), so never tell them to keep using an earlier
+link and skip a step of it.
 
 At this step and at `activer_numero`, `get_setup_state` gives the help pages (`aide`), each in French (`fr`) and
 English (`en`, for any other language). `aide.guide` asks these same questions as a web page: give it to a user who

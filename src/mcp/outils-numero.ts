@@ -617,12 +617,17 @@ const estMode = (m: unknown): m is ModeNumero => typeof m === 'string' && (MODES
  * coexistence, SAUF la reprise que le serveur prescrit lui-même (`modeDeReprise`, jaune B1 de la relecture du lot 2) : un
  * numéro fourni déjà dans l'application, son compte créé, se garde par la fenêtre de Meta (`coexistence`) ; c'est la
  * suite de Johan (2026-11-06), et sans ce cas une attente de plus d'une heure n'y aurait aucun lien neuf.
+ * 🔴 Tant qu'AUCUN numéro fourni n'est attribué, la destination retenue n'est qu'une intention : la personne qui change
+ * d'avis (« finalement j'ai déjà un numéro », Julien, 2026-11-18) reçoit le lien de son propre numéro (`apporte`) ou de
+ * son application gardée (`coexistence`). Aucun code de numéro fourni ne peut alors se perdre, et la suite de ces deux
+ * modes ne lit rien de la destination sans numéro attribué (`suiteFourniApplication` rend null).
  */
 export function modeDuLienNeuf(
   e: Pick<EtatConnexion, 'destination' | 'fourni' | 'connecte' | 'codeDejaCapte'>, filiere: 'api' | 'application', mode: unknown,
 ): ModeNumero | null {
   if (filiere !== 'api' || !estMode(mode)) return null;
   if (mode === 'coexistence' && modeDeReprise(e) === 'coexistence') return mode;
+  if ((mode === 'apporte' || mode === 'coexistence') && e.fourni === null) return mode;
   const retenu = e.destination === 'api' ? 'fourni' : e.destination === 'application' ? 'fourni_application' : null;
   if (mode === 'fourni' || mode === 'fourni_application') return mode === retenu ? mode : null;
   return retenu === null ? mode : null;
