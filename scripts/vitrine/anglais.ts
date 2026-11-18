@@ -42,6 +42,7 @@ export const JUMELLES: Readonly<Record<string, string>> = {
   '/solutions/voyage-et-tourisme/': '/en/solutions/travel-and-tourism/',
   '/solutions/shopify/': '/en/solutions/shopify-stores/',
   '/solutions/deep-hubspot-integration/': '/en/solutions/deep-hubspot-integration/',
+  '/solutions/salesforce/': '/en/solutions/salesforce/',
   '/cas-d-usage/rappels-rendez-vous/': '/en/use-cases/appointment-reminders/',
   '/cas-d-usage/notifications-de-commande/': '/en/use-cases/order-notifications/',
   '/cas-d-usage/prise-de-rendez-vous/': '/en/use-cases/appointment-booking/',
@@ -72,12 +73,14 @@ export const JUMELLES: Readonly<Record<string, string>> = {
  * écrite à la main (lot 18), et le guide Meta reçoit ses étapes dans les deux langues de `etapes-meta.ts`.
  */
 const ECRITES_A_LA_MAIN = new Set(['/developpeurs/', '/developpeurs/compte-meta-business/']);
+/** Les pages de Solutions écrites à la main en français seulement, que l'outil traduit : les pages CRM de `hubspot-textes.ts`. */
+const SOLUTIONS_A_TRADUIRE = new Set(['/solutions/deep-hubspot-integration/', '/solutions/salesforce/']);
 /**
  * Les pages de cas et leur carrefour ont leurs deux langues dans `scripts/vitrine/cas-textes.ts`, la page « Démarrer »
  * dans `tunnel-textes.ts` (npm run vitrine:cas) ;
  * le centre d'aide, dans les fiches et leur version anglaise (npm run vitrine:aide).
  */
-const hors = (p: string): boolean => ECRITES_A_LA_MAIN.has(p) || p === '/demarrer/' || p.startsWith('/cas-d-usage/') || (p.startsWith('/solutions/') && p !== '/solutions/deep-hubspot-integration/')
+const hors = (p: string): boolean => ECRITES_A_LA_MAIN.has(p) || p === '/demarrer/' || p.startsWith('/cas-d-usage/') || (p.startsWith('/solutions/') && !SOLUTIONS_A_TRADUIRE.has(p))
   || p.startsWith('/aide/') || ADRESSES_CLAUDE_FR.has(p);
 export const GENEREES: readonly string[] = Object.keys(JUMELLES).filter((p) => !hors(p));
 

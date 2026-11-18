@@ -60,6 +60,8 @@
 - [Shopify stores](https://app.messagingme.fr/en/solutions/shopify-stores/) : Your Shopify store on WhatsApp through Claude Code, Free plan at €0: order confirmation, shipping notice, abandoned checkout reminders, an AI agent.
 - [Deep HubSpot integration](https://app.messagingme.fr/solutions/deep-hubspot-integration/) : Chaque conversation WhatsApp remonte analysée dans HubSpot et devient une action.
 - [Deep HubSpot integration](https://app.messagingme.fr/en/solutions/deep-hubspot-integration/) : Every WhatsApp conversation comes back analyzed in HubSpot and becomes an action.
+- [Salesforce](https://app.messagingme.fr/solutions/salesforce/) : Marketing, ventes, service client : chaque conversation WhatsApp arrive dans Salesforce, analysée, et devient une action.
+- [Salesforce](https://app.messagingme.fr/en/solutions/salesforce/) : Marketing, sales, customer service: every WhatsApp conversation reaches Salesforce analyzed and becomes an action.
 
 ## Aide
 

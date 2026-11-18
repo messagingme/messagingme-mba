@@ -2269,6 +2269,8 @@ html[data-ou="console"] .aide-une .appels .bouton-trait[data-voie="console"]{bac
 .hs-compare td.hs-non .ic{color:var(--muted);opacity:.7}
 .hs-compare td small{display:block;margin-top:4px;font-size:.74rem;line-height:1.3;color:var(--muted)}
 .hs-source{margin:14px 0 0;font-size:.8rem;color:var(--muted)}
+.hs-compare td.hs-prix{font-weight:700;font-variant-numeric:tabular-nums}
+.hs-compare td.hs-prix small{font-weight:400}
 @media (max-width:640px){
   .hs-compare table{table-layout:fixed}
   .hs-compare th,.hs-compare td{padding:12px 10px;font-size:.88rem}

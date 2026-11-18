@@ -13,7 +13,7 @@ import { ENTREES } from '../../web/lib/registre-vitrine';
 import { TEXTES_CARREFOUR } from './cas-textes';
 import { TEXTES_ATTENTE, TEXTES_SECTEURS } from './secteurs-textes';
 import { TEXTES_BOUTIQUES } from './boutique-textes';
-import { HUBSPOT_SOLUTION } from './hubspot-textes';
+import { SOLUTIONS_CRM } from './hubspot-textes';
 
 export type Langue = 'fr' | 'en';
 
@@ -95,15 +95,15 @@ export function liensSecteurs(langue: Langue, retrait: string): string {
   return [...lignes, ligne(retrait, c.adresse, 'i-code', c.fil, c.menu)].join('\n');
 }
 
-/** Solutions > Intégrations : les pages boutique EN LIGNE au registre (Boutiques Shopify), puis Deep HubSpot integration. */
+/** Solutions > Intégrations : les pages boutique EN LIGNE au registre (Boutiques Shopify), puis les pages CRM (`SOLUTIONS_CRM`). */
 export function liensIntegrations(langue: Langue, retrait: string): string {
   const lignes = ENTREES.filter((e) => e.enLigne && e.nature === 'boutique').map((e) => {
     const t = TEXTES_BOUTIQUES[e.cle]?.[langue];
     if (!t) throw new Error(`${e.cle} : boutique en ligne sans ses textes (scripts/vitrine/boutique-textes.ts)`);
     return ligne(retrait, e[langue].adresse, t.icone, e[langue].titre, t.menu);
   });
-  const h = HUBSPOT_SOLUTION[langue];
-  return [...lignes, ligne(retrait, h.adresse, HUBSPOT_SOLUTION.icone, h.titre, h.menu)].join('\n');
+  const crm = SOLUTIONS_CRM.map((s) => ligne(retrait, s[langue].adresse, s.icone, s[langue].titre, s[langue].menu));
+  return [...lignes, ...crm].join('\n');
 }
 
 /** L'adresse publique d'une page, depuis son chemin dans `site/` : `contact/index.html` -> `/contact/`. */

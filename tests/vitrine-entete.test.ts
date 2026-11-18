@@ -5,7 +5,7 @@ import { SITE, lire, pagesHtml } from './vitrine-lecture';
 import { enteteVitrine, jumelleDe, normaliserGabarit, pageAvecEntete, piedVitrine } from '../scripts/vitrine/entete';
 import { ENTREES } from '../web/lib/registre-vitrine';
 import { TEXTES_CARREFOUR } from '../scripts/vitrine/cas-textes';
-import { HUBSPOT_SOLUTION } from '../scripts/vitrine/hubspot-textes';
+import { SOLUTIONS_CRM } from '../scripts/vitrine/hubspot-textes';
 
 /**
  * L'EN-TÊTE ET LE PIED DE PAGE DE LA VITRINE S'ÉCRIVENT UNE FOIS (lots 6 et 6 bis, tâche 4 du plan
@@ -116,7 +116,7 @@ describe('le menu en cascade', () => {
       }
       const enLigne = (nature: string) => ENTREES.filter((e) => e.enLigne && e.nature === nature).map((e) => e[langue].adresse);
       expect(secteurs).toEqual([...enLigne('secteur'), TEXTES_CARREFOUR[langue].adresse]);
-      expect(integrations).toEqual([...enLigne('boutique'), HUBSPOT_SOLUTION[langue].adresse]);
+      expect(integrations).toEqual([...enLigne('boutique'), ...SOLUTIONS_CRM.map((s) => s[langue].adresse)]);
     });
 
     it(`${langue} : Ressources s’ouvre sur la documentation développeurs, aux cinq briques de la page « ${L.premier[3]} »`, () => {
