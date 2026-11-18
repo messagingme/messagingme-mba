@@ -60,20 +60,26 @@ your phone. An interrupted setup resumes where it stopped.
 
 ## Which WhatsApp number?
 
-This is where most people get lost, so here are the four words first.
+This is where most people get lost, so here are the words first, then the two ways to set up your WhatsApp account.
 
 - **Meta Business account**: your business's account at Meta (a "business portfolio", formerly Business Manager), on
   business.facebook.com. It is free; if you advertise on Facebook or Instagram, you probably have one. Otherwise,
   nothing to prepare: with your Facebook profile, Meta's window has you create it during the setup (business name,
   email, country, website).
 - **WhatsApp Business app**: the free app for businesses, on your phone, distinct from WhatsApp.
-- **API number**: a number connected through Meta to the official WhatsApp API, driven by Messaging Me. It sends your
-  messages (confirmations, reminders, campaigns, Shopify messages), and Meta bills them, the templates and the replies
-  beyond a monthly allowance, on a payment method you add at Meta.
-- **Keeping your WhatsApp Business app**: the number of your WhatsApp Business app also becomes an API number, without
-  leaving the app. You keep replying from your phone, and the messages your application sends go out from Messaging
-  Me. What you type in the app does not show in Messaging Me yet, and you need to open the app at least every two
-  weeks.
+
+Two ways to set up your WhatsApp account:
+
+- **Keep your WhatsApp Business app**: we transform it slightly so that messages can be automated. You still reply
+  from the app on your phone, and you also automate whatever you want with Messaging Me. The name and photo are set in
+  the app, with no business name verified by Meta. What you type in the app does not show in Messaging Me yet, and you
+  need to open the app at least every two weeks.
+- **Create an API number directly**: a number connected through Meta to the official WhatsApp API, driven entirely by
+  Messaging Me. Your business's name is displayed, reviewed by Meta; everything goes through Messaging Me (automatic
+  replies, campaigns, a shared Inbox); nothing to keep open on a phone. Meta bills the templates and the replies
+  beyond a monthly allowance, on a payment method you add at Meta or on the credit line.
+
+Either way, Claude asks you a few questions to find what you want and how.
 
 Then `/messagingme:demarrer` asks you, one question at a time, the same questions as the
 [Get started](https://app.messagingme.fr/en/get-started/) page:
