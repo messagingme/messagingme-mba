@@ -10,7 +10,7 @@ import {
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
 import type { WorkflowRow } from '../src/workflow/store.pg';
 import type { ControlOwner } from '../src/inbox/store.pg';
-import type { RunState } from '../src/workflow/run-store.pg';
+import type { RunState, WorkflowRunRow } from '../src/workflow/run-store.pg';
 import type { EvenementDuParcours } from '../src/workflow/evenement';
 import { DROITS, type Offre } from '../src/offres/offres';
 
@@ -225,5 +225,201 @@ describe('devant un parcours d’événement actif : qui cède, qui coexiste, qu
     const issue = await m.lancements.lancer({ tenantId: ESPACE, workflowId: 'wf-builder', waId: WA, ...d } as DemandeDeLancement);
     expect(issue).toBe(true);
     expect(m.clotures).toEqual(['tous']);
+  });
+});
+
+/**
+ * LES REPRISES D'UN PARCOURS D'ÉVÉNEMENT (lot 4, décisions 20, 21 et 31) : la réponse du contact (`advance`) et le réveil
+ * d'une échéance (`resume`), sur le vrai exécuteur et le vrai contrôle du fil. Un parcours ordinaire ne change pas : ses
+ * suites existantes (`workflow-advance-gele`, `scenario-fil-non-repris`, ...) restent vertes sans toucher leurs attentes.
+ */
+const PANIER_DELAI: WorkflowGraph = {
+  nodes: [
+    n('tpl', 'template', { templateName: 'panier_relance', language: 'fr', templateButtons: ['Reprendre', 'Plus tard'], timeoutValue: 30, timeoutUnit: 'minutes' }),
+    n('qm1', 'quick_message', { body: 'Voici votre panier' }),
+    n('qm2', 'quick_message', { body: 'À bientôt' }),
+    n('tpl2', 'template', { templateName: 'panier_rappel', language: 'fr' }),
+    n('j', 'aller_a', { cible: 'code-autre' }),
+  ],
+  edges: [
+    { id: 'e1', source: 'tpl', target: 'qm1', sourceHandle: 'btn:0' },
+    { id: 'e2', source: 'tpl', target: 'j', sourceHandle: 'btn:1' },
+    { id: 'e3', source: 'tpl', target: 'tpl2', sourceHandle: 'timeout' },
+  ],
+};
+/** Le scénario du répondeur qui coexiste : une question, et une relance à son échéance. */
+const REPONDEUR: WorkflowGraph = {
+  nodes: [
+    n('q', 'question', { body: 'Une question ?', rows: [{ title: 'Oui' }], timeoutValue: 1, timeoutUnit: 'hours' }),
+    n('tpl-r', 'template', { templateName: 'repondeur_relance', language: 'fr' }),
+  ],
+  edges: [{ id: 'r1', source: 'q', target: 'tpl-r', sourceHandle: 'timeout' }],
+};
+/** Le bloc d'arrivée d'un « Aller à » vers un autre scénario. */
+const AUTRE: WorkflowGraph = { nodes: [n('x', 'quick_message', { body: 'Ailleurs' })], edges: [] };
+
+const runEvenement = (o: Partial<WorkflowRunRow> = {}): WorkflowRunRow => ({
+  id: 'r-evt', workflowId: 'wf-panier', tenantId: ESPACE, waId: WA, contactId: 'c1', currentNode: 'tpl', status: 'waiting',
+  lastMessageId: null, channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: true, neEnMasse: false, evenement: EVENEMENT, ...o,
+});
+const runOrdinaire = (o: Partial<WorkflowRunRow> = {}): WorkflowRunRow => ({
+  id: 'r-ord', workflowId: 'wf-repondeur', tenantId: ESPACE, waId: WA, contactId: 'c1', currentNode: 'q', status: 'waiting',
+  lastMessageId: null, channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: false, neEnMasse: false, evenement: null, ...o,
+});
+
+interface OptionsReprise {
+  detenteur?: ControlOwner;
+  /** Le parcours d'événement a-t-il encore lieu d'être (lot 5) ? */
+  voulu?: boolean;
+  /** Le parcours le plus récent en attente (le défaut : celui de l'événement). */
+  dernier?: WorkflowRunRow;
+}
+
+function bancReprise(o: OptionsReprise = {}) {
+  const b = bancDuFil({ surLaListe: [WA], conversations: { [WA]: { owner: o.detenteur ?? 'app_workflow' } } });
+  const envois: string[] = [];
+  const ecritures: string[] = [];
+  const priseDeMain: string[] = [];
+  const auRepondeur: string[] = [];
+  const deps: WorkflowExecutorDeps = {
+    ...depsInertes,
+    estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
+    isWindowOpen: async () => true,
+    parcoursEncoreVoulu: async () => o.voulu ?? true,
+    blocDuMessage: async (_t, wamid) => (wamid === 'wamid.tpl' ? { workflowId: 'wf-panier', nodeId: 'tpl' } : null),
+    confierAuRepondeur: async (_t, _w, messageId) => { auRepondeur.push(messageId); },
+    resoudreBloc: async (_t, cible) => (cible === 'code-autre' ? { workflowId: 'wf-autre', nodeId: 'x', graph: AUTRE } : null),
+    runs: avecGardesDEtatInertes({
+      start: async () => ({ id: 'r-saut' }),
+      findWaitingByWaId: async () => o.dernier ?? runEvenement(),
+      findWaitingSurBloc: async (_t: string, _w: string, wf: string, noeud: string) => (wf === 'wf-panier' && noeud === 'tpl' ? runEvenement() : null),
+      setState: async (id: string, s: RunState) => { ecritures.push(`${id}:${s.status}`); },
+      setStateSiEncoreSur: async (_t: string, id: string, _n: string | null, s: RunState) => { ecritures.push(`${id}:${s.status}`); return true; },
+      closeActiveByWaId: async () => [],
+      cloreAutresActifs: async (_t: string, _w: string, saufId: string) => { priseDeMain.push(saufId); return []; },
+    }),
+    getGraph: async (wf) => (wf === 'wf-panier' ? PANIER_DELAI : wf === 'wf-repondeur' ? REPONDEUR : null),
+    applyTag: async () => true,
+    setField: async () => {},
+    removeTag: async () => {},
+    clearField: async () => {},
+    sendTemplate: async (_t, _w, nom) => { envois.push(`tpl:${nom}`); },
+    sendQuickMessage: async (_t, _w, texte) => { envois.push(`qm:${texte}`); },
+    sendFlow: async () => {},
+    sendQuestion: async () => {},
+    mayAct: b.fil.peutAgir,
+    reclaimControl: b.fil.reprendrePourLApp,
+  };
+  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur };
+}
+
+const clic = (bouton: string) => ({ reaction: false, messageCite: 'wamid.tpl', type: 'button' as const, bouton });
+
+describe('la réponse du contact à un parcours d’événement (advance)', () => {
+  it('🔴 un clic sur un bouton du premier template prend SA branche, et le parcours reprend la main', async () => {
+    silence();
+    const m = bancReprise();
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(m.envois).toEqual(['qm:Voici votre panier']);
+    expect(m.priseDeMain).toEqual(['r-evt']);
+  });
+
+  it('🔴 le fil à l’agent de Meta : repris pour l’app, puis la branche part', async () => {
+    silence();
+    const m = bancReprise({ detenteur: 'mba' });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(m.b.etat(WA)?.owner).toBe('app_workflow');
+    expect(m.envois).toEqual(['qm:Voici votre panier']);
+  });
+
+  it('🔴 un opérateur tient le fil : le parcours se CLÔT (un gel garderait la place), rien ne part (décision 20)', async () => {
+    silence();
+    const m = bancReprise({ detenteur: 'app_human' });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(m.envois).toEqual([]);
+    expect(m.ecritures).toEqual(['r-evt:done']);
+    expect(m.b.appels).toEqual([]);
+  });
+
+  it('🔴 plus voulu : un clic ne prend plus sa branche, le parcours se clôt sans passer à l’équipe', async () => {
+    silence();
+    const m = bancReprise({ voulu: false });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(m.envois).toEqual([]);
+    expect(m.ecritures).toEqual(['r-evt:done']);
+  });
+
+  it('plus voulu : un message écrit va au répondeur, comme un texte que le scénario n’avait pas prévu', async () => {
+    silence();
+    const m = bancReprise({ voulu: false });
+    await m.executor.advance(ESPACE, WA, 'm1', null, 'whatsapp', { reaction: false, type: 'text', texte: 'bonjour' });
+    expect(m.envois).toEqual([]);
+    expect(m.ecritures).toEqual(['r-evt:done']);
+    expect(m.auRepondeur).toEqual(['m1']);
+  });
+
+  it('🔴 deux parcours attendent : le clic sur le template de l’événement va au parcours d’événement, pas au plus récent', async () => {
+    silence();
+    const m = bancReprise({ dernier: runOrdinaire() });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(m.envois).toEqual(['qm:Voici votre panier']);
+    expect(m.ecritures.every((e) => e.startsWith('r-evt:'))).toBe(true);
+  });
+
+  it('🔴 un « Aller à » transmet l’événement au parcours d’arrivée (décision 28)', async () => {
+    silence();
+    const m = bancReprise();
+    const demarrer = vi.spyOn(m.executor, 'demarrer');
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:1', 'whatsapp', clic('btn:1'));
+    expect(demarrer).toHaveBeenCalledTimes(1);
+    expect(demarrer.mock.calls[0]![5]).toMatchObject({ depuis: 'saut', noeudId: 'x', evenement: EVENEMENT });
+  });
+});
+
+describe('le réveil d’un parcours d’événement (resume)', () => {
+  const echeance = (o: Partial<WorkflowRunRow> = {}) => {
+    const r = runEvenement(o);
+    return { ...r, status: 'waiting' as const };
+  };
+
+  it('🔴 fil à nous : la relance part, et le parcours reprend la main sur ceux qui coexistaient', async () => {
+    silence();
+    const m = bancReprise();
+    expect(await m.executor.resume(echeance())).toBe(true);
+    expect(m.envois).toEqual(['tpl:panier_rappel']);
+    expect(m.priseDeMain).toEqual(['r-evt']);
+  });
+
+  it('🔴 l’agent de Meta tient le fil : repris, puis la relance', async () => {
+    silence();
+    const m = bancReprise({ detenteur: 'mba' });
+    expect(await m.executor.resume(echeance())).toBe(true);
+    expect(m.b.etat(WA)?.owner).toBe('app_workflow');
+    expect(m.envois).toEqual(['tpl:panier_rappel']);
+  });
+
+  it('🔴 un opérateur tient le fil : clos, rien ne part (décision 20)', async () => {
+    silence();
+    const m = bancReprise({ detenteur: 'app_human' });
+    expect(await m.executor.resume(echeance())).toBe(false);
+    expect(m.envois).toEqual([]);
+    expect(m.ecritures).toEqual(['r-evt:done']);
+  });
+
+  it('🔴 plus voulu : clos, rien ne part', async () => {
+    silence();
+    const m = bancReprise({ voulu: false });
+    expect(await m.executor.resume(echeance())).toBe(false);
+    expect(m.envois).toEqual([]);
+    expect(m.ecritures).toEqual(['r-evt:done']);
+  });
+
+  it('décision 31 : un parcours ORDINAIRE qui se réveille pendant un parcours d’événement continue, sans rien clore', async () => {
+    silence();
+    const m = bancReprise({ dernier: runOrdinaire() });
+    expect(await m.executor.resume({ ...runOrdinaire(), status: 'waiting' })).toBe(true);
+    expect(m.envois).toEqual(['tpl:repondeur_relance']);
+    expect(m.priseDeMain).toEqual([]);
   });
 });

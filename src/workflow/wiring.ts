@@ -651,6 +651,9 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     recordNodeEvent: (e) => nodeEvents.record(e),
     // Le bloc qui a envoyé un message cité par un clic : un clic sur un ancien message se lit comme une réponse écrite.
     blocDuMessage: (tenant, wamid) => nodeEvents.blocDuMessage(tenant, wamid),
+    // Lot 4 : inerte, toujours voulu. Le lot 5 y branche la boutique (panier encore ouvert, ligne allumée, boutique non en
+    // pause), magasin passé ENTIER (règle du store injecté).
+    parcoursEncoreVoulu: async () => true,
     // Modèle, message rapide, question et formulaire : `src/workflow/envois-bloc.ts`, étalés tels quels. Leur
     // contrat est tenu par le type de retour de `creerEnvoisDeBloc` ; une clé réécrite APRÈS cet étalement le
     // remplacerait sans erreur de compilation, seuls les tests du vrai câblage le voient.

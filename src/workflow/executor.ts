@@ -158,6 +158,11 @@ export interface WorkflowExecutorDeps {
     cloreParOrigine(tenantId: string, origine: string): Promise<string[]>;
     cloreParScenarios(tenantId: string, workflowIds: readonly string[]): Promise<string[]>;
     /**
+     * Le parcours de ce contact qui attend sur CE bloc de CE scénario : un clic se route par le message qu'il cite quand
+     * deux parcours attendent (un parcours d'événement et un ordinaire qui coexiste, lot 4). `null` = aucun.
+     */
+    findWaitingSurBloc(tenantId: string, waId: string, workflowId: string, nodeId: string): Promise<WorkflowRunRow | null>;
+    /**
      * Écrit l'état seulement si le parcours vit encore. `false` = il a été clos entre-temps, et l'écriture
      * l'aurait ressuscité avec une échéance. Requise ; les fixtures passent `avecGardesDEtatInertes`
      * (`tests/executeur-inerte.ts`).
@@ -224,6 +229,12 @@ export interface WorkflowExecutorDeps {
    * passent `aucunBlocConnu`, qui garde le comportement d'avant.
    */
   blocDuMessage(tenantId: string, metaMessageId: string): Promise<{ workflowId: string; nodeId: string } | null>;
+  /**
+   * Le parcours d'un événement a-t-il encore lieu d'être (lot 4, § 5.4.5) ? Le lot 5 y répond (une commande née du panier
+   * arrête le parcours du panier, la boutique en pause arrête tout) ; au lot 4, câblée inerte : toujours voulu. Lue avant
+   * tout effet d'une reprise d'un parcours d'événement : faux, il se clôt sans passer à l'équipe. Fixtures : `depsInertes`.
+   */
+  parcoursEncoreVoulu(tenantId: string, run: { workflowId: string; evenement: EvenementDuParcours | null }): Promise<boolean>;
   /**
    * `buttons` = boutons du template (payload contrôlé sur les quick-reply). `explicitParams` = variables du
    * corps déjà résolues (campagne workflow, 1er template), sinon résolution via les hints. `sources` = les
@@ -1217,7 +1228,18 @@ export class WorkflowExecutor {
       return true;
     };
     const ecrireVivant = (state: RunState): Promise<boolean> => (jeton !== null ? surLeBloc(state) : this.ecrireSiVivant(tenantId, run.id, state));
-    if (!(await this.deps.mayAct(tenantId, waId))) {
+    if (run.evenement !== null && !(await this.deps.parcoursEncoreVoulu(tenantId, run))) {
+      // eslint-disable-next-line no-console
+      console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} plus voulu pour ${waId}, clos au réveil`);
+      await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
+      await clore({ currentNode: null, status: 'done' });
+      return false;
+    }
+    // Un parcours d'événement reprend le fil à l'agent de Meta (jamais à un opérateur, décision 20) ; un ordinaire est clos.
+    const repris = !(await this.deps.mayAct(tenantId, waId))
+      ? (run.evenement !== null ? await this.deps.reclaimControl(tenantId, waId, { saufOperateur: true }) : false)
+      : true;
+    if (repris === false || repris === 'operateur') {
       // eslint-disable-next-line no-console
       console.log(`workflow ${run.workflowId}: fil repris par un humain ou par MBA pendant l'attente, reprise annulée pour ${waId}`);
       await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
@@ -1252,6 +1274,7 @@ export class WorkflowExecutor {
     }
     const ctx = await this.buildCtx(tenantId, waId, graph);
     const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, suite, ctx, true, run.id, run.channel ?? 'whatsapp', garde);
+    if (run.evenement !== null && (actions.length > 0 || rest.status !== 'done')) await this.prendreLaMain(tenantId, waId, run.id);
 
     // Fenêtre de service fermée : on écarte les seuls messages de session (131047) et on applique le reste,
     // template compris, qui n'a pas besoin de la fenêtre.
@@ -1670,6 +1693,33 @@ export class WorkflowExecutor {
     // eslint-disable-next-line no-console
     console.log(`workflow ${run.workflowId}: clic « ${bouton} » sur un message du bloc ${origine.nodeId}, le parcours attend sur ${run.currentNode ?? 'null'} : lu comme une réponse écrite`);
     return null;
+  }
+
+  /**
+   * Le parcours qu'un clic vise (lot 4) : celui qui attend sur le bloc du message cité, quand ce n'est pas le plus récent
+   * (un parcours d'événement et un ordinaire qui coexiste attendent ensemble, décision 21). Hors d'un clic sur un message
+   * connu, le plus récent, comme avant.
+   */
+  private async parcoursDuClic(
+    tenantId: string, waId: string, run: WorkflowRunRow, bouton: string | null, messageCite: string | undefined,
+  ): Promise<WorkflowRunRow> {
+    if (bouton === null || messageCite === undefined || !/^(btn:|card:|row:)/.test(bouton)) return run;
+    const origine = await this.deps.blocDuMessage(tenantId, messageCite).catch(() => null);
+    if (origine === null || (origine.workflowId === run.workflowId && origine.nodeId === run.currentNode)) return run;
+    return (await this.deps.runs.findWaitingSurBloc(tenantId, waId, origine.workflowId, origine.nodeId)) ?? run;
+  }
+
+  /**
+   * Un parcours d'événement reprend la main (lot 4, décision 21) : les autres parcours actifs du contact (le répondeur qui
+   * a coexisté pendant son sommeil) sont clos, avec leurs sessions d'agent.
+   */
+  private async prendreLaMain(tenantId: string, waId: string, runId: string): Promise<void> {
+    const autres = await this.deps.runs.cloreAutresActifs(tenantId, waId, runId);
+    for (const id of autres) await this.cloreSessionDuRun(tenantId, id, 'erreur');
+    if (autres.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`parcours d’événement ${runId} : ${autres.length} parcours clos pour ${waId}, il reprend la main`);
+    }
   }
 
   /**
@@ -2209,8 +2259,12 @@ export class WorkflowExecutor {
     tenantId: string, waId: string, messageId: string, boutonRecu: string | null = null, canalRetour: RunChannel = 'whatsapp',
     entrant: EntrantAvance = { reaction: false },
   ): Promise<void> {
-    const run = await this.deps.runs.findWaitingByWaId(tenantId, waId);
-    if (!run || run.lastMessageId === messageId) return; // dédup at-least-once
+    const leDernier = await this.deps.runs.findWaitingByWaId(tenantId, waId);
+    if (!leDernier) return;
+    // Lot 4 : deux parcours peuvent attendre ce contact (un parcours d'événement et un ordinaire qui coexiste, décision 21) ;
+    // un clic va au parcours qui attend sur le bloc du message qu'il cite, sinon au plus récent.
+    const run = await this.parcoursDuClic(tenantId, waId, leDernier, boutonRecu, entrant.messageCite);
+    if (run.lastMessageId === messageId) return; // dédup at-least-once
 
     /**
      * Le tour est réservé avant tout envoi : l'écriture conditionnelle plus bas protège l'état mais arrive
@@ -2264,6 +2318,31 @@ export class WorkflowExecutor {
     // pas tuer le parcours), mais on journalise : rien ne relance ce parcours au retour du contrôle
     // (`handover.ts` ne le fait pas), il ne repart qu'au prochain message du contact, donc il est en pratique
     // mort, et sans trace personne ne comprendrait pourquoi.
+    // 🔴 LE PARCOURS D'UN ÉVÉNEMENT (lot 4, décisions 20 et 21), et lui seul. Plus voulu (lot 5 : la commande est passée, la
+    // boutique en pause) : clos sans passer à l'équipe, et le message va au répondeur comme un texte que le scénario n'avait
+    // pas prévu (chemin (a)). Le fil à l'agent de Meta : repris, puis la suite. Un opérateur le tient : le parcours S'ARRÊTE,
+    // un gel garderait à vie la place unique du contact ; le message reste à la remise, qui le donne à l'équipe.
+    if (run.evenement !== null) {
+      if (!(await this.deps.parcoursEncoreVoulu(tenantId, run))) {
+        // eslint-disable-next-line no-console
+        console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} plus voulu pour ${waId}, clos`);
+        await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
+        await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId });
+        const unMessage = boutonRecu === null && canalRetour === 'whatsapp' && !entrant.reaction;
+        if (await this.deps.mayAct(tenantId, waId)) await this.rendreLaMainAMba(tenantId, waId, unMessage ? { transmettre: messageId } : {});
+        return;
+      }
+      if (!(await this.deps.mayAct(tenantId, waId))) {
+        const reprise = await this.deps.reclaimControl(tenantId, waId, { saufOperateur: true });
+        if (reprise === 'operateur' || reprise === false) {
+          // eslint-disable-next-line no-console
+          console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} arrêté, le fil de ${waId} est tenu par un opérateur`);
+          await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
+          await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId });
+          return;
+        }
+      }
+    }
     if (!(await this.deps.mayAct(tenantId, waId))) {
       // eslint-disable-next-line no-console
       console.warn(`workflow ${run.workflowId}: avance GELEE pour ${waId} (run ${run.id}), le fil ne nous appartient pas (opérateur ou Meta Business Agent) sur le bloc ${run.currentNode ?? 'null'} (message ${messageId}) ; le run reste waiting et ne repartira qu'au prochain message du contact`);
@@ -2432,6 +2511,7 @@ export class WorkflowExecutor {
     }
     const ctx = await this.buildCtx(tenantId, waId, graph);
     const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, next, ctx, true, run.id, run.channel ?? 'whatsapp', battement);
+    if (run.evenement !== null) await this.prendreLaMain(tenantId, waId, run.id);
     // Le numéro avant tout effet : l'exception sort sans rien écrire, le parcours reste sur son bloc, et le message
     // suivant du contact (après le paiement ou le « Relier ») le fera avancer. Sans elle, chaque message rejouerait
     // l'e-mail ou l'appel API placés avant l'envoi refusé.

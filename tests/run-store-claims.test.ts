@@ -201,6 +201,12 @@ describe('PgWorkflowRunStore : les lectures et clôtures du lot 4', () => {
     expect(rendu).toEqual(['r1']);
   });
 
+  it('findWaitingSurBloc : le parcours de CE contact qui attend sur CE bloc de CE scénario (un clic se route ainsi)', async () => {
+    const { sql, params } = await sqlDe((s) => s.findWaitingSurBloc('t1', '336', 'w1', 'n2'));
+    expect(sql).toBe("select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse, evenement from workflow_runs where tenant_id = $1 and wa_id = $2 and status = 'waiting' and workflow_id = $3 and current_node = $4 order by created_at desc limit 1");
+    expect(params).toEqual(['t1', '336', 'w1', 'n2']);
+  });
+
   it('cloreAutresActifs épargne le parcours qui prend la main', async () => {
     const { sql, params } = await sqlDe((s) => s.cloreAutresActifs('t1', '336', 'r7'));
     expect(sql).toContain("where tenant_id = $1 and wa_id = $2 and status in ('waiting', 'sleeping') and id <> $3 returning id");

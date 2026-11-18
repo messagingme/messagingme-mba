@@ -60,7 +60,9 @@ function contexteDeLAvance(err: unknown): { workflowId?: string; runId?: string;
  * parcours. 🔴 Un parcours GELÉ (le fil tenu par l'équipe ou par l'agent de Meta) ne le reçoit pas : `false`, et la
  * remise décide avec ses gardes, dont la demande de réouverture d'une conversation « Traité » ; avant, le message était
  * avalé (relecture des correctifs de la filière application, 2026-10-22). L'avance est tentée dans les deux cas :
- * l'exécuteur journalise le gel, comme avant. Les deux lectures précèdent l'avance, qui peut terminer le parcours.
+ * l'exécuteur journalise le gel, comme avant. Les deux lectures précèdent l'avance, qui peut terminer le parcours ; une
+ * troisième la suit quand le fil n'était pas à nous : un parcours d'événement (lot 4) reprend pendant l'avance le fil de
+ * l'agent de Meta, et le message est alors à lui.
  */
 export function avanceDuParcours(d: {
   trouverEnAttente(tenantId: string, waId: string): Promise<object | null>;
@@ -71,7 +73,10 @@ export function avanceDuParcours(d: {
     const enAttente = (await d.trouverEnAttente(tenantId, waId)) !== null;
     const aNous = enAttente && (await d.peutAgir(tenantId, waId));
     await d.avancer(tenantId, waId, messageId, buttonPayload, entrant);
-    return aNous;
+    // 🔴 Lot 4 : un parcours d'événement reprend PENDANT l'avance un fil que tenait l'agent de Meta (décision 20). Le message
+    // est alors à lui : la remise ne doit pas le donner aussi à l'agent (deux voix). Relu seulement quand il n'était pas à
+    // nous ; un parcours ordinaire gelé ne reprend rien, sa réponse ne change pas.
+    return aNous || (enAttente && (await d.peutAgir(tenantId, waId)));
   };
 }
 

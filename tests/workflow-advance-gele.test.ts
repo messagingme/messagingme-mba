@@ -34,6 +34,16 @@ describe('l’avance du parcours en attente', () => {
     expect(b.avances).toEqual(['M1']);
   });
 
+  it('🔴 lot 4 : un parcours d’événement reprend PENDANT l’avance le fil de l’agent de Meta : le message est à lui (pas deux voix)', async () => {
+    let repris = false;
+    const avance = avanceDuParcours({
+      trouverEnAttente: async () => ({ id: 'run-evt' }),
+      peutAgir: async () => repris,
+      avancer: async () => { repris = true; },
+    });
+    expect(await avance('t1', '33612345678', 'M1', 'btn:0', ENTRANT)).toBe(true);
+  });
+
   it('sans parcours en attente : faux, et le détenteur du fil n’est pas lu', async () => {
     const b = banc({ enAttente: false, aNous: true });
     expect(await b.avance('t1', '33612345678', 'M1', null, ENTRANT)).toBe(false);

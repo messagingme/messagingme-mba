@@ -101,7 +101,7 @@ export const rcsSansAgent: WorkflowExecutorDeps['rcs'] = {
 
 type Runs = WorkflowExecutorDeps['runs'];
 type GardesDEtat = Pick<Runs, 'setStateSiVivant' | 'setStateSiEncoreSur' | 'reserverAvance' | 'prolongerAvance' | 'libererAvance'
-  | 'parcoursDEvenementActif' | 'closeOrdinairesByWaId' | 'cloreAutresActifs' | 'cloreParOrigine' | 'cloreParScenarios'>;
+  | 'parcoursDEvenementActif' | 'closeOrdinairesByWaId' | 'cloreAutresActifs' | 'cloreParOrigine' | 'cloreParScenarios' | 'findWaitingSurBloc'>;
 
 /**
  * Le parcours d'événement (lot 4) dans un faux qui ne le connaît pas : aucun n'est actif, donc fermer les parcours
@@ -116,6 +116,9 @@ async function closeOrdinairesInerte(this: Partial<Pick<Runs, 'closeActiveByWaId
 }
 async function aucunParcoursClos(): Promise<string[]> {
   return [];
+}
+async function aucunParcoursSurCeBloc(): Promise<null> {
+  return null;
 }
 
 /**
@@ -170,6 +173,7 @@ export function avecGardesDEtatInertes<R extends Pick<Runs, 'setState'> & Partia
     cloreAutresActifs: runs.cloreAutresActifs ?? aucunParcoursClos,
     cloreParOrigine: runs.cloreParOrigine ?? aucunParcoursClos,
     cloreParScenarios: runs.cloreParScenarios ?? aucunParcoursClos,
+    findWaitingSurBloc: runs.findWaitingSurBloc ?? aucunParcoursSurCeBloc,
   });
 }
 
@@ -182,6 +186,8 @@ export const aucunTypeConnu = async (): Promise<Record<string, never>> => ({});
 
 export const depsInertes = {
   mayAct: filToujoursANous,
+  /** Lot 4 : un parcours d'événement a toujours lieu d'être (la vraie réponse vient au lot 5). */
+  parcoursEncoreVoulu: async (): Promise<boolean> => true,
   reclaimControl: repriseSansObjection,
   isWindowOpen: fenetreToujoursFermee,
   evalContext: contexteIntrouvable,

@@ -200,6 +200,22 @@ export class PgWorkflowRunStore {
   }
 
   /**
+   * Le parcours de ce contact qui attend sur CE bloc de CE scénario (lot 4) : deux parcours peuvent attendre ensemble (un
+   * parcours d'événement et un ordinaire qui coexiste, décision 21), et un clic se route par le message qu'il cite. Même
+   * clause d'index que `findWaitingByWaId` (0023), plus le bloc.
+   */
+  async findWaitingSurBloc(tenantId: string, waId: string, workflowId: string, nodeId: string): Promise<WorkflowRunRow | null> {
+    const res = await this.pool.query<LigneRun>(
+      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse, evenement
+       from workflow_runs where tenant_id = $1 and wa_id = $2 and status = 'waiting' and workflow_id = $3 and current_node = $4
+       order by created_at desc limit 1`,
+      [tenantId, waId, workflowId, nodeId],
+    );
+    const r = res.rows[0];
+    return r ? runDeLigne(r) : null;
+  }
+
+  /**
    * Un run par son identifiant, quel que soit son statut. Sert la garde du tour d'agent, qui exige que le run
    * attende toujours sur son bloc avant d'envoyer : c'est ce qui rend inoffensif tout chemin qui tue un run
    * `waiting` sans rien savoir des sessions d'agent. Tous les statuts, pour distinguer un run mort d'un run

@@ -132,6 +132,16 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     expect((await store.byId(tenantId, ordinaire))?.status).toBe('waiting');
   });
 
+  it('🔴 deux parcours attendent le même contact : findWaitingSurBloc rend celui du bloc demandé, findWaitingByWaId le plus récent', async () => {
+    const wa = '33600009171';
+    const evenement = await nait(tenantId, workflowId, wa, ev('deux'), { currentNode: 'tpl' });
+    const ordinaire = await nait(tenantId, workflowId, wa, null, { currentNode: 'q' });
+    expect((await store.findWaitingByWaId(tenantId, wa))?.id).toBe(ordinaire);
+    expect((await store.findWaitingSurBloc(tenantId, wa, workflowId, 'tpl'))?.id).toBe(evenement);
+    expect(await store.findWaitingSurBloc(tenantId, wa, workflowId, 'absent')).toBeNull();
+    expect(await store.findWaitingSurBloc(autreTenant, wa, workflowId, 'tpl')).toBeNull();
+  });
+
   it('la colonne est nulle par défaut : un parcours inséré sans elle (l’ancien code) est ordinaire', async () => {
     const r = await pool.query<{ evenement: unknown }>(
       `insert into workflow_runs (workflow_id, tenant_id, wa_id, current_node, status) values ($1, $2, '33600009161', 'n1', 'waiting')
