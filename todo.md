@@ -1,5 +1,39 @@
 # todo.md : backlog
 
+## 🟡 Le rayon des scénarios, lot 1 du menu « Scénario » (relecture du 2026-11-18, aucun rouge) : avec le lot 2, au plus tard avant le lot 5
+
+Plan `docs/superpowers/plans/2026-11-18-menu-scenario-lot-1-rayons.md`. Inatteignable tant qu'aucun scénario n'est
+d'un autre rayon que `general` ; le premier jaune devient rouge le jour où le lot 5 crée un scénario Shopify.
+
+- **L'agent de Meta vise et envoie un bloc de n'importe quel rayon.** La cible d'un outil (`cibleInvalide`,
+  `src/http/mba-outils.ts`) se valide par `mbaOutils.workflow`, câblé sur `getById` (tous rayons) ; `GET /mba-outils/blocs`
+  liste les blocs de tout rayon ; `ajouterMaisonPourMba` et `patchMaisonPourMba` (`src/agent/catalog.pg.ts`) n'appliquent
+  pas `SCENARIOS_DE_L_ESPACE` ; au relais, `bloc_fixe` lit `graphePublie` sans rayon puis lance `agent_meta_bloc`, qui ne
+  lit pas la ligne (son `rayons: ['general']` n'est appliqué nulle part). À faire : `workflow` rend `null` et `blocs` rend
+  `[]` hors `general`, idem `graphePublie` (`src/index.ts`, et `src/worker.ts` pour l'agent IA) ; retirer les deux entrées
+  de `INDEX_TOUS_RAYONS` (`tests/inventaire-rayon-scenarios.test.ts`), dont la raison (« gardée à l'écriture par le
+  catalogue ») est fausse pour l'agent de Meta ; deux tests vérifiés dans les deux sens (cible Meta sur un scénario
+  `shopify` refusée en 422, relais `bloc_fixe` qui n'envoie rien).
+- **`POLITIQUE_DE_LANCEMENT.rayons` est déclaré pour quatre types qui ne le lisent pas** (`agent_meta_bloc`, `repondeur`,
+  `aller_a`, `aller_a_masse`), et le test affirme ces valeurs : l'appliquer à `agent_meta_bloc`, marquer les autres
+  « sans objet ».
+- **La publicité n'a aucune garde de rayon au choix du scénario** (`src/http/pubs.ts`, insertion brute de son
+  automation) : le lancement la rattrape, mais une pub forgée vers un scénario Shopify serait créée chez Meta et
+  dépenserait. Garde `etatDuScenario` avant `creerPub`, comme le widget et la chaîne.
+- **La duplication `/ops` copie `rayon: a.rayon`** (`src/ops/duplication/declencheurs.ts`) alors que le scénario copié est
+  forcé à `general` : écrire `general`. Aucun test ne vérifie que `lireEtat` rend `null` pour un scénario Shopify.
+- **L'écran Automation « Autres » modifie ou supprime par identifiant sans filtrer le rayon** (`getById`, `update`,
+  `remove` du magasin) : au lot 5, filtre par rayon ou routes séparées.
+- **L'inventaire exempte des fichiers entiers** (`src/http/workflows.ts`, `src/worker.ts`, `src/workflow/wiring.ts`...),
+  `RE_SQL` est sensible à la casse et ligne par ligne, `RE_GETBYID` ne voit pas une dépendance nommée `deps.workflow(`.
+- **Pour le plan du lot 6** : `resolveScenario` force `general` (`src/ids/resolve.ts`) et l'action HubSpot passe par
+  l'envoi public ; passer `workflow_hubspot.rayons` à `hubspot` ne suffira pas, la résolution devra recevoir le rayon.
+- **Pour le plan du lot 5** : la limite d'automations de l'offre compte tous les rayons (`verifierPlaceAutomation`,
+  `src/offres/offre.pg.ts`), à trancher (spec § 5.6) ; `/nodes` doit prendre le rayon du scénario édité.
+- Cosmétique : deux JSDoc empilés sur `resoudreBloc` (`src/workflow/executor.ts`), le filtre de rayon posé dans la
+  requête de verrou du webhook entrant (vérifier le rayon du seul `workflowVise`), `{ rayon: 'general',` collé à
+  l'accolade dans quelques fabriques et tests.
+
 ## 🟡 Restes du menu en cascade de la vitrine (lot 1, 2026-11-18)
 
 Relevés par la relecture du lot, aucun ne bloque le menu :
