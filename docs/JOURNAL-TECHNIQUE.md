@@ -4,7 +4,7 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
-## 2026-11-18 : le numéro fourni qui n'a jamais servi revient au stock
+## 2026-11-18 : le numéro fourni qui n'a jamais servi revient au stock (en production)
 
 **La demande** : « si un numéro n'a pas pu être rattaché à un espace, parce que le code n'a pas pu être obtenu, ou qu'il
 n'a pas été mis par le client, il faut qu'il revienne dans le stock automatiquement au bout d'un moment » (Julien, après
@@ -31,8 +31,16 @@ l'espace « Zigi Arjun’s workspace » du 2026-11-17 : deux numéros sortis du 
   par « Abandonner ») : corrigés avant le push, la 0294 n'étant pas partie. Les autres sont au `todo.md`.
 - Dans les deux sens : 23 mutations nommées (chaque condition de la reprise, chaque issue du remplacement, la marque et
   son espace, l'ordre d'attribution, la relecture sous le verrou, le verrou relâché, les alertes, un échec qui n'arrête
-  pas le tour), chacune vue rouge par
-  au moins un test, puis le fichier restauré et son empreinte md5 comparée.
+  pas le tour), chacune vue rouge par au moins un test, puis le fichier restauré et son empreinte md5 comparée.
+- **Migration 0294** : poussée avec son code (`08c2dcd39`, CI verte job par job), `migration=avant`, run 44298457604
+  approuvé par Julien, épinglé sur ce commit (le job « construire » l'a extrait) : `-> 0294_numero_remplace_sans_appel.sql
+  ... ok`, seule appliquée. Elle est passée APRÈS la 0295 d'un pair, déployée une heure plus tôt : le runner applique ce
+  qui manque dans l'ordre des noms. Relue en base par Julien (la sonde de production m'est refusée) : les deux colonnes,
+  `timestamptz` et `uuid`, nullables, sans défaut ; aucun numéro marqué. Le stock à ce moment : 2 libres, 2 attribués,
+  4 bloqués, 3 résiliés.
+- **Le premier tour de la reprise** n'a laissé aucune ligne `numero_inutilise_repris` dans les journaux du worker lus peu
+  après la bascule. Ce n'est pas une preuve : la tâche ne journalise que ce qu'elle reprend, et son premier passage part
+  à son décalage, jusqu'à une heure après le démarrage. Les lignes Telegram le diront.
 
 ## 2026-11-17 : « Ouvrir la fenêtre de Meta », et le prix du numéro fourni selon la formule (lot 5 du numéro fourni)
 
