@@ -36,7 +36,7 @@ export interface DemarreurScenario {
 
 export interface DepsDemarreurScenario {
   /** Le scénario, scopé espace, système exclu (`PgWorkflowStore.getById`) : `null` = inconnu ici. */
-  scenarios: { getById(id: string, tenantId: string): Promise<Pick<WorkflowRow, 'graph'> | null> };
+  scenarios: { getById(id: string, tenantId: string): Promise<Pick<WorkflowRow, 'graph' | 'rayon'> | null> };
   /** La réclamation atomique du départ (`PgContactStore.reclamerDepartRepondeur`). */
   contacts: { reclamerDepartRepondeur(tenantId: string, waId: string, delaiS: number): Promise<boolean> };
   /** Les lancements du processus (`buildWorkflowRuntime`), jamais un second exemplaire. */
@@ -50,7 +50,8 @@ export function creerDemarreurScenario(deps: DepsDemarreurScenario): DemarreurSc
       // partirait sans rien envoyer, et le contact n'aurait aucune réponse. Lu AVANT la réclamation : un scénario
       // injouable ne consomme pas le délai.
       const wf = await deps.scenarios.getById(workflowId, tenantId);
-      if (!wf || wf.graph.nodes.length === 0) {
+      // Un scénario d'un autre rayon (choisi avant le lot 1 ? impossible, mais on échoue fermé) ne se joue pas.
+      if (!wf || wf.rayon !== 'general' || wf.graph.nodes.length === 0) {
         journaliser('warn', 'repondeur_scenario_indisponible', { tenantId, waId, workflowId });
         return 'indisponible';
       }

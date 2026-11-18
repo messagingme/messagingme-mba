@@ -37,14 +37,14 @@ describe('resolveScenario', () => {
 describe('resolveNode', () => {
   it('scanne les graphes, trouve le node par data.code', async () => {
     const graph = g([{ id: 'n2', type: 'tag', position: { x: 0, y: 0 }, data: { code: 'nod_ab_Y', tag: 'x' } }]);
-    const r = await resolveNode('t1', 'nod_ab_Y', wfLister([{ id: 'w1', name: 'W', graph }]));
+    const r = await resolveNode('t1', 'nod_ab_Y', wfLister([{ id: 'w1', name: 'W', graph }]), 'general');
     expect(r).toMatchObject({ ok: true, value: { workflowId: 'w1', nodeId: 'n2' } });
   });
   it('code non nod_ -> not_found direct', async () => {
-    expect(await resolveNode('t1', 'scn_ab_X', wfLister([]))).toEqual({ ok: false, reason: 'not_found' });
+    expect(await resolveNode('t1', 'scn_ab_X', wfLister([]), 'general')).toEqual({ ok: false, reason: 'not_found' });
   });
   it('nod_ absent des graphes -> not_found', async () => {
-    expect(await resolveNode('t1', 'nod_ab_MISS', wfLister([{ id: 'w1', name: 'W', graph: g() }]))).toEqual({ ok: false, reason: 'not_found' });
+    expect(await resolveNode('t1', 'nod_ab_MISS', wfLister([{ id: 'w1', name: 'W', graph: g() }]), 'general')).toEqual({ ok: false, reason: 'not_found' });
   });
 });
 
@@ -69,5 +69,19 @@ describe('resolveFieldKey', () => {
   });
   it('clé inconnue -> known:false (auto-création amont), clé slugifiée, type texte', async () => {
     expect(await resolveFieldKey('t1', 'Code Postal', fieldLister(defs))).toEqual({ ok: true, key: 'code_postal', type: 'text', known: false });
+  });
+});
+
+describe('🔴 le rayon de la résolution (menu « Scénario », lot 1)', () => {
+  it('resolveScenario (l’API publique) ne demande que le Builder', async () => {
+    const demandes: string[] = [];
+    await resolveScenario('t1', 'scn_ab_X', { list: async (_t, rayon) => { demandes.push(rayon); return []; } });
+    expect(demandes).toEqual(['general']);
+  });
+
+  it('resolveNode cherche dans le rayon qu’on lui donne', async () => {
+    const demandes: string[] = [];
+    await resolveNode('t1', 'nod_ab_Y', { list: async (_t, rayon) => { demandes.push(rayon); return []; } }, 'shopify');
+    expect(demandes).toEqual(['shopify']);
   });
 });

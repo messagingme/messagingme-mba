@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Pool, PoolClient } from 'pg';
-import { PgWorkflowStore, nomPrisSousVerrou } from '../src/workflow/store.pg';
+import { PgWorkflowStore, etatDuScenario, nomPrisSousVerrou } from '../src/workflow/store.pg';
 
 /**
  * 🔴 LE RAYON D'UN SCÉNARIO SE FILTRE DANS LE MAGASIN, PAS CHEZ LES APPELANTS (menu « Scénario », lot 1, migration 0293).
@@ -118,5 +118,14 @@ describe('🔴 le magasin de scénarios ne liste que le rayon demandé', () => {
     const doublon = requetes.find((q) => /lower\(btrim\(name\)\)/.test(q.sql));
     expect(doublon?.sql).toMatch(/\brayon = \$\d+/);
     expect(doublon?.params).toContain('shopify');
+  });
+});
+
+describe('🔴 etatDuScenario (le bouton d’un lien de chaîne, la bulle d’un widget) ne démarre que le Builder', () => {
+  const publie = { nodes: [{ id: 'n', type: 'tag' as const, position: { x: 0, y: 0 }, data: {} }], edges: [] };
+  it('un scénario publié d’un autre rayon se lit « inconnu »', () => {
+    expect(etatDuScenario({ graph: publie, rayon: 'general' })).toBe('ok');
+    expect(etatDuScenario({ graph: publie, rayon: 'shopify' })).toBe('inconnu');
+    expect(etatDuScenario({ graph: publie, rayon: 'hubspot' })).toBe('inconnu');
   });
 });

@@ -393,6 +393,33 @@ describe('le test et la campagne', () => {
 });
 
 describe('le vrai câblage', () => {
+  it('🔴 `resoudreBloc` résout dans le RAYON du scénario d’origine (menu « Scénario », lot 1) : un saut ne traverse jamais un rayon', async () => {
+    const inerte = {} as never;
+    const blocShopify: WorkflowGraph = { nodes: [n('s', 'quick_message', { body: 'Panier', code: code(140) })], edges: [] };
+    const blocBuilder: WorkflowGraph = { nodes: [n('b', 'quick_message', { body: 'Builder', code: code(141) })], edges: [] };
+    const rayons: Record<string, 'general' | 'shopify'> = { 'wf-shop': 'shopify', 'wf-shop-2': 'shopify', 'wf-gen': 'general', 'wf-gen-2': 'general' };
+    const { executor } = buildWorkflowRuntime({
+      pool: inerte, queue: { enqueue: async () => {} }, dryRun: true, repo: inerte, contactStore: inerte, inboxStore: inerte, settingsStore: inerte,
+      workflowStore: {
+        getById: async (id: string) => (rayons[id] ? { rayon: rayons[id] } : null),
+        list: async (_t: string, rayon: string) => (rayon === 'shopify'
+          ? [{ id: 'wf-shop-2', name: 'S', code: null, graph: blocShopify }]
+          : [{ id: 'wf-gen-2', name: 'G', code: null, graph: blocBuilder }]),
+      } as never,
+      metaCredentials: inerte, metaFactory: inerte, rcsProvider: 'fake', emailTemplates: inerte, emailResolver: inerte,
+      numeroDeLEspace: async () => null, runStore: inerte, fil: inerte,
+      offres: offresToutOuvert,
+      prevenirEquipe: async () => {},
+      application: filiereApiSeule,
+      magasinObjets: null, connecteurHubspot: null,
+    });
+    const deps = Reflect.get(executor, 'deps') as WorkflowExecutorDeps;
+    expect(await deps.resoudreBloc('t1', code(140), 'wf-shop')).toEqual({ workflowId: 'wf-shop-2', nodeId: 's', graph: blocShopify });
+    expect(await deps.resoudreBloc('t1', code(141), 'wf-shop'), 'Shopify vers Builder').toBeNull();
+    expect(await deps.resoudreBloc('t1', code(140), 'wf-gen'), 'Builder vers Shopify').toBeNull();
+    expect(await deps.resoudreBloc('t1', code(140), 'wf-disparu'), 'origine introuvable').toBeNull();
+  });
+
   it('🔴 `resoudreBloc` ne lit que les scénarios de l’espace demandé, et le journal écrit dans les échecs de scénario', async () => {
     const requetes: Array<{ sql: string; params: unknown[] }> = [];
     const lus: string[] = [];
@@ -401,7 +428,10 @@ describe('le vrai câblage', () => {
     const { executor } = buildWorkflowRuntime({
       pool: { query: async (sql: string, params: unknown[]) => { requetes.push({ sql, params }); return { rows: [], rowCount: 1 }; } } as never,
       queue: { enqueue: async () => {} }, dryRun: true, repo: inerte, contactStore: inerte, inboxStore: inerte, settingsStore: inerte,
-      workflowStore: { list: async (t: string) => { lus.push(t); return t === 't1' ? [{ id: 'wf-1', name: 'Un', code: null, graph }] : []; } } as never,
+      workflowStore: {
+        getById: async () => ({ rayon: 'general' }),
+        list: async (t: string) => { lus.push(t); return t === 't1' ? [{ id: 'wf-1', name: 'Un', code: null, graph }] : []; },
+      } as never,
       metaCredentials: inerte, metaFactory: inerte, rcsProvider: 'fake', emailTemplates: inerte, emailResolver: inerte,
       numeroDeLEspace: async () => null, runStore: inerte, fil: inerte,
       offres: offresToutOuvert,
@@ -411,8 +441,8 @@ describe('le vrai câblage', () => {
       magasinObjets: null, connecteurHubspot: null,
     });
     const deps = Reflect.get(executor, 'deps') as WorkflowExecutorDeps;
-    expect(await deps.resoudreBloc('t2', code(130))).toBeNull();
-    expect(await deps.resoudreBloc('t1', code(130))).toEqual({ workflowId: 'wf-1', nodeId: 'x', graph });
+    expect(await deps.resoudreBloc('t2', code(130), 'wf-0')).toBeNull();
+    expect(await deps.resoudreBloc('t1', code(130), 'wf-0')).toEqual({ workflowId: 'wf-1', nodeId: 'x', graph });
     expect(lus).toEqual(['t2', 't1']);
     await deps.journaliserEchec({ tenantId: 't1', waId: WA, workflowId: 'wf-1', runId: null, messageId: 'm1', erreur: 'boucle' });
     expect(requetes).toHaveLength(1);

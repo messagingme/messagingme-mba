@@ -453,7 +453,11 @@ export interface WorkflowExecutorDeps {
    * porte, ou `null` (bloc disparu, scénario dépublié, code inconnu). 🔴 Scopée à l'espace : un code d'un autre espace
    * rend `null`, c'est le seul contrôle. Requise ; fixtures : `aucunBlocAilleurs`.
    */
-  resoudreBloc(tenantId: string, code: string): Promise<{ workflowId: string; nodeId: string; graph: WorkflowGraph } | null>;
+  /**
+   * `depuisWorkflowId` : le scénario d'origine du saut. La cible ne se cherche que dans SON rayon (menu « Scénario »,
+   * décision 1) : un scénario d'un autre rayon n'existe pas pour un « Aller à ».
+   */
+  resoudreBloc(tenantId: string, code: string, depuisWorkflowId: string): Promise<{ workflowId: string; nodeId: string; graph: WorkflowGraph } | null>;
   /**
    * Écrit au journal des échecs de scénario (`workflow_advance_failures`, que Sécurité > Journal des erreurs montre sous
    * « échec de scénario ») ce qu'un parcours n'a pas pu faire : un saut qui n'a pas eu lieu (cible disparue, boucle,
@@ -1602,7 +1606,7 @@ export class WorkflowExecutor {
     if (cible === '') return echouer(`le bloc « ${nom} » ne vise aucun bloc`);
     let arrivee: { workflowId: string; nodeId: string; graph: WorkflowGraph } | null;
     try {
-      arrivee = await this.deps.resoudreBloc(tenantId, cible);
+      arrivee = await this.deps.resoudreBloc(tenantId, cible, origine.workflowId);
     } catch (err) {
       return echouer(`la cible du bloc « ${nom} » n’a pas pu être lue (${messageDe(err)})`);
     }

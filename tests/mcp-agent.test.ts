@@ -375,7 +375,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
     repondeur: {
       agents: { complet: (t, id) => gestion.agents.complet(t, id) },
       scenarios: {
-        getById: async (id, t) => (t === 't1' && id === WF_MCP ? { id: WF_MCP, name: 'Bienvenue', graph: { nodes: [{ id: 'n', type: 'tag', position: { x: 0, y: 0 }, data: {} }], edges: [] } } : null),
+        getById: async (id, t) => (t === 't1' && id === WF_MCP ? { id: WF_MCP, name: 'Bienvenue', graph: { nodes: [{ id: 'n', type: 'tag', position: { x: 0, y: 0 }, data: {} }], edges: [] }, rayon: 'general' as const } : null),
         listResume: async () => [],
       },
       reglages: {

@@ -1605,7 +1605,8 @@ async function main(): Promise<void> {
      * Le libellé du bloc (ou son code à défaut) nomme la campagne dans la console.
      */
     resolveNode: async (tenant, code) => {
-      const r = await resolveNode(tenant, code, workflowStore);
+      // La cible `node` de l'API publique : le Builder seul (menu « Scénario », décision 1).
+      const r = await resolveNode(tenant, code, workflowStore, 'general');
       // Un code `nod_` est unique : resolveNode ne produit jamais 'ambiguous', seulement not_found.
       if (!r.ok) return { ok: false, reason: 'not_found' };
       const node = r.value.graph.nodes.find((n) => n.id === r.value.nodeId);
@@ -1828,7 +1829,11 @@ async function main(): Promise<void> {
     // Campagne au fil de l'eau : le webhook doit appartenir à l'espace et être actif. Même garde que pour le
     // numéro Meta et l'agent RCS, sur la troisième porte d'entrée des destinataires.
     webhookUsableByTenant: (id, tenant) => webhookStore.usableByTenant(tenant, id),
-    getWorkflowGraph: async (wfId, tenant) => (await workflowStore.getById(wfId, tenant))?.graph ?? null,
+    // Une campagne ne lance que le Builder (menu « Scénario », décision 1) : un autre rayon se lit comme un inconnu.
+    getWorkflowGraph: async (wfId, tenant) => {
+      const w = await workflowStore.getById(wfId, tenant);
+      return w?.rayon === 'general' ? w.graph : null;
+    },
     // L'agent qu'un étage désigne comme répondeur (0263) : le magasin lui-même, dont `byId` est scopée à l'espace. Pas de
     // flèche : l'ordre (espace, agent) est celui du magasin, et une méthode détachée perdrait son `this`.
     agents: agentStore,

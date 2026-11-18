@@ -81,7 +81,8 @@ export class PgDuplicationStore {
     if (!src || !dst) return null;
     const workflows = new PgWorkflowStore(this.pool);
     const row = await workflows.getById(scenarioId, source);
-    if (!row) return null;
+    // La duplication ne copie que le Builder (sa liste est `listNoms(…, 'general')`) : un autre rayon est un inconnu.
+    if (!row || row.rayon !== 'general') return null;
     // Ce que l'auteur voit : le brouillon s'il existe. La copie naît en brouillon et ne publie rien.
     const graphe = grapheEditable(row);
     const automations = new PgAutomationStore(this.pool);

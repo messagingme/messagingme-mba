@@ -544,8 +544,11 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
      * (`resolveNode`), sur les graphes PUBLIÉS des scénarios de CET espace (`PgWorkflowStore.list`, scopé, système
      * exclus). Un code d'un autre espace n'y est donc jamais trouvé.
      */
-    resoudreBloc: async (tenant, code) => {
-      const r = await resolveNode(tenant, code, workflowStore);
+    resoudreBloc: async (tenant, code, depuisWorkflowId) => {
+      // Le rayon de l'origine, relu par identifiant (tous rayons) : un saut ne traverse jamais un rayon.
+      const origine = await workflowStore.getById(depuisWorkflowId, tenant);
+      if (!origine) return null;
+      const r = await resolveNode(tenant, code, workflowStore, origine.rayon);
       return r.ok ? r.value : null;
     },
     // Un saut qui n'a pas lieu et un envoi refusé en cours de parcours atterrissent dans le journal des échecs de scénario,

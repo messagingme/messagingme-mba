@@ -149,7 +149,8 @@ export class PgWebhookStore {
     return enTransaction(this.pool, async (client) => {
       if (input.workflowId !== null) {
         const scenario = await client.query(
-          `select 1 from workflows where id = $1 and tenant_id = $2 for key share`,
+          // Un webhook entrant ne lance que le Builder (menu « Scénario », décision 1) : un autre rayon est un inconnu.
+          `select 1 from workflows where id = $1 and tenant_id = $2 and rayon = 'general' for key share`,
           [input.workflowId, tenantId],
         );
         if ((scenario.rowCount ?? 0) === 0) return { kind: 'scenario_inconnu' };
@@ -212,7 +213,7 @@ export class PgWebhookStore {
     if (scenarios.length > 0) {
       const verrouilles = await client.query<{ id: string }>(
         `select id from workflows
-          where tenant_id = $1 and id = any($2::uuid[])
+          where tenant_id = $1 and id = any($2::uuid[]) and rayon = 'general'
           order by id
           for key share`,
         [tenantId, scenarios],

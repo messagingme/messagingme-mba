@@ -119,7 +119,7 @@ describe('🔴 A3 : un entrant que personne ne tient, mode par mode', () => {
     let dernier: number | null = null;
     const lances: DemandeDeLancement[] = [];
     const demarreur: DemarreurScenario = creerDemarreurScenario({
-      scenarios: { getById: async (id) => (id === WF ? { graph: { nodes: [{ id: 'q', type: 'quick_message', position: { x: 0, y: 0 }, data: {} }], edges: [] } } : null) },
+      scenarios: { getById: async (id) => (id === WF ? { graph: { nodes: [{ id: 'q', type: 'quick_message', position: { x: 0, y: 0 }, data: {} }], edges: [] }, rayon: 'general' as const } : null) },
       // La garde atomique de `PgContactStore.reclamerDepartRepondeur`, en mémoire : une lecture et une écriture sans
       // `await` entre elles, donc indivisibles ici comme l'instruction gardée l'est en base.
       contacts: {
@@ -149,7 +149,7 @@ describe('🔴 A3 : un entrant que personne ne tient, mode par mode', () => {
     let pris = false;
     const lances: string[] = [];
     const demarreur = creerDemarreurScenario({
-      scenarios: { getById: async () => ({ graph: { nodes: [{ id: 'q', type: 'tag', position: { x: 0, y: 0 }, data: {} }], edges: [] } }) },
+      scenarios: { getById: async () => ({ graph: { nodes: [{ id: 'q', type: 'tag', position: { x: 0, y: 0 }, data: {} }], edges: [] }, rayon: 'general' as const }) },
       contacts: { reclamerDepartRepondeur: async () => { if (pris) return false; pris = true; return true; } },
       lancements: { lancer: async (d: DemandeDeLancement) => { lances.push(d.type === 'repondeur_scenario' ? d.waId : d.type); return true; } },
     });

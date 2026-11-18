@@ -41,15 +41,19 @@ export async function resolveScenario(
   return { ok: true, value: matches[0]! };
 }
 
-/** Node par code `nod_...`, cherché dans les graphes de l'espace (le code vit dans node.data.code). Jamais ambigu. */
+/**
+ * Node par code `nod_...`, cherché dans les graphes de l'espace (le code vit dans node.data.code). Jamais ambigu.
+ * Dans UN rayon (menu « Scénario », décision 1) : `general` pour la cible `node` de `/v1/sends`, celui du scénario
+ * d'origine pour un « Aller à ».
+ */
 export async function resolveNode(
   tenantId: string,
   code: string,
   workflows: WorkflowLister,
+  rayon: Rayon,
 ): Promise<ResolveResult<{ workflowId: string; nodeId: string; graph: WorkflowGraph }>> {
   if (!code.startsWith('nod_')) return { ok: false, reason: 'not_found' };
-  // L'API publique ne résout que le Builder (spec du menu « Scénario », décision 1).
-  const all = await workflows.list(tenantId, 'general');
+  const all = await workflows.list(tenantId, rayon);
   for (const w of all) {
     const node = w.graph.nodes.find((n) => n.data.code === code);
     if (node) return { ok: true, value: { workflowId: w.id, nodeId: node.id, graph: w.graph } };

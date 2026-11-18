@@ -37,6 +37,8 @@ const AG = '11111111-1111-4111-8111-111111111111';
 const AUTRE = '22222222-2222-4222-8222-222222222222';
 const WF = '33333333-3333-4333-8333-333333333333';
 const WF_VIDE = '44444444-4444-4444-8444-444444444444';
+/** Un scénario PUBLIÉ de l'espace, mais rangé sous Automation > Shopify (menu « Scénario », lot 1). */
+const WF_SHOPIFY = '55555555-5555-4555-8555-555555555555';
 const AUTEUR = { userId: 'u1', origine: 'formulaire' as const };
 const GRAPHE: WorkflowGraph = { nodes: [{ id: 'q', type: 'quick_message', position: { x: 0, y: 0 }, data: { text: 'Bonjour' } }], edges: [] };
 
@@ -62,7 +64,9 @@ function monter(o: {
       complet: async (_t, id) => (o.statut === null || id !== AG ? null : { id: AG, label: 'Léa', status: o.statut ?? 'active' }),
     },
     scenarios: {
-      getById: async (id) => (id === WF ? { id: WF, name: 'Bienvenue', graph: GRAPHE } : id === WF_VIDE ? { id: WF_VIDE, name: 'Brouillon', graph: { nodes: [], edges: [] } } : null),
+      getById: async (id) => (id === WF ? { id: WF, name: 'Bienvenue', graph: GRAPHE, rayon: 'general' as const }
+        : id === WF_VIDE ? { id: WF_VIDE, name: 'Brouillon', graph: { nodes: [], edges: [] }, rayon: 'general' as const }
+        : id === WF_SHOPIFY ? { id: WF_SHOPIFY, name: 'Panier', graph: GRAPHE, rayon: 'shopify' as const } : null),
       listResume: async () => [{ id: WF, name: 'Bienvenue', nodeCount: 1 }, { id: WF_VIDE, name: 'Brouillon', nodeCount: 0 }],
     },
     reglages: {
@@ -299,6 +303,8 @@ describe('choisirRepondeur : les refus n’écrivent RIEN', () => {
   it('🔴 un scénario inconnu, mal formé ou jamais publié ; un délai hors de 1 h à 30 jours', async () => {
     for (const [c, statut] of [
       [{ mode: 'scenario', workflowId: AUTRE }, 404], [{ mode: 'scenario', workflowId: 'x' }, 404],
+      // Un scénario d'un autre rayon est un inconnu : le répondeur ne lance que le Builder.
+      [{ mode: 'scenario', workflowId: WF_SHOPIFY }, 404],
       [{ mode: 'scenario', workflowId: WF_VIDE }, 422],
       [{ mode: 'scenario', workflowId: WF, delaiS: 3599 }, 400], [{ mode: 'scenario', workflowId: WF, delaiS: 2_592_001 }, 400],
       [{ mode: 'scenario', workflowId: WF, delaiS: 3600.5 }, 400],

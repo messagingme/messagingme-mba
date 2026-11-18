@@ -16,10 +16,13 @@ import { sortiesDeLaFiche } from './fiche';
 import { lireVariables, paramsDuConnecteur } from './requetes';
 import { enTransaction } from '../db/transaction';
 
-/** La garde d'isolation, en SQL : aucun des scénarios donnés n'est hors de l'espace `$1`. Un tableau vide passe. */
+/**
+ * La garde d'isolation, en SQL : aucun des scénarios donnés n'est hors de l'espace `$1`, ni hors du Builder (menu
+ * « Scénario », décision 1 : un outil d'agent ne lance pas un scénario Shopify ou HubSpot). Un tableau vide passe.
+ */
 const SCENARIOS_DE_L_ESPACE = (param: string): string =>
   `not exists (select 1 from unnest(${param}::uuid[]) as s(id)
-                where not exists (select 1 from workflows w where w.id = s.id and w.tenant_id = $1))`;
+                where not exists (select 1 from workflows w where w.id = s.id and w.tenant_id = $1 and w.rayon = 'general'))`;
 
 interface Ligne {
   /** jsonb opaque, relu par `lireGestes` : un contenu corrompu rend un tableau vide. */

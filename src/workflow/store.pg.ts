@@ -45,8 +45,10 @@ export type EtatScenario = 'inconnu' | 'vide' | 'ok';
  * `.length` sans garde lèverait, donc une 500 à la console et un « échec interne » au MCP pour un scénario que
  * `list_scenarios` montre pourtant comme non publié. Il se lit `vide`, comme ce qu'il est.
  */
-export function etatDuScenario(wf: Pick<WorkflowRow, 'graph'> | null): EtatScenario {
-  if (wf === null) return 'inconnu';
+export function etatDuScenario(wf: Pick<WorkflowRow, 'graph' | 'rayon'> | null): EtatScenario {
+  // Un scénario d'un autre rayon que le Builder n'existe pas pour un bouton de chaîne ni pour un widget (menu
+  // « Scénario », décision 1) : il se lit comme un inconnu.
+  if (wf === null || wf.rayon !== 'general') return 'inconnu';
   return (wf.graph.nodes?.length ?? 0) > 0 ? 'ok' : 'vide';
 }
 

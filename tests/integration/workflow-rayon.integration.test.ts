@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
 import { pgSsl } from '../../src/db/ssl';
 import { PgWorkflowStore } from '../../src/workflow/store.pg';
+import { PgWebhookStore } from '../../src/webhook-entrant/store.pg';
 import type { WorkflowGraph } from '../../src/workflow/graph';
 
 const url = process.env.DATABASE_URL ?? '';
@@ -78,6 +79,13 @@ describe.skipIf(!url)('rayon des scénarios (Postgres)', () => {
   it('la relecture par identifiant voit les deux rayons, avec leur rayon', async () => {
     expect((await store.getById(shopify.id, tenantId))?.rayon).toBe('shopify');
     expect((await store.getById(general.id, tenantId))?.rayon).toBe('general');
+  });
+
+  it('🔴 un webhook entrant ne vise que le Builder : un scénario Shopify de l’espace y est un inconnu', async () => {
+    const webhooks = new PgWebhookStore(pool);
+    const base = { enabled: false, mapping: [], createContact: true, optIn: true, startNodeId: null, cooldownSeconds: null };
+    expect((await webhooks.create(tenantId, { ...base, name: 'vers Shopify', workflowId: shopify.id })).kind).toBe('scenario_inconnu');
+    expect((await webhooks.create(tenantId, { ...base, name: 'vers le Builder', workflowId: general.id })).kind).toBe('cree');
   });
 
   it('le CHECK refuse un rayon inconnu', async () => {

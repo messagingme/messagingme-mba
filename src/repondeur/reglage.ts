@@ -56,7 +56,7 @@ export interface DepsReglageRepondeur {
    * `listResume` sert la liste des scénarios publiés de la carte (`nodeCount` : les blocs du graphe EN LIGNE).
    */
   scenarios: {
-    getById(id: string, tenantId: string): Promise<Pick<WorkflowRow, 'id' | 'name' | 'graph'> | null>;
+    getById(id: string, tenantId: string): Promise<Pick<WorkflowRow, 'id' | 'name' | 'graph' | 'rayon'> | null>;
     listResume(tenantId: string, rayon: Rayon): Promise<Array<Pick<WorkflowResumeRow, 'id' | 'name' | 'nodeCount'>>>;
   };
   reglages: {
@@ -252,7 +252,8 @@ export async function choisirRepondeur(
       const delaiS = choix.delaiS ?? avant.repondeurDelaiScenarioS;
       if (!Number.isInteger(delaiS) || delaiS < DELAI_SCENARIO_MIN_S || delaiS > DELAI_SCENARIO_MAX_S) return refus(400, DELAI_HORS_BORNES);
       const wf = await deps.scenarios.getById(choix.workflowId, tenantId);
-      if (!wf) return refus(404, SCENARIO_INTROUVABLE);
+      // Le répondeur ne lance que le Builder : un scénario d'un autre rayon est un inconnu (menu « Scénario », décision 1).
+      if (!wf || wf.rayon !== 'general') return refus(404, SCENARIO_INTROUVABLE);
       // « Publié » = le graphe en ligne porte au moins un bloc (la règle de `listPublies`) : sinon il ne jouerait rien.
       if (wf.graph.nodes.length === 0) return refus(422, PAS_PUBLIE);
       ecrit = { mode: 'scenario', workflowId: wf.id, delaiS };

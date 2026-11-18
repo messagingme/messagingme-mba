@@ -64,13 +64,25 @@ describe.skipIf(!url)('« Aller à » (Postgres)', () => {
     // Un bloc du seul brouillon : il n'est pas encore en ligne, aucun contact ne peut l'atteindre.
     const brouillon = await wfStore().insert(tenantId, 'Brouillon', graphe(code(3), 'Pas encore en ligne'), 'general');
 
-    const ici = await deps.resoudreBloc(tenantId, code(1));
+    const ici = await deps.resoudreBloc(tenantId, code(1), chezNous.id);
     expect(ici).toMatchObject({ workflowId: chezNous.id, nodeId: 'x' });
     expect(ici?.graph.nodes[0]?.data.body).toBe('Ici');
-    expect(await deps.resoudreBloc(tenantId, code(2)), 'le code d’un autre espace est une cible inexistante').toBeNull();
-    expect(await deps.resoudreBloc(autreTenant, code(2))).toMatchObject({ workflowId: chezLeVoisin.id });
-    expect(await deps.resoudreBloc(tenantId, code(3)), 'un bloc du seul brouillon n’est pas une cible').toBeNull();
+    expect(await deps.resoudreBloc(tenantId, code(2), chezNous.id), 'le code d’un autre espace est une cible inexistante').toBeNull();
+    expect(await deps.resoudreBloc(autreTenant, code(2), chezLeVoisin.id)).toMatchObject({ workflowId: chezLeVoisin.id });
+    expect(await deps.resoudreBloc(tenantId, code(3), chezNous.id), 'un bloc du seul brouillon n’est pas une cible').toBeNull();
     expect(brouillon.id).toBeTruthy();
+  });
+
+  it('🔴 un saut ne traverse jamais un rayon (menu « Scénario », lot 1)', async () => {
+    const builder = await wfStore().insert(tenantId, 'Builder', graphe(code(4), 'Builder'), 'general');
+    await wfStore().publish(builder.id, tenantId);
+    const panier = await wfStore().insert(tenantId, 'Panier', graphe(code(5), 'Panier'), 'shopify');
+    await wfStore().publish(panier.id, tenantId);
+    const suite = await wfStore().insert(tenantId, 'Suite du panier', graphe(code(6), 'Suite'), 'shopify');
+    await wfStore().publish(suite.id, tenantId);
+    expect(await deps.resoudreBloc(tenantId, code(6), panier.id), 'Shopify vers Shopify').toMatchObject({ workflowId: suite.id });
+    expect(await deps.resoudreBloc(tenantId, code(4), panier.id), 'Shopify vers Builder').toBeNull();
+    expect(await deps.resoudreBloc(tenantId, code(5), builder.id), 'Builder vers Shopify').toBeNull();
   });
 
   it('🔴 un saut manqué s’écrit dans le journal des échecs de scénario, au nom du scénario', async () => {

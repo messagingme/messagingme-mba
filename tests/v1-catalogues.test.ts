@@ -323,7 +323,7 @@ describe('GET /v1/scenarios : le template d’ouverture et le bloc d’entrée',
     const [s] = catalogueScenarios([ligne(graph)]);
     expect(s!.entryNode).toBe(CODE_Q);
     expect(s!.opening).toBe('whatsapp_session');
-    const r = await resolveNode('t1', s!.entryNode!, { list: async () => [{ id: 'wf-1', code: 'scn_x', name: 'x', graph }] });
+    const r = await resolveNode('t1', s!.entryNode!, { list: async () => [{ id: 'wf-1', code: 'scn_x', name: 'x', graph }] }, 'general');
     expect(r).toMatchObject({ ok: true, value: { nodeId: 'q' } });
     expect(ouvertureApi(graph, 'q').ouverture).toBe(s!.opening);
   });

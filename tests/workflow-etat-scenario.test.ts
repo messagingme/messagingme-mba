@@ -8,7 +8,7 @@ import type { WorkflowGraph } from '../src/workflow/graph';
  * n'a pas de `nodes`, que `listResume` prévoit déjà ; la lecture levait, et la désignation rendait une 500.
  */
 describe('etatDuScenario', () => {
-  const graphe = (g: unknown): { graph: WorkflowGraph } => ({ graph: g as WorkflowGraph });
+  const graphe = (g: unknown): { graph: WorkflowGraph; rayon: 'general' } => ({ graph: g as WorkflowGraph, rayon: 'general' });
 
   it('absent de l’espace : inconnu', () => {
     expect(etatDuScenario(null)).toBe('inconnu');
