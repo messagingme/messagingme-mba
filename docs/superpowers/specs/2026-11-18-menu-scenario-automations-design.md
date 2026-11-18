@@ -158,6 +158,20 @@ Appels du rédacteur pris sur la cartographie (2026-11-18), à relire :
     Devant un parcours d'événement, les automations « Autres » cèdent, les répondeurs, outils d'agent et sauts
     coexistent, l'Inbox, le lien de test, les campagnes, la chaîne, la publicité et le widget le remplacent.
 
+### 3.2 Décisions après la cartographie du lot 4 (Julien, 2026-11-18)
+
+29. **Un parcours d'événement ne garde jamais la place du contact sans échéance.** Un template sans bouton ni délai n'y
+    retient pas : la suite part aussitôt, comme en mode agent de Meta. Toute autre attente sans échéance propre (template à
+    boutons sans délai, message à boutons, formulaire, question sans délai) se clôt d'elle-même après 72 h, sans rien
+    envoyer et sans suivre de flèche. Sinon, par la place unique (décision 21) et la décision 3, chaque événement suivant de ce client
+    n'enverrait plus que son premier message.
+30. **Un parcours Shopify est un envoi à UN client**, comme une automation de date : ses étiquettes publient leurs
+    événements d'automation, un passage à l'équipe prévient les admins. Il n'est pas « de masse » au sens de la décision 24,
+    bien qu'il naisse dans le moteur de campagne.
+31. **Un parcours ordinaire qui coexiste (décision 21) et se réveille avant le parcours d'événement continue** : cas rare,
+    écrit dans la documentation (deux voix possibles un court moment). Au réveil du parcours d'événement, celui-ci le clôt
+    avec sa session, comme prévu.
+
 ## 4. Objectifs, non-objectifs, anti-objectifs
 
 **Objectifs** : une séquence Shopify ou HubSpot se construit dans le builder classique ; le premier message reste aussi
