@@ -7,7 +7,7 @@ import { WorkflowExecutor } from '../src/workflow/executor';
 import type { StartOutcome, WorkflowExecutorDeps } from '../src/workflow/executor';
 import { buildWorkflowRuntime } from '../src/workflow/wiring';
 import {
-  POLITIQUE_DE_LANCEMENT, REFUS_SCENARIOS_HORS_OFFRE, TYPES_DE_LANCEMENT, creerLancements,
+  POLITIQUE_DE_LANCEMENT, REFUS_SCENARIOS_HORS_OFFRE, TYPES_DE_LANCEMENT, creerLancements, rayonAdmis,
   type DemandeDeLancement, type PolitiqueDeLancement, type TypeDeLancement,
 } from '../src/workflow/lancements';
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
@@ -16,6 +16,7 @@ import type { ControlOwner } from '../src/inbox/store.pg';
 import { AUTOMATION_EVENT_QUEUE } from '../src/automation/event-job';
 import { DROITS, type Offre } from '../src/offres/offres';
 import { offresToutOuvert, filiereApiSeule } from './gardes';
+import { RAYONS } from '../src/workflow/rayon';
 
 /**
  * LES LANCEMENTS DE SCÉNARIO, EXÉCUTÉS TYPE PAR TYPE (plan `docs/superpowers/plans/2026-10-04-lancements-de-scenario.md`).
@@ -44,14 +45,16 @@ const modele = (version: string): WorkflowGraph => ({
 const session: WorkflowGraph = { nodes: [n('qm', 'quick_message', { body: 'Bonjour', quickReplies: ['Oui'] })], edges: [] };
 
 /** Les scénarios de l'espace : le publié et le brouillon diffèrent par le nom du modèle, c'est ce qui dit lequel a joué. */
-const SCENARIOS: Record<string, Pick<WorkflowRow, 'graph' | 'draftGraph'>> = {
-  'wf-modele': { graph: modele('publie'), draftGraph: modele('brouillon') },
-  'wf-session': { graph: session, draftGraph: session },
+const SCENARIOS: Record<string, Pick<WorkflowRow, 'graph' | 'draftGraph' | 'rayon'>> = {
+  'wf-modele': { graph: modele('publie'), draftGraph: modele('brouillon'), rayon: 'general' },
+  'wf-session': { graph: session, draftGraph: session, rayon: 'general' },
+  /** Le même scénario, rangé sous Automation > Shopify (menu « Scénario », lot 1). */
+  'wf-shopify': { graph: modele('publie'), draftGraph: modele('brouillon'), rayon: 'shopify' },
 };
 /** Le graphe que FOURNIT l'appelant d'un envoi de bloc (le publié réduit au bloc), par scénario. */
 const FOURNI: Record<string, WorkflowGraph> = { 'wf-modele': modele('fourni'), 'wf-session': session };
 /** Le premier bloc de chaque scénario, celui où démarre un lancement « au bloc ». */
-const PREMIER_BLOC: Record<string, string> = { 'wf-modele': 't', 'wf-session': 'qm' };
+const PREMIER_BLOC: Record<string, string> = { 'wf-modele': 't', 'wf-session': 'qm', 'wf-shopify': 't' };
 
 const WA = '33611223344';
 
@@ -418,6 +421,30 @@ describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
       expect(await m.lancements.lancer(demandeDe(type, { workflowId: 'wf-supprime' })), type).toBeNull();
       expect(m.recherches, type).toEqual([]);
       expect(m.envois, type).toEqual([]);
+    }
+  });
+
+  it('🔴 un scénario d’un AUTRE RAYON rend `null` comme un inconnu, avant toute recherche et tout envoi ; seul le lien de test le démarre', async () => {
+    // Spec du menu « Scénario », décision 1 : un scénario Shopify ou HubSpot ne se lance que par son automation. Le lien
+    // de test le teste depuis son builder.
+    for (const type of TYPES_DE_LANCEMENT) {
+      if (type === 'agent_meta_bloc' || type === 'repondeur' || estUnSaut(type)) continue;
+      const m = banc();
+      const issue = await m.lancements.lancer(demandeDe(type, { workflowId: 'wf-shopify' }));
+      if (rayonAdmis(type, 'shopify')) {
+        expect(issue, type).not.toBeNull();
+        expect(m.crees, type).toHaveLength(1);
+      } else {
+        expect(issue, type).toBeNull();
+        expect(m.recherches, type).toEqual([]);
+        expect(m.envois, type).toEqual([]);
+      }
+    }
+  });
+
+  it('🔴 les rayons de chaque type : le Builder seul, sauf le lien de test qui teste tous les rayons', () => {
+    for (const type of TYPES_DE_LANCEMENT) {
+      expect([...POLITIQUE_DE_LANCEMENT[type].rayons].sort(), type).toEqual(type === 'lien_de_test' ? [...RAYONS].sort() : ['general']);
     }
   });
 

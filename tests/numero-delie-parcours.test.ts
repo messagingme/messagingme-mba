@@ -85,7 +85,7 @@ function monde(graph: WorkflowGraph, o: { avecVerification?: boolean } = {}) {
   // L'entrée des lancements, comme le socle la construit : les câblages de campagne et d'automation passent par elle.
   const lancements = creerLancements({
     executor,
-    scenarios: { getById: async () => ({ graph }) },
+    scenarios: { getById: async () => ({ graph, rayon: 'general' as const }) },
     contacts: { findIdByWaId: async () => null },
     offres: offresToutOuvert,
   });

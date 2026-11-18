@@ -135,7 +135,7 @@ function banc(o: {
   const ex = new WorkflowExecutor(execDeps);
   const lancements = creerLancements({
     executor: ex,
-    scenarios: { getById: async () => ({ graph: graphe }) },
+    scenarios: { getById: async () => ({ graph: graphe, rayon: 'general' as const }) },
     contacts: { findIdByWaId: async () => null },
     offres: offresToutOuvert,
   });

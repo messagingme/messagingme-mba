@@ -633,7 +633,7 @@ describe('décision 5 : un lead ne prend pas la main à un opérateur', () => {
     const ex = new WorkflowExecutor(execDeps);
     const lancements = creerLancements({
       executor: ex,
-      scenarios: { getById: async () => ({ graph: graphe }) },
+      scenarios: { getById: async () => ({ graph: graphe, rayon: 'general' as const }) },
       contacts: { findIdByWaId: async () => null },
       offres: offresToutOuvert,
     });

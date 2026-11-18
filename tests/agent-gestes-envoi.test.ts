@@ -283,7 +283,7 @@ function monde(parcoursAgent: { workflowId: string; graphe: WorkflowGraph; fige:
   const executor = new WorkflowExecutor(deps);
   const lancements = creerLancements({
     executor,
-    scenarios: { getById: async (id) => (id === WF_B ? { graph: scenarioB, draftGraph: null } : null) },
+    scenarios: { getById: async (id) => (id === WF_B ? { graph: scenarioB, draftGraph: null, rayon: 'general' as const } : null) },
     contacts: { findIdByWaId: async () => 'c1' },
     offres: offresToutOuvert,
   });
@@ -338,7 +338,7 @@ describe('lancer le scénario fixé, sur le vrai exécuteur', () => {
     const muet: WorkflowGraph = { nodes: [n('t', 'tag', { tag: 'vip' })], edges: [] };
     const lancements = creerLancements({
       executor: m.executor,
-      scenarios: { getById: async () => ({ graph: muet, draftGraph: null }) },
+      scenarios: { getById: async () => ({ graph: muet, draftGraph: null, rayon: 'general' as const }) },
       contacts: { findIdByWaId: async () => 'c1' },
       offres: offresToutOuvert,
     });
