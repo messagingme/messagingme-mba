@@ -1193,10 +1193,12 @@ export class WorkflowExecutor {
     // parcours reste dû (bail de 15 minutes) jusqu'au paiement ou au « Relier ».
     if (envoieParWhatsApp(aExecuter, apresWalk)) await this.deps.verifierNumeroWhatsApp(tenantId);
     // `emitEvents` vrai : un réveil est unitaire (un contact, ici et maintenant), comme `advance`. Sinon
-    // « attendre 1 jour puis poser le tag » ne déclencherait pas l'automation branchée sur ce tag. 🔴 Sauf le réveil d'un
-    // parcours né d'un chemin de masse dont le contact n'a pas répondu (spec, décision 24) : tous ses destinataires se
-    // réveillent ensemble, et chaque étiquette publierait un « tag ajouté » par destinataire.
-    const masseMuette = run.neEnMasse && (run.lastMessageId ?? null) === null;
+    // « attendre 1 jour puis poser le tag » ne déclencherait pas l'automation branchée sur ce tag. 🔴 Sauf l'échéance
+    // « Pas de réponse » d'un parcours né d'un chemin de masse dont le contact n'a pas répondu (spec, décision 24) : tous
+    // ses destinataires se réveillent ensemble, et chaque étiquette publierait un « tag ajouté » par destinataire. Le
+    // réveil d'une Attente n'est pas visé : le couper changerait en silence un montage « Attente puis étiquette » qui
+    // nourrit aujourd'hui une automation (relecture de 2a, point 3).
+    const masseMuette = parEcheance && run.neEnMasse && (run.lastMessageId ?? null) === null;
     const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, !masseMuette, run.workflowId, apresWalk);
     // Un réveil n'a pas de message reçu : la ligne du journal n'en nomme aucun.
     const origine = { workflowId: run.workflowId, runId: run.id, messageId: null, graph };

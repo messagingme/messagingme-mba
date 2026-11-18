@@ -194,23 +194,40 @@ describe('🔴 une relance de masse n’émet rien tant que le contact n’a pas
     nodes: [tpl({ timeoutValue: 30, timeoutUnit: 'minutes' }), n('muet', 'tag', { tag: 'sans-reponse' })],
     edges: [e('e1', 't', 'muet', 'timeout')],
   };
-  const emises = async (run: WorkflowRunRow): Promise<string[]> => {
-    const tags: string[] = [];
-    const ex = monter(g, null, capture(), { emitTagAdded: async (_t: string, _w: string, tag: string) => { tags.push(tag); } });
+  /** Ce que la reprise POSE et ce qu'elle ÉMET : une retenue qui ne poserait plus rien passerait sinon pour juste. */
+  const relancer = async (run: WorkflowRunRow, graphe: WorkflowGraph = g): Promise<{ posees: string[]; emises: string[] }> => {
+    const posees: string[] = [];
+    const emises: string[] = [];
+    const ex = monter(graphe, null, capture(), {
+      applyTag: async (_t: string, _w: string, tag: string) => { posees.push(tag); },
+      emitTagAdded: async (_t: string, _w: string, tag: string) => { emises.push(tag); },
+    });
     await ex.resume(run);
-    return tags;
+    return { posees, emises };
   };
 
   it('né d’une campagne, sans réponse : l’étiquette est posée mais n’émet pas', async () => {
-    expect(await emises({ ...enAttente(), neEnMasse: true, lastMessageId: null })).toEqual([]);
+    expect(await relancer({ ...enAttente(), neEnMasse: true, lastMessageId: null })).toEqual({ posees: ['sans-reponse'], emises: [] });
   });
 
   it('né d’une campagne, APRÈS une réponse du contact : émet comme avant', async () => {
-    expect(await emises({ ...enAttente(), neEnMasse: true, lastMessageId: 'wamid.reponse' })).toEqual(['sans-reponse']);
+    expect(await relancer({ ...enAttente(), neEnMasse: true, lastMessageId: 'wamid.reponse' })).toEqual({ posees: ['sans-reponse'], emises: ['sans-reponse'] });
   });
 
   it('parcours unitaire (automation) : émet comme avant', async () => {
-    expect(await emises({ ...enAttente(), neEnMasse: false, lastMessageId: null })).toEqual(['sans-reponse']);
+    expect(await relancer({ ...enAttente(), neEnMasse: false, lastMessageId: null })).toEqual({ posees: ['sans-reponse'], emises: ['sans-reponse'] });
+  });
+
+  it('🔴 le réveil d’une ATTENTE d’un parcours né d’une campagne émet comme avant : la retenue ne vise que « Pas de réponse »', async () => {
+    // Relecture de 2a, point 3 : « Attente 1 jour puis étiquette » nourrit aujourd'hui une automation « étiquette
+    // ajoutée ». La décision 24 ne vise que la relance « Pas de réponse » ; couper aussi ce réveil changerait en silence
+    // un montage qui marche.
+    const attente: WorkflowGraph = {
+      nodes: [n('w', 'wait', { delay: 1, unit: 'days' }), n('j1', 'tag', { tag: 'relance_j1' })],
+      edges: [e('e1', 'w', 'j1')],
+    };
+    const dormant: WorkflowRunRow = { ...enAttente(), status: 'sleeping', currentNode: 'w', neEnMasse: true, lastMessageId: null };
+    expect(await relancer(dormant, attente)).toEqual({ posees: ['relance_j1'], emises: ['relance_j1'] });
   });
 
   it('un « Aller à » de la relance de masse saute en masse : l’étiquette du scénario d’arrivée n’émet pas', async () => {
