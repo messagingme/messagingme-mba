@@ -346,6 +346,15 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
       setNodes((ns) => ns.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, attendreFichier: false } } : n)));
       setEdges((eds) => sansSortieFichier(eds, nodeId));
     };
+    /**
+     * Un délai « pas de réponse » VALIDÉ à 0 (le champ quitté, template ou Question) : sa flèche s'en va. Jamais pendant la
+     * saisie : corriger 2 en 3 au clavier passe par un champ vide, donc par 0, et retirer la flèche à ce moment-là la
+     * perdait (relecture de 2b-2, rouge : une Question en production ne relançait plus personne).
+     */
+    const onTimeoutOff = (ev: Event) => {
+      const { nodeId } = (ev as CustomEvent).detail as { nodeId: string };
+      setEdges((eds) => sansSortiePasDeReponse(eds, nodeId));
+    };
     // Suppression d'un bloc via son ✕ : retire le node ET ses arêtes ; déselectionne si c'était lui.
     const onNodeDelete = (ev: Event) => {
       const nodeId = (ev as CustomEvent).detail as string;
@@ -360,7 +369,9 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
     window.addEventListener('wf-agent-change', onAgentChange);
     window.addEventListener('wf-condition-familles', onConditionFamilles);
     window.addEventListener('wf-fichier-off', onFichierOff);
+    window.addEventListener('wf-timeout-off', onTimeoutOff);
     return () => {
+      window.removeEventListener('wf-timeout-off', onTimeoutOff);
       window.removeEventListener('wf-fichier-off', onFichierOff);
       window.removeEventListener('wf-condition-familles', onConditionFamilles);
       window.removeEventListener('wf-edge-insert', onInsert);
@@ -376,8 +387,6 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
     // Plus aucun bouton (le dernier retiré, ou le bouton de lien coché, qui vide la liste) : « Puis, sans attendre »
     // disparaît du bloc, son arête avec (`sansSortieEnsuite`). `quickReplies` n'existe que sur un message rapide.
     if (selectedId && Array.isArray(p.quickReplies) && p.quickReplies.length === 0) setEdges((eds) => sansSortieEnsuite(eds, selectedId));
-    // Un délai « pas de réponse » remis à 0 (template ou Question) : la sortie disparaît du bloc, sa flèche avec.
-    if (selectedId && p.timeoutValue === 0) setEdges((eds) => sansSortiePasDeReponse(eds, selectedId));
   }, [selectedId, setNodes, setEdges]);
 
   const deleteSelected = useCallback(() => {

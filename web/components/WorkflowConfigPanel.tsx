@@ -781,7 +781,7 @@ export function ConfigPanel({
           )}
           {/* « Si le contact ne répond pas » (menu « Scénario », lot 2) : la relance qui part sans réponse. */}
           <div className="mt-3">
-            <ReglageSansReponse d={d} onPatch={onPatch} prefixe="template" />
+            <ReglageSansReponse nodeId={node.id} d={d} onPatch={onPatch} prefixe="template" />
           </div>
         </div>
       )}
@@ -862,7 +862,7 @@ export function ConfigPanel({
               )}
             </div>
 
-            <ReglageSansReponse d={d} onPatch={onPatch} prefixe="question" />
+            <ReglageSansReponse nodeId={node.id} d={d} onPatch={onPatch} prefixe="question" />
 
             {/* La réponse RANGÉE (2026-11-02, spec `docs/superpowers/specs/2026-11-02-question-fichier-champ-design.md`).
                 Tout est facultatif : sans champ choisi, le bloc ne range rien, comme avant. */}
@@ -1408,9 +1408,11 @@ const LIBELLES_GENRE: Readonly<Record<GenrePiece, readonly [string, string]>> = 
 /**
  * « Si le contact ne répond pas » : le délai qui ouvre la sortie « Pas de réponse » d'une Question ou d'un template (menu
  * « Scénario », lot 2). Le même réglage pour les deux blocs, dans les unités du moteur (`QUESTION_UNITS`) ; 0 = aucune
- * échéance. Repasser à 0 retire aussi la flèche de la sortie (`patchSelected`, `sansSortiePasDeReponse`).
+ * échéance. Quitter le champ à 0 retire aussi la flèche de la sortie (`wf-timeout-off`, `sansSortiePasDeReponse`) ;
+ * pendant la saisie, jamais : une correction au clavier passe par un champ vide, donc par 0.
  */
-function ReglageSansReponse({ d, onPatch, prefixe }: {
+function ReglageSansReponse({ nodeId, d, onPatch, prefixe }: {
+  nodeId: string;
   d: Record<string, unknown>;
   onPatch: (p: Record<string, unknown>) => void;
   prefixe: 'question' | 'template';
@@ -1426,6 +1428,11 @@ function ReglageSansReponse({ d, onPatch, prefixe }: {
           min={0}
           value={Number.isFinite(delai) ? delai : 0}
           onChange={(e) => onPatch({ timeoutValue: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+          onBlur={(e) => {
+            if (Math.max(0, Math.floor(Number(e.target.value) || 0)) === 0) {
+              window.dispatchEvent(new CustomEvent('wf-timeout-off', { detail: { nodeId } }));
+            }
+          }}
           data-testid={`${prefixe}-node-timeout`}
           className={`${cls} w-24`}
         />

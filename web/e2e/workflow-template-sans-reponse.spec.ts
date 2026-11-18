@@ -101,8 +101,26 @@ test.describe('Éditeur : la sortie « Pas de réponse » du bloc template', () 
     await expect(n1).toContainText('Pas de réponse');
     await n1.click();
     await page.getByTestId('template-node-timeout').fill('0');
+    // La flèche ne part qu'en quittant le champ : une correction au clavier passe par 0.
+    await page.getByTestId('template-node-timeout').press('Tab');
     await expect(n1).not.toContainText('Pas de réponse');
     await expect.poll(() => dernier(saved), { timeout: 10_000 }).toEqual({ delai: 0, fleche: false });
+  });
+
+  test('🔴 corriger le délai au clavier garde la flèche « Pas de réponse » (relecture de 2b-2)', async ({ page }) => {
+    // Passer de 2 h à 3 h efface d'abord le chiffre : le champ passe par vide, donc par 0. Retirer la flèche à ce
+    // moment-là la perdait, et une Question en production ne relançait plus personne, sans erreur ni alerte.
+    const saved: Graph[] = [];
+    await mockBuilder(page, QUESTION_A_DELAI, saved);
+    await page.goto('/workflows?open=wf1');
+    await page.locator('.react-flow__node').first().click();
+    const champ = page.getByTestId('question-node-timeout');
+    await champ.click();
+    await champ.press('End');
+    await champ.press('Backspace');
+    await champ.pressSequentially('3');
+    await champ.press('Tab');
+    await expect.poll(() => dernier(saved), { timeout: 10_000 }).toEqual({ delai: 3, fleche: true });
   });
 
   test('🔴 la même règle vaut pour la Question', async ({ page }) => {
@@ -113,6 +131,7 @@ test.describe('Éditeur : la sortie « Pas de réponse » du bloc template', () 
     await expect(n1).toContainText('Pas de réponse');
     await n1.click();
     await page.getByTestId('question-node-timeout').fill('0');
+    await page.getByTestId('question-node-timeout').press('Tab');
     await expect(n1).not.toContainText('Pas de réponse');
     await expect.poll(() => dernier(saved), { timeout: 10_000 }).toEqual({ delai: 0, fleche: false });
   });
