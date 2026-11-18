@@ -4,6 +4,39 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-18 : le menu « Scénario », lots 1 et 2a (en production)
+
+**La demande** : ranger les automatisations Shopify et HubSpot dans un menu « Scénario » (Builder ; Automation :
+Shopify, HubSpot, Autres), cloisonnées du Builder général dans les deux sens, et donner au bloc template une relance
+« si le contact ne répond pas » (Julien, cadrage en rondes de questions). Spec
+`docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`, plans `2026-11-18-menu-scenario-lot-1-rayons.md`
+et `2026-11-18-menu-scenario-lot-2-builder.md`.
+
+- **Lot 1, le rayon des scénarios** (`06dfb7d7a`) : chaque scénario et chaque automation porte un rayon (`general`,
+  `shopify`, `hubspot`). Le Builder ne liste, n'ouvre et ne lance que `general` ; chaque lecture qui valide un choix
+  compare le rayon (`tests/inventaire-rayon-scenarios.test.ts`).
+- **Lot 2a, le moteur** (`3343b068c`) : le bloc template sort par « Pas de réponse après X » (échéance `resume_at`,
+  sortie `timeout`, comme la Question) ; un parcours né d'une campagne, d'un workflow HubSpot ou d'un envoi à un bloc
+  (`workflow_runs.ne_en_masse`) ne publie aucun « tag ajouté » à sa relance « Pas de réponse » tant que le contact n'a
+  pas répondu ; la recette de l'API refuse de décrire un template à délai ; l'agent de Meta, l'agent IA et la publicité
+  restent dans le Builder. Aucune console ne pose encore de délai : il dort jusqu'à la livraison 2b-2.
+
+**Mesures** :
+- Relecture indépendante de 2a : aucun rouge. Un point corrigé avant le push : la retenue de masse coupait aussi le
+  réveil d'une Attente, donc un montage « Attente puis étiquette » d'une campagne qui nourrit une automation ; elle est
+  bornée à l'échéance « Pas de réponse » (test vu rouge, puis vert). Deux courses déjà vraies pour la Question, qui
+  deviennent le chemin courant dès qu'un template porte un délai (une réponse pendant la reprise, un clic tardif sur
+  le premier template), partent en 2b-1, côté serveur, avant toute console ; le reste au `todo.md`, dont une question
+  pour Julien sur le réveil d'une Attente de masse.
+- Suite entière verte en local (1 018 fichiers, 17 698 tests), CI verte job par job (run 44305326375).
+- **Migration 0293** (le rayon, colonnes à défaut constant) : appliquée avec le lot 1. Sa relecture en base attend la
+  sonde en lecture seule confiée à Julien (la production ne se lit que depuis la machine des workers).
+- **Migration 0295** (`ne_en_masse boolean not null default false`, `lock_timeout` de 5 s) : poussée SEULE
+  (`908fdfed6`), `migration=avant`, appliquée avant que son code n'arrive sur `main` : une colonne écrite par le
+  chemin chaud de `start`.
+- Déploiement de 2a : run 44306304735, `migration=aucune`, épinglé sur `3343b068c` (le job « construire » l'a extrait),
+  approuvé par Julien ; l'API répond.
+
 ## 2026-11-18 : le menu de la vitrine en cascade, et la page « Avec votre IA » (en ligne)
 
 **La demande** (Julien) : sous Solutions, trois sous-menus qui s'ouvrent à droite (Fonctionnalités, Secteurs dont SaaS
