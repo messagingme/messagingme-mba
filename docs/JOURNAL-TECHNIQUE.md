@@ -4,6 +4,40 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-18 : le menu « Scénario », lot 2b : la relance « Pas de réponse » dans la console (en production)
+
+**La demande** : la suite du lot 2 (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`, plan
+`2026-11-18-menu-scenario-lot-2-builder.md`) : poser le délai « Si le contact ne répond pas » sur un bloc template, et
+PRÉVENIR (jamais refuser, décisions 16 et 17) d'un message libre qui partirait sans réponse du client. La relecture de 2a
+a coupé la livraison en deux : le serveur d'abord (2b-1), la console ensuite (2b-2).
+
+- **2b-1, le serveur** (`925ea3c54`, déployé `migration=aucune`) : les départs d'un scénario (`GET /workflows/:id`) et
+  l'avertissement de chaque automation (`GET /automations`) ; la reprise d'une échéance réserve le tour comme `advance`,
+  sous la condition du dernier message réclamé, et passe son bail à ses envois ; un clic sur un ancien message (retrouvé
+  par les mesures d'envoi des blocs) se lit comme une réponse écrite ; l'analyse de fenêtre partagée garde une seule
+  valeur par bloc (dominance) ; les longues attentes ne suivent pas la sortie « Pas de réponse » (aucun refus de
+  publication neuf).
+- **2b-2, la console et l'aide** : le réglage du délai sur le bloc template et la rangée « Pas de réponse » ; la flèche
+  retirée quand on QUITTE le champ à 0 ; un bandeau jaune par message libre atteint fenêtre fermée dans le builder, la
+  phrase sous l'automation concernée ; les fiches d'aide en français et en anglais, avec la capture de la nouvelle étape.
+
+**Mesures** :
+- Relecture de 2b-1 : un rouge. Trois boucles d'attentes fractionnaires publiées par PATCH faisaient 46 s de calcul et
+  1,4 Go dans `GET /automations`, puis « Set maximum size exceeded » (conteneur de l'API à 1 Go) : l'état exact
+  (bloc, ouverte, cumul) se multipliait par combinaison de durées ; par dominance, 1 ms sur le même graphe. Jaunes 1, 2,
+  4 et 6 corrigés avant le push, le reste au `todo.md`.
+- Relecture de 2b-2 : un rouge. Corriger le délai au clavier (2 en 3) passe par un champ vide, donc par 0, et la flèche
+  « Pas de réponse » était retirée à cet instant : une Question en production ne relançait plus personne une fois
+  publiée. La flèche ne part plus qu'en quittant le champ à 0 ; e2e vu rouge sur la console d'avant, vert après.
+- La CI de la console du push de 2b-1 a rougi sur un seul e2e étranger au lot : la fiche f2 de `agents-connaissance`,
+  datée du 2026-08-20, est devenue « vieille de plus de trois mois » ce jour-là ; date relative, poussée seule
+  (`e0d6e38d8`).
+- Suites racine entières vertes avant chaque push ; e2e de l'éditeur, de l'écran Automation et des campagnes (332)
+  verts sur une console de production construite ; tests neufs vus dans les deux sens (mutations, banc PGlite pour
+  l'intégration).
+- Déploiement de 2b-1 : run 44322894444, `migration=aucune`, épinglé sur `925ea3c54`, approuvé par Julien ; l'API
+  répond. 2b-2 ne redéploie pas l'API.
+
 ## 2026-11-18 : le menu « Scénario », lots 1 et 2a (en production)
 
 **La demande** : ranger les automatisations Shopify et HubSpot dans un menu « Scénario » (Builder ; Automation :
