@@ -63,6 +63,46 @@ describe.skipIf(!url)('PgInboxStore : l’escalade de l’agent de Meta (Supabas
     expect(apres.some((x) => x.waId === waId)).toBe(true);
   });
 
+  it('🔴 la passation qui suit NOTRE reprise du fil ne gèle pas le scénario (2026-11-18, SANDBOX, Logis Hotels)', async () => {
+    // Un scénario qui démarre retire le contact de la liste de l'agent de Meta (`reprendrePourLApp`), et Meta répond par
+    // un `control_passed` « détenteur précédent : son agent » deux ou trois secondes plus tard. C'est l'écho de notre
+    // propre reprise, pas une escalade : le prendre pour une escalade passait le fil à l'équipe, et le premier clic du
+    // contact était gelé (`mayAct` faux), sans un mot au journal des échecs.
+    const waId = '33600000218';
+    const id = await conversationMenéeParLAgent(waId);
+    await pool.query(`update conversations set control_owner = 'app_workflow', control_changed_at = now() - interval '3 seconds' where id = $1`, [id]);
+    expect(await store.marquerEscalade(tenantId, waId, 'automatique : agent de Meta')).toBe(false);
+    const c = await lire(waId);
+    expect(c?.control_owner).toBe('app_workflow');
+    expect(c?.escaladee_le).toBeNull();
+    expect((await pool.query(`select 1 from conversation_evenements where conversation_id = $1`, [id])).rowCount).toBe(0);
+    // Passé le délai de l'écho, une passation de l'agent reste une escalade, même sur un fil que la colonne donne aux
+    // robots (« Rendre la main » écrit `app_workflow` quand l'agent de Meta est le répondeur et garde le fil chez Meta).
+    await pool.query(`update conversations set control_changed_at = now() - interval '10 minutes' where id = $1`, [id]);
+    expect(await store.marquerEscalade(tenantId, waId, 'automatique : agent de Meta')).toBe(true);
+    expect((await lire(waId))?.control_owner).toBe('app_human');
+  });
+
+  it('🔴 la passation au clic sur un template ne gèle pas un parcours en cours, même longtemps après la reprise (MUTAC)', async () => {
+    // Le 2026-11-18 sur MUTAC : fil repris par le scénario à 14:41, clic sur « Prendre RDV » à 18:24, et Meta envoie au même
+    // instant un `control_passed` (le routage nous adresse les réponses aux templates). Le parcours dormait sur une
+    // Attente de 5 s : réveillé sur un fil `app_human`, il était gelé, et la suite ne partait jamais.
+    const waId = '33600000219';
+    const id = await conversationMenéeParLAgent(waId);
+    await pool.query(`update conversations set control_owner = 'app_workflow', control_changed_at = now() - interval '4 hours' where id = $1`, [id]);
+    const wf = (await pool.query<{ id: string }>(`insert into workflows (tenant_id, name) values ($1, 'itest-escalade-parcours') returning id`, [tenantId])).rows[0]!.id;
+    const run = (await pool.query<{ id: string }>(
+      `insert into workflow_runs (workflow_id, tenant_id, wa_id, current_node, status) values ($1, $2, $3, 'attente', 'sleeping') returning id`,
+      [wf, tenantId, waId],
+    )).rows[0]!.id;
+    expect(await store.marquerEscalade(tenantId, waId, 'automatique : agent de Meta')).toBe(false);
+    expect((await lire(waId))?.control_owner).toBe('app_workflow');
+    // Le parcours fini, la même passation redevient une escalade.
+    await pool.query(`update workflow_runs set status = 'done' where id = $1`, [run]);
+    expect(await store.marquerEscalade(tenantId, waId, 'automatique : agent de Meta')).toBe(true);
+    expect((await lire(waId))?.control_owner).toBe('app_human');
+  });
+
   it('🔴 la passation CRÉE la conversation si elle arrive avant l’écho de l’agent', async () => {
     const waId = '33600000202';
     expect(await lire(waId)).toBeUndefined();

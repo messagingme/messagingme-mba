@@ -23,6 +23,14 @@ import {
 export const ENVOI_EN_VOL = '10 minutes';
 
 /**
+ * Le délai pendant lequel un `control_passed` de l'agent de Meta, sur un fil qu'un robot vient de prendre, est l'écho de
+ * notre propre retrait de la liste et pas une escalade (`marquerEscalade`). Mesuré le 2026-11-18 : 2,6 s après la
+ * reprise. Large exprès, pour une file de webhooks en retard ; une vraie escalade suppose qu'entre-temps le client a
+ * écrit et que l'agent lui a répondu, ce que la reprise vient justement d'empêcher.
+ */
+export const ECHO_DE_NOTRE_REPRISE = '2 minutes';
+
+/**
  * Qui détient la conversation, et donc qui répond au client. `app_workflow` est le seul état qui autorise un
  * scénario à avancer ou à démarrer. `mba` ne s'écrit que sur la parole de Meta : un `release` qu'il a accepté, ou
  * un entrant `standby`. Qui écrit cette colonne, et dans quel ordre : `src/inbox/fil.ts`, seul.
@@ -749,6 +757,15 @@ export class PgInboxStore implements InboxStore {
    *
    * Rend `true` si CETTE passation a écrit l'événement (lot 7) : c'est elle, et elle seule, qui prévient l'équipe par
    * e-mail. Un `control_passed` redélivré rend `false`.
+   *
+   * 🔴 SAUF SUR UN FIL QU'UN SCÉNARIO TIENT (2026-11-18) : Meta envoie ce même `control_passed` quand nous retirons le
+   * contact de la liste de son agent (2,6 s après la reprise, SANDBOX) et quand le contact répond à un template que le
+   * routage nous adresse (au clic, 3 h 43 après la reprise, MUTAC). Le lire comme une escalade passait le fil à l'équipe
+   * sous le nez du parcours, gelé à la réponse suivante ou au réveil de son Attente, sans une ligne au journal des
+   * échecs. Sur un fil `app_workflow`, rien n'est écrit et la fonction rend `false` (pas d'e-mail) tant qu'un parcours
+   * attend ou dort pour ce contact, ou pendant `ECHO_DE_NOTRE_REPRISE` après la reprise (le parcours n'est pas encore
+   * écrit quand son premier envoi part). Hors de ces deux cas, une passation sur un fil `app_workflow` reste une
+   * escalade : « Rendre la main » l'écrit quand l'agent est le répondeur et garde le fil chez Meta.
    */
   async marquerEscalade(tenantId: string, waId: string, cause: string): Promise<boolean> {
     const res = await this.pool.query<{ passee: boolean }>(
@@ -765,6 +782,10 @@ export class PgInboxStore implements InboxStore {
          on conflict (tenant_id, wa_id) do update set
            control_owner = 'app_human', control_changed_at = now(), escaladee_le = now(),
            traitee_le = null, archived_at = null
+         where not (conversations.control_owner = 'app_workflow'
+                    and (conversations.control_changed_at > now() - interval '${ECHO_DE_NOTRE_REPRISE}'
+                         or exists (select 1 from workflow_runs r
+                                     where r.tenant_id = $1 and r.wa_id = $2 and r.status in ('waiting', 'sleeping'))))
          returning id
        ),
        evenement as (

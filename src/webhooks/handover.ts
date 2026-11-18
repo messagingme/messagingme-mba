@@ -15,7 +15,11 @@ import { ECHO_INCONNU, texteDeLEcho } from './echo-interactif';
  *  - `messaging_handovers` ne se déclenche que si `handoff` est configuré chez Meta. Il dit
  *    `{type: 'control_passed', control_passed: {previous_owner_app_role: 'meta_business_agent', metadata}}`, et
  *    `recipient` y décrit le numéro business, le client étant dans `sender.phone_number`.
- * Un seul sens est observé (l'agent de Meta nous rend la main) ; nos `release` ne produisent aucun événement.
+ * Un seul sens est observé (l'agent de Meta nous rend la main) ; nos `release` ne produisent aucun événement. ⚠️ Mais
+ * RETIRER un contact de la liste de l'agent en produit un (mesuré le 2026-11-18, 2,6 s après une reprise par un
+ * scénario), et une réponse à un template que le routage nous adresse aussi, quand l'agent tenait le fil chez Meta
+ * (4,2 s après le clic, le même jour). Tous deux ont la forme d'une escalade : `marquerEscalade` les écarte sur un fil
+ * qu'un scénario tient.
  * Tout le reste est journalisé intégralement, jamais interprété.
  */
 
