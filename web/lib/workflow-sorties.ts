@@ -48,6 +48,18 @@ export function sansSortieEnsuite<E extends { source: string; sourceHandle?: str
   return edges.filter((e) => !(e.source === nodeId && e.sourceHandle === SORTIE_ENSUITE));
 }
 
+/** La sortie « Pas de réponse » d'un template ou d'une Question : la poignée que suit l'échéance (`timeout`). */
+export const SORTIE_PAS_DE_REPONSE = 'timeout';
+
+/**
+ * Un délai « pas de réponse » remis à 0 (template ou Question) emporte l'arête « Pas de réponse » de ce bloc : sa poignée
+ * n'est dessinée qu'avec un délai. Restée en base, l'arête serait invisible ; elle repartirait le jour où un délai serait
+ * reposé, vers une suite que personne ne voit plus, et l'analyse de fenêtre la suivrait en attendant.
+ */
+export function sansSortiePasDeReponse<E extends { source: string; sourceHandle?: string | null }>(edges: E[], nodeId: string): E[] {
+  return edges.filter((e) => !(e.source === nodeId && e.sourceHandle === SORTIE_PAS_DE_REPONSE));
+}
+
 /**
  * UNE arête par sortie, appliquée au CHARGEMENT et pas seulement à la connexion.
  *

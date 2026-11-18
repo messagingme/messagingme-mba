@@ -10,7 +10,7 @@ import { useLocale, useT } from '@/lib/i18n';
 import { AGENT_SORTIES_RESERVEES, nodeMetaOf } from '@/lib/nodeMeta';
 import { famillesDeCondition, nomDeFamille, poigneeDeFamille, SORTIE_SINON } from '@/lib/condition-familles';
 import { carouselOutputs } from '@/lib/carousel-outputs';
-import { SORTIE_LIBRE } from '@/lib/workflow-sorties';
+import { SORTIE_LIBRE, SORTIE_PAS_DE_REPONSE } from '@/lib/workflow-sorties';
 import { SORTIE_FICHIER } from '@/lib/partage/question-piece';
 import { SORTIE_FORMULAIRE_REMPLI } from '@/lib/partage/sorties-formulaire';
 import { SORTIE_ENSUITE } from '@/lib/partage/sortie-ensuite';
@@ -208,6 +208,22 @@ function BoutonCopierCode({ id, code, decale }: { id: string; code: string; deca
   );
 }
 
+/**
+ * La sortie « Pas de réponse » d'un bloc qui attend avec un délai (Question, template depuis le lot 2 du menu
+ * « Scénario ») : le parcours la prend quand le délai passe sans réponse du contact. Une seule définition pour les trois
+ * endroits qui la dessinent, sinon l'une finirait par porter une autre poignée que celle que suit le moteur.
+ */
+function RangeePasDeReponse() {
+  const t = useT();
+  return (
+    <div className="relative flex items-center gap-1 border-t border-ink-100 px-2 py-1 text-[10px] font-medium text-alerte-700 first:border-t-0">
+      <Icone nom="chrono" taille="mini" />
+      <span className="truncate">{t('Pas de réponse', 'No reply')}</span>
+      <Handle type="source" id={SORTIE_PAS_DE_REPONSE} position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-alerte-500" title={t('Le contact n’a pas répondu dans le délai', 'The contact did not reply within the delay')} />
+    </div>
+  );
+}
+
 /** Bloc du workflow : carré gris clair, handle cible (haut). Un bloc `template` montre l'APERÇU du message et
  *  expose UNE SORTIE PAR BOUTON quick-reply (handle à droite de la ligne, reliable) ; les boutons URL/formulaire
  *  sont montrés grisés, non reliables (ils sortent de WhatsApp). Les autres blocs ont une seule sortie (bas). */
@@ -302,9 +318,9 @@ function WFNode({ id, data, selected }: NodeProps) {
   const questionRows: Array<{ title: string }> = isQuestion && Array.isArray(data.rows)
     ? (data.rows as Array<{ title?: unknown }>).map((r) => ({ title: String(r?.title ?? '') }))
     : [];
-  // La sortie « pas de réponse » n'est dessinée QUE si un délai est posé. Sans délai elle ne partirait
-  // jamais : l'afficher promettrait une branche morte, et quelqu'un finirait par la relier.
-  const questionDelai = isQuestion && Number(data.timeoutValue ?? 0) > 0;
+  // La sortie « pas de réponse » n'est dessinée QUE si un délai est posé, sur une Question ou un template. Sans délai
+  // elle ne partirait jamais : l'afficher promettrait une branche morte, et quelqu'un finirait par la relier.
+  const delaiPose = (isQuestion || wfType === 'template') && Number(data.timeoutValue ?? 0) > 0;
   // « Attendre un fichier » (2026-11-02) : la sortie « Fichier reçu » n'existe que si l'attente est cochée. Reliée à
   // rien, le scénario ne se publie pas (`refusFichierSansSuite`, côté serveur).
   const questionFichier = isQuestion && data.attendreFichier === true;
@@ -565,13 +581,7 @@ function WFNode({ id, data, selected }: NodeProps) {
               <Handle type="source" id={SORTIE_FICHIER} position={Position.Right} className={`!h-2.5 !w-2.5 !border-2 !border-white ${orpheline(SORTIE_FICHIER) ? '!bg-danger' : '!bg-brand-500'}`} title={orpheline(SORTIE_FICHIER) ? TITRE_FICHIER_ORPHELINE : t('Le contact a envoyé un fichier d’un type attendu', 'The contact sent a file of an expected type')} />
             </div>
           )}
-          {questionDelai && (
-            <div className="relative flex items-center gap-1 border-t border-ink-100 px-2 py-1 text-[10px] font-medium text-alerte-700">
-              <Icone nom="chrono" taille="mini" />
-              <span className="truncate">{t('Pas de réponse', 'No reply')}</span>
-              <Handle type="source" id="timeout" position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-alerte-500" title={t('Le contact n’a pas répondu dans le délai', 'The contact did not reply within the delay')} />
-            </div>
-          )}
+          {delaiPose && <RangeePasDeReponse />}
         </div>
       ) : isRcs ? (
         // Bloc RCS : les DEUX dimensions coexistent, et il ne faut pas que l'une masque l'autre.
@@ -648,6 +658,8 @@ function WFNode({ id, data, selected }: NodeProps) {
               <Handle type="source" id={SORTIE_ENSUITE} position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-succes-500" title={t('Part juste après ce message, sans attendre la réponse : message sans bouton, action, condition, e-mail, appel API. Les boutons restent actifs.', 'Sent right after this message, without waiting for a reply: message without buttons, action, condition, email, API call. The buttons stay active.')} />
             </div>
           )}
+          {/* Un template à délai : le silence est un cas à part, distinct d'un bouton et d'une réponse écrite. */}
+          {delaiPose && <RangeePasDeReponse />}
         </div>
       ) : isCondition ? (
         // Node condition : une sortie par FAMILLE, à son nom, puis « Sinon », à droite. Les poignées sont celles que
@@ -706,9 +718,16 @@ function WFNode({ id, data, selected }: NodeProps) {
               ))}
             </div>
           )}
+          {/* Un template sans bouton, à délai : sa sortie « Pas de réponse » à droite. Celle du bas est alors la réponse du
+              contact, puisque le bloc l'attend. */}
+          {delaiPose && (
+            <div className="border-t border-ink-200">
+              <RangeePasDeReponse />
+            </div>
+          )}
           {/* La sortie unique d'un bloc sans branche EST la sortie libre : même nom de poignée, donc une arête
               enregistrée sans poignée s'y rattache quel que soit le type de bloc. */}
-          <Handle type="source" id={SORTIE_LIBRE} position={Position.Bottom} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-brand-500" title={t('Tirer une flèche', 'Drag an arrow')} />
+          <Handle type="source" id={SORTIE_LIBRE} position={Position.Bottom} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-brand-500" title={delaiPose ? t('Le contact a répondu dans le délai : tirez la suite d’ici', 'The contact replied within the delay: drag the next step from here') : t('Tirer une flèche', 'Drag an arrow')} />
         </>
       )}
     </div>

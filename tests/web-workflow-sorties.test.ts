@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SORTIE_LIBRE, poigneeCanevas, poigneeGraphe, sansSortieEnsuite, sansSortieFichier, uneAreteParSortie } from '../web/lib/workflow-sorties';
+import { SORTIE_LIBRE, poigneeCanevas, poigneeGraphe, sansSortieEnsuite, sansSortieFichier, sansSortiePasDeReponse, uneAreteParSortie } from '../web/lib/workflow-sorties';
 
 /**
  * La SORTIE LIBRE d'un bloc, et la traduction entre le canevas et le graphe enregistré.
@@ -95,5 +95,25 @@ describe('la sortie « Puis, sans attendre » d’un message rapide (2026-11-10)
   it('elle reste elle-même entre le canevas et le graphe : ce n’est pas la sortie libre', () => {
     expect(poigneeCanevas('ensuite')).toBe('ensuite');
     expect(poigneeGraphe('ensuite')).toBe('ensuite');
+  });
+});
+
+describe('la sortie « Pas de réponse » d’un template ou d’une Question (menu « Scénario », lot 2)', () => {
+  it('🔴 un délai remis à 0 emporte l’arête « Pas de réponse » de CE bloc, et aucune autre', () => {
+    // Sa poignée n'est dessinée qu'avec un délai : restée en base, l'arête serait invisible, et elle repartirait le jour
+    // où un délai serait reposé, vers une suite que personne ne voit plus. L'analyse de fenêtre la suivrait aussi, et
+    // préviendrait d'un message que rien à l'écran ne relie.
+    const edges = [
+      { id: 'p', source: 't', target: 'x', sourceHandle: 'timeout' },
+      { id: 'l', source: 't', target: 'y' },
+      { id: 'b', source: 't', target: 'z', sourceHandle: 'btn:0' },
+      { id: 'autre', source: 'q', target: 'x', sourceHandle: 'timeout' },
+    ];
+    expect(sansSortiePasDeReponse(edges, 't').map((e) => e.id)).toEqual(['l', 'b', 'autre']);
+  });
+
+  it('elle reste elle-même entre le canevas et le graphe : ce n’est pas la sortie libre', () => {
+    expect(poigneeCanevas('timeout')).toBe('timeout');
+    expect(poigneeGraphe('timeout')).toBe('timeout');
   });
 });

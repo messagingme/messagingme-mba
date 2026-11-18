@@ -771,6 +771,10 @@ export function ConfigPanel({
               onPatch={onPatch}
             />
           )}
+          {/* « Si le contact ne répond pas » (menu « Scénario », lot 2) : la relance qui part sans réponse. */}
+          <div className="mt-3">
+            <ReglageSansReponse d={d} onPatch={onPatch} prefixe="template" />
+          </div>
         </div>
       )}
       {wfType === 'question' && (() => {
@@ -782,7 +786,6 @@ export function ConfigPanel({
           }))
           : [];
         const patchRows = (next: Array<{ title: string; description: string }>) => onPatch({ rows: next });
-        const delai = Number(d.timeoutValue ?? 0);
         return (
           <div className="space-y-3">
             {/* MÊME composant d'insertion de variables que partout ailleurs (bloc RCS, corps d'un template) :
@@ -851,27 +854,7 @@ export function ConfigPanel({
               )}
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">{t('Si le contact ne répond pas', 'If the contact does not reply')}</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  min={0}
-                  value={Number.isFinite(delai) ? delai : 0}
-                  onChange={(e) => onPatch({ timeoutValue: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
-                  data-testid="question-node-timeout"
-                  className={`${cls} w-24`}
-                />
-                <select value={String(d.timeoutUnit ?? 'hours')} onChange={(e) => onPatch({ timeoutUnit: e.target.value })} data-testid="question-node-timeout-unit" className={`${cls} bg-white`}>
-                  <option value="minutes">{t('minutes', 'minutes')}</option>
-                  <option value="hours">{t('heures', 'hours')}</option>
-                  <option value="days">{t('jours', 'days')}</option>
-                </select>
-              </div>
-              <p className="mt-1 text-xs text-ink-500">
-                {t('0 = on attend sans limite. Au-delà de 0, une sortie « Pas de réponse » apparaît sur le bloc.', '0 = wait with no limit. Above 0, a “No reply” output appears on the block.')}
-              </p>
-            </div>
+            <ReglageSansReponse d={d} onPatch={onPatch} prefixe="question" />
 
             {/* La réponse RANGÉE (2026-11-02, spec `docs/superpowers/specs/2026-11-02-question-fichier-champ-design.md`).
                 Tout est facultatif : sans champ choisi, le bloc ne range rien, comme avant. */}
@@ -1413,6 +1396,43 @@ const LIBELLES_GENRE: Readonly<Record<GenrePiece, readonly [string, string]>> = 
   video: ['Vidéo', 'Video'],
   vocal: ['Vocal', 'Voice note'],
 };
+
+/**
+ * « Si le contact ne répond pas » : le délai qui ouvre la sortie « Pas de réponse » d'une Question ou d'un template (menu
+ * « Scénario », lot 2). Le même réglage pour les deux blocs, dans les unités du moteur (`QUESTION_UNITS`) ; 0 = aucune
+ * échéance. Repasser à 0 retire aussi la flèche de la sortie (`patchSelected`, `sansSortiePasDeReponse`).
+ */
+function ReglageSansReponse({ d, onPatch, prefixe }: {
+  d: Record<string, unknown>;
+  onPatch: (p: Record<string, unknown>) => void;
+  prefixe: 'question' | 'template';
+}) {
+  const t = useT();
+  const delai = Number(d.timeoutValue ?? 0);
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-ink-500">{t('Si le contact ne répond pas', 'If the contact does not reply')}</label>
+      <div className="flex gap-2">
+        <input
+          type="number"
+          min={0}
+          value={Number.isFinite(delai) ? delai : 0}
+          onChange={(e) => onPatch({ timeoutValue: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+          data-testid={`${prefixe}-node-timeout`}
+          className={`${cls} w-24`}
+        />
+        <select value={String(d.timeoutUnit ?? 'hours')} onChange={(e) => onPatch({ timeoutUnit: e.target.value })} data-testid={`${prefixe}-node-timeout-unit`} className={`${cls} bg-white`}>
+          <option value="minutes">{t('minutes', 'minutes')}</option>
+          <option value="hours">{t('heures', 'hours')}</option>
+          <option value="days">{t('jours', 'days')}</option>
+        </select>
+      </div>
+      <p className="mt-1 text-xs text-ink-500">
+        {t('0 = on attend sans limite. Au-delà de 0, une sortie « Pas de réponse » apparaît sur le bloc.', '0 = wait with no limit. Above 0, a “No reply” output appears on the block.')}
+      </p>
+    </div>
+  );
+}
 
 /**
  * La réponse RANGÉE d'un bloc Question (2026-11-02) : le champ personnalisé qui la reçoit, la case de la ligne du menu,
