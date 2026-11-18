@@ -2071,6 +2071,21 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   course : son `on conflict` porte le prédicat exact de l'index) et `designation` (la frise et le journal disent
   « Répondeur automatique ») la voient. `tests/workflow-store-systeme.test.ts` inventorie les méthodes de la classe :
   une méthode ajoutée doit y être rangée, filtrée ou non.
+- 🔴 **LE RAYON D'UN SCÉNARIO ET D'UNE AUTOMATION, CLOISONNÉ DANS LES DEUX SENS** (`workflows.rayon`,
+  `automations.rayon`, migration 0293, liste fermée `RAYONS` de `src/workflow/rayon.ts` : `general`, `shopify`,
+  `hubspot`, défaut `general`). `general` est le Builder et l'écran Automation ; `shopify` et `hubspot` sont les
+  scénarios que lance un événement de la boutique ou de HubSpot (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`).
+  Le rayon est fixé à la création et ne se modifie jamais. Un chemin qui liste, choisit ou lance un scénario ne voit
+  que son rayon, et un scénario d'un autre rayon s'y refuse EXACTEMENT comme un inconnu (son existence ne fuit pas).
+  Où c'est tenu : les listes du magasin prennent le rayon en paramètre REQUIS (le compilateur énumère les appelants) ;
+  les méthodes `...ParApi` (API publique, Claude Code, MCP) ne voient que `general`, en dur ; le nom est unique PAR
+  rayon ; `lancer` refuse un rayon que la politique du type n'admet pas (`POLITIQUE_DE_LANCEMENT[type].rayons`, le lien
+  de test seul les admet tous) ; un « Aller à » résout sa cible dans le rayon du scénario d'origine (`resoudreBloc`,
+  `resolveNode(…, rayon)`) ; une automation et son scénario sont du même rayon (`scenarioDuRayon`). ⚠️ `getById`
+  ignore le rayon, délibérément : il relit le graphe d'un parcours en cours, quel que soit son rayon. Toute lecture par
+  identifiant qui VALIDE un choix compare donc `.rayon` elle-même, et `tests/inventaire-rayon-scenarios.test.ts` le
+  tient (avec le SQL qui lit `workflows` hors du magasin) : une lecture ajoutée compare le rayon ou entre dans sa liste
+  avec sa raison. Le moteur (`listEnabled`) sert les automations de tous les rayons.
 - **Les dossiers** (0229, `src/dossiers/`, routes `src/http/dossiers.ts`) : `dossiers` (`type` scenario | template,
   `nom` de 1 à 60 caractères par `char_length`, unique par espace et par type sur `lower(nom)`), `workflows.dossier_id`
   (nullable, `on delete set null`, index partiel `workflows_dossier_idx`) et `template_dossiers` (un template se range
