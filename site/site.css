@@ -1770,14 +1770,15 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .tarifs-une{padding-bottom:48px}
 .tarifs-offres{padding:0 0 32px}
 .tarifs-grille{list-style:none;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;align-items:start}
-.tarif{display:flex;flex-direction:column;gap:16px;min-width:0;padding:30px 22px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+/* Chaque carte occupe cinq lignes de la grille et les partage (subgrid) : nom, prix, phrase et bouton tombent à la même hauteur dans les quatre cartes, quelle que soit la longueur de leurs textes. */
+.tarif{display:grid;grid-row:span 5;grid-template-rows:subgrid;align-content:start;gap:16px;min-width:0;padding:30px 22px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
 .tarif-nom{margin:0;font-size:1.35rem;letter-spacing:-.02em;font-weight:800}
 .tarif-prix{display:flex;flex-direction:column;gap:2px;margin:0}
 .tarif-prix strong{font-size:2.5rem;line-height:1.1;letter-spacing:-.03em;font-weight:800}
 .tarif-prix > span{color:var(--muted);font-size:.9rem}
 .tarif-pour{margin:0;color:var(--muted);text-wrap:pretty}
-.tarif .bouton{align-self:stretch;justify-content:center}
-.tarif .bouton-trait{padding:.85em 1.45em;font-size:1rem}
+.tarif .bouton{align-self:start;justify-content:center}
+.tarif-detail{display:flex;flex-direction:column;gap:16px;min-width:0}
 .tarif-liste,.tarif-fonctions{list-style:none;margin:0;padding:0;display:grid;gap:10px;font-size:.95rem}
 .tarif-liste li,.tarif-fonctions li{position:relative;padding-left:26px;color:var(--muted)}
 .tarif-liste li::before,.tarif-fonctions li::before{content:"";position:absolute;left:2px;top:.45em;width:12px;height:7px;border-left:2px solid var(--action-ink);border-bottom:2px solid var(--action-ink);transform:rotate(-45deg)}
