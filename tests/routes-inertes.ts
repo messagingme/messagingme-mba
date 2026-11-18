@@ -534,7 +534,9 @@ export const membresDepInertes: Pick<MembresDep, 'createPending' | 'getById' | '
   getPasswordHash: neDevraitPasEtreAppelee('getPasswordHash'),
 };
 
-export const scenariosDepInerte: Pick<ScenariosDep, 'publish' | 'ensureTestToken' | 'utilisationsDuScenario'> = {
+export const scenariosDepInerte: Pick<ScenariosDep, 'publish' | 'ensureTestToken' | 'utilisationsDuScenario' | 'lanceursDuScenario'> = {
+  // Aucun lanceur : le scénario part ouvert à l'entrée, le comportement d'avant le lot 2 du menu « Scénario ».
+  lanceursDuScenario: async () => [],
   publish: async () => null,
   ensureTestToken: async () => null,
   // Absente : rien n'utilise le scénario.

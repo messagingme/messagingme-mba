@@ -16,6 +16,7 @@ import { refusFichierSansSuite } from '../workflow/question-piece';
 import { refusSuiteQuiAttend } from '../workflow/engine';
 import { tagsInGraph } from '../workflow/tags-du-graphe';
 import type { Rayon } from '../workflow/rayon';
+import { departsDuScenario, type Lanceur } from '../../web/lib/partage/fenetre-scenario';
 
 /**
  * La sauvegarde n'exige pas qu'un scénario commence par un template : un scénario qui ouvre sur un message de
@@ -33,6 +34,8 @@ export interface ScenariosDep {
    * brouillon et l'éligibilité en campagne, qui sont les trois seules choses que les écrans en tiraient.
    */
   listResume(tenantId: string, rayon: Rayon): Promise<WorkflowResumeRow[]>;
+  /** Ce qui lance ce scénario (automations allumées, campagnes actives) : ses départs, pour les avertissements du builder. */
+  lanceursDuScenario(tenantId: string, id: string): Promise<Lanceur[]>;
   getById(id: string, tenantId: string): Promise<WorkflowRow | null>;
   update(id: string, tenantId: string, patch: { name?: string; graph?: WorkflowGraph }): Promise<MajScenario>;
   /**
@@ -166,7 +169,10 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     if (!estUuid(id)) return reply.code(404).send({ error: 'workflow inconnu' });
     const wf = await deps.scenarios.getById(id, tenant);
     if (!wf) return reply.code(404).send({ error: 'workflow inconnu' });
-    return reply.code(200).send({ workflow: wf });
+    // Les départs du scénario (menu « Scénario », lot 2) : la console en tire ses avertissements de fenêtre, sans jamais
+    // refuser (décision 16). Une console plus ancienne ignore le champ.
+    const departs = departsDuScenario(wf.rayon, await deps.scenarios.lanceursDuScenario(tenant, id));
+    return reply.code(200).send({ workflow: wf, departs });
   });
 
   app.patch('/tenants/:tenantId/workflows/:id', opts, async (req, reply) => {

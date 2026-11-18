@@ -12,6 +12,8 @@ import type { ActionDeLEspace } from '../agent/actions.pg';
 import type { UserFieldDef } from '../crm/types';
 import { STATUT_REFUS_OFFRE, corpsRefusFonction } from '../offres/refus';
 import { espaceVerifie, estUuid, nonEmpty } from './scope';
+import type { WorkflowGraph } from '../workflow/graph';
+import { avertissementDeLAutomation } from '../workflow/fenetre-moteur';
 
 export interface AutomationsDep {
   list(tenantId: string, rayon: Rayon): Promise<AutomationRow[]>;
@@ -34,6 +36,11 @@ export interface AutomationRouteDeps {
    * inconnu.
    */
   scenarioDuRayon(workflowId: string, tenantId: string, rayon: Rayon): Promise<boolean>;
+  /**
+   * Les graphes PUBLIÉS des scénarios de la liste, en une lecture, pour l'avertissement de fenêtre de chaque automation
+   * (décision 17 : l'écran prévient, l'enregistrement passe toujours).
+   */
+  graphesPublies(tenantId: string, ids: readonly string[]): Promise<Map<string, WorkflowGraph>>;
   /**
    * L'offre de l'espace ouvre-t-elle l'analyse des conversations (l'Entreprise seule depuis la spec offres v2, livraison
    * 5) ? Un déclencheur né d'une analyse ne se crée pas sans elle : l'automation ne partirait jamais.
@@ -286,7 +293,12 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
 
   app.get('/tenants/:tenantId/automations', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const automations = await deps.automations.list(tenant, 'general');
+    const lues = await deps.automations.list(tenant, 'general');
+    const graphes = await deps.graphesPublies(tenant, [...new Set(lues.map((a) => a.workflowId))]);
+    const automations = lues.map((a) => {
+      const graphe = graphes.get(a.workflowId);
+      return { ...a, avertissementFenetre: graphe ? avertissementDeLAutomation(a.triggerKind, a.startNodeId, graphe) : null };
+    });
     // L'adresse de l'admin qui a coché la case d'accord marketing ne sort que pour un admin (relecture du lot 3b) : un
     // agent lit la liste, il n'a pas à connaître l'adresse d'un collègue. Qui (son identifiant) et quand restent.
     if (req.auth?.role === 'admin') return reply.code(200).send({ automations });

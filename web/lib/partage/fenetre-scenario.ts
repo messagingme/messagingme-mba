@@ -19,6 +19,7 @@
  * Sans départ fourni : un départ ouvert à l'entrée, le comportement d'aujourd'hui.
  */
 import { blocDuCode, cibleDuSaut, entreeDuGraphe, type GrapheOuverture, type NoeudOuverture } from './ouverture-scenario';
+import { FENETRE_AU_DEPART, type AutomationTriggerKind } from './automations';
 
 /** La fenêtre de service WhatsApp : 24 h depuis le dernier message du contact. */
 export const FENETRE_MS = 24 * 3_600_000;
@@ -113,4 +114,31 @@ export function analyserFenetre<N extends NoeudOuverture>(
     }
   }
   return constats;
+}
+
+/** Ce qui lance un scénario, relu en base (\`PgWorkflowStore.lanceursDuScenario\`) : une automation allumée ou une campagne
+ *  active. \`declencheur\` : celui de l'automation (\`null\` pour une campagne). */
+export interface Lanceur {
+  type: 'automation' | 'campagne';
+  nom: string;
+  declencheur: AutomationTriggerKind | null;
+  blocDeDepart: string | null;
+}
+
+/**
+ * Les départs d'un scénario (\`GET /workflows/:id\`) : un scénario Shopify ou HubSpot part FERMÉ, lancé par un événement ;
+ * un scénario du Builder part ouvert à l'entrée (mot-clé, Inbox, réponse d'un client), plus un départ FERMÉ par lanceur
+ * qui ne naît pas d'un message du client (une campagne, une automation dont le déclencheur est fermé), à son bloc de départ.
+ */
+export function departsDuScenario(rayon: string, lanceurs: readonly Lanceur[]): Depart[] {
+  if (rayon === 'shopify') return [{ noeudId: null, fenetre: 'fermee', raison: 'un événement Shopify' }];
+  if (rayon === 'hubspot') return [{ noeudId: null, fenetre: 'fermee', raison: 'un événement HubSpot' }];
+  const departs: Depart[] = [{ noeudId: null, fenetre: 'ouverte', raison: '' }];
+  for (const l of lanceurs) {
+    if (l.type === 'campagne') departs.push({ noeudId: null, fenetre: 'fermee', raison: `la campagne « ${l.nom} »` });
+    else if (l.declencheur !== null && FENETRE_AU_DEPART[l.declencheur] === 'fermee') {
+      departs.push({ noeudId: l.blocDeDepart, fenetre: 'fermee', raison: `l’automation « ${l.nom} »` });
+    }
+  }
+  return departs;
 }

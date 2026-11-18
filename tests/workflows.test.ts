@@ -613,3 +613,25 @@ describe('GET /workflows : le RÉSUMÉ, jamais les graphes', () => {
     await server.close();
   });
 });
+
+describe('🔴 GET /workflows/:id rend les départs du scénario (menu « Scénario », lot 2 : prévenir, jamais refuser)', () => {
+  it('un scénario du Builder lancé par une automation de date : un départ ouvert à l’entrée et un départ fermé à son bloc', async () => {
+    const { server } = app({ scenarios: { lanceursDuScenario: async () => [{ type: 'automation', nom: 'Rappel', declencheur: 'avant_date', blocDeDepart: 'n1' }] } });
+    const res = await server.inject({ method: 'GET', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<{ departs: unknown[] }>().departs).toEqual([
+      { noeudId: null, fenetre: 'ouverte', raison: '' },
+      { noeudId: 'n1', fenetre: 'fermee', raison: 'l’automation « Rappel »' },
+    ]);
+    await server.close();
+  });
+
+  it('sans lanceur fermé : le seul départ ouvert, et la ligne du scénario inchangée', async () => {
+    const { server } = app();
+    const res = await server.inject({ method: 'GET', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok) });
+    const corps = res.json<{ workflow: { id: string }; departs: unknown[] }>();
+    expect(corps.workflow.id).toBe(W1);
+    expect(corps.departs).toEqual([{ noeudId: null, fenetre: 'ouverte', raison: '' }]);
+    await server.close();
+  });
+});

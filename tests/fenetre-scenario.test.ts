@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { analyserFenetre, FENETRE_MS, type Depart, type ReglesFenetre } from '../web/lib/partage/fenetre-scenario';
+import { analyserFenetre, departsDuScenario, FENETRE_MS, type Depart, type ReglesFenetre } from '../web/lib/partage/fenetre-scenario';
 
 /**
  * L'ANALYSE DE FENÊTRE PARTAGÉE (menu « Scénario », lot 2, spec décisions 11 et 16, § 5.2).
@@ -82,5 +82,25 @@ describe('🔴 l’analyse de fenêtre au départ', () => {
   it('un cycle se termine', () => {
     const g = { nodes: [n('a', 'tag'), n('b', 'tag')], edges: [e('a', 'b'), e('b', 'a')] };
     expect(analyserFenetre(g, [ferme()], regles)).toEqual([]);
+  });
+});
+
+describe('les départs d’un scénario, depuis son rayon et ses lanceurs', () => {
+  it('le Builder : ouvert à l’entrée, plus un départ fermé par lanceur qui ne naît pas d’un message', () => {
+    const d = departsDuScenario('general', [
+      { type: 'automation', nom: 'Bienvenue', declencheur: 'keyword', blocDeDepart: null },
+      { type: 'automation', nom: 'Rappel', declencheur: 'avant_date', blocDeDepart: 'q1' },
+      { type: 'campagne', nom: 'Soldes', declencheur: null, blocDeDepart: null },
+    ]);
+    expect(d).toEqual([
+      { noeudId: null, fenetre: 'ouverte', raison: '' },
+      { noeudId: 'q1', fenetre: 'fermee', raison: 'l’automation « Rappel »' },
+      { noeudId: null, fenetre: 'fermee', raison: 'la campagne « Soldes »' },
+    ]);
+  });
+
+  it('un scénario Shopify ou HubSpot : fermé à l’entrée, lancé par un événement', () => {
+    expect(departsDuScenario('shopify', [])).toEqual([{ noeudId: null, fenetre: 'fermee', raison: 'un événement Shopify' }]);
+    expect(departsDuScenario('hubspot', [])).toEqual([{ noeudId: null, fenetre: 'fermee', raison: 'un événement HubSpot' }]);
   });
 });

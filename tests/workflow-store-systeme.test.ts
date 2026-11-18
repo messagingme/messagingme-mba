@@ -46,13 +46,14 @@ const FILTREES: Record<string, (s: PgWorkflowStore) => Promise<unknown>> = {
   remplacerPublieParApi: (s) => s.remplacerPublieParApi('w1', 't1', 'nom', { nodes: [], edges: [] }, () => null),
   supprimerParApi: (s) => s.supprimerParApi('w1', 't1'),
   utilisationsDuScenario: (s) => s.utilisationsDuScenario('t1', 'w1'),
+  graphesPublies: (s) => s.graphesPublies('t1', ['w1']),
 };
 
 /**
  * Les seules qui voient la ligne, et pourquoi : `insert` crée un scénario du client (jamais système) ;
  * `assurerScenarioSysteme` la crée ou la rend ; `designation` la nomme dans la frise (« Répondeur automatique »).
  */
-const DELIBEREMENT_NON_FILTREES = ['insert', 'assurerScenarioSysteme', 'designation'];
+const DELIBEREMENT_NON_FILTREES = ['insert', 'assurerScenarioSysteme', 'designation', 'lanceursDuScenario'];
 
 describe('🔴 le scénario système n’existe pour aucune lecture publique du magasin', () => {
   it('l’inventaire est complet : chaque méthode publique est rangée, filtrée ou délibérément pas', () => {

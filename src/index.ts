@@ -3380,6 +3380,7 @@ async function main(): Promise<void> {
       // 🔴 Un tenant ne peut cibler que ses propres scénarios (même garde que la campagne workflow).
       // Lecture par identifiant (tous rayons), puis comparaison : un scénario d'un autre rayon se refuse comme un inconnu.
       scenarioDuRayon: async (wfId, tenant, rayon) => (await workflowStore.getById(wfId, tenant))?.rayon === rayon,
+      graphesPublies: (t, ids) => workflowStore.graphesPublies(t, ids),
       // Le menu du déclencheur « action de l'agent IA » (plan du 2026-10-13).
       actionsDeLEspace: (tenant) => new PgActionsAgent(pool).listerDeLEspace(tenant),
       champsDeLEspace: (tenant) => fieldStore.list(tenant),

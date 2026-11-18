@@ -4,6 +4,8 @@ import { makeCode } from '../ids/code';
 import { resolveTenantCode } from '../ids/tenant-code';
 import { scanOpening } from './engine';
 import { estRayon, type Rayon } from './rayon';
+import { AUTOMATION_TRIGGER_KINDS, type AutomationTriggerKind } from '../../web/lib/partage/automations';
+import type { Lanceur } from '../../web/lib/partage/fenetre-scenario';
 
 /**
  * Par quoi ce scénario ouvre, quand il peut ouvrir une campagne. `null` = il ne le peut pas.
@@ -522,6 +524,44 @@ export class PgWorkflowStore {
   }
 
   /** Ce qui utilise ce scénario (`UTILISATIONS`) : vide = il peut partir. */
+  /**
+   * Ce qui lance ce scénario, pour ses départs (menu « Scénario », lot 2) : ses automations ALLUMÉES (déclencheur et bloc
+   * de départ) et les campagnes actives (programmées, en cours, en pause) qui le lancent, à l'entrée ou par un étage.
+   * Aucune lecture de `workflows` : `tenant_id = $1` sur chaque table lue. Un déclencheur inconnu en base est ignoré.
+   */
+  async lanceursDuScenario(tenantId: string, id: string): Promise<Lanceur[]> {
+    const r = await this.pool.query<{ type: 'automation' | 'campagne'; nom: string; declencheur: string | null; bloc_de_depart: string | null }>(
+      `select 'automation' as type, a.name as nom, a.trigger_kind as declencheur, a.start_node_id as bloc_de_depart
+         from automations a where a.tenant_id = $1 and a.workflow_id = $2 and a.enabled
+       union all
+       select 'campagne', c.name, null, null from campaigns c
+        where c.tenant_id = $1 and c.workflow_id = $2 and c.status in ('scheduled', 'running', 'paused')
+       union all
+       select 'campagne', c.name, null, null from campaign_etages e join campaigns c on c.id = e.campaign_id
+        where c.tenant_id = $1 and e.workflow_id = $2 and c.status in ('scheduled', 'running', 'paused')`,
+      [tenantId, id],
+    );
+    const connus = AUTOMATION_TRIGGER_KINDS as readonly string[];
+    return r.rows.flatMap((l): Lanceur[] => {
+      if (l.type === 'campagne') return [{ type: 'campagne', nom: l.nom, declencheur: null, blocDeDepart: null }];
+      if (l.declencheur === null || !connus.includes(l.declencheur)) return [];
+      return [{ type: 'automation', nom: l.nom, declencheur: l.declencheur as AutomationTriggerKind, blocDeDepart: l.bloc_de_depart }];
+    });
+  }
+
+  /**
+   * Les graphes PUBLIÉS de ces scénarios de l'espace (système exclu, tous rayons), pour l'avertissement de chaque
+   * automation (`GET /automations`) : une lecture pour toute la liste, jamais une par automation.
+   */
+  async graphesPublies(tenantId: string, ids: readonly string[]): Promise<Map<string, WorkflowGraph>> {
+    if (ids.length === 0) return new Map();
+    const r = await this.pool.query<{ id: string; graph: WorkflowGraph | null }>(
+      `select id, graph from workflows where tenant_id = $1 and ${PUBLIC} and id = any($2::uuid[])`,
+      [tenantId, [...ids]],
+    );
+    return new Map(r.rows.map((x) => [x.id, x.graph ?? EMPTY_GRAPH]));
+  }
+
   async utilisationsDuScenario(tenantId: string, id: string, q: Pick<Pool, 'query'> = this.pool): Promise<string[]> {
     const r = await q.query<{ u: string }>(UTILISATIONS, [tenantId, id]);
     return r.rows.map((x) => x.u);

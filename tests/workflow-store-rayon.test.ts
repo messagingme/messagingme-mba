@@ -61,6 +61,9 @@ const API: Record<string, (s: PgWorkflowStore) => Promise<unknown>> = {
 const SANS_FILTRE = [
   'getById', 'update', 'publish', 'remove', 'ensureTestToken', 'findByTestToken', 'utilisationsDuScenario', 'insert',
   'assurerScenarioSysteme', 'designation',
+  // Lot 2 : les lanceurs d'un scénario désigné par son identifiant (ne lit pas `workflows`), et les graphes publiés des
+  // scénarios d'une liste d'automations, par identifiant (le rayon de l'automation est déjà celui de son scénario).
+  'lanceursDuScenario', 'graphesPublies',
 ];
 
 describe('🔴 le magasin de scénarios ne liste que le rayon demandé', () => {

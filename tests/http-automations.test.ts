@@ -34,7 +34,7 @@ const ACTION_T1 = '0b7e2c1a-4d5e-4f60-8a9b-1c2d3e4f5a6b';
 
 function app(
   over: Partial<AutomationsDep> = {},
-  refs: Partial<Pick<AutomationRouteDeps, 'actionsDeLEspace' | 'champsDeLEspace' | 'analyseOuverte'>> = {},
+  refs: Partial<Pick<AutomationRouteDeps, 'actionsDeLEspace' | 'champsDeLEspace' | 'analyseOuverte' | 'graphesPublies'>> = {},
 ) {
   const cap = {
     created: [] as Array<{ tenant: string; input: AutomationInput }>,
@@ -53,6 +53,8 @@ function app(
     },
     // wf1 est un scénario du Builder de t1, wf-shopify un scénario Shopify de t1 ; tout le reste est refusé (scénario
     // d'un autre client, inexistant, ou d'un autre rayon que celui demandé).
+    // Aucun graphe publié : aucune automation n'a d'avertissement de fenêtre, sauf les cas qui en fournissent un.
+    graphesPublies: async () => new Map(),
     scenarioDuRayon: async (wfId, tenant, rayon) =>
       tenant === 't1' && ((wfId === 'wf1' && rayon === 'general') || (wfId === 'wf-shopify' && rayon === 'shopify')),
     actionsDeLEspace: async (tenant) => (tenant === 't1' ? [{ id: ACTION_T1, nom: 'résiliation', agentId: 'ag1', agent: 'Accueil' }] : []),
@@ -575,6 +577,37 @@ describe('🔴 le rayon : l’écran Automation ne mène qu’au Builder (menu �
     const { server } = app({ list: async (_t, rayon) => { demandes.push(rayon); return []; } });
     await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(adminTok) });
     expect(demandes).toEqual(['general']);
+    await server.close();
+  });
+});
+
+describe('🔴 GET /automations : l’avertissement de fenêtre de chaque ligne (décision 17 : prévenir, jamais refuser)', () => {
+  const rapide = { nodes: [{ id: 'r', type: 'quick_message' as const, position: { x: 0, y: 0 }, data: { body: 'Bonjour', name: 'Accueil' } }], edges: [] };
+  const ligne = (id: string, triggerKind: 'avant_date' | 'keyword') => ({
+    id, tenantId: 't1', name: id, enabled: true, triggerKind, triggerConfig: {}, conditionGroup: null, workflowId: 'wf1',
+    startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const,
+  });
+
+  it('une automation de date vers un scénario qui commence par un message rapide est avertie ; un mot-clé, non', async () => {
+    const demandes: string[][] = [];
+    const { server } = app(
+      { list: async () => [ligne('date', 'avant_date'), ligne('mot', 'keyword')] },
+      { graphesPublies: async (_t, ids) => { demandes.push([...ids]); return new Map([['wf1', rapide]]); } },
+    );
+    const res = await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(adminTok) });
+    expect(res.statusCode).toBe(200);
+    const lignes = res.json<{ automations: Array<{ id: string; avertissementFenetre: string | null }> }>().automations;
+    expect(lignes.find((a) => a.id === 'date')?.avertissementFenetre).toContain('« Accueil »');
+    expect(lignes.find((a) => a.id === 'mot')?.avertissementFenetre).toBeNull();
+    // Une seule lecture des graphes pour toute la liste, chaque scénario une fois.
+    expect(demandes).toEqual([['wf1']]);
+    await server.close();
+  });
+
+  it('un scénario sans graphe publié lisible : aucun avertissement, et la liste répond', async () => {
+    const { server } = app({ list: async () => [ligne('date', 'avant_date')] });
+    const res = await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(adminTok) });
+    expect(res.json<{ automations: Array<{ avertissementFenetre: string | null }> }>().automations[0]?.avertissementFenetre).toBeNull();
     await server.close();
   });
 });
