@@ -136,8 +136,8 @@ export function analyserFenetre<N extends NoeudOuverture>(
   return constats;
 }
 
-/** Ce qui lance un scénario, relu en base (\`PgWorkflowStore.lanceursDuScenario\`) : une automation allumée ou une campagne
- *  active. \`declencheur\` : celui de l'automation (\`null\` pour une campagne). */
+/** Ce qui lance un scénario, relu en base (`PgWorkflowStore.lanceursDuScenario`) : une automation allumée ou une campagne
+ *  active. `declencheur` : celui de l'automation (`null` pour une campagne). */
 export interface Lanceur {
   type: 'automation' | 'campagne';
   nom: string;
@@ -146,7 +146,7 @@ export interface Lanceur {
 }
 
 /**
- * Les départs d'un scénario (\`GET /workflows/:id\`) : un scénario Shopify ou HubSpot part FERMÉ, lancé par un événement ;
+ * Les départs d'un scénario (`GET /workflows/:id`) : un scénario Shopify ou HubSpot part FERMÉ, lancé par un événement ;
  * un scénario du Builder part ouvert à l'entrée (mot-clé, Inbox, réponse d'un client), plus un départ FERMÉ par lanceur
  * qui ne naît pas d'un message du client (une campagne, une automation dont le déclencheur est fermé), à son bloc de départ.
  */

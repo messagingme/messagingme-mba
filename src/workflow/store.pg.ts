@@ -523,7 +523,6 @@ export class PgWorkflowStore {
     });
   }
 
-  /** Ce qui utilise ce scénario (`UTILISATIONS`) : vide = il peut partir. */
   /**
    * Ce qui lance ce scénario, pour ses départs (menu « Scénario », lot 2) : ses automations ALLUMÉES (déclencheur et bloc
    * de départ) et les campagnes actives (programmées, en cours, en pause) qui le lancent, à l'entrée ou par un étage.
@@ -562,6 +561,7 @@ export class PgWorkflowStore {
     return new Map(r.rows.map((x) => [x.id, x.graph ?? EMPTY_GRAPH]));
   }
 
+  /** Ce qui utilise ce scénario (`UTILISATIONS`) : vide = il peut partir. */
   async utilisationsDuScenario(tenantId: string, id: string, q: Pick<Pool, 'query'> = this.pool): Promise<string[]> {
     const r = await q.query<{ u: string }>(UTILISATIONS, [tenantId, id]);
     return r.rows.map((x) => x.u);

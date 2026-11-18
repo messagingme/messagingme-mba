@@ -48,14 +48,6 @@ export class PgWorkflowNodeEventStore {
   }
 
   /**
-   * Rattache un accusé Meta (délivré / lu / échec) au bloc qui a envoyé ce message, en recopiant l'espace, le
-   * scénario, le bloc et le destinataire depuis la ligne d'envoi (les statuts Meta ne connaissent que l'id).
-   *
-   * Idempotent par (message, nature) : Meta répète ses statuts. Un id qui n'appartient à aucun envoi de
-   * scénario ne crée rien, puisque la méthode est appelée sur tous les statuts. Renvoie le nombre de lignes
-   * créées (0 ou 1).
-   */
-  /**
    * Le bloc qui a envoyé ce message dans cet espace (sa mesure `sent`), ou `null`. Index partiel de la 0063 sur
    * `meta_message_id`. Sert à reconnaître un clic sur un ancien message (`WorkflowExecutor.advance`).
    */
@@ -70,6 +62,14 @@ export class PgWorkflowNodeEventStore {
     return l ? { workflowId: l.workflow_id, nodeId: l.node_id } : null;
   }
 
+  /**
+   * Rattache un accusé Meta (délivré / lu / échec) au bloc qui a envoyé ce message, en recopiant l'espace, le
+   * scénario, le bloc et le destinataire depuis la ligne d'envoi (les statuts Meta ne connaissent que l'id).
+   *
+   * Idempotent par (message, nature) : Meta répète ses statuts. Un id qui n'appartient à aucun envoi de
+   * scénario ne crée rien, puisque la méthode est appelée sur tous les statuts. Renvoie le nombre de lignes
+   * créées (0 ou 1).
+   */
   async recordStatusForMessage(metaMessageId: string, kind: 'delivered' | 'read' | 'failed'): Promise<number> {
     const res = await this.pool.query(
       `insert into workflow_node_events (tenant_id, workflow_id, node_id, wa_id, kind, meta_message_id)

@@ -268,10 +268,7 @@ export function waitBeforeSessionMessage(graph: GraphLike): WaitThenSession | nu
     }
     if (node.type === 'template') {
       // Miroir du serveur (`explorerLesAttentes`) : la sortie de réponse remet le compteur à zéro ; la sortie « Pas de
-      // réponse », quand un délai est posé sur un template choisi, part sans réponse et le cumul continue.
-      const delai = String(node.data.templateName ?? '').trim() !== '' ? delaiSansReponseMs(node) : 0;
-      const sansReponse = delai > 0 ? cibleParSortie(graph, id, 'timeout') : null;
-      if (sansReponse) pile.push({ id: sansReponse, cumul: Math.min(cumul + Math.max(PAS_MIN_MS, delai), FENETRE_MS), dernierWait: id });
+      // réponse » relève de l'analyse de fenêtre (`./fenetre-console.ts`), qui prévient sans refuser.
       const reponse = graph.edges.find((x) => x.source === id && x.sourceHandle !== 'timeout')?.target ?? null;
       if (reponse) pile.push({ id: reponse, cumul: 0, dernierWait: null });
       continue;

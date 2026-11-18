@@ -195,7 +195,12 @@ export class PgWorkflowRunStore {
    *   verrou de celui qui l'a repris ;
    * - la garde sur `current_node`, qui refuse le tour si le parcours a bougé pendant qu'on lisait.
    */
-  async reserverAvance(tenantId: string, id: string, nodeId: string | null, bailSecondes: number): Promise<string | null> {
+  async reserverAvance(
+    tenantId: string, id: string, nodeId: string | null, bailSecondes: number, siDernierMessage?: { lastMessageId: string | null },
+  ): Promise<string | null> {
+    // `siDernierMessage` : la reprise d'une échéance réserve SOUS la condition du dernier message qu'elle a réclamé. Une
+    // réponse traitée entre la réclamation et la reprise, qui laisse le parcours sur son bloc, la fait renoncer
+    // (relecture de 2b-1). `advance` ne la passe pas.
     const res = await this.pool.query<{ avance_token: string }>(
       `update workflow_runs
           set avance_token = gen_random_uuid(),
@@ -203,8 +208,9 @@ export class PgWorkflowRunStore {
         where id = $1 and tenant_id = $2 and status = 'waiting'
           and current_node is not distinct from $3
           and (avance_jusqu_a is null or avance_jusqu_a <= now())
+          and ($5::boolean is not true or last_message_id is not distinct from $6::text)
         returning avance_token`,
-      [id, tenantId, nodeId, bailSecondes],
+      [id, tenantId, nodeId, bailSecondes, siDernierMessage !== undefined, siDernierMessage?.lastMessageId ?? null],
     );
     return res.rows[0]?.avance_token ?? null;
   }
@@ -316,7 +322,8 @@ export class PgWorkflowRunStore {
    * Même bail que `claimDueSleeping` : consommer l'échéance (`resume_at = null`) perdrait pour toujours une
    * reprise ratée (refus de Meta, worker redéployé), le parcours restant `waiting` sans échéance. Avec le bail,
    * une reprise interrompue redevient due 15 minutes plus tard ; c'est la reprise elle-même qui efface
-   * l'échéance (toutes les sorties de `WorkflowExecutor.resume` passent par `setState`, sans coalesce).
+   * l'échéance (ses écritures passent `resume_at` sans coalesce). Une reprise qui n'obtient pas le tour n'écrit rien :
+   * la ligne redevient due au bout du bail.
    *
    * Le run reste `waiting`, donc une réponse du contact peut le reprendre à tout instant : on n'avale jamais
    * une réponse, et l'ordre inverse (réponse puis échéance) est sûr, `advance` effaçant `resume_at`.

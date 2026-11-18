@@ -431,13 +431,11 @@ function explorerLesAttentes(graph: WorkflowGraph): { premierMontage: WaitThenSe
     }
     if (node.type === 'template') {
       // Un template remet le compteur à zéro sur sa sortie de RÉPONSE : il n'ouvre pas la fenêtre (seul un message du
-      // contact l'ouvre), mais le parcours s'y arrête jusqu'à la réponse, et c'est elle qui la rouvre. Sa sortie « Pas de
-      // réponse » (un délai posé, lot 2 du menu « Scénario ») part SANS réponse : le cumul continue, délai compris, et le
-      // template tient lieu d'attente dans ce que l'écran dit. Sans délai, rien ne change (la première arête hors
-      // « Pas de réponse », comme `walk`).
-      const delai = actionOf(node) ? delaiSansReponseMs(node) : 0;
-      const sansReponse = delai > 0 ? nextNodeByHandle(graph, id, 'timeout') : null;
-      if (sansReponse) pile.push({ id: sansReponse, cumul: Math.min(cumul + Math.max(PAS_MIN_MS, delai), FENETRE_SERVICE_MS), dernierWait: id });
+      // contact l'ouvre), mais le parcours s'y arrête jusqu'à la réponse, et c'est elle qui la rouvre (la première arête
+      // hors « Pas de réponse », comme `walk`). Sa sortie « Pas de réponse » n'est PAS suivie ici : ce qui la suit se juge
+      // par l'analyse de fenêtre (`web/lib/partage/fenetre-scenario.ts`), qui prévient sans jamais refuser (spec, décision
+      // 16). Suivie ici, elle nourrirait `refusDePublication`, alors que la même forme passe derrière une Question
+      // (relecture de 2b-1).
       const reponse = nextNodeHorsTimeout(graph, id);
       if (reponse) pile.push({ id: reponse, cumul: 0, dernierWait: null });
       continue;

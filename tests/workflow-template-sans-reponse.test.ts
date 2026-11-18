@@ -1,6 +1,8 @@
 import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { PERIODE_RENOUVELLEMENT_MS } from '../src/workflow/bail-avance';
+import { analyserFenetreDuMoteur } from '../src/workflow/fenetre-moteur';
 import { delaiSansReponseMs, nextNodeHorsTimeout, sautsApresAttenteLongue, waitBeforeSessionMessage, walk } from '../src/workflow/engine';
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowExecutorDeps } from '../src/workflow/executor';
@@ -255,12 +257,13 @@ describe('🔴 une relance de masse n’émet rien tant que le contact n’a pas
  * posé, la sortie « Pas de réponse » partant SANS réponse. Le montage « template à 30 h, puis message rapide » ne partira
  * jamais, et un saut vers un autre scénario au bout de 30 h sans réponse se juge à la publication.
  */
-describe('🔴 les longues attentes suivent la sortie « Pas de réponse » d’un template à délai', () => {
+describe('🔴 la sortie « Pas de réponse » relève de l’analyse de fenêtre, pas des longues attentes (relecture de 2b-1)', () => {
   const rapide = n('rapide', 'quick_message', { body: 'Toujours là ?' });
 
-  it('template à 30 h, puis message rapide : montage relevé, le template tient lieu d’attente', () => {
+  it('template à 30 h, puis message rapide : l’analyse de fenêtre le signale, les longues attentes non', () => {
     const g: WorkflowGraph = { nodes: [tpl({ timeoutValue: 30, timeoutUnit: 'hours' }), rapide], edges: [e('e1', 't', 'rapide', 'timeout')] };
-    expect(waitBeforeSessionMessage(g)).toEqual({ waitNodeId: 't', messageNodeId: 'rapide' });
+    expect(waitBeforeSessionMessage(g)).toBeNull();
+    expect(analyserFenetreDuMoteur(g, [{ noeudId: null, fenetre: 'ouverte', raison: '' }]).map((c) => c.noeudId)).toEqual(['rapide']);
   });
 
   it('template à 30 min, puis message rapide : rien, la fenêtre peut être ouverte', () => {
@@ -276,12 +279,15 @@ describe('🔴 les longues attentes suivent la sortie « Pas de réponse » d’
     expect(waitBeforeSessionMessage(g)).toBeNull();
   });
 
-  it('un saut vers un autre scénario après 2 jours sans réponse est relevé pour la publication', () => {
+  it('🔴 un saut vers un autre scénario après 2 jours sans réponse n’est PAS refusé à la publication : il est signalé', () => {
+    // Décision 16 : prévenir, jamais refuser. Suivie par les longues attentes, cette sortie nourrissait
+    // `refusDePublication`, alors que la même forme passe derrière une Question.
     const g: WorkflowGraph = {
       nodes: [tpl({ timeoutValue: 2, timeoutUnit: 'days' }), n('saut', 'aller_a', { cible: 'nod_ab_AILLEURS000000000000000000' })],
       edges: [e('e1', 't', 'saut', 'timeout')],
     };
-    expect(sautsApresAttenteLongue(g)).toEqual([{ waitNodeId: 't', sautNodeId: 'saut', cible: 'nod_ab_AILLEURS000000000000000000' }]);
+    expect(sautsApresAttenteLongue(g)).toEqual([]);
+    expect(analyserFenetreDuMoteur(g, [{ noeudId: null, fenetre: 'ouverte', raison: '' }]).map((c) => c.raison)).toEqual(['saut_fenetre_fermee']);
   });
 });
 
@@ -293,15 +299,19 @@ describe('🔴 les longues attentes suivent la sortie « Pas de réponse » d’
  * comme `advance` : refusé, rien ne part ; obtenu, l'état s'écrit sur le bloc attendu avec le jeton, et le tour se rend.
  */
 describe('🔴 la reprise d’une échéance réserve le tour, comme une réponse', () => {
-  interface Trace { reserves: string[]; ecritsGardes: Array<{ noeud: string | null; statut: string; jeton: string | null | undefined }>; vivants: number; rendus: string[] }
+  interface Trace { reserves: string[]; conditions: unknown[]; ecritsGardes: Array<{ noeud: string | null; statut: string; jeton: string | null | undefined }>; vivants: number; rendus: string[] }
   const tracer = (reserve: string | null, ecritureAcceptee = true) => {
-    const tr: Trace = { reserves: [], ecritsGardes: [], vivants: 0, rendus: [] };
+    const tr: Trace = { reserves: [], conditions: [], ecritsGardes: [], vivants: 0, rendus: [] };
     const runs = avecGardesDEtatInertes({
       start: async () => ({ id: 'r1' }),
       findWaitingByWaId: async () => null,
       setState: async () => {},
       closeActiveByWaId: async () => [],
-      reserverAvance: async (_t: string, id: string) => { tr.reserves.push(id); return reserve; },
+      reserverAvance: async (_t: string, id: string, _n: string | null, _b: number, condition?: { lastMessageId: string | null }) => {
+        tr.reserves.push(id);
+        tr.conditions.push(condition);
+        return reserve;
+      },
       setStateSiEncoreSur: async (_t: string, _id: string, noeud: string | null, s: RunState, jeton?: string | null) => {
         tr.ecritsGardes.push({ noeud, statut: s.status, jeton });
         return ecritureAcceptee;
@@ -347,6 +357,45 @@ describe('🔴 la reprise d’une échéance réserve le tour, comme une répons
     const ex = monter(GRAPHE(), null, capture(), { runs, applyTag: async () => { throw new Error('base'); } });
     await expect(ex.resume(enAttente())).rejects.toThrow('base');
     expect(tr.rendus).toEqual(['jeton-3']);
+  });
+
+  it('🔴 la reprise réserve sous la condition du dernier message réclamé (relecture de 2b-1)', async () => {
+    for (const lastMessageId of [null, 'wamid.vu']) {
+      const { tr, runs } = tracer('jeton-5');
+      await monter(GRAPHE(), null, capture(), { runs }).resume({ ...enAttente(), lastMessageId });
+      expect(tr.conditions).toEqual([{ lastMessageId }]);
+    }
+  });
+
+  it('🔴 un bail perdu pendant la reprise arrête les envois suivants, comme dans advance (relecture de 2b-1)', async () => {
+    vi.useFakeTimers();
+    try {
+      let liberer!: () => void;
+      const bloque = new Promise<void>((r) => { liberer = r; });
+      const rapides: string[] = [];
+      const runs = avecGardesDEtatInertes({
+        start: async () => ({ id: 'r1' }),
+        findWaitingByWaId: async () => null,
+        setState: async () => {},
+        closeActiveByWaId: async () => [],
+        prolongerAvance: async () => false,
+      });
+      const g: WorkflowGraph = {
+        nodes: [tpl({ timeoutValue: 30, timeoutUnit: 'minutes' }), n('un', 'quick_message', { body: 'un' }), n('deux', 'quick_message', { body: 'deux' })],
+        edges: [e('e1', 't', 'un', 'timeout'), e('e2', 'un', 'deux')],
+      };
+      const ex = monter(g, null, capture(), {
+        runs,
+        sendQuickMessage: async (_t, _w, body) => { rapides.push(String(body)); if (body === 'un') await bloque; },
+      });
+      const reprise = ex.resume(enAttente());
+      await vi.advanceTimersByTimeAsync(PERIODE_RENOUVELLEMENT_MS + 1_000);
+      liberer();
+      await reprise;
+      expect(rapides).toEqual(['un']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('le réveil d’une Attente ne réserve rien : une réponse n’atteint pas un parcours endormi', async () => {

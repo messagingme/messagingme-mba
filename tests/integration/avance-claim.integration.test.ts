@@ -74,6 +74,15 @@ describe.skipIf(!url)('réservation du tour d’avance (Postgres)', () => {
     expect(await store.reserverAvance(tenantId, id, 'a', 60)).toBeNull();
   });
 
+  it('🔴 la reprise d’une échéance réserve SOUS la condition du dernier message réclamé (relecture de 2b-1)', async () => {
+    // La réclamation a vu le parcours sans réponse ; une réponse est traitée ensuite et LAISSE le parcours sur son bloc
+    // (« Toute autre réponse » qui reboucle) : la reprise renonce, sinon la relance partirait après la réponse.
+    const id = await runEnAttente('33600000377');
+    await pool.query(`update workflow_runs set last_message_id = 'wamid.reponse' where id = $1`, [id]);
+    expect(await store.reserverAvance(tenantId, id, 'a', 60, { lastMessageId: null })).toBeNull();
+    expect(await store.reserverAvance(tenantId, id, 'a', 60, { lastMessageId: 'wamid.reponse' })).not.toBeNull();
+  });
+
   it('🔴 un BAIL expiré est repris : un worker tué ne bloque pas le parcours à vie', async () => {
     const id = await runEnAttente('33600000204');
     expect(await store.reserverAvance(tenantId, id, 'a', -1)).not.toBeNull();

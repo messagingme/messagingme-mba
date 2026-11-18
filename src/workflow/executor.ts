@@ -152,7 +152,7 @@ export interface WorkflowExecutorDeps {
      * contact (piste 8 du rapport d'architecture du 2026-10-02). Les fixtures passent `avecGardesDEtatInertes`
      * (`tests/executeur-inerte.ts`), qui accorde toujours le tour.
      */
-    reserverAvance(tenantId: string, id: string, nodeId: string | null, bailSecondes: number): Promise<string | null>;
+    reserverAvance(tenantId: string, id: string, nodeId: string | null, bailSecondes: number, siDernierMessage?: { lastMessageId: string | null }): Promise<string | null>;
     /**
      * Prolonge le bail tant que l'avance travaille (`false` = tour repris, on cesse de battre ; cf.
      * `bail-avance.ts`). Requise ; fixtures : `avecGardesDEtatInertes`.
@@ -1137,7 +1137,11 @@ export class WorkflowExecutor {
     // Coût assumé : une réponse arrivée PENDANT la reprise n'avance pas le parcours (elle reste dans l'Inbox), au lieu d'un
     // double envoi facturé. Le réveil d'une Attente ne réserve rien : `advance` n'atteint pas un parcours endormi.
     const parEcheance = run.status === 'waiting';
-    const jeton = parEcheance ? await this.deps.runs.reserverAvance(tenantId, run.id, run.currentNode ?? null, BAIL_AVANCE_S) : null;
+    // Sous la condition du dernier message réclamé : une réponse traitée depuis la réclamation, même si elle laisse le
+    // parcours sur son bloc, fait renoncer la reprise (relecture de 2b-1).
+    const jeton = parEcheance
+      ? await this.deps.runs.reserverAvance(tenantId, run.id, run.currentNode ?? null, BAIL_AVANCE_S, { lastMessageId: run.lastMessageId })
+      : null;
     if (parEcheance && jeton === null) {
       // eslint-disable-next-line no-console
       console.warn(`workflow ${run.workflowId}: reprise d'échéance IGNOREE pour ${waId} (run ${run.id}), un autre traitement tient le tour sur le bloc ${run.currentNode ?? 'null'}`);
@@ -1155,7 +1159,7 @@ export class WorkflowExecutor {
       },
     });
     try {
-      return await this.reprendre(run, jeton);
+      return await this.reprendre(run, jeton, battement ?? undefined);
     } finally {
       // Comme `advance` : le battement s'arrête avant la libération, et le tour se rend même si un envoi jette.
       battement?.arreter();
@@ -1165,9 +1169,10 @@ export class WorkflowExecutor {
 
   /**
    * Le corps de `resume`, une fois le tour obtenu (échéance) ou sans tour (réveil d'une Attente). `jeton` : celui du tour
-   * d'une échéance, `null` pour une Attente.
+   * d'une échéance, `null` pour une Attente. `garde` : le battement du tour, consulté avant chaque envoi comme dans
+   * `advance` : un bail perdu arrête les envois suivants.
    */
-  private async reprendre(run: Parameters<WorkflowExecutor['resume']>[0], jeton: string | null): Promise<boolean> {
+  private async reprendre(run: Parameters<WorkflowExecutor['resume']>[0], jeton: string | null, garde: GardeDuTour | undefined): Promise<boolean> {
     const { tenantId, waId } = run;
     const parEcheance = run.status === 'waiting';
     /**
@@ -1216,7 +1221,7 @@ export class WorkflowExecutor {
       return false;
     }
     const ctx = await this.buildCtx(tenantId, waId, graph);
-    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, suite, ctx, true, run.id, run.channel ?? 'whatsapp');
+    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, suite, ctx, true, run.id, run.channel ?? 'whatsapp', garde);
 
     // Fenêtre de service fermée : on écarte les seuls messages de session (131047) et on applique le reste,
     // template compris, qui n'a pas besoin de la fenêtre.
@@ -1264,7 +1269,7 @@ export class WorkflowExecutor {
     // réveil d'une Attente n'est pas visé : le couper changerait en silence un montage « Attente puis étiquette » qui
     // nourrit aujourd'hui une automation (relecture de 2a, point 3).
     const masseMuette = parEcheance && run.neEnMasse && (run.lastMessageId ?? null) === null;
-    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, !masseMuette, run.workflowId, apresWalk);
+    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, !masseMuette, run.workflowId, apresWalk, garde);
     // Un réveil n'a pas de message reçu : la ligne du journal n'en nomme aucun.
     const origine = { workflowId: run.workflowId, runId: run.id, messageId: null, graph };
     /**
@@ -1618,10 +1623,6 @@ export class WorkflowExecutor {
   }
 
   /**
-   * Écrit l'état d'un parcours en reprise, seulement s'il vit encore. Point de passage unique des écritures
-   * de `resume`, pour ne pas oublier la garde à l'une d'elles.
-   */
-  /**
    * 🔴 UN CLIC SUR UN ANCIEN MESSAGE N'EST PAS UN BOUTON DU BLOC COURANT (relecture de 2a, point 2, démontré). Les sorties
    * d'un bloc sont positionnelles (`btn:<i>`, `card:<c>:btn:<b>`, `row:<i>`) : taper « Je finalise » sur le PREMIER
    * template, une fois la relance partie, arrivait comme `btn:0` et prenait la branche du premier bouton de la relance
@@ -1641,6 +1642,10 @@ export class WorkflowExecutor {
     return null;
   }
 
+  /**
+   * Écrit l'état d'un parcours en reprise d'une Attente, seulement s'il vit encore (`ecrireVivant` dans `reprendre`).
+   * La reprise d'une échéance écrit, elle, par `setStateSiEncoreSur` avec le jeton du tour.
+   */
   private async ecrireSiVivant(tenantId: string, runId: string, state: RunState): Promise<boolean> {
     const vivant = await this.deps.runs.setStateSiVivant(tenantId, runId, state);
     if (!vivant) {
@@ -2096,7 +2101,7 @@ export class WorkflowExecutor {
 
   /**
    * Avance le run en attente d'un contact quand il répond. No-op si aucun run ou message déjà traité.
-   * `buttonPayload` = bouton quick-reply tapé (`btn:<index>`). Routage, dans cet ordre :
+   * `boutonRecu` = bouton quick-reply tapé (`btn:<index>`). Routage, dans cet ordre :
    *   1. une arête part de ce handle -> sa branche ;
    *   2. sinon une arête libre existe (chaîne linéaire, ou sortie « toute autre réponse ») -> on la suit ;
    *   3. sinon le scénario n'a rien prévu pour cette réponse : on clôt le run et l'agent reprend la parole

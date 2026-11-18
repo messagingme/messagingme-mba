@@ -9,8 +9,8 @@ import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
  * LA FENÊTRE AU DÉPART D'UN SCÉNARIO SELON SON DÉCLENCHEUR (menu « Scénario », lot 2, décisions 11 et 17).
  *
  * 🔴 ALIGNÉE SUR LE MOTEUR, PAS ÉCRITE À CÔTÉ : le runner ne prouve la fenêtre que pour un message WhatsApp du client
- * (\`windowOpen\`, \`src/automation/runner.ts\`). Un déclencheur qu'un message active part donc ouvert ; tous les autres
- * partent fermés. Un déclencheur ajouté sans sa ligne ne compile pas (\`Record\`), et ce test refuse une ligne fausse.
+ * (`windowOpen`, `src/automation/runner.ts`). Un déclencheur qu'un message active part donc ouvert ; tous les autres
+ * partent fermés. Un déclencheur ajouté sans sa ligne ne compile pas (`Record`), et ce test refuse une ligne fausse.
  */
 const EXEMPLES: AutomationEvent[] = [
   { kind: 'message', waId: '1', body: 'x', isNewContact: false, channel: 'whatsapp' },
