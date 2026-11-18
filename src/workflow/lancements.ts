@@ -149,7 +149,8 @@ export interface PolitiqueDeLancement {
    */
   fenetre: 'gardee' | 'selon_preuve' | 'bloc_ou_preuve' | 'levee';
   /**
-   * La session d'agent IA du parcours que ce démarrage REMPLACE (`runFrom` clôt tout parcours en cours du contact).
+   * La session d'agent IA du parcours que ce démarrage REMPLACE (`runFrom` clôt les parcours en cours du contact, selon
+   * `devantUnEvenement`).
    * - `interrompue` : close en `erreur`, l'agent a été coupé par un démarrage venu d'ailleurs (le comportement d'avant
    *   RC4, pour tous les autres types).
    * - `retiree` : close en `sortie`, motif `MOTIF_SCENARIO_LANCE` : c'est l'agent IA lui-même qui a lancé ce scénario
@@ -275,7 +276,8 @@ export const POLITIQUE_DE_LANCEMENT = {
    * répondeur, sur le graphe PUBLIÉ du scénario choisi (un contact réel ne tombe jamais dans un brouillon, et rien n'est
    * à figer : la ligne de scénario est la vraie). `sessionRemplacee: 'interrompue'` : la remise ne démarre rien quand un
    * parcours attend ce contact, donc ce qu'il remplacerait (un parcours endormi et sa session) vient d'ailleurs, et
-   * s'interrompt comme pour tout démarrage.
+   * s'interrompt comme pour tout démarrage. Un parcours d'événement endormi, lui, n'est pas remplacé : le répondeur
+   * coexiste avec lui (décision 21).
    */
   repondeur_scenario: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre', rayons: ['general'], devantUnEvenement: 'coexiste' },
   /**

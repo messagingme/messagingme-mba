@@ -2146,6 +2146,20 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
 - 🔴 **Un run endormi est CLOS par le démarrage suivant, pas préservé.** `closeActiveByWaId` couvre `waiting`
   ET `sleeping` et efface `resume_at`. Sans les deux, une automation lancerait un second parcours en parallèle
   et les deux écriraient au réveil.
+- 🔴 **AU PLUS UN PARCOURS D'ÉVÉNEMENT PAR CONTACT, ET DES PARCOURS ORDINAIRES** (menu « Scénario », lot 4,
+  décisions 21 et 28 à 31). Un parcours né d'un événement (`workflow_runs.evenement`, `{ origine, variables }`) a une
+  place unique, tenue par l'index unique de 0298 (`parcoursDEvenementActif` reprend son prédicat mot pour mot) ; le
+  23505 devient le refus `evenement_actif`. La colonne `devantUnEvenement` de `POLITIQUE_DE_LANCEMENT` dit qui le
+  REMPLACE (Inbox, lien de test, campagnes, chaîne, publicité, widget : `closeActiveByWaId`), qui lui CÈDE (automations
+  « Autres », un second événement : rien n'est écrit) et qui COEXISTE (répondeurs, outils d'agent, sauts :
+  `closeOrdinairesByWaId`). Il naît sur le template déjà envoyé (départ `deja_envoye`, sans le rejouer) ; à une réponse
+  comme au réveil, il reprend le fil à l'agent de Meta mais s'ARRÊTE devant un opérateur (un gel garderait la place),
+  se clôt si `parcoursEncoreVoulu` le dit (lot 5), et clôt les parcours qui coexistaient quand il reprend la main.
+  Une étape sans choix ne le retient pas ; une attente sans échéance propre reçoit 72 h
+  (`PLAFOND_ATTENTE_EVENEMENT_MS`), à la fin desquelles il se clôt sans suivre aucune flèche. Ses variables se lisent
+  dans la source `variable` d'un template et, préfixées (`{{shopify.checkout_url}}`), dans le texte ; elles ne vont
+  jamais sur la fiche et s'effacent à sa fin (son origine reste). Deux parcours peuvent alors attendre un contact : un
+  clic va à celui qui attend sur le bloc du message cité (`findWaitingSurBloc`).
 - 🔴 **UN PARCOURS JOUE LE MÊME GRAPHE DU DÉBUT À LA FIN**, et un seul point de passage le décide :
   `grapheDuRun(run, lirePublie)` (`src/workflow/executor.ts`), lu par les TROIS reprises (`resume`,
   `runEnAttenteSur`, `advance`). Il rend `workflow_runs.graphe_fige` s'il y en a un, le publié sinon.

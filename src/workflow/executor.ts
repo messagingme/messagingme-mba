@@ -140,9 +140,10 @@ export interface WorkflowExecutorDeps {
     findWaitingByWaId(tenantId: string, waId: string): Promise<WorkflowRunRow | null>;
     setState(id: string, state: RunState): Promise<void>;
     /**
-     * Clôt le parcours actif du contact (`waiting` ou `sleeping`). Requise : elle tient l'invariant « au plus
-     * un parcours actif par contact ». Sans elle, l'ancien parcours resterait invisible de
-     * `findWaitingByWaId` mais réveillable par `claimDueQuestions`.
+     * Clôt les parcours actifs du contact (`waiting` ou `sleeping`), parcours d'événement compris : le démarrage qui
+     * REMPLACE (`devantUnEvenement`). Requise : elle tient l'invariant « au plus un parcours d'événement, et des parcours
+     * ordinaires » (lot 4). Sans elle, l'ancien parcours resterait invisible de `findWaitingByWaId` mais réveillable par
+     * `claimDueQuestions`.
      */
     closeActiveByWaId(tenantId: string, waId: string): Promise<string[]>;
     /**
@@ -1798,7 +1799,8 @@ export class WorkflowExecutor {
    * saut dans le même enchaînement.
    *
    * 🔴 L'APPELANT A DÉJÀ CLOS LE PARCOURS D'ORIGINE (son état est écrit en `done`, ou son démarrage n'en a créé aucun)
-   * et appliqué ses actions : ce qui suit ne peut ni renvoyer un message déjà parti, ni laisser deux parcours vivants.
+   * et appliqué ses actions : ce qui suit ne peut ni renvoyer un message déjà parti, ni laisser deux parcours vivants
+   * nés du même (un saut d'un parcours d'événement emporte l'événement : le parcours d'arrivée prend sa place unique).
    * Le parcours d'arrivée démarre SUR le bloc visé, par `demarrer` et donc par toutes les gardes de `runFrom` (fil,
    * fenêtre, numéro, désabonnement), avec le type `aller_a` (ou `aller_a_masse` depuis une campagne).
    *
@@ -2034,8 +2036,10 @@ export class WorkflowExecutor {
       }
     }
     /**
-     * Le parcours précédent est clos ici, et nulle part ailleurs : tout démarrage remplace le parcours en cours
-     * (on ne bloque personne sur un scénario), sur le passage commun à tous les chemins de démarrage.
+     * Le parcours précédent est clos ici, et nulle part ailleurs, sur le passage commun à tous les chemins de démarrage
+     * (on ne bloque personne sur un scénario). Depuis le lot 4, la colonne `devantUnEvenement` décide : un démarrage qui
+     * remplace clôt tout parcours en cours ; un démarrage qui coexiste ou qui cède, et le parcours d'événement qui naît, ne
+     * clôt que les parcours ordinaires.
      *
      * Après `apply`, pas au début : les gardes plus haut peuvent refuser le démarrage, et fermer à l'entrée
      * tuerait le parcours d'un contact pour un démarrage qui n'a pas eu lieu. Et seulement si quelque chose
