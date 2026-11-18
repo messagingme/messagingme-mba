@@ -495,24 +495,25 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
   @keyframes pose{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
 }
 
-/* Menu « Fonctionnalités » du bureau : un <details> natif, qui s'ouvre sans script et au clavier ; `site.js` le
-   referme au clic ailleurs et à Échap. Jusqu'à 1140 px, la barre entière laisse la place au burger (plus bas). */
+/* Les menus « Solutions » et « Ressources » du bureau : un <details> natif, qui s'ouvre sans script et au clavier ;
+   `site.js` le referme au clic ailleurs et à Échap. Les règles visent son SEUL bouton (`> summary`) : les entrées en
+   cascade qu'il contient sont des <details> elles aussi, et ne doivent pas hériter de sa flèche qui tourne. Jusqu'à 1140 px, la barre entière laisse la place au burger (plus bas). */
 .menu{position:relative}
-.menu summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none;user-select:none}
-.menu summary::-webkit-details-marker{display:none}
-.menu summary .ic{font-size:.8rem;transition:transform .2s}
-.menu[open] summary{color:var(--ink)}
-.menu[open] summary .ic{transform:rotate(180deg)}
-.menu summary:focus-visible{outline:2px solid var(--action);outline-offset:4px;border-radius:6px}
+.menu > summary{display:flex;align-items:center;gap:6px;cursor:pointer;list-style:none;user-select:none}
+.menu > summary::-webkit-details-marker{display:none}
+.menu > summary .ic{font-size:.8rem;transition:transform .2s}
+.menu[open] > summary{color:var(--ink)}
+.menu[open] > summary .ic{transform:rotate(180deg)}
+.menu > summary:focus-visible{outline:2px solid var(--action);outline-offset:4px;border-radius:6px}
 .menu-panneau{position:absolute;top:calc(100% + 16px);left:50%;translate:-50% 0;z-index:20;width:344px;display:grid;gap:2px;padding:8px;border-radius:16px;background:#16237E;border:1px solid rgb(255 255 255 / .16);box-shadow:inset 0 1px 0 rgb(255 255 255 / .07),0 28px 56px -18px var(--ombre)}
 .menu-panneau a{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:12px;padding:10px;border-radius:10px;text-decoration:none;transition:background-color .15s}
 .menu-panneau a:hover,.menu-panneau a[aria-current="page"]{background:rgb(255 255 255 / .08)}
 .menu-ic{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:rgb(111 194 254 / .14);color:var(--action-ink);font-size:1.25rem}
 .menu-panneau strong{display:block;color:#FFFFFF;font-size:.92rem;font-weight:700;line-height:1.3}
 .menu-panneau small{display:block;color:var(--muted);font-size:.8rem;line-height:1.35}
-/* Le menu du téléphone et des écrans étroits : trois traits en haut à droite, qui ouvrent « Fonctionnalités »,
-   « Solutions » et « Ressources » (dépliables, celui de la page courante déplié d'office), « Tarifs », « Développeurs »,
-   les drapeaux et, tout en bas, « Se connecter ». Un <details> natif lui aussi : il marche sans script, et `site.js` le
+/* Le menu du téléphone et des écrans étroits : trois traits en haut à droite, qui ouvrent « Solutions » et
+   « Ressources » (dépliables, avec leurs sous-groupes ; ceux de la page courante dépliés d'office), « Tarifs »,
+   « Avec votre IA », les drapeaux et, tout en bas, « Se connecter ». Un <details> natif lui aussi : il marche sans script, et `site.js` le
    referme au clic ailleurs, à Échap, et sur un lien suivi. */
 .burger{display:none}
 /* 1140 px et non 640 : avec Industries, Pricing, les drapeaux et le bouton vert, le bandeau du bureau ne tenait sur
@@ -1509,29 +1510,29 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .hub-mini-icone .ic{font-size:1.8rem}
 @media (max-width:900px){.hub-split{grid-template-columns:minmax(0,1fr)}.hub-film{position:static;order:-1}.hub-grille .hub-liste{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:480px){.hub-carte{grid-template-columns:96px minmax(0,1fr)}.hub-mini{width:96px;height:54px}.hub-fleche{display:none}}
-/* Le menu Solutions (2026-10-20, Julien) : les secteurs, puis « SaaS et app builders », dont les cas ne s'ouvrent
-   qu'au survol ou au focus, dans un panneau à côté ; un pont invisible le garde ouvert pendant que la souris y va.
-   Sous 1100 px, le panneau à côté sortirait de l'écran : les cas se déplient sous la page chapeau. */
-.menu-panneau a.menu-sous,.burger-liens a.menu-sous{grid-template-columns:28px minmax(0,1fr);gap:10px;padding:6px 10px 6px 26px}
-.menu-sous .menu-ic{width:28px;height:28px;border-radius:8px;font-size:.95rem}
-.menu-sous strong{font-weight:600}
-.menu-groupe{position:relative;margin-top:4px;padding-top:4px;border-top:1px solid rgb(255 255 255 / .1)}
-.burger-liens a.menu-chapeau{margin-top:4px;border-top:1px solid rgb(255 255 255 / .1);border-radius:0 0 10px 10px;padding-top:12px}
-.menu-panneau a.menu-chapeau{grid-template-columns:40px minmax(0,1fr) 14px}
+/* Le menu en cascade (Julien, 2026-11-18) : Solutions déploie Fonctionnalités, Secteurs et Intégrations, Ressources la
+   documentation développeurs. Chaque entrée est un <details name> : le clic l'ouvre sans script, une seule à la fois
+   (le nom commun), et son panneau se pose à droite du menu, calé sur son haut (le panneau du menu, en position
+   absolue, le contient). `site.js` ajoute l'ouverture au survol, après un court arrêt, et ferme les sœurs là où `name`
+   n'existe pas. Dans le burger, les mêmes entrées se déplient en sous-groupes. */
+.menu-cascade > summary{display:grid;grid-template-columns:40px minmax(0,1fr) 14px;align-items:center;gap:12px;padding:10px;border-radius:10px;cursor:pointer;list-style:none;user-select:none;transition:background-color .15s}
+.menu-cascade > summary::-webkit-details-marker{display:none}
+.menu-cascade > summary:focus-visible{outline:2px solid var(--action);outline-offset:-2px}
+.menu-cascade > summary:hover,.menu-cascade[open] > summary{background:rgb(255 255 255 / .08)}
 .menu-suite{font-size:.8rem;color:var(--muted);rotate:180deg;transition:translate .15s}
-.menu-groupe:hover > a.menu-chapeau,.menu-groupe:focus-within > a.menu-chapeau{background:rgb(255 255 255 / .08)}
-.menu-groupe:hover .menu-suite,.menu-groupe:focus-within .menu-suite{translate:3px 0;color:#FFFFFF}
-.menu-sous-panneau{position:absolute;left:calc(100% + 16px);top:-5px;width:300px;display:grid;gap:2px;padding:8px;border-radius:16px;background:#16237E;border:1px solid rgb(255 255 255 / .16);box-shadow:inset 0 1px 0 rgb(255 255 255 / .07),0 28px 56px -18px var(--ombre);opacity:0;visibility:hidden;translate:-6px 0;transition:opacity .15s,visibility .15s,translate .15s}
-.menu-sous-panneau::before{content:"";position:absolute;right:100%;top:0;bottom:0;width:26px}
-.menu-groupe:hover .menu-sous-panneau,.menu-groupe:focus-within .menu-sous-panneau{opacity:1;visibility:visible;translate:0 0}
-.menu-sous-panneau a.menu-sous{padding:8px 10px}
-@media (max-width:1100px){
-  .menu-sous-panneau{position:static;width:auto;display:none;padding:2px 0 0;border:0;border-radius:0;background:none;box-shadow:none;opacity:1;visibility:visible;translate:none;transition:none}
-  .menu-sous-panneau::before{content:none}
-  .menu-groupe:hover .menu-sous-panneau,.menu-groupe:focus-within .menu-sous-panneau{display:grid}
-  .menu-sous-panneau a.menu-sous{padding:6px 10px 6px 26px}
-  .menu-suite{rotate:-90deg}
-  .menu-groupe:hover .menu-suite,.menu-groupe:focus-within .menu-suite{translate:none}
+.menu-cascade[open] .menu-suite{translate:3px 0;color:#FFFFFF}
+.menu-sous-panneau{position:absolute;left:calc(100% + 12px);top:-1px;width:316px;display:grid;gap:2px;padding:8px;border-radius:16px;background:#16237E;border:1px solid rgb(255 255 255 / .16);box-shadow:inset 0 1px 0 rgb(255 255 255 / .07),0 28px 56px -18px var(--ombre)}
+@media (prefers-reduced-motion:no-preference){
+  .js .menu-cascade[open] > .menu-sous-panneau{animation:menu-glisse .18s cubic-bezier(.16,1,.3,1)}
+  @keyframes menu-glisse{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+}
+@media (max-width:1140px){
+  .burger-sous-groupe > summary{display:grid;grid-template-columns:40px minmax(0,1fr) 14px;align-items:center;gap:12px;padding:10px;border-radius:10px;cursor:pointer;list-style:none}
+  .burger-sous-groupe > summary::-webkit-details-marker{display:none}
+  .burger-sous-groupe > summary > .ic{font-size:.8rem;color:var(--muted);transition:transform .2s}
+  .burger-sous-groupe[open] > summary > .ic{transform:rotate(180deg)}
+  .burger-sous-groupe > summary:hover{background:rgb(255 255 255 / .08)}
+  .burger-sous-groupe > .burger-liens{padding:2px 0 6px 20px}
 }
 /* Les pages de secteur (Solutions), générées par npm run vitrine:cas (2026-10-20) */
 .sec-accent{color:var(--action-ink)}

@@ -1,4 +1,4 @@
-// Commun aux pages de la vitrine : l'en-tête collant et le menu « Fonctionnalités ». Puis, page par page, ce qui ne
+// Commun aux pages de la vitrine : l'en-tête collant et ses menus. Puis, page par page, ce qui ne
 // sert qu'à une page (chaque bloc ne fait rien si la page n'a pas l'élément qu'il vise).
 (function () {
   // L'en-tête prend son fond dès que la sentinelle du haut de page sort de l'écran (jamais d'écouteur de défilement).
@@ -17,6 +17,30 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     menus.forEach(function (m) { if (m.open) { m.open = false; m.querySelector('summary').focus(); } });
+  });
+  // Les entrées en cascade (Solutions, Ressources) : une seule ouverte à la fois, même là où `details[name]` n'existe pas
+  // (Safari avant 17.2). À la souris, une entrée s'ouvre aussi au survol, après un arrêt : 150 ms quand rien n'est
+  // ouvert, 400 ms quand une voisine l'est, car la souris qui part en diagonale vers le panneau ouvert traverse alors
+  // la ligne voisine, et la déplier fermerait le panneau visé sous le pointeur (mesuré : 150 ms ne suffisaient pas).
+  document.querySelectorAll('details.menu-cascade').forEach(function (c) {
+    var attente;
+    var soeurs = function () { return [].filter.call(c.parentNode.children, function (s) { return s !== c && s.matches('details.menu-cascade'); }); };
+    c.addEventListener('toggle', function () {
+      if (c.open) soeurs().forEach(function (s) { s.open = false; });
+    });
+    c.addEventListener('pointerenter', function (e) {
+      if (e.pointerType !== 'mouse' || c.open) return;
+      var voisineOuverte = soeurs().some(function (s) { return s.open; });
+      attente = setTimeout(function () { c.open = true; c.dataset.survol = ''; }, voisineOuverte ? 400 : 150);
+    });
+    // Le clic qui suit un survol arrive presque toujours après l'ouverture : il refermerait le panneau sous le pointeur.
+    // Le premier clic sur une entrée ouverte par le survol la laisse donc ouverte ; le suivant la referme.
+    c.querySelector('summary').addEventListener('click', function (e) {
+      clearTimeout(attente);
+      if (c.open && 'survol' in c.dataset) e.preventDefault();
+      delete c.dataset.survol;
+    });
+    c.addEventListener('pointerleave', function () { clearTimeout(attente); });
   });
 })();
 

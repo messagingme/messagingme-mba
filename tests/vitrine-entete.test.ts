@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { lire, pagesHtml } from './vitrine-lecture';
-import { enteteVitrine, jumelleDe, normaliserGabarit, pageAvecEntete } from '../scripts/vitrine/entete';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { SITE, lire, pagesHtml } from './vitrine-lecture';
+import { enteteVitrine, jumelleDe, normaliserGabarit, pageAvecEntete, piedVitrine } from '../scripts/vitrine/entete';
+import { ENTREES } from '../web/lib/registre-vitrine';
+import { TEXTES_CARREFOUR } from '../scripts/vitrine/cas-textes';
+import { HUBSPOT_SOLUTION } from '../scripts/vitrine/hubspot-textes';
 
 /**
  * L'EN-TÊTE ET LE PIED DE PAGE DE LA VITRINE S'ÉCRIVENT UNE FOIS (lots 6 et 6 bis, tâche 4 du plan
@@ -46,16 +51,92 @@ describe('le menu', () => {
   it('marque la page active, ouvre son groupe dans le burger, et ne marque jamais le logo ni le drapeau', () => {
     const entete = enteteVitrine('fr', '/fonctionnalites/whatsapp-et-rcs/', '/en/features/whatsapp-and-rcs/');
     expect(entete.match(/href="\/fonctionnalites\/whatsapp-et-rcs\/" aria-current="page"/g)).toHaveLength(2);
-    expect(entete).toContain('<details class="burger-groupe" open>');
+    // Solutions, puis son sous-groupe Fonctionnalités : les deux s'ouvrent, et eux seuls.
+    expect(entete.match(/<details class="burger-groupe" open>/g)).toHaveLength(1);
+    expect(entete.match(/<details class="burger-sous-groupe" open>/g)).toHaveLength(1);
+    // Une page rangée directement dans un groupe (Aide, dans Ressources) n'ouvre aucun sous-groupe.
+    const aide = enteteVitrine('fr', '/aide/', '/en/help/');
+    expect(aide.match(/<details class="burger-groupe" open>/g)).toHaveLength(1);
+    expect(aide).not.toContain('<details class="burger-sous-groupe" open>');
     for (const accueil of [enteteVitrine('fr', '/', '/en/'), enteteVitrine('en', '/en/', '/')]) {
       expect(accueil).not.toContain('aria-current="page"');
-      expect(accueil).not.toContain('<details class="burger-groupe" open>');
+      expect(accueil).not.toMatch(/<details class="burger-(sous-)?groupe" open>/);
     }
   });
 
   it('insère la jumelle telle quelle, même avec un `$`', () => {
     expect(enteteVitrine('fr', '/', '/en/$&/')).toContain('href="/en/$&/"');
   });
+});
+
+/**
+ * LE MENU EN CASCADE (Julien, 2026-11-18, spec `2026-11-18-menu-solutions-et-page-avec-votre-ia-design.md`) :
+ * Solutions porte le fonctionnel (Fonctionnalités, Secteurs, Intégrations), Ressources l'aide technique (la
+ * documentation développeurs, puis l'aide et les guides). Chaque entrée de cascade déploie sa liste à sa droite.
+ */
+describe('le menu en cascade', () => {
+  const LIBELLES = {
+    fr: { solutions: ['Fonctionnalités', 'Secteurs', 'Intégrations'], doc: 'Documentation développeurs', guides: 'Guides d’intégration',
+      premier: ['Solutions', 'Ressources', 'Tarifs', 'Avec votre IA'], fonctionnalites: '/fonctionnalites/', ia: '/developpeurs/' },
+    en: { solutions: ['Features', 'Industries', 'Integrations'], doc: 'Developer documentation', guides: 'Integration guides',
+      premier: ['Solutions', 'Resources', 'Pricing', 'With your AI'], fonctionnalites: '/en/features/', ia: '/en/developers/' },
+  } as const;
+  const PAGE_IA = { fr: 'developpeurs/index.html', en: 'en/developers/index.html' } as const;
+
+  /** La partie bureau de l'en-tête, et l'un de ses menus déroulants par son libellé. */
+  const bureau = (entete: string): string => entete.slice(entete.indexOf('<nav class="nav"'));
+  const menu = (entete: string, libelle: string): string =>
+    (bureau(entete).split('<details class="menu">').find((m) => m.includes(`<span class="menu-bureau">${libelle}</span>`)) ?? '')
+      .split('\n    </details>')[0]!;
+  /** Les entrées de cascade d'un menu : leur libellé et ce qu'elles déploient. */
+  const cascades = (html: string): { libelle: string; contenu: string }[] =>
+    [...html.matchAll(/<details class="menu-cascade"[^>]*>\s*<summary>[\s\S]*?<strong>([^<]+)<\/strong>[\s\S]*?<\/summary>([\s\S]*?)<\/details>/g)]
+      .map((m) => ({ libelle: m[1]!, contenu: m[2]! }));
+
+  for (const langue of ['fr', 'en'] as const) {
+    const L = LIBELLES[langue];
+    const entete = enteteVitrine(langue, '/nulle-part/', '/jumelle/');
+
+    it(`${langue} : le premier niveau est ${L.premier.join(', ')}, sans aucun cas d’usage`, () => {
+      const nav = bureau(entete);
+      const premier = [...nav.matchAll(/<span class="menu-bureau">([^<]+)<\/span>|<a class="lien[^"]*" href="[^"]+">([^<]+)<\/a>/g)].map((m) => m[1] ?? m[2]);
+      expect(premier).toEqual(L.premier);
+      expect(nav).toContain(`<a class="lien nav-dev" href="${L.ia}">${L.premier[3]}</a>`);
+      expect(entete).not.toContain('/cas-d-usage/');
+    });
+
+    it(`${langue} : Solutions déploie ${L.solutions.join(', ')}, chacune avec ses pages`, () => {
+      const liste = cascades(menu(entete, 'Solutions'));
+      expect(liste.map((c) => c.libelle)).toEqual(L.solutions);
+      const [fonctionnalites, secteurs, integrations] = liste.map((c) => adresses(c.contenu));
+      expect(fonctionnalites).toHaveLength(6);
+      for (const a of fonctionnalites!) {
+        expect(a.startsWith(L.fonctionnalites), a).toBe(true);
+        expect(existsSync(join(SITE, a, 'index.html')), a).toBe(true);
+      }
+      const enLigne = (nature: string) => ENTREES.filter((e) => e.enLigne && e.nature === nature).map((e) => e[langue].adresse);
+      expect(secteurs).toEqual([...enLigne('secteur'), TEXTES_CARREFOUR[langue].adresse]);
+      expect(integrations).toEqual([...enLigne('boutique'), HUBSPOT_SOLUTION[langue].adresse]);
+    });
+
+    it(`${langue} : Ressources s’ouvre sur la documentation développeurs, aux cinq briques de la page « ${L.premier[3]} »`, () => {
+      const ressources = menu(entete, L.premier[1]);
+      const [doc, ...autres] = cascades(ressources);
+      expect(doc?.libelle).toBe(L.doc);
+      expect(autres).toEqual([]);
+      const portes = lire(PAGE_IA[langue]).split('<nav class="dev-portes"')[1]?.split('</nav>')[0] ?? '';
+      expect(adresses(doc!.contenu)).toEqual(adresses(portes));
+      expect(adresses(doc!.contenu)).toHaveLength(5);
+      // Après la cascade, les liens directs : l'aide, les guides d'intégration, la confiance, le blog.
+      const directs = ressources.slice(ressources.indexOf('</details>'));
+      expect(directs).toMatch(new RegExp(`href="${langue === 'fr' ? '' : '/en'}/integrations/"[^>]*>.*?<strong>${L.guides}</strong>`));
+      expect(adresses(directs)).toHaveLength(4);
+    });
+
+    it(`${langue} : le pied de page mène à « ${L.premier[3]} »`, () => {
+      expect(piedVitrine(langue)).toContain(`<a href="${L.ia}">${L.premier[3]}</a>`);
+    });
+  }
 });
 
 describe('la ligne de retour vers messagingme.fr (2026-11-06)', () => {

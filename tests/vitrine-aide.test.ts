@@ -171,8 +171,10 @@ describe('le centre d’aide de la vitrine', () => {
       const [adresse, nom, ressources] = chemin.startsWith('en/') ? ['/en/help/', 'Help', 'Resources'] : ['/aide/', 'Aide', 'Ressources'];
       const entete = html.match(/<header class="cadre entete">[\s\S]*?<\/header>/)?.[0] ?? '';
       const pied = html.match(/<footer class="pied">[\s\S]*?<\/footer>/)?.[0] ?? '';
-      const bureau = entete.match(new RegExp(`<details class="menu">\\s*<summary class="lien"><span class="menu-bureau">${ressources}</span>[\\s\\S]*?</details>`))?.[0] ?? '';
-      const burger = entete.match(new RegExp(`<details class="burger-groupe"( open)?>\\s*<summary>${ressources}<[\\s\\S]*?</details>`))?.[0] ?? '';
+      // Les menus portent des entrées en cascade, des `details` eux aussi (2026-11-18) : le menu se coupe à SA fermeture,
+      // reconnue à son retrait, jamais au premier `</details>`, qui est celui de la documentation développeurs.
+      const bureau = entete.match(new RegExp(`<details class="menu">\\s*<summary class="lien"><span class="menu-bureau">${ressources}</span>[\\s\\S]*?\\n    </details>`))?.[0] ?? '';
+      const burger = entete.match(new RegExp(`<details class="burger-groupe"( open)?>\\s*<summary>${ressources}<[\\s\\S]*?\\n      </details>`))?.[0] ?? '';
       for (const [ou, menu] of [['menu de bureau', bureau], ['burger', burger]] as const) {
         expect(menu, `${chemin} : ${ou}`).toMatch(new RegExp(`<a href="${adresse}"( aria-current="page")?>.*?<strong>${nom}</strong>`));
         expect(menu, `${chemin} : ${ou}`).toContain(`<a href="${blog}"`);

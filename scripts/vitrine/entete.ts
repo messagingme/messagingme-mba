@@ -5,11 +5,12 @@
 // Les gabarits sont à côté de ce fichier (`entete.<langue>.html`, `pied.<langue>.html`) : un menu se change là, puis
 // `npm run vitrine:entete` réécrit chaque page de `site/`. `tests/vitrine-entete.test.ts` exige que chaque page soit
 // égale à sa génération. Ce qui varie d'une page à l'autre est calculé ici : le lien actif (`aria-current`), le groupe
-// du burger qui le contient (ouvert), et le drapeau vers la page jumelle, lue dans son `<link rel="alternate">`.
+// et le sous-groupe du burger qui le contiennent (ouverts), et le drapeau vers la page jumelle, lue dans son
+// `<link rel="alternate">`.
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ENTREES } from '../../web/lib/registre-vitrine';
-import { TEXTES_CAS, TEXTES_CARREFOUR } from './cas-textes';
+import { TEXTES_CARREFOUR } from './cas-textes';
 import { TEXTES_ATTENTE, TEXTES_SECTEURS } from './secteurs-textes';
 import { TEXTES_BOUTIQUES } from './boutique-textes';
 import { HUBSPOT_SOLUTION } from './hubspot-textes';
@@ -42,62 +43,67 @@ const PIEDS: Record<Langue, string> = { fr: gabarit('pied.fr.html'), en: gabarit
 
 /** L'en-tête d'une page : `adresse` est la sienne (`/developpeurs/`), `jumelle` celle de sa page dans l'autre langue. */
 export function enteteVitrine(langue: Langue, adresse: string, jumelle: string): string {
-  return ENTETES[langue]
+  return ouvrirGroupesActifs(ENTETES[langue]
     .replaceAll('{{jumelle}}', () => jumelle)
-    .replace('{{solutions}}', () => liensSolutions(langue, '        ', false))
-    .replace('{{solutions-burger}}', () => liensSolutions(langue, '          ', true))
+    .replace('{{secteurs}}', () => liensSecteurs(langue, '            '))
+    .replace('{{secteurs-burger}}', () => liensSecteurs(langue, '              '))
+    .replace('{{integrations}}', () => liensIntegrations(langue, '            '))
+    .replace('{{integrations-burger}}', () => liensIntegrations(langue, '              '))
     // Le logo et le drapeau ne sont jamais « la page actuelle », même quand ils y mènent.
     .replace(/<a ([^>]*?)href="([^"]+)"/g, (tout: string, attributs: string, href: string) =>
-      href === adresse && !/class="(marque|langue)"/.test(attributs) ? `${tout} aria-current="page"` : tout)
-    .replace(/<details class="burger-groupe">([\s\S]*?)<\/details>/g, (tout: string, dedans: string) =>
-      dedans.includes('aria-current="page"') ? `<details class="burger-groupe" open>${dedans}</details>` : tout);
+      href === adresse && !/class="(marque|langue)"/.test(attributs) ? `${tout} aria-current="page"` : tout));
 }
 
 export const piedVitrine = (langue: Langue): string => PIEDS[langue];
 
 /**
- * Le menu « Solutions » (décisions de Julien du 2026-10-20) : les secteurs EN LIGNE au registre en tête, puis la page
- * chapeau « SaaS et app builders ». Ses cas ne s'affichent pas avec le menu : sur le bureau, ils s'ouvrent au survol
- * (ou au focus) de la page chapeau, dans un panneau à côté ; dans le burger, sans survol, ils restent listés dessous,
- * plus serrés (une icône et un titre).
+ * Dans le burger, le groupe (Solutions, Ressources) et le sous-groupe (Fonctionnalités, Secteurs…) qui contiennent la
+ * page active s'ouvrent. Les `details` s'imbriquent : la fin d'un groupe se trouve en comptant les `details` ouverts et
+ * fermés depuis le sien, jamais par une recherche non gourmande, qui s'arrêterait à la fin du premier sous-groupe.
  */
-export function liensSolutions(langue: Langue, retrait: string, burger: boolean): string {
-  const c = TEXTES_CARREFOUR[langue];
-  const secteurs = ENTREES.filter((e) => e.enLigne && e.nature === 'secteur').map((e) => {
+export function ouvrirGroupesActifs(entete: string): string {
+  const aOuvrir: number[] = [];
+  for (const m of entete.matchAll(/<details class="burger-(?:sous-)?groupe">/g)) {
+    const balises = /<details\b|<\/details>/g;
+    balises.lastIndex = m.index;
+    let profondeur = 0;
+    let fin = entete.length;
+    for (let b = balises.exec(entete); b; b = balises.exec(entete)) {
+      profondeur += b[0] === '</details>' ? -1 : 1;
+      if (profondeur === 0) { fin = b.index; break; }
+    }
+    if (entete.slice(m.index, fin).includes('aria-current="page"')) aOuvrir.push(m.index + m[0].length - 1);
+  }
+  return aOuvrir.reverse().reduce((html, i) => `${html.slice(0, i)} open${html.slice(i)}`, entete);
+}
+
+/** Une ligne de menu : son icône, son titre, sa phrase courte. Même forme sur le bureau et dans le burger. */
+const ligne = (retrait: string, adresse: string, icone: string, titre: string, phrase: string): string =>
+  `${retrait}<a href="${adresse}"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#${icone}"/></svg></span><span><strong>${titre}</strong><small>${phrase}</small></span></a>`;
+
+/**
+ * Solutions > Secteurs (Julien, 2026-11-18) : les secteurs EN LIGNE au registre, puis la page chapeau « SaaS et app
+ * builders », en ligne ordinaire. Ses sept cas sont sortis du menu (un quatrième niveau) : sa page les liste.
+ */
+export function liensSecteurs(langue: Langue, retrait: string): string {
+  const lignes = ENTREES.filter((e) => e.enLigne && e.nature === 'secteur').map((e) => {
     const t = e.attente ? TEXTES_ATTENTE[e.cle]?.[langue] : TEXTES_SECTEURS[e.cle]?.[langue];
     if (!t) throw new Error(`${e.cle} : secteur en ligne sans ses textes (scripts/vitrine/secteurs-textes.ts)`);
-    const p = langue === 'fr' ? e.fr : e.en;
-    return `${retrait}<a class="menu-secteur" href="${p.adresse}"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#${t.icone}"/></svg></span><span><strong>${p.titre}</strong><small>${t.menu}</small></span></a>`;
+    return ligne(retrait, e[langue].adresse, t.icone, e[langue].titre, t.menu);
   });
-  // Les pages boutique (Boutiques Shopify, 2026-10-24) suivent les secteurs, sous la même forme.
-  for (const e of ENTREES.filter((x) => x.enLigne && x.nature === 'boutique')) {
+  const c = TEXTES_CARREFOUR[langue];
+  return [...lignes, ligne(retrait, c.adresse, 'i-code', c.fil, c.menu)].join('\n');
+}
+
+/** Solutions > Intégrations : les pages boutique EN LIGNE au registre (Boutiques Shopify), puis Deep HubSpot integration. */
+export function liensIntegrations(langue: Langue, retrait: string): string {
+  const lignes = ENTREES.filter((e) => e.enLigne && e.nature === 'boutique').map((e) => {
     const t = TEXTES_BOUTIQUES[e.cle]?.[langue];
     if (!t) throw new Error(`${e.cle} : boutique en ligne sans ses textes (scripts/vitrine/boutique-textes.ts)`);
-    const p = langue === 'fr' ? e.fr : e.en;
-    secteurs.push(`${retrait}<a class="menu-secteur" href="${p.adresse}"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#${t.icone}"/></svg></span><span><strong>${p.titre}</strong><small>${t.menu}</small></span></a>`);
-  }
-  {
-    const h = HUBSPOT_SOLUTION[langue];
-    secteurs.push(`${retrait}<a class="menu-secteur" href="${h.adresse}"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#${HUBSPOT_SOLUTION.icone}"/></svg></span><span><strong>${h.titre}</strong><small>${h.menu}</small></span></a>`);
-  }
-  const suite = burger ? '' : '<svg class="ic menu-suite" aria-hidden="true"><use href="#i-caret-left"/></svg>';
-  const chapeau = `<a class="menu-chapeau" href="${c.adresse}"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg></span><span><strong>${c.fil}</strong><small>${c.menu}</small></span>${suite}</a>`;
-  const cas = ENTREES.filter((e) => e.enLigne && e.nature === 'cas').map((e) => {
-    const t = TEXTES_CAS[e.cle]?.[langue];
-    if (!t) throw new Error(`${e.cle} : en ligne sans ses textes (scripts/vitrine/cas-textes.ts)`);
-    const p = langue === 'fr' ? e.fr : e.en;
-    return `<a class="menu-sous" href="${p.adresse}"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#${t.icone}"/></svg></span><span><strong>${p.titre}</strong></span></a>`;
+    return ligne(retrait, e[langue].adresse, t.icone, e[langue].titre, t.menu);
   });
-  if (burger) return [...secteurs, retrait + chapeau, ...cas.map((x) => retrait + x)].join('\n');
-  return [
-    ...secteurs,
-    `${retrait}<div class="menu-groupe">`,
-    `${retrait}  ${chapeau}`,
-    `${retrait}  <div class="menu-sous-panneau">`,
-    ...cas.map((x) => `${retrait}    ${x}`),
-    `${retrait}  </div>`,
-    `${retrait}</div>`,
-  ].join('\n');
+  const h = HUBSPOT_SOLUTION[langue];
+  return [...lignes, ligne(retrait, h.adresse, HUBSPOT_SOLUTION.icone, h.titre, h.menu)].join('\n');
 }
 
 /** L'adresse publique d'une page, depuis son chemin dans `site/` : `contact/index.html` -> `/contact/`. */

@@ -73,9 +73,13 @@ notifications de commande (`/cas-d-usage/notifications-de-commande/`,
 jumelle `/en/use-cases/order-notifications/`). Une page montre le film de la vraie séance Claude Code, le schéma de ce qui
 circule, les étapes avec les vrais noms d'outils, de routes et d'événements, la phrase à taper dans Claude Code,
 l'extrait du code que la suite compile, ce qu'on paie et une FAQ, puis mène à la recette complète de la doc
-développeurs. Le menu « Solutions » de l'en-tête, à la place d'« Industries », porte les secteurs en ligne en tête,
-puis « SaaS et app builders », dont les cas ne s'ouvrent qu'au survol, dans un panneau à côté (au téléphone, ils sont
-listés dessous) ; les anciennes pages « Industries » restent en ligne, hors du menu.
+développeurs. Le menu « Solutions » de l'en-tête (refait le 2026-11-18) s'ouvre sur trois entrées, chacune dépliant
+sa liste dans un panneau à droite, au clic ou au survol : Fonctionnalités (les six pages, qui ont quitté le premier
+niveau), Secteurs (les secteurs en ligne, puis « SaaS et app builders », dont la page liste les cas) et Intégrations
+(Boutiques Shopify, Deep HubSpot integration). « Ressources » s'ouvre sur la documentation développeurs (doc de l'API,
+doc MCP, plugin, SDK, contrat OpenAPI), puis l'aide, les guides d'intégration, le centre de confiance et le blog ;
+« Développeurs » devient « Avec votre IA ». Au téléphone, chaque niveau se déplie dans le burger. Les anciennes pages
+« Industries » restent en ligne, hors du menu.
 
 ✅ **La vitrine a sa première page de secteur, Transport et mobilités** (2026-10-20, maquette de Julien) :
 `app.messagingme.fr/solutions/transport-et-mobilites/`, jumelle `/en/solutions/transport-and-mobility/`. Les enjeux

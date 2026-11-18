@@ -574,7 +574,7 @@ function accueilAide(pages: PageAide[], langue: Langue): { chemin: string; conte
 const TC = {
   fr: {
     surtitre: 'Depuis Claude Code',
-    developpeurs: 'Développeurs',
+    developpeurs: 'Avec votre IA',
     guideMeta: 'Votre compte Meta Business',
     vous: 'Vous',
     codex: 'Avec Codex',
@@ -585,7 +585,7 @@ const TC = {
   },
   en: {
     surtitre: 'From Claude Code',
-    developpeurs: 'Developers',
+    developpeurs: 'With your AI',
     guideMeta: 'Your Meta Business account',
     vous: 'You',
     codex: 'With Codex',

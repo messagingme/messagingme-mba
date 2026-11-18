@@ -1,5 +1,16 @@
 # todo.md : backlog
 
+## 🟡 Restes du menu en cascade de la vitrine (lot 1, 2026-11-18)
+
+Relevés par la relecture du lot, aucun ne bloque le menu :
+
+- Échap ou un clic ailleurs ferment le menu mais laissent sa cascade ouverte, et un survol en attente peut encore en
+  ouvrir une menu fermé : au retour, l'ancien panneau est déjà déplié (`site/site.js`, premier bloc). Fermer les
+  `details.menu-cascade` et annuler le minuteur à la fermeture d'un menu.
+- Le focus seul n'ouvre pas le panneau (Tab puis Entrée), alors que la spec dit « au survol et au focus ».
+- Deux tests coupent les menus par l'indentation du gabarit (`tests/vitrine-aide.test.ts`, `tests/vitrine-entete.test.ts`) :
+  un gabarit reformaté les rougit sans rien casser.
+
 ## 🟡 Les textes du constructeur que le code contredit (relevé des fiches par bloc, lot 2, 2026-11-17)
 
 Le panneau Attente et l'aide de l'action « dernier message » sont corrigés dans le lot 2. Restent, tous de l'écran :
