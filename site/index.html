@@ -467,15 +467,15 @@
             </div>
             <ol class="a-fil">
               <li class="a-jour">Aujourd’hui · 10:30</li>
-              <li class="carte-riche" style="--t:.3s">
+              <li class="carte-riche" style="--t:.15s">
                 <img class="visuel" src="rcs-automne.jpg" alt="Veste à carreaux de la collection d’automne" width="220" height="122">
                 <div class="carte-corps"><strong>Collection d’automne</strong><span>-20&nbsp;% pour nos clients, jusqu’à dimanche.</span></div>
                 <span class="action-riche">Voir la collection</span>
                 <span class="action-riche">Réserver en boutique</span>
               </li>
-              <li class="a-bulle a-envoye" style="--t:.9s">Réserver en boutique</li>
-              <li class="a-bulle a-recu" style="--t:1.5s">C’est noté, la veste vous attend en boutique jusqu’à samedi.</li>
-              <li style="--t:2s">
+              <li class="a-bulle a-envoye" style="--t:.5s">Réserver en boutique</li>
+              <li class="a-bulle a-recu" style="--t:.85s">C’est noté, la veste vous attend en boutique jusqu’à samedi.</li>
+              <li style="--t:1.1s">
                 <ul class="suggestions" aria-label="Réponses suggérées"><li>Changer de taille</li><li>Merci&nbsp;!</li></ul>
               </li>
             </ol>
@@ -499,17 +499,17 @@
             </div>
             <ol class="wa-fil">
               <li class="jour">Aujourd’hui</li>
-              <li class="bulle recu" style="--t:.2s">
+              <li class="bulle recu" style="--t:.1s">
                 <p>Nouvelle collection d’automne&nbsp;: -20&nbsp;% pour nos clients, jusqu’à dimanche.<span class="heure">10:30</span></p>
                 <span class="bouton-modele"><svg class="ic" aria-hidden="true"><use href="#i-lien"/></svg>Voir la collection</span>
               </li>
-              <li class="bulle envoye" style="--t:.8s">
+              <li class="bulle envoye" style="--t:.45s">
                 <p>La veste en laine existe en M&nbsp;? Je la prends si oui.<span class="heure">10:41 <svg class="ic" aria-hidden="true"><use href="#i-coches"/></svg></span></p>
               </li>
-              <li class="bulle recu" style="--t:1.4s">
+              <li class="bulle recu" style="--t:.8s">
                 <p>Oui, il en reste trois en M. Je vous envoie le lien de paiement&nbsp;?<span class="heure">10:41</span></p>
               </li>
-              <li class="bulle envoye" style="--t:2s">
+              <li class="bulle envoye" style="--t:1.1s">
                 <p>Oui, merci&nbsp;!<span class="heure">10:42 <svg class="ic" aria-hidden="true"><use href="#i-coches"/></svg></span></p>
               </li>
             </ol>
@@ -984,9 +984,9 @@ curl -X POST https://api.messagingme.app/v1/messages/whatsapp \
       bloc.classList.toggle('couts', tours++ % 2 === 1);
       void une.offsetWidth;
       une.classList.add('tour');
-      minuteries.push(setTimeout(function () { une.classList.add('carte'); bloc.classList.add('joue'); }, 2500));
-      minuteries.push(setTimeout(function () { une.classList.add('sortie'); }, 11500));
-      minuteries.push(setTimeout(tour, 13100));
+      minuteries.push(setTimeout(function () { une.classList.add('carte'); bloc.classList.add('joue'); }, 1500));
+      minuteries.push(setTimeout(function () { une.classList.add('sortie'); }, 10500));
+      minuteries.push(setTimeout(tour, 12100));
     }
     new IntersectionObserver(function (e) {
       if (e[0].isIntersecting && !actif) { actif = true; tour(); }
