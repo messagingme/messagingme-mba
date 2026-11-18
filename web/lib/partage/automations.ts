@@ -15,6 +15,27 @@ export const AUTOMATION_TRIGGER_KINDS = [
 export type AutomationTriggerKind = (typeof AUTOMATION_TRIGGER_KINDS)[number];
 
 /**
+ * La fenêtre de service au DÉPART d'un scénario lancé par ce déclencheur (menu « Scénario », lot 2, décision 11). Ouverte
+ * quand c'est un message du client qui le lance (mot-clé, nouveau contact, clic sur une publicité) : le moteur ne prouve
+ * la fenêtre que pour un message WhatsApp (`windowOpen`, `src/automation/runner.ts`). Fermée pour tous les autres : le
+ * scénario part sans que le client ait écrit, son premier message doit être un template. Alignée sur le moteur par
+ * `tests/fenetre-au-depart.test.ts` ; un déclencheur ajouté sans sa ligne ne compile pas.
+ */
+export const FENETRE_AU_DEPART: Readonly<Record<AutomationTriggerKind, 'ouverte' | 'fermee'>> = {
+  keyword: 'ouverte',
+  new_contact: 'ouverte',
+  ctwa_ad: 'ouverte',
+  tag_added: 'fermee',
+  conversation_analyzed: 'fermee',
+  hubspot_deal_stage: 'fermee',
+  webhook: 'fermee',
+  avant_date: 'fermee',
+  risque_eleve: 'fermee',
+  analyse_devient: 'fermee',
+  agent_action: 'fermee',
+};
+
+/**
  * Les opérateurs d'un « devient » : ceux des filtres de contacts, moins ceux qui ne décrivent pas un changement
  * (« vide », « renseigné », « analysée depuis moins de N jours »).
  */

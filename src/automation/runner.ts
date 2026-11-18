@@ -126,7 +126,7 @@ export interface OptionsRun {
 const SANS_RESTRICTION: OptionsRun = { seuleAutomation: null };
 
 /** Les types de déclencheur qu'un événement donné peut activer (évite de charger des automations hors sujet). */
-function kindsFor(ev: AutomationEvent): AutomationTriggerKind[] {
+export function kindsFor(ev: AutomationEvent): AutomationTriggerKind[] {
   if (ev.kind === 'message') return ['keyword', 'new_contact', 'ctwa_ad'];
   if (ev.kind === 'tag_added') return ['tag_added'];
   if (ev.kind === 'hubspot_deal_stage') return ['hubspot_deal_stage'];
