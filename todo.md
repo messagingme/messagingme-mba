@@ -31,6 +31,22 @@ suivants :
 - Le verrou du webhook entrant filtre le rayon dans sa requête de verrou (`src/webhook-entrant/store.pg.ts`) : sans
   effet, gardé parce que l'inventaire exige la comparaison dans la requête.
 
+Relevés par la relecture de la livraison 2a (les points 1, 2, 4, 5, 8 et 9 partent avec 2b-1, voir le plan du lot 2) :
+
+- **À trancher par Julien : le réveil d'une Attente d'un parcours de masse émet-il ?** La retenue de 2a est bornée à
+  l'échéance « Pas de réponse » (décision 24). Le réveil d'une Attente d'un parcours né d'une campagne, d'un workflow
+  HubSpot ou d'un envoi à un bloc émet toujours un « tag ajouté » par destinataire : c'est le montage « Attente puis
+  étiquette » qui nourrit une automation, mais aussi un chemin de masse qui émet (invariant 8).
+- `last_message_id` ne veut pas dire « le contact a répondu » : `advance` l'écrit aussi sur un accusé RCS (`sent`,
+  `unreachable`, `src/rcs/rapport-livraison.ts`) et sur une sortie d'agent. Une campagne qui ouvre en RCS suivie d'un
+  template à délai lèverait la retenue pour chaque destinataire livré. Correctif : une colonne `a_repondu` que seul un
+  vrai message du contact pose.
+- Au réveil fenêtre fermée d'un parcours de masse sans réponse, chaque destinataire passe à l'équipe (documenté dans
+  `features.md`) ; « template, Pas de réponse, message rapide » rend le cas courant. `neEnMasse` permettrait de clore
+  sans passer à l'équipe, comme pour le refus marketing.
+- Un outil de l'agent de Meta ou d'un agent IA qui vise un template est refusé à chaque appel dès que ce template reçoit
+  un délai (`blocSeul`) : la console devrait le dire au moment où l'on pose le délai.
+
 ## 🟡 Restes de la page « Avec votre IA » (lot 2, 2026-11-18)
 
 Relevés par la relecture du lot (`site/site.js`, bloc « Avec votre IA », et `site/site.css`, règles `.ia-*`) :

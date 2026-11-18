@@ -19,23 +19,34 @@ graphe depuis ses départs ouverts ou fermés, le serveur fournit les départs (
 
 ## Méthode de livraison
 
-**Implémenteur par lot et revue humaine du diff**, en trois livraisons, parce que 2a change le chemin que chaque
+**Implémenteur par lot et revue humaine du diff**, en quatre livraisons, parce que 2a change le chemin que chaque
 template emprunte en production (`walk` sert `runFrom`, `advance`, `resume`, `blocSeul`) et le réveil des parcours, avec
-une migration sur `workflow_runs`, table du chemin chaud ; 2b est de l'écran et de l'aide (pas pour feature-loop, règle
-du dépôt). Une relecture indépendante unique par livraison de code (2a, puis 2b).
+une migration sur `workflow_runs`, table du chemin chaud ; 2b-1 touche les mêmes chemins (la reprise, l'avance) ; 2b-2
+est de l'écran et de l'aide (pas pour feature-loop, règle du dépôt). Une relecture indépendante unique par livraison de
+code (2a, 2b-1, 2b-2).
 
 1. **2a-0, la migration seule** (tâche 2, étape migration) : poussée seule, déployée `migration=avant`, AVANT que son code
    n'arrive sur `main` (règle 0163, 0201, 0218 : une colonne nommée par un chemin chaud).
-2. **2a, le serveur** (tâches 1 à 5) : déployé `migration=aucune`.
-3. **2b, la console et l'aide** (tâches 6 à 8) : poussée APRÈS le déploiement de 2a (un délai posé dans la console avant
-   serait ignoré par l'ancien moteur, et en mode agent de Meta l'ancien `walk` suivrait la flèche « Pas de réponse »).
+2. **2a, le serveur** (tâches 1 à 4) : déployé `migration=aucune`. La tâche 5 (départs et analyse de fenêtre) est passée
+   en 2b-1 : la console qui les affiche est en 2b-2 et tolère leur absence.
+3. **2b-1, le serveur** (tâches 5, 9, 10 et 11) : déployé `migration=aucune`. La relecture de 2a a montré deux courses
+   déjà vraies pour la Question, qui deviennent le chemin courant dès qu'un template porte un délai : une réponse arrivée
+   pendant la reprise fait partir la relance en plus de la branche choisie (double envoi facturé), et un clic tardif sur
+   le PREMIER template est lu comme le bouton de même rang de la relance.
+4. **2b-2, la console et l'aide** (tâches 6 à 8) : poussée APRÈS le déploiement de 2b-1. Aucun délai ne doit pouvoir se
+   poser dans la console avant que le serveur sache le reprendre sans double envoi, et le champ du délai (tâche 6) ne
+   part jamais sans l'avertissement de fenêtre (tâche 7), sinon « template, Pas de réponse, message rapide » se
+   publierait sans rien dire (anti-objectif 3 de la spec).
 
 **Essai réel qui clôt le lot :** sur la SANDBOX, par le lien de test : un template à bouton, « Pas de réponse après
 2 min », puis un second template ; trois passages (aucune réponse : le second part ; un clic : la branche du bouton ;
 une réponse écrite sans « Toute autre réponse » : le parcours s'arrête). Puis une campagne vers deux numéros de test sur
 le même scénario, une étiquette posée sur la branche « Pas de réponse » et une automation « étiquette posée » qui
-l'écoute : elle ne doit PAS partir. Le builder montre l'avertissement d'un message rapide placé après « Pas de
-réponse », et l'écran Automation celui d'une automation de date sur ce scénario. Numéro libre dans
+l'écoute : elle ne doit PAS partir, et l'étiquette doit être POSÉE sur la fiche (sinon un arrêt plus tôt ferait passer
+l'essai pour une mauvaise raison). Numéros de test en `opted_in`, ou une relance Utility : une relance Marketing sans
+accord se tait sans ligne de journal. Un clic tardif sur le bouton du PREMIER template, après la relance : il ne prend
+pas la branche du bouton de même rang de la relance. Le builder montre l'avertissement d'un message rapide placé après
+« Pas de réponse », et l'écran Automation celui d'une automation de date sur ce scénario. Numéro libre dans
 `docs/prive/ESSAIS-REELS.md`.
 
 ## Global Constraints
@@ -269,5 +280,64 @@ réponse », et l'écran Automation celui d'une automation de date sur ce scéna
 - [ ] **Step 1:** réécrire, régénérer, ré-empreinter ; `tests/aide-proposer.test.ts`, `tests/vitrine-aide.test.ts`,
   `tests/vitrine-anglais.test.ts` : PASS.
 - [ ] **Step 2: Commit** (`docs(aide): la sortie « Pas de réponse » du template et la fenêtre au départ`).
-- [ ] **Step 3: Livraison 2b** : relecture indépendante unique, push APRÈS le déploiement de 2a, CI front et racine lues,
-  `aide:charger`, essai réel (section Méthode de livraison), journal et `todo.md` à jour.
+- [ ] **Step 3: Livraison 2b-2** : relecture indépendante unique, push APRÈS le déploiement de 2b-1, CI front et racine
+  lues, `aide:charger`, essai réel (section Méthode de livraison), journal et `todo.md` à jour.
+
+### Task 9: Une réponse pendant la reprise d'une échéance ne fait pas partir la relance (livraison 2b-1)
+
+**Files:**
+- Modify: `src/workflow/executor.ts` (`resume`, la branche `parEcheance` seulement)
+- Test: `tests/workflow-template-sans-reponse.test.ts`
+
+**Interfaces:** consomme `runs.reserverAvance`, `runs.prolongerAvance`, `runs.libererAvance`, `runs.setStateSiEncoreSur` et
+`renouvelerLeBail` (`bail-avance.ts`), déjà requis et câblés pour `advance`. Aucune signature ne change.
+
+La réclamation du balayage ne pose qu'un bail sur `resume_at`, le parcours reste `waiting` ; `advance` réserve son tour
+sans voir ce bail, et `resume` rejoue l'instantané réclamé puis écrit par `setStateSiVivant`, qui ne garde que le statut.
+La reprise d'une échéance réserve donc le tour comme `advance` : `null` = sortir sans rien envoyer ni écrire ; l'état
+s'écrit par `setStateSiEncoreSur(run.currentNode, jeton)` ; le tour se rend dans un `finally`. Le réveil d'une Attente ne
+réserve rien (`advance` n'atteint pas un parcours `sleeping`). Coût, à dire dans l'aide : une réponse arrivée PENDANT la
+reprise n'avance pas le parcours (elle reste dans l'Inbox), au lieu d'un double envoi facturé.
+
+- [ ] **Step 1:** tests (le tour refusé : rien n'est envoyé ni écrit, `resume` rend `false` ; l'écriture finale passe par
+  `setStateSiEncoreSur` avec le jeton ; le tour est rendu même sur une exception ; le réveil d'une Attente ne réserve
+  rien) ; FAIL ; implémenter ; PASS ; suite racine entière.
+- [ ] **Step 2: Commit** (`fix(scenarios): la reprise d'une échéance réserve le tour, une réponse simultanée ne fait plus partir la relance`).
+
+### Task 10: Un clic sur un ancien message n'est pas lu comme un bouton du bloc courant (livraison 2b-1)
+
+**Files:**
+- Modify: `src/webhooks/inbound.ts` (le `context.id` d'une réponse de bouton), `src/webhooks/workflow-advance.ts`,
+  `src/workflow/executor.ts` (`advance` ; la mesure `sent` d'un template porte son wamid), le câblage de `sendTemplate`
+  s'il ne rend pas encore le wamid
+- Test: `tests/workflow-template-sans-reponse.test.ts` (le montage de `clic-tardif.mts` de la relecture), le test du
+  webhook entrant qui lit `context.id`
+
+Les payloads sont positionnels (`btn:<i>`, `src/workflow/template-send.ts`) et exposés tels quels par l'API publique
+(`buttonPayload`) : les marquer du bloc changerait un contrat public. Le wamid de chaque template envoyé par un bloc entre
+donc dans `workflow_node_events.meta_message_id` (colonne et index existants, migration 0063) ; dans `advance`, un clic
+dont le `context.id` nomme un message envoyé par un AUTRE bloc du parcours suit la sortie libre, comme sur un bloc
+Formulaire. Un wamid inconnu (envoyé avant le déploiement, ou par un autre chemin) garde le comportement d'aujourd'hui.
+
+- [ ] **Step 1:** tests (template [Je finalise] puis relance [Oui -10 %] [Non merci] : un clic sur « Je finalise » du
+  premier message ne part jamais vers la branche de « Oui -10 % » ; le clic sur la relance prend sa branche ; un wamid
+  inconnu, sa branche positionnelle) ; FAIL ; implémenter ; PASS ; suite racine entière.
+- [ ] **Step 2: Commit** (`fix(scenarios): un clic sur un ancien message n'est plus lu comme un bouton du bloc courant`).
+
+### Task 11: Les restes serveur de la relecture de 2a (livraison 2b-1)
+
+**Files:**
+- Modify: `web/lib/partage/fenetre-scenario.ts` (chaque délai et chaque attente comptent au moins 60 s, le pas du
+  balayage, et les arêtes sortantes sont indexées : un cycle d'attentes minuscules posé par l'API ne fait pas tourner
+  `GET /automations`, qui analyse chaque automation), `src/workflow/engine.ts` (`explorerLesAttentes` : la sortie
+  « Pas de réponse » d'un template à délai ne remet pas le cumul à zéro ; les commentaires de `etapeOffreUnChoix` et de
+  `WalkOptions.mbaActif`), `src/workflow/lancements.ts` (le commentaire de `PolitiqueDeLancement.rayons`),
+  `src/workflow/executor.ts` (`lastMessageId` requis dans la signature de `resume`)
+- Test: `tests/fenetre-scenario.test.ts` (cycle de deux attentes de 60 ms : nombre d'appels borné),
+  `tests/workflow-lancements.test.ts` (le banc capture `neEnMasse` et exige `=== !publieLesEtiquettes` pour chaque type),
+  `tests/integration/` (`start(..., true)` puis `claimDueQuestions` rend `neEnMasse: true`, sur le modèle de
+  `run-accord-marketing.integration.test.ts`)
+
+- [ ] **Step 1:** tests ; FAIL ; implémenter ; PASS ; suite racine entière ; auto-attaque.
+- [ ] **Step 2: Commit** (`fix(scenarios): les restes de la relecture de 2a`), puis livraison 2b-1 : relecture
+  indépendante unique, push, CI lue job par job, déploiement `migration=aucune`.
