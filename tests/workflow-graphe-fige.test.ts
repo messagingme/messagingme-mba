@@ -124,7 +124,7 @@ describe('les points de reprise jouent le graphe figé', () => {
     const { ex, calls, luPublie } = monter(avecAttente('publie'));
     const dormant = {
       id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w',
-      status: 'sleeping' as const, grapheFige: avecAttente('brouillon'), neEnMasse: false, exigeAccordMarketing: false,
+      status: 'sleeping' as const, grapheFige: avecAttente('brouillon'), neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null,
     };
     expect(await ex.resume(dormant)).toBe(true);
     expect(calls).toEqual(['tpl:brouillon']);
@@ -150,7 +150,7 @@ describe('les points de reprise jouent le graphe figé', () => {
     const { ex, calls, luPublie } = monter(avecAttente('publie'));
     const dormant = {
       id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w',
-      status: 'sleeping' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false,
+      status: 'sleeping' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null,
     };
     expect(await ex.resume(dormant)).toBe(true);
     expect(calls).toEqual(['tpl:publie']);

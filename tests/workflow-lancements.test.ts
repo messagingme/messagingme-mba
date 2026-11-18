@@ -142,8 +142,8 @@ function banc(detenteur: ControlOwner = 'app_workflow', surcharges: Partial<Work
   const b = bancDuFil({ surLaListe: [WA], conversations: { [WA]: { owner: detenteur } } });
   const envois: string[] = [];
   const emis: string[] = [];
-  /** Ce que la création du parcours a transmis : la fiche et le graphe figé. */
-  const crees: Array<{ contactId: string | null; fige: WorkflowGraph | null; exige: boolean }> = [];
+  /** Ce que la création du parcours a transmis : la fiche, le graphe figé, la garde marketing et le drapeau de masse. */
+  const crees: Array<{ contactId: string | null; fige: WorkflowGraph | null; exige: boolean; masse: boolean }> = [];
   const lectures: string[] = [];
   const recherches: string[] = [];
   const deps: WorkflowExecutorDeps = {
@@ -151,8 +151,8 @@ function banc(detenteur: ControlOwner = 'app_workflow', surcharges: Partial<Work
     estDesabonne: jamaisDesabonne,
     aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
-      start: async (_t: string, _w: string, _waId: string, contactId: string | null, _s: unknown, fige: WorkflowGraph | null, exige: boolean) => {
-        crees.push({ contactId, fige, exige });
+      start: async (_t: string, _w: string, _waId: string, contactId: string | null, _s: unknown, fige: WorkflowGraph | null, exige: boolean, masse: boolean) => {
+        crees.push({ contactId, fige, exige, masse });
         return { id: 'r1' };
       },
       findWaitingByWaId: async () => null,
@@ -708,6 +708,18 @@ describe('la garde marketing, type par type (décision A)', () => {
       expect(await lancerLeType(m, type, { workflowId: 'wf-modele', fenetreOuverte: true })).toBe(true);
       expect(m.envois, 'avec l’accord, le Marketing part').toHaveLength(1);
       expect(m.crees.map((c) => c.exige)).toEqual([exige]);
+    });
+  }
+
+  for (const type of TYPES_DE_LANCEMENT) {
+    // Relecture de 2a, point 4 : rien ne lisait ce paramètre. Remplacé par `false`, ou retiré de l'insert (le défaut de la
+    // colonne le remplit), toute la suite restait verte, et la relance « Pas de réponse » d'une campagne émettait.
+    const masse = !POLITIQUE_DE_LANCEMENT[type].publieLesEtiquettes;
+    it(`🔴 ${type} : le parcours créé est ${masse ? 'NÉ EN MASSE' : 'unitaire'} (le drapeau suit publieLesEtiquettes)`, async () => {
+      silence();
+      const m = banc('app_workflow', { aAccordMarketing: toujoursDAccord, ...categorie('marketing') });
+      expect(await lancerLeType(m, type, { workflowId: 'wf-modele', fenetreOuverte: true })).toBe(true);
+      expect(m.crees.map((c) => c.masse)).toEqual([masse]);
     });
   }
 

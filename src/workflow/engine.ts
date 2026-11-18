@@ -297,7 +297,9 @@ export function lienPourLeContact(
  * C'est le prédicat du contrôle du fil : « le scénario attend-il une réponse ? » et « gardons-nous la main
  * face à l'agent de Meta ? » sont la même question. Une étape qui offre un choix garde la main (la réponse
  * doit nous revenir pour être appariée au bouton) ; une étape qui n'offre rien la relâche. Un formulaire
- * attend forcément une saisie : il offre donc un choix, sans bouton.
+ * attend forcément une saisie : il offre donc un choix, sans bouton. Un template à délai « pas de réponse » garde aussi
+ * la main sans offrir de choix (`walk`, spec décision 25) : ce prédicat ne le voit pas, le délai se lit à part
+ * (`delaiSansReponseMs`).
  */
 export function etapeOffreUnChoix(a: WorkflowAction | null): boolean {
   if (a === null) return false;
@@ -952,7 +954,8 @@ export interface WalkOptions {
   /**
    * L'agent de Meta est-il le RÉPONDEUR de ce tenant (mode `mba`, RC6 ; allumé en veille, non) ? Avec lui, une étape
    * qui n'offre aucun choix cesse de bloquer le parcours : l'agent reprend la parole et les actions du scénario
-   * continuent. Sans lui, un template attend la réponse, comme toujours.
+   * continuent. Sans lui, un template attend la réponse, comme toujours. Un template à délai « pas de réponse » attend dans
+   * les deux cas (spec, décision 25 : un délai posé est une intention explicite).
    */
   mbaActif?: boolean;
   /**

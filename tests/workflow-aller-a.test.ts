@@ -334,7 +334,7 @@ describe('🔴 la fenêtre de 24 h suit le saut, au réveil', () => {
     edges: [e('w', 'j')],
   };
   const b: WorkflowGraph = { nodes: [n('r', 'quick_message', { body: 'Relance', quickReplies: ['Ok'], code: code(80) })], edges: [] };
-  const reveil = { id: 'r1', workflowId: 'wf-a', tenantId: 't1', waId: WA, currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, status: 'sleeping' as const };
+  const reveil = { id: 'r1', workflowId: 'wf-a', tenantId: 't1', waId: WA, currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null, status: 'sleeping' as const };
 
   it('fenêtre fermée : le scénario d’arrivée refuse d’ouvrir par un message de session, la conversation va à l’équipe', async () => {
     silence();

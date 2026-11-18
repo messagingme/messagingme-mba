@@ -183,10 +183,12 @@ export interface PolitiqueDeLancement {
   marketing: 'libre' | 'accord_fiche' | 'accord_fiche_sauf_ouverture';
   /**
    * 🔴 Les rayons de scénario que ce type peut lancer (menu « Scénario », décision 1 : cloisonnés dans les deux sens).
-   * Un scénario d'un autre rayon y est un INCONNU : `lancer` rend `null` comme pour un scénario supprimé, son existence
-   * ne fuit pas. Le lien de test teste un scénario de n'importe quel rayon depuis son builder ; tout le reste ne lance
-   * que le Builder (le workflow HubSpot passera au rayon HubSpot au lot 6). Sans effet sur les types qui reçoivent leur
-   * graphe (`agent_meta_bloc`, `repondeur`) ni sur le saut, dont la cible se résout dans le rayon d'origine.
+   * Un scénario d'un autre rayon y est un INCONNU, son existence ne fuit pas : `lancer` rend `null` comme pour un
+   * scénario supprimé, et `REFUS_SCENARIO_INCONNU` pour `agent_meta_bloc`, qui reçoit son graphe mais relit la ligne pour
+   * son rayon. Le lien de test teste un scénario de n'importe quel rayon depuis son builder ; tout le reste ne lance que le
+   * Builder (le workflow HubSpot passera au rayon HubSpot au lot 6). `'sans_objet'` : le type ne lit aucune ligne de
+   * scénario (`repondeur`, graphe fourni ; le saut, dont la cible se résout dans le rayon d'origine), et `rayonAdmis`
+   * refuse s'il est consulté quand même.
    */
   rayons: readonly Rayon[] | 'sans_objet';
 }

@@ -802,7 +802,7 @@ describe('WorkflowExecutor.resume (réveil après un bloc Attente)', () => {
       emitTagAdded: async (_t, _w, tag) => { emis.push(tag); },
       ...over,
     });
-    const run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    const run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
     return { ex, runs, calls, escalations, emis, run };
   }
 
@@ -1278,7 +1278,7 @@ describe('resume : le bloc agent ouvre sa session (tâche 11)', () => {
     return { store, ouvertures };
   };
 
-  const runDormant = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+  const runDormant = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
 
   it('le réveil ouvre la session et enfile un tour « demarrage »', async () => {
     const jobs: AgentTurnJob[] = [];
@@ -1738,7 +1738,7 @@ describe('resume : échéance d inactivité sur un bloc agent (tâche 17)', () =
     return { clotures, over: { agentSessions: store, isWindowOpen: async () => true, ...over } };
   };
 
-  const runEnAttente = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+  const runEnAttente = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
 
   it('🔴 sort par le handle « timeout », JAMAIS par l arête libre', async () => {
     // Le « successeur » d'un bloc agent n'a aucun sens : c'est la réponse qui décide de la suite. Prendre la
@@ -1805,7 +1805,7 @@ describe('resume : échéance d inactivité sur un bloc agent (tâche 17)', () =
     };
     const { clotures, over } = fake17();
     const { ex } = make(g, over);
-    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false });
+    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
     expect(clotures).toEqual([]);
   });
 
@@ -1821,7 +1821,7 @@ describe('resume : échéance d inactivité sur un bloc agent (tâche 17)', () =
     // sur une question n'en a pas : `byRun` rend null, et rien n'est clos.
     const { clotures, over } = fake17({}, null);
     const { ex, calls } = make(g, over);
-    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false });
+    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
     expect(calls).toEqual(['qm:pas de reponse']);
     expect(clotures).toEqual([]);
   });

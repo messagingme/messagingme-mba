@@ -1106,8 +1106,12 @@ export class WorkflowExecutor {
     neEnMasse: boolean;
     /** Canal courant du parcours. Absent -> WhatsApp (runs anciens). */
     channel?: RunChannel;
-    /** Le dernier message consommé par le parcours : celui sur lequel une nouvelle pause en secondes signale la saisie. */
-    lastMessageId?: string | null;
+    /**
+     * Le dernier message consommé par le parcours : celui sur lequel une nouvelle pause en secondes signale la saisie.
+     * Requis, comme `neEnMasse` : `null` dit « le contact n'a rien répondu depuis la naissance du parcours », que la
+     * retenue de masse lit (décision 24) ; un appelant qui l'omettrait rendrait muet un parcours de masse qui a répondu.
+     */
+    lastMessageId: string | null;
     /**
      * Pourquoi ce run était au repos, donc par où le reprendre : `sleeping` = bloc Attente, au bloc suivant ;
      * `waiting` = délai « pas de réponse » d'un bloc Question, d'un bloc template ou d'un agent, par la sortie
