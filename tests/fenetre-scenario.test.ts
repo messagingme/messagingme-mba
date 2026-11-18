@@ -83,6 +83,27 @@ describe('🔴 l’analyse de fenêtre au départ', () => {
     const g = { nodes: [n('a', 'tag'), n('b', 'tag')], edges: [e('a', 'b'), e('b', 'a')] };
     expect(analyserFenetre(g, [ferme()], regles)).toEqual([]);
   });
+
+  it('🔴 un cycle d’attentes minuscules reste borné : chaque attente compte au moins le pas du balayage (60 s)', () => {
+    // Un délai fractionnaire posé par l'API (60 ms) dans une boucle ferait croître le cumul par pas de 60 ms jusqu'à
+    // 24 h : 1,4 million d'états par bloc, et `GET /automations` analyse chaque automation de la liste.
+    let lectures = 0;
+    const comptees: ReglesFenetre<N> = { ...regles, dureeAttenteMs: (x) => { lectures += 1; return regles.dureeAttenteMs(x); } };
+    const g = { nodes: [n('w1', 'wait', { dureeMs: 60 }), n('w2', 'wait', { dureeMs: 60 })], edges: [e('w1', 'w2'), e('w2', 'w1')] };
+    expect(analyserFenetre(g, [ouvert()], comptees)).toEqual([]);
+    expect(lectures).toBeLessThan(10_000);
+  });
+
+  it('une attente de 30 s compte pour une minute, une attente nulle pour rien', () => {
+    // 1 439 attentes de 30 s font 23 h 59 au plancher : la fenêtre est encore ouverte ; une de plus la ferme.
+    const chaine = (k: number) => {
+      const nodes = [...Array.from({ length: k }, (_, i) => n(`w${i}`, 'wait', { dureeMs: 30_000 })), n('rapide', 'quick_message')];
+      const edges = nodes.slice(1).map((x, i) => e(nodes[i]!.id, x.id));
+      return { nodes, edges };
+    };
+    expect(analyserFenetre(chaine(1_439), [ouvert()], regles)).toEqual([]);
+    expect(analyserFenetre(chaine(1_440), [ouvert()], regles).map((c) => c.noeudId)).toEqual(['rapide']);
+  });
 });
 
 describe('les départs d’un scénario, depuis son rayon et ses lanceurs', () => {

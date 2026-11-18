@@ -396,6 +396,28 @@ describe('parité de la détection « attente >= 24 h puis message de session »
       [n('w1', 'wait', { delay: 2, unit: 'days' }), n('w2', 'wait', { delay: 5, unit: 'seconds' }), QM('q')],
       [e('w1', 'w2'), e('w2', 'q')],
     )],
+    // LE TEMPLATE À DÉLAI (menu « Scénario », lot 2) : sa sortie « Pas de réponse » part sans réponse, le cumul continue.
+    ['template à 30 h « Pas de réponse », puis message rapide', g(
+      [n('t', 'template', { templateName: 'promo', language: 'fr', timeoutValue: 30, timeoutUnit: 'hours' }), QM('q')],
+      [e('t', 'q', 'timeout')],
+    )],
+    ['template à 30 min « Pas de réponse », puis message rapide', g(
+      [n('t', 'template', { templateName: 'promo', language: 'fr', timeoutValue: 30, timeoutUnit: 'minutes' }), QM('q')],
+      [e('t', 'q', 'timeout')],
+    )],
+    ['attente 20 h, template à 5 h « Pas de réponse », message rapide', g(
+      [n('w', 'wait', { delay: 20, unit: 'hours' }), n('t', 'template', { templateName: 'promo', timeoutValue: 5, timeoutUnit: 'hours' }), QM('q')],
+      [e('w', 't'), e('t', 'q', 'timeout')],
+    )],
+    ['flèche « Pas de réponse » résiduelle sans délai', g([TPL('t'), QM('q')], [e('t', 'q', 'timeout')])],
+    ['template sans nom, à délai : rien ne part, aucune échéance', g(
+      [n('t', 'template', { templateName: '', timeoutValue: 30, timeoutUnit: 'hours' }), QM('q')],
+      [e('t', 'q', 'timeout')],
+    )],
+    ['unité de délai inconnue (« constructor ») : lue défensivement des deux côtés', g(
+      [n('t', 'template', { templateName: 'promo', timeoutValue: 30, timeoutUnit: 'constructor' }), QM('q')],
+      [e('t', 'q', 'timeout')],
+    )],
   ];
 
   it('front et serveur désignent le MÊME montage fautif (ou aucun)', () => {

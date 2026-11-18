@@ -427,13 +427,22 @@ function explorerLesAttentes(graph: WorkflowGraph): { premierMontage: WaitThenSe
       if (nx) pile.push({ id: nx, cumul, dernierWait });
       continue;
     }
-    // Un template remet le compteur à zéro. Il n'ouvre pas la fenêtre (seul un message du contact l'ouvre),
-    // mais le parcours s'arrête au template jusqu'à la réponse, et c'est cette réponse qui rouvre la fenêtre.
-    const suivant = node.type === 'template'
-      ? { cumul: 0, dernierWait: null }
-      : node.type === 'wait'
-        ? { cumul: Math.min(cumul + Math.max(PAS_MIN_MS, waitEstimationMs(node)), FENETRE_SERVICE_MS), dernierWait: waitEstimationMs(node) > 0 ? id : dernierWait }
-        : { cumul, dernierWait };
+    if (node.type === 'template') {
+      // Un template remet le compteur à zéro sur sa sortie de RÉPONSE : il n'ouvre pas la fenêtre (seul un message du
+      // contact l'ouvre), mais le parcours s'y arrête jusqu'à la réponse, et c'est elle qui la rouvre. Sa sortie « Pas de
+      // réponse » (un délai posé, lot 2 du menu « Scénario ») part SANS réponse : le cumul continue, délai compris, et le
+      // template tient lieu d'attente dans ce que l'écran dit. Sans délai, rien ne change (la première arête hors
+      // « Pas de réponse », comme `walk`).
+      const delai = actionOf(node) ? delaiSansReponseMs(node) : 0;
+      const sansReponse = delai > 0 ? nextNodeByHandle(graph, id, 'timeout') : null;
+      if (sansReponse) pile.push({ id: sansReponse, cumul: Math.min(cumul + Math.max(PAS_MIN_MS, delai), FENETRE_SERVICE_MS), dernierWait: id });
+      const reponse = nextNodeHorsTimeout(graph, id);
+      if (reponse) pile.push({ id: reponse, cumul: 0, dernierWait: null });
+      continue;
+    }
+    const suivant = node.type === 'wait'
+      ? { cumul: Math.min(cumul + Math.max(PAS_MIN_MS, waitEstimationMs(node)), FENETRE_SERVICE_MS), dernierWait: waitEstimationMs(node) > 0 ? id : dernierWait }
+      : { cumul, dernierWait };
     if (node.type === 'condition') {
       // Toutes les sorties (familles puis « Sinon »), et la 1re arête seulement si aucune n'est reliée.
       const sorties = sortiesDeCondition(node);

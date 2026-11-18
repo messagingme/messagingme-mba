@@ -23,6 +23,15 @@ import { FENETRE_AU_DEPART, type AutomationTriggerKind } from './automations';
 
 /** La fenêtre de service WhatsApp : 24 h depuis le dernier message du contact. */
 export const FENETRE_MS = 24 * 3_600_000;
+/**
+ * Le pas du balayage des réveils : un délai ou une attente plus courts comptent pour lui. C'est ce qui borne l'analyse
+ * d'un cycle d'attentes minuscules (un délai fractionnaire posé par l'API, 60 ms) : sans plancher, le cumul y croîtrait par
+ * pas de 60 ms jusqu'à 24 h, soit 1,4 million d'états par bloc, et `GET /automations` analyse chaque automation. Même
+ * plancher que l'ancien avertissement de la console (`waitBeforeSessionMessage`).
+ */
+const PAS_MIN_MS = 60_000;
+const compte = (ms: number): number => (ms > 0 ? Math.max(ms, PAS_MIN_MS) : 0);
+
 /** Les sorties qui ne sont PAS une réponse du contact : « pas de réponse » et « puis, sans attendre ». */
 const SORTIES_SANS_REPONSE: ReadonlySet<string> = new Set(['timeout', 'ensuite']);
 
@@ -59,6 +68,13 @@ export function analyserFenetre<N extends NoeudOuverture>(
   graph: GrapheOuverture<N>, departs: readonly Depart[], regles: ReglesFenetre<N>,
 ): Constat[] {
   const parId = new Map(graph.nodes.map((x) => [x.id, x] as const));
+  // Les arêtes sortantes de chaque bloc, lues une fois : sans cet index, chaque état parcourait toutes les arêtes.
+  const sortantes = new Map<string, Array<(typeof graph.edges)[number]>>();
+  for (const a of graph.edges) {
+    const liste = sortantes.get(a.source);
+    if (liste) liste.push(a);
+    else sortantes.set(a.source, [a]);
+  }
   const constats: Constat[] = [];
   const dejaDits = new Set<string>();
   const effectifs: readonly Depart[] = departs.length > 0 ? departs : [{ noeudId: null, fenetre: 'ouverte', raison: '' }];
@@ -98,12 +114,11 @@ export function analyserFenetre<N extends NoeudOuverture>(
       }
 
       const attend = regles.attendUneReponse(noeud);
-      const apresAttente = cumul + regles.dureeAttenteMs(noeud);
-      for (const arete of graph.edges) {
-        if (arete.source !== noeud.id) continue;
+      const apresAttente = cumul + compte(regles.dureeAttenteMs(noeud));
+      for (const arete of sortantes.get(noeud.id) ?? []) {
         const poignee = arete.sourceHandle ?? '';
         if (poignee === 'timeout') {
-          aExplorer.push({ id: arete.target, ouverte, cumulMs: cumul + regles.delaiSansReponseMs(noeud) });
+          aExplorer.push({ id: arete.target, ouverte, cumulMs: cumul + compte(regles.delaiSansReponseMs(noeud)) });
         } else if (attend && !SORTIES_SANS_REPONSE.has(poignee)) {
           // Une réponse ou un clic du contact : la fenêtre se rouvre, le compte repart de zéro.
           aExplorer.push({ id: arete.target, ouverte: true, cumulMs: 0 });

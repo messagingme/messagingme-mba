@@ -164,6 +164,22 @@ export function sessionMessageAfterRcs(graph: GraphLike): { rcsNodeId: string; m
   return null;
 }
 
+/** Les unités d'un délai « Pas de réponse », celles du moteur (`QUESTION_UNITS`). Une Map : une unité forgée
+ *  (« constructor ») ne doit pas trouver une propriété de `Object.prototype`. */
+const UNITES_DELAI = new Map<string, number>([['minutes', 60_000], ['hours', 3_600_000], ['days', 86_400_000]]);
+
+/**
+ * Miroir de `delaiSansReponseMs` (`src/workflow/engine.ts`) : le délai « Pas de réponse » d'un bloc, en millisecondes,
+ * plafonné à 30 jours ; 0 = aucun (absent, nul, illisible, ou unité inconnue).
+ */
+export function delaiSansReponseMs(node: GraphNodeLike): number {
+  const brut = Number(node.data.timeoutValue ?? 0);
+  if (!Number.isFinite(brut) || brut <= 0) return 0;
+  const ms = UNITES_DELAI.get(String(node.data.timeoutUnit ?? 'hours'));
+  if (ms === undefined) return 0;
+  return Math.min(Math.round(brut * ms), 30 * 86_400_000);
+}
+
 /** Un montage impossible : attente qui ferme forcément la fenêtre, puis message de session. */
 export interface WaitThenSession {
   /** Le dernier bloc Attente TRAVERSÉ sur ce chemin. */
@@ -250,11 +266,19 @@ export function waitBeforeSessionMessage(graph: GraphLike): WaitThenSession | nu
       if (nx) pile.push({ id: nx, cumul, dernierWait });
       continue;
     }
-    const suivant = node.type === 'template'
-      ? { cumul: 0, dernierWait: null }
-      : node.type === 'wait'
-        ? { cumul: Math.min(cumul + Math.max(PAS_MIN_MS, dureeMs(node)), FENETRE_MS), dernierWait: dureeMs(node) > 0 ? id : dernierWait }
-        : { cumul, dernierWait };
+    if (node.type === 'template') {
+      // Miroir du serveur (`explorerLesAttentes`) : la sortie de réponse remet le compteur à zéro ; la sortie « Pas de
+      // réponse », quand un délai est posé sur un template choisi, part sans réponse et le cumul continue.
+      const delai = String(node.data.templateName ?? '').trim() !== '' ? delaiSansReponseMs(node) : 0;
+      const sansReponse = delai > 0 ? cibleParSortie(graph, id, 'timeout') : null;
+      if (sansReponse) pile.push({ id: sansReponse, cumul: Math.min(cumul + Math.max(PAS_MIN_MS, delai), FENETRE_MS), dernierWait: id });
+      const reponse = graph.edges.find((x) => x.source === id && x.sourceHandle !== 'timeout')?.target ?? null;
+      if (reponse) pile.push({ id: reponse, cumul: 0, dernierWait: null });
+      continue;
+    }
+    const suivant = node.type === 'wait'
+      ? { cumul: Math.min(cumul + Math.max(PAS_MIN_MS, dureeMs(node)), FENETRE_MS), dernierWait: dureeMs(node) > 0 ? id : dernierWait }
+      : { cumul, dernierWait };
     if (node.type === 'condition') {
       const sorties = sortiesDeCondition(node);
       for (const h of sorties) {

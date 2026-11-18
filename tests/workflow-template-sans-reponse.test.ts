@@ -1,7 +1,7 @@
 import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect } from 'vitest';
-import { delaiSansReponseMs, nextNodeHorsTimeout, walk } from '../src/workflow/engine';
+import { delaiSansReponseMs, nextNodeHorsTimeout, sautsApresAttenteLongue, waitBeforeSessionMessage, walk } from '../src/workflow/engine';
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowExecutorDeps } from '../src/workflow/executor';
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
@@ -246,5 +246,41 @@ describe('🔴 une relance de masse n’émet rien tant que le contact n’a pas
     await ex.resume({ ...enAttente(), neEnMasse: true, lastMessageId: null });
     expect(posees).toEqual(['arrivee']);
     expect(tags).toEqual([]);
+  });
+});
+
+/**
+ * 🔴 L'ANALYSE DES LONGUES ATTENTES SUIT LA SORTIE « PAS DE RÉPONSE » (relecture de 2a, point 5). Elle remettait le
+ * compteur à zéro sur tout template, « le parcours s'arrête au template jusqu'à la réponse » : faux dès qu'un délai est
+ * posé, la sortie « Pas de réponse » partant SANS réponse. Le montage « template à 30 h, puis message rapide » ne partira
+ * jamais, et un saut vers un autre scénario au bout de 30 h sans réponse se juge à la publication.
+ */
+describe('🔴 les longues attentes suivent la sortie « Pas de réponse » d’un template à délai', () => {
+  const rapide = n('rapide', 'quick_message', { body: 'Toujours là ?' });
+
+  it('template à 30 h, puis message rapide : montage relevé, le template tient lieu d’attente', () => {
+    const g: WorkflowGraph = { nodes: [tpl({ timeoutValue: 30, timeoutUnit: 'hours' }), rapide], edges: [e('e1', 't', 'rapide', 'timeout')] };
+    expect(waitBeforeSessionMessage(g)).toEqual({ waitNodeId: 't', messageNodeId: 'rapide' });
+  });
+
+  it('template à 30 min, puis message rapide : rien, la fenêtre peut être ouverte', () => {
+    const g: WorkflowGraph = { nodes: [tpl({ timeoutValue: 30, timeoutUnit: 'minutes' }), rapide], edges: [e('e1', 't', 'rapide', 'timeout')] };
+    expect(waitBeforeSessionMessage(g)).toBeNull();
+  });
+
+  it('la sortie de RÉPONSE remet toujours le compteur à zéro', () => {
+    const g: WorkflowGraph = {
+      nodes: [n('w', 'wait', { delay: 20, unit: 'hours' }), tpl({ timeoutValue: 30, timeoutUnit: 'minutes' }), n('w2', 'wait', { delay: 10, unit: 'hours' }), rapide],
+      edges: [e('e0', 'w', 't'), e('e1', 't', 'w2', 'btn:0'), e('e2', 'w2', 'rapide')],
+    };
+    expect(waitBeforeSessionMessage(g)).toBeNull();
+  });
+
+  it('un saut vers un autre scénario après 2 jours sans réponse est relevé pour la publication', () => {
+    const g: WorkflowGraph = {
+      nodes: [tpl({ timeoutValue: 2, timeoutUnit: 'days' }), n('saut', 'aller_a', { cible: 'nod_ab_AILLEURS000000000000000000' })],
+      edges: [e('e1', 't', 'saut', 'timeout')],
+    };
+    expect(sautsApresAttenteLongue(g)).toEqual([{ waitNodeId: 't', sautNodeId: 'saut', cible: 'nod_ab_AILLEURS000000000000000000' }]);
   });
 });
