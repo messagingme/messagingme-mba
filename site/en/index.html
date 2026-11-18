@@ -468,15 +468,15 @@
             </div>
             <ol class="a-fil">
               <li class="a-jour">Today · 10:30</li>
-              <li class="carte-riche" style="--t:.7s">
+              <li class="carte-riche" style="--t:.3s">
                 <img class="visuel" src="/rcs-automne.jpg" alt="Checked jacket from the fall collection" width="220" height="122">
                 <div class="carte-corps"><strong>Fall collection</strong><span>20% off for our customers, until Sunday.</span></div>
                 <span class="action-riche">View the collection</span>
                 <span class="action-riche">Reserve in store</span>
               </li>
-              <li class="a-bulle a-envoye" style="--t:1.8s">Reserve in store</li>
-              <li class="a-bulle a-recu" style="--t:2.9s">Done, the jacket is waiting for you in store until Saturday.</li>
-              <li style="--t:3.6s">
+              <li class="a-bulle a-envoye" style="--t:.9s">Reserve in store</li>
+              <li class="a-bulle a-recu" style="--t:1.5s">Done, the jacket is waiting for you in store until Saturday.</li>
+              <li style="--t:2s">
                 <ul class="suggestions" aria-label="Suggested replies"><li>Change size</li><li>Thanks!</li></ul>
               </li>
             </ol>
@@ -500,17 +500,17 @@
             </div>
             <ol class="wa-fil">
               <li class="jour">Today</li>
-              <li class="bulle recu" style="--t:.4s">
+              <li class="bulle recu" style="--t:.2s">
                 <p>New fall collection: 20% off for our customers, until Sunday.<span class="heure">10:30</span></p>
                 <span class="bouton-modele"><svg class="ic" aria-hidden="true"><use href="#i-lien"/></svg>View the collection</span>
               </li>
-              <li class="bulle envoye" style="--t:1.4s">
+              <li class="bulle envoye" style="--t:.8s">
                 <p>Does the wool jacket come in M? I will take it if so.<span class="heure">10:41 <svg class="ic" aria-hidden="true"><use href="#i-coches"/></svg></span></p>
               </li>
-              <li class="bulle recu" style="--t:2.4s">
+              <li class="bulle recu" style="--t:1.4s">
                 <p>Yes, there are three left in M. Shall I send you the payment link?<span class="heure">10:41</span></p>
               </li>
-              <li class="bulle envoye" style="--t:3.4s">
+              <li class="bulle envoye" style="--t:2s">
                 <p>Yes, thanks!<span class="heure">10:42 <svg class="ic" aria-hidden="true"><use href="#i-coches"/></svg></span></p>
               </li>
             </ol>
@@ -985,9 +985,9 @@ curl -X POST https://api.messagingme.app/v1/messages/whatsapp \
       bloc.classList.toggle('couts', tours++ % 2 === 1);
       void une.offsetWidth;
       une.classList.add('tour');
-      minuteries.push(setTimeout(function () { une.classList.add('carte'); bloc.classList.add('joue'); }, 4400));
-      minuteries.push(setTimeout(function () { une.classList.add('sortie'); }, 13400));
-      minuteries.push(setTimeout(tour, 15000));
+      minuteries.push(setTimeout(function () { une.classList.add('carte'); bloc.classList.add('joue'); }, 2500));
+      minuteries.push(setTimeout(function () { une.classList.add('sortie'); }, 11500));
+      minuteries.push(setTimeout(tour, 13100));
     }
     new IntersectionObserver(function (e) {
       if (e[0].isIntersecting && !actif) { actif = true; tour(); }
