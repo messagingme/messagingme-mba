@@ -31,7 +31,7 @@ function runsEnMemoire() {
   const runs = avecGardesDEtatInertes({
     start: async (t: string, w: string, waId: string, _c: string | null, state: RunState, fige: WorkflowGraph | null, exige: boolean) => {
       const id = `r${lignes.length + 1}`;
-      lignes.push({ id, workflowId: w, tenantId: t, waId, currentNode: state.currentNode, status: state.status, lastMessageId: state.lastMessageId ?? null, grapheFige: fige, neEnMasse: false, exigeAccordMarketing: exige });
+      lignes.push({ evenement: null, id, workflowId: w, tenantId: t, waId, currentNode: state.currentNode, status: state.status, lastMessageId: state.lastMessageId ?? null, grapheFige: fige, neEnMasse: false, exigeAccordMarketing: exige });
       crees.push({ state, fige });
       return { id };
     },

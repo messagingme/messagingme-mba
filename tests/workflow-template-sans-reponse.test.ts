@@ -124,7 +124,7 @@ function monter(graph: WorkflowGraph, run: WorkflowRunRow | null, cap: Capture, 
   return new WorkflowExecutor(deps);
 }
 const capture = (): Capture => ({ etats: [], tags: [], rapides: [], rendus: [] });
-const enAttente = (): WorkflowRunRow => ({
+const enAttente = (): WorkflowRunRow => ({ evenement: null,
   id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 't', status: 'waiting',
   lastMessageId: null, channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: false, neEnMasse: false,
 });

@@ -43,7 +43,7 @@ describe.skipIf(!url)('workflow_runs.ne_en_masse : écrit par start, relu par le
   async function parcours(waId: string, status: 'waiting' | 'sleeping', masse: boolean, echeancePassee: boolean): Promise<string> {
     const { id } = await store.start(tenantId, workflowId, waId, null, {
       currentNode: 'n1', status, ...(echeancePassee ? { resumeAt: new Date(Date.now() - 60_000) } : {}),
-    }, null, false, masse);
+    }, null, false, masse, null);
     return id;
   }
 

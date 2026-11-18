@@ -45,7 +45,7 @@ const MERCI_PUIS_DEVIS: WorkflowGraph = {
   edges: [e('q', 'a', 'btn:0'), e('a', 'devis')],
 };
 
-const PARCOURS = (currentNode: string, status: WorkflowRunRow['status'], exige = false): WorkflowRunRow => ({
+const PARCOURS = (currentNode: string, status: WorkflowRunRow['status'], exige = false): WorkflowRunRow => ({ evenement: null,
   id: 'run-1', workflowId: 'wf1', tenantId: 't1', waId: WA, contactId: 'c1',
   currentNode, status, lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: exige,
 });

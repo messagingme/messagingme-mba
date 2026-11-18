@@ -43,7 +43,7 @@ class FauxRuns {
   async closeActiveByWaId(): Promise<string[]> { return []; }
   async start(tenantId: string, workflowId: string, waId: string, _c: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean): Promise<{ id: string }> {
     this.grapheFigeEcrit = grapheFige;
-    this.run = { id: 'r1', workflowId, tenantId, waId, currentNode: state.currentNode, status: state.status, lastMessageId: null, grapheFige, exigeAccordMarketing, neEnMasse };
+    this.run = { evenement: null, id: 'r1', workflowId, tenantId, waId, currentNode: state.currentNode, status: state.status, lastMessageId: null, grapheFige, exigeAccordMarketing, neEnMasse };
     return { id: 'r1' };
   }
   async findWaitingByWaId(_t: string, waId: string): Promise<WorkflowRunRow | null> {
@@ -122,7 +122,7 @@ describe('les points de reprise jouent le graphe figé', () => {
 
   it('🔴 `resume` : le réveil après une attente joue le BROUILLON', async () => {
     const { ex, calls, luPublie } = monter(avecAttente('publie'));
-    const dormant = {
+    const dormant = { evenement: null,
       id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w',
       status: 'sleeping' as const, grapheFige: avecAttente('brouillon'), neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null,
     };
@@ -138,7 +138,7 @@ describe('les points de reprise jouent le graphe figé', () => {
     const publie: WorkflowGraph = { nodes: [n('r', 'template', { templateName: 'promo', language: 'fr' })], edges: [] };
     const brouillon: WorkflowGraph = { nodes: [n('r', 'rcs_message', { body: 'coucou' })], edges: [] };
     const { ex, runs, luPublie } = monter(publie);
-    runs.run = {
+    runs.run = { evenement: null,
       id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'r',
       status: 'waiting', lastMessageId: null, channel: 'rcs', grapheFige: brouillon, neEnMasse: false, exigeAccordMarketing: false,
     };
@@ -148,7 +148,7 @@ describe('les points de reprise jouent le graphe figé', () => {
 
   it('⚠️ sans graphe figé, `resume` lit le publié, exactement comme avant', async () => {
     const { ex, calls, luPublie } = monter(avecAttente('publie'));
-    const dormant = {
+    const dormant = { evenement: null,
       id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w',
       status: 'sleeping' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null,
     };

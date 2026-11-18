@@ -99,7 +99,7 @@ class FauxRuns {
   runs: Array<WorkflowRunRow & { contactId: string | null }> = [];
   async start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean): Promise<{ id: string }> {
     const id = `r${this.runs.length + 1}`;
-    this.runs.push({
+    this.runs.push({ evenement: null,
       id, workflowId, tenantId, waId, contactId, currentNode: state.currentNode, status: state.status,
       lastMessageId: state.lastMessageId ?? null, grapheFige, exigeAccordMarketing, neEnMasse,
     });
@@ -334,7 +334,7 @@ describe('🔴 la fenêtre de 24 h suit le saut, au réveil', () => {
     edges: [e('w', 'j')],
   };
   const b: WorkflowGraph = { nodes: [n('r', 'quick_message', { body: 'Relance', quickReplies: ['Ok'], code: code(80) })], edges: [] };
-  const reveil = { id: 'r1', workflowId: 'wf-a', tenantId: 't1', waId: WA, currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null, status: 'sleeping' as const };
+  const reveil = { evenement: null, id: 'r1', workflowId: 'wf-a', tenantId: 't1', waId: WA, currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null, status: 'sleeping' as const };
 
   it('fenêtre fermée : le scénario d’arrivée refuse d’ouvrir par un message de session, la conversation va à l’équipe', async () => {
     silence();

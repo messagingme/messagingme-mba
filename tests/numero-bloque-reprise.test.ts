@@ -32,7 +32,7 @@ const ATTENTE_EMAIL_TAG: WorkflowGraph = {
   edges: [{ id: 'e1', source: 'w', target: 'em' }, { id: 'e2', source: 'em', target: 'tg' }],
 };
 
-const RUN: WorkflowRunRow = {
+const RUN: WorkflowRunRow = { evenement: null,
   id: 'run-1', workflowId: 'wf1', tenantId: 't1', waId: '33611', contactId: 'c1',
   currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false,
 };

@@ -20,7 +20,7 @@ const graphe: WorkflowGraph = {
  * un autre traitement a fait avancer le run pendant qu'on travaillait.
  */
 class RunsConditionnels {
-  run: WorkflowRunRow | null = {
+  run: WorkflowRunRow | null = { evenement: null,
     id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false,
   };
   aBouge = false;

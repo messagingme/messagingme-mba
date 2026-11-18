@@ -1,6 +1,21 @@
 import type { Pool } from 'pg';
 import type { WorkflowGraph } from './graph';
 import { parseGraph } from './graph';
+import { lireEvenement, type EvenementDuParcours } from './evenement';
+
+/** Le nom de l'index unique de 0298 : une seule place d'événement active par contact. */
+const INDEX_EVENEMENT_ACTIF = 'workflow_runs_evenement_actif_uniq';
+
+/**
+ * Les variables d'un parcours s'effacent quand il se termine (décision 28 : des liens à clé d'accès), son origine reste.
+ * TOUTE écriture du magasin qui pose un statut passe par l'un de ces deux fragments (`tests/run-store-claims.test.ts` en
+ * fait l'inventaire) : `EFFACER_VARIABLES` quand le statut écrit est `done` en littéral, `EFFACER_VARIABLES_SI_TERMINAL`
+ * quand il vient d'un paramètre. `null - 'variables'` reste `null` : un parcours ordinaire n'est pas touché.
+ */
+const EFFACER_VARIABLES = `evenement = evenement - 'variables'`;
+function EFFACER_VARIABLES_SI_TERMINAL(statut: string): string {
+  return `evenement = case when ${statut} in ('done', 'inbox') then evenement - 'variables' else evenement end`;
+}
 
 /**
  * Relit le graphe figé d'un parcours. `null` = ce parcours n'en porte pas, le cas de tous les parcours réels.
@@ -24,6 +39,7 @@ interface LigneRun {
   id: string; workflow_id: string; tenant_id: string; wa_id: string; contact_id: string | null;
   current_node: string | null; status: RunStatus; last_message_id: string | null;
   channel: RunChannel | null; graphe_fige: WorkflowGraph | null; accord_marketing_exige: boolean; ne_en_masse: boolean;
+  evenement: unknown;
 }
 
 /**
@@ -43,6 +59,7 @@ function runDeLigne(r: LigneRun): WorkflowRunRow {
     currentNode: r.current_node, status: r.status, lastMessageId: r.last_message_id,
     channel: r.channel ?? 'whatsapp', grapheFige: relireGrapheFige(r.graphe_fige, r.id), exigeAccordMarketing: accordExigeDe(r),
     neEnMasse: r.ne_en_masse === true,
+    evenement: lireEvenement(r.evenement, r.id),
   };
 }
 
@@ -56,6 +73,7 @@ function ligneReclamee(r: LigneReclamee, statut: 'sleeping' | 'waiting'): Workfl
     currentNode: r.current_node, status: statut, lastMessageId: r.last_message_id, channel: r.channel ?? 'whatsapp', grapheFige: parseGraph(r.graphe_fige),
     exigeAccordMarketing: accordExigeDe(r),
     neEnMasse: r.ne_en_masse === true,
+    evenement: lireEvenement(r.evenement, r.id),
   };
 }
 
@@ -102,6 +120,12 @@ export interface WorkflowRunRow {
    * c'est le SQL exact de `tests/run-store-claims.test.ts` qui tient la colonne dans chaque lecture.
    */
   neEnMasse: boolean;
+  /**
+   * L'événement dont le parcours est né (`workflow_runs.evenement`, migration 0297, menu « Scénario », lot 4) : son
+   * origine et ses variables, `null` pour un parcours ordinaire. REQUIS, comme `neEnMasse` : perdu au balayage, un
+   * parcours d'événement se réveillerait ordinaire, remplaçable et sans ses variables. Relu par `safeParse`.
+   */
+  evenement: EvenementDuParcours | null;
 }
 
 export interface RunState {
@@ -119,27 +143,54 @@ export class PgWorkflowRunStore {
   constructor(private readonly pool: Pool) {}
 
   /**
-   * `grapheFige`, `exigeAccordMarketing` et `neEnMasse` sont des paramètres à part, pas des champs de `RunState` : ils
-   * s'écrivent une seule fois, à la naissance du parcours, et `setState` et ses variantes les auraient ignorés en silence.
+   * `grapheFige`, `exigeAccordMarketing`, `neEnMasse` et `evenement` sont des paramètres à part, pas des champs de
+   * `RunState` : ils s'écrivent une seule fois, à la naissance du parcours, et `setState` et ses variantes les auraient
+   * ignorés en silence.
+   *
+   * Un second parcours d'événement actif pour le même contact viole l'index unique de 0298 (deux événements joués en
+   * parallèle : l'index est la seule garantie, décision 21) : le 23505 devient le refus `evenement_actif`, que le
+   * démarrage rend comme « aucun parcours », jamais un échec de campagne. Un parcours ORDINAIRE (`evenement` à `null`)
+   * ne peut pas le violer : la première surcharge le dit au compilateur.
    */
-  async start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean): Promise<{ id: string }> {
+  start(
+    tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null,
+    exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: null,
+  ): Promise<{ id: string }>;
+  start(
+    tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null,
+    exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null,
+  ): Promise<{ id: string } | { refus: 'evenement_actif' }>;
+  async start(
+    tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null,
+    exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null,
+  ): Promise<{ id: string } | { refus: 'evenement_actif' }> {
     // `resume_at` est écrit dès la création : un scénario dont le premier passage tombe sur un bloc Attente
     // naît en sommeil, et sans échéance le balayage (`resume_at <= now()`) ne le réveillerait jamais.
     // `last_message_id` aussi : le message qui démarre un parcours (le répondeur) y naît déjà reçu, et sa redélivrance
     // par Meta n'est pas prise pour une réponse par `advance`. Absent, `null` : le cas de tous les autres démarrages.
-    const res = await this.pool.query<{ id: string }>(
-      `insert into workflow_runs (workflow_id, tenant_id, contact_id, wa_id, current_node, status, resume_at, channel, graphe_fige, last_message_id, accord_marketing_exige, ne_en_masse)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id`,
-      [workflowId, tenantId, contactId, waId, state.currentNode, state.status, state.resumeAt ?? null, state.channel ?? 'whatsapp',
-       grapheFige === null ? null : JSON.stringify(grapheFige), state.lastMessageId ?? null, exigeAccordMarketing, neEnMasse],
-    );
-    return { id: res.rows[0]!.id };
+    try {
+      const res = await this.pool.query<{ id: string }>(
+        `insert into workflow_runs (workflow_id, tenant_id, contact_id, wa_id, current_node, status, resume_at, channel, graphe_fige, last_message_id, accord_marketing_exige, ne_en_masse, evenement)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
+        [workflowId, tenantId, contactId, waId, state.currentNode, state.status, state.resumeAt ?? null, state.channel ?? 'whatsapp',
+         grapheFige === null ? null : JSON.stringify(grapheFige), state.lastMessageId ?? null, exigeAccordMarketing, neEnMasse,
+         evenement === null ? null : JSON.stringify(evenement)],
+      );
+      return { id: res.rows[0]!.id };
+    } catch (err) {
+      const e = err as { code?: unknown; constraint?: unknown };
+      if (e.code === '23505' && e.constraint === INDEX_EVENEMENT_ACTIF) return { refus: 'evenement_actif' };
+      throw err;
+    }
   }
 
-  /** Le run en attente d'un contact (par tenant + numéro). Un seul actif à la fois par contact. */
+  /**
+   * Le run en attente d'un contact (par tenant + numéro), le plus récent. Depuis le lot 4, un parcours d'événement et un
+   * parcours ordinaire peuvent attendre ensemble (décision 21) : l'avance route un clic par le message qu'il cite.
+   */
   async findWaitingByWaId(tenantId: string, waId: string): Promise<WorkflowRunRow | null> {
     const res = await this.pool.query<LigneRun>(
-      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse
+      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse, evenement
        from workflow_runs where tenant_id = $1 and wa_id = $2 and status = 'waiting'
        order by created_at desc limit 1`,
       [tenantId, waId],
@@ -156,7 +207,7 @@ export class PgWorkflowRunStore {
    */
   async byId(tenantId: string, id: string): Promise<WorkflowRunRow | null> {
     const res = await this.pool.query<LigneRun>(
-      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse
+      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse, evenement
        from workflow_runs where tenant_id = $1 and id = $2`,
       [tenantId, id],
     );
@@ -167,19 +218,89 @@ export class PgWorkflowRunStore {
   /**
    * Clôt tous les parcours encore actifs d'un contact (`waiting` ou `sleeping`) et rend leurs identifiants.
    *
-   * Appelée par `runFrom`, donc par tous les chemins de démarrage, campagnes comprises (une fois par
-   * destinataire ; la migration 0115 porte l'index qui sert sa clause). Le nouveau parcours remplace l'ancien,
-   * sans exception. Sans elle, deux runs coexistent : `findWaitingByWaId` ne rend que le plus récent, l'autre
-   * devient orphelin pour toujours pendant que le contact reçoit les messages des deux.
+   * Appelée par `runFrom` pour les démarrages qui REMPLACENT (Inbox, lien de test, campagnes, chaîne, publicité, widget :
+   * la colonne `devantUnEvenement` de la table des lancements ; la migration 0115 porte l'index qui sert sa clause). Sans
+   * elle, deux runs coexistent : `findWaitingByWaId` ne rend que le plus récent, l'autre devient orphelin pour toujours
+   * pendant que le contact reçoit les messages des deux. Les démarrages qui COEXISTENT avec un parcours d'événement
+   * passent par `closeOrdinairesByWaId` (décision 21).
    */
   async closeActiveByWaId(tenantId: string, waId: string): Promise<string[]> {
     // `returning id` : l'appelant doit clore les sessions d'agent rattachées à ces parcours, sinon une session
     // reste `en_cours` avec un tour jamais commencé, invisible de la reprise des tours bloqués.
     const res = await this.pool.query<{ id: string }>(
-      `update workflow_runs set status = 'done', current_node = null, resume_at = null, updated_at = now()
+      `update workflow_runs set status = 'done', current_node = null, resume_at = null, ${EFFACER_VARIABLES}, updated_at = now()
        where tenant_id = $1 and wa_id = $2 and status in ('waiting', 'sleeping')
        returning id`,
       [tenantId, waId],
+    );
+    return res.rows.map((r) => r.id);
+  }
+
+  /**
+   * Clôt les parcours ORDINAIRES actifs d'un contact et épargne son parcours d'événement : un répondeur, un outil d'agent
+   * ou un saut coexistent avec lui (décision 21). Même clause que `closeActiveByWaId` (index 0115), plus le filtre.
+   */
+  async closeOrdinairesByWaId(tenantId: string, waId: string): Promise<string[]> {
+    const res = await this.pool.query<{ id: string }>(
+      `update workflow_runs set status = 'done', current_node = null, resume_at = null, ${EFFACER_VARIABLES}, updated_at = now()
+       where tenant_id = $1 and wa_id = $2 and status in ('waiting', 'sleeping') and evenement is null
+       returning id`,
+      [tenantId, waId],
+    );
+    return res.rows.map((r) => r.id);
+  }
+
+  /**
+   * Clôt les autres parcours actifs du contact, sauf celui qui prend la main : un parcours d'événement qui naît ou se
+   * réveille ferme le parcours du répondeur qui coexistait (décision 21).
+   */
+  async cloreAutresActifs(tenantId: string, waId: string, saufId: string): Promise<string[]> {
+    const res = await this.pool.query<{ id: string }>(
+      `update workflow_runs set status = 'done', current_node = null, resume_at = null, ${EFFACER_VARIABLES}, updated_at = now()
+       where tenant_id = $1 and wa_id = $2 and status in ('waiting', 'sleeping') and id <> $3
+       returning id`,
+      [tenantId, waId, saufId],
+    );
+    return res.rows.map((r) => r.id);
+  }
+
+  /**
+   * Le parcours d'événement actif de ce contact, s'il en a un. La clause reprend MOT POUR MOT le prédicat de l'index
+   * unique de 0298 (`tests/run-store-claims.test.ts` les compare) : un index partiel est un contrat avec une requête.
+   */
+  async parcoursDEvenementActif(tenantId: string, waId: string): Promise<{ id: string } | null> {
+    const res = await this.pool.query<{ id: string }>(
+      `select id from workflow_runs where tenant_id = $1 and wa_id = $2 and evenement is not null and status in ('waiting', 'sleeping') limit 1`,
+      [tenantId, waId],
+    );
+    return res.rows[0] ?? null;
+  }
+
+  /**
+   * Clôt les parcours d'événement actifs nés de cette origine (une commande née du panier arrête le parcours du panier,
+   * décision 4 ; appelée au lot 5). Rend les identifiants clos, pour fermer leurs sessions d'agent.
+   */
+  async cloreParOrigine(tenantId: string, origine: string): Promise<string[]> {
+    const res = await this.pool.query<{ id: string }>(
+      `update workflow_runs set status = 'done', current_node = null, resume_at = null, ${EFFACER_VARIABLES}, updated_at = now()
+       where tenant_id = $1 and status in ('waiting', 'sleeping') and evenement is not null and evenement->>'origine' = $2
+       returning id`,
+      [tenantId, origine],
+    );
+    return res.rows.map((r) => r.id);
+  }
+
+  /**
+   * Clôt les parcours d'événement actifs de ces scénarios (boutique en pause, ligne éteinte : décision 15 ; appelée au
+   * lot 5). Une liste vide ne clôt rien, sans requête.
+   */
+  async cloreParScenarios(tenantId: string, workflowIds: readonly string[]): Promise<string[]> {
+    if (workflowIds.length === 0) return [];
+    const res = await this.pool.query<{ id: string }>(
+      `update workflow_runs set status = 'done', current_node = null, resume_at = null, ${EFFACER_VARIABLES}, updated_at = now()
+       where tenant_id = $1 and status in ('waiting', 'sleeping') and evenement is not null and workflow_id = any($2::uuid[])
+       returning id`,
+      [tenantId, workflowIds],
     );
     return res.rows.map((r) => r.id);
   }
@@ -262,7 +383,7 @@ export class PgWorkflowRunStore {
     const res = await this.pool.query(
       `update workflow_runs set current_node = $4, status = $5,
               last_message_id = coalesce($6, last_message_id), resume_at = $7,
-              channel = coalesce($8, channel), updated_at = now()
+              channel = coalesce($8, channel), ${EFFACER_VARIABLES_SI_TERMINAL('$5::text')}, updated_at = now()
         -- « is not distinct from » et non « = » : un run peut légitimement attendre AVEC current_node à
         -- null (parcours sans position, clôture). Avec « = », null = null vaut NULL, donc la garde ne
         -- trouvait jamais la ligne et l'écriture était silencieusement PERDUE. Pour toute valeur non nulle,
@@ -287,7 +408,7 @@ export class PgWorkflowRunStore {
   async setStateSiVivant(tenantId: string, id: string, state: RunState): Promise<boolean> {
     const res = await this.pool.query(
       `update workflow_runs set current_node = $3, status = $4, last_message_id = coalesce($5, last_message_id),
-              resume_at = $6, channel = coalesce($7, channel), updated_at = now()
+              resume_at = $6, channel = coalesce($7, channel), ${EFFACER_VARIABLES_SI_TERMINAL('$4::text')}, updated_at = now()
        where id = $1 and tenant_id = $2 and status in ('waiting', 'sleeping')`,
       [id, tenantId, state.currentNode, state.status, state.lastMessageId ?? null, state.resumeAt ?? null, state.channel ?? null],
     );
@@ -301,7 +422,7 @@ export class PgWorkflowRunStore {
       // `channel` avec coalesce : un état écrit sans canal (clôture, remontée en inbox) ne doit pas ramener le
       // parcours sur WhatsApp par omission.
       `update workflow_runs set current_node = $2, status = $3, last_message_id = coalesce($4, last_message_id),
-              resume_at = $5, channel = coalesce($6, channel), updated_at = now()
+              resume_at = $5, channel = coalesce($6, channel), ${EFFACER_VARIABLES_SI_TERMINAL('$3::text')}, updated_at = now()
        where id = $1`,
       [id, state.currentNode, state.status, state.lastMessageId ?? null, state.resumeAt ?? null, state.channel ?? null],
     );
@@ -361,7 +482,7 @@ export class PgWorkflowRunStore {
          limit $1
        ) due
        where r.id = due.id
-       returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige, r.ne_en_masse`,
+       returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige, r.ne_en_masse, r.evenement`,
       [limit],
     );
     return res.rows.map((r) => ligneReclamee(r, statut));
@@ -387,7 +508,7 @@ export class PgWorkflowRunStore {
          for update skip locked
        ) due
        where r.id = due.id
-       returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige, r.ne_en_masse`,
+       returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige, r.ne_en_masse, r.evenement`,
       [tenantId, id],
     );
     const r = res.rows[0];
@@ -400,7 +521,7 @@ export class PgWorkflowRunStore {
    */
   async closeStaleSleeping(maxAgeDays = 90): Promise<number> {
     const res = await this.pool.query(
-      `update workflow_runs set status = 'done', resume_at = null, updated_at = now()
+      `update workflow_runs set status = 'done', resume_at = null, ${EFFACER_VARIABLES}, updated_at = now()
        where status = 'sleeping' and created_at <= now() - make_interval(days => $1)`,
       [maxAgeDays],
     );

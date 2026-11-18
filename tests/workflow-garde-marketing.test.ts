@@ -32,7 +32,7 @@ const QUESTION_PUIS_PROMO: WorkflowGraph = {
   edges: [e('qm', 'tpl', 'btn:0')],
 };
 
-const PARCOURS = (exige: boolean, currentNode: string, status: WorkflowRunRow['status']): WorkflowRunRow => ({
+const PARCOURS = (exige: boolean, currentNode: string, status: WorkflowRunRow['status']): WorkflowRunRow => ({ evenement: null,
   id: 'run-1', workflowId: 'wf1', tenantId: 't1', waId: WA, contactId: 'c1',
   currentNode, status, lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: exige,
 });

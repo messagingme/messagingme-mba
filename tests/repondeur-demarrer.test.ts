@@ -304,7 +304,7 @@ function moteur() {
   const runs = avecGardesDEtatInertes({
     start: async (t: string, w: string, waId: string, _c: string | null, s: RunState, fige: WorkflowGraph | null, exige: boolean) => {
       const id = `r${lignes.length + 1}`;
-      lignes.push({ id, workflowId: w, tenantId: t, waId, currentNode: s.currentNode, status: s.status, lastMessageId: s.lastMessageId ?? null, grapheFige: fige, neEnMasse: false, exigeAccordMarketing: exige, resumeAt: s.resumeAt ?? null });
+      lignes.push({ evenement: null, id, workflowId: w, tenantId: t, waId, currentNode: s.currentNode, status: s.status, lastMessageId: s.lastMessageId ?? null, grapheFige: fige, neEnMasse: false, exigeAccordMarketing: exige, resumeAt: s.resumeAt ?? null });
       return { id };
     },
     findWaitingByWaId: async (t: string, waId: string) => [...lignes].reverse().find((l) => l.tenantId === t && l.waId === waId && l.status === 'waiting') ?? null,

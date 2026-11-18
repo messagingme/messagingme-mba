@@ -8,6 +8,7 @@ import { renderText } from '../crm/render';
 import type { ParamSource } from '../crm/template';
 import { besoinsDesClauses, clausesDuBloc, type BesoinsContexte, type EvalContext } from './conditions';
 import type { RunState, WorkflowRunRow, RunChannel, RunStatus } from './run-store.pg';
+import type { EvenementDuParcours } from './evenement';
 import type { RcsSender } from '../rcs/sender';
 import type { RcsOutbound, RcsSuggestion } from '../rcs/types';
 import { rcsSuggestionSchema, apercuRcsSortant } from '../rcs/schema';
@@ -121,9 +122,12 @@ export interface WorkflowExecutorDeps {
      * Crée le parcours. `grapheFige` et `exigeAccordMarketing` sont des paramètres à part, pas des champs de
      * `RunState` : ils s'écrivent une seule fois, ici, et les écritures d'état les auraient ignorés en silence.
      * ⚠️ Une fausse implémentation à six paramètres reste assignable : seul l'aller-retour sur le vrai store prouve
-     * l'écriture (`tests/integration/run-accord-marketing.integration.test.ts`).
+     * l'écriture (`tests/integration/run-accord-marketing.integration.test.ts`, `run-evenement.integration.test.ts`).
+     * `evenement` (lot 4) : un second parcours d'événement actif pour le contact est refusé par la base ; un parcours
+     * ordinaire (`null`) ne peut pas l'être, d'où les deux surcharges.
      */
-    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean): Promise<{ id: string }>;
+    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: null): Promise<{ id: string }>;
+    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null): Promise<{ id: string } | { refus: 'evenement_actif' }>;
     findWaitingByWaId(tenantId: string, waId: string): Promise<WorkflowRunRow | null>;
     setState(id: string, state: RunState): Promise<void>;
     /**
@@ -1113,6 +1117,11 @@ export class WorkflowExecutor {
      * par destinataire, donc autant de scénarios lancés et facturés.
      */
     neEnMasse: boolean;
+    /**
+     * L'événement dont le parcours est né (lot 4), `null` pour un parcours ordinaire. Requis, comme `neEnMasse` : perdu
+     * au balayage, un parcours d'événement se réveillerait ordinaire, remplaçable et sans ses variables.
+     */
+    evenement: EvenementDuParcours | null;
     /** Canal courant du parcours. Absent -> WhatsApp (runs anciens). */
     channel?: RunChannel;
     /**
@@ -1898,7 +1907,7 @@ export class WorkflowExecutor {
       ? await this.deps.runs.start(tenantId, workflowId, contact.waId, contact.contactId, state, grapheAFiger(politique) ? graph : null, opts.exigeAccordMarketing,
         // Le chemin de masse se fige aussi (migration 0295, spec décision 24) : un type qui ne publie pas les étiquettes
         // (campagne, workflow HubSpot, envoi à un bloc) ne doit pas les publier non plus à son réveil « Pas de réponse ».
-        !politique.publieLesEtiquettes)
+        !politique.publieLesEtiquettes, null)
       : null;
     if (cree) await this.apresSommeil(tenantId, cree.id, state, canal, opts.messageDeclencheur ?? null, graph);
     // Bloc `inbox` atteint -> la conversation passe explicitement à un humain. L'escalade (collante : le

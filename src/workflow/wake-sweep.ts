@@ -1,5 +1,6 @@
 import type { RunStatus } from './run-store.pg';
 import type { WorkflowGraph } from './graph';
+import type { EvenementDuParcours } from './evenement';
 
 /** Un parcours au repos que le balayage vient de réserver. */
 export interface DueRun {
@@ -25,6 +26,11 @@ export interface DueRun {
    * contact n'a pas répondu. REQUIS, comme `exigeAccordMarketing` : chaque réclamation doit le porter jusqu'à `resume`.
    */
   neEnMasse: boolean;
+  /**
+   * L'événement dont le parcours est né (lot 4), `null` pour un parcours ordinaire. REQUIS, comme `neEnMasse` : chaque
+   * réclamation doit le porter jusqu'à `resume`, sinon un parcours d'événement se réveillerait ordinaire.
+   */
+  evenement: EvenementDuParcours | null;
   /**
    * Le dernier message consommé par le parcours (`last_message_id`), que la reprise transmet pour afficher « en
    * train d'écrire… » sur une nouvelle pause en secondes. Requis, comme `grapheFige` : chaque réclamation doit le lire.

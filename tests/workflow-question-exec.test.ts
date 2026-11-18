@@ -81,7 +81,7 @@ function monter(graph: WorkflowGraph, run: WorkflowRunRow | null, cap: Capture, 
 }
 
 const capture = (): Capture => ({ envois: [], tags: [], etats: [], escalades: [] });
-const runQ = (): WorkflowRunRow => ({
+const runQ = (): WorkflowRunRow => ({ evenement: null,
   id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1',
   currentNode: 'q', status: 'waiting', lastMessageId: null, channel: 'whatsapp', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false,
 });
@@ -161,7 +161,7 @@ describe('bloc Question : le réveil « pas de réponse »', () => {
   it('🔴 à l’échéance, on sort par `timeout`, JAMAIS par le successeur', async () => {
     const cap = capture();
     const { ex } = monter(GRAPHE, null, cap);
-    const repris = await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
+    const repris = await ex.resume({ evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
     expect(repris).toBe(true);
     expect(cap.tags).toEqual(['sans-reponse']);
   });
@@ -176,7 +176,7 @@ describe('bloc Question : le réveil « pas de réponse »', () => {
       mbaActifPour: async () => true,
       releaseToMba: async (_t: string, waId: string) => { rendus.push(waId); },
     });
-    const repris = await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
+    const repris = await ex.resume({ evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
     expect(repris).toBe(false);
     expect(cap.etats.at(-1)?.state.status).toBe('done');
     expect(rendus).toEqual(['33600']);
@@ -190,7 +190,7 @@ describe('bloc Question : le réveil « pas de réponse »', () => {
     };
     const cap = capture();
     const { ex } = monter(g, null, cap);
-    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'w', status: 'sleeping', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
+    await ex.resume({ evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'w', status: 'sleeping', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
     expect(cap.tags).toEqual(['apres-attente']);
   });
 });
@@ -201,8 +201,8 @@ describe('bloc Question : le réveil « pas de réponse »', () => {
  * question jamais reveillee, ou un dormant reveille par la mauvaise sortie.
  */
 describe('balayeur : les deux familles d echeance', () => {
-  const dormant = (id: string): DueRun => ({ id, workflowId: 'wf', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
-  const question = (id: string): DueRun => ({ id, workflowId: 'wf', tenantId: 't1', waId: '33601', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
+  const dormant = (id: string): DueRun => ({ evenement: null, id, workflowId: 'wf', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
+  const question = (id: string): DueRun => ({ evenement: null, id, workflowId: 'wf', tenantId: 't1', waId: '33601', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
 
   it('reprend les dormants ET les questions sans reponse, en portant leur statut', async () => {
     const vus: Array<{ id: string; status?: string }> = [];

@@ -28,7 +28,7 @@ class FakeRuns {
   dernierEtat: RunState | null = null;
   async start(tenantId: string, workflowId: string, waId: string, _contactId: string | null, state: RunState): Promise<{ id: string }> {
     this.dernierEtat = state;
-    this.run = { id: 'r1', workflowId, tenantId, waId, currentNode: state.currentNode, status: state.status, lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    this.run = { evenement: null, id: 'r1', workflowId, tenantId, waId, currentNode: state.currentNode, status: state.status, lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
     return { id: 'r1' };
   }
   async findWaitingByWaId(_t: string, waId: string): Promise<WorkflowRunRow | null> {
@@ -780,7 +780,7 @@ describe('WorkflowExecutor.resume (réveil après un bloc Attente)', () => {
 
   function makeResume(graph: WorkflowGraph, over: Partial<WorkflowExecutorDeps> = {}) {
     const runs = new FakeRuns();
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
     const calls: string[] = [];
     const escalations: string[] = [];
     const emis: string[] = []; // événements d'automation publiés (tag ajouté)
@@ -802,7 +802,7 @@ describe('WorkflowExecutor.resume (réveil après un bloc Attente)', () => {
       emitTagAdded: async (_t, _w, tag) => { emis.push(tag); },
       ...over,
     });
-    const run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
+    const run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
     return { ex, runs, calls, escalations, emis, run };
   }
 
@@ -1140,7 +1140,7 @@ describe('advance : le bloc agent rend la main au tour (tâche 10)', () => {
   };
 
   const poserRunSurAgent = (runs: { run: WorkflowRunRow | null }) => {
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
   };
 
   const deps = (over: Partial<WorkflowExecutorDeps> = {}) => {
@@ -1278,7 +1278,7 @@ describe('resume : le bloc agent ouvre sa session (tâche 11)', () => {
     return { store, ouvertures };
   };
 
-  const runDormant = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
+  const runDormant = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
 
   it('le réveil ouvre la session et enfile un tour « demarrage »', async () => {
     const jobs: AgentTurnJob[] = [];
@@ -1286,7 +1286,7 @@ describe('resume : le bloc agent ouvre sa session (tâche 11)', () => {
     const { ex, runs } = make(attenteAgent, { agentSessions: store, enqueueAgentTurn: async (j: AgentTurnJob) => { jobs.push(j); }, isWindowOpen: async () => true });
     // Le run doit être SEMÉ dans le fake : `FakeRuns.setState` ne mute que si `this.run` existe déjà. Sans ce
     // seeding, l'assertion d'état plus bas porterait sur `null` et ne prouverait rien.
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
     expect(await ex.resume(runDormant)).toBe(true);
     expect(ouvertures).toHaveLength(1);
     expect(ouvertures[0]).toMatchObject({ tenantId: 't1', runId: 'r1', agentId: 'ag1', nodeId: 'a', waId: '33600' });
@@ -1455,7 +1455,7 @@ describe('advance : transition FRAÎCHE vers un bloc agent (revue tâche 12)', (
       enqueueAgentTurn: async (j: AgentTurnJob) => { jobs.push(j); },
     });
     // le run attend sur le TEMPLATE, pas sur l'agent : c'est la réponse du contact qui l'y amène
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'tpl', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'tpl', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
     await ex.advance('t1', '33600', 'msg1');
     expect(ouvertures).toHaveLength(1);
     expect(ouvertures[0]).toMatchObject({ tenantId: 't1', runId: 'r1', agentId: 'ag1', nodeId: 'a', waId: '33600' });
@@ -1484,7 +1484,7 @@ describe('sortirDuBlocAgent (tâche 13b)', () => {
   };
 
   const surAgent = (runs: { run: WorkflowRunRow | null }) => {
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
   };
 
   const depsB = () => {
@@ -1522,7 +1522,7 @@ describe('sortirDuBlocAgent (tâche 13b)', () => {
   it('aucun parcours en attente sur un bloc agent : la sortie ne s applique à rien', async () => {
     const { over } = depsB();
     const { ex, runs, calls } = make(avecSortie, over);
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'b', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'b', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
     expect(await ex.sortirDuBlocAgent('t1', '33600', 'sB', 'fini')).toBe(false);
     expect(calls).toEqual([]);
   });
@@ -1557,7 +1557,7 @@ describe('sortie d agent NON câblée (revue 13b)', () => {
       enqueueAgentTurn: async () => {},
       releaseToMba: async (_t: string, w: string) => { rendus.push(w); },
     });
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
     expect(await ex.sortirDuBlocAgent('t1', '33600', 'sC', 'escalade')).toBe(true);
     expect(escalations).toEqual(['33600']); // remontée à un humain
     expect(rendus).toEqual([]); // et PAS rendue à l'agent de Meta
@@ -1577,7 +1577,7 @@ describe('sortie d agent NON câblée (revue 13b)', () => {
  */
 describe('envoyerBlocDepuisAgent : walk + apply sans run (tâche 16, RC4)', () => {
   const surAgent = (runs: { run: WorkflowRunRow | null }) => {
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
   };
 
   // Le parcours de l'agent : son bloc 'a'. Le bloc envoyé vient d'ailleurs, dans le graphe fourni.
@@ -1690,7 +1690,7 @@ describe('envoyerBlocDepuisAgent : walk + apply sans run (tâche 16, RC4)', () =
 
   it('refuse si le parcours n attend pas sur un bloc agent, ou si le run n est pas celui de l appelant', async () => {
     const { ex, runs, calls } = make({ nodes: [n('a', 'agent', { agentId: 'ag1' }), n('w', 'quick_message', { body: 'x' })], edges: [] });
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
     expect((await ex.envoyerBlocDepuisAgent('t1', '33600', envoi(blocSeulCatalogue, 'q'))).ok).toBe(false);
 
     surAgent(runs);
@@ -1738,7 +1738,7 @@ describe('resume : échéance d inactivité sur un bloc agent (tâche 17)', () =
     return { clotures, over: { agentSessions: store, isWindowOpen: async () => true, ...over } };
   };
 
-  const runEnAttente = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
+  const runEnAttente = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null };
 
   it('🔴 sort par le handle « timeout », JAMAIS par l arête libre', async () => {
     // Le « successeur » d'un bloc agent n'a aucun sens : c'est la réponse qui décide de la suite. Prendre la
@@ -1805,7 +1805,7 @@ describe('resume : échéance d inactivité sur un bloc agent (tâche 17)', () =
     };
     const { clotures, over } = fake17();
     const { ex } = make(g, over);
-    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
+    await ex.resume({ evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', status: 'sleeping', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
     expect(clotures).toEqual([]);
   });
 
@@ -1821,7 +1821,7 @@ describe('resume : échéance d inactivité sur un bloc agent (tâche 17)', () =
     // sur une question n'en a pas : `byRun` rend null, et rien n'est clos.
     const { clotures, over } = fake17({}, null);
     const { ex, calls } = make(g, over);
-    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
+    await ex.resume({ evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'q', status: 'waiting', grapheFige: null, neEnMasse: false, exigeAccordMarketing: false, lastMessageId: null });
     expect(calls).toEqual(['qm:pas de reponse']);
     expect(clotures).toEqual([]);
   });
@@ -1894,7 +1894,7 @@ describe('advance : le bloc Formulaire, « Formulaire rempli » et « Toute autr
   ];
   const lesDeux: WorkflowGraph = { nodes: blocs, edges: [eh('e1', 'f', 'ok', 'rempli'), e('e2', 'f', 'autre')] };
   const enAttente = (runs: FakeRuns) => {
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'f', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'f', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
   };
 
   it('🔴 un formulaire rempli prend « Formulaire rempli »', async () => {
@@ -1958,7 +1958,7 @@ describe('advance : le bloc Formulaire, « Formulaire rempli » et « Toute autr
     const { ex, runs, calls } = make(g, {
       recordNodeEvent: async (ev) => { mesures.push({ kind: ev.kind, ...(ev.handle ? { handle: ev.handle } : {}) }); },
     });
-    runs.run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'tpl', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'tpl', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
     await ex.advance('t1', '33600', 'm1', REPONSE, 'whatsapp', FORMULAIRE);
     expect(calls).toEqual(['tag:autre']);
     expect(mesures[0]).toEqual({ kind: 'reply_button', handle: 'rempli' });
