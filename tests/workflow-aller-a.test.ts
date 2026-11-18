@@ -234,7 +234,7 @@ describe('le saut vers un AUTRE scénario, sur le vrai exécuteur', () => {
     expect(demarrer).toHaveBeenCalledTimes(1);
     expect(demarrer.mock.calls[0]![0]).toBe('aller_a');
     // Un parcours libre (né avant la garde, ou d'un lancement libre) : le saut le reste.
-    expect(demarrer.mock.calls[0]![5]).toEqual({ depuis: 'saut', noeudId: 'x', fenetreOuverte: true, sauts: 1, messageDeclencheur: 'm1', exigeAccordMarketing: false });
+    expect(demarrer.mock.calls[0]![5]).toEqual({ depuis: 'saut', noeudId: 'x', fenetreOuverte: true, sauts: 1, messageDeclencheur: 'm1', exigeAccordMarketing: false, evenement: null });
     expect(m.journal).toEqual([]);
     expect(m.equipe).toEqual([]);
     // Redélivré par Meta, le même message n'est pas pris pour une réponse dans le parcours d'arrivée.

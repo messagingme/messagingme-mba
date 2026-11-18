@@ -25,7 +25,7 @@ import { MOTIF_DESABONNE, MOTIF_SANS_ACCORD_MARKETING } from '../campaign/guardr
 import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
 import { messageDe, texteDe } from '../lib/erreur';
 import {
-  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, accordMarketingExige, fenetreLevee, grapheAFiger, ouvertureExemptee,
+  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, REFUS_EVENEMENT_EN_COURS, accordMarketingExige, fenetreLevee, grapheAFiger, ouvertureExemptee,
   type DepartDuParcours, type PolitiqueDeLancement, type TypeDeLancement,
 } from './lancements';
 import { MAX_SAUTS_SANS_PAUSE, nomDuBloc } from './aller-a';
@@ -105,6 +105,15 @@ export function envoieParWhatsApp(steps: readonly WalkStep[], canalEntrant: RunC
 }
 
 /**
+ * Les effets d'un parcours d'événement qui naît sur un bloc DÉJÀ envoyé (départ `deja_envoye`, lot 4) : la marche part de
+ * ce bloc, donc son template vient en tête ; il est retiré, le moteur de campagne l'a envoyé. Rien d'autre ne change.
+ */
+export function sansLEnvoiDuBloc(steps: readonly WalkStep[], noeudId: string): WalkStep[] {
+  const [premier, ...suite] = steps;
+  return premier !== undefined && premier.nodeId === noeudId && premier.action.kind === 'sendTemplate' ? suite : [...steps];
+}
+
+/**
  * Le graphe que ce parcours joue : le sien s'il en porte un (parcours de test démarré sur le brouillon), le
  * publié sinon. Point de passage unique pour tous les points de reprise (`resume`, `runEnAttenteSur`,
  * `advance`) : sinon un test changerait de version en cours de route. `grapheFige` à null est le cas normal.
@@ -136,6 +145,18 @@ export interface WorkflowExecutorDeps {
      * `findWaitingByWaId` mais réveillable par `claimDueQuestions`.
      */
     closeActiveByWaId(tenantId: string, waId: string): Promise<string[]>;
+    /**
+     * Le parcours d'événement (lot 4, décisions 21 et 28) : une seule place active par contact, tenue par l'index unique
+     * de 0298. `parcoursDEvenementActif` la lit ; un démarrage qui COEXISTE (répondeur, outil d'agent, saut) ou qui CÈDE
+     * (automation « Autres ») ne clôt que les parcours ordinaires (`closeOrdinairesByWaId`) ; un parcours d'événement qui
+     * se réveille clôt tous les autres (`cloreAutresActifs`) ; le lot 5 arrête les parcours d'une origine (une commande
+     * née du panier) ou de scénarios (boutique en pause). Les fixtures passent `avecGardesDEtatInertes`.
+     */
+    parcoursDEvenementActif(tenantId: string, waId: string): Promise<{ id: string } | null>;
+    closeOrdinairesByWaId(tenantId: string, waId: string): Promise<string[]>;
+    cloreAutresActifs(tenantId: string, waId: string, saufId: string): Promise<string[]>;
+    cloreParOrigine(tenantId: string, origine: string): Promise<string[]>;
+    cloreParScenarios(tenantId: string, workflowIds: readonly string[]): Promise<string[]>;
     /**
      * Écrit l'état seulement si le parcours vit encore. `false` = il a été clos entre-temps, et l'écriture
      * l'aurait ressuscité avec une échéance. Requise ; les fixtures passent `avecGardesDEtatInertes`
@@ -1365,7 +1386,7 @@ export class WorkflowExecutor {
     if (rest.status === 'aller_a') {
       await this.sauter(masseMuette ? 'aller_a_masse' : 'aller_a', tenantId, { waId, contactId: run.contactId ?? null },
         { workflowId: run.workflowId, graph, noeudId: rest.nodeId, runId: run.id }, rest.cible,
-        { fenetreOuverte: await this.deps.isWindowOpen(tenantId, waId), sauts: 1, exigeAccordMarketing: run.exigeAccordMarketing });
+        { fenetreOuverte: await this.deps.isWindowOpen(tenantId, waId), sauts: 1, exigeAccordMarketing: run.exigeAccordMarketing, evenement: run.evenement });
     }
     return true;
   }
@@ -1690,7 +1711,7 @@ export class WorkflowExecutor {
     origine: { workflowId: string; graph: WorkflowGraph; noeudId: string; runId: string | null },
     cible: string,
     /** `exigeAccordMarketing` : la garde marketing du parcours d'origine, que le parcours d'arrivée hérite. */
-    depart: { fenetreOuverte: boolean; sauts: number; messageDeclencheur?: string; exigeAccordMarketing: boolean },
+    depart: { fenetreOuverte: boolean; sauts: number; messageDeclencheur?: string; exigeAccordMarketing: boolean; evenement: EvenementDuParcours | null },
   ): Promise<StartOutcome> {
     const bloc = origine.graph.nodes.find((n) => n.id === origine.noeudId);
     const nom = bloc ? nomDuBloc(bloc) : origine.noeudId;
@@ -1728,7 +1749,7 @@ export class WorkflowExecutor {
     try {
       issue = await this.demarrer(type, tenantId, arrivee.workflowId, arrivee.graph, contact, {
         depuis: 'saut', noeudId: arrivee.nodeId, fenetreOuverte: depart.fenetreOuverte, sauts: depart.sauts,
-        exigeAccordMarketing: depart.exigeAccordMarketing,
+        exigeAccordMarketing: depart.exigeAccordMarketing, evenement: depart.evenement,
         ...(depart.messageDeclencheur !== undefined ? { messageDeclencheur: depart.messageDeclencheur } : {}),
       });
     } catch (err) {
@@ -1747,6 +1768,25 @@ export class WorkflowExecutor {
     }
     if (issue !== true) return echouer(`le saut du bloc « ${nom} » n’a pas démarré le scénario visé : ${issue}`);
     return true;
+  }
+
+  /**
+   * Les gardes d'un parcours d'événement qui naît (départ `deja_envoye`, lot 4), toutes en LECTURE : la place unique du
+   * contact (décision 21) ; le bloc, encore un template qui envoie CE modèle dans CETTE langue (sinon ses boutons ne sont
+   * plus ceux du message reçu, et un clic prendrait la mauvaise branche) ; une suite au moins (sans flèche, il n'y a rien
+   * à poursuivre). `null` = il peut naître.
+   */
+  private async gardesDuBlocDejaEnvoye(
+    tenantId: string, graph: WorkflowGraph, waId: string, noeudId: string, modele: { nom: string; langue: string },
+  ): Promise<string | null> {
+    if ((await this.deps.runs.parcoursDEvenementActif(tenantId, waId)) !== null) return REFUS_EVENEMENT_EN_COURS;
+    const bloc = graph.nodes.find((n) => n.id === noeudId);
+    if (!bloc || bloc.type !== 'template') return 'le bloc envoyé n’est plus un bloc template du scénario : aucun parcours';
+    if (String(bloc.data.templateName ?? '') !== modele.nom || String(bloc.data.language ?? '') !== modele.langue) {
+      return 'le bloc n’envoie plus le template parti : aucun parcours, ses boutons ne mèneraient plus aux bonnes branches';
+    }
+    if (!graph.edges.some((e) => e.source === noeudId)) return 'le bloc envoyé n’a pas de suite : aucun parcours';
+    return null;
   }
 
   /**
@@ -1777,9 +1817,30 @@ export class WorkflowExecutor {
       exigeAccordMarketing: boolean;
       /** Le modèle d'ouverture part sans elle (`ouvertureExemptee`) ; jamais figé, une reprise n'a pas d'ouverture. */
       exempterOuverture?: boolean;
+      /**
+       * Départ `deja_envoye` (lot 4) : le bloc de départ est le template que le moteur de campagne vient d'envoyer, accepté
+       * par Meta. Il n'est pas rejoué, et `modele` est ce qui est parti (le bloc doit l'envoyer encore).
+       */
+      dejaEnvoye?: { modele: { nom: string; langue: string } };
+      /** L'événement du parcours qui naît (départ `deja_envoye`, ou saut depuis un parcours d'événement), figé dans le parcours. */
+      evenement?: EvenementDuParcours | null;
     },
   ): Promise<StartOutcome> {
     const { politique } = opts;
+    // 🔴 LE PARCOURS D'ÉVÉNEMENT (lot 4, décisions 3, 21 et 28). Ces gardes ne font que LIRE, avant toute reprise du fil :
+    // un démarrage qui cède, ou un parcours d'événement qui n'a pas sa place, n'écrit rien.
+    if (opts.dejaEnvoye) {
+      const refus = await this.gardesDuBlocDejaEnvoye(tenantId, graph, contact.waId, startNodeId, opts.dejaEnvoye.modele);
+      if (refus !== null) {
+        // eslint-disable-next-line no-console
+        console.log(`workflow ${workflowId}: parcours d’événement non né pour ${contact.waId} : ${refus}`);
+        return refus;
+      }
+    } else if (politique.devantUnEvenement === 'cede' && (await this.deps.runs.parcoursDEvenementActif(tenantId, contact.waId)) !== null) {
+      // eslint-disable-next-line no-console
+      console.log(`workflow ${workflowId}: un parcours d’événement tient ${contact.waId}, ce démarrage lui cède la place`);
+      return REFUS_EVENEMENT_EN_COURS;
+    }
     // Un scénario n'écrit jamais dans un fil détenu par un opérateur ou par MBA, sinon les deux écriraient au
     // client. Une reprise (`oui`, `sauf_operateur`) : le déclencheur est lui-même le geste explicite (un opérateur
     // qui lance une campagne ou un scénario depuis l'Inbox, un contact qui clique un bouton de chaîne), et on
@@ -1818,7 +1879,10 @@ export class WorkflowExecutor {
     const ctx = await this.buildCtx(tenantId, contact.waId, graph);
     // `sendKey` aléatoire : le run n'existe pas encore en base. Ce qui protège d'un double envoi ici, c'est le
     // claim atomique du destinataire côté campagne, pas l'idempotence RBM.
-    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, contact.waId, graph, startNodeId, ctx, opts.politique.publieLesEtiquettes, randomUUID());
+    const { actions: marchees, rest, canal: apresWalk } = await this.walkResolved(tenantId, contact.waId, graph, startNodeId, ctx, opts.politique.publieLesEtiquettes, randomUUID());
+    // Départ `deja_envoye` : le template du bloc de départ est DÉJÀ parti (le moteur de campagne l'a envoyé, Meta l'a
+    // accepté) ; seule sa suite part d'ici.
+    const actions = opts.dejaEnvoye ? sansLEnvoiDuBloc(marchees, startNodeId) : marchees;
     // Garde fenêtre 24 h : sans `fenetreLevee`, un message de session en ouverture serait rejeté par Meta
     // (131047). `POST /campaigns` refuse déjà un tel scénario ; ceci est le filet à l'exécution. Le bloc agent
     // ne produit aucune action mais écrit du texte libre : on teste aussi le repos, sinon l'agent enverrait hors
@@ -1883,7 +1947,12 @@ export class WorkflowExecutor {
     // « Envoyer au MBA » aussi (RC6) : l'agent de Meta prend la conversation, un parcours laissé en cours avancerait
     // par-dessus lui au message suivant.
     if (partis > 0 || state.status !== 'done' || rest.status === 'aller_a' || rest.status === 'vers_mba') {
-      const closPrecedent = await this.deps.runs.closeActiveByWaId(tenantId, contact.waId);
+      // Lot 4 (décisions 21 et 28) : seul un démarrage qui REMPLACE clôt aussi le parcours d'événement du contact ; un
+      // démarrage qui coexiste ou qui cède (et le parcours d'événement qui naît) ne clôt que les ordinaires. Sans parcours
+      // d'événement, les deux reviennent au même.
+      const closPrecedent = politique.devantUnEvenement === 'remplace'
+        ? await this.deps.runs.closeActiveByWaId(tenantId, contact.waId)
+        : await this.deps.runs.closeOrdinairesByWaId(tenantId, contact.waId);
       // La session d'agent suit son parcours : sinon elle reste `en_cours` avec un tour jamais commencé,
       // invisible de la reprise des tours bloqués. Close comme une panne, sauf quand c'est l'agent lui-même qui a lancé
       // ce scénario (RC4, `sessionRemplacee`) : un retrait. Dans les deux cas, aucune sortie du bloc n'est empruntée.
@@ -1907,8 +1976,15 @@ export class WorkflowExecutor {
       ? await this.deps.runs.start(tenantId, workflowId, contact.waId, contact.contactId, state, grapheAFiger(politique) ? graph : null, opts.exigeAccordMarketing,
         // Le chemin de masse se fige aussi (migration 0295, spec décision 24) : un type qui ne publie pas les étiquettes
         // (campagne, workflow HubSpot, envoi à un bloc) ne doit pas les publier non plus à son réveil « Pas de réponse ».
-        !politique.publieLesEtiquettes, null)
+        !politique.publieLesEtiquettes, opts.evenement ?? null)
       : null;
+    // Deux événements du même contact joués en parallèle : l'index unique (0298) n'en laisse naître qu'un. Le second n'a
+    // pas de parcours, et ce n'est pas un échec (seul son premier message est parti, décision 3).
+    if (cree !== null && 'refus' in cree) {
+      // eslint-disable-next-line no-console
+      console.log(`workflow ${workflowId}: un autre parcours d’événement a pris la place de ${contact.waId}, aucun parcours`);
+      return REFUS_EVENEMENT_EN_COURS;
+    }
     if (cree) await this.apresSommeil(tenantId, cree.id, state, canal, opts.messageDeclencheur ?? null, graph);
     // Bloc `inbox` atteint -> la conversation passe explicitement à un humain. L'escalade (collante : le
     // balayage ne rend plus le fil à l'agent de Meta tant que personne n'a répondu) exige `partis > 0` : sur une
@@ -1933,6 +2009,7 @@ export class WorkflowExecutor {
         { workflowId, graph, noeudId: rest.nodeId, runId: null }, rest.cible,
         {
           fenetreOuverte: opts.fenetreLevee, sauts: (opts.sauts ?? 0) + 1, exigeAccordMarketing: opts.exigeAccordMarketing,
+          evenement: opts.evenement ?? null,
           ...(opts.messageDeclencheur !== undefined ? { messageDeclencheur: opts.messageDeclencheur } : {}),
         });
     }
@@ -1958,7 +2035,7 @@ export class WorkflowExecutor {
   ): Promise<StartOutcome> {
     const politique = POLITIQUE_DE_LANCEMENT[type];
     let startNodeId: string;
-    if (depart.depuis === 'bloc' || depart.depuis === 'saut') {
+    if (depart.depuis === 'bloc' || depart.depuis === 'saut' || depart.depuis === 'deja_envoye') {
       // Pas de garde « ce bloc existe-t-il ? » ici : `runFrom` la porte, journalise et rend une raison lisible.
       startNodeId = depart.noeudId;
     } else {
@@ -1972,8 +2049,9 @@ export class WorkflowExecutor {
       exigeAccordMarketing: accordMarketingExige(politique, depart),
       exempterOuverture: ouvertureExemptee(politique, depart),
       ...(depart.depuis === 'entree' && depart.firstTemplateParams ? { firstTemplateParams: depart.firstTemplateParams } : {}),
-      ...(depart.messageDeclencheur !== undefined ? { messageDeclencheur: depart.messageDeclencheur } : {}),
-      ...(depart.depuis === 'saut' ? { sauts: depart.sauts } : {}),
+      ...(depart.depuis !== 'deja_envoye' && depart.messageDeclencheur !== undefined ? { messageDeclencheur: depart.messageDeclencheur } : {}),
+      ...(depart.depuis === 'saut' ? { sauts: depart.sauts, evenement: depart.evenement } : {}),
+      ...(depart.depuis === 'deja_envoye' ? { dejaEnvoye: { modele: depart.modele }, evenement: depart.evenement } : {}),
     });
   }
 
@@ -2410,7 +2488,7 @@ export class WorkflowExecutor {
         { workflowId: run.workflowId, graph, noeudId: rest.nodeId, runId: run.id }, rest.cible,
         {
           fenetreOuverte: prouvee || await this.deps.isWindowOpen(tenantId, waId), sauts: 1, messageDeclencheur: messageId,
-          exigeAccordMarketing: run.exigeAccordMarketing,
+          exigeAccordMarketing: run.exigeAccordMarketing, evenement: run.evenement,
         });
     }
     // « Envoyer au MBA » (RC6), après l'écriture qui a clos CE parcours, et seulement si elle a réussi : perdue, un autre

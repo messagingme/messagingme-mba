@@ -100,7 +100,23 @@ export const rcsSansAgent: WorkflowExecutorDeps['rcs'] = {
 };
 
 type Runs = WorkflowExecutorDeps['runs'];
-type GardesDEtat = Pick<Runs, 'setStateSiVivant' | 'setStateSiEncoreSur' | 'reserverAvance' | 'prolongerAvance' | 'libererAvance'>;
+type GardesDEtat = Pick<Runs, 'setStateSiVivant' | 'setStateSiEncoreSur' | 'reserverAvance' | 'prolongerAvance' | 'libererAvance'
+  | 'parcoursDEvenementActif' | 'closeOrdinairesByWaId' | 'cloreAutresActifs' | 'cloreParOrigine' | 'cloreParScenarios'>;
+
+/**
+ * Le parcours d'événement (lot 4) dans un faux qui ne le connaît pas : aucun n'est actif, donc fermer les parcours
+ * ORDINAIRES d'un contact revient à fermer tous ses parcours, et c'est SON `closeActiveByWaId` qu'on appelle (un test qui
+ * observe la clôture d'un démarrage la voit toujours). Fonctions à `this`, comme les gardes ci-dessous.
+ */
+async function parcoursDEvenementActifInerte(): Promise<{ id: string } | null> {
+  return null;
+}
+async function closeOrdinairesInerte(this: Partial<Pick<Runs, 'closeActiveByWaId'>>, tenantId: string, waId: string): Promise<string[]> {
+  return this.closeActiveByWaId ? this.closeActiveByWaId(tenantId, waId) : [];
+}
+async function aucunParcoursClos(): Promise<string[]> {
+  return [];
+}
 
 /**
  * Les deux écritures GARDÉES d'un faux `runs`, quand il ne les porte pas : leur absence valait un `setState`
@@ -149,6 +165,11 @@ export function avecGardesDEtatInertes<R extends Pick<Runs, 'setState'> & Partia
     reserverAvance: runs.reserverAvance ?? reserverAvanceInerte,
     prolongerAvance: runs.prolongerAvance ?? prolongerAvanceInerte,
     libererAvance: runs.libererAvance ?? libererAvanceInerte,
+    parcoursDEvenementActif: runs.parcoursDEvenementActif ?? parcoursDEvenementActifInerte,
+    closeOrdinairesByWaId: runs.closeOrdinairesByWaId ?? closeOrdinairesInerte,
+    cloreAutresActifs: runs.cloreAutresActifs ?? aucunParcoursClos,
+    cloreParOrigine: runs.cloreParOrigine ?? aucunParcoursClos,
+    cloreParScenarios: runs.cloreParScenarios ?? aucunParcoursClos,
   });
 }
 

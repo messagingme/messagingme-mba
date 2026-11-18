@@ -89,11 +89,21 @@ const ATTENDU: Record<TypeDeLancement, { reprise: Reprise; publie: boolean; grap
   // existe pour la seule publication des étiquettes : un saut franchi pendant le démarrage d'une campagne ne publie pas.
   aller_a: { reprise: 'reprend', publie: true, graphe: 'publie', fenetre: 'selon_preuve' },
   aller_a_masse: { reprise: 'reprend', publie: false, graphe: 'publie', fenetre: 'selon_preuve' },
+  // Lot 4 du menu « Scénario » : le parcours d'un événement Shopify. Jamais à un opérateur (décision 20), ses étiquettes
+  // publient (décision 30), le publié, la fenêtre gardée (il écrit à froid).
+  evenement_shopify: { reprise: 'reprend_sauf_operateur', publie: true, graphe: 'publie', fenetre: 'gardee' },
 };
 
 /** Les deux types du saut : l'exécuteur les lance lui-même (`sauter`), sans demande à l'entrée de lancement. */
 type TypeDuSaut = 'aller_a' | 'aller_a_masse';
 const estUnSaut = (type: TypeDeLancement): type is TypeDuSaut => type === 'aller_a' || type === 'aller_a_masse';
+
+/**
+ * Les types que jouent les boucles génériques, qui partent de l'entrée ou d'un bloc. `evenement_shopify` naît sur un bloc
+ * DÉJÀ envoyé par le moteur de campagne (départ `deja_envoye`, lot 4) : ses cas vivent dans
+ * `tests/workflow-parcours-evenement.test.ts`. Il reste dans le tableau attendu, le gel en Base et le scénario inconnu.
+ */
+const TYPES_GENERIQUES = TYPES_DE_LANCEMENT.filter((t): t is Exclude<TypeDeLancement, 'evenement_shopify'> => t !== 'evenement_shopify');
 
 /**
  * Où commence le parcours, pour les types qui en laissent le choix. Un type qui n'a pas ce choix l'ignore. `auSaut` :
@@ -129,6 +139,11 @@ function demandeDe(type: Exclude<TypeDeLancement, TypeDuSaut>, v: Variante): Dem
       return { ...base, type, waId: WA, graphe: FOURNI[v.workflowId] ?? session, fenetreOuverte: true, messageDeclencheur: null };
     case 'repondeur_scenario':
       return { ...base, type, waId: WA, fenetreOuverte: true, messageDeclencheur: null };
+    case 'evenement_shopify':
+      return {
+        ...base, type, waId: WA, contactId: 'c-campagne', noeudId: 'tpl', modele: { nom: 'publie', langue: 'fr' },
+        evenement: { origine: 'shopify:boutique:checkouts/create:1', variables: {} },
+      };
   }
 }
 
@@ -195,7 +210,7 @@ function lancerLeType(m: ReturnType<typeof banc>, type: TypeDeLancement, v: Vari
   if (!wf) return Promise.resolve(null);
   return m.executor.demarrer(type, ESPACE, v.workflowId, wf.graph, { waId: WA, contactId: 'c-saut' }, {
     depuis: 'saut', noeudId: PREMIER_BLOC[v.workflowId] ?? 'inconnu', fenetreOuverte: v.fenetreOuverte === true, sauts: 1,
-    exigeAccordMarketing: v.sautDepuisUneAutomation === true,
+    exigeAccordMarketing: v.sautDepuisUneAutomation === true, evenement: null,
   });
 }
 
@@ -219,7 +234,7 @@ describe('la reprise du fil, type par type, sur le vrai contrôle du fil', () =>
    * qui lisaient `ignoreHumanControl: true` dans le câblage de la campagne (scénario et bloc), du lien de test et
    * de l'Inbox, et `ignoreHumanControl: opts.reprendLaMain` dans celui des automations.
    */
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     const { reprise } = ATTENDU[type];
     it(`${type} : l’agent de Meta tient le fil -> ${reprise === 'bloque_par_un_fil_tenu' ? 'rien ne part, rien n’est demandé à Meta' : 'repris, le scénario part'}`, async () => {
       silence();
@@ -244,7 +259,7 @@ describe('la reprise du fil, type par type, sur le vrai contrôle du fil', () =>
    * l'automation ordinaire ne demande rien. Remplace le cas qui lisait `saufOperateur: opts.saufOperateur === true`
    * dans le câblage des automations.
    */
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     const { reprise } = ATTENDU[type];
     it(`${type} : un opérateur tient le fil -> ${reprise === 'reprend' ? 'il le perd, le scénario part' : 'il le garde'}`, async () => {
       silence();
@@ -266,7 +281,7 @@ describe('la reprise du fil, type par type, sur le vrai contrôle du fil', () =>
 });
 
 describe('la publication des étiquettes : jamais un chemin de masse', () => {
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     const { publie } = ATTENDU[type];
     it(`${type} : l’étiquette posée ${publie ? 'publie « tag ajouté »' : 'ne publie RIEN'}`, async () => {
       const m = banc();
@@ -312,7 +327,7 @@ function poseDuCablage() {
 }
 
 describe('la publication des étiquettes, sur la VRAIE pose du câblage', () => {
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     const { publie } = ATTENDU[type];
     it(`${type} : l’étiquette est posée et déclarée, et ${publie ? 'publie « tag ajouté » par la file' : 'RIEN n’entre dans la file'}`, async () => {
       const p = poseDuCablage();
@@ -331,7 +346,7 @@ describe('le graphe joué : seul le lien de test joue le brouillon, et lui seul 
    * et le compte « une seule occurrence de `figerLeGraphe` dans le worker » : un contact réel ne tombe jamais dans
    * un brouillon, et une campagne ne recopie pas son graphe par destinataire.
    */
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     const { graphe } = ATTENDU[type];
     it(`${type} : graphe ${graphe}`, async () => {
       const m = banc();
@@ -379,12 +394,14 @@ describe('la garde de fenêtre de 24 h', () => {
     // RC5 : la preuve voyage avec le saut, au bloc visé (le départ `saut`, distinct de `bloc`, qui n'en porte aucune).
     aller_a: [{ workflowId: 'wf-session', auSaut: true, fenetreOuverte: false }, { workflowId: 'wf-session', auSaut: true, fenetreOuverte: true }],
     aller_a_masse: [{ workflowId: 'wf-session', auSaut: true, fenetreOuverte: false }, { workflowId: 'wf-session', auSaut: true, fenetreOuverte: true }],
+    // Né sur un bloc déjà envoyé (départ deja_envoye) : sa garde de fenêtre se joue dans tests/workflow-parcours-evenement.test.ts.
+    evenement_shopify: [],
   };
   /** La règle du plan, écrite à part de `fenetreLevee` : la comparer à elle-même ne prouverait rien. */
   const levee = (regle: Fenetre, v: Variante): boolean =>
     regle === 'levee' || (regle === 'bloc_ou_preuve' && v.auBloc === true) || ((regle === 'selon_preuve' || regle === 'bloc_ou_preuve') && v.auBloc !== true && v.fenetreOuverte === true);
 
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     for (const v of VARIANTES[type]) {
       const ouverte = levee(ATTENDU[type].fenetre, v);
       const libelle = `${v.auBloc === true ? 'au bloc' : v.auSaut === true ? 'au bloc visé par un saut' : 'à l’entrée'}${v.fenetreOuverte === undefined ? '' : v.fenetreOuverte ? ', fenêtre prouvée' : ', sans preuve'}`;
@@ -406,7 +423,7 @@ describe('la garde de fenêtre de 24 h', () => {
 
 describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
   it('🔴 la fiche : cherchée par le numéro, sauf pour la campagne et le workflow HubSpot (qui la connaissent), l’envoi de bloc et le saut (qui la fournissent)', async () => {
-    for (const type of TYPES_DE_LANCEMENT) {
+    for (const type of TYPES_GENERIQUES) {
       const m = banc();
       await lancerLeType(m, type, { workflowId: 'wf-modele' });
       const attendue = type === 'campagne_scenario' || type === 'workflow_hubspot' || type === 'campagne_bloc' ? 'c-campagne' : type === 'agent_meta_bloc' ? 'c-appelant' : estUnSaut(type) ? 'c-saut' : 'c-fiche';
@@ -429,7 +446,7 @@ describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
   it('🔴 un scénario d’un AUTRE RAYON rend `null` comme un inconnu, avant toute recherche et tout envoi ; seul le lien de test le démarre', async () => {
     // Spec du menu « Scénario », décision 1 : un scénario Shopify ou HubSpot ne se lance que par son automation. Le lien
     // de test le teste depuis son builder.
-    for (const type of TYPES_DE_LANCEMENT) {
+    for (const type of TYPES_GENERIQUES) {
       if (type === 'agent_meta_bloc' || type === 'repondeur' || estUnSaut(type)) continue;
       const m = banc();
       const issue = await m.lancements.lancer(demandeDe(type, { workflowId: 'wf-shopify' }));
@@ -449,7 +466,7 @@ describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
     for (const type of TYPES_DE_LANCEMENT) {
       const r = POLITIQUE_DE_LANCEMENT[type].rayons;
       if (sansObjet.has(type)) expect(r, type).toBe('sans_objet');
-      else expect([...r].sort(), type).toEqual(type === 'lien_de_test' ? [...RAYONS].sort() : ['general']);
+      else expect([...r].sort(), type).toEqual(type === 'lien_de_test' ? [...RAYONS].sort() : type === 'evenement_shopify' ? ['shopify'] : ['general']);
     }
     // Un type « sans objet » consulté quand même refuse (échouer fermé).
     expect(rayonAdmis('repondeur', 'general')).toBe(false);
@@ -515,7 +532,7 @@ describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
  * parcours remplacé est clos, pas avancé, et la main n'est pas rendue à l'agent de Meta entre les deux.
  */
 describe('la session d’agent du parcours remplacé', () => {
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     const retiree = type === 'agent_ia_scenario';
     it(`${type} : la session du parcours remplacé se clôt ${retiree ? 'en RETRAIT (sortie, scenario_lance)' : 'en panne (erreur)'}`, async () => {
       const clotures: Array<[string, string, string | undefined]> = [];
@@ -623,7 +640,7 @@ const GELE_EN_BASE: Record<Exclude<TypeDeLancement, TypeDuSaut>, boolean> = {
   inbox: true, agent_meta_scenario: true, agent_ia_scenario: true, agent_meta_bloc: true,
   automatisme_ordinaire: false, automatisme_chaine: false, automatisme_publicite_ou_widget: false,
   lien_de_test: true, campagne_scenario: true, campagne_bloc: true, workflow_hubspot: true,
-  repondeur: false, repondeur_scenario: true,
+  repondeur: false, repondeur_scenario: true, evenement_shopify: true,
 };
 
 describe('le gel au retour en Base (lot 6, B2a)', () => {
@@ -672,7 +689,7 @@ const MARKETING_ATTENDU: Record<TypeDeLancement, PolitiqueDeLancement['marketing
   inbox: 'libre', agent_meta_scenario: 'libre', agent_ia_scenario: 'libre', agent_meta_bloc: 'libre',
   automatisme_ordinaire: 'accord_fiche', automatisme_chaine: 'accord_fiche', automatisme_publicite_ou_widget: 'accord_fiche',
   lien_de_test: 'libre', campagne_scenario: 'accord_fiche_sauf_ouverture', campagne_bloc: 'libre', workflow_hubspot: 'libre',
-  repondeur: 'libre', repondeur_scenario: 'libre', aller_a: 'libre', aller_a_masse: 'libre',
+  repondeur: 'libre', repondeur_scenario: 'libre', aller_a: 'libre', aller_a_masse: 'libre', evenement_shopify: 'accord_fiche',
 };
 
 /** La catégorie que Meta rend pour le modèle du scénario : c'est elle que la garde lit, sur le cache de l'envoi. */
@@ -683,7 +700,7 @@ describe('la garde marketing, type par type (décision A)', () => {
     for (const type of TYPES_DE_LANCEMENT) expect(POLITIQUE_DE_LANCEMENT[type].marketing, type).toBe(MARKETING_ATTENDU[type]);
   });
 
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     // Le scénario du banc ouvre sur son seul modèle : une campagne à scénario l'exempte (c'est son ouverture), mais fige la
     // règle pour la suite du parcours.
     const refuseALOuverture = MARKETING_ATTENDU[type] === 'accord_fiche';
@@ -711,7 +728,7 @@ describe('la garde marketing, type par type (décision A)', () => {
     });
   }
 
-  for (const type of TYPES_DE_LANCEMENT) {
+  for (const type of TYPES_GENERIQUES) {
     // Relecture de 2a, point 4 : rien ne lisait ce paramètre. Remplacé par `false`, ou retiré de l'insert (le défaut de la
     // colonne le remplit), toute la suite restait verte, et la relance « Pas de réponse » d'une campagne émettait.
     const masse = !POLITIQUE_DE_LANCEMENT[type].publieLesEtiquettes;
