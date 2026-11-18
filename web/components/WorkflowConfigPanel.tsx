@@ -485,7 +485,7 @@ function AdresseDuLien({ valeur, fields, onChange }: {
 }
 
 export function ConfigPanel({
-  node, tenantId, workflowId, blocsDuScenario = [], isRoot, campaignEligible, onPatch, onDelete, templates, flows, tags, fields, usageChamps, emailAccounts, emailTemplates, rcsMessages, agents, membres, requetes, onCommitTag, onCreerChamp, mbaEnabled,
+  node, tenantId, workflowId, blocsDuScenario = [], isRoot, campaignEligible, onPatch, onDelete, templates, flows, tags, fields, usageChamps, emailAccounts, emailTemplates, rcsMessages, agents, membres, requetes, onCommitTag, onCreerChamp, mbaEnabled, alerteFenetre = null,
 }: {
   node: RFNode;
   /** Workspace courant : le champ visuel du bloc RCS téléverse dans SA médiathèque. */
@@ -515,6 +515,8 @@ export function ConfigPanel({
   onCommitTag: (tag: string) => void;
   /** L'agent de Meta est-il allumé ? Le bloc « Envoyer au MBA » l'avertit sinon (RC6). `undefined` = non lu : rien n'est dit. */
   mbaEnabled?: boolean;
+  /** Ce bloc part fenêtre fermée depuis un départ du scénario (menu « Scénario », lot 2) : la phrase qui dit quoi faire. */
+  alerteFenetre?: string | null;
 }) {
   const t = useT();
   const d = node.data as Record<string, unknown>;
@@ -530,6 +532,12 @@ export function ConfigPanel({
           plus une erreur mais une CONSÉQUENCE à connaître : le scénario sort du champ des campagnes broadcast.
           L'avertissement se pose sur la RACINE et suit la MÊME règle que le sélecteur de campagne
           (`isCampaignEligible`), donc il couvre aussi « tag -> template » et un template sans nom choisi. */}
+      {alerteFenetre !== null && (
+        <p className="rounded-controle border border-alerte-300 bg-alerte-50 px-2.5 py-2 text-xs leading-snug text-alerte-800" data-testid="panneau-alerte-fenetre">
+          {alerteFenetre}
+        </p>
+      )}
+
       {isRoot && !campaignEligible && (
         <p className="rounded-controle border border-alerte-300 bg-alerte-50 px-2.5 py-2 text-xs leading-snug text-alerte-800">
           {wfType === 'template'

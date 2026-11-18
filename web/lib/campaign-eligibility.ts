@@ -69,7 +69,7 @@ export function envoieVraiment(node: GraphNodeLike): boolean {
  * ⚠️ Miroir de `quickMessageNonBloquant` (src/workflow/engine.ts). L'éditeur doit signaler exactement les
  * montages que le moteur rencontre : une divergence ferait apparaître, ou disparaître, des alertes à tort.
  */
-function messageNonBloquant(node: GraphNodeLike): boolean {
+export function messageNonBloquant(node: GraphNodeLike): boolean {
   if (node.type !== 'quick_message' || !envoieVraiment(node)) return false;
   // 🔴 UN BOUTON DE LIEN REND LE BLOC NON BLOQUANT, quoi que porte `quickReplies`. Le moteur VIDE les
   // réponses rapides quand le bloc porte un lien (`actionOf`), donc s'arrêter ici à `quickReplies` ferait
@@ -196,29 +196,30 @@ export interface WaitThenSession {
  * Cumul PLAFONNÉ à 24 h : au-delà la réponse ne change plus, et c'est ce qui fait terminer la recherche sur un
  * graphe cyclique (sans ce plafond, un cycle d'attentes ferait croître le cumul sans fin).
  */
+/**
+ * Miroir de `waitEstimationMs` (serveur). Une attente « jusqu'à une date » ou « jusqu'aux prochaines heures ouvrées » n'a
+ * pas de durée connue à la publication : elle compte pour la FENÊTRE ENTIÈRE (24 h). ⚠️ Un mode INCONNU retombe sur le
+ * délai, comme `waitMode` côté serveur : le test de parité a montré qu'un mode inconnu devenait sinon une attente de 24 h
+ * ici et de 2 h là-bas. Partagé par `waitBeforeSessionMessage` et l'analyse de fenêtre de la console
+ * (`./fenetre-console.ts`).
+ */
+export function dureeAttenteMs(node: GraphNodeLike): number {
+  if (['date', 'heures_ouvrees'].includes(String(node.data.waitMode ?? 'delai'))) return 24 * 3_600_000;
+  const brut = Number(node.data.delay ?? 0);
+  if (!Number.isFinite(brut) || brut <= 0) return 0;
+  const unites: Record<string, number> = { seconds: 1000, minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
+  return (unites[String(node.data.unit ?? 'hours')] ?? 0) * brut;
+}
+
 export function waitBeforeSessionMessage(graph: GraphLike): WaitThenSession | null {
   const FENETRE_MS = 24 * 3_600_000;
   // Chaque attente compte pour au MOINS un pas de balayage (60 s), la granularité réelle d'un réveil. Sans ce
   // plancher, un délai fractionnaire enregistré par l'API (`{delay: 0.001}`, 60 ms) dans un cycle demanderait
   // ~1,4 million d'itérations par bloc et figerait l'onglet.
   const PAS_MIN_MS = 60_000;
-  const UNITES: Record<string, number> = { seconds: 1000, minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
-  /**
-   * Miroir de `waitEstimationMs` (serveur). Une attente « jusqu'à une date » ou « jusqu'aux prochaines heures
-   * ouvrées » n'a pas de durée connue à la publication : elle compte pour la FENÊTRE ENTIÈRE, sinon le
-   * builder laisserait monter « attendre jusqu'à demain 9 h, puis message rapide » sans rien dire, alors que
-   * le serveur, lui, le refuse. Les deux côtés doivent répondre pareil ou l'avertissement ment.
-   */
-  const dureeMs = (node: GraphNodeLike): number => {
-    // ⚠️ Un mode INCONNU retombe sur le délai, comme `waitMode` côté serveur. Tester `!== 'delai'` suffisait
-    // pour les deux modes réels, et c'est ce qui a été écrit d'abord : le test de parité a montré qu'un mode
-    // inconnu devenait alors une attente de 24 h ici et de 2 h là-bas, donc un montage refusé par le builder
-    // et accepté par le serveur, sans que rien ne le dise.
-    if (['date', 'heures_ouvrees'].includes(String(node.data.waitMode ?? 'delai'))) return FENETRE_MS;
-    const brut = Number(node.data.delay ?? 0);
-    if (!Number.isFinite(brut) || brut <= 0) return 0;
-    return (UNITES[String(node.data.unit ?? 'hours')] ?? 0) * brut;
-  };
+  // Une attente datée compte pour la fenêtre entière, sinon le builder laisserait monter « attendre jusqu'à demain 9 h,
+  // puis message rapide » sans rien dire, alors que le serveur, lui, le refuse.
+  const dureeMs = dureeAttenteMs;
   const entry = entryNodeOf(graph);
   if (!entry) return null;
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));

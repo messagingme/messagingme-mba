@@ -10,6 +10,7 @@
 
 import { request } from '../http';
 import type { WorkflowNodeType } from '../partage/blocs';
+import type { Depart } from '../partage/fenetre-scenario';
 
 // --- Flows (constructeur de formulaire RICHE : texte / image / champ) ---
 
@@ -250,8 +251,12 @@ export function listWorkflows(tenantId: string): Promise<{ workflows: WorkflowSu
 export function createWorkflow(tenantId: string, name: string, graph?: WorkflowGraph): Promise<{ id: string; name: string; graph: WorkflowGraph }> {
   return request(`/tenants/${tenantId}/workflows`, { method: 'POST', body: JSON.stringify({ name, ...(graph ? { graph } : {}) }) });
 }
-export function getWorkflow(tenantId: string, id: string): Promise<{ workflow: WorkflowSummary }> {
-  return request<{ workflow: WorkflowSummary }>(`/tenants/${tenantId}/workflows/${id}`);
+/**
+ * Un scénario et ses DÉPARTS (menu « Scénario », lot 2) : d'où il part, fenêtre ouverte ou fermée, selon son rayon et ce
+ * qui le lance. `departs` absent (une API d'avant ce lot) : un départ ouvert à l'entrée, le comportement d'avant.
+ */
+export function getWorkflow(tenantId: string, id: string): Promise<{ workflow: WorkflowSummary; departs?: Depart[] }> {
+  return request<{ workflow: WorkflowSummary; departs?: Depart[] }>(`/tenants/${tenantId}/workflows/${id}`);
 }
 /**
  * Enregistre le BROUILLON du scénario (jamais la version en ligne, cf. `publishWorkflow`).

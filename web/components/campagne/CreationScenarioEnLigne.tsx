@@ -8,6 +8,10 @@ import type { CanalEtage } from '@/lib/campagne-chaine';
 import { Bouton } from '@/components/Bouton';
 import { Modale } from '@/components/Modale';
 import { Icone } from '@/components/Icone';
+import type { Depart } from '@/lib/partage/fenetre-scenario';
+
+/** Le départ d'un scénario construit pour une campagne : fenêtre fermée, la campagne écrit à froid. */
+const DEPART_DE_CAMPAGNE: readonly Depart[] = [{ noeudId: null, fenetre: 'fermee', raison: 'cette campagne' }];
 
 /**
  * CRÉER UN SCÉNARIO SANS QUITTER SA CAMPAGNE.
@@ -144,6 +148,8 @@ export function CreationScenarioEnLigne({
                * que pour couvrir un cas atteignable.
                */
               canalExige={canal === 'email' ? 'whatsapp' : canal}
+              // Une campagne écrit à froid : le scénario part fenêtre FERMÉE (menu « Scénario », lot 2).
+              departs={DEPART_DE_CAMPAGNE}
               onPublie={() => {
                 onCree(cree.id);
                 fermer();

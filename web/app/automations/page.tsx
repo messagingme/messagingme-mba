@@ -760,6 +760,11 @@ function AutomationsInner({ session }: { session: Session }) {
               </select>
             </div>
           )}
+          {enEdition?.avertissementFenetre && (
+            <p className="rounded-controle border border-alerte-300 bg-alerte-50 px-2.5 py-2 text-xs leading-snug text-alerte-800" data-testid="automation-form-fenetre">
+              {enEdition.avertissementFenetre}
+            </p>
+          )}
           {/* L'accord marketing (décisions 6 et B du 2026-11-02), pour tous les déclencheurs : le serveur pose qui et quand. */}
           <div data-testid="automation-accord">
             <label className="flex items-start gap-2 text-sm text-ink-900">
@@ -820,7 +825,12 @@ function AutomationsInner({ session }: { session: Session }) {
             <tbody>
               {items.map((a) => (
                 <tr key={a.id} className="border-b border-ink-50 last:border-0">
-                  <td className="px-4 py-2 font-medium text-ink-900">{a.name}</td>
+                  <td className="px-4 py-2 font-medium text-ink-900">
+                    {a.name}
+                    {a.avertissementFenetre && (
+                      <p className="mt-1 max-w-md text-xs font-normal text-alerte-800" data-testid={`automation-fenetre-${a.id}`}>{a.avertissementFenetre}</p>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-ink-500">{describeTrigger(a)}</td>
                   <td className="px-4 py-2 text-ink-500">{wfName(a.workflowId)}</td>
                   <td className="px-4 py-2">

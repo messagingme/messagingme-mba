@@ -23,6 +23,8 @@ import { estPoigneeDeFamille } from '@/lib/condition-familles';
 import { useEnregistrementScenario } from '@/lib/use-enregistrement-scenario';
 import { TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
 import { ConfigPanel } from '@/components/WorkflowConfigPanel';
+import { analyserFenetreConsole } from '@/lib/fenetre-console';
+import type { Constat, Depart } from '@/lib/partage/fenetre-scenario';
 import { Bouton } from '@/components/Bouton';
 import { ink } from '@/lib/couleurs';
 import { Icone } from '@/components/Icone';
@@ -67,7 +69,7 @@ function initialDataFor(wfType: WorkflowNodeType): Record<string, unknown> {
  * contacts : il écrit une version de travail, et seul le bouton « Publier » la met en ligne. Avant ce lot, une
  * retouche partait en production dans la seconde, y compris pour les parcours déjà en cours.
  */
-export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonInitial = false, publieLe = null, mbaEnabled = false, rcsEnabled = false, emailEnabled = false, agents = [], membres = null, requetes = null, canalExige, onPublie, onTesterBloc }: { tenantId: string; workflowId: string;
+export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonInitial = false, publieLe = null, mbaEnabled = false, rcsEnabled = false, emailEnabled = false, agents = [], membres = null, requetes = null, canalExige, onPublie, onTesterBloc, departs }: { tenantId: string; workflowId: string;
   /** Ce que l'éditeur ouvre : le brouillon s'il existe, sinon la version en ligne (cf. `grapheEditable`). */
   initialGraph: WorkflowGraph;
   /** Un brouillon non publié attendait-il déjà à l'ouverture ? Pilote l'état initial du bouton « Publier ». */
@@ -95,7 +97,12 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
    * L'hôte ouvre son panneau de test SUR CE BLOC. Absent : aucun bouton lecture n'apparaît sur les blocs,
    * ce qui est le bon défaut pour un constructeur monté ailleurs que dans l'onglet Scénarios.
    */
-  onTesterBloc?: (nodeId: string) => void }) {
+  onTesterBloc?: (nodeId: string) => void;
+  /**
+   * D'où part ce scénario, fenêtre ouverte ou fermée (menu « Scénario », lot 2, `GET /workflows/:id`). Absent : un départ
+   * ouvert à l'entrée, le comportement d'avant. Le builder en tire ses avertissements de fenêtre, sans jamais refuser.
+   */
+  departs?: readonly Depart[] }) {
   const t = useT();
   const { locale } = useLocale();
   const seed = useMemo(() => toRF(initialGraph), [initialGraph]);
@@ -500,6 +507,13 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   // WhatsApp, où la fenêtre est fermée si l'échange s'est fait en RCS. (Un message rapide, lui, suit le canal
   // du parcours : il n'est plus concerné.) Signalé, jamais interdit.
   const sessionApresRcs = useMemo(() => sessionMessageAfterRcs(graphe), [graphe]);
+  // LA FENÊTRE AU DÉPART (menu « Scénario », lot 2, décisions 11 et 16) : un message de session atteint fenêtre fermée,
+  // depuis chaque départ que le serveur a donné. Un bandeau par constat, jamais un refus. Le message que « Ce montage ne
+  // partira pas » nomme déjà n'est pas redit.
+  const constatsFenetre = useMemo(
+    () => analyserFenetreConsole(graphe, departs ?? []).filter((c) => c.noeudId !== montageImpossible?.messageNodeId),
+    [graphe, departs, montageImpossible],
+  );
   const nomDuBloc = (id: string): string => {
     const n = nodes.find((x) => x.id === id);
     const propre = String(n?.data?.name ?? '').trim();
@@ -526,6 +540,31 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
         remede: t('Remplacez ce bloc par un envoi de template, ou raccourcissez l’attente.', 'Replace that block with a template, or shorten the wait.'),
       };
   };
+
+  /**
+   * La phrase d'un constat de fenêtre, qui dit quoi faire. Le français nomme ce qui lance le scénario (`raison`, écrite
+   * par le serveur en français) ; l'anglais s'en passe plutôt que de mêler les deux langues.
+   */
+  const phraseFenetre = (c: Constat): string => {
+    const nom = nomDuBloc(c.noeudId);
+    const quand = c.depart.fenetre === 'fermee' && c.depart.raison !== '' ? ` quand ${c.depart.raison} lance ce scénario` : '';
+    if (c.raison === 'saut_fenetre_fermee') {
+      return t(
+        `« ${nom} » mène vers un autre scénario sans que le client ait répondu${quand} : le premier message de ce scénario doit être un template.`,
+        `“${nom}” leads to another scenario before the customer has replied: that scenario’s first message must be a template.`,
+      );
+    }
+    return c.depart.fenetre === 'fermee'
+      ? t(
+        `« ${nom} » part sans que le client ait répondu${quand} : WhatsApp n’accepte alors qu’un template. Remplacez ce bloc par un template, ou placez-le après une réponse du client.`,
+        `“${nom}” is sent before the customer has replied: WhatsApp then only accepts a template. Replace this block with a template, or place it after a reply from the customer.`,
+      )
+      : t(
+        `« ${nom} » part plus de 24 h après le dernier message du client : WhatsApp n’accepte alors qu’un template. Remplacez ce bloc par un template, ou raccourcissez l’attente.`,
+        `“${nom}” is sent more than 24h after the customer’s last message: WhatsApp then only accepts a template. Replace this block with a template, or shorten the wait.`,
+      );
+  };
+  const alerteDuBlocChoisi = selected ? constatsFenetre.find((c) => c.noeudId === selected.id) : undefined;
 
   // Auto-arranger : recalcule les positions (couches horizontales) et recadre. Le changement de position est
   // capté par l'auto-save existant (effet sur [nodes, edges]) -> persistance automatique, aucun appel API dédié.
@@ -717,6 +756,12 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
         </div>
       )}
 
+      {constatsFenetre.map((c) => (
+        <div key={`${c.depart.noeudId ?? 'entree'}|${c.noeudId}`} className="rounded-carte border border-alerte-300 bg-alerte-50 px-3 py-2 text-xs text-alerte-900" data-testid="alerte-fenetre" data-noeud={c.noeudId}>
+          <b>{t('Fenêtre de 24 h fermée.', '24-hour window closed.')}</b> {phraseFenetre(c)}
+        </div>
+      ))}
+
       <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row">
         {/* `data-canevas-edition` : c'est ce qui donne aux points de liaison leur zone de prise (globals.css).
             Mesuré le 2026-08-28 : sans elle, la tolérance de visée est de ±2 px sur un point de 5,7 px. */}
@@ -791,7 +836,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
           {!selected ? (
             <p className="text-sm text-ink-500">{t('Cliquez sur un bloc pour le configurer. Tirez une flèche depuis le point d’un bloc : lâchez-la sur un autre bloc pour les relier, ou dans le vide pour créer un bloc. Le ✕ en coin d’un bloc le supprime.', "Click a block to configure it. Drag an arrow from a block's dot: drop it on another block to connect, or in empty space to create a new block. The ✕ in a block's corner deletes it.")}</p>
           ) : (
-            <ConfigPanel node={selected} tenantId={tenantId} workflowId={workflowId} blocsDuScenario={nodes} isRoot={selected.id === rootNodeId} campaignEligible={campaignEligible} onPatch={patchSelected} onDelete={deleteSelected} templates={templates} flows={flows} tags={tags} fields={fields} usageChamps={usageChamps} emailAccounts={emailAccounts} emailTemplates={emailTemplates} rcsMessages={rcsMessages} agents={agents} membres={membres} requetes={requetes} onCommitTag={commitTag} onCreerChamp={creerChamp} mbaEnabled={mbaEnabled} />
+            <ConfigPanel node={selected} tenantId={tenantId} workflowId={workflowId} blocsDuScenario={nodes} isRoot={selected.id === rootNodeId} campaignEligible={campaignEligible} onPatch={patchSelected} onDelete={deleteSelected} templates={templates} flows={flows} tags={tags} fields={fields} usageChamps={usageChamps} emailAccounts={emailAccounts} emailTemplates={emailTemplates} rcsMessages={rcsMessages} agents={agents} membres={membres} requetes={requetes} onCommitTag={commitTag} onCreerChamp={creerChamp} mbaEnabled={mbaEnabled} alerteFenetre={alerteDuBlocChoisi ? phraseFenetre(alerteDuBlocChoisi) : null} />
           )}
         </div>
       </div>

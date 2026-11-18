@@ -272,6 +272,12 @@ export interface Automation {
    * Absente d'une API d'avant le lot 3b (la console part avec le push) : se lit comme non attestée.
    */
   accordMarketing?: { par: string | null; email: string | null; le: string } | null;
+  /**
+   * L'avertissement de fenêtre de cette automation (menu « Scénario », lot 2, décision 17) : son déclencheur ne naît pas
+   * d'un message du client et son scénario publié envoie un message de session sans réponse. Prévenir, jamais refuser.
+   * `null` ou absent (une API d'avant ce lot) : rien à dire.
+   */
+  avertissementFenetre?: string | null;
 }
 
 export interface AutomationInput {

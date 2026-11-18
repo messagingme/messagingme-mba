@@ -21,6 +21,7 @@ import { Squelette } from '@/components/Squelette';
 import { erreurDeChargement } from '@/lib/http';
 import { BarreDossiers, comptesDesOnglets, DeplacerVers, dossierCommun, useDossiers } from '@/components/BarreDossiers';
 import { ranger, SANS_DOSSIER } from '@/lib/api/dossiers';
+import type { Depart } from '@/lib/partage/fenetre-scenario';
 
 export default function WorkflowsPage() {
   // Suspense : useSearchParams (deep-link ?open=) exige une frontière Suspense au build (Next 15).
@@ -65,6 +66,8 @@ function WorkflowsInner({ session }: { session: Session }) {
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [editing, setEditing] = useState<WorkflowSummary | null>(null);
+  // Les départs du scénario ouvert (`GET /workflows/:id`) ; `null` : un scénario neuf, ou une API qui ne les rend pas.
+  const [departs, setDeparts] = useState<Depart[] | null>(null);
   const [busy, setBusy] = useState(false);
   /**
    * LES SCÉNARIOS COCHÉS, pour l'action groupée.
@@ -168,6 +171,7 @@ function WorkflowsInner({ session }: { session: Session }) {
       const res = await createWorkflow(session.tenantId, name);
       setNewName('');
       setEditing({ id: res.id, name: res.name, graph: res.graph, createdAt: '', updatedAt: '' });
+      setDeparts(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Création impossible', 'Unable to create'));
     }
@@ -175,8 +179,9 @@ function WorkflowsInner({ session }: { session: Session }) {
   async function open(w: WorkflowSummary) {
     setError(null);
     try {
-      const { workflow } = await getWorkflow(session.tenantId, w.id);
+      const { workflow, departs: lus } = await getWorkflow(session.tenantId, w.id);
       setEditing(workflow);
+      setDeparts(lus ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Ouverture impossible', 'Unable to open'));
     }
@@ -418,7 +423,7 @@ function WorkflowsInner({ session }: { session: Session }) {
         <div className="min-h-0 flex-1">
           {/* L'éditeur ouvre le BROUILLON s'il y en a un (lot 7) : c'est le travail en cours de l'auteur, pas
               forcément ce qui tourne. `brouillonInitial` allume le bouton « Publier » dès l'ouverture. */}
-          <WorkflowBuilder key={editing.id} tenantId={session.tenantId} workflowId={editing.id} initialGraph={grapheEditable(editing)} brouillonInitial={Boolean(editing.draftGraph)} publieLe={editing.publishedAt ?? null} mbaEnabled={mbaEnabled} rcsEnabled={rcsEnabled} emailEnabled={emailEnabled} agents={agents} membres={membres} requetes={requetes} onTesterBloc={ouvrirTestDepuisBloc} />
+          <WorkflowBuilder key={editing.id} tenantId={session.tenantId} workflowId={editing.id} initialGraph={grapheEditable(editing)} brouillonInitial={Boolean(editing.draftGraph)} publieLe={editing.publishedAt ?? null} mbaEnabled={mbaEnabled} rcsEnabled={rcsEnabled} emailEnabled={emailEnabled} agents={agents} membres={membres} requetes={requetes} onTesterBloc={ouvrirTestDepuisBloc} departs={departs ?? undefined} />
         </div>
         {panneauDeTest}
       </div>
