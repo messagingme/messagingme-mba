@@ -15,10 +15,15 @@ const MANUELLE = {
   id: 'f1', titre: 'Les clés', corps: 'Remise des clés à l’accueil, de 8 h à 19 h.',
   source: { type: 'manuel' }, sourceUrl: null, derniereLectureAt: null, updatedAt: '2026-08-01T10:00:00.000Z',
 };
+/**
+ * Lue il y a vingt jours : récente, donc jamais signalée. Une date FIXE devenait « vieille de plus de trois mois » trois
+ * mois après son écriture : le 2026-11-18, la CI de la console a rougi sur ce seul test, dans les deux topologies.
+ */
+const LUE_RECEMMENT = new Date(Date.now() - 20 * 86_400_000).toISOString();
 const IMPORTEE = {
   id: 'f2', titre: 'La piscine', corps: 'Ouverte tous les jours de 9 h à 20 h.',
-  source: { type: 'page', url: 'https://exemple.fr/residence' }, sourceUrl: 'https://exemple.fr/residence', derniereLectureAt: '2026-08-20T10:00:00.000Z',
-  updatedAt: '2026-08-20T10:00:00.000Z',
+  source: { type: 'page', url: 'https://exemple.fr/residence' }, sourceUrl: 'https://exemple.fr/residence', derniereLectureAt: LUE_RECEMMENT,
+  updatedAt: LUE_RECEMMENT,
 };
 /** Lue il y a plus de trois mois, et jamais retouchée : c'est le cas que l'écran doit signaler. */
 const PERIMEE = {
