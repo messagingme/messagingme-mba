@@ -1467,6 +1467,24 @@ export class WorkflowExecutor {
    * partiel « une seule session vivante par parcours » la ferait réutiliser (`byRun ?? open`), tours et coût
    * déjà consommés, et l'agent serait muet. `byRun` ne rend que la session vivante.
    */
+  /**
+   * 🔴 L'ARRÊT COMMANDÉ DES PARCOURS D'ÉVÉNEMENT (lot 4, appelé au lot 5) : ceux d'une ORIGINE (une commande née du panier
+   * arrête le parcours du panier, décision 4) ou de SCÉNARIOS (la boutique en pause, la ligne éteinte, décision 15), avec
+   * leurs sessions d'agent. Rien n'est envoyé ni passé à l'équipe : le client n'attend rien de ces parcours. Rend le
+   * nombre de parcours arrêtés.
+   */
+  async arreterParcours(tenantId: string, cible: { origine: string } | { workflowIds: readonly string[] }, motif: string): Promise<number> {
+    const clos = 'origine' in cible
+      ? await this.deps.runs.cloreParOrigine(tenantId, cible.origine)
+      : await this.deps.runs.cloreParScenarios(tenantId, cible.workflowIds);
+    for (const id of clos) await this.cloreSessionDuRun(tenantId, id, 'erreur');
+    if (clos.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`parcours d’événement arrêtés pour l’espace ${tenantId} (${motif}) : ${clos.length}`);
+    }
+    return clos.length;
+  }
+
   private async cloreSessionDuRun(
     tenantId: string, runId: string, statut: AgentSessionStatus, sortie?: string,
   ): Promise<void> {

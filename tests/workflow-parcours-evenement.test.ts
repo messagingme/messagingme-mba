@@ -560,3 +560,58 @@ describe('les variables d’un parcours d’événement dans ses envois (décisi
     expect(variablesDuTexte(EVENEMENT)).toEqual({ 'shopify.checkout_url': 'https://x/c/42' });
   });
 });
+
+/**
+ * L'ARRÊT COMMANDÉ (lot 4, appelé au lot 5, décisions 4 et 15) : par origine ou par scénarios, les parcours d'événement et
+ * leurs sessions d'agent se closent, sans rien envoyer. Le filtre d'espace est éprouvé par le test d'intégration du
+ * magasin (`run-evenement.integration.test.ts`).
+ */
+describe('l’arrêt commandé des parcours d’événement', () => {
+  function bancArret() {
+    const appels: string[] = [];
+    const sessionsCloses: string[] = [];
+    const deps: WorkflowExecutorDeps = {
+      ...depsInertes,
+      estDesabonne: jamaisDesabonne,
+      aAccordMarketing: toujoursDAccord,
+      runs: avecGardesDEtatInertes({
+        start: async () => ({ id: 'r' }),
+        findWaitingByWaId: async () => null,
+        setState: async () => {},
+        closeActiveByWaId: async () => [],
+        cloreParOrigine: async (t: string, origine: string) => { appels.push(`origine:${t}:${origine}`); return ['r1', 'r2']; },
+        cloreParScenarios: async (t: string, ids: readonly string[]) => { appels.push(`scenarios:${t}:${ids.join(',')}`); return ['r3']; },
+      }),
+      agentSessions: {
+        byRun: async (_t: string, runId: string) => ({ id: `s-${runId}` }),
+        clore: async (_t: string, sessionId: string) => { sessionsCloses.push(sessionId); },
+      } as unknown as WorkflowExecutorDeps['agentSessions'],
+      getGraph: async () => null,
+      applyTag: async () => true,
+      setField: async () => {},
+      removeTag: async () => {},
+      clearField: async () => {},
+      sendTemplate: async () => {},
+      sendQuickMessage: async () => {},
+      sendFlow: async () => {},
+      sendQuestion: async () => {},
+    };
+    return { executor: new WorkflowExecutor(deps), appels, sessionsCloses };
+  }
+
+  it('🔴 par origine : les parcours de cette origine et leurs sessions d’agent', async () => {
+    silence();
+    const m = bancArret();
+    expect(await m.executor.arreterParcours(ESPACE, { origine: EVENEMENT.origine }, 'commande passée')).toBe(2);
+    expect(m.appels).toEqual([`origine:${ESPACE}:${EVENEMENT.origine}`]);
+    expect(m.sessionsCloses).toEqual(['s-r1', 's-r2']);
+  });
+
+  it('🔴 par scénarios : les parcours de ces scénarios et leurs sessions d’agent', async () => {
+    silence();
+    const m = bancArret();
+    expect(await m.executor.arreterParcours(ESPACE, { workflowIds: ['wf-panier', 'wf-commande'] }, 'boutique en pause')).toBe(1);
+    expect(m.appels).toEqual([`scenarios:${ESPACE}:wf-panier,wf-commande`]);
+    expect(m.sessionsCloses).toEqual(['s-r3']);
+  });
+});
