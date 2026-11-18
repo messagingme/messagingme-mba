@@ -211,7 +211,7 @@ function monde(parcoursAgent: { workflowId: string; graphe: WorkflowGraph; fige:
   const runs = new Map<string, WorkflowRunRow>();
   runs.set('r-agent', {
     id: 'r-agent', workflowId: parcoursAgent.workflowId, tenantId: ESPACE, waId: WA, currentNode: 'a', status: 'waiting',
-    lastMessageId: null, grapheFige: parcoursAgent.fige ? parcoursAgent.graphe : null, exigeAccordMarketing: false,
+    lastMessageId: null, grapheFige: parcoursAgent.fige ? parcoursAgent.graphe : null, neEnMasse: false, exigeAccordMarketing: false,
   });
   const scenarioB: WorkflowGraph = {
     nodes: [n('qm', 'quick_message', { body: 'Quel jour vous arrange ?', quickReplies: ['Lundi', 'Mardi'] })],
@@ -240,7 +240,7 @@ function monde(parcoursAgent: { workflowId: string; graphe: WorkflowGraph; fige:
     aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async (_t: string, workflowId: string, waId: string, contactId: string | null, state: { currentNode: string | null; status: string }) => {
-        runs.set('r-b', { id: 'r-b', workflowId, tenantId: ESPACE, waId, currentNode: state.currentNode, status: state.status as WorkflowRunRow['status'], lastMessageId: null, grapheFige: null, exigeAccordMarketing: false });
+        runs.set('r-b', { id: 'r-b', workflowId, tenantId: ESPACE, waId, currentNode: state.currentNode, status: state.status as WorkflowRunRow['status'], lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false });
         return { id: 'r-b' };
       },
       findWaitingByWaId: async () => [...runs.values()].filter((r) => r.status === 'waiting').at(-1) ?? null,

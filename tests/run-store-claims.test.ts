@@ -22,11 +22,11 @@ function fauxPool(lignes: unknown[]) {
 }
 
 const reclamation = (statut: string) =>
-  `update workflow_runs r set resume_at = now() + interval '15 minutes', updated_at = now() from ( select id from workflow_runs where status = '${statut}' and resume_at is not null and resume_at <= now() and created_at > now() - interval '90 days' order by resume_at for update skip locked limit $1 ) due where r.id = due.id returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige`;
+  `update workflow_runs r set resume_at = now() + interval '15 minutes', updated_at = now() from ( select id from workflow_runs where status = '${statut}' and resume_at is not null and resume_at <= now() and created_at > now() - interval '90 days' order by resume_at for update skip locked limit $1 ) due where r.id = due.id returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige, r.ne_en_masse`;
 
 const ligne = {
   id: 'r1', workflow_id: 'w1', tenant_id: 't1', wa_id: '336', contact_id: 'c1', current_node: 'n2',
-  last_message_id: 'wamid.1', channel: null, graphe_fige: null, accord_marketing_exige: false,
+  last_message_id: 'wamid.1', channel: null, graphe_fige: null, accord_marketing_exige: false, ne_en_masse: true,
 };
 
 describe('PgWorkflowRunStore : les réclamations du balayage de réveil', () => {
@@ -39,13 +39,13 @@ describe('PgWorkflowRunStore : les réclamations du balayage de réveil', () => 
     expect(appels).toEqual([{ sql: reclamation(statut), params: [50] }]);
     expect(rendus).toEqual([{
       id: 'r1', workflowId: 'w1', tenantId: 't1', waId: '336', contactId: 'c1', currentNode: 'n2',
-      status: statut, lastMessageId: 'wamid.1', channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: false,
+      status: statut, lastMessageId: 'wamid.1', channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: false, neEnMasse: true,
     }]);
   });
 });
 
 describe('PgWorkflowRunStore : la réclamation d’UN parcours par le réveil court', () => {
-  const parId = `update workflow_runs r set resume_at = now() + interval '15 minutes', updated_at = now() from ( select id from workflow_runs where tenant_id = $1 and id = $2 and status = 'sleeping' and resume_at is not null and resume_at <= now() + interval '2 seconds' and created_at > now() - interval '90 days' for update skip locked ) due where r.id = due.id returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige`;
+  const parId = `update workflow_runs r set resume_at = now() + interval '15 minutes', updated_at = now() from ( select id from workflow_runs where tenant_id = $1 and id = $2 and status = 'sleeping' and resume_at is not null and resume_at <= now() + interval '2 seconds' and created_at > now() - interval '90 days' for update skip locked ) due where r.id = due.id returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige, r.ne_en_masse`;
 
   it('même bail que le balayage, sur CE parcours, avec 2 s de tolérance d’horloge', async () => {
     const { pool, appels } = fauxPool([ligne]);
@@ -53,7 +53,7 @@ describe('PgWorkflowRunStore : la réclamation d’UN parcours par le réveil co
     expect(appels).toEqual([{ sql: parId, params: ['t1', 'r1'] }]);
     expect(rendu).toEqual({
       id: 'r1', workflowId: 'w1', tenantId: 't1', waId: '336', contactId: 'c1', currentNode: 'n2',
-      status: 'sleeping', lastMessageId: 'wamid.1', channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: false,
+      status: 'sleeping', lastMessageId: 'wamid.1', channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: false, neEnMasse: true,
     });
   });
 
@@ -67,20 +67,20 @@ describe('PgWorkflowRunStore : la lecture d’un run', () => {
   // `contactId` : la fiche du parcours, qu'un « Aller à » vers un autre scénario transmet au parcours qu'il démarre (RC5).
   const attendu = {
     id: 'r1', workflowId: 'w1', tenantId: 't1', waId: '336', contactId: 'c1', currentNode: 'n2', status: 'waiting',
-    lastMessageId: 'wamid.1', channel: 'rcs', grapheFige: null, exigeAccordMarketing: false,
+    lastMessageId: 'wamid.1', channel: 'rcs', grapheFige: null, exigeAccordMarketing: false, neEnMasse: true,
   };
 
   it('findWaitingByWaId : le plus récent en attente de CE contact', async () => {
     const { pool, appels } = fauxPool([lu]);
     expect(await new PgWorkflowRunStore(pool).findWaitingByWaId('t1', '336')).toEqual(attendu);
     expect(appels[0]!.params).toEqual(['t1', '336']);
-    expect(appels[0]!.sql).toBe("select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige from workflow_runs where tenant_id = $1 and wa_id = $2 and status = 'waiting' order by created_at desc limit 1");
+    expect(appels[0]!.sql).toBe("select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse from workflow_runs where tenant_id = $1 and wa_id = $2 and status = 'waiting' order by created_at desc limit 1");
   });
 
   it('byId : quel que soit son statut, et `null` quand il n’existe pas', async () => {
     const { pool, appels } = fauxPool([lu]);
     expect(await new PgWorkflowRunStore(pool).byId('t1', 'r1')).toEqual(attendu);
-    expect(appels[0]!.sql).toBe('select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige from workflow_runs where tenant_id = $1 and id = $2');
+    expect(appels[0]!.sql).toBe('select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse from workflow_runs where tenant_id = $1 and id = $2');
     expect(await new PgWorkflowRunStore(fauxPool([]).pool).byId('t1', 'r1')).toBeNull();
   });
 });

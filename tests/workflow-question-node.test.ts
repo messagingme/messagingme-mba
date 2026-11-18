@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseGraph, isWorkflowNodeType } from '../src/workflow/graph';
 import {
-  actionOf, walk, scanOpening, etapeOffreUnChoix, questionRows, questionTimeoutMs,
+  actionOf, walk, scanOpening, etapeOffreUnChoix, questionRows, delaiSansReponseMs,
   waitBeforeSessionMessage, QUESTION_MAX_ROWS, WAIT_MAX_MS,
 } from '../src/workflow/engine';
 import type { WorkflowGraph, WorkflowNode } from '../src/workflow/graph';
@@ -79,20 +79,20 @@ describe('bloc Question : lecture défensive des lignes', () => {
 
 describe('bloc Question : l’échéance « pas de réponse »', () => {
   it('0, absent, négatif ou unité inconnue -> aucune échéance', () => {
-    expect(questionTimeoutMs(q('n1', {}))).toBe(0);
-    expect(questionTimeoutMs(q('n1', { timeoutValue: 0 }))).toBe(0);
-    expect(questionTimeoutMs(q('n1', { timeoutValue: -3, timeoutUnit: 'hours' }))).toBe(0);
-    expect(questionTimeoutMs(q('n1', { timeoutValue: 2, timeoutUnit: 'siecles' }))).toBe(0);
+    expect(delaiSansReponseMs(q('n1', {}))).toBe(0);
+    expect(delaiSansReponseMs(q('n1', { timeoutValue: 0 }))).toBe(0);
+    expect(delaiSansReponseMs(q('n1', { timeoutValue: -3, timeoutUnit: 'hours' }))).toBe(0);
+    expect(delaiSansReponseMs(q('n1', { timeoutValue: 2, timeoutUnit: 'siecles' }))).toBe(0);
   });
 
   it('mêmes unités et même plafond que le bloc Attente', () => {
-    expect(questionTimeoutMs(q('n1', { timeoutValue: 30, timeoutUnit: 'minutes' }))).toBe(30 * 60_000);
-    expect(questionTimeoutMs(q('n1', { timeoutValue: 2 }))).toBe(2 * 3_600_000); // défaut = heures
-    expect(questionTimeoutMs(q('n1', { timeoutValue: 999, timeoutUnit: 'days' }))).toBe(WAIT_MAX_MS);
+    expect(delaiSansReponseMs(q('n1', { timeoutValue: 30, timeoutUnit: 'minutes' }))).toBe(30 * 60_000);
+    expect(delaiSansReponseMs(q('n1', { timeoutValue: 2 }))).toBe(2 * 3_600_000); // défaut = heures
+    expect(delaiSansReponseMs(q('n1', { timeoutValue: 999, timeoutUnit: 'days' }))).toBe(WAIT_MAX_MS);
   });
 
   it('les secondes restent au seul bloc Attente : une échéance en secondes n’est pas configurée', () => {
-    expect(questionTimeoutMs(q('n1', { timeoutValue: 30, timeoutUnit: 'seconds' }))).toBe(0);
+    expect(delaiSansReponseMs(q('n1', { timeoutValue: 30, timeoutUnit: 'seconds' }))).toBe(0);
   });
 });
 

@@ -23,7 +23,7 @@ function relireGrapheFige(brut: unknown, runId: string): WorkflowGraph | null {
 interface LigneRun {
   id: string; workflow_id: string; tenant_id: string; wa_id: string; contact_id: string | null;
   current_node: string | null; status: RunStatus; last_message_id: string | null;
-  channel: RunChannel | null; graphe_fige: WorkflowGraph | null; accord_marketing_exige: boolean;
+  channel: RunChannel | null; graphe_fige: WorkflowGraph | null; accord_marketing_exige: boolean; ne_en_masse: boolean;
 }
 
 /**
@@ -42,6 +42,7 @@ function runDeLigne(r: LigneRun): WorkflowRunRow {
     contactId: r.contact_id,
     currentNode: r.current_node, status: r.status, lastMessageId: r.last_message_id,
     channel: r.channel ?? 'whatsapp', grapheFige: relireGrapheFige(r.graphe_fige, r.id), exigeAccordMarketing: accordExigeDe(r),
+    neEnMasse: r.ne_en_masse === true,
   };
 }
 
@@ -54,6 +55,7 @@ function ligneReclamee(r: LigneReclamee, statut: 'sleeping' | 'waiting'): Workfl
     id: r.id, workflowId: r.workflow_id, tenantId: r.tenant_id, waId: r.wa_id, contactId: r.contact_id,
     currentNode: r.current_node, status: statut, lastMessageId: r.last_message_id, channel: r.channel ?? 'whatsapp', grapheFige: parseGraph(r.graphe_fige),
     exigeAccordMarketing: accordExigeDe(r),
+    neEnMasse: r.ne_en_masse === true,
   };
 }
 
@@ -93,6 +95,13 @@ export interface WorkflowRunRow {
    * moyen de savoir que le parcours vient d'une automation.
    */
   exigeAccordMarketing: boolean;
+  /**
+   * Le parcours est né d'un chemin de masse (`workflow_runs.ne_en_masse`, migration 0295, spec décision 24) : son réveil
+   * « Pas de réponse » n'émet rien tant que le contact n'a pas répondu. Lu « === true » : une lecture qui oublierait la
+   * colonne retombe sur le comportement d'avant (émettre), jamais sur un silence qui couperait une automation unitaire ;
+   * c'est le SQL exact de `tests/run-store-claims.test.ts` qui tient la colonne dans chaque lecture.
+   */
+  neEnMasse: boolean;
 }
 
 export interface RunState {
@@ -110,19 +119,19 @@ export class PgWorkflowRunStore {
   constructor(private readonly pool: Pool) {}
 
   /**
-   * `grapheFige` et `exigeAccordMarketing` sont des paramètres à part, pas des champs de `RunState` : ils s'écrivent une
-   * seule fois, à la naissance du parcours, et `setState` et ses variantes les auraient ignorés en silence.
+   * `grapheFige`, `exigeAccordMarketing` et `neEnMasse` sont des paramètres à part, pas des champs de `RunState` : ils
+   * s'écrivent une seule fois, à la naissance du parcours, et `setState` et ses variantes les auraient ignorés en silence.
    */
-  async start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean): Promise<{ id: string }> {
+  async start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean): Promise<{ id: string }> {
     // `resume_at` est écrit dès la création : un scénario dont le premier passage tombe sur un bloc Attente
     // naît en sommeil, et sans échéance le balayage (`resume_at <= now()`) ne le réveillerait jamais.
     // `last_message_id` aussi : le message qui démarre un parcours (le répondeur) y naît déjà reçu, et sa redélivrance
     // par Meta n'est pas prise pour une réponse par `advance`. Absent, `null` : le cas de tous les autres démarrages.
     const res = await this.pool.query<{ id: string }>(
-      `insert into workflow_runs (workflow_id, tenant_id, contact_id, wa_id, current_node, status, resume_at, channel, graphe_fige, last_message_id, accord_marketing_exige)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
+      `insert into workflow_runs (workflow_id, tenant_id, contact_id, wa_id, current_node, status, resume_at, channel, graphe_fige, last_message_id, accord_marketing_exige, ne_en_masse)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id`,
       [workflowId, tenantId, contactId, waId, state.currentNode, state.status, state.resumeAt ?? null, state.channel ?? 'whatsapp',
-       grapheFige === null ? null : JSON.stringify(grapheFige), state.lastMessageId ?? null, exigeAccordMarketing],
+       grapheFige === null ? null : JSON.stringify(grapheFige), state.lastMessageId ?? null, exigeAccordMarketing, neEnMasse],
     );
     return { id: res.rows[0]!.id };
   }
@@ -130,7 +139,7 @@ export class PgWorkflowRunStore {
   /** Le run en attente d'un contact (par tenant + numéro). Un seul actif à la fois par contact. */
   async findWaitingByWaId(tenantId: string, waId: string): Promise<WorkflowRunRow | null> {
     const res = await this.pool.query<LigneRun>(
-      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige
+      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse
        from workflow_runs where tenant_id = $1 and wa_id = $2 and status = 'waiting'
        order by created_at desc limit 1`,
       [tenantId, waId],
@@ -147,7 +156,7 @@ export class PgWorkflowRunStore {
    */
   async byId(tenantId: string, id: string): Promise<WorkflowRunRow | null> {
     const res = await this.pool.query<LigneRun>(
-      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige
+      `select id, workflow_id, tenant_id, wa_id, contact_id, current_node, status, last_message_id, channel, graphe_fige, accord_marketing_exige, ne_en_masse
        from workflow_runs where tenant_id = $1 and id = $2`,
       [tenantId, id],
     );
@@ -302,7 +311,7 @@ export class PgWorkflowRunStore {
 
   /**
    * Réclame les parcours qui attendent une réponse et dont le délai « pas de réponse » a expiré (bloc
-   * Question).
+   * Question, bloc template à délai, inactivité d'un agent). Le nom est historique : la Question fut la première.
    *
    * Même bail que `claimDueSleeping` : consommer l'échéance (`resume_at = null`) perdrait pour toujours une
    * reprise ratée (refus de Meta, worker redéployé), le parcours restant `waiting` sans échéance. Avec le bail,
@@ -345,7 +354,7 @@ export class PgWorkflowRunStore {
          limit $1
        ) due
        where r.id = due.id
-       returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige`,
+       returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige, r.ne_en_masse`,
       [limit],
     );
     return res.rows.map((r) => ligneReclamee(r, statut));
@@ -371,7 +380,7 @@ export class PgWorkflowRunStore {
          for update skip locked
        ) due
        where r.id = due.id
-       returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige`,
+       returning r.id, r.workflow_id, r.tenant_id, r.wa_id, r.contact_id, r.current_node, r.last_message_id, r.channel, r.graphe_fige, r.accord_marketing_exige, r.ne_en_masse`,
       [tenantId, id],
     );
     const r = res.rows[0];

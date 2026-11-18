@@ -47,7 +47,7 @@ const MERCI_PUIS_DEVIS: WorkflowGraph = {
 
 const PARCOURS = (currentNode: string, status: WorkflowRunRow['status'], exige = false): WorkflowRunRow => ({
   id: 'run-1', workflowId: 'wf1', tenantId: 't1', waId: WA, contactId: 'c1',
-  currentNode, status, lastMessageId: null, grapheFige: null, exigeAccordMarketing: exige,
+  currentNode, status, lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: exige,
 });
 
 type Ligne = Parameters<WorkflowExecutorDeps['journaliserEchec']>[0];

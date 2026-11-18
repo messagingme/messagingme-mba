@@ -123,7 +123,7 @@ export interface WorkflowExecutorDeps {
      * ⚠️ Une fausse implémentation à six paramètres reste assignable : seul l'aller-retour sur le vrai store prouve
      * l'écriture (`tests/integration/run-accord-marketing.integration.test.ts`).
      */
-    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean): Promise<{ id: string }>;
+    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean): Promise<{ id: string }>;
     findWaitingByWaId(tenantId: string, waId: string): Promise<WorkflowRunRow | null>;
     setState(id: string, state: RunState): Promise<void>;
     /**
@@ -1100,13 +1100,20 @@ export class WorkflowExecutor {
      * d'automation endormi (« attendre 2 jours, puis un modèle Marketing ») se réveillerait sans elle.
      */
     exigeAccordMarketing: boolean;
+    /**
+     * Le parcours est né d'un chemin de masse (`workflow_runs.ne_en_masse`, migration 0295). Requis, comme
+     * `exigeAccordMarketing` : perdu au balayage, la relance « Pas de réponse » d'une campagne publierait une étiquette
+     * par destinataire, donc autant de scénarios lancés et facturés.
+     */
+    neEnMasse: boolean;
     /** Canal courant du parcours. Absent -> WhatsApp (runs anciens). */
     channel?: RunChannel;
     /** Le dernier message consommé par le parcours : celui sur lequel une nouvelle pause en secondes signale la saisie. */
     lastMessageId?: string | null;
     /**
      * Pourquoi ce run était au repos, donc par où le reprendre : `sleeping` = bloc Attente, au bloc suivant ;
-     * `waiting` = délai « pas de réponse » d'un bloc Question, par la sortie `timeout`. Absent -> `sleeping`.
+     * `waiting` = délai « pas de réponse » d'un bloc Question, d'un bloc template ou d'un agent, par la sortie
+     * `timeout`. Absent -> `sleeping`.
      */
     status?: RunStatus;
   }): Promise<boolean> {
@@ -1125,24 +1132,24 @@ export class WorkflowExecutor {
       return false;
     }
     // D'où repartir dépend de ce qui a expiré. Bloc Attente : le successeur (repasser sur l'attente la
-    // rendormirait). Bloc Question : la sortie `timeout` et elle seule, car c'est la réponse qui décide de la
-    // suite : `nextNode` enverrait un contact silencieux dans la branche du premier câblage venu.
-    const parQuestion = run.status === 'waiting';
+    // rendormirait). Bloc Question, bloc template à délai ou agent : la sortie `timeout` et elle seule, car c'est la
+    // réponse qui décide de la suite : `nextNode` enverrait un contact silencieux dans la branche du premier câblage venu.
+    const parEcheance = run.status === 'waiting';
     // Une échéance consommée sur un bloc agent est une inactivité. Les autres sorties de `resume` closent la
     // session en `erreur`, parce qu'elles tuent le parcours pour une autre raison que le silence du contact.
-    if (parQuestion) await this.cloreSessionDuRun(tenantId, run.id, 'inactivite', SORTIE_TIMEOUT);
-    const suite = parQuestion
+    if (parEcheance) await this.cloreSessionDuRun(tenantId, run.id, 'inactivite', SORTIE_TIMEOUT);
+    const suite = parEcheance
       ? nextNodeByHandle(graph, run.currentNode, SORTIE_TIMEOUT)
       : nextNode(graph, run.currentNode);
     if (!suite) {
       // Sortie « pas de réponse » non câblée : le parcours s'arrête, et on rend la main à l'agent de Meta,
-      // qu'une question retenait (`etapeOffreUnChoix`), sinon il ne reprendrait jamais la parole.
-      if (parQuestion) {
+      // qu'une question ou un template à délai retenait, sinon il ne reprendrait jamais la parole.
+      if (parEcheance) {
         // eslint-disable-next-line no-console
         console.log(`workflow ${run.workflowId}: pas de réponse dans le délai sur le bloc ${run.currentNode}, sortie « pas de réponse » non câblée -> parcours clos pour ${waId}`);
       }
       await this.deps.runs.setState(run.id, { currentNode: null, status: 'done' });
-      if (parQuestion) await this.rendreLaMainAMba(tenantId, waId);
+      if (parEcheance) await this.rendreLaMainAMba(tenantId, waId);
       return false;
     }
     const ctx = await this.buildCtx(tenantId, waId, graph);
@@ -1188,8 +1195,11 @@ export class WorkflowExecutor {
     // parcours reste dû (bail de 15 minutes) jusqu'au paiement ou au « Relier ».
     if (envoieParWhatsApp(aExecuter, apresWalk)) await this.deps.verifierNumeroWhatsApp(tenantId);
     // `emitEvents` vrai : un réveil est unitaire (un contact, ici et maintenant), comme `advance`. Sinon
-    // « attendre 1 jour puis poser le tag » ne déclencherait pas l'automation branchée sur ce tag.
-    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk);
+    // « attendre 1 jour puis poser le tag » ne déclencherait pas l'automation branchée sur ce tag. 🔴 Sauf le réveil d'un
+    // parcours né d'un chemin de masse dont le contact n'a pas répondu (spec, décision 24) : tous ses destinataires se
+    // réveillent ensemble, et chaque étiquette publierait un « tag ajouté » par destinataire.
+    const masseMuette = run.neEnMasse && (run.lastMessageId ?? null) === null;
+    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, !masseMuette, run.workflowId, apresWalk);
     // Un réveil n'a pas de message reçu : la ligne du journal n'en nomme aucun.
     const origine = { workflowId: run.workflowId, runId: run.id, messageId: null, graph };
     /**
@@ -1274,7 +1284,7 @@ export class WorkflowExecutor {
     // l'état RÉEL de la fenêtre, jamais une déduction : une attente a passé, et le scénario d'arrivée qui ouvrirait par un
     // message de session sans elle est refusé par sa propre garde (`runFrom`), puis la conversation va à l'équipe.
     if (rest.status === 'aller_a') {
-      await this.sauter('aller_a', tenantId, { waId, contactId: run.contactId ?? null },
+      await this.sauter(masseMuette ? 'aller_a_masse' : 'aller_a', tenantId, { waId, contactId: run.contactId ?? null },
         { workflowId: run.workflowId, graph, noeudId: rest.nodeId, runId: run.id }, rest.cible,
         { fenetreOuverte: await this.deps.isWindowOpen(tenantId, waId), sauts: 1, exigeAccordMarketing: run.exigeAccordMarketing });
     }
@@ -1795,7 +1805,10 @@ export class WorkflowExecutor {
     // posent (`grapheAFiger`) ; figer le graphe de chaque destinataire d'une campagne le recopierait des milliers de fois.
     // La garde marketing, elle, se fige toujours : les reprises n'ont pas d'autre moyen de savoir d'où vient le parcours.
     const cree = state.status !== 'done'
-      ? await this.deps.runs.start(tenantId, workflowId, contact.waId, contact.contactId, state, grapheAFiger(politique) ? graph : null, opts.exigeAccordMarketing)
+      ? await this.deps.runs.start(tenantId, workflowId, contact.waId, contact.contactId, state, grapheAFiger(politique) ? graph : null, opts.exigeAccordMarketing,
+        // Le chemin de masse se fige aussi (migration 0295, spec décision 24) : un type qui ne publie pas les étiquettes
+        // (campagne, workflow HubSpot, envoi à un bloc) ne doit pas les publier non plus à son réveil « Pas de réponse ».
+        !politique.publieLesEtiquettes)
       : null;
     if (cree) await this.apresSommeil(tenantId, cree.id, state, canal, opts.messageDeclencheur ?? null, graph);
     // Bloc `inbox` atteint -> la conversation passe explicitement à un humain. L'escalade (collante : le

@@ -21,13 +21,19 @@ export interface DueRun {
    */
   exigeAccordMarketing: boolean;
   /**
+   * Le parcours est né d'un chemin de masse (migration 0295) : son réveil « Pas de réponse » n'émet rien tant que le
+   * contact n'a pas répondu. REQUIS, comme `exigeAccordMarketing` : chaque réclamation doit le porter jusqu'à `resume`.
+   */
+  neEnMasse: boolean;
+  /**
    * Le dernier message consommé par le parcours (`last_message_id`), que la reprise transmet pour afficher « en
    * train d'écrire… » sur une nouvelle pause en secondes. Requis, comme `grapheFige` : chaque réclamation doit le lire.
    */
   lastMessageId: string | null;
   /**
    * Ce qui est arrivé à échéance, donc par où reprendre : `sleeping` = bloc Attente (reprise au bloc suivant),
-   * `waiting` = délai « pas de réponse » d'un bloc Question (sortie `timeout`). Absent = `sleeping`.
+   * `waiting` = délai « pas de réponse » d'un bloc Question, d'un bloc template ou d'un agent (sortie `timeout`).
+   * Absent = `sleeping`.
    */
   status?: RunStatus;
 }
@@ -38,7 +44,7 @@ export interface WakeSweepDeps {
     /** Réserve les runs dormants dus (claim atomique côté store) et les rend. Jamais deux fois la même ligne. */
     claimDueSleeping(limit: number): Promise<DueRun[]>;
     /**
-     * Réserve les parcours dont le délai « pas de réponse » d'un bloc Question a expiré. Absente -> pas de
+     * Réserve les parcours dont le délai « pas de réponse » (Question, template, agent) a expiré. Absente -> pas de
      * balayage. Séparée de `claimDueSleeping` parce que la mécanique diffère, et c'est elle qui décide de la
      * sûreté : l'une pose un bail sur un run dormant, invisible de `advance` ; l'autre consomme l'échéance d'un
      * run qui doit rester joignable par une réponse du contact.

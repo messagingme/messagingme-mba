@@ -46,7 +46,7 @@ describe.skipIf(!url)('workflow_runs.accord_marketing_exige : écrite par start,
   async function parcours(waId: string, status: 'waiting' | 'sleeping', exige: boolean, echeancePassee: boolean): Promise<string> {
     const { id } = await store.start(tenantId, workflowId, waId, null, {
       currentNode: 'n1', status, ...(echeancePassee ? { resumeAt: new Date(Date.now() - 60_000) } : {}),
-    }, null, exige);
+    }, null, exige, false);
     return id;
   }
 

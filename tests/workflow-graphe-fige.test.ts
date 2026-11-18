@@ -41,9 +41,9 @@ class FauxRuns {
   /** Ce que la CRÉATION a transmis au dépôt : c'est là que le figeage se prouve, pas dans ce que rend `runFrom`. */
   grapheFigeEcrit: WorkflowGraph | null | undefined = undefined;
   async closeActiveByWaId(): Promise<string[]> { return []; }
-  async start(tenantId: string, workflowId: string, waId: string, _c: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean): Promise<{ id: string }> {
+  async start(tenantId: string, workflowId: string, waId: string, _c: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean): Promise<{ id: string }> {
     this.grapheFigeEcrit = grapheFige;
-    this.run = { id: 'r1', workflowId, tenantId, waId, currentNode: state.currentNode, status: state.status, lastMessageId: null, grapheFige, exigeAccordMarketing };
+    this.run = { id: 'r1', workflowId, tenantId, waId, currentNode: state.currentNode, status: state.status, lastMessageId: null, grapheFige, exigeAccordMarketing, neEnMasse };
     return { id: 'r1' };
   }
   async findWaitingByWaId(_t: string, waId: string): Promise<WorkflowRunRow | null> {
@@ -124,7 +124,7 @@ describe('les points de reprise jouent le graphe figé', () => {
     const { ex, calls, luPublie } = monter(avecAttente('publie'));
     const dormant = {
       id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w',
-      status: 'sleeping' as const, grapheFige: avecAttente('brouillon'), exigeAccordMarketing: false,
+      status: 'sleeping' as const, grapheFige: avecAttente('brouillon'), neEnMasse: false, exigeAccordMarketing: false,
     };
     expect(await ex.resume(dormant)).toBe(true);
     expect(calls).toEqual(['tpl:brouillon']);
@@ -140,7 +140,7 @@ describe('les points de reprise jouent le graphe figé', () => {
     const { ex, runs, luPublie } = monter(publie);
     runs.run = {
       id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'r',
-      status: 'waiting', lastMessageId: null, channel: 'rcs', grapheFige: brouillon, exigeAccordMarketing: false,
+      status: 'waiting', lastMessageId: null, channel: 'rcs', grapheFige: brouillon, neEnMasse: false, exigeAccordMarketing: false,
     };
     expect(await ex.rcsUndeliverable('t1', '33600', 'm1')).toBe(true);
     expect(luPublie).toEqual([]);
@@ -150,7 +150,7 @@ describe('les points de reprise jouent le graphe figé', () => {
     const { ex, calls, luPublie } = monter(avecAttente('publie'));
     const dormant = {
       id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w',
-      status: 'sleeping' as const, grapheFige: null, exigeAccordMarketing: false,
+      status: 'sleeping' as const, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false,
     };
     expect(await ex.resume(dormant)).toBe(true);
     expect(calls).toEqual(['tpl:publie']);

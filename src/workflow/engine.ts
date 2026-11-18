@@ -456,7 +456,7 @@ function explorerLesAttentes(graph: WorkflowGraph): { premierMontage: WaitThenSe
 export type WalkRest =
   /**
    * En attente d'une réponse du contact (après un template, un formulaire, une question). `timeoutInMs` est
-   * l'échéance « pas de réponse » d'un bloc Question. Absent = attente sans limite.
+   * l'échéance « pas de réponse » d'un bloc Question ou d'un bloc template. Absent = attente sans limite.
    */
   | { status: 'waiting'; nodeId: string; timeoutInMs?: number }
   | { status: 'sleeping'; nodeId: string; resumeInMs: number } // en attente du temps qui passe (bloc Attente)
@@ -595,11 +595,11 @@ export const QUESTION_MAX_ROWS = 10;
 export const QUESTION_LIMITES = { body: 4096, bouton: 20, titre: 24, description: 72 } as const;
 
 /**
- * Échéance « pas de réponse » d'un bloc Question, en millisecondes. 0 = aucune échéance : le parcours attend
- * indéfiniment. Mêmes unités et même plafond que le bloc Attente : c'est la même notion de délai pour
- * l'utilisateur.
+ * Échéance « pas de réponse » d'un bloc Question ou d'un bloc template (menu « Scénario », lot 2), en millisecondes.
+ * 0 = aucune échéance : le parcours attend indéfiniment. Mêmes unités et même plafond que le bloc Attente : c'est la même
+ * notion de délai pour l'utilisateur.
  */
-export function questionTimeoutMs(node: WorkflowNode): number {
+export function delaiSansReponseMs(node: WorkflowNode): number {
   const brut = Number(node.data.timeoutValue ?? 0);
   if (!Number.isFinite(brut) || brut <= 0) return 0;
   const unit = String(node.data.timeoutUnit ?? 'hours');
@@ -663,6 +663,16 @@ export function nextNodeByHandle(graph: WorkflowGraph, nodeId: string, handle: s
  *  « oui ». Sans arête libre, s'arrêter vaut mieux qu'inventer une branche. */
 export function nextNodeSansHandle(graph: WorkflowGraph, nodeId: string): string | null {
   return graph.edges.find((e) => e.source === nodeId && !e.sourceHandle)?.target ?? null;
+}
+
+/**
+ * Le bloc suivant par la première arête qui n'est pas la sortie « pas de réponse » (`timeout`). Sert la SUITE d'une étape
+ * qui continue sans attendre (mode agent de Meta) : une arête `timeout` restée sur un template sans délai (l'écran la
+ * retire, mais `PATCH /workflows/:id` accepte toute poignée) serait sinon prise pour la suite, et le contact recevrait la
+ * relance « pas de réponse » tout de suite.
+ */
+export function nextNodeHorsTimeout(graph: WorkflowGraph, nodeId: string): string | null {
+  return graph.edges.find((e) => e.source === nodeId && e.sourceHandle !== 'timeout')?.target ?? null;
 }
 
 /** Destinataire valide : littéral non vide, ou champ non vide à résoudre à l'envoi (executor). Toute autre
@@ -1068,12 +1078,17 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
       }
       actions.push({ nodeId: current, action: a });
       // Il attend toujours, menu ou pas. L'échéance voyage avec le repos : l'executor la traduit en `resume_at`.
-      const ms = questionTimeoutMs(node);
+      const ms = delaiSansReponseMs(node);
       return { actions, rest: { status: 'waiting', nodeId: current, ...(ms > 0 ? { timeoutInMs: ms } : {}) } };
     }
     if (node.type === 'template' || node.type === 'flow' || node.type === 'quick_message') {
       const a = actionOf(node, work);
       if (a) actions.push({ nodeId: current, action: a });
+      // Un template parti avec un délai « pas de réponse » attend, mode agent de Meta compris (spec, décision 25 : un
+      // délai posé est une intention explicite). L'échéance voyage avec le repos, comme celle de la Question. Sans délai,
+      // ou sans template parti (`a` nul), rien ne change.
+      const delai = node.type === 'template' && a ? delaiSansReponseMs(node) : 0;
+      if (delai > 0) return { actions, rest: { status: 'waiting', nodeId: current, timeoutInMs: delai } };
       // Sans MBA : seul un message rapide sans bouton continue. Avec MBA : toute étape qui n'offre pas de choix
       // continue, l'agent de Meta répondant à sa place.
       const continuer = !etapeOffreUnChoix(a) && (opts?.mbaActif === true || a?.kind === 'sendQuickMessage');
@@ -1082,7 +1097,7 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
         // libre), jamais la 1re arête venue, qui peut être « Formulaire rempli ». Même règle pour tout bloc qui n'a rien
         // envoyé (message rapide sans texte, template sans modèle) : la 1re arête peut être celle d'un bouton que le
         // contact n'a jamais reçu (vécu le 2026-11-16, « Code promo » parti sans « Suite »).
-        current = node.type === 'flow' || a === null ? nextNodeSansHandle(graph, current) : nextNode(graph, current);
+        current = node.type === 'flow' || a === null ? nextNodeSansHandle(graph, current) : nextNodeHorsTimeout(graph, current);
         continue;
       }
       // « Puis, sans attendre » (2026-11-10) : la suite d'un message rapide à boutons part avec lui, ses actions à la

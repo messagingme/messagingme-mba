@@ -39,7 +39,7 @@ const MODELE_SEUL: WorkflowGraph = {
 
 const RUN: WorkflowRunRow = {
   id: 'run-1', workflowId: 'wf1', tenantId: 't1', waId: '33611', contactId: 'c1',
-  currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null, exigeAccordMarketing: false,
+  currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false,
 };
 
 /**
