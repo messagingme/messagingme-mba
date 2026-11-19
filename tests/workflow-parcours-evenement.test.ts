@@ -5,7 +5,7 @@ import { bancDuFil, ESPACE } from './banc-du-fil';
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowExecutorDeps } from '../src/workflow/executor';
 import {
-  creerLancements, REFUS_EVENEMENT_EN_COURS, REFUS_SCENARIOS_HORS_OFFRE, type DemandeDeLancement,
+  creerLancements, REFUS_DEJA_NE, REFUS_EVENEMENT_EN_COURS, REFUS_SCENARIOS_HORS_OFFRE, type DemandeDeLancement,
 } from '../src/workflow/lancements';
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
 import type { WorkflowRow } from '../src/workflow/store.pg';
@@ -53,9 +53,9 @@ const WA = '33611223344';
 const EVENEMENT: EvenementDuParcours = { origine: 'shopify:boutique.myshopify.com:checkouts/create:42', variables: { checkout_url: 'https://x/c/42' } };
 
 /** La demande que le pont du moteur de campagne enverra, après l'acceptation de Meta. */
-const naissance = (o: Partial<{ workflowId: string; noeudId: string; nom: string; langue: string }> = {}): DemandeDeLancement => ({
+const naissance = (o: Partial<{ workflowId: string; noeudId: string; nom: string; langue: string; evenement: EvenementDuParcours }> = {}): DemandeDeLancement => ({
   type: 'evenement_shopify', tenantId: ESPACE, workflowId: o.workflowId ?? 'wf-panier', waId: WA, contactId: 'c1',
-  noeudId: o.noeudId ?? 'tpl', modele: { nom: o.nom ?? 'panier_relance', langue: o.langue ?? 'fr' }, evenement: EVENEMENT,
+  noeudId: o.noeudId ?? 'tpl', modele: { nom: o.nom ?? 'panier_relance', langue: o.langue ?? 'fr' }, evenement: o.evenement ?? EVENEMENT,
 });
 
 interface Options {
@@ -64,6 +64,8 @@ interface Options {
   dejaActif?: boolean;
   /** `start` rend le refus de l'index unique (un autre événement a gagné la course). */
   courseperdue?: boolean;
+  /** `start` rend le refus de la naissance idempotente (lot 5 : un parcours de la même origine existe déjà). */
+  dejaNe?: boolean;
   offre?: Offre;
   /** L'horloge de l'exécuteur (`now`), pour lire une échéance. */
   maintenant?: number;
@@ -85,6 +87,7 @@ function banc(o: Options = {}) {
       // Les deux surcharges du contrat : seul un parcours d'événement peut être refusé par l'index unique.
       start: (async (_t: string, _w: string, _wa: string, _c: string | null, state: RunState, _g: unknown, _e: boolean, _m: boolean, evenement: EvenementDuParcours | null) => {
         if (o.courseperdue && evenement !== null) return { refus: 'evenement_actif' as const };
+        if (o.dejaNe && evenement !== null) return { refus: 'deja_ne' as const };
         crees.push({ state, evenement });
         return { id: 'r-neuf' };
       }) as WorkflowExecutorDeps['runs']['start'],
@@ -131,7 +134,22 @@ describe('la naissance d’un parcours d’événement, sur le bloc déjà envoy
     expect(m.envois, 'le template est déjà parti par le moteur de campagne').toEqual([]);
     expect(m.crees).toHaveLength(1);
     expect(m.crees[0]!.state).toMatchObject({ currentNode: 'tpl', status: 'waiting' });
-    expect(m.crees[0]!.evenement).toEqual(EVENEMENT);
+    // Lot 5 : le bloc de départ est gardé avec l'événement (le clic d'un événement frère s'y reconnaît).
+    expect(m.crees[0]!.evenement).toEqual({ ...EVENEMENT, noeudDepart: 'tpl' });
+  });
+
+  it('🔴 lot 5 : la même origine déjà née (la relance automatique d’un envoi) : aucun parcours, et la raison le dit', async () => {
+    silence();
+    const m = banc({ dejaNe: true });
+    expect(await m.lancements.lancer(naissance())).toBe(REFUS_DEJA_NE);
+    expect(m.crees).toEqual([]);
+  });
+
+  it('🔴 la naissance garde l’identifiant Meta du premier message et son bloc de départ (lot 5)', async () => {
+    silence();
+    const m = banc();
+    expect(await m.lancements.lancer(naissance({ evenement: { ...EVENEMENT, messageId: 'wamid.premier' } }))).toBe(true);
+    expect(m.crees[0]!.evenement).toEqual({ ...EVENEMENT, messageId: 'wamid.premier', noeudDepart: 'tpl' });
   });
 
   it('🔴 fil tenu par l’agent de Meta : repris pour l’app (le clic sur le premier template ne sera pas gelé)', async () => {
@@ -291,7 +309,18 @@ interface OptionsReprise {
   graphe?: WorkflowGraph;
   /** Les champs de la fiche que lit le texte d'un message (`varsFor`). */
   varsFiche?: Record<string, string>;
+  /** L'événement du parcours qui attend (lot 5 : il garde l'identifiant de son premier message et son bloc de départ). */
+  evenement?: EvenementDuParcours;
 }
+
+/** Le premier message d'un parcours d'événement, tel que la naissance du lot 5 le garde. */
+const SIEN: EvenementDuParcours = { ...EVENEMENT, messageId: 'wamid.tpl', noeudDepart: 'tpl' };
+/** Les messages connus des mesures des blocs : le sien, celui d'un événement frère (même bloc), celui d'un autre scénario. */
+const BLOCS_DES_MESSAGES: Record<string, { workflowId: string; nodeId: string }> = {
+  'wamid.tpl': { workflowId: 'wf-panier', nodeId: 'tpl' },
+  'wamid.frere': { workflowId: 'wf-panier', nodeId: 'tpl' },
+  'wamid.exp': { workflowId: 'wf-expediee', nodeId: 'tpl-e' },
+};
 
 function bancReprise(o: OptionsReprise = {}) {
   const b = bancDuFil({ surLaListe: [WA], conversations: { [WA]: { owner: o.detenteur ?? 'app_workflow' } } });
@@ -307,13 +336,14 @@ function bancReprise(o: OptionsReprise = {}) {
     aAccordMarketing: toujoursDAccord,
     isWindowOpen: async () => true,
     parcoursEncoreVoulu: async () => o.voulu ?? true,
-    blocDuMessage: async (_t, wamid) => (wamid === 'wamid.tpl' ? { workflowId: 'wf-panier', nodeId: 'tpl' } : null),
+    blocDuMessage: async (_t, wamid) => BLOCS_DES_MESSAGES[wamid] ?? null,
     confierAuRepondeur: async (_t, _w, messageId) => { auRepondeur.push(messageId); },
     resoudreBloc: async (_t, cible) => (cible === 'code-autre' ? { workflowId: 'wf-autre', nodeId: 'x', graph: AUTRE } : null),
     runs: avecGardesDEtatInertes({
       start: async () => ({ id: 'r-saut' }),
-      findWaitingByWaId: async () => o.dernier ?? runEvenement(),
-      findWaitingSurBloc: async (_t: string, _w: string, wf: string, noeud: string) => (wf === 'wf-panier' && noeud === 'tpl' ? runEvenement() : null),
+      findWaitingByWaId: async () => o.dernier ?? runEvenement(o.evenement ? { evenement: o.evenement } : {}),
+      findWaitingSurBloc: async (_t: string, _w: string, wf: string, noeud: string) =>
+        (wf === 'wf-panier' && noeud === 'tpl' ? runEvenement(o.evenement ? { evenement: o.evenement } : {}) : null),
       setState: async (id: string, s: RunState) => { ecritures.push(`${id}:${s.status}`); },
       setStateSiEncoreSur: async (_t: string, id: string, _n: string | null, s: RunState) => { ecritures.push(`${id}:${s.status}`); return true; },
       closeActiveByWaId: async () => [],
@@ -399,6 +429,33 @@ describe('la réponse du contact à un parcours d’événement (advance)', () =
     await m.executor.advance(ESPACE, WA, 'm1', 'btn:1', 'whatsapp', clic('btn:1'));
     expect(demarrer).toHaveBeenCalledTimes(1);
     expect(demarrer.mock.calls[0]![5]).toMatchObject({ depuis: 'saut', noeudId: 'x', evenement: EVENEMENT });
+  });
+
+  it('🔴 le clic sur le premier message d’un SECOND événement (même bloc, autre message) ne le touche pas : non pris, il attend', async () => {
+    silence();
+    const m = bancReprise({ evenement: SIEN });
+    const pris = await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', { ...clic('btn:0'), messageCite: 'wamid.frere' });
+    expect(pris, 'le message revient à la remise').toBe(false);
+    expect(m.envois, 'aucun ancien lien de panier').toEqual([]);
+    expect(m.ecritures, 'le parcours attend toujours').toEqual([]);
+  });
+
+  it('🔴 le clic sur un message d’un AUTRE scénario ne le clôt pas (décision 22) : non pris, il attend', async () => {
+    silence();
+    const m = bancReprise({ evenement: SIEN });
+    const pris = await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', { ...clic('btn:0'), messageCite: 'wamid.exp' });
+    expect(pris).toBe(false);
+    expect(m.envois).toEqual([]);
+    expect(m.ecritures).toEqual([]);
+    expect(m.auRepondeur).toEqual([]);
+  });
+
+  it('le clic sur SON premier message (l’identifiant gardé) prend sa branche', async () => {
+    silence();
+    const m = bancReprise({ evenement: SIEN });
+    const pris = await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(pris).not.toBe(false);
+    expect(m.envois).toEqual(['qm:Voici votre panier']);
   });
 });
 

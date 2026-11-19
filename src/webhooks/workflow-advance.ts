@@ -67,12 +67,15 @@ function contexteDeLAvance(err: unknown): { workflowId?: string; runId?: string;
 export function avanceDuParcours(d: {
   trouverEnAttente(tenantId: string, waId: string): Promise<object | null>;
   peutAgir(tenantId: string, waId: string): Promise<boolean>;
-  avancer(tenantId: string, waId: string, messageId: string, buttonPayload: string | null, entrant: EntrantAvance): Promise<void>;
+  /** `false` : le parcours a refusé ce message, qui n'est pas pour lui (lot 5, un clic sur le message d'un autre). */
+  avancer(tenantId: string, waId: string, messageId: string, buttonPayload: string | null, entrant: EntrantAvance): Promise<false | void>;
 }): WorkflowAdvanceDeps['advance'] {
   return async (tenantId, waId, messageId, buttonPayload, entrant) => {
     const enAttente = (await d.trouverEnAttente(tenantId, waId)) !== null;
     const aNous = enAttente && (await d.peutAgir(tenantId, waId));
-    await d.avancer(tenantId, waId, messageId, buttonPayload, entrant);
+    // 🔴 Lot 5 : le parcours d'événement a rendu le message (un clic sur le premier message d'un événement frère, ou sur un
+    // bloc d'un autre scénario) : la remise décide, même sur un fil à nous, sinon le message serait avalé sans réponse.
+    if ((await d.avancer(tenantId, waId, messageId, buttonPayload, entrant)) === false) return false;
     // 🔴 Lot 4 : un parcours d'événement reprend PENDANT l'avance un fil que tenait l'agent de Meta (décision 20). Le message
     // est alors à lui : la remise ne doit pas le donner aussi à l'agent (deux voix). Relu seulement quand il n'était pas à
     // nous ; un parcours ordinaire gelé ne reprend rien, sa réponse ne change pas.

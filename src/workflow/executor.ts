@@ -25,7 +25,7 @@ import { MOTIF_DESABONNE, MOTIF_SANS_ACCORD_MARKETING } from '../campaign/guardr
 import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
 import { messageDe, texteDe } from '../lib/erreur';
 import {
-  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, REFUS_EVENEMENT_EN_COURS, accordMarketingExige, fenetreLevee, grapheAFiger, ouvertureExemptee,
+  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, REFUS_DEJA_NE, REFUS_EVENEMENT_EN_COURS, accordMarketingExige, fenetreLevee, grapheAFiger, ouvertureExemptee,
   type DepartDuParcours, type PolitiqueDeLancement, type TypeDeLancement,
 } from './lancements';
 import { MAX_SAUTS_SANS_PAUSE, nomDuBloc } from './aller-a';
@@ -42,6 +42,9 @@ import type { UserFieldType } from '../crm/types';
  * campagne affiche la cause qui s'applique, pas toutes les causes possibles).
  */
 export type StartOutcome = true | string;
+
+/** Le bloc de scénario qui a envoyé un message, tel que les mesures des blocs le retrouvent (`blocDuMessage`). */
+type BlocDuMessage = { workflowId: string; nodeId: string };
 
 /** Ce texte porte-t-il une variable `{{champ}}` de la fiche ? Grammaire de `renderText`. Sans `g` : `test` sans état. */
 const VARIABLE_DU_CORPS = /\{\{\s*[\w.-]+\s*\}\}/;
@@ -136,7 +139,7 @@ export interface WorkflowExecutorDeps {
      * ordinaire (`null`) ne peut pas l'être, d'où les deux surcharges.
      */
     start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: null): Promise<{ id: string }>;
-    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null): Promise<{ id: string } | { refus: 'evenement_actif' }>;
+    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' }>;
     findWaitingByWaId(tenantId: string, waId: string): Promise<WorkflowRunRow | null>;
     setState(id: string, state: RunState): Promise<void>;
     /**
@@ -1743,15 +1746,23 @@ export class WorkflowExecutor {
    * réponse écrite (la sortie libre, comme sur un bloc Formulaire). Message inconnu (envoyé avant que la mesure ne porte
    * l'identifiant, par un autre chemin, ou lecture en panne) : le comportement d'avant.
    */
-  private async boutonDuBlocCourant(
-    tenantId: string, run: { workflowId: string; currentNode: string | null }, bouton: string | null, messageCite: string | undefined,
-  ): Promise<string | null> {
-    if (bouton === null || messageCite === undefined || !/^(btn:|card:|row:)/.test(bouton)) return bouton;
-    const origine = await this.deps.blocDuMessage(tenantId, messageCite).catch(() => null);
+  private boutonDuBlocCourant(
+    run: { workflowId: string; currentNode: string | null }, bouton: string | null, origine: BlocDuMessage | null,
+  ): string | null {
     if (origine === null || (origine.workflowId === run.workflowId && origine.nodeId === run.currentNode)) return bouton;
     // eslint-disable-next-line no-console
-    console.log(`workflow ${run.workflowId}: clic « ${bouton} » sur un message du bloc ${origine.nodeId}, le parcours attend sur ${run.currentNode ?? 'null'} : lu comme une réponse écrite`);
+    console.log(`workflow ${run.workflowId}: clic « ${bouton ?? 'null'} » sur un message du bloc ${origine.nodeId}, le parcours attend sur ${run.currentNode ?? 'null'} : lu comme une réponse écrite`);
     return null;
+  }
+
+  /**
+   * Le bloc qui a envoyé le message qu'un clic cite (`btn:`, `card:`, `row:`), lu UNE fois par avance dans les mesures des
+   * blocs. `null` hors d'un clic, pour un message inconnu (envoyé avant que la mesure ne porte l'identifiant, ou par un
+   * autre chemin) ou une lecture en panne : le comportement d'avant.
+   */
+  private async blocDuClic(tenantId: string, bouton: string | null, messageCite: string | undefined): Promise<BlocDuMessage | null> {
+    if (bouton === null || messageCite === undefined || !/^(btn:|card:|row:)/.test(bouton)) return null;
+    return this.deps.blocDuMessage(tenantId, messageCite).catch(() => null);
   }
 
   /**
@@ -1760,12 +1771,25 @@ export class WorkflowExecutor {
    * connu, le plus récent, comme avant.
    */
   private async parcoursDuClic(
-    tenantId: string, waId: string, run: WorkflowRunRow, bouton: string | null, messageCite: string | undefined,
+    tenantId: string, waId: string, run: WorkflowRunRow, origine: BlocDuMessage | null,
   ): Promise<WorkflowRunRow> {
-    if (bouton === null || messageCite === undefined || !/^(btn:|card:|row:)/.test(bouton)) return run;
-    const origine = await this.deps.blocDuMessage(tenantId, messageCite).catch(() => null);
     if (origine === null || (origine.workflowId === run.workflowId && origine.nodeId === run.currentNode)) return run;
     return (await this.deps.runs.findWaitingSurBloc(tenantId, waId, origine.workflowId, origine.nodeId)) ?? run;
+  }
+
+  /**
+   * 🔴 UN PARCOURS D'ÉVÉNEMENT NE REÇOIT UN CLIC QUE SUR SON MESSAGE (lot 5, relecture de 4b). Le clic cite un message d'un
+   * bloc d'un AUTRE scénario (« commande expédiée » pendant que « commande payée » attend) : lu comme une réponse écrite, il
+   * clôturait le parcours (décision 22). Il cite le premier message d'un événement FRÈRE, envoyé par le même bloc de départ
+   * mais dont le parcours n'est pas né (place prise) : il prenait la branche de ce parcours-ci, avec l'ancien lien de
+   * panier. Dans les deux cas le message n'est pas pour lui : l'avance le rend à la remise, et le parcours continue
+   * d'attendre. Un parcours ordinaire, un message inconnu ou un parcours né avant le lot 5 (sans `messageId`) : comme avant.
+   */
+  private clicPasPourLeParcours(run: WorkflowRunRow, origine: BlocDuMessage | null, messageCite: string | undefined): boolean {
+    if (run.evenement === null || origine === null) return false;
+    if (origine.workflowId !== run.workflowId) return true;
+    const { messageId, noeudDepart } = run.evenement;
+    return messageId !== undefined && noeudDepart !== undefined && origine.nodeId === noeudDepart && messageCite !== messageId;
   }
 
   /**
@@ -2094,11 +2118,14 @@ export class WorkflowExecutor {
         !politique.publieLesEtiquettes, opts.evenement ?? null)
       : null;
     // Deux événements du même contact joués en parallèle : l'index unique (0298) n'en laisse naître qu'un. Le second n'a
-    // pas de parcours, et ce n'est pas un échec (seul son premier message est parti, décision 3).
+    // pas de parcours, et ce n'est pas un échec (seul son premier message est parti, décision 3). Lot 5 : la même origine
+    // déjà née (la relance automatique d'un envoi) ne renaît pas, et le dit autrement.
     if (cree !== null && 'refus' in cree) {
       // eslint-disable-next-line no-console
-      console.log(`workflow ${workflowId}: un autre parcours d’événement a pris la place de ${contact.waId}, aucun parcours`);
-      return REFUS_EVENEMENT_EN_COURS;
+      console.log(cree.refus === 'deja_ne'
+        ? `workflow ${workflowId}: le parcours de cet événement est déjà né pour ${contact.waId}, aucun second`
+        : `workflow ${workflowId}: un autre parcours d’événement a pris la place de ${contact.waId}, aucun parcours`);
+      return cree.refus === 'deja_ne' ? REFUS_DEJA_NE : REFUS_EVENEMENT_EN_COURS;
     }
     if (cree) await this.apresSommeil(tenantId, cree.id, state, canal, opts.messageDeclencheur ?? null, graph);
     // Bloc `inbox` atteint -> la conversation passe explicitement à un humain. L'escalade (collante : le
@@ -2166,7 +2193,9 @@ export class WorkflowExecutor {
       ...(depart.depuis === 'entree' && depart.firstTemplateParams ? { firstTemplateParams: depart.firstTemplateParams } : {}),
       ...(depart.depuis !== 'deja_envoye' && depart.messageDeclencheur !== undefined ? { messageDeclencheur: depart.messageDeclencheur } : {}),
       ...(depart.depuis === 'saut' ? { sauts: depart.sauts, evenement: depart.evenement } : {}),
-      ...(depart.depuis === 'deja_envoye' ? { dejaEnvoye: { modele: depart.modele }, evenement: depart.evenement } : {}),
+      // Lot 5 : le bloc de départ est gardé avec l'événement, à côté de l'identifiant Meta du premier message que le moteur
+      // de campagne y a mis : un clic sur le premier message d'un événement FRÈRE (même bloc) se reconnaît sans lecture.
+      ...(depart.depuis === 'deja_envoye' ? { dejaEnvoye: { modele: depart.modele }, evenement: { ...depart.evenement, noeudDepart: depart.noeudId } } : {}),
     });
   }
 
@@ -2323,13 +2352,20 @@ export class WorkflowExecutor {
   async advance(
     tenantId: string, waId: string, messageId: string, boutonRecu: string | null = null, canalRetour: RunChannel = 'whatsapp',
     entrant: EntrantAvance = { reaction: false },
-  ): Promise<void> {
+  ): Promise<false | void> {
     const leDernier = await this.deps.runs.findWaitingByWaId(tenantId, waId);
     if (!leDernier) return;
     // Lot 4 : deux parcours peuvent attendre ce contact (un parcours d'événement et un ordinaire qui coexiste, décision 21) ;
-    // un clic va au parcours qui attend sur le bloc du message qu'il cite, sinon au plus récent.
-    const run = await this.parcoursDuClic(tenantId, waId, leDernier, boutonRecu, entrant.messageCite);
+    // un clic va au parcours qui attend sur le bloc du message qu'il cite, sinon au plus récent. Le bloc cité est lu UNE fois.
+    const blocCite = await this.blocDuClic(tenantId, boutonRecu, entrant.messageCite);
+    const run = await this.parcoursDuClic(tenantId, waId, leDernier, blocCite);
     if (run.lastMessageId === messageId) return; // dédup at-least-once
+    // Lot 5 : le clic qui n'est pas pour ce parcours d'événement lui est rendu intact, et à la remise (`false`).
+    if (this.clicPasPourLeParcours(run, blocCite, entrant.messageCite)) {
+      // eslint-disable-next-line no-console
+      console.log(`workflow ${run.workflowId}: clic « ${boutonRecu ?? 'null'} » sur un message qui n'est pas celui du parcours d’événement ${run.id} (bloc ${blocCite?.nodeId ?? '?'}) : rendu à la remise, le parcours attend`);
+      return false;
+    }
 
     /**
      * Le tour est réservé avant tout envoi : l'écriture conditionnelle plus bas protège l'état mais arrive
@@ -2361,7 +2397,7 @@ export class WorkflowExecutor {
     });
     try {
     // Le bouton tel que ce bloc le lit : un clic sur un message envoyé par un AUTRE bloc devient une réponse écrite.
-    const buttonPayload = await this.boutonDuBlocCourant(tenantId, run, boutonRecu, entrant.messageCite);
+    const buttonPayload = this.boutonDuBlocCourant(run, boutonRecu, blocCite);
 
     /**
      * Écriture de l'état, conditionnée au fait que le run n'a pas bougé pendant qu'on travaillait (et au jeton

@@ -885,7 +885,9 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
               const issue = await deps.naitreParcoursEvenement(campaign.tenantId, {
                 workflowId: pe.workflowId, noeudId: pe.noeudId, waId, contactId: r.contactId,
                 modele: { nom: contenu.templateName, langue: contenu.templateLanguage },
-                evenement: { origine: pe.origine, variables: { ...(r.variables ?? {}) } },
+                // Lot 5 : l'identifiant Meta du premier message, que le parcours garde (seul un clic sur CE message le touche,
+                // et l'échec de sa livraison le clôt).
+                evenement: { origine: pe.origine, variables: { ...(r.variables ?? {}) }, messageId: res.messageId },
               });
               if (issue !== true) scenarioNonDemarre = `Parcours non né : ${issue}`;
             }

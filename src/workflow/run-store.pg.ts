@@ -151,6 +151,13 @@ export class PgWorkflowRunStore {
    * parallèle : l'index est la seule garantie, décision 21) : le 23505 devient le refus `evenement_actif`, que le
    * démarrage rend comme « aucun parcours », jamais un échec de campagne. Un parcours ORDINAIRE (`evenement` à `null`)
    * ne peut pas le violer : la première surcharge le dit au compilateur.
+   *
+   * 🔴 LOT 5, LA NAISSANCE IDEMPOTENTE PAR ORIGINE (relecture de 4b) : la relance automatique d'un envoi redemandait la
+   * naissance. Un parcours d'événement ne naît pas si un parcours de la MÊME origine existe déjà pour ce contact, quel
+   * que soit son statut (`deja_ne`), sauf s'il a été clos parce que son premier message n'a pas été livré
+   * (`premierNonLivre`) : la nouvelle tentative le fait alors renaître, et un parcours terminé normalement ne rejoue
+   * jamais sa suite. Dans la même instruction que l'insertion ; le prédicat `evenement is not null` est celui de l'index
+   * partiel 0300 qui la sert, écrit tel quel.
    */
   start(
     tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null,
@@ -159,24 +166,41 @@ export class PgWorkflowRunStore {
   start(
     tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null,
     exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null,
-  ): Promise<{ id: string } | { refus: 'evenement_actif' }>;
+  ): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' }>;
   async start(
     tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null,
     exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null,
-  ): Promise<{ id: string } | { refus: 'evenement_actif' }> {
+  ): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' }> {
     // `resume_at` est écrit dès la création : un scénario dont le premier passage tombe sur un bloc Attente
     // naît en sommeil, et sans échéance le balayage (`resume_at <= now()`) ne le réveillerait jamais.
     // `last_message_id` aussi : le message qui démarre un parcours (le répondeur) y naît déjà reçu, et sa redélivrance
     // par Meta n'est pas prise pour une réponse par `advance`. Absent, `null` : le cas de tous les autres démarrages.
+    const valeurs = [workflowId, tenantId, contactId, waId, state.currentNode, state.status, state.resumeAt ?? null, state.channel ?? 'whatsapp',
+      grapheFige === null ? null : JSON.stringify(grapheFige), state.lastMessageId ?? null, exigeAccordMarketing, neEnMasse,
+      evenement === null ? null : JSON.stringify(evenement)];
     try {
+      if (evenement === null) {
+        const res = await this.pool.query<{ id: string }>(
+          `insert into workflow_runs (workflow_id, tenant_id, contact_id, wa_id, current_node, status, resume_at, channel, graphe_fige, last_message_id, accord_marketing_exige, ne_en_masse, evenement)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
+          valeurs,
+        );
+        return { id: res.rows[0]!.id };
+      }
       const res = await this.pool.query<{ id: string }>(
         `insert into workflow_runs (workflow_id, tenant_id, contact_id, wa_id, current_node, status, resume_at, channel, graphe_fige, last_message_id, accord_marketing_exige, ne_en_masse, evenement)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
-        [workflowId, tenantId, contactId, waId, state.currentNode, state.status, state.resumeAt ?? null, state.channel ?? 'whatsapp',
-         grapheFige === null ? null : JSON.stringify(grapheFige), state.lastMessageId ?? null, exigeAccordMarketing, neEnMasse,
-         evenement === null ? null : JSON.stringify(evenement)],
+         select $1::uuid, $2::uuid, $3::uuid, $4::text, $5::text, $6::text, $7::timestamptz, $8::text, $9::jsonb, $10::text, $11::boolean, $12::boolean, $13::jsonb
+          where not exists (
+            select 1 from workflow_runs d
+             where d.tenant_id = $2::uuid and d.wa_id = $4::text and d.evenement is not null
+               and d.evenement->>'origine' = $14::text
+               and not coalesce((d.evenement->>'premierNonLivre')::boolean, false)
+          )
+         returning id`,
+        [...valeurs, evenement.origine],
       );
-      return { id: res.rows[0]!.id };
+      const ne = res.rows[0];
+      return ne === undefined ? { refus: 'deja_ne' } : { id: ne.id };
     } catch (err) {
       const e = err as { code?: unknown; constraint?: unknown };
       if (e.code === '23505' && e.constraint === INDEX_EVENEMENT_ACTIF) return { refus: 'evenement_actif' };

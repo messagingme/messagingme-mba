@@ -149,6 +149,23 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     expect(await store.findWaitingSurBloc(autreTenant, wa, workflowId, 'tpl')).toBeNull();
   });
 
+  it('🔴 lot 5 : une seconde naissance de la même origine est refusée, même le premier parcours terminé ; admise après un premier message non livré', async () => {
+    const wa = '33600009181';
+    const e = ev('une-fois');
+    const etat = { currentNode: 'tpl', status: 'waiting' as const };
+    const premier = await store.start(tenantId, workflowId, wa, null, etat, null, false, false, e);
+    expect('id' in premier).toBe(true);
+    // Terminé normalement (la suite est partie) : la relance automatique ne le fait pas renaître.
+    await pool.query(`update workflow_runs set status = 'done', current_node = null where id = $1 and tenant_id = $2`, [(premier as { id: string }).id, tenantId]);
+    expect(await store.start(tenantId, workflowId, wa, null, etat, null, false, false, e)).toEqual({ refus: 'deja_ne' });
+    // Le même événement pour un AUTRE contact, ou dans un AUTRE espace : rien ne l'empêche.
+    expect('id' in (await store.start(tenantId, workflowId, '33600009182', null, etat, null, false, false, e))).toBe(true);
+    expect('id' in (await store.start(autreTenant, autreWorkflow, wa, null, etat, null, false, false, e))).toBe(true);
+    // Clos parce que son premier message n'a pas été livré : une nouvelle tentative le fait renaître.
+    await pool.query(`update workflow_runs set evenement = evenement || '{"premierNonLivre": true}'::jsonb where id = $1 and tenant_id = $2`, [(premier as { id: string }).id, tenantId]);
+    expect('id' in (await store.start(tenantId, workflowId, wa, null, etat, null, false, false, e))).toBe(true);
+  });
+
   it('la colonne est nulle par défaut : un parcours inséré sans elle (l’ancien code) est ordinaire', async () => {
     const r = await pool.query<{ evenement: unknown }>(
       `insert into workflow_runs (workflow_id, tenant_id, wa_id, current_node, status) values ($1, $2, '33600009161', 'n1', 'waiting')

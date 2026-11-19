@@ -12,7 +12,23 @@ import { schemaVariables } from '../api/variables';
 export interface EvenementDuParcours {
   origine: string;
   variables: Record<string, string>;
+  /**
+   * Lot 5 : l'identifiant Meta du premier message (le template que le moteur de campagne a fait accepter), et le bloc
+   * qui l'a envoyé. Un clic n'atteint le parcours sur ce bloc que s'il cite CE message : le premier message d'un
+   * événement frère (même bloc, parcours non né, place prise) n'est pas le sien. L'échec de sa livraison clôt le parcours.
+   * Absents d'un parcours né avant le lot 5, ou d'un saut.
+   */
+  messageId?: string;
+  noeudDepart?: string;
+  /**
+   * Lot 5 : le parcours a été clos parce que son premier message n'a pas été livré. Une nouvelle tentative d'envoi peut
+   * alors faire naître un parcours de la même origine ; un parcours terminé normalement, jamais.
+   */
+  premierNonLivre?: boolean;
 }
+
+/** Longueur maximale d'un identifiant de message de Meta ou d'un bloc gardé avec l'événement. */
+const REPERE_MAX = 200;
 
 /** Longueur maximale d'une origine (la boutique, l'événement et sa référence). */
 export const ORIGINE_MAX = 200;
@@ -28,6 +44,9 @@ const schemaEvenement = z.object({
   origine: z.string().min(1).max(ORIGINE_MAX),
   // Absentes d'un parcours terminé : elles ont été effacées à sa fin (décision 28).
   variables: schemaVariables.optional(),
+  messageId: z.string().min(1).max(REPERE_MAX).optional(),
+  noeudDepart: z.string().min(1).max(REPERE_MAX).optional(),
+  premierNonLivre: z.boolean().optional(),
 });
 
 /**

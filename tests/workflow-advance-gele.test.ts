@@ -44,6 +44,15 @@ describe('l’avance du parcours en attente', () => {
     expect(await avance('t1', '33612345678', 'M1', 'btn:0', ENTRANT)).toBe(true);
   });
 
+  it('🔴 lot 5 : le parcours d’événement refuse un clic qui n’est pas pour lui : la remise décide, même sur un fil à nous', async () => {
+    const avance = avanceDuParcours({
+      trouverEnAttente: async () => ({ id: 'run-evt' }),
+      peutAgir: async () => true,
+      avancer: async () => false,
+    });
+    expect(await avance('t1', '33612345678', 'M1', 'btn:0', ENTRANT)).toBe(false);
+  });
+
   it('sans parcours en attente : faux, et le détenteur du fil n’est pas lu', async () => {
     const b = banc({ enAttente: false, aNous: true });
     expect(await b.avance('t1', '33612345678', 'M1', null, ENTRANT)).toBe(false);

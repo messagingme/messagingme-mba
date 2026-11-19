@@ -219,6 +219,12 @@ export interface PolitiqueDeLancement {
  * parcours d'événement refusé parce qu'un autre occupe déjà la place (l'index unique de 0298).
  */
 export const REFUS_EVENEMENT_EN_COURS = 'un parcours d’événement est en cours pour ce contact : ce démarrage lui cède la place';
+/**
+ * Lot 5 : la naissance d'un parcours d'événement est idempotente par origine (la relance automatique d'un envoi la
+ * redemandait). Le parcours de cet événement existe déjà pour ce contact, en cours ou terminé : il ne renaît pas, et sa
+ * suite ne repart pas. Écrit à côté du destinataire, dans Campagnes.
+ */
+export const REFUS_DEJA_NE = 'le parcours de cet événement est déjà né pour ce contact : une nouvelle tentative d’envoi ne le rejoue pas';
 
 /**
  * La raison d'un démarrage refusé par le gel : la chaîne remonte telle quelle à l'appelant (l'outil d'un agent IA, le

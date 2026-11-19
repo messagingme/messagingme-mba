@@ -1616,6 +1616,16 @@ describe('runCampaign : le pont du parcours d’événement (lot 4)', () => {
     expect(recipients.results.get('r1')?.error).toBeUndefined();
   });
 
+  it('🔴 lot 5 : la demande porte l’identifiant Meta du premier message, que le parcours gardera', async () => {
+    const vus: unknown[] = [];
+    await lancerCampagne(avecPont, deps({
+      recipients: new FakeRecipients([destinataire('r1', '+33611')]), sender: new CapturingSender(),
+      mesurerEnvoiDuBloc: async () => {},
+      naitreParcoursEvenement: async (_t, d) => { vus.push(d.evenement); return true; },
+    }));
+    expect(vus).toEqual([{ origine: PONT.origine, variables: { checkout_url: 'https://x/r1' }, messageId: 'm1' }]);
+  });
+
   it('🔴 parcours refusé : la mesure est posée quand même, le destinataire reste sent avec la raison', async () => {
     const p = pont(async () => 'un parcours d’événement est en cours pour ce contact');
     const recipients = new FakeRecipients([destinataire('r1', '+33611')]);

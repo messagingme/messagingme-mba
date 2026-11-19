@@ -162,8 +162,19 @@ describe('PgWorkflowRunStore : start et la place unique d’un parcours d’év�
       const { pool, appels } = fauxPool([{ id: 'r9' }]);
       expect(await new PgWorkflowRunStore(pool).start('t1', 'w1', '336', null, etat, null, false, false, ev)).toEqual({ id: 'r9' });
       expect(appels[0]!.sql).toContain('accord_marketing_exige, ne_en_masse, evenement)');
-      expect(appels[0]!.params.at(-1)).toBe(ev === null ? null : JSON.stringify(ev));
+      // Le 13e paramètre est l'événement ; le 14e, pour un parcours d'événement seulement, son origine (lot 5).
+      expect(appels[0]!.params[12]).toBe(ev === null ? null : JSON.stringify(ev));
+      expect(appels[0]!.params).toHaveLength(ev === null ? 13 : 14);
     }
+  });
+
+  it('🔴 lot 5 : la naissance idempotente, dans la même instruction, au prédicat de l’index 0300 écrit tel quel', async () => {
+    const { pool, appels } = fauxPool([]);
+    expect(await new PgWorkflowRunStore(pool).start('t1', 'w1', '336', null, etat, null, false, false, evenement)).toEqual({ refus: 'deja_ne' });
+    const sql = appels[0]!.sql.replace(/\s+/g, ' ');
+    expect(sql).toContain('where not exists ( select 1 from workflow_runs d where d.tenant_id = $2::uuid and d.wa_id = $4::text and d.evenement is not null');
+    expect(sql).toContain("and not coalesce((d.evenement->>'premierNonLivre')::boolean, false)");
+    expect(appels[0]!.params.at(-1)).toBe(evenement.origine);
   });
 
   it('🔴 le 23505 de l’index unique devient un refus typé, jamais une exception', async () => {
