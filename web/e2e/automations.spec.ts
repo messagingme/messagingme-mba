@@ -63,105 +63,107 @@ test.describe('Automation : création d’un déclencheur mot-clé', () => {
 });
 
 /**
- * Déclencheur « étape de deal HubSpot » : le menu doit rendre les LIBELLÉS du portail, et poster les deux
- * identifiants (le serveur exige le pipeline en plus de l'étape) plus le libellé, gardé pour l'affichage.
+ * Déclencheur « étape de deal HubSpot » dans Autres. 🔴 Depuis le lot 6c du menu « Scénario » (décision 8), il NE SE CRÉE
+ * PLUS ici : chaque étape se règle dans la section HubSpot, avec son scénario (`e2e/hubspot-automations.spec.ts`). Une
+ * automation EXISTANTE de ce type reste lisible et modifiable jusqu'à la bascule de l'API, qui l'éteint. Les cas d'avant
+ * sont gardés sur elle : le menu rend les LIBELLÉS du portail, et l'enregistrement poste les deux identifiants (le
+ * serveur exige le pipeline en plus de l'étape) plus le libellé, gardé pour l'affichage.
  */
 const PIPELINES = [
   { id: 'default', label: 'Pipeline de vente', stages: [{ id: 'rdv', label: 'Rendez-vous', closed: false }, { id: 'won', label: 'Gagné', closed: true }] },
   { id: 'renew', label: 'Renouvellement', stages: [{ id: 'relance', label: 'À relancer', closed: false }] },
 ];
+/** Une automation « étape de deal » d'avant le lot 6c, telle que la liste la rend. */
+const EXISTANTE = {
+  id: 'a7', name: 'Devis envoyé', enabled: false, triggerKind: 'hubspot_deal_stage',
+  triggerConfig: { pipelineId: 'default', stageId: 'rdv', stageLabel: 'Rendez-vous' },
+  conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null,
+};
+const MOT_CLE = { ...EXISTANTE, id: 'a8', name: 'Demande de RDV', triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'], mode: 'contains' } };
 
-test.describe('Automation : déclencheur « étape de deal HubSpot »', () => {
-  async function ouvrir(page: import('@playwright/test').Page, dealStages: unknown, portail?: boolean) {
-    const posted: Array<Record<string, unknown>> = [];
-    let appelsEtapes = 0;
-    await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
-    await page.route('**/api/backend/**', async (route) => {
-      const req = route.request();
-      const url = req.url();
-      const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
-      if (url.includes('/hubspot/deal-stages')) { appelsEtapes += 1; return json(dealStages); }
-      // Le lien du portail voyage avec les REGLAGES (lot 9) : `undefined` = API anterieure a ce lot.
-      if (url.endsWith('/settings')) {
-        return json({
-          mbaEnabled: false, hubspotListsEnabled: false, campaignsPaused: false, autoRetryEnabled: true,
-          controlHandbackSeconds: null, timezone: 'Europe/Paris', businessHours: {},
-          ...(portail === undefined ? {} : { hubspotPortalConnecte: portail }),
-        });
-      }
-      if (url.endsWith('/automations') && req.method() === 'POST') {
-        posted.push(req.postDataJSON() as Record<string, unknown>);
-        return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'a2' }) });
-      }
-      if (url.endsWith('/automations')) return json({ automations: [] });
-      if (url.endsWith('/workflows')) return json({ workflows: [WF] });
-      if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
-      return json({});
-    });
-    await page.goto('/automations');
+async function monterEtapeDeDeal(page: import('@playwright/test').Page, dealStages: unknown, automations: unknown[] = [EXISTANTE]) {
+  const patched: Array<Record<string, unknown>> = [];
+  let appelsEtapes = 0;
+  await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
+  await page.route('**/api/backend/**', async (route) => {
+    const req = route.request();
+    const url = req.url();
+    const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+    if (url.includes('/hubspot/deal-stages')) { appelsEtapes += 1; return json(dealStages); }
+    if (/\/automations\/a7$/.test(url) && req.method() === 'PATCH') {
+      patched.push(req.postDataJSON() as Record<string, unknown>);
+      return json({ id: 'a7' });
+    }
+    if (url.endsWith('/automations')) return json({ automations });
+    if (url.endsWith('/workflows')) return json({ workflows: [WF] });
+    if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
+    return json({});
+  });
+  await page.goto('/automations');
+  return { patched, nbAppelsEtapes: () => appelsEtapes };
+}
+
+test.describe('Automation : déclencheur « étape de deal HubSpot » dans Autres (lot 6c : plus créable, une existante reste modifiable)', () => {
+  test('🔴 à la création, le déclencheur n’est plus proposé, portail relié ou non', async ({ page }) => {
+    // Il était masqué sans portail (arbitrage du 2026-09-23) et proposé avec : il ne l'est plus du tout, il vit dans la
+    // section HubSpot. Ce test garde aussi le cas « sans portail, impossible de retenir une étape » : l'option n'existe plus.
+    await monterEtapeDeDeal(page, { connected: true, pipelines: PIPELINES }, []);
     await page.getByTestId('automation-add').click();
-    return { posted, nbAppelsEtapes: () => appelsEtapes };
-  }
-
-  test('choisit une étape par son libellé et poste pipeline + étape + libellé', async ({ page }) => {
-    const { posted, nbAppelsEtapes } = await ouvrir(page, { connected: true, pipelines: PIPELINES });
-
-    // Les étapes ne sont PAS lues tant qu'on n'a pas choisi ce déclencheur (elles coûtent un appel HubSpot).
-    expect(nbAppelsEtapes()).toBe(0);
-    await page.getByTestId('automation-trigger').selectOption('hubspot_deal_stage');
-
-    const menu = page.getByTestId('automation-deal-stage');
-    await expect(menu).toBeVisible();
-    await expect.poll(() => nbAppelsEtapes()).toBe(1);
-    // Groupé par pipeline, et les étapes de fin sont signalées.
-    await expect(menu.locator('optgroup')).toHaveCount(2);
-    await expect(menu.locator('option', { hasText: 'Gagné' })).toHaveText(/étape de fin/);
-
-    await page.getByTestId('automation-name').fill('Devis envoyé');
-    await menu.selectOption('default::rdv');
-    await page.getByTestId('automation-workflow').selectOption('wf1');
-    await page.getByTestId('automation-submit').click();
-
-    await expect.poll(() => posted.length).toBe(1);
-    expect(posted[0]).toMatchObject({
-      triggerKind: 'hubspot_deal_stage',
-      // Le pipeline accompagne l'étape : le serveur l'exige. Le libellé n'est que décoratif.
-      triggerConfig: { pipelineId: 'default', stageId: 'rdv', stageLabel: 'Rendez-vous' },
-      enabled: false,
-    });
-  });
-
-  test('sans étape choisie, la création reste impossible', async ({ page }) => {
-    await ouvrir(page, { connected: true, pipelines: PIPELINES });
-    await page.getByTestId('automation-trigger').selectOption('hubspot_deal_stage');
-    await page.getByTestId('automation-name').fill('Incomplète');
-    await page.getByTestId('automation-workflow').selectOption('wf1');
-    // Une automation sans étape partirait sur TOUS les changements du portail : le bouton doit rester mort.
-    await expect(page.getByTestId('automation-submit')).toBeDisabled();
-  });
-
-  test('🔴 AUCUN portail lié : le déclencheur n’est même pas proposé', async ({ page }) => {
-    /**
-     * Arbitrage de Julien du 2026-09-23 : une intégration qu'on n'a pas est du bruit, pas une information.
-     * Il était GRISÉ, et seulement APRÈS une première sélection (lire les étapes coûte un aller-retour
-     * jusqu'à HubSpot). Le lien du portail, lui, est une lecture locale : on peut la payer à l'ouverture.
-     */
-    await ouvrir(page, { connected: false, pipelines: [] }, false);
     const menu = page.getByTestId('automation-trigger');
     await expect(menu.locator('option[value="hubspot_deal_stage"]')).toHaveCount(0);
     // Les autres déclencheurs restent : on masque UNE option, pas la liste.
     await expect(menu.locator('option[value="keyword"]')).toHaveCount(1);
   });
 
-  test('🔴 portail lié : le déclencheur est proposé', async ({ page }) => {
-    // La preuve inverse : sans elle, un masquage qui cacherait toujours l’option passerait le cas du dessus.
-    await ouvrir(page, { connected: true, pipelines: PIPELINES }, true);
-    await expect(page.getByTestId('automation-trigger').locator('option[value="hubspot_deal_stage"]')).toHaveCount(1);
+  test('🔴 la preuve inverse : une automation existante le garde, choisi, avec son étape relue', async ({ page }) => {
+    // Sans elle, un masquage qui cacherait toujours l'option passerait le cas du dessus.
+    const { nbAppelsEtapes } = await monterEtapeDeDeal(page, { connected: true, pipelines: PIPELINES });
+    await expect(page.getByText('un deal HubSpot atteint « Rendez-vous »')).toBeVisible();
+    // Les étapes ne sont PAS lues tant que le formulaire n'est pas ouvert sur ce déclencheur (elles coûtent un appel HubSpot).
+    expect(nbAppelsEtapes()).toBe(0);
+    await page.getByTestId('automation-modifier-a7').click();
+    const declencheur = page.getByTestId('automation-trigger');
+    await expect(declencheur.locator('option[value="hubspot_deal_stage"]')).toHaveCount(1);
+    await expect(declencheur).toHaveValue('hubspot_deal_stage');
+    await expect(page.getByTestId('automation-deal-stage')).toHaveValue('default::rdv');
+    await expect.poll(() => nbAppelsEtapes()).toBe(1);
+  });
+
+  test('une autre automation modifiée ne peut pas devenir une étape de deal', async ({ page }) => {
+    await monterEtapeDeDeal(page, { connected: true, pipelines: PIPELINES }, [MOT_CLE]);
+    await page.getByTestId('automation-modifier-a8').click();
+    await expect(page.getByTestId('automation-trigger').locator('option[value="hubspot_deal_stage"]')).toHaveCount(0);
+  });
+
+  test('une existante : le menu groupé par pipeline, l’étape de fin signalée ; une autre étape part avec pipeline, étape et libellé', async ({ page }) => {
+    const { patched } = await monterEtapeDeDeal(page, { connected: true, pipelines: PIPELINES });
+    await page.getByTestId('automation-modifier-a7').click();
+    const menu = page.getByTestId('automation-deal-stage');
+    await expect(menu).toBeVisible();
+    // Groupé par pipeline, et les étapes de fin sont signalées.
+    await expect(menu.locator('optgroup')).toHaveCount(2);
+    await expect(menu.locator('option', { hasText: 'Gagné' })).toHaveText(/étape de fin/);
+    await menu.selectOption('renew::relance');
+    await page.getByTestId('automation-submit').click();
+    await expect.poll(() => patched.length).toBe(1);
+    expect(patched[0]).toMatchObject({
+      triggerKind: 'hubspot_deal_stage',
+      // Le pipeline accompagne l'étape : le serveur l'exige. Le libellé n'est que décoratif.
+      triggerConfig: { pipelineId: 'renew', stageId: 'relance', stageLabel: 'À relancer' },
+    });
+  });
+
+  test('une existante sans étape choisie : l’enregistrement reste impossible', async ({ page }) => {
+    await monterEtapeDeDeal(page, { connected: true, pipelines: PIPELINES });
+    await page.getByTestId('automation-modifier-a7').click();
+    await page.getByTestId('automation-deal-stage').selectOption('');
+    // Une automation sans étape partirait sur TOUS les changements du portail : le bouton doit rester mort.
+    await expect(page.getByTestId('automation-submit')).toBeDisabled();
   });
 
   test('portail non relié : on le dit, sans menu et sans erreur rouge', async ({ page }) => {
-    await ouvrir(page, { connected: false, pipelines: [] });
-    await page.getByTestId('automation-trigger').selectOption('hubspot_deal_stage');
+    await monterEtapeDeDeal(page, { connected: false, pipelines: [] });
+    await page.getByTestId('automation-modifier-a7').click();
     await expect(page.getByText(/Aucun portail HubSpot relié/)).toBeVisible();
     await expect(page.getByTestId('automation-deal-stage')).toHaveCount(0);
   });
@@ -271,10 +273,11 @@ test.describe('Automation : un délai avant une date', () => {
 /**
  * Garde HubSpot : quand aucun portail n'est relié, le déclencheur « étape de deal » ne doit pas pouvoir
  * être retenu. Il l'était déjà (impossible de choisir une étape, donc impossible d'enregistrer), mais
- * l'option restait sélectionnable et le message renvoyait vers le mauvais écran.
+ * l'option restait sélectionnable et le message renvoyait vers le mauvais écran. Depuis le lot 6c, il ne se crée
+ * plus du tout ici : ces cas se jouent sur une automation EXISTANTE de ce type, la seule qui le montre encore.
  */
 test.describe('Automation : HubSpot non connecté', () => {
-  async function monter(page: import('@playwright/test').Page) {
+  async function monter(page: import('@playwright/test').Page, automations: unknown[] = [EXISTANTE]) {
     await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
     await page.route('**/api/backend/**', async (route) => {
       const url = route.request().url();
@@ -282,14 +285,13 @@ test.describe('Automation : HubSpot non connecté', () => {
       // La route répond 200 avec `connected: false` : ce n'est PAS une erreur HTTP. Une première version du
       // mock rendait 409, ce qui poussait l'écran dans l'état « erreur » et non « non connecté ».
       if (url.includes('/hubspot/deal-stages')) return json({ connected: false, pipelines: [] });
-      if (url.endsWith('/automations')) return json({ automations: [] });
+      if (url.endsWith('/automations')) return json({ automations });
       if (url.endsWith('/workflows')) return json({ workflows: [{ id: 'wf1', name: 'Relance', graph: { nodes: [], edges: [] } }] });
       if (url.includes('/user-fields')) return json({ fields: [] });
       if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
       return json({});
     });
     await page.goto('/automations');
-    await page.getByTestId('automation-add').click();
   }
 
   test('🔴 le message renvoie vers l’ACCUEIL, là où la connexion se fait vraiment', async ({ page }) => {
@@ -299,7 +301,7 @@ test.describe('Automation : HubSpot non connecté', () => {
     // ⚠️ L'assertion est SCOPÉE au formulaire. Cherchée sur la page entière, elle matchait le lien
     // « Accueil » de la barre latérale et passait quel que soit le message.
     await monter(page);
-    await page.getByTestId('automation-trigger').selectOption('hubspot_deal_stage');
+    await page.getByTestId('automation-modifier-a7').click();
     const bloc = page.getByTestId('automation-form');
     await expect(bloc).toContainText(/Accueil|Home page/);
     await expect(bloc).not.toContainText(/dans Paramètres|in Settings/);
@@ -307,19 +309,18 @@ test.describe('Automation : HubSpot non connecté', () => {
 
   test('🔴 une fois qu’on SAIT, l’option n’est plus sélectionnable', async ({ page }) => {
     await monter(page);
-    await page.getByTestId('automation-trigger').selectOption('hubspot_deal_stage');
+    await page.getByTestId('automation-modifier-a7').click();
     await expect(page.getByTestId('automation-form')).toContainText(/Accueil|Home page/);
     const option = page.getByTestId('automation-trigger').locator('option[value="hubspot_deal_stage"]');
     await expect(option).toBeDisabled();
     await expect(option).toContainText(/non connecté|not connected/);
   });
 
-  test('🔴 et l’enregistrement reste impossible', async ({ page }) => {
-    await monter(page);
+  test('🔴 et la création ne peut pas la retenir : l’option n’existe plus à la création', async ({ page }) => {
+    await monter(page, []);
+    await page.getByTestId('automation-add').click();
     await page.getByTestId('automation-name').fill('Deal gagné');
-    await page.getByTestId('automation-trigger').selectOption('hubspot_deal_stage');
-    await page.getByTestId('automation-workflow').selectOption('wf1');
-    await expect(page.getByTestId('automation-submit')).toBeDisabled();
+    await expect(page.getByTestId('automation-trigger').locator('option[value="hubspot_deal_stage"]')).toHaveCount(0);
   });
 });
 

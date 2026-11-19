@@ -111,7 +111,8 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   departs?: readonly Depart[];
   /**
    * Le rayon du scénario (menu « Scénario ») : `shopify` propose les données de l'événement (variables d'un template,
-   * `{{shopify.<clé>}}` dans un texte). Absent : le Builder général.
+   * `{{shopify.<clé>}}` dans un texte) ; `hubspot` les lit sur la fiche, comme le Builder (décision 38), et son premier bloc
+   * dit que HubSpot l'envoie. Absent : le Builder général.
    */
   rayon?: string }) {
   const t = useT();
@@ -1012,6 +1013,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             <ConfigPanel node={selected} tenantId={tenantId} workflowId={workflowId} blocsDuScenario={nodes} isRoot={selected.id === rootNodeId} campaignEligible={campaignEligible} onPatch={patchSelected} onDelete={deleteSelected} templates={templates} flows={flows} tags={tags} fields={fields} usageChamps={usageChamps} emailAccounts={emailAccounts} emailTemplates={emailTemplates} rcsMessages={rcsMessages} agents={agents} membres={membres} requetes={requetes} onCommitTag={commitTag} onCreerChamp={creerChamp} mbaEnabled={mbaEnabled} alerteFenetre={alerteDuBlocChoisi ? phraseFenetre(alerteDuBlocChoisi) : null}
               tousLesTemplates={tousLesTemplates} modelesDeBloc={etatParModele}
               {...(donneesEvenement ? { donneesEvenement } : {})}
+              {...(rayon ? { rayon } : {})}
               {...(workflowId ? { onEcrireModele: (mode: 'nouveau' | 'modifier') => ouvrirFormulaireDuBloc(selected, mode) } : {})} />
           )}
         </div>

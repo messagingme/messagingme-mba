@@ -6,14 +6,13 @@ import type { Session } from '@/lib/session';
 import { useLocale, useT } from '@/lib/i18n';
 import { dateHeure } from '@/lib/day';
 import {
-  listAutomations, createAutomation, updateAutomation, deleteAutomation, listWorkflows, listHubspotDealStages, getSettings,
+  listAutomations, createAutomation, updateAutomation, deleteAutomation, listWorkflows, listHubspotDealStages,
   listUserFields, estEnLigne,
   type Automation, type AutomationTriggerKind, type WorkflowSummary, type HubspotDealPipeline, type UserFieldDef,
 } from '@/lib/api';
 import { listActionsAgent, type ActionAgentMenu } from '@/lib/api/integrations';
 import { useFermeture } from '@/lib/use-offre';
 import { nomDeLOffre, offreQuiOuvre } from '@/lib/offre';
-import { declencheurDealGrise } from '@/lib/hubspot-choix';
 import { Bouton } from '@/components/Bouton';
 import { IntroPage, TitrePage } from '@/components/TitrePage';
 import { BoutonConfirme } from '@/components/Confirmation';
@@ -25,6 +24,7 @@ import { champsPourOperateurs, decrireFiltreAnalyse, filtreAnalyseParDefaut } fr
 import { useChampsFiltrables } from '@/lib/use-champs-filtrables';
 import { OPERATEURS_CONVERSATION_ANALYSEE, OPERATEURS_DEVIENT } from '@/lib/api/integrations';
 import { AutomationsShopify } from '@/components/AutomationsShopify';
+import { AutomationsHubspot } from '@/components/AutomationsHubspot';
 
 export default function AutomationsPage() {
   return <AppShell active="automations">{(session) => <AutomationsInner session={session} />}</AppShell>;
@@ -150,37 +150,10 @@ function AutomationsInner({ session }: { session: Session }) {
    * dépendances créait un blocage : `setEtatEtapes('chargement')` relançait l'effet, dont le nettoyage
    * annulait la requête en vol, et l'écran restait figé sur « Lecture des étapes… » pour toujours. Trouvé par
    * le test de bout en bout, pas à la lecture.
-   */
-  /**
-   * UN PORTAIL HUBSPOT EST-IL LIE ? (lot 9, 2026-09-23)
    *
-   * 🔴 LE DECLENCHEUR « ETAPE DE DEAL » ETAIT GRISE, PAS MASQUE, ET SEULEMENT APRES COUP. On ne savait
-   * qu'aucun portail n'etait relie qu'APRES avoir selectionne le declencheur, parce que lire les etapes
-   * coute un aller-retour jusqu'a HubSpot. L'arbitrage de Julien est de le MASQUER : une fonction qu'on
-   * n'a pas est du bruit, pas une information. Le lien du portail, lui, est une lecture LOCALE, donc on
-   * peut la payer a l'ouverture de l'ecran.
-   *
-   * ⚠️ `null` = on ne sait pas encore (ou l'API est anterieure a ce lot) : on MONTRE, comme avant. Le
-   * grisage apres selection reste en place et sert alors de seconde ligne.
+   * Seule une automation « étape de deal » EXISTANTE les lit encore : le déclencheur ne se crée plus ici (menu
+   * « Scénario », lot 6c, décision 8), il se règle dans la section HubSpot, au-dessus.
    */
-  const [portailHubspot, setPortailHubspot] = useState<boolean | null>(null);
-  // La ligne « Automations HubSpot » de Tools > Intégrations > HubSpot (lot 3a) : éteinte, le déclencheur est grisé.
-  // `null` = inconnue (lecture en cours, ou API d'avant) : on montre, comme avant.
-  const [automationsHubspot, setAutomationsHubspot] = useState<boolean | null>(null);
-  const dealGrise = declencheurDealGrise(automationsHubspot, enEdition);
-  useEffect(() => {
-    let vivant = true;
-    void getSettings(session.tenantId)
-      .then((s) => {
-        if (!vivant) return;
-        setPortailHubspot(s.hubspotPortalConnecte ?? null);
-        setAutomationsHubspot(s.hubspotAutomations ?? null);
-      })
-      // Silencieux : l'ecran des automations ne doit pas tomber parce qu'un drapeau d'affichage manque.
-      .catch(() => {});
-    return () => { vivant = false; };
-  }, [session.tenantId]);
-
   const etapesDemandees = useRef(false);
   useEffect(() => {
     if (triggerKind !== 'hubspot_deal_stage' || etapesDemandees.current) return;
@@ -431,6 +404,8 @@ function AutomationsInner({ session }: { session: Session }) {
       {/* Les automations Shopify (menu « Scénario », lot 5) : en tête, et seulement avec une boutique. Leurs routes sont
           réservées aux administrateurs, comme cet écran (`accesAutorise`, `web/lib/nav.ts`). */}
       <AutomationsShopify tenantId={session.tenantId} />
+      {/* Les automations HubSpot (lot 6c) : sous celles de la boutique, et seulement avec un portail relié. */}
+      <AutomationsHubspot tenantId={session.tenantId} />
 
       {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
 
@@ -451,18 +426,15 @@ function AutomationsInner({ session }: { session: Session }) {
               <option value="new_contact">{t('un nouveau contact écrit pour la 1re fois', 'a new contact writes for the first time')}</option>
               <option value="tag_added">{t('une étiquette est posée sur un contact', 'a tag is added to a contact')}</option>
               <option value="conversation_analyzed" disabled={analyseGrisee('conversation_analyzed')}>{t('une conversation vient d’être analysée', 'a conversation has just been analyzed')}{suffixeAnalyse}</option>
-              {/* 🔴 MASQUÉE quand AUCUN portail n'est lié (arbitrage de Julien du 2026-09-23) : une intégration
-                  qu'on n'a pas est du bruit, pas une information. ⚠️ `=== false` et non `!== true` : `null`
-                  veut dire « on ne sait pas encore », et on montre alors, comme avant ce lot.
-                  Le grisage après sélection RESTE : il attrape le cas où le portail est lié mais où les
-                  étapes ne remontent pas (consentement à renouveler, synchro en pause). */}
-              {portailHubspot !== false && (
-                <option value="hubspot_deal_stage" disabled={etatEtapes === 'non_connecte' || dealGrise} data-testid="automation-trigger-deal">
+              {/* 🔴 « Changement d'étape HubSpot » NE SE CRÉE PLUS ICI (menu « Scénario », lot 6c, décision 8) : il vit
+                  dans la section HubSpot, au-dessus, où chaque étape a son scénario. Une automation EXISTANTE de ce type
+                  reste lisible et modifiable (la bascule de l'API l'éteint) : son option reste, et elle seule. Le
+                  grisage après sélection RESTE : il attrape un portail dont les étapes ne remontent plus. */}
+              {enEdition?.triggerKind === 'hubspot_deal_stage' && (
+                <option value="hubspot_deal_stage" disabled={etatEtapes === 'non_connecte'} data-testid="automation-trigger-deal">
                   {etatEtapes === 'non_connecte'
                     ? t('un deal HubSpot atteint une étape (HubSpot non connecté)', 'a HubSpot deal reaches a stage (HubSpot not connected)')
-                    : dealGrise
-                      ? t('un deal HubSpot atteint une étape (à allumer dans Tools > Intégrations > HubSpot)', 'a HubSpot deal reaches a stage (turn it on in Tools > Integrations > HubSpot)')
-                      : t('un deal HubSpot atteint une étape', 'a HubSpot deal reaches a stage')}
+                    : t('un deal HubSpot atteint une étape', 'a HubSpot deal reaches a stage')}
                 </option>
               )}
               <option value="avant_date">{t('un délai avant ou après une date enregistrée', 'a delay before or after a stored date')}</option>

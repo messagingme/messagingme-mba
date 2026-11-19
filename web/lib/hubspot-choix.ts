@@ -146,12 +146,3 @@ export function corpsDuChoix(
     ...(p.envoyerStop ? { stop } : {}),
   };
 }
-
-/**
- * Le déclencheur « un deal HubSpot atteint une étape » est-il grisé dans Automations ? Seulement ligne « Automations
- * HubSpot » ÉTEINTE (`false` : une API d'avant le lot 3a ne la rend pas, et on montre alors comme avant), et jamais pour
- * l'automation en cours de modification qui l'a déjà (le formulaire doit pouvoir afficher et garder sa valeur).
- */
-export function declencheurDealGrise(hubspotAutomations: boolean | null | undefined, enEdition: { triggerKind: string } | null): boolean {
-  return hubspotAutomations === false && enEdition?.triggerKind !== 'hubspot_deal_stage';
-}

@@ -488,13 +488,15 @@ function AdresseDuLien({ valeur, fields, onChange }: {
 
 export function ConfigPanel({
   node, tenantId, workflowId, blocsDuScenario = [], isRoot, campaignEligible, onPatch, onDelete, templates, flows, tags, fields, usageChamps, emailAccounts, emailTemplates, rcsMessages, agents, membres, requetes, onCommitTag, onCreerChamp, mbaEnabled, alerteFenetre = null,
-  tousLesTemplates, modelesDeBloc, onEcrireModele, donneesEvenement,
+  tousLesTemplates, modelesDeBloc, onEcrireModele, donneesEvenement, rayon,
 }: {
   /**
    * Les données de l'événement d'un scénario Shopify (menu « Scénario », lot 5) : le choix des variables d'un template et
    * `{{shopify.<clé>}}` dans un texte WhatsApp. Absentes au Builder général.
    */
   donneesEvenement?: readonly DonneeEvenement[];
+  /** Le rayon du scénario : le premier bloc verrouillé dit qui l'envoie (Shopify, ou HubSpot au lot 6c). */
+  rayon?: string;
   /**
    * Menu « Scénario », lot 3. La liste COMPLÈTE des templates (la valeur d'un bloc peut être un template en validation,
    * qui doit rester affiché), l'état chez Meta des templates écrits depuis un bloc, et l'ouverture du formulaire du bloc.
@@ -547,10 +549,16 @@ export function ConfigPanel({
       </div>
       {verrouille && (
         <p className="rounded-controle border border-ink-200 bg-ink-50 px-2.5 py-2 text-xs leading-snug text-ink-700" data-testid="panneau-premier-bloc">
-          {t(
-            'Le premier message de l’automation : Shopify l’envoie à chaque événement, puis la suite du scénario répond au client. Il reste un template, et rien ne mène à lui.',
-            'The automation’s first message: Shopify sends it on each event, then the rest of the scenario answers the customer. It stays a template, and nothing leads to it.',
-          )}
+          {rayon === 'hubspot'
+            // Décision 38 : les données d'un deal se lisent sur la fiche (les champs `hs_*` importés), pas dans le parcours.
+            ? t(
+              'Le premier message de l’automation : il part à chaque événement HubSpot, puis la suite du scénario répond au client. Il reste un template, et rien ne mène à lui. Ses variables lisent la fiche du contact, où s’écrivent les champs HubSpot importés.',
+              'The automation’s first message: it goes out on each HubSpot event, then the rest of the scenario answers the customer. It stays a template, and nothing leads to it. Its variables read the contact record, where imported HubSpot fields are written.',
+            )
+            : t(
+              'Le premier message de l’automation : Shopify l’envoie à chaque événement, puis la suite du scénario répond au client. Il reste un template, et rien ne mène à lui.',
+              'The automation’s first message: Shopify sends it on each event, then the rest of the scenario answers the customer. It stays a template, and nothing leads to it.',
+            )}
         </p>
       )}
 

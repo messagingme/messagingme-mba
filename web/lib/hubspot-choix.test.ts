@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, declencheurDealGrise, envoyerAutomations, envoyerStop } from './hubspot-choix';
+import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, envoyerAutomations, envoyerStop } from './hubspot-choix';
 import type { TenantSettings } from './api';
 import type { FonctionOffre, VueOffre } from './offre';
 
@@ -164,15 +164,9 @@ describe('lot 3a : « Automations HubSpot : lancer un scénario quand un deal at
     expect(choixApresBascule({ ...choix, automations: false }, 'automations')).toMatchObject({ automations: true, workflows: false });
   });
 
-  it('🔴 le déclencheur « deal » de l’écran Automations : grisé seulement ligne ÉTEINTE, jamais pour l’automation modifiée qui l’a déjà', () => {
-    expect(declencheurDealGrise(false, null)).toBe(true);
-    expect(declencheurDealGrise(false, { triggerKind: 'keyword' })).toBe(true);
-    expect(declencheurDealGrise(false, { triggerKind: 'hubspot_deal_stage' })).toBe(false);
-    expect(declencheurDealGrise(true, null)).toBe(false);
-    // Inconnue (lecture en cours, ou API d'avant le lot 3a) : montré, comme avant.
-    expect(declencheurDealGrise(null, null)).toBe(false);
-    expect(declencheurDealGrise(undefined, null)).toBe(false);
-  });
+  // Le grisage du déclencheur « deal » à la création dans l'écran Automations (`declencheurDealGrise`) est parti avec le
+  // lot 6c du menu « Scénario » : il ne s'y crée plus, seule une automation existante le montre encore
+  // (`e2e/automations.spec.ts`), et les étapes se règlent dans la section HubSpot (`e2e/hubspot-automations.spec.ts`).
 });
 
 describe('« Automations HubSpot » dans le corps du choix (relecture du lot 3a)', () => {

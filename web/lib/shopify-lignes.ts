@@ -23,7 +23,14 @@ export type EtatAutomation =
  * se dit « non lu », jamais « refusé » : la panne est celle de la lecture, pas du template.
  */
 export function etatDeLAutomation(l: LigneShopifyVue | undefined): EtatAutomation {
-  if (l === undefined) return 'a_creer';
+  return l === undefined ? 'a_creer' : etatDUneLigne(l);
+}
+
+/**
+ * L'état d'une ligne qui existe, la règle ci-dessus sans le cas « à créer ». Partagée avec les automations HubSpot
+ * (`hubspot-lignes.ts`, lot 6c), dont la ligne porte les mêmes champs : une seule lecture des statuts de Meta.
+ */
+export function etatDUneLigne(l: Pick<LigneShopifyVue, 'actif' | 'modele' | 'etatChezMeta' | 'versionProgrammee'>): Exclude<EtatAutomation, 'a_creer'> {
   if (!l.actif) return 'eteinte';
   if (l.modele === null) return 'a_completer';
   if (l.etatChezMeta === null) return 'meta_non_lu';
