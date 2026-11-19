@@ -203,6 +203,11 @@ describe('les fiches publiques', () => {
     'le-repondeur-de-meta': ['parler-aux-clients', 11],
     'creer-une-publicite': ['parler-aux-clients', 12],
     'brancher-un-connecteur-api': ['parler-aux-clients', 13],
+    // L'aide de l'agent IA refaite (Julien, 2026-11-19) : la fiche d'entrée, rang 10, puis une fiche par sujet.
+    'agent-ia-base-de-connaissance': ['parler-aux-clients', 14],
+    'agent-ia-outils': ['parler-aux-clients', 15],
+    'agent-ia-tester': ['parler-aux-clients', 16],
+    'agent-ia-modele-credit-garde-fous': ['parler-aux-clients', 17],
     // Le Crédit WhatsApp, à la vente le 2026-11-11 (aide à la connexion, lot 3v-2d), après la connexion du numéro.
     'payer-ses-messages-sans-carte-chez-meta': ['demarrer-console', 4],
     // Le mode op D, un numéro fourni par la fenêtre de Meta, avec sa vidéo (lot 6, 2026-11-13) : à côté du mode op A.
@@ -269,7 +274,7 @@ describe('les fiches publiques', () => {
 
   it('les pages sans capture et sans mention d’offre sont celles prévues', () => {
     expect(publiques.filter((f) => !f.publication.captures).map((f) => f.cle).sort())
-      .toEqual(['ce-qu-il-faut-chez-meta', 'construire-un-agent-ia', 'creer-une-publicite', 'envoyer-un-message-rcs',
+      .toEqual(['ce-qu-il-faut-chez-meta', 'creer-une-publicite', 'envoyer-un-message-rcs',
         'integrer-whatsapp-a-hubspot', 'la-fenetre-de-24-heures', 'poser-une-bulle-whatsapp-sur-mon-site',
         'publier-sur-ma-chaine-whatsapp']);
     // Connecter son numéro et garder son application se font depuis Claude Code (Free) ou l'Accueil, ouvert à la
