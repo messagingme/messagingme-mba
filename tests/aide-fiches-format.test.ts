@@ -202,6 +202,7 @@ describe('les fiches publiques', () => {
     'construire-un-agent-ia': ['parler-aux-clients', 10],
     'le-repondeur-de-meta': ['parler-aux-clients', 11],
     'creer-une-publicite': ['parler-aux-clients', 12],
+    'brancher-un-connecteur-api': ['parler-aux-clients', 13],
     // Le Crédit WhatsApp, à la vente le 2026-11-11 (aide à la connexion, lot 3v-2d), après la connexion du numéro.
     'payer-ses-messages-sans-carte-chez-meta': ['demarrer-console', 4],
     // Le mode op D, un numéro fourni par la fenêtre de Meta, avec sa vidéo (lot 6, 2026-11-13) : à côté du mode op A.

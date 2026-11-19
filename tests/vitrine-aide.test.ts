@@ -27,8 +27,8 @@ const centre = pagesDuCentre();
 describe('le centre d’aide de la vitrine', () => {
   it('l’accueil et une page par fiche publique, dans les deux langues', () => {
     // 22 avec « Le bloc Message rapide », première fiche par bloc du constructeur (2026-11-17) ; 27 avec les cinq du lot 2 ;
-    // 38 avec les dix du lot 3 et « Créer un scénario », devenue publique.
-    expect(centre.length).toBe(38);
+    // 38 avec les dix du lot 3 et « Créer un scénario », devenue publique ; 39 avec « Brancher un connecteur API » (2026-11-19).
+    expect(centre.length).toBe(39);
     // L’accueil, le guide du numéro et le dépannage (lot 4a), les pages composées de sources (4a-2), une page par fiche,
     // une par page Claude Code : dans chaque langue.
     expect(generees.length).toBe(2 * (1 + 2 + PAGES_SOURCES.length + centre.length + PAGES_CLAUDE.length));
@@ -159,8 +159,8 @@ describe('le centre d’aide de la vitrine', () => {
     // Formulaire 5, Assigner 2, Envoyer au MBA 2, Aller à 3, Fonction JS 5, RCS 5, mail 3, Agent IA 3, Appel API 3,
     // Extraire du JSON 5) ; 284 avec l'étape « Prévoir l'absence de réponse » de l'Envoi template (2026-11-18, menu
     // « Scénario », lot 2) ; 286 avec l'étape « Écrire ou modifier le template sans quitter le scénario » (2026-11-18, menu
-    // « Scénario », lot 3).
-    expect(vues).toBe(286);
+    // « Scénario », lot 3) ; 298 avec les six de « Brancher un connecteur API », dans les deux langues (2026-11-19).
+    expect(vues).toBe(298);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {
