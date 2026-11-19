@@ -1,5 +1,9 @@
 import type { Pool } from 'pg';
 import type { EtatModeleDeBloc } from './modeles-de-bloc';
+import { RAYONS } from './rayon';
+
+/** Les rayons d'automation (tous sauf le Builder général) : seuls leurs templates de bloc se ménagent (décision 14). */
+const RAYONS_D_AUTOMATION: readonly string[] = RAYONS.filter((r) => r !== 'general');
 
 /**
  * Le magasin de `modeles_de_bloc` (migration 0296) : un template écrit depuis un bloc du constructeur, et son état
@@ -63,9 +67,10 @@ export class PgModelesDeBloc {
   }
 
   /**
-   * Ceux de ces templates qui ont été écrits depuis un bloc d'un scénario d'AUTOMATION (rayon autre que général) : la seule
+   * Ceux de ces templates qui ont été écrits depuis un bloc d'un scénario d'AUTOMATION (`RAYONS_D_AUTOMATION`) : la seule
    * marque qui permet au ménage de les supprimer chez Meta. 🔴 Un template né au Builder général n'y entre jamais, même
    * remplacé ensuite dans un scénario d'automation (décision 14) : il peut servir ailleurs, invisible de notre base.
+   * Le rayon se compare par `=` (`tests/inventaire-rayon-scenarios.test.ts`).
    */
   async desModelesDAutomation(
     tenantId: string, paires: ReadonlyArray<{ modele: string; langue: string }>,
@@ -75,9 +80,9 @@ export class PgModelesDeBloc {
       `select m.workflow_id, m.modele, m.langue, m.etat, m.raison, m.cree_le, m.tranche_le
          from modeles_de_bloc m
          join workflows w on w.id = m.workflow_id and w.tenant_id = m.tenant_id
-        where m.tenant_id = $1 and w.rayon <> 'general'
+        where m.tenant_id = $1 and w.rayon = any($4::text[])
           and (m.modele, m.langue) in (select * from unnest($2::text[], $3::text[]))`,
-      [tenantId, paires.map((p) => p.modele), paires.map((p) => p.langue)],
+      [tenantId, paires.map((p) => p.modele), paires.map((p) => p.langue), RAYONS_D_AUTOMATION],
     );
     return r.rows.map(versLigne);
   }
