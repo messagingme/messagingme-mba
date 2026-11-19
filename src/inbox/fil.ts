@@ -269,7 +269,21 @@ export interface EntreeDuContact {
   messageDeclencheur?: string | null;
   redelivre?: boolean;
   reactionsSeules?: boolean;
+  /**
+   * Décision 34 : un parcours d'ÉVÉNEMENT tient le fil et vient de rendre ce message (un clic sur un message qui n'est
+   * pas le sien). La garde « un parcours tient le fil » est levée pour lui seul, et seulement vers un robot qui coexiste
+   * avec le parcours (`VOIES_QUI_COEXISTENT`). Posée par `remettreLeClicHorsParcours`, jamais par un webhook.
+   */
+  horsDuParcoursDEvenement?: true;
 }
+
+/**
+ * 🔴 LES VOIES QUI COEXISTENT AVEC UN PARCOURS D'ÉVÉNEMENT (décision 34) : l'agent IA et le scénario répondeur, dont le
+ * lancement `repondeur` ne clôt que les parcours ordinaires, et l'application, qui répond par l'API sans prendre le fil.
+ * L'agent de Meta et l'équipe n'en font pas partie : ils prennent le fil, et deux maîtres du fil se disputeraient la
+ * réponse suivante (le défaut MUTAC du 2026-11-19).
+ */
+export const VOIES_QUI_COEXISTENT: ReadonlySet<ModeRepondeur> = new Set<ModeRepondeur>(['agent', 'scenario', 'application']);
 
 /** Ce que « Rendre la main » a fait : le nouveau détenteur, ou rien faute de numéro (règle 3). */
 export type IssueRendreLaMain = 'app_workflow' | 'mba' | 'aucun_numero';
@@ -382,6 +396,14 @@ export interface ControleDuFil {
    * pour elle (`ouvrirUneDemande`).
    */
   remettreSiPersonneNeSuit(tenantId: string, waId: string, contenu: string, entree: EntreeDuContact): Promise<void>;
+  /**
+   * 🔴 DÉCISION 34 (Julien, 2026-11-19) : le clic qu'un parcours d'événement rend, parce qu'il cite un message qui n'est
+   * pas le sien. La voie du message (le répondeur que désigne la campagne, sinon le mode de l'espace) COEXISTE avec le
+   * parcours : la remise le lui donne, garde du parcours levée pour ce seul message (`confie`), et le parcours continue
+   * d'attendre. Sinon (`ne_coexiste_pas` : l'agent de Meta ou l'équipe), rien n'est fait ici : l'exécuteur arrête d'abord
+   * le parcours, puis rend le clic à la remise ordinaire.
+   */
+  remettreLeClicHorsParcours(tenantId: string, waId: string, messageDeclencheur: string): Promise<'confie' | 'ne_coexiste_pas'>;
   /**
    * Reprendre le fil pour un scénario qu'on démarre délibérément (campagne, lancement depuis l'Inbox, lien de
    * chaîne, `/v1/sends`, jeton de test, relais de l'agent de Meta) : le contact est retiré de la liste de l'agent,
@@ -616,7 +638,8 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
     return 'mba';
   };
 
-  return {
+  // Nommé : `remettreLeClicHorsParcours` passe par la MÊME remise que tout message, ses gardes comprises.
+  const controle: ControleDuFil = {
     async prisEnEcrivant(tenantId, waId, par) {
       await depot.setControlOwner(tenantId, waId, 'app_human', { par });
     },
@@ -701,7 +724,10 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
       }
       // Donner à l'agent un fil qu'un parcours tient serait bien pire que le silence qu'on répare. Un parcours qui DORT
       // (une Attente) aussi : le confier ici le faisait clore à son réveil (`mayAct` faux), la suite jamais partie.
-      if (await depot.parcoursTientLeFil(tenantId, waId)) return laisserALEquipe();
+      // 🔴 Décision 34 : le clic qu'un parcours d'événement a rendu passe cette garde, mais seulement vers une voie qui
+      // coexiste avec lui (la garde suivante, une fois la voie connue).
+      const parcoursTient = await depot.parcoursTientLeFil(tenantId, waId);
+      if (parcoursTient && entree.horsDuParcoursDEvenement !== true) return laisserALEquipe();
       // 🔴 Le numéro bloqué (lot 4 : suspendu faute de paiement) : ni le répondeur, qui ne pourrait pas répondre et dont
       // le tour serait payé, ni l'agent de Meta, qui répondrait par Meta sur un numéro impayé. Comme sans numéro : rien
       // n'est écrit, le message reste dans l'Inbox.
@@ -758,6 +784,8 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
        * Meta désigné passe par la branche `mba`. Dans les deux cas, aucun répondeur de l'espace ne part pour ce message.
        */
       const designe = await designeParLaCampagne();
+      // 🔴 Décision 34 : un parcours tient toujours le fil ; seule une voie qui coexiste avec lui reçoit le clic qu'il a rendu.
+      if (parcoursTient && !VOIES_QUI_COEXISTENT.has(designe?.cible ?? mode)) return laisserALEquipe();
       // La cause que la frise affiche quand la campagne décide, la même que celle de son affectation (`assignerReponse`).
       const causeCampagne = designe === null ? null : automatique(`campagne ${designe.nom}`);
       /**
@@ -1030,5 +1058,15 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
         apres = paquet[paquet.length - 1] ?? null;
       }
     },
+
+    async remettreLeClicHorsParcours(tenantId, waId, messageDeclencheur) {
+      // La voie que prendra la remise : le répondeur que désigne la campagne, sinon le mode de l'espace (sous l'offre).
+      const designe = await deps.campagnes.repondeurDeLaReponse(tenantId, waId);
+      const voie: ModeRepondeur = designe?.cible ?? modeEffectif(await reglagesDe(tenantId));
+      if (!VOIES_QUI_COEXISTENT.has(voie)) return 'ne_coexiste_pas';
+      await controle.remettreSiPersonneNeSuit(tenantId, waId, '', { rouverte: false, messageDeclencheur, horsDuParcoursDEvenement: true });
+      return 'confie';
+    },
   };
+  return controle;
 }

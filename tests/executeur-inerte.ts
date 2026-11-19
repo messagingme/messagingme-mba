@@ -55,6 +55,11 @@ export const aucunEvenement = async (): Promise<void> => {};
 export const aucuneSortieNotee = async (): Promise<void> => {};
 /** `confierAuRepondeur` (lot 5) : avant lui, un message « à côté » sans agent de Meta n'allait à personne. */
 export const aucunRepondeurHorsParcours = async (): Promise<void> => {};
+/**
+ * `remettreLeClicHorsParcours` (décision 34) : aucun robot qui coexiste avec un parcours d'événement ; l'exécuteur arrête
+ * alors le parcours et rend le clic à la remise. Le dit, au lieu de le cacher.
+ */
+export const aucunRobotQuiCoexiste = async (): Promise<'ne_coexiste_pas'> => 'ne_coexiste_pas';
 /** `resoudreBloc` (RC5) : aucun bloc d'un autre scénario n'est trouvé, donc un « Aller à » ailleurs n'a pas de cible. */
 export const aucunBlocAilleurs = async (): Promise<null> => null;
 /** `journaliserEchec` (RC5, refus d'envoi depuis le 2026-11-06) : aucun saut manqué ni envoi refusé n'est écrit. */
@@ -204,6 +209,7 @@ export const depsInertes = {
   emitTagAdded: aucunEvenement,
   noterSortieAgent: aucuneSortieNotee,
   confierAuRepondeur: aucunRepondeurHorsParcours,
+  remettreLeClicHorsParcours: aucunRobotQuiCoexiste,
   resoudreBloc: aucunBlocAilleurs,
   journaliserEchec: aucunEchecJournalise,
   confierAuMbaParLeBloc: aucunEnvoiAuMba,

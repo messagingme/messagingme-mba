@@ -490,6 +490,13 @@ export interface WorkflowExecutorDeps {
    */
   confierAuRepondeur(tenantId: string, waId: string, messageId: string): Promise<void>;
   /**
+   * 🔴 Décision 34 : le clic qu'un parcours d'événement rend (il cite un message qui n'est pas le sien). `confie` : la voie
+   * de ce message coexiste avec le parcours (agent IA, scénario répondeur, application), qui l'a reçu et continue
+   * d'attendre. `ne_coexiste_pas` : l'agent de Meta ou l'équipe, l'exécuteur arrête d'abord le parcours. C'est
+   * `ControleDuFil.remettreLeClicHorsParcours`. Requise ; fixtures : `aucunRobotQuiCoexiste`.
+   */
+  remettreLeClicHorsParcours(tenantId: string, waId: string, messageId: string): Promise<'confie' | 'ne_coexiste_pas'>;
+  /**
    * Publie « ce tag vient d'être posé » pour les automations. Seulement sur un démarrage unitaire (réponse
    * d'un contact, automation, test), jamais depuis une campagne : voir `apply`. Fixtures : `aucunEvenement`.
    */
@@ -2387,10 +2394,21 @@ export class WorkflowExecutor {
     const blocCite = await this.blocDuClic(tenantId, boutonRecu, entrant.messageCite);
     const run = await this.parcoursDuClic(tenantId, waId, leDernier, blocCite);
     if (run.lastMessageId === messageId) return; // dédup at-least-once
-    // Lot 5 : le clic qui n'est pas pour ce parcours d'événement lui est rendu intact, et à la remise (`false`).
-    if (this.clicPasPourLeParcours(run, blocCite, entrant.messageCite)) {
+    /**
+     * 🔴 DÉCISION 34 (Julien, 2026-11-19) : le clic qui n'est pas pour ce parcours d'événement ne prend aucune de ses
+     * branches. Un robot qui coexiste avec lui (agent IA, scénario répondeur, application) y répond, et le parcours continue
+     * d'attendre ; l'agent de Meta ou l'équipe ne partagent pas le fil : le parcours s'arrête d'abord, par son origine,
+     * puis le clic revient à la remise (`false`), qui le leur donne. Jamais avalé sans réponse.
+     */
+    if (run.evenement !== null && this.clicPasPourLeParcours(run, blocCite, entrant.messageCite)) {
+      if ((await this.deps.remettreLeClicHorsParcours(tenantId, waId, messageId)) === 'confie') {
+        // eslint-disable-next-line no-console
+        console.log(`workflow ${run.workflowId}: clic « ${boutonRecu ?? 'null'} » hors du parcours d’événement ${run.id} (bloc ${blocCite?.nodeId ?? '?'}) : confié au répondeur, le parcours attend`);
+        return true;
+      }
       // eslint-disable-next-line no-console
-      console.log(`workflow ${run.workflowId}: clic « ${boutonRecu ?? 'null'} » sur un message qui n'est pas celui du parcours d’événement ${run.id} (bloc ${blocCite?.nodeId ?? '?'}) : rendu à la remise, le parcours attend`);
+      console.log(`workflow ${run.workflowId}: clic « ${boutonRecu ?? 'null'} » hors du parcours d’événement ${run.id} (bloc ${blocCite?.nodeId ?? '?'}) : le parcours s’arrête, le clic va à l’agent de Meta ou à l’équipe`);
+      await this.arreterParcours(tenantId, { origine: run.evenement.origine }, 'un clic qui n’était pas pour lui, et un répondeur qui ne partage pas le fil');
       return false;
     }
 

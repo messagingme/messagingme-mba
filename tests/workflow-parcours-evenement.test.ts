@@ -327,6 +327,8 @@ interface OptionsReprise {
   evenement?: EvenementDuParcours;
   /** La fenêtre de service est-elle ouverte (défaut : oui) ? */
   fenetre?: boolean;
+  /** Décision 34 : le répondeur de la voie de ce message coexiste-t-il avec le parcours (défaut : non) ? */
+  horsParcours?: 'confie' | 'ne_coexiste_pas';
 }
 
 /** Le premier message d'un parcours d'événement, tel que la naissance du lot 5 le garde. */
@@ -346,6 +348,8 @@ function bancReprise(o: OptionsReprise = {}) {
   const ecritures: string[] = [];
   const priseDeMain: string[] = [];
   const auRepondeur: string[] = [];
+  const horsParcours: string[] = [];
+  const arrets: string[] = [];
   const escalades: boolean[] = [];
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
@@ -356,6 +360,11 @@ function bancReprise(o: OptionsReprise = {}) {
     escalateToHuman: async (_t, _w, _a, escalade) => { escalades.push(escalade); },
     blocDuMessage: async (_t, wamid) => BLOCS_DES_MESSAGES[wamid] ?? null,
     confierAuRepondeur: async (_t, _w, messageId) => { auRepondeur.push(messageId); },
+    remettreLeClicHorsParcours: async (_t, _w, messageId) => {
+      const issue = o.horsParcours ?? 'ne_coexiste_pas';
+      if (issue === 'confie') horsParcours.push(messageId);
+      return issue;
+    },
     resoudreBloc: async (_t, cible) => (cible === 'code-autre' ? { workflowId: 'wf-autre', nodeId: 'x', graph: AUTRE } : null),
     runs: avecGardesDEtatInertes({
       start: async () => ({ id: 'r-saut' }),
@@ -366,6 +375,7 @@ function bancReprise(o: OptionsReprise = {}) {
       setStateSiEncoreSur: async (_t: string, id: string, _n: string | null, s: RunState) => { ecritures.push(`${id}:${s.status}`); return true; },
       closeActiveByWaId: async () => [],
       cloreAutresActifs: async (_t: string, _w: string, saufId: string) => { priseDeMain.push(saufId); return []; },
+      cloreParOrigine: async (_t: string, origine: string) => { arrets.push(origine); return ['r-evt']; },
     }),
     getGraph: async (wf) => (wf === 'wf-panier' ? (o.graphe ?? PANIER_DELAI) : wf === 'wf-repondeur' ? REPONDEUR : null),
     applyTag: async () => true,
@@ -384,7 +394,7 @@ function bancReprise(o: OptionsReprise = {}) {
     varsFor: async () => o.varsFiche ?? {},
   };
   deps.setField = async (_t, _w, cle, valeur) => { champs.push(`${cle}=${String(valeur)}`); };
-  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur, modeles, champs, escalades };
+  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur, horsParcours, arrets, modeles, champs, escalades };
 }
 
 const clic = (bouton: string) => ({ reaction: false, messageCite: 'wamid.tpl', type: 'button' as const, bouton });
@@ -449,23 +459,26 @@ describe('la réponse du contact à un parcours d’événement (advance)', () =
     expect(demarrer.mock.calls[0]![5]).toMatchObject({ depuis: 'saut', noeudId: 'x', evenement: EVENEMENT });
   });
 
-  it('🔴 le clic sur le premier message d’un SECOND événement (même bloc, autre message) ne le touche pas : non pris, il attend', async () => {
+  it('🔴 décision 34 : un clic qui n’est pas pour le parcours (événement frère, autre scénario), robot qui coexiste : confié, le parcours attend', async () => {
     silence();
-    const m = bancReprise({ evenement: SIEN });
-    const pris = await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', { ...clic('btn:0'), messageCite: 'wamid.frere' });
-    expect(pris, 'le message revient à la remise').toBe(false);
-    expect(m.envois, 'aucun ancien lien de panier').toEqual([]);
-    expect(m.ecritures, 'le parcours attend toujours').toEqual([]);
+    for (const cite of ['wamid.frere', 'wamid.exp']) {
+      const m = bancReprise({ evenement: SIEN, horsParcours: 'confie' });
+      const pris = await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', { ...clic('btn:0'), messageCite: cite });
+      expect(pris, cite).toBe(true);
+      expect(m.horsParcours, cite).toEqual(['m1']);
+      expect([m.envois, m.ecritures, m.arrets], `${cite} : aucun ancien lien, le parcours attend toujours`).toEqual([[], [], []]);
+    }
   });
 
-  it('🔴 le clic sur un message d’un AUTRE scénario ne le clôt pas (décision 22) : non pris, il attend', async () => {
+  it('🔴 décision 34 : l’agent de Meta ou l’équipe répond : le parcours s’arrête par son origine, puis le clic revient à la remise', async () => {
     silence();
-    const m = bancReprise({ evenement: SIEN });
-    const pris = await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', { ...clic('btn:0'), messageCite: 'wamid.exp' });
-    expect(pris).toBe(false);
-    expect(m.envois).toEqual([]);
-    expect(m.ecritures).toEqual([]);
-    expect(m.auRepondeur).toEqual([]);
+    for (const cite of ['wamid.frere', 'wamid.exp']) {
+      const m = bancReprise({ evenement: SIEN, horsParcours: 'ne_coexiste_pas' });
+      const pris = await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', { ...clic('btn:0'), messageCite: cite });
+      expect(pris, cite).toBe(false);
+      expect(m.arrets, cite).toEqual([SIEN.origine]);
+      expect([m.envois, m.auRepondeur], cite).toEqual([[], []]);
+    }
   });
 
   it('🔴 lot 5 (jaune de 4a) : un parcours repris à l’agent de Meta qui se TERMINE pendant l’avance dit qu’il a pris le message (pas deux voix)', async () => {
