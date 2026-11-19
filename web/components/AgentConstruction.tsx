@@ -6,7 +6,7 @@ import { cardCls, inputCls } from '@/lib/ui';
 import { MbaNotice } from '@/components/MbaNotice';
 import {
   parlerAuConstructeur, lireEntretien, effacerEntretien, joindrePiece, restreindreProposition,
-  type Changement, type PropositionConstruction, type TourConstruction,
+  type Changement, type ManqueFiche, type PropositionConstruction, type TourConstruction,
 } from '@/lib/api-agent-setup';
 import { TAILLE_DOCUMENT_MAX, TAILLE_IMAGE_MAX } from '@/lib/partage/piece-jointe';
 import { Bouton } from '@/components/Bouton';
@@ -36,6 +36,11 @@ interface ProprietesConstruction {
   agentId: string;
   /** Applique la proposition. Rendu par l'écran parent : c'est LUI qui porte le verrou de version. */
   onApplique: (p: PropositionConstruction) => Promise<void>;
+  /** L'état de l'agent et ce qui manque encore pour l'activer (`null` = pas encore lu), pour dire la suite. */
+  actif: boolean;
+  manques: ManqueFiche[] | null;
+  onActiver: () => void;
+  onOnglet: (cle: ManqueFiche['onglet'] | 'tester') => void;
 }
 
 /**
@@ -56,7 +61,7 @@ export function AgentConstruction(p: ProprietesConstruction) {
   return <AgentConstructionOuverte {...p} />;
 }
 
-function AgentConstructionOuverte({ tenantId, agentId, onApplique }: ProprietesConstruction) {
+function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manques, onActiver, onOnglet }: ProprietesConstruction) {
   const t = useT();
   const confirmer = useConfirmation();
   const [tours, setTours] = useState<TourConstruction[]>([]);
@@ -76,6 +81,8 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique }: ProprietesC
   // Chaque réponse ouvre un nouveau lot : ce numéro sert de clé au diff, pour que les choix « garder / jeter »
   // du lot précédent ne survivent pas à une proposition qui ne porte plus les mêmes lignes.
   const [lot, setLot] = useState(0);
+  /** Une proposition vient d'être enregistrée : on dit la suite (activer, tester), jusqu'au prochain message. */
+  const [enregistre, setEnregistre] = useState(false);
   const filRef = useRef<HTMLDivElement>(null);
 
   /** L'entretien déjà tenu. Sans cette relecture, changer d'onglet effacerait la conversation. */
@@ -118,6 +125,7 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique }: ProprietesC
     setSaisie('');
     setBusy(true);
     setErreur(null);
+    setEnregistre(false);
     setChangements(null);
     setProposition(null);
     try {
@@ -214,6 +222,8 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique }: ProprietesC
       setChangements(null);
       setProposition(null);
       setTours((t0) => [...t0, { role: 'assistant', content: t('C’est enregistré.', 'Saved.') }]);
+      setAuteurs((a0) => [...a0, null]);
+      setEnregistre(true);
     } catch (err) {
       setErreur(err instanceof Error ? err.message : t('Enregistrement impossible', 'Unable to save'));
     } finally {
@@ -388,6 +398,62 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique }: ProprietesC
       {changements !== null && resteACouvrir === 0 && (
         <Diff key={lot} changements={changements} busy={busy} onGarder={garder} onJeter={() => { setChangements(null); setProposition(null); }} />
       )}
+      {enregistre && changements === null && (
+        <Suite actif={actif} manques={manques} busy={busy} onActiver={onActiver} onOnglet={onOnglet} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * 🔴 APRÈS « ENREGISTRER », ON DIT LA SUITE. Julien, 2026-11-19 : « une fois que c'est fait, il faut dire quelle est la
+ * prochaine étape, à minima activer le bot ». Les manques sont ceux du serveur (les étapes de l'en-tête), donc ce
+ * bloc ne promet « prêt » que si l'activation passera ; sinon il nomme ce qui manque, chaque ligne menant à son onglet.
+ */
+function Suite({ actif, manques, busy, onActiver, onOnglet }: {
+  actif: boolean;
+  manques: ManqueFiche[] | null;
+  busy: boolean;
+  onActiver: () => void;
+  onOnglet: (cle: ManqueFiche['onglet'] | 'tester') => void;
+}) {
+  const t = useT();
+  if (manques === null) return null;
+  const tester = (
+    <Bouton variante="secondaire" data-testid="setup-suite-tester" disabled={busy} onClick={() => onOnglet('tester')}>
+      {t('Le tester', 'Test it')}
+    </Bouton>
+  );
+  return (
+    <div data-testid="setup-suite" className={`${cardCls} flex flex-col gap-3`}>
+      {actif ? (
+        <p className="text-sm text-ink-900">
+          {t('Votre agent est actif : ce que vous venez d’enregistrer s’applique déjà à ses prochaines réponses.', 'Your agent is active: what you just saved already applies to its next answers.')}
+        </p>
+      ) : manques.length === 0 ? (
+        <p className="text-sm text-ink-900">
+          <span className="font-medium">{t('Votre agent est prêt.', 'Your agent is ready.')}</span>{' '}
+          {t('Il ne reste qu’à l’activer pour qu’il réponde à vos clients. Vous pouvez aussi le tester avant, ou affiner un réglage dans les onglets à gauche.', 'All that is left is to activate it so it answers your customers. You can also test it first, or fine-tune a setting in the tabs on the left.')}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-1 text-sm text-ink-900">
+          <p className="font-medium">{t('Avant de pouvoir l’activer, il reste :', 'Before you can activate it, there is still:')}</p>
+          {manques.map((m) => (
+            <button key={m.message} data-testid={`setup-suite-manque-${m.onglet}`} onClick={() => onOnglet(m.onglet)}
+              className="text-left text-brand-700 underline decoration-dotted hover:decoration-solid">
+              {m.message}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {!actif && manques.length === 0 && (
+          <Bouton data-testid="setup-suite-activer" disabled={busy} onClick={onActiver}>
+            {t('Activer l’agent', 'Activate the agent')}
+          </Bouton>
+        )}
+        {tester}
+      </div>
     </div>
   );
 }
@@ -432,9 +498,15 @@ function Diff({ changements, busy, onGarder, onJeter }: {
   }
 
   const corriger = (champ: string, texte: string) => setGardees((m) => new Map(m).set(champ, texte));
-  const basculer = (champ: string, apres: string) => setGardees((m) => {
+  // 🔴 DEUX BOUTONS QUI DISENT LEUR GESTE, PAS UNE BASCULE QUI DIT SON ÉTAT. L'ancienne bascule affichait « Gardée »
+  // sur une ligne gardée, et un clic la JETAIT : Julien, 2026-11-19, a cliqué « Gardée » sur chaque ligne pour les
+  // garder, et le bouton d'enregistrement est resté grisé sur « Enregistrer les 0 gardées ». Garder une ligne déjà
+  // gardée ne fait rien, et c'est voulu : le clic fait ce que dit son libellé, quel que soit l'état.
+  const garderLigne = (champ: string, apres: string) => setGardees((m) => (m.has(champ) ? m : new Map(m).set(champ, apres)));
+  const jeterLigne = (champ: string) => setGardees((m) => {
+    if (!m.has(champ)) return m;
     const suite = new Map(m);
-    if (suite.has(champ)) suite.delete(champ); else suite.set(champ, apres);
+    suite.delete(champ);
     return suite;
   });
 
@@ -451,17 +523,26 @@ function Diff({ changements, busy, onGarder, onJeter }: {
           >
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs font-medium text-ink-900">{c.label}</p>
-              <button
-                data-testid={`setup-bascule-${c.champ}`}
-                disabled={busy}
-                aria-pressed={garde}
-                onClick={() => basculer(c.champ, c.apres)}
-                className={`shrink-0 rounded-controle border px-2 py-1 text-xs disabled:opacity-40 ${garde
-                  ? 'border-brand-600 bg-brand-50 text-brand-700'
-                  : 'border-ink-300 text-ink-500 hover:bg-white'}`}
-              >
-                {garde ? t('Gardée', 'Kept') : t('Jetée', 'Dropped')}
-              </button>
+              <div role="group" aria-label={c.label} className="flex shrink-0 overflow-hidden rounded-controle border border-ink-300 text-xs">
+                <button
+                  data-testid={`setup-garder-${c.champ}`}
+                  disabled={busy}
+                  aria-pressed={garde}
+                  onClick={() => garderLigne(c.champ, c.apres)}
+                  className={`px-2 py-1 disabled:opacity-40 ${garde ? 'bg-brand-600 text-white' : 'text-ink-500 hover:bg-white'}`}
+                >
+                  {t('Garder', 'Keep')}
+                </button>
+                <button
+                  data-testid={`setup-jeter-${c.champ}`}
+                  disabled={busy}
+                  aria-pressed={!garde}
+                  onClick={() => jeterLigne(c.champ)}
+                  className={`border-l border-ink-300 px-2 py-1 disabled:opacity-40 ${garde ? 'text-ink-500 hover:bg-white' : 'bg-ink-700 text-white'}`}
+                >
+                  {t('Jeter', 'Drop')}
+                </button>
+              </div>
             </div>
             {c.avant !== '' && (
               <p className="whitespace-pre-wrap text-xs text-ink-500 line-through">{c.avant}</p>

@@ -119,6 +119,34 @@ test.describe('Agents IA : construire en parlant', () => {
     expect(Object.keys(patch.contenu ?? {}).sort()).toEqual(['objectif', 'sorties']);
   });
 
+  test('🔴 après « Enregistrer », on dit la suite : activer l agent, depuis le fil', async ({ page }) => {
+    // Julien, 2026-11-19 : « une fois que c'est fait, il faut dire quelle est la prochaine étape, à minima activer le bot ».
+    const appels: Appel[] = [];
+    await mock(page, appels);
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
+    await page.getByTestId('setup-envoyer').click();
+    await page.getByTestId('setup-garder').click();
+
+    await expect(page.getByTestId('setup-suite')).toContainText('Votre agent est prêt');
+    await page.getByTestId('setup-suite-activer').click();
+    await expect.poll(
+      () => appels.some((a) => a.method === 'PATCH' && (a.body as { status?: string })?.status === 'active'),
+      { timeout: 5000 },
+    ).toBe(true);
+  });
+
+  test('après « Enregistrer », un agent incomplet nomme ce qui manque au lieu de proposer d activer', async ({ page }) => {
+    await mock(page, [], { manques: [{ onglet: 'connaissance', message: 'Ajoutez au moins une fiche de connaissance.' }] });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
+    await page.getByTestId('setup-envoyer').click();
+    await page.getByTestId('setup-garder').click();
+
+    await expect(page.getByTestId('setup-suite-manque-connaissance')).toBeVisible();
+    await expect(page.getByTestId('setup-suite-activer')).toHaveCount(0);
+  });
+
   test('🔴 TANT QUE LE PÉRIMÈTRE N EST PAS COUVERT, on discute : aucun diff', async ({ page }) => {
     // Julien, 2026-08-28 : « je préfère qu'au début on discute avant d'afficher ce que le bot a compris ».
     // Le serveur retient le diff pendant l'entretien ; l'écran doit le DIRE, sinon il serait simplement muet
@@ -144,7 +172,9 @@ test.describe('Agents IA : construire en parlant', () => {
     await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
     await page.getByTestId('setup-envoyer').click();
 
-    await page.getByTestId('setup-bascule-fiche.sorties').click();
+    await page.getByTestId('setup-jeter-fiche.sorties').click();
+    // « Garder » sur une ligne déjà gardée ne la jette pas (2026-11-19 : l'ancienne bascule le faisait).
+    await page.getByTestId('setup-garder-fiche.objectif').click();
     await page.getByTestId('setup-garder').click();
 
     await expect.poll(() => {

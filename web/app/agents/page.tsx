@@ -454,6 +454,10 @@ function Ecran({ tenantId }: { tenantId: string }) {
               <AgentConstruction
                 tenantId={tenantId}
                 agentId={ouvert.id}
+                actif={ouvert.status === 'active'}
+                manques={manques}
+                onActiver={() => void changerStatut('active')}
+                onOnglet={(cle) => aller(ouvert.id, lireOnglet(cle))}
                 onApplique={async (p) => {
                   try {
                     await appliquerProposition(tenantId, ouvert.id, p, ouvert.ficheVersion);
