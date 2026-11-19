@@ -195,7 +195,7 @@ test.describe('Automation > HubSpot : les automations que HubSpot lance (menu «
     await expect.poll(() => trace.reglages.length).toBe(2);
     expect(trace.reglages[1]).toEqual({ id: 'r1', corps: { actif: true } });
     await expect(page.getByTestId('automations-hubspot-erreur')).toHaveText(REFUS_A_COMPLETER);
-    await expect(page).toHaveURL(/\/automations$/);
+    await expect(page).toHaveURL(/\/automations\/hubspot$/);
   });
 
   test('🔴 la suppression se confirme, puis part ; annulée, rien ne part', async ({ page }) => {
