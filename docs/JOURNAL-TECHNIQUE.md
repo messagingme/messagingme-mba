@@ -4,6 +4,46 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-19 : le code d'espace, visible dans la console, `/ops` et les alertes (en production)
+
+**Le besoin**, de Julien : identifier un espace sans ambiguïté, au support comme dans `/ops`, quand plusieurs portent le
+même nom (plusieurs « Test », plusieurs « SANDBOX »). Il proposait un code de 4 ou 6 chiffres.
+
+**Ce que la lecture du code a trouvé avant de construire** : le code existait déjà. `tenants.public_code` (migration
+0031), 6 caractères base32 Crockford dérivés de l'uuid par `deriveTenantCode`, unique et immuable, racine de chaque
+identifiant public de l'API (`scn_k7m2p3_…`), n'était affiché nulle part. Sa colonne est nullable et le script de
+remplissage d'origine (`db/backfill-codes.ts`) a disparu du dépôt.
+
+**Les trois choix de Julien** (cadrage par questions, spec `docs/superpowers/specs/2026-11-19-code-espace-visible-design.md`) :
+afficher le code existant plutôt qu'un nouveau code numérique (un seul code partout) ; remplir les vides une fois
+plutôt qu'une migration NOT NULL (qui obligeait à réécrire la création d'espace) ; enrichir les alertes à l'envoi,
+au centre, plutôt que message par message.
+
+**Ce qui est livré** (plan `docs/superpowers/plans/2026-11-19-code-espace-visible.md`, livré en direct, copie à part
+d'origin, commit en plomberie) : `codeDEspace` (le code stocké, sinon le calcul, même valeur) ; le code dans
+`getByEmail` et `GET /tenants/:t/espaces`, affiché avec Copier dans le menu du compte ; le code et un filtre sans casse
+dans la table des espaces de `/ops` ; `creerLibelleurEspaces`, branché par `brancherLibelleur` dans `src/index.ts` et
+`src/worker.ts`, qui ajoute « Nom » (code) à tout uuid d'espace d'une alerte Telegram, en une lecture plafonnée à 1 s,
+texte inchangé si elle échoue ; `scripts/remplir-codes-espaces.mts`. Aucune migration, et aucune route n'accepte le
+code à la place d'un `tenantId`.
+
+**Mesures** : tests écrits d'abord et vus rouges ; typecheck, lints et auto-attaque (2 135 sondes) à 0 ; suites racine et
+console vertes. Le typage a trouvé un faux de `tests/ops.test.ts` que la relecture n'avait pas vu. Un test de
+`latence-http` (vrai serveur) a rougi une fois sous la charge de la suite complète : six passages verts sur six, avec
+et sans le lot, donc l'environnement. L'e2e `changer-espace.spec.ts` à 5/5 sur un build de production, dont les deux
+cas neufs (code lu et copié ; API sans le champ, ni code ni bouton). Avant le push, le Dockerfile relu a montré que
+`scripts/` n'entre pas dans l'image : la commande `docker exec … npx tsx scripts/…` du plan aurait échoué, le script se
+monte désormais comme au pas 4 des médias de `DEPLOY.md`.
+
+**Relecture indépendante** : aucun rouge. Trois jaunes au `todo.md` : le libellé allonge l'alerte avant sa troncature à
+4 000 caractères, le plafond d'1 s s'ajoute au délai d'envoi, le nom d'espace entre tel quel dans l'alerte.
+
+**En production** : `54af105e0`, CI verte job par job (unit, integration, securite), CI front et CodeQL verts ;
+déploiement 44558657240 (`migration=aucune`, commit épinglé, approuvé par Julien), conteneur prêt à 15:51:59 UTC sur
+l'image `54af105e0` ; fumée publique verte. Le comptage des espaces sans code, en lecture seule, a été refusé au
+garde-fou du mode auto : le remplissage (`docs/prive/code-espace/remplir-codes.sh`, non versionné) et l'essai réel
+restent à Julien (`todo.md`).
+
 ## 2026-11-19 : « Copier le lien » d'une invitation, avec la garde de l'identité partagée (en production)
 
 **Le besoin**, de Julien : un invité dont la messagerie bloque l'e-mail d'invitation restait bloqué. Le lien n'existe qu'en
