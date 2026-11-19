@@ -161,6 +161,8 @@ export interface WorkflowExecutorDeps {
     cloreAutresActifs(tenantId: string, waId: string, saufId: string): Promise<string[]>;
     cloreParOrigine(tenantId: string, origine: string): Promise<string[]>;
     cloreParScenarios(tenantId: string, workflowIds: readonly string[]): Promise<string[]>;
+    /** Lot 5 : les parcours d’événement actifs dont l’origine commence par ce préfixe, pour un contact ou tous. */
+    cloreParPrefixe(tenantId: string, prefixe: string, waId?: string): Promise<string[]>;
     /**
      * Le parcours de ce contact qui attend sur CE bloc de CE scénario : un clic se route par le message qu'il cite quand
      * deux parcours attendent (un parcours d'événement et un ordinaire qui coexiste, lot 4). `null` = aucun.
@@ -1468,21 +1470,22 @@ export class WorkflowExecutor {
    * répare (`advance` retrouve la session par `byRun`). On perd le premier message de l'agent, pas de doublon.
    */
   /**
-   * Clôt la session d'agent d'un parcours qu'on tue ou qu'on fait sortir de son bloc agent, sur toutes les
-   * sorties de `resume` qui tuent le run. Sans ça, la session resterait vivante pour toujours : l'index
-   * partiel « une seule session vivante par parcours » la ferait réutiliser (`byRun ?? open`), tours et coût
-   * déjà consommés, et l'agent serait muet. `byRun` ne rend que la session vivante.
-   */
-  /**
    * 🔴 L'ARRÊT COMMANDÉ DES PARCOURS D'ÉVÉNEMENT (lot 4, appelé au lot 5) : ceux d'une ORIGINE (une commande née du panier
-   * arrête le parcours du panier, décision 4) ou de SCÉNARIOS (la boutique en pause, la ligne éteinte, décision 15), avec
-   * leurs sessions d'agent. Rien n'est envoyé ni passé à l'équipe : le client n'attend rien de ces parcours. Rend le
-   * nombre de parcours arrêtés.
+   * arrête le parcours du panier, décision 4), d'un PRÉFIXE d'origine (lot 5 : une ligne éteinte, la boutique en pause,
+   * les autres paniers d'un contact, décisions 15 et 33 ; un saut change le scénario du parcours, jamais son origine) ou
+   * de SCÉNARIOS, avec leurs sessions d'agent. Rien n'est envoyé ni passé à l'équipe : le client n'attend rien de ces
+   * parcours. Rend le nombre de parcours arrêtés.
    */
-  async arreterParcours(tenantId: string, cible: { origine: string } | { workflowIds: readonly string[] }, motif: string): Promise<number> {
+  async arreterParcours(
+    tenantId: string,
+    cible: { origine: string } | { prefixe: string; waId?: string } | { workflowIds: readonly string[] },
+    motif: string,
+  ): Promise<number> {
     const clos = 'origine' in cible
       ? await this.deps.runs.cloreParOrigine(tenantId, cible.origine)
-      : await this.deps.runs.cloreParScenarios(tenantId, cible.workflowIds);
+      : 'prefixe' in cible
+        ? await this.deps.runs.cloreParPrefixe(tenantId, cible.prefixe, cible.waId)
+        : await this.deps.runs.cloreParScenarios(tenantId, cible.workflowIds);
     for (const id of clos) await this.cloreSessionDuRun(tenantId, id, 'erreur');
     if (clos.length > 0) {
       // eslint-disable-next-line no-console
@@ -1491,6 +1494,12 @@ export class WorkflowExecutor {
     return clos.length;
   }
 
+  /**
+   * Clôt la session d'agent d'un parcours qu'on tue ou qu'on fait sortir de son bloc agent, sur toutes les
+   * sorties de `resume` qui tuent le run. Sans ça, la session resterait vivante pour toujours : l'index
+   * partiel « une seule session vivante par parcours » la ferait réutiliser (`byRun ?? open`), tours et coût
+   * déjà consommés, et l'agent serait muet. `byRun` ne rend que la session vivante.
+   */
   private async cloreSessionDuRun(
     tenantId: string, runId: string, statut: AgentSessionStatus, sortie?: string,
   ): Promise<void> {

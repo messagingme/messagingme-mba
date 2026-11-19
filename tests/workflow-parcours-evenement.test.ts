@@ -697,6 +697,7 @@ describe('l’arrêt commandé des parcours d’événement', () => {
         closeActiveByWaId: async () => [],
         cloreParOrigine: async (t: string, origine: string) => { appels.push(`origine:${t}:${origine}`); return ['r1', 'r2']; },
         cloreParScenarios: async (t: string, ids: readonly string[]) => { appels.push(`scenarios:${t}:${ids.join(',')}`); return ['r3']; },
+        cloreParPrefixe: async (t: string, prefixe: string, waId?: string) => { appels.push(`prefixe:${t}:${prefixe}:${waId ?? 'tous'}`); return ['r4']; },
       }),
       agentSessions: {
         byRun: async (_t: string, runId: string) => ({ id: `s-${runId}` }),
@@ -729,5 +730,14 @@ describe('l’arrêt commandé des parcours d’événement', () => {
     expect(await m.executor.arreterParcours(ESPACE, { workflowIds: ['wf-panier', 'wf-commande'] }, 'boutique en pause')).toBe(1);
     expect(m.appels).toEqual([`scenarios:${ESPACE}:wf-panier,wf-commande`]);
     expect(m.sessionsCloses).toEqual(['s-r3']);
+  });
+
+  it('🔴 lot 5 : par préfixe d’origine (une ligne éteinte, la boutique en pause, les autres paniers d’un contact), avec leurs sessions', async () => {
+    silence();
+    const m = bancArret();
+    expect(await m.executor.arreterParcours(ESPACE, { prefixe: 'shopify:b.myshopify.com:checkouts/abandoned:', waId: WA }, 'panier plus récent')).toBe(1);
+    expect(await m.executor.arreterParcours(ESPACE, { prefixe: 'shopify:b.myshopify.com:' }, 'boutique en pause')).toBe(1);
+    expect(m.appels).toEqual([`prefixe:${ESPACE}:shopify:b.myshopify.com:checkouts/abandoned::${WA}`, `prefixe:${ESPACE}:shopify:b.myshopify.com::tous`]);
+    expect(m.sessionsCloses).toEqual(['s-r4', 's-r4']);
   });
 });

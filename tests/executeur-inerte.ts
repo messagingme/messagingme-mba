@@ -101,7 +101,7 @@ export const rcsSansAgent: WorkflowExecutorDeps['rcs'] = {
 
 type Runs = WorkflowExecutorDeps['runs'];
 type GardesDEtat = Pick<Runs, 'setStateSiVivant' | 'setStateSiEncoreSur' | 'reserverAvance' | 'prolongerAvance' | 'libererAvance'
-  | 'parcoursDEvenementActif' | 'closeOrdinairesByWaId' | 'cloreAutresActifs' | 'cloreParOrigine' | 'cloreParScenarios' | 'findWaitingSurBloc'>;
+  | 'parcoursDEvenementActif' | 'closeOrdinairesByWaId' | 'cloreAutresActifs' | 'cloreParOrigine' | 'cloreParScenarios' | 'cloreParPrefixe' | 'findWaitingSurBloc'>;
 
 /**
  * Le parcours d'événement (lot 4) dans un faux qui ne le connaît pas : aucun n'est actif, donc fermer les parcours
@@ -173,6 +173,7 @@ export function avecGardesDEtatInertes<R extends Pick<Runs, 'setState'> & Partia
     cloreAutresActifs: runs.cloreAutresActifs ?? aucunParcoursClos,
     cloreParOrigine: runs.cloreParOrigine ?? aucunParcoursClos,
     cloreParScenarios: runs.cloreParScenarios ?? aucunParcoursClos,
+    cloreParPrefixe: runs.cloreParPrefixe ?? aucunParcoursClos,
     findWaitingSurBloc: runs.findWaitingSurBloc ?? aucunParcoursSurCeBloc,
   });
 }

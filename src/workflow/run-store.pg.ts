@@ -375,6 +375,25 @@ export class PgWorkflowRunStore {
   }
 
   /**
+   * Lot 5 : clôt les parcours d'événement actifs dont l'origine COMMENCE par ce préfixe (`shopify:<domaine>:` pour la
+   * boutique en pause, `shopify:<domaine>:checkouts/abandoned:` pour la ligne du panier éteinte ou les autres paniers d'un
+   * contact, décisions 15 et 33), pour un contact ou pour tout l'espace. `starts_with` et jamais `like`, où `_` serait un
+   * joker. Un saut change le scénario d'un parcours, jamais son origine : c'est elle qui se lit. Prédicat de l'index 0298
+   * écrit tel quel (servi pour un contact). Rend les identifiants clos, pour fermer leurs sessions d'agent.
+   */
+  async cloreParPrefixe(tenantId: string, prefixe: string, waId?: string): Promise<string[]> {
+    if (prefixe === '') return [];
+    const res = await this.pool.query<{ id: string }>(
+      `update workflow_runs set status = 'done', current_node = null, resume_at = null, ${EFFACER_VARIABLES}, updated_at = now()
+       where tenant_id = $1 and evenement is not null and status in ('waiting', 'sleeping')
+         and starts_with(evenement->>'origine', $2) and ($3::text is null or wa_id = $3::text)
+       returning id`,
+      [tenantId, prefixe, waId ?? null],
+    );
+    return res.rows.map((r) => r.id);
+  }
+
+  /**
    * Réserve le tour d'avance d'un parcours, avant tout envoi : c'est ce qui ferme le double envoi, que
    * `setStateSiEncoreSur` (qui arrive après les envois) ne peut pas empêcher.
    *
@@ -392,9 +411,12 @@ export class PgWorkflowRunStore {
     // réponse traitée entre la réclamation et la reprise, qui laisse le parcours sur son bloc, la fait renoncer
     // (relecture de 2b-1). `advance` ne la passe pas.
     const res = await this.pool.query<{ avance_token: string }>(
+      // Lot 5 (relecture du correctif du balayage) : la réservation date l'activité du parcours (`updated_at`), que lit la
+      // garde du balayage : un parcours longtemps silencieux ne perd pas son fil pendant l'avance qu'il commence.
       `update workflow_runs
           set avance_token = gen_random_uuid(),
-              avance_jusqu_a = now() + make_interval(secs => $4::double precision)
+              avance_jusqu_a = now() + make_interval(secs => $4::double precision),
+              updated_at = now()
         where id = $1 and tenant_id = $2 and status = 'waiting'
           and current_node is not distinct from $3
           and (avance_jusqu_a is null or avance_jusqu_a <= now())

@@ -196,6 +196,20 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     expect((await lireRun(id)).status).toBe('waiting');
   });
 
+  it('🔴 lot 5 : l’arrêt par préfixe, pour un contact ou toute la boutique ; un autre espace intact ; « _ » n’est pas un joker', async () => {
+    const etat = { currentNode: 'tpl', status: 'waiting' as const };
+    const ne = async (t: string, w: string, wa: string, origine: string) =>
+      ((await store.start(t, w, wa, null, etat, null, false, false, { origine, variables: {} })) as { id: string }).id;
+    const panier = await ne(tenantId, workflowId, '33600009201', 'shopify:b_x.myshopify.com:checkouts/abandoned:1');
+    const commande = await ne(tenantId, workflowId, '33600009202', 'shopify:b_x.myshopify.com:orders/paid:2');
+    const autreBoutique = await ne(tenantId, workflowId, '33600009203', 'shopify:bAx.myshopify.com:orders/paid:3');
+    const autreEspace = await ne(autreTenant, autreWorkflow, '33600009201', 'shopify:b_x.myshopify.com:checkouts/abandoned:9');
+    expect(await store.cloreParPrefixe(tenantId, 'shopify:b_x.myshopify.com:checkouts/abandoned:', '33600009201')).toEqual([panier]);
+    expect(await store.cloreParPrefixe(tenantId, 'shopify:b_x.myshopify.com:')).toEqual([commande]);
+    for (const id of [autreBoutique, autreEspace]) expect((await lireRun(id)).status).toBe('waiting');
+    expect((await lireRun(panier)).evenement, 'les variables effacées à la clôture').not.toHaveProperty('variables');
+  });
+
   it('la colonne est nulle par défaut : un parcours inséré sans elle (l’ancien code) est ordinaire', async () => {
     const r = await pool.query<{ evenement: unknown }>(
       `insert into workflow_runs (workflow_id, tenant_id, wa_id, current_node, status) values ($1, $2, '33600009161', 'n1', 'waiting')
