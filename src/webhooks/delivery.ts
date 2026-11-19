@@ -91,6 +91,10 @@ export function instantDuStatut(data: unknown): string | null {
 export interface NodeStatusSink {
   recordStatusForMessage(metaMessageId: string, kind: 'delivered' | 'read' | 'failed'): Promise<number>;
 }
+/** La clôture du parcours d'événement né sur un message que Meta n'a pas livré (lot 5). Rend le nombre de parcours clos. */
+export interface ParcoursSurEchecSink {
+  clorePremierNonLivre(metaMessageId: string): Promise<number>;
+}
 
 /**
  * La remise du fil à l'agent de Meta, déclenchée par l'accusé de notre dernier envoi. Envoyer un message prend
@@ -128,6 +132,13 @@ export interface PuitsAccuses {
   ajustementCredit: AjustementCreditSink;
   nodeEvents?: NodeStatusSink;
   remiseMba?: RemiseMbaSurAccuse;
+  /**
+   * Lot 5 : un accusé `failed` clôt le parcours d'événement né sur ce message, s'il n'a pas quitté son bloc de départ
+   * (`PgWorkflowRunStore.clorePremierNonLivre`). Le parcours naît quand Meta ACCEPTE le template ; non livré, il ne doit
+   * ni garder la place du contact, ni empêcher une nouvelle tentative d'envoi de le faire renaître. Best-effort, comme
+   * la mesure des blocs.
+   */
+  parcours?: ParcoursSurEchecSink;
   /** Les signaux ; requis au niveau du handler, seul appelant de production. */
   signaux?: SignalAccuse;
 }
@@ -143,7 +154,7 @@ export async function processStatuses(
   delivery: DeliveryStore,
   puits: PuitsAccuses,
 ): Promise<void> {
-  const { tarifs, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux } = puits;
+  const { tarifs, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux, parcours } = puits;
   for (const ev of events) {
     if (ev.source !== 'statuses') continue;
     const d = extractDelivery(ev.data);
@@ -193,6 +204,10 @@ export async function processStatuses(
      */
     if (remiseMba) {
       await tenter('remise du fil à l’agent de Meta ignorée:', () => remiseMba(d.messageId));
+    }
+    // Lot 5 : le premier message d'un parcours d'événement non livré clôt ce parcours (best-effort).
+    if (parcours && d.status === 'failed') {
+      await tenter('parcours d’événement non clos après l’échec de son premier message:', () => parcours.clorePremierNonLivre(d.messageId));
     }
     if (nodeEvents && d.status !== 'sent') {
       try {

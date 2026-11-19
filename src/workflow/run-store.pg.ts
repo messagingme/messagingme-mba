@@ -13,6 +13,8 @@ const INDEX_EVENEMENT_ACTIF = 'workflow_runs_evenement_actif_uniq';
  * quand il vient d'un paramètre. `null - 'variables'` reste `null` : un parcours ordinaire n'est pas touché.
  */
 const EFFACER_VARIABLES = `evenement = evenement - 'variables'`;
+/** Lot 5 : la même fin, et la marque d'un premier message non livré (une nouvelle tentative pourra le faire renaître). */
+const EFFACER_VARIABLES_PREMIER_NON_LIVRE = `evenement = (evenement - 'variables') || '{"premierNonLivre": true}'::jsonb`;
 function EFFACER_VARIABLES_SI_TERMINAL(statut: string): string {
   return `evenement = case when ${statut} in ('done', 'inbox') then evenement - 'variables' else evenement end`;
 }
@@ -314,6 +316,28 @@ export class PgWorkflowRunStore {
       [tenantId, waId],
     );
     return res.rows[0] ?? null;
+  }
+
+  /**
+   * 🔴 LOT 5 : LE PREMIER MESSAGE D'UN PARCOURS D'ÉVÉNEMENT N'A PAS ÉTÉ LIVRÉ (accusé `failed` de Meta, relecture de 4b).
+   * Le parcours est né quand Meta a ACCEPTÉ le template ; resté sur son bloc de départ, il est clos (aucun envoi : rien
+   * n'est parti de lui), ses variables effacées et la marque `premierNonLivre` posée, pour qu'une nouvelle tentative
+   * d'envoi le fasse renaître (`start`, naissance idempotente). Un parcours qui a déjà quitté ce bloc continue : sa suite
+   * est partie. L'accusé ne connaît que l'identifiant du message : l'espace et le contact se lisent dans sa mesure « envoyé »,
+   * écrite par nous à l'envoi (comme `recordStatusForMessage`, index partiel `idx_wf_node_events_message`), puis la
+   * clôture filtre par eux, au prédicat de l'index 0298 écrit tel quel. Rend le nombre de parcours clos (0 ou 1).
+   */
+  async clorePremierNonLivre(metaMessageId: string): Promise<number> {
+    const res = await this.pool.query(
+      `update workflow_runs r set status = 'done', current_node = null, resume_at = null, ${EFFACER_VARIABLES_PREMIER_NON_LIVRE}, updated_at = now()
+         from (select tenant_id, wa_id from workflow_node_events
+                where meta_message_id = $1 and kind = 'sent' limit 1) m
+        where r.tenant_id = m.tenant_id and r.wa_id = m.wa_id
+          and r.evenement is not null and r.status in ('waiting', 'sleeping')
+          and r.evenement->>'messageId' = $1 and r.current_node = r.evenement->>'noeudDepart'`,
+      [metaMessageId],
+    );
+    return res.rowCount ?? 0;
   }
 
   /**

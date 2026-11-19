@@ -166,6 +166,36 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     expect('id' in (await store.start(tenantId, workflowId, wa, null, etat, null, false, false, e))).toBe(true);
   });
 
+  const envoye = (wa: string, wamid: string) => pool.query(
+    `insert into workflow_node_events (tenant_id, workflow_id, node_id, wa_id, kind, meta_message_id) values ($1, $2, 'tpl', $3, 'sent', $4)`,
+    [tenantId, workflowId, wa, wamid],
+  );
+  const lireRun = async (id: string) => (await pool.query<{ status: string; evenement: Record<string, unknown> }>(
+    `select status, evenement from workflow_runs where id = $1`, [id],
+  )).rows[0]!;
+
+  it('🔴 lot 5 : l’échec de livraison du premier message clôt le parcours né sur lui, encore sur son bloc de départ', async () => {
+    const wa = '33600009191';
+    const e: EvenementDuParcours = { ...ev('non-livre'), messageId: 'wamid.nonlivre', noeudDepart: 'tpl' };
+    const id = await nait(tenantId, workflowId, wa, e, { currentNode: 'tpl' });
+    await envoye(wa, 'wamid.nonlivre');
+    expect(await store.clorePremierNonLivre('wamid.nonlivre')).toBe(1);
+    const r = await lireRun(id);
+    expect(r.status).toBe('done');
+    // Les variables (des liens à clé d'accès) effacées, l'origine gardée, la marque posée : une nouvelle tentative renaîtra.
+    expect(r.evenement).toEqual({ origine: e.origine, messageId: 'wamid.nonlivre', noeudDepart: 'tpl', premierNonLivre: true });
+  });
+
+  it('un parcours qui a QUITTÉ son bloc de départ, ou un message inconnu, ne se clôt pas', async () => {
+    const wa = '33600009192';
+    const e: EvenementDuParcours = { ...ev('parti'), messageId: 'wamid.parti', noeudDepart: 'tpl' };
+    const id = await nait(tenantId, workflowId, wa, e, { currentNode: 'qm1' });
+    await envoye(wa, 'wamid.parti');
+    expect(await store.clorePremierNonLivre('wamid.parti')).toBe(0);
+    expect(await store.clorePremierNonLivre('wamid.inconnu')).toBe(0);
+    expect((await lireRun(id)).status).toBe('waiting');
+  });
+
   it('la colonne est nulle par défaut : un parcours inséré sans elle (l’ancien code) est ordinaire', async () => {
     const r = await pool.query<{ evenement: unknown }>(
       `insert into workflow_runs (workflow_id, tenant_id, wa_id, current_node, status) values ($1, $2, '33600009161', 'n1', 'waiting')

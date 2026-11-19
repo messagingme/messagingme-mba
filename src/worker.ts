@@ -752,6 +752,8 @@ export async function demarrerWorker(): Promise<void> {
       // Mesure par bloc : les accusés Meta (délivré / lu / échec) retrouvent ici le bloc qui a envoyé le message.
       // Un identifiant hors scénario ne crée rien.
       nodeEvents: nodeEventStore,
+      // Lot 5 : un accusé d’échec du premier message d’un parcours d’événement clôt ce parcours (le magasin entier).
+      parcoursSurEchec: runStore,
       // 🔴 Opt-out par mot-clé sur WhatsApp (STOP, désabonner...) : sans lui, un contact qui répond STOP
       // resterait `opted_in` et recevrait la campagne suivante. La source `whatsapp_stop` le distingue d'un refus
       // posé à la main. Le wamid du STOP suit jusqu'au signal : un STOP redélivré garde le même `em_event_id`.
@@ -865,7 +867,7 @@ export async function demarrerWorker(): Promise<void> {
   await queue.work('webhook-status', async (data) => {
     // Trois dépendances nommées : ce qui est absent l'est volontairement (aucune conversation, aucune
     // automation, aucun scénario ne se déclenche sur un accusé).
-    await handleWebhookJob(data, { store: eventStore, delivery: recipientStore, nodeEvents: nodeEventStore, remiseMba: fil.remettreSurAccuse, tarifsMeta: tarifsMetaStore, echecsLibres: echecsMessages, signauxAccuse: puitsSignaux.accuse, ajustementCredit: ajustementCreditWhatsapp });
+    await handleWebhookJob(data, { store: eventStore, delivery: recipientStore, nodeEvents: nodeEventStore, parcoursSurEchec: runStore, remiseMba: fil.remettreSurAccuse, tarifsMeta: tarifsMetaStore, echecsLibres: echecsMessages, signauxAccuse: puitsSignaux.accuse, ajustementCredit: ajustementCreditWhatsapp });
   }, { concurrency: config.WEBHOOK_STATUS_CONCURRENCY, groupConcurrency: 1 });
 
   // File campaign-run. DRY_RUN=true : sender de démo (aucun appel Meta). Sinon : token résolu par tenant,

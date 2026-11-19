@@ -98,3 +98,16 @@ describe('câblage des capacités du moteur de campagne', () => {
     }
   });
 });
+
+/**
+ * LOT 5 : LA CLÔTURE DU PARCOURS NÉ SUR UN MESSAGE NON LIVRÉ, CÂBLÉE AUX DEUX FILES QUI VOIENT DES ACCUSÉS. Un accusé
+ * arrive par la file des webhooks ou par `webhook-status`, selon le découpage des lots par Meta : un puits optionnel
+ * oublié sur l'une des deux laisserait la moitié des échecs sans effet, sans qu'aucun test du traitement ne le voie.
+ */
+describe('câblage de la clôture d’un parcours dont le premier message n’est pas livré', () => {
+  it('🔴 les deux files d’accusés passent le magasin des parcours ENTIER (une méthode détachée perdrait son this)', () => {
+    const occurrences = workerSansCommentaires.match(/parcoursSurEchec: runStore\b/g) ?? [];
+    expect(occurrences).toHaveLength(2);
+    expect(workerSansCommentaires).toMatch(/queue\.work\('webhook-status'[\s\S]{0,600}parcoursSurEchec: runStore/);
+  });
+});

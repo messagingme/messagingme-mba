@@ -84,3 +84,30 @@ describe('accusés Meta -> mesure par bloc', () => {
     expect(majs).toEqual([{ id: 'wamid.4', status: 'delivered' }]);
   });
 });
+
+/**
+ * LOT 5 : L'ÉCHEC DU PREMIER MESSAGE D'UN PARCOURS D'ÉVÉNEMENT LE CLÔT (relecture de 4b). Le parcours naît quand Meta a
+ * ACCEPTÉ le template ; un accusé `failed` dit ensuite qu'il n'a pas été livré : le parcours né sur lui ne doit pas garder
+ * la place du contact 72 h, et une nouvelle tentative d'envoi doit pouvoir le faire renaître (`premierNonLivre`).
+ */
+describe('accusés Meta -> le parcours d’événement né sur un message non livré', () => {
+  function parcours(enPanne = false) {
+    const clos: string[] = [];
+    return { clos, sink: { clorePremierNonLivre: async (messageId: string) => { if (enPanne) throw new Error('base indisponible'); clos.push(messageId); return 1; } } };
+  }
+  const base = { tarifs: aucunTarif, echecsLibres: aucunEchecLibre, ajustementCredit: aucunAjustementCredit };
+
+  it('🔴 un échec de livraison clôt le parcours né sur ce message ; délivré, lu ou envoyé, jamais', async () => {
+    const { store } = livraison();
+    const p = parcours();
+    await processStatuses([statut('wamid.ok', 'sent'), statut('wamid.ok', 'delivered'), statut('wamid.ok', 'read'), statut('wamid.ko', 'failed', 131049)], store as never, { ...base, parcours: p.sink });
+    expect(p.clos).toEqual(['wamid.ko']);
+  });
+
+  it('🔴 une panne de la clôture n’empêche PAS la mise à jour de la livraison', async () => {
+    const { majs, store } = livraison();
+    const p = parcours(true);
+    await processStatuses([statut('wamid.ko', 'failed', 131026)], store as never, { ...base, parcours: p.sink });
+    expect(majs).toEqual([{ id: 'wamid.ko', status: 'failed' }]);
+  });
+});
