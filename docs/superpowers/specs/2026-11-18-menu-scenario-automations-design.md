@@ -172,6 +172,16 @@ Appels du rédacteur pris sur la cartographie (2026-11-18), à relire :
     écrit dans la documentation (deux voix possibles un court moment). Au réveil du parcours d'événement, celui-ci le clôt
     avec sa session, comme prévu.
 
+### 3.3 Décisions après la cartographie du lot 5 (Julien, 2026-11-19)
+
+32. **Le retour sur investissement montre une ligne par automation Shopify** (précise « attribué à cette automation » de la
+    décision 10) : « Panier abandonné » (le parcours entier, la relance de panier d'aujourd'hui), « Commande payée » et
+    « Commande expédiée » (chaque bloc qui suit le premier message ; le premier message d'une commande reste hors leviers).
+    Dans le retour sur investissement, la console, Claude Code et la fiche contact.
+33. **Deux paniers : le plus récent prend la place** (précise la décision 3 pour la ligne du panier). La relance d'un second
+    panier arrête le parcours du panier précédent du même contact, et le second a son propre parcours, ses boutons et son
+    lien. Les commandes gardent la décision 3 : une seconde commande ne coupe pas le parcours de la première.
+
 ## 4. Objectifs, non-objectifs, anti-objectifs
 
 **Objectifs** : une séquence Shopify ou HubSpot se construit dans le builder classique ; le premier message reste aussi
