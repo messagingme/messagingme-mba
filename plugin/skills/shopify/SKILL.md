@@ -114,7 +114,7 @@ On the official API (track `api`), two events can send a message: `order_paid` (
 
 Each event has an automation: a scenario whose first step is the template the event sends. `set_shopify_message`
 creates the automation and its scenario if missing, sets that first template and keeps the steps that follow. On Pro
-and above, the user can add steps after the first message in the console (Automation, Shopify section, "Open the
+and above, the user can add steps after the first message in the console (Scenario > Automation > Shopify, "Open the
 scenario"): a reminder after a wait, an answer to a button, a message quoting the order's data. You only change the
 first message: when an automation has more than one step (`get_shopify_state`), say that the others are changed in the
 console. On Free there is no console, and only the first message is sent.

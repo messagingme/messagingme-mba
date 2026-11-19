@@ -8,6 +8,7 @@ import { cardCls, inputCls, inputClsAuto } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { Toggle } from '@/components/Toggle';
+import { Squelette } from '@/components/Squelette';
 import { useConfirmation } from '@/components/Confirmation';
 import { routeInconnue } from '@/lib/canaux-services';
 import { listHubspotDealStages, listUserFields, updateWorkflow, type HubspotDealPipeline, type UserFieldDef } from '@/lib/api';
@@ -85,18 +86,20 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
   const t = useT();
   const router = useRouter();
   const confirmer = useConfirmation();
-  const [vue, setVue] = useState<EtatLignesHubspot | null>(null);
+  /** `lecture` jusqu'à la première réponse ; `panne` si elle échoue ou ne se lit pas (une API sans la route comprise). */
+  const [vue, setVue] = useState<EtatLignesHubspot | 'lecture' | 'panne'>('lecture');
   const [occupe, setOccupe] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   /** La famille dont le formulaire « Ajouter » est ouvert. */
   const [ajout, setAjout] = useState<FamilleHubspot | null>(null);
 
-  // Une panne de lecture (un rôle qui ne lit pas la route, une API d'avant le lot 6) cache la section, comme celle de Shopify.
-  const recharger = useCallback(() => lireLignesHubspot(tenantId).then(setVue).catch(() => setVue(null)), [tenantId]);
+  // Sa page (menu « Scénario », lot 7) dit chaque état, comme celle de Shopify : la lecture, la panne, le portail absent.
+  const recharger = useCallback(() => lireLignesHubspot(tenantId).then((v) => setVue(v ?? 'panne')).catch(() => setVue('panne')), [tenantId]);
   useEffect(() => { void recharger(); }, [recharger]);
 
-  const connecte = vue?.connecte === true;
-  const lignes = vue?.lignes ?? [];
+  const lue = typeof vue === 'object' ? vue : null;
+  const connecte = lue?.connecte === true;
+  const lignes = lue?.lignes ?? [];
 
   // Les champs de la fiche : le libellé d'un rendez-vous, et son choix. Une lecture locale, faite dès que la section se montre.
   const [champs, setChamps] = useState<ChampsLus>('lecture');
@@ -126,7 +129,25 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
       .catch(() => setEtapes('panne'));
   }, [besoinEtapes, tenantId]);
 
-  if (!connecte) return null;
+  if (vue === 'lecture') return <Squelette forme="lignes" />;
+  if (vue === 'panne') {
+    return (
+      <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700" data-testid="automations-hubspot-panne">
+        {t('Vos automations HubSpot n’ont pas pu être lues. Réessayez dans un instant.', 'Your HubSpot automations could not be read. Try again shortly.')}
+      </p>
+    );
+  }
+  if (!connecte) {
+    return (
+      <section className={cardCls} data-testid="automations-hubspot-sans-portail">
+        <p className="text-sm text-ink-900">
+          {t('Aucun portail HubSpot n’est relié à votre espace. Reliez-le dans ', 'No HubSpot portal is connected to your workspace. Connect it in ')}
+          <Link href="/integrations#integration-hubspot" className="text-brand-600 hover:underline">{t('Tools > Intégrations', 'Tools > Integrations')}</Link>
+          {t(' : vos automations HubSpot se règlent ensuite ici.', ': your HubSpot automations are then set here.')}
+        </p>
+      </section>
+    );
+  }
 
   const raison = (err: unknown, repli: string): string => (routeInconnue(err)
     ? t('La console est plus récente que l’API : réessayez dans quelques minutes.', 'The console is newer than the API: try again in a few minutes.')

@@ -46,7 +46,7 @@ function versAutomation(l: EtatLigne, scenarios: boolean) {
     : suite <= 0 ? null
       : scenarios
         ? `The scenario has ${suite} more step${suite > 1 ? 's' : ''} after its first template: set_shopify_message changes only the first `
-          + 'template, the other steps are changed in the console (Automation, Shopify, Open the scenario).'
+          + 'template, the other steps are changed in the console (Scenario > Automation > Shopify, Open the scenario).'
         : 'On this plan only the first step is sent: the other steps of the scenario need the Pro plan.';
   return {
     event: l.evenement, active: l.actif, scenario: l.scenario, template: l.modele, language: l.langue,

@@ -43,6 +43,8 @@ interface Trace {
 
 async function monter(page: Page, o: {
   etat?: Record<string, unknown> | 'absente'; champs?: unknown[]; automations?: unknown[]; refusAllumage?: boolean;
+  /** Sa page depuis le lot 7 ; `/automations` pour les « Autres ». */
+  ecran?: string;
 } = {}): Promise<Trace> {
   const trace: Trace = { creations: [], reglages: [], suppressions: [], noms: [], appelsEtapes: 0 };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
@@ -83,20 +85,20 @@ async function monter(page: Page, o: {
     if (chemin.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     return json({});
   });
-  await page.goto('/automations');
+  await page.goto(o.ecran ?? '/automations/hubspot');
   return trace;
 }
 
 test.describe('Automation > HubSpot : les automations que HubSpot lance (menu « Scénario », lot 6c)', () => {
-  test('🔴 sans portail relié : aucune section', async ({ page }) => {
+  test('🔴 sans portail relié : la page dit de le relier, et aucune ligne', async ({ page }) => {
     await monter(page, { etat: { connecte: false, lignes: [ETAPE] } });
-    await expect(page.getByTestId('automation-add')).toBeVisible();
+    await expect(page.getByTestId('automations-hubspot-sans-portail')).toContainText('Tools > Intégrations');
     await expect(page.getByTestId('automations-hubspot')).toHaveCount(0);
   });
 
-  test('🔴 l’API sans la route (pas encore déployée, 404 du routeur) : aucune section, et l’écran reste', async ({ page }) => {
+  test('🔴 l’API sans la route (pas encore déployée, 404 du routeur) : la page dit l’échec de la lecture, sans ligne', async ({ page }) => {
     await monter(page, { etat: 'absente' });
-    await expect(page.getByTestId('automation-add')).toBeVisible();
+    await expect(page.getByTestId('automations-hubspot-panne')).toBeVisible();
     await expect(page.getByTestId('automations-hubspot')).toHaveCount(0);
   });
 
@@ -208,8 +210,9 @@ test.describe('Automation > HubSpot : les automations que HubSpot lance (menu «
   });
 
   test('🔴 « Autres » ne propose plus le changement d’étape HubSpot à la création', async ({ page }) => {
-    await monter(page);
-    await expect(page.getByTestId('automations-hubspot')).toBeVisible();
+    await monter(page, { ecran: '/automations' });
+    // Les automations HubSpot ont leur page depuis le lot 7 : plus aucune section sur « Autres ».
+    await expect(page.getByTestId('automations-hubspot')).toHaveCount(0);
     await page.getByTestId('automation-add').click();
     const declencheur = page.getByTestId('automation-trigger');
     await expect(declencheur.locator('option[value="hubspot_deal_stage"]')).toHaveCount(0);

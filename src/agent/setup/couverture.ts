@@ -288,7 +288,7 @@ function moyenDemande(action: Action, inv: Inventaire): string {
       : enLigne;
     return enLigne.length > 0
       ? `lequel doit-il lancer ? Vos scénarios en ligne : ${enumerer(montres)}. Ou décrivez ce qu’il devra faire.`
-      : 'AUCUN scénario n’est en ligne dans votre espace : créez-le dans le menu Scénarios, ou décrivez ce qu’il devra '
+      : 'AUCUN scénario n’est en ligne dans votre espace : créez-le dans Scénario > Builder, ou décrivez ce qu’il devra '
         + 'faire, ou choisissez autre chose pour ce moment.';
   }
   if (action === 'outil_api') {
