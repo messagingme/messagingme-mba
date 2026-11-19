@@ -112,6 +112,13 @@ redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
 
 On the official API (track `api`), two events can send a message: `order_paid` (the order is paid) and `order_fulfilled` (it is shipped, with tracking).
 
+Each event has an automation: a scenario whose first step is the template the event sends. `set_shopify_message`
+creates the automation and its scenario if missing, sets that first template and keeps the steps that follow. On Pro
+and Business, the user can add steps after the first message in the console (Automation, Shopify section, "Open the
+scenario"): a reminder after a wait, an answer to a button, a message quoting the order's data. You only change the
+first message: when an automation has more than one step (`get_shopify_state`), say that the others are changed in the
+console. On Free there is no console, and only the first message is sent.
+
 1. Propose a short text for each, then create it as a utility template with `create_template`. Links go in the body as
    variables (`order_status_url`, `tracking_url`): a URL button takes no variable. The data each event can fill:
    - `order_paid`: `first_name`, `order_number`, `order_total`, `order_status_url`;
@@ -123,19 +130,27 @@ On the official API (track `api`), two events can send a message: `order_paid` (
 
 Never ask the user about their customers' consent: the merchant is responsible for it. Each message records the
 customer as opted in, for campaigns too, and a customer who said STOP stays opted out and receives nothing. Every
-message goes through the sending rules of Messaging Me (STOP, monthly templates, contact limit) and shows up in
-Campaigns, one line per order.
+message goes through the sending rules of Messaging Me (STOP, monthly templates, contact limit), and each first message
+shows up in Campaigns, one line per order. `set_shopify_message` with `active` false turns an automation off and stops
+its journeys. If a customer writes during a journey without being asked to, the workspace's AI agent, responder
+scenario or application answers and the journey goes on; in Team or Meta agent mode, the journey stops and the team or
+Meta's agent takes over.
 
 ## Remind abandoned checkouts
 
-A third event, `checkout_abandoned`, sends one reminder when a customer filled the checkout with their phone and did
-not order. It is a marketing message, set like the order messages, with no consent question either.
+A third event, `checkout_abandoned`, sends a reminder when a customer filled the checkout with their phone and did
+not order. It is a marketing message, set like the order messages (its own automation, its first step set here), with
+no consent question either.
 
 1. Propose a short reminder and create it as a marketing template with `create_template`, the link in the body. Its
-   data: `first_name` and `checkout_url` (the link that reopens the checkout).
+   data: `first_name` and `checkout_url` (the link that reopens the checkout). End the text with the opt-out line, in
+   the template's language: "Répondez STOP pour ne plus recevoir ces messages" in French, "Reply STOP to stop these
+   messages" in English. A customer who replies STOP gets nothing more.
 2. Once Meta approves it, call `set_shopify_message` with `event` set to `checkout_abandoned`, its `variables`, and
    `delay_minutes`: how long after the checkout last changed the reminder leaves (60 by default, from 15 to 4320).
-3. Only one reminder per checkout, and none if an order came out of it in the meantime, even unpaid.
+3. The first message leaves once per checkout, then the rest of its scenario if it has one; nothing leaves if an order
+   came out of it in the meantime, even unpaid, and such an order stops the journey wherever it stands. A newer
+   checkout from the same customer takes the place of the older one: its reminder stops the older journey.
 
 ## Import the store's customers
 
@@ -159,7 +174,9 @@ record counts toward the plan's contact limit, and managing that limit is the us
 
 - `get_revenue_stats` (`du` and `au`, the last 30 days by default): the orders paid within 5 days after a WhatsApp
   message, credited to the last one, per currency: the gross amount, its proven part, each source (each campaign by
-  its name, the checkout reminder, scenarios, AI agent, Meta Business Agent), and the checkouts reminded and recovered.
+  its name, each Shopify automation: abandoned checkout, order paid, order shipped, one line each; Builder scenarios,
+  AI agent, Meta Business Agent), and the checkouts reminded and recovered. The first message of an order (the
+  confirmation, the shipping notice) is never a source: only the steps after it in its scenario are.
 - Say the gross amount and its proven part. Never present an unproven sale as caused by a message: it is a match in
   time. Never add two currencies. Refunds are not deducted.
 - Test orders (Shopify's test gateway) come apart, in their own block, and never count: mention them separately, they
@@ -169,8 +186,13 @@ record counts toward the plan's contact limit, and managing that limit is the us
 
 ## Check or cut
 
-- `get_shopify_state`: the store, its messages, the last event received, the last 30 days of outcomes (sent, opted
-  out, contact limit reached...) and, for checkout reminders, the last 7 days (a checkout is kept no longer), with those
-  recovered and their amount. On the Free plan there is no console: this tool is the way to see the connection.
+- `get_shopify_state`: the store, whether it is paused, its `automations` (each on or off, its first template and its
+  status at Meta, its number of steps), the last event received, the last 30 days of outcomes (sent, opted out,
+  contact limit reached...) and, for checkout reminders, the last 7 days (a checkout is kept no longer), with those
+  recovered and their amount. Read `automations`, never `messages`: that field is the setting from before automations
+  and no longer sends. On the Free plan there is no console: this tool is the way to see the connection.
+- A paused store sends nothing, neither a first message nor a following step, and a checkout abandoned during the
+  pause is never reminded. The pause is set in the console (Tools > Integrations, Shopify card): when `paused` is
+  true, say so before anything else.
 - `disconnect_shopify` stops every message. The app stays installed on the store: only the user can uninstall it, from
   the store apps page the tool returns.

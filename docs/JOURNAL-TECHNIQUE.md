@@ -4,6 +4,29 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-19 : menu « Scénario », lots 5c et 5d, l'écran des automations Shopify et leur aide (en production)
+
+**5c** (commits `529452503..3291d3963`, tâches 11 et 12 du plan `docs/superpowers/plans/2026-11-18-menu-scenario-lot-5-shopify.md`) :
+la section Shopify de l'écran Automation (une ligne par automation, son état, le délai du panier, « Ouvrir le scénario »),
+la pause de la boutique dans Tools > Intégrations, le builder d'un scénario Shopify (premier bloc verrouillé, données
+Shopify `var:<clé>` dans les templates et `{{shopify.<clé>}}` dans les messages), la décision 35 (un message pendant
+l'Attente d'un parcours d'événement est servi comme le clic de la décision 34 ; l'application coexiste), et le retrait de
+l'assistant de la carte. CI 44595764358 verte job par job, CI de la console verte dans les deux topologies ; déploiement
+44596844724 (`migration=aucune`, approuvé par Julien), `/health` à 200 trois fois. Relecture indépendante : aucun
+rouge, six jaunes au `todo.md`.
+
+**5d** (tâche 13) : `features.md` § « Boutique Shopify » réécrite pour les automations ; la fiche « Brancher ma boutique
+Shopify », en français et en anglais, passe de neuf à dix étapes et ses captures sont refaites sur les nouveaux écrans
+(l'écran Automation, le premier message et sa suite dans le builder, la pause) ; la page « depuis Claude Code » ; la
+skill `shopify` du plugin (0.3.54), qui écrit désormais la mention STOP en bas de la relance ; la réponse STOP de la page
+vitrine Shopify, qui la promettait automatique alors qu'elle ne l'est plus depuis le retrait de l'assistant (la constante
+`PIED_STOP` reste pour le pré-remplissage reporté) ; et l'étape 7 de la fiche du bloc Envoi template (« le bloc le
+prend aussitôt »). Le catalogue MCP de la console et de la vitrine dit aussi les automations (`set_shopify_message`,
+`get_shopify_state`), et l'étape 2 de la page vitrine Shopify ne promet plus « une seule fois ».
+
+**Reste à Julien** : publier le plugin (`gh workflow run plugin.yml --ref main`), recharger l'aide en production
+(`aide:charger`), et les essais réels 280 et 281 (`docs/prive/ESSAIS-REELS.md`).
+
 ## 2026-11-19 : l'aide des connecteurs API et de l'agent IA, et la fenêtre de bienvenue d'un nouveau membre (en production)
 
 **Les fiches d'aide.** Julien constatait qu'aucune fiche n'expliquait Tools > Connecteurs API, que cinq fiches citaient :

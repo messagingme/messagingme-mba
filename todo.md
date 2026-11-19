@@ -200,10 +200,6 @@ Et ce que 5c reporte :
 - **Une voie qui coexiste mais ne peut pas partir** (crédit épuisé, plafond, scénario répondeur déjà parti) : le message
   confié pendant une Attente ou par un clic hors parcours (décisions 34 et 35) se heurte à `saufParcours` et reste sans
   réponse jusqu'au réveil du parcours. `remettreLeClicHorsParcours` ne sait pas si la voie est partie.
-- **La fiche du bloc, étape 7** (français et anglais) : « et le bloc l'envoie aussitôt » contredit « il ne part pas » juste
-  en dessous ; écrire « le bloc le prend aussitôt » (5d : `vitrine:aide`, puis `aide:charger`).
-- **La capture d'aide de Shopify** (`web/e2e/captures/brancher-ma-boutique-shopify.capture.ts`) montre encore l'assistant
-  retiré : la refaire avec la section Shopify de l'écran Automation (5d, avec la fiche).
 - **Un « Aller à » d'un autre scénario vers un premier bloc** n'est refusé qu'à la publication : son brouillon
   s'enregistre. (Dans le MÊME scénario, le builder ne le propose plus.)
 - **L'enregistrement d'un graphe lit le scénario avant d'écrire** (le verrou du premier bloc) : une lecture de plus par

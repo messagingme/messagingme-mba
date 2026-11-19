@@ -3013,15 +3013,23 @@ l'app dans SON organisation Shopify (aucune validation de Shopify n'est nécessa
 « Installer », et la boutique est branchée. Ouvert à toutes les offres, Free comprise. En Pro et Entreprise, il peut
 aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte ci-dessous).
 
-- **Trois messages** : à la commande payée (« commande confirmée »), à l'expédition (avec le transporteur et le lien
-  de suivi), et la relance du panier abandonné (plus bas). Les deux premiers sont des modèles WhatsApp de service
-  (utility), la relance un modèle marketing, tous approuvés par Meta ; les données de la commande ou du panier (prénom,
-  numéro, montant payé, lien de la commande, suivi, lien du panier) remplissent leurs variables. Un message par
-  événement : le rebrancher le remplace.
+- **Trois automations** (menu « Scénario », lot 5, 2026-11-19) : « Commande payée », « Commande expédiée » (avec le
+  transporteur et le lien de suivi) et « Panier abandonné » (plus bas). Chacune a son scénario, dont le PREMIER message
+  est le template que l'événement envoie (de service pour une commande, marketing pour le panier, approuvé par Meta) ;
+  ses variables lisent les données de la commande ou du panier (prénom, numéro, montant payé, lien de la commande,
+  suivi, lien du panier). La suite, facultative, se construit dans la console (Pro et Entreprise) : un bouton mène à un
+  message, une relance part sans réponse après un délai, un texte cite une donnée de l'événement
+  (`{{shopify.<donnée>}}`). Le scénario démarre fenêtre de service fermée : tout envoi atteint sans réponse ni clic du
+  client est un template, et le builder le dit. En Free, sans console, le scénario n'a qu'un bloc, réglé par Claude Code
+  (`set_shopify_message`), qui ne change jamais que ce premier message et dit quand une suite existe, à modifier dans
+  la console. Une seconde commande ne coupe pas le parcours de la première.
 - **Les règles des envois s'appliquent** : STOP, modèles du mois, limite de contacts de l'offre (la fiche d'un nouveau
   client compte). Chaque message fait une ligne dans Campagnes (« Shopify · commande payée · #1002 ») ; un client
-  écarté (STOP, limite) n'en fait aucune. Le message part même quand l'agent ou un opérateur tient la conversation, et
-  ne la coupe pas.
+  écarté (STOP, limite) n'en fait aucune. Le premier message part même quand l'agent ou un opérateur tient la
+  conversation, et ne la coupe pas. Un client qui répond ou clique hors de ce que l'automation attend, ou pendant
+  qu'elle dort dans un bloc « Attente » (décisions 34 et 35) : l'agent IA, le scénario répondeur ou l'application de
+  l'espace lui répond, et l'automation continue ; en mode Équipe, une demande s'ouvre dans « À traiter », en mode agent
+  de Meta, l'agent de Meta répond, et l'automation s'arrête (jamais deux maîtres du fil).
 - **Le consentement** (décision de Julien du 2026-10-26) : Shopify ne recueille aucun consentement WhatsApp, et le
   consentement de ses clients relève du marchand : aucune question ne le lui demande. Chaque message né d'un événement
   de la boutique (commande payée, expédition, relance) rend la fiche du client consentante partout, campagnes comprises
@@ -3032,17 +3040,21 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   - **sans boutique**, un mode opératoire de cinq minutes chez Shopify : créer l'app à la main sur le tableau de bord
     développeur (son adresse et ses droits se copient d'un clic), l'installer sur la boutique, copier son identifiant et
     son secret ; puis les coller dans la carte, qui branche la boutique et abonne ses événements ;
-  - **avec une boutique**, les trois messages, chacun avec son état (actif, en validation chez Meta, pas encore réglé,
-    arrêté) et un assistant : le texte proposé, modifiable, où les données de la boutique s'écrivent `{prénom}`,
-    `{lien du panier}`... avec un aperçu WhatsApp ; le délai pour la relance. « Envoyer à Meta et activer dès
-    l'approbation » crée le modèle chez Meta, et le message s'active seul à l'approbation (un e-mail le dit, ou dit le
-    refus de Meta et sa raison). Modifier un message actif ne l'arrête pas : l'ancien part jusqu'à l'approbation du
-    nouveau ; changer seulement le délai de la relance s'applique tout de suite. Chaque nouveau texte crée
-    un NOUVEAU modèle (aucune modification de modèle chez Meta, donc pas sa limite d'une par 24 h) ; celui qu'il
-    remplace, s'il a été créé par l'assistant, est supprimé chez Meta un quart d'heure après (2026-10-23), plus tard
-    si une campagne active s'en sert ;
-  - l'import des clients abonnés, les chiffres des 30 jours et des paniers, et « Couper » (plus aucun message ; l'app
-    se désinstalle depuis la boutique ; une boutique coupée se rebranche depuis la carte).
+  - **avec une boutique**, la **pause** (2026-11-19) : la boutique reste branchée et ses automations gardent leur
+    réglage, mais plus rien ne part, ni premier message ni suite ; les parcours en cours s'arrêtent, et un panier
+    abandonné pendant la pause n'est jamais relancé après le rallumage. Puis l'import des clients abonnés, les chiffres
+    des 30 jours et des paniers, et « Couper » (plus aucun message ; l'app se désinstalle depuis la boutique ; une
+    boutique coupée se rebranche depuis la carte). Les messages se règlent dans l'écran Automation (ci-dessous) : ils ont
+    quitté la carte le 2026-11-19, avec l'assistant qui les écrivait.
+- **Automation > Shopify** (Pro et Entreprise, 2026-11-19) : avec une boutique branchée, une ligne par automation, son
+  interrupteur, son état (pas encore créée, éteinte, à compléter, en validation chez Meta, refusée ou bloquée par Meta,
+  active, active avec une nouvelle version en validation), le délai du panier et « Ouvrir le scénario ». Le premier
+  allumage crée le scénario et l'ouvre dans le builder ; éteindre arrête ses parcours en cours. Le premier bloc, marqué
+  « premier message », ne se supprime pas et rien ne mène à lui ; son template se choisit ou s'écrit sur place
+  (« Écrire un nouveau template »), et chaque variable se relie à une donnée Shopify dans le panneau du bloc. Un nouveau
+  template publié prend la place de l'ancien à l'approbation de Meta, et l'ancien part jusque-là. Le template remplacé,
+  s'il a été écrit depuis un bloc d'une automation, est supprimé chez Meta un quart d'heure après (plus tard si une
+  campagne active s'en sert) ; jamais un template né au Builder général, qui peut servir ailleurs.
   - En Free, sans console, tout passe par Claude Code (`get_shopify_state`, `disconnect_shopify`). Les deux chemins
     appliquent les mêmes règles ; le dernier geste gagne.
 - **RGPD** : une demande d'effacement d'un client transmise par Shopify efface sa fiche ; une demande d'accès prévient
@@ -3050,14 +3062,17 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   ⚠️ Une boutique branchée depuis la console ne reçoit pas ces demandes (Shopify ne les abonne qu'aux apps créées par sa
   CLI) : le marchand efface lui-même la fiche dans Contacts quand Shopify lui en transmet une, la carte le lui dit, et
   la désinstallation efface tout de suite le branchement.
-- **La relance de panier abandonné** (2026-10-22) : un client qui remplit le checkout avec son téléphone sans
-  commander reçoit UNE relance (un modèle marketing, le lien de son panier en variable), au délai choisi par le marchand
-  après la dernière modification du panier (1 h par défaut, de 15 min à 72 h). Rien ne part si une commande en est née
-  entre-temps, même non payée. Comme les messages de commande, elle ne demande aucune affirmation du consentement
-  (2026-10-26). Les paniers en attente ne se gardent qu'une semaine, et seulement quand la relance est branchée.
+- **Le panier abandonné** (2026-10-22, automation depuis le 2026-11-19) : un client qui remplit le checkout avec son
+  téléphone sans commander reçoit le premier message de l'automation « Panier abandonné » (un modèle marketing, le lien
+  de son panier en variable), au délai choisi par le marchand après la dernière modification du panier (1 h par défaut,
+  de 15 min à 72 h), puis la suite de son scénario s'il en a une. Rien ne part si une commande en est née entre-temps,
+  même non payée, et une commande née du panier arrête son parcours, quel que soit le bloc où il en est. La relance d'un
+  second panier arrête le parcours du précédent. Comme les messages de commande, elle ne demande aucune affirmation du
+  consentement (2026-10-26). Les paniers en attente ne se gardent qu'une semaine, et seulement quand l'automation du
+  panier est allumée.
 - **Le prénom absent** (2026-10-23) : il est facultatif au paiement de Shopify. Un message qui le demande sans l'avoir
-  part quand même, le prénom remplacé par « à vous » (« there » en anglais) : « Bonjour à vous ». Le texte que
-  l'assistant propose pour la relance n'en porte pas (« Bonjour, vous avez laissé des articles… »).
+  part quand même, le prénom remplacé par « à vous » (« there » en anglais) : « Bonjour à vous ». Un message de panier
+  s'écrit donc mieux sans lui (« Bonjour, vous avez laissé des articles… »).
 - **L'import des clients abonnés** (2026-10-22) : depuis Claude Code ou la carte, le marchand importe les clients de sa boutique
   abonnés au marketing (e-mail ou SMS) qui ont un téléphone. Claude compte d'abord (abonnés, déjà présents, nouveaux,
   places libres de l'offre) avant que le marchand choisisse combien en importer, les plus récents d'abord ; au-delà des places
@@ -3071,8 +3086,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   **`get_revenue_stats`** (toutes les offres, Free comprise : Free n'a pas de console) ; et sur la carte Shopify, les
   paniers **récupérés** des 7 derniers jours.
   - **La règle** : une commande payée dans les **5 jours** après un message WhatsApp reçu est attribuée au **dernier
-    envoi** : une campagne (par son nom), la relance de panier, les scénarios (en bloc), l'agent IA ou l'agent de Meta. Une
-    confirmation, un avis d'expédition, une réponse de l'équipe ou un envoi par l'API n'en sont jamais la source.
+    envoi** : une campagne (par son nom), une automation Shopify (« Panier abandonné », « Commande payée » ou « Commande
+    expédiée », une ligne chacune), les scénarios (en bloc), l'agent IA ou l'agent de Meta. Le premier message d'une
+    commande (la confirmation, l'avis d'expédition), une réponse de l'équipe ou un envoi par l'API n'en sont jamais la
+    source : d'une automation de commande, seuls les messages qui suivent le premier comptent.
   - **Prouvé ou non** : une part du chiffre est prouvée, quand le panier relancé lui-même est payé, ou quand Shopify
     rattache la visite à un lien WhatsApp par ses UTM (relu 30 minutes après la commande, la vente peut alors changer de
     source ou apparaître dans ses trois premières heures). Le reste est une concordance dans le temps, et l'écran comme

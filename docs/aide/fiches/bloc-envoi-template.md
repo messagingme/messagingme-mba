@@ -71,7 +71,7 @@ jours (30 jours au plus) : une sortie « Pas de réponse » apparaît sur le blo
 
 **7. Écrire ou modifier le template sans quitter le scénario.** Sous la liste, « Écrire un nouveau template » ouvre le
 formulaire de Contenu > Templates ; « Modifier ce template » le remplit avec celui du bloc. « Soumettre à Meta » l'envoie
-en validation (quelques minutes à quelques heures), et le bloc l'envoie aussitôt.
+en validation (quelques minutes à quelques heures), et le bloc le prend aussitôt.
 
 - Son nom se crée tout seul, à partir de celui du scénario. Le bloc affiche « En validation chez Meta », puis rien une
   fois approuvé, ou « Refusé » avec la raison.

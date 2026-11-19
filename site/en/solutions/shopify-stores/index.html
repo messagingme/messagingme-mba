@@ -126,7 +126,7 @@
      "name": "What happens to a customer who replies STOP?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "They no longer receive anything from your store. The reminder carries at the bottom the line “Reply STOP to stop these messages”."
+      "text": "They no longer receive anything from your store. Claude writes it at the bottom of the reminder: “Reply STOP to stop these messages”."
      }
     }
    ]
@@ -379,7 +379,7 @@
       <h2 class="f-titre">From the abandoned checkout to the order, <span class="sec-accent">on WhatsApp.</span></h2>
       <ol class="bt-etapes">
         <li><span class="bt-num">1</span><div><h3>The customer leaves their checkout</h3><p>They gave their phone number at checkout, then left without ordering.</p></div></li>
-        <li><span class="bt-num">2</span><div><h3>They get the reminder on WhatsApp</h3><p>At the delay you choose, from 15 minutes to 72 hours (one hour by default), with the link that reopens their checkout. Only once, and nothing goes out if they ordered in the meantime.</p></div></li>
+        <li><span class="bt-num">2</span><div><h3>They get the reminder on WhatsApp</h3><p>At the delay you choose, from 15 minutes to 72 hours (one hour by default), with the link that reopens their checkout. Nothing goes out if they ordered in the meantime.</p></div></li>
         <li><span class="bt-num">3</span><div><h3>They reply, with their question</h3><p>Shipping costs, a size, a delivery time.</p></div></li>
         <li><span class="bt-num">4</span><div><h3>Your AI agent answers them</h3><p>With what it knows about your store: your delivery times, your carriers, your returns, your products. Without the answer, it hands over to you.</p></div></li>
         <li><span class="bt-num">5</span><div><h3>They order</h3><p>The confirmation arrives on WhatsApp, then the shipping notice with the tracking link.</p></div></li>
@@ -557,8 +557,8 @@
         <details><summary>Shopify store<span class="bt-nombre">6 tools</span></summary>
           <ul>
             <li><code>connect_shopify</code><span class="bt-offre" data-etiquette="base">Free plan</span><span class="bt-quoi">Connect your Shopify store with the app Claude created in your Shopify organization.</span></li>
-            <li><code>set_shopify_message</code><span class="bt-offre" data-etiquette="base">Free plan</span><span class="bt-quoi">Send a message when an order is paid or shipped, or remind an abandoned checkout once: an approved template, with Shopify data, within the sending rules (STOP, monthly templates, contact limit).</span></li>
-            <li><code>get_shopify_state</code><span class="bt-offre" data-etiquette="base">Free plan</span><span class="bt-quoi">The connected Shopify store: its state, its messages, the last event received, the last 30 days of outcomes and the last 7 days of checkouts.</span></li>
+            <li><code>set_shopify_message</code><span class="bt-offre" data-etiquette="base">Free plan</span><span class="bt-quoi">Set the first message of the automation of a paid or shipped order, or of an abandoned checkout: an approved template, with Shopify data, within the sending rules (STOP, monthly templates, contact limit).</span></li>
+            <li><code>get_shopify_state</code><span class="bt-offre" data-etiquette="base">Free plan</span><span class="bt-quoi">The connected Shopify store: its state, its pause, its automations (on or off, their first template and its status at Meta, their number of steps), the last event received, the last 30 days of outcomes and the last 7 days of checkouts.</span></li>
             <li><code>preview_shopify_customers</code><span class="bt-offre" data-etiquette="base">Free plan</span><span class="bt-quoi">Count, without writing anything, your Shopify customers subscribed to your marketing (email or SMS) who have a phone: already in the workspace, new, room left in your plan, importable.</span></li>
             <li><code>import_shopify_customers</code><span class="bt-offre" data-etiquette="base">Free plan</span><span class="bt-quoi">Import the subscribed Shopify customers you chose, newest first: records tagged Shopify, opted in on your declaration, within your plan’s limit.</span></li>
             <li><code>disconnect_shopify</code><span class="bt-offre" data-etiquette="base">Free plan</span><span class="bt-quoi">Cut the Shopify store: no message leaves anymore, the store’s privacy requests are still honored.</span></li>
@@ -1131,7 +1131,7 @@
         <details id="faq-chiffre"><summary>How do I know what WhatsApp brings me?</summary><p>By asking Claude Code, from the Free plan: the revenue from orders paid within 5 days after a WhatsApp message, source by source (checkout reminder, campaign, AI agent), with its proven part (the reminded checkout itself paid, or a visit from a WhatsApp link), and your checkouts reminded and recovered. With Pro, the console sets the cost of your messages and your ROI against it.</p></details>
         <details id="faq-repondre"><summary>Can I reply to my customers myself?</summary><p>Yes, by asking Claude: it shows you who wrote to you, you reply within 24 hours of their message, and you take over from your AI agent whenever you want. With Pro, your team also replies from the console’s Inbox.</p></details>
         <details id="faq-numero"><summary>Which WhatsApp number should I use?</summary><p>The one the guide above gives you, in a few questions. Your store’s messages go out from an API number, connected through Meta: your available number, a provided number at €3.50 a month (included in Pro), or the number of your WhatsApp Business app, which you keep. No Meta Business account? Meta’s window creates it along the way.</p></details>
-        <details id="faq-stop"><summary>What happens to a customer who replies STOP?</summary><p>They no longer receive anything from your store. The reminder carries at the bottom the line “Reply STOP to stop these messages”.</p></details>
+        <details id="faq-stop"><summary>What happens to a customer who replies STOP?</summary><p>They no longer receive anything from your store. Claude writes it at the bottom of the reminder: “Reply STOP to stop these messages”.</p></details>
       </div>
     </div>
   </section>

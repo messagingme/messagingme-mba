@@ -199,8 +199,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Propose-moi la confirmation de commande et l’avis d’expédition.', en: 'Suggest the order confirmation and the shipping update.' },
         outils: ['create_template', 'get_template_status', 'set_shopify_message'],
         reponse: {
-          fr: 'Claude propose chaque texte, avec le numéro de commande, le montant, le transporteur et le lien de suivi, le fait approuver par Meta (de quelques minutes à 24 heures) et l’active. Vous pouvez fermer Claude Code entre-temps et revenir avec « termine mes messages Shopify ».',
-          en: 'Claude suggests each text, with the order number, the total, the carrier and the tracking link, has Meta approve it (from a few minutes to 24 hours) and turns it on. You can close Claude Code meanwhile and come back with “finish my Shopify messages”.',
+          fr: 'Claude propose chaque texte, avec le numéro de commande, le montant, le transporteur et le lien de suivi, le fait approuver par Meta (de quelques minutes à 24 heures) et l’active. Vous pouvez fermer Claude Code entre-temps et revenir avec « termine mes messages Shopify ». Chacun est le premier message d’une automation : avec l’offre Pro, vous lui donnez une suite dans la console.',
+          en: 'Claude suggests each text, with the order number, the total, the carrier and the tracking link, has Meta approve it (from a few minutes to 24 hours) and turns it on. You can close Claude Code meanwhile and come back with “finish my Shopify messages”. Each is the first message of an automation: on the Pro plan, you give it a follow-up in the console.',
         },
       },
       {
@@ -208,8 +208,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Ajoute la relance des paniers abandonnés, une heure après.', en: 'Add the abandoned checkout reminder, one hour later.' },
         outils: ['create_template', 'set_shopify_message'],
         reponse: {
-          fr: 'Une seule relance par panier, avec le lien qui le rouvre, au délai choisi (de 15 min à 72 h) ; rien ne part si une commande en est née. C’est un message marketing : il porte la mention « Répondez STOP ».',
-          en: 'One reminder per checkout, with the link that reopens it, after the chosen delay (15 min to 72 h); nothing goes out if an order came out of it. It is a marketing message: it carries the “Reply STOP” line.',
+          fr: 'Le premier message part une fois par panier, avec le lien qui le rouvre, au délai choisi (de 15 min à 72 h) ; rien ne part si une commande en est née. C’est un message marketing : un client qui répond STOP n’en reçoit plus.',
+          en: 'The first message goes out once per checkout, with the link that reopens it, after the chosen delay (15 min to 72 h); nothing goes out if an order came out of it. It is a marketing message: a customer who replies STOP gets no more of them.',
         },
       },
       {
@@ -235,8 +235,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Combien mes messages WhatsApp ont rapporté ce mois-ci ?', en: 'How much did my WhatsApp messages bring in this month?' },
         outils: ['get_revenue_stats'],
         reponse: {
-          fr: 'Claude donne le chiffre d’affaires des commandes payées dans les 5 jours après un message, par devise et par source (campagne, relance, scénario, agent), et sa part prouvée : le reste est une concordance dans le temps. Les commandes de test sont à part.',
-          en: 'Claude gives the revenue of orders paid within 5 days after a message, per currency and per source (campaign, reminder, scenario, agent), and its proven part: the rest is a match in time. Test orders are kept apart.',
+          fr: 'Claude donne le chiffre d’affaires des commandes payées dans les 5 jours après un message, par devise et par source (campagne, automation Shopify, scénario, agent), et sa part prouvée : le reste est une concordance dans le temps. Les commandes de test sont à part.',
+          en: 'Claude gives the revenue of orders paid within 5 days after a message, per currency and per source (campaign, Shopify automation, scenario, agent), and its proven part: the rest is a match in time. Test orders are kept apart.',
         },
       },
       {
@@ -244,8 +244,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Où en est ma boutique ?', en: 'How is my store doing?' },
         outils: ['get_shopify_state', 'disconnect_shopify'],
         reponse: {
-          fr: 'Claude dit l’état de chaque message, le dernier événement reçu, les envois des 30 derniers jours et les paniers récupérés. « Coupe Shopify » arrête tous les messages ; l’app reste installée, Claude vous donne la page où la désinstaller.',
-          en: 'Claude tells the state of each message, the last event received, the last 30 days of sends and the recovered checkouts. “Cut Shopify” stops every message; the app stays installed, Claude gives you the page to uninstall it.',
+          fr: 'Claude dit si la boutique est en pause, l’état de chaque automation, le dernier événement reçu, les envois des 30 derniers jours et les paniers récupérés. « Coupe Shopify » arrête tous les messages ; l’app reste installée, Claude vous donne la page où la désinstaller.',
+          en: 'Claude tells whether the store is paused, the state of each automation, the last event received, the last 30 days of sends and the recovered checkouts. “Cut Shopify” stops every message; the app stays installed, Claude gives you the page to uninstall it.',
         },
       },
     ],

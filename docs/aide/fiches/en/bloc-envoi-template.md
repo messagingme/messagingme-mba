@@ -1,7 +1,7 @@
 ---
 description: The Send template block of a WhatsApp scenario: choose the approved template, connect its variables, its buttons and what follows.
 slug: send-template-block
-traduit_de: 3bac3b
+traduit_de: 4f7799
 ---
 # The Send template block
 
@@ -66,7 +66,7 @@ most): a "No reply" output appears on the block. Connect it to the follow-up.
 
 **7. Write or edit the template without leaving the scenario.** Under the list, "Write a new template" opens the
 Content > Templates form; "Edit this template" fills it with the block's template. "Submit to Meta" sends it for review
-(a few minutes to a few hours), and the block sends it right away.
+(a few minutes to a few hours), and the block takes it right away.
 
 - Its name is created automatically from the scenario name. The block shows "Under review at Meta", then nothing once
   approved, or "Rejected" with the reason.

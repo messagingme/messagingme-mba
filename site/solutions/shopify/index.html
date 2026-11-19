@@ -126,7 +126,7 @@
      "name": "Que devient le client qui répond STOP ?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "Il ne reçoit plus rien de votre boutique. La relance porte en bas la mention « Répondez STOP pour ne plus recevoir ces messages »."
+      "text": "Il ne reçoit plus rien de votre boutique. Claude l’écrit en bas de la relance : « Répondez STOP pour ne plus recevoir ces messages »."
      }
     }
    ]
@@ -379,7 +379,7 @@
       <h2 class="f-titre">Du panier laissé à la commande, <span class="sec-accent">sur WhatsApp.</span></h2>
       <ol class="bt-etapes">
         <li><span class="bt-num">1</span><div><h3>Le client laisse son panier</h3><p>Il a donné son téléphone au paiement, puis il est parti sans commander.</p></div></li>
-        <li><span class="bt-num">2</span><div><h3>Il reçoit la relance sur WhatsApp</h3><p>Au délai que vous choisissez, de 15 minutes à 72 heures (une heure par défaut), avec le lien qui rouvre son panier. Une seule fois, et rien ne part s’il a commandé entre-temps.</p></div></li>
+        <li><span class="bt-num">2</span><div><h3>Il reçoit la relance sur WhatsApp</h3><p>Au délai que vous choisissez, de 15 minutes à 72 heures (une heure par défaut), avec le lien qui rouvre son panier. Rien ne part s’il a commandé entre-temps.</p></div></li>
         <li><span class="bt-num">3</span><div><h3>Il répond, avec sa question</h3><p>Les frais de port, une taille, un délai de livraison.</p></div></li>
         <li><span class="bt-num">4</span><div><h3>Votre agent IA lui répond</h3><p>Avec ce qu’il sait de votre boutique&nbsp;: vos délais, vos transporteurs, vos retours, vos produits. Sans la réponse, il vous passe la main.</p></div></li>
         <li><span class="bt-num">5</span><div><h3>Il commande</h3><p>La confirmation arrive sur WhatsApp, puis l’avis d’expédition avec le lien de suivi.</p></div></li>
@@ -557,8 +557,8 @@
         <details><summary>Boutique Shopify<span class="bt-nombre">6 outils</span></summary>
           <ul>
             <li><code>connect_shopify</code><span class="bt-offre" data-etiquette="base">Offre Free</span><span class="bt-quoi">Brancher votre boutique Shopify avec l’app que Claude a créée dans votre organisation Shopify.</span></li>
-            <li><code>set_shopify_message</code><span class="bt-offre" data-etiquette="base">Offre Free</span><span class="bt-quoi">Envoyer un message quand une commande est payée ou expédiée, ou relancer une fois un panier abandonné&nbsp;: un modèle approuvé, avec les données Shopify, dans les règles des envois (STOP, modèles du mois, limite de contacts).</span></li>
-            <li><code>get_shopify_state</code><span class="bt-offre" data-etiquette="base">Offre Free</span><span class="bt-quoi">La boutique Shopify branchée&nbsp;: son état, ses messages, le dernier événement reçu, les issues des 30 derniers jours et les paniers des 7 derniers.</span></li>
+            <li><code>set_shopify_message</code><span class="bt-offre" data-etiquette="base">Offre Free</span><span class="bt-quoi">Régler le premier message de l’automation d’une commande payée ou expédiée, ou d’un panier abandonné&nbsp;: un modèle approuvé, avec les données Shopify, dans les règles des envois (STOP, modèles du mois, limite de contacts).</span></li>
+            <li><code>get_shopify_state</code><span class="bt-offre" data-etiquette="base">Offre Free</span><span class="bt-quoi">La boutique Shopify branchée&nbsp;: son état, sa pause, ses automations (allumées ou non, leur premier modèle et son état chez Meta, leur nombre d’étapes), le dernier événement reçu, les issues des 30 derniers jours et les paniers des 7 derniers.</span></li>
             <li><code>preview_shopify_customers</code><span class="bt-offre" data-etiquette="base">Offre Free</span><span class="bt-quoi">Compter, sans rien écrire, vos clients Shopify abonnés à votre marketing (e-mail ou SMS) qui ont un téléphone&nbsp;: déjà dans l’espace, nouveaux, places restantes dans votre offre, importables.</span></li>
             <li><code>import_shopify_customers</code><span class="bt-offre" data-etiquette="base">Offre Free</span><span class="bt-quoi">Importer les clients Shopify abonnés que vous avez choisis, les plus récents d’abord&nbsp;: des fiches étiquetées Shopify, consentantes sur votre déclaration, dans la limite de votre offre.</span></li>
             <li><code>disconnect_shopify</code><span class="bt-offre" data-etiquette="base">Offre Free</span><span class="bt-quoi">Couper la boutique Shopify&nbsp;: plus aucun message ne part, les demandes RGPD de la boutique restent traitées.</span></li>
@@ -1131,7 +1131,7 @@
         <details id="faq-chiffre"><summary>Comment savoir ce que WhatsApp me rapporte&nbsp;?</summary><p>En le demandant à Claude Code, dès l’offre Free&nbsp;: le chiffre d’affaires des commandes payées dans les 5&nbsp;jours après un message WhatsApp, source par source (relance de panier, campagne, agent IA), dont la part prouvée (le panier relancé lui-même payé, ou une visite venue d’un lien WhatsApp), et vos paniers relancés et récupérés. En formule Pro, la console met en face le coût de vos messages et votre ROI.</p></details>
         <details id="faq-repondre"><summary>Puis-je répondre moi-même à mes clients&nbsp;?</summary><p>Oui, en le demandant à Claude&nbsp;: il vous montre qui vous a écrit, vous répondez dans les 24&nbsp;heures qui suivent leur message, et vous reprenez la main sur votre agent IA quand vous le voulez. En formule Pro, votre équipe répond aussi depuis l’Inbox de la console.</p></details>
         <details id="faq-numero"><summary>Quel numéro WhatsApp utiliser&nbsp;?</summary><p>Celui que le guide ci-dessus vous donne, en quelques questions. Les messages de votre boutique partent d’un numéro API, relié par Meta&nbsp;: votre numéro libre, un numéro fourni à 3,50&nbsp;€ par mois (inclus en formule Pro), ou le numéro de votre application WhatsApp Business, que vous gardez. Pas de compte Meta Business&nbsp;? La fenêtre de Meta le crée en chemin.</p></details>
-        <details id="faq-stop"><summary>Que devient le client qui répond STOP&nbsp;?</summary><p>Il ne reçoit plus rien de votre boutique. La relance porte en bas la mention «&nbsp;Répondez STOP pour ne plus recevoir ces messages&nbsp;».</p></details>
+        <details id="faq-stop"><summary>Que devient le client qui répond STOP&nbsp;?</summary><p>Il ne reçoit plus rien de votre boutique. Claude l’écrit en bas de la relance&nbsp;: «&nbsp;Répondez STOP pour ne plus recevoir ces messages&nbsp;».</p></details>
       </div>
     </div>
   </section>

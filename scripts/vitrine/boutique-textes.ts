@@ -109,7 +109,7 @@ const fr = (): TexteBoutique => {
       titre: ['Du panier laissé à la commande,', 'sur WhatsApp.'],
       etapes: [
         { titre: 'Le client laisse son panier', texte: 'Il a donné son téléphone au paiement, puis il est parti sans commander.' },
-        { titre: 'Il reçoit la relance sur WhatsApp', texte: 'Au délai que vous choisissez, de 15 minutes à 72 heures (une heure par défaut), avec le lien qui rouvre son panier. Une seule fois, et rien ne part s’il a commandé entre-temps.' },
+        { titre: 'Il reçoit la relance sur WhatsApp', texte: 'Au délai que vous choisissez, de 15 minutes à 72 heures (une heure par défaut), avec le lien qui rouvre son panier. Rien ne part s’il a commandé entre-temps.' },
         { titre: 'Il répond, avec sa question', texte: 'Les frais de port, une taille, un délai de livraison.' },
         { titre: 'Votre agent IA lui répond', texte: 'Avec ce qu’il sait de votre boutique : vos délais, vos transporteurs, vos retours, vos produits. Sans la réponse, il vous passe la main.' },
         { titre: 'Il commande', texte: 'La confirmation arrive sur WhatsApp, puis l’avis d’expédition avec le lien de suivi.' },
@@ -236,7 +236,7 @@ const fr = (): TexteBoutique => {
         { id: 'faq-chiffre', q: 'Comment savoir ce que WhatsApp me rapporte ?', r: 'En le demandant à Claude Code, dès l’offre Free : le chiffre d’affaires des commandes payées dans les 5&nbsp;jours après un message WhatsApp, source par source (relance de panier, campagne, agent IA), dont la part prouvée (le panier relancé lui-même payé, ou une visite venue d’un lien WhatsApp), et vos paniers relancés et récupérés. En formule Pro, la console met en face le coût de vos messages et votre ROI.' },
         { id: 'faq-repondre', q: 'Puis-je répondre moi-même à mes clients ?', r: 'Oui, en le demandant à Claude : il vous montre qui vous a écrit, vous répondez dans les 24&nbsp;heures qui suivent leur message, et vous reprenez la main sur votre agent IA quand vous le voulez. En formule Pro, votre équipe répond aussi depuis l’Inbox de la console.' },
         { id: 'faq-numero', q: 'Quel numéro WhatsApp utiliser ?', r: `Celui que le guide ci-dessus vous donne, en quelques questions. Les messages de votre boutique partent d’un numéro API, relié par Meta : votre numéro libre, un numéro fourni à ${numero} par mois (inclus en formule Pro), ou le numéro de votre application WhatsApp Business, que vous gardez. Pas de compte Meta Business ? La fenêtre de Meta le crée en chemin.` },
-        { id: 'faq-stop', q: 'Que devient le client qui répond STOP ?', r: 'Il ne reçoit plus rien de votre boutique. La relance porte en bas la mention « Répondez STOP pour ne plus recevoir ces messages ».' },
+        { id: 'faq-stop', q: 'Que devient le client qui répond STOP ?', r: 'Il ne reçoit plus rien de votre boutique. Claude l’écrit en bas de la relance : « Répondez STOP pour ne plus recevoir ces messages ».' },
       ],
     },
     appel: {
@@ -282,7 +282,7 @@ const en = (): TexteBoutique => {
       titre: ['From the abandoned checkout to the order,', 'on WhatsApp.'],
       etapes: [
         { titre: 'The customer leaves their checkout', texte: 'They gave their phone number at checkout, then left without ordering.' },
-        { titre: 'They get the reminder on WhatsApp', texte: 'At the delay you choose, from 15 minutes to 72 hours (one hour by default), with the link that reopens their checkout. Only once, and nothing goes out if they ordered in the meantime.' },
+        { titre: 'They get the reminder on WhatsApp', texte: 'At the delay you choose, from 15 minutes to 72 hours (one hour by default), with the link that reopens their checkout. Nothing goes out if they ordered in the meantime.' },
         { titre: 'They reply, with their question', texte: 'Shipping costs, a size, a delivery time.' },
         { titre: 'Your AI agent answers them', texte: 'With what it knows about your store: your delivery times, your carriers, your returns, your products. Without the answer, it hands over to you.' },
         { titre: 'They order', texte: 'The confirmation arrives on WhatsApp, then the shipping notice with the tracking link.' },
@@ -409,7 +409,7 @@ const en = (): TexteBoutique => {
         { id: 'faq-chiffre', q: 'How do I know what WhatsApp brings me?', r: 'By asking Claude Code, from the Free plan: the revenue from orders paid within 5 days after a WhatsApp message, source by source (checkout reminder, campaign, AI agent), with its proven part (the reminded checkout itself paid, or a visit from a WhatsApp link), and your checkouts reminded and recovered. With Pro, the console sets the cost of your messages and your ROI against it.' },
         { id: 'faq-repondre', q: 'Can I reply to my customers myself?', r: 'Yes, by asking Claude: it shows you who wrote to you, you reply within 24 hours of their message, and you take over from your AI agent whenever you want. With Pro, your team also replies from the console’s Inbox.' },
         { id: 'faq-numero', q: 'Which WhatsApp number should I use?', r: `The one the guide above gives you, in a few questions. Your store’s messages go out from an API number, connected through Meta: your available number, a provided number at ${numero} a month (included in Pro), or the number of your WhatsApp Business app, which you keep. No Meta Business account? Meta’s window creates it along the way.` },
-        { id: 'faq-stop', q: 'What happens to a customer who replies STOP?', r: 'They no longer receive anything from your store. The reminder carries at the bottom the line “Reply STOP to stop these messages”.' },
+        { id: 'faq-stop', q: 'What happens to a customer who replies STOP?', r: 'They no longer receive anything from your store. Claude writes it at the bottom of the reminder: “Reply STOP to stop these messages”.' },
       ],
     },
     appel: {
@@ -464,8 +464,8 @@ export const PHRASES_OUTILS: Readonly<Partial<Record<NomOutilMcp, Readonly<Recor
     en: 'Connect your Shopify store with the app Claude created in your Shopify organization.',
   },
   set_shopify_message: {
-    fr: 'Envoyer un message quand une commande est payée ou expédiée, ou relancer une fois un panier abandonné&nbsp;: un modèle approuvé, avec les données Shopify, dans les règles des envois (STOP, modèles du mois, limite de contacts).',
-    en: 'Send a message when an order is paid or shipped, or remind an abandoned checkout once: an approved template, with Shopify data, within the sending rules (STOP, monthly templates, contact limit).',
+    fr: 'Régler le premier message de l’automation d’une commande payée ou expédiée, ou d’un panier abandonné&nbsp;: un modèle approuvé, avec les données Shopify, dans les règles des envois (STOP, modèles du mois, limite de contacts).',
+    en: 'Set the first message of the automation of a paid or shipped order, or of an abandoned checkout: an approved template, with Shopify data, within the sending rules (STOP, monthly templates, contact limit).',
   },
   preview_shopify_customers: {
     fr: 'Compter, sans rien écrire, vos clients Shopify abonnés à votre marketing (e-mail ou SMS) qui ont un téléphone&nbsp;: déjà dans l’espace, nouveaux, places restantes dans votre offre, importables.',

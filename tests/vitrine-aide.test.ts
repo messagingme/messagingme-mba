@@ -162,8 +162,9 @@ describe('le centre d’aide de la vitrine', () => {
     // « Scénario », lot 2) ; 286 avec l'étape « Écrire ou modifier le template sans quitter le scénario » (2026-11-18, menu
     // « Scénario », lot 3) ; 298 avec les six de « Brancher un connecteur API », dans les deux langues (2026-11-19) ; 382 avec
     // les 42 de l'agent IA, dans les deux langues (le même jour : « Construire un agent IA » 12, base de connaissance 6, outils
-    // 13, essai 5, modèle et crédit 6).
-    expect(vues).toBe(382);
+    // 13, essai 5, modèle et crédit 6) ; 384 avec l'étape « Construire la suite » de « Brancher ma boutique Shopify », dans
+    // les deux langues (le même jour, menu « Scénario », lot 5d : les messages de la boutique devenus des automations).
+    expect(vues).toBe(384);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {
