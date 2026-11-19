@@ -707,7 +707,7 @@ export class PgWorkflowStore {
 
   /**
    * Un graphe de l'espace nomme-t-il encore ce template (un bloc `template`, nom lu sans ses espaces comme `actionOf`) ? Le
-   * publié, le brouillon et la version programmée, TOUS rayons, scénario système compris : le ménage des templates de bloc
+   * publié, le brouillon et la version programmée, TOUS rayons (le scénario système n'a pas de graphe) : le ménage des templates de bloc
    * (`traiterOubli`) ne supprime chez Meta que ce que plus rien ici n'envoie ni n'enverra.
    */
   async nommeLeModele(tenantId: string, modele: string): Promise<boolean> {
@@ -716,7 +716,7 @@ export class PgWorkflowStore {
          select 1 from workflows w
           cross join lateral jsonb_array_elements(coalesce(w.graph->'nodes', '[]'::jsonb)
             || coalesce(w.draft_graph->'nodes', '[]'::jsonb) || coalesce(w.programmed_graph->'nodes', '[]'::jsonb)) n
-          where w.tenant_id = $1 and n->>'type' = 'template' and btrim(n->'data'->>'templateName') = $2) as nomme`,
+          where w.tenant_id = $1 and w.${PUBLIC} and n->>'type' = 'template' and btrim(n->'data'->>'templateName') = $2) as nomme`,
       [tenantId, modele],
     );
     return r.rows[0]?.nomme === true;

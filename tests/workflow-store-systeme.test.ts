@@ -56,6 +56,8 @@ const FILTREES: Record<string, (s: PgWorkflowStore) => Promise<unknown>> = {
   programmeesAnciennes: (s) => s.programmeesAnciennes(10, 20),
   mettreEnLigneLaVersionProgrammee: (s) => s.mettreEnLigneLaVersionProgrammee('w1', 't1', '2026-11-18T15:00:00.000Z'),
   annulerProgrammation: (s) => s.annulerProgrammation('w1', 't1', null),
+  // Lot 5 : le ménage des templates de bloc relit si un graphe de l'espace nomme encore un template.
+  nommeLeModele: (s) => s.nommeLeModele('t1', 'modele'),
 };
 
 /**

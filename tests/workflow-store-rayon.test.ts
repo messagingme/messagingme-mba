@@ -70,6 +70,8 @@ const SANS_FILTRE = [
   // ligne et le filet, qui servent toutes les versions programmées, quel que soit leur rayon.
   'programmer', 'publicationProgrammee', 'programmeesDeLEspace', 'programmeesAnciennes', 'mettreEnLigneLaVersionProgrammee',
   'annulerProgrammation',
+  // Lot 5 : le ménage des templates de bloc relit si un graphe de l'espace, TOUS rayons, nomme encore un template.
+  'nommeLeModele',
 ];
 
 describe('🔴 le magasin de scénarios ne liste que le rayon demandé', () => {
