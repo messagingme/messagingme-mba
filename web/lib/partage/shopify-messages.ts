@@ -26,7 +26,7 @@ export const DONNEES_PAR_EVENEMENT: Readonly<Record<EvenementShopify, readonly D
 export const LIBELLES_EVENEMENTS: Readonly<Record<EvenementShopify, readonly [string, string]>> = {
   order_paid: ['Commande payée', 'Order paid'],
   order_fulfilled: ['Commande expédiée', 'Order shipped'],
-  checkout_abandoned: ['Relance de panier abandonné', 'Abandoned checkout reminder'],
+  checkout_abandoned: ['Panier abandonné', 'Abandoned checkout'],
 };
 
 /** Les libellés des données, sur les pastilles bleues de l'assistant. */

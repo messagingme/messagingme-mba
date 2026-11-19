@@ -74,7 +74,7 @@ export function fmtMontant(montant: string, codeDevise: string, locale: string):
 export function libelleSource(s: { source: SourceVente; nom: string | null }, t: (fr: string, en?: string) => string): string {
   switch (s.source) {
     case 'campagne': return s.nom ? t(`Campagne « ${s.nom} »`, `Campaign “${s.nom}”`) : t('Campagne supprimée', 'Deleted campaign');
-    case 'relance_panier': return t('Relance de panier', 'Checkout reminder');
+    case 'relance_panier': return t('Panier abandonné', 'Abandoned checkout');
     // Les automations Shopify (décision 32 du menu « Scénario ») : la suite de leur scénario.
     case 'commande_payee': return t('Commande payée', 'Order paid');
     case 'commande_expediee': return t('Commande expédiée', 'Order shipped');

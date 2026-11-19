@@ -24,6 +24,7 @@ import { EditeurFiltreAnalyse, type FiltreAnalyseValide } from '@/components/Edi
 import { champsPourOperateurs, decrireFiltreAnalyse, filtreAnalyseParDefaut } from '@/lib/champs-fiche';
 import { useChampsFiltrables } from '@/lib/use-champs-filtrables';
 import { OPERATEURS_CONVERSATION_ANALYSEE, OPERATEURS_DEVIENT } from '@/lib/api/integrations';
+import { AutomationsShopify } from '@/components/AutomationsShopify';
 
 export default function AutomationsPage() {
   return <AppShell active="automations">{(session) => <AutomationsInner session={session} />}</AppShell>;
@@ -426,6 +427,10 @@ function AutomationsInner({ session }: { session: Session }) {
           )}
         </p>
       </div>
+
+      {/* Les automations Shopify (menu « Scénario », lot 5) : en tête, et seulement avec une boutique. Leurs routes sont
+          réservées aux administrateurs, comme cet écran (`accesAutorise`, `web/lib/nav.ts`). */}
+      <AutomationsShopify tenantId={session.tenantId} />
 
       {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
 

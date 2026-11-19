@@ -1,45 +1,52 @@
 import { test, expect, type Page } from './aide/test';
+import { repondre } from './aide/confirmation';
 
 /**
- * LA CARTE SHOPIFY DE PARAMÈTRES > INTÉGRATIONS, vue de l'écran (conception 2026-10-22) : brancher une boutique depuis
- * la console, régler un message par l'assistant, sans repasser par Meta quand seul le délai change. Le serveur tient ses
- * règles de son côté (`tests/http-shopify.test.ts`, `tests/shopify-preparation.test.ts`) ; ici, on regarde ce que
- * l'écran MONTRE et ce qu'il ENVOIE, contre une API simulée.
+ * SHOPIFY DANS LA CONSOLE, vu de l'écran (conception 2026-10-22 ; menu « Scénario », lot 5) : la carte de Tools >
+ * Intégrations branche la boutique, la met en pause et la coupe ; la section Shopify de l'écran Automation allume chaque
+ * automation, en dit l'état, règle le délai du panier et ouvre son scénario. Le serveur tient ses règles de son côté
+ * (`tests/http-shopify.test.ts`, `tests/shopify-lignes-gestion.test.ts`) ; ici, on regarde ce que l'écran MONTRE et ce
+ * qu'il ENVOIE, contre une API simulée.
  */
 const BOUTIQUE = {
   domaine: 'ma-boutique.myshopify.com', nom: 'Ma Boutique', etat: 'connectee', dernierEvenementLe: null,
-  delaiPanierMinutes: 60, origine: 'claude_code',
+  delaiPanierMinutes: 60, origine: 'claude_code', pauseLe: null,
 };
-const VIDE = { boutique: null, messages: [], compteurs: {}, paniers: { relances: {}, fermesATemps: 0, enAttente: 0 }, pageApps: null, attentes: [] };
+const VIDE = { boutique: null, compteurs: {}, paniers: { relances: {}, fermesATemps: 0, enAttente: 0 }, pageApps: null, lignes: [] };
+const ligne = (evenement: string, o: Record<string, unknown> = {}) => ({
+  evenement, actif: true, workflowId: `wf-${evenement}`, scenario: evenement, modele: `m_${evenement}`, langue: 'fr',
+  etatChezMeta: 'APPROVED', blocs: 1, versionProgrammee: false, ...o,
+});
 const BRANCHEE = {
-  ...VIDE, boutique: BOUTIQUE, pageApps: 'https://admin.shopify.com/store/ma-boutique/settings/apps',
-  messages: [{ evenement: 'order_paid', modele: 'confirmation_commande', langue: 'fr', variables: ['first_name', 'order_number'], actif: true }],
+  ...VIDE, boutique: BOUTIQUE, pageApps: 'https://admin.shopify.com/store/ma-boutique/settings/apps', lignes: [ligne('order_paid')],
 };
-/** La relance aussi active : son modèle est relu chez Meta comme celui de la commande. */
-const RELANCE_ACTIVE = {
-  ...BRANCHEE,
-  messages: [...BRANCHEE.messages, { evenement: 'checkout_abandoned', modele: 'relance_panier', langue: 'fr', variables: ['checkout_url'], actif: true }],
-};
+/** La relance aussi en service : la carte dit alors la ligne des paniers. */
+const RELANCE_ACTIVE = { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned')] };
 
-interface Trace { branchements: unknown[]; preparations: unknown[]; reglages: Array<{ evenement: string; corps: unknown }> }
+interface Trace {
+  branchements: unknown[];
+  pauses: unknown[];
+  lignes: Array<{ evenement: string; corps: unknown }>;
+}
 
-async function monter(page: Page, o: { etat?: Record<string, unknown> | 'absente'; apresBranchement?: Record<string, unknown> }): Promise<Trace> {
-  const trace: Trace = { branchements: [], preparations: [], reglages: [] };
-  const session = { token: 'e2e-token', email: 'moi@e2e.test', role: 'admin', tenantId: 't-e2e' };
+async function monter(page: Page, o: { etat?: Record<string, unknown> | 'absente'; apresBranchement?: Record<string, unknown>; ecran?: string; role?: string }): Promise<Trace> {
+  const trace: Trace = { branchements: [], pauses: [], lignes: [] };
+  const session = { token: 'e2e-token', email: 'moi@e2e.test', role: o.role ?? 'admin', tenantId: 't-e2e' };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), session);
   let etat = o.etat ?? BRANCHEE;
   await page.route('**/api/backend/**', async (route) => {
     const req = route.request();
     const chemin = req.url().split('?')[0]!;
     const json = (b: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
-    const reglage = /\/integrations\/shopify\/messages\/([a-z_]+)$/.exec(chemin);
-    if (reglage && req.method() === 'PATCH') {
-      trace.reglages.push({ evenement: reglage[1]!, corps: req.postDataJSON() });
-      return json({});
+    const reglageLigne = /\/integrations\/shopify\/lignes\/([a-z_]+)$/.exec(chemin);
+    if (reglageLigne && req.method() === 'PUT') {
+      const corps = req.postDataJSON() as { actif: boolean };
+      trace.lignes.push({ evenement: reglageLigne[1]!, corps });
+      return json({ ligne: { evenement: reglageLigne[1], workflowId: `wf-${reglageLigne[1]}`, actif: corps.actif, modifieLe: '2026-11-19T10:00:00.000Z' } });
     }
-    if (chemin.endsWith('/integrations/shopify/messages') && req.method() === 'POST') {
-      trace.preparations.push(req.postDataJSON());
-      return json({ etat: 'en_validation', modele: 'shopify_checkout_abandoned_x' });
+    if (chemin.endsWith('/integrations/shopify') && req.method() === 'PATCH') {
+      trace.pauses.push(req.postDataJSON());
+      return json({ changee: true });
     }
     if (chemin.endsWith('/integrations/shopify') && req.method() === 'POST') {
       trace.branchements.push(req.postDataJSON());
@@ -51,22 +58,18 @@ async function monter(page: Page, o: { etat?: Record<string, unknown> | 'absente
       if (etat === 'absente') return json({ message: 'Route GET not found', error: 'Not Found', statusCode: 404 }, 404);
       return json(etat);
     }
-    if (chemin.endsWith('/templates')) {
-      return json({ templates: [
-        { id: '1', name: 'confirmation_commande', status: 'APPROVED', category: 'UTILITY', language: 'fr', body: 'Bonjour {{1}}, votre commande {{2}} est bien payée. Merci !', isCarousel: false },
-        { id: '2', name: 'relance_panier', status: 'APPROVED', category: 'MARKETING', language: 'fr', body: 'Votre panier vous attend : {{1}} À très vite !', isCarousel: false },
-      ] });
-    }
+    if (chemin.endsWith('/automations')) return json({ automations: [] });
+    if (chemin.endsWith('/workflows')) return json({ workflows: [] });
     if (chemin.endsWith('/settings')) return json({ mbaEnabled: false, timezone: 'Europe/Paris', businessHours: {} });
     if (chemin.endsWith('/account-status')) return json({ hasNumber: false, hubspotPortal: { connected: false } });
     if (chemin.endsWith('/integrations/batch')) return json({ branche: false });
     if (chemin.endsWith('/settings/agents-peuvent-prendre')) return json({ actif: false });
     if (chemin.endsWith('/contacts/blocked')) return json({ contacts: [] });
     if (chemin.endsWith('/unread-count')) return json({ count: 0 });
-    if (chemin.endsWith('/me')) return json({ email: 'moi@e2e.test', name: 'Moi', role: 'admin' });
+    if (chemin.endsWith('/me')) return json({ email: 'moi@e2e.test', name: 'Moi', role: o.role ?? 'admin' });
     return json({});
   });
-  await page.goto('/integrations');
+  await page.goto(o.ecran ?? '/integrations');
   return trace;
 }
 
@@ -85,96 +88,27 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await valider.click();
     await expect.poll(() => trace.branchements.length).toBe(1);
     expect(trace.branchements[0]).toEqual({ boutique: 'https://admin.shopify.com/store/ma-boutique', clientId: 'cid', secret: 'shpss_secret' });
-    await expect(carte.getByTestId('integration-shopify-messages')).toBeVisible();
+    // Plus d'assistant : les messages sont des automations, que la carte renvoie à l'écran Automation.
+    await expect(carte.getByTestId('integration-shopify-automations')).toContainText('Automation');
     await expect(carte.getByTestId('integration-shopify-message')).toContainText('Boutique branchée');
   });
 
-  test('🔴 la relance : texte proposé à repères, délai, puis le corps envoyé au serveur, sans aucune question du consentement', async ({ page }) => {
+  test('🔴 la pause se confirme, puis part ; la reprise part sans question', async ({ page }) => {
     const trace = await monter(page, {});
-    await expect(page.getByTestId('integration-shopify-message-checkout_abandoned')).toContainText('pas encore réglé');
-    await page.getByTestId('integration-shopify-regler-checkout_abandoned').click();
-    const assistant = page.getByTestId('shopify-assistant');
-    // Le texte proposé de la relance n'a pas de prénom (facultatif chez Shopify, décision du 2026-10-23).
-    await expect(assistant.getByTestId('shopify-assistant-texte')).toHaveValue(/^Bonjour, vous avez laissé.*\n.*\{lien du panier\}/);
-    // L'aperçu WhatsApp montre les valeurs d'exemple, et le pied STOP de la relance.
-    await expect(assistant).toContainText('Il vous attend ici : https://ma-boutique.myshopify.com/checkouts/recover');
-    await expect(assistant.getByTestId('shopify-assistant-prenom-secours')).toHaveCount(0);
-    await expect(assistant).toContainText('Répondez STOP pour ne plus recevoir ces messages');
-    await assistant.getByTestId('shopify-assistant-suivant').click();
-    await assistant.getByTestId('shopify-delai-15').click();
-    // Le délai est la dernière étape (2026-10-26) : aucune case à cocher avant d'envoyer.
-    await expect(assistant).toContainText('Étape 2 sur 2');
-    await expect(assistant.getByTestId('shopify-assistant-suivant')).toHaveCount(0);
-    await assistant.getByTestId('shopify-assistant-envoyer').click();
-    await expect.poll(() => trace.preparations.length).toBe(1);
-    expect(trace.preparations[0]).toEqual({
-      evenement: 'checkout_abandoned', langue: 'fr', delaiMinutes: 15,
-      texte: 'Bonjour, vous avez laissé des articles dans votre panier.\nIl vous attend ici : {{checkout_url}}\nÀ très vite !',
-    });
-    await expect(page.getByTestId('integration-shopify-message')).toContainText('Envoyé à Meta');
+    const carte = page.getByTestId('integration-shopify');
+    await carte.getByTestId('integration-shopify-pause-interrupteur').click();
+    await repondre(page, true, 'Aucun message Shopify ne partira plus');
+    await expect.poll(() => trace.pauses).toEqual([{ pause: true }]);
+    await expect(carte.getByTestId('integration-shopify-message')).toContainText('Boutique en pause');
   });
 
-  test('un repère inconnu, ou un texte qui finit par une donnée, est dit avant l’envoi', async ({ page }) => {
-    const trace = await monter(page, {});
-    await page.getByTestId('integration-shopify-regler-checkout_abandoned').click();
-    const assistant = page.getByTestId('shopify-assistant');
-    await assistant.getByTestId('shopify-assistant-texte').fill('Bonjour {prenon}, votre panier : {lien du panier} merci');
-    await assistant.getByTestId('shopify-assistant-suivant').click();
-    await expect(assistant.getByTestId('shopify-assistant-erreur')).toContainText('{prenon}');
-    await assistant.getByTestId('shopify-assistant-texte').fill('Bonjour, votre panier : {lien du panier}');
-    await assistant.getByTestId('shopify-assistant-suivant').click();
-    await expect(assistant.getByTestId('shopify-assistant-erreur')).toContainText('ni commencer ni finir');
-    expect(trace.preparations).toEqual([]);
-  });
-
-  test('🔴 un message de commande n’a que son texte : inchangé, rien à enregistrer ; modifié, il part chez Meta', async ({ page }) => {
-    const trace = await monter(page, {});
-    await expect(page.getByTestId('integration-shopify-message-order_paid')).toContainText('actif');
-    await page.getByTestId('integration-shopify-regler-order_paid').click();
-    const assistant = page.getByTestId('shopify-assistant');
-    // Le texte du modèle en place, relu chez Meta, avec les repères du marchand.
-    const texte = assistant.getByTestId('shopify-assistant-texte');
-    await expect(texte).toHaveValue('Bonjour {prénom}, votre commande {numéro de commande} est bien payée. Merci !');
-    // Un texte avec le prénom : l'assistant dit ce que le message écrit quand Shopify ne l'a pas.
-    await expect(assistant.getByTestId('shopify-assistant-prenom-secours')).toContainText('à vous');
-    // Une seule étape, et plus aucune case du consentement (2026-10-26).
-    await expect(assistant.getByTestId('shopify-assistant-suivant')).toHaveCount(0);
-    const envoyer = assistant.getByTestId('shopify-assistant-envoyer');
-    await expect(envoyer).toBeDisabled();
-    await expect(assistant.getByTestId('shopify-assistant-inchange')).toBeVisible();
-    await texte.fill('Bonjour {prénom}, votre commande {numéro de commande} est payée. Merci !');
-    await expect(assistant.getByTestId('shopify-assistant-inchange')).toHaveCount(0);
-    await envoyer.click();
-    await expect.poll(() => trace.preparations.length).toBe(1);
-    expect(trace.preparations[0]).toEqual({ evenement: 'order_paid', langue: 'fr', texte: 'Bonjour {{first_name}}, votre commande {{order_number}} est payée. Merci !' });
-    expect(trace.reglages).toEqual([]);
-  });
-
-  test('🔴 un message de commande au texte refusé : l’erreur est dite à l’envoi, rien ne part', async ({ page }) => {
-    const trace = await monter(page, {});
-    await page.getByTestId('integration-shopify-regler-order_paid').click();
-    const assistant = page.getByTestId('shopify-assistant');
-    await expect(assistant.getByTestId('shopify-assistant-texte')).toHaveValue(/Merci !$/);
-    await assistant.getByTestId('shopify-assistant-texte').fill('Bonjour {prenon}, votre commande {numéro de commande} est payée');
-    await assistant.getByTestId('shopify-assistant-envoyer').click();
-    await expect(assistant.getByTestId('shopify-assistant-erreur')).toContainText('{prenon}');
-    expect(trace.preparations).toEqual([]);
-  });
-
-  test('🔴 une relance active dont seul le délai change : réglée tout de suite, sans repasser par Meta', async ({ page }) => {
-    const trace = await monter(page, { etat: RELANCE_ACTIVE });
-    await expect(page.getByTestId('integration-shopify-message-checkout_abandoned')).toContainText('actif');
-    await page.getByTestId('integration-shopify-regler-checkout_abandoned').click();
-    const assistant = page.getByTestId('shopify-assistant');
-    await expect(assistant.getByTestId('shopify-assistant-texte')).toHaveValue('Votre panier vous attend : {lien du panier} À très vite !');
-    await assistant.getByTestId('shopify-assistant-suivant').click();
-    await assistant.getByTestId('shopify-delai-15').click();
-    const enregistrer = assistant.getByTestId('shopify-assistant-envoyer');
-    await expect(enregistrer).toHaveText('Enregistrer');
-    await enregistrer.click();
-    await expect.poll(() => trace.reglages.length).toBe(1);
-    expect(trace.reglages[0]).toEqual({ evenement: 'checkout_abandoned', corps: { delaiMinutes: 15 } });
-    expect(trace.preparations).toEqual([]);
+  test('🔴 en pause, la carte le dit ; la reprise part sans question', async ({ page }) => {
+    const trace = await monter(page, { etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, pauseLe: '2026-11-19T10:00:00.000Z' } } });
+    const carte = page.getByTestId('integration-shopify');
+    await expect(carte.getByTestId('integration-shopify-pause')).toContainText('En pause depuis');
+    await carte.getByTestId('integration-shopify-pause-interrupteur').click();
+    await expect.poll(() => trace.pauses).toEqual([{ pause: false }]);
+    await expect(page.getByTestId('confirmation')).toHaveCount(0);
   });
 
   test('🔴 la ligne des paniers dit les relances parties et les récupérés de la même date, leur montant, les tests à part (plan 2026-10-30)', async ({ page }) => {
@@ -187,23 +121,83 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
         },
       },
     });
-    const ligne = page.getByTestId('integration-shopify-paniers');
-    await expect(ligne).toContainText('4 relances parties, 2 récupérés');
-    await expect(ligne).toContainText(/59,90\s€/);
-    await expect(ligne).toContainText('et 1 de test, non comptés');
+    const ligneDesPaniers = page.getByTestId('integration-shopify-paniers');
+    await expect(ligneDesPaniers).toContainText('4 relances parties, 2 récupérés');
+    await expect(ligneDesPaniers).toContainText(/59,90\s€/);
+    await expect(ligneDesPaniers).toContainText('et 1 de test, non comptés');
   });
 
-  test('une API plus ancienne, sans récupérés : la ligne garde ses chiffres d’avant, sans montant', async ({ page }) => {
-    await monter(page, { etat: { ...RELANCE_ACTIVE, paniers: { relances: { envoye: 3 }, fermesATemps: 1, enAttente: 2 } } });
-    const ligne = page.getByTestId('integration-shopify-paniers');
-    await expect(ligne).toContainText('3 relancés');
-    await expect(ligne).toContainText('0 relances parties, 0 récupérés');
-    await expect(ligne).not.toContainText('de test');
+  test('la ligne des paniers ne se montre que si l’automation du panier est en service', async ({ page }) => {
+    await monter(page, { etat: { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned', { actif: false })] } });
+    await expect(page.getByTestId('integration-shopify-etat')).toBeVisible();
+    await expect(page.getByTestId('integration-shopify-paniers')).toHaveCount(0);
   });
 
   test('🔴 API pas encore déployée (404 du routeur) : AUCUNE carte', async ({ page }) => {
     await monter(page, { etat: 'absente' });
     await expect(page.getByTestId('integration-hubspot')).toBeVisible();
     await expect(page.getByTestId('integration-shopify')).toHaveCount(0);
+  });
+});
+
+test.describe('Automation > Shopify : les automations de la boutique (menu « Scénario », lot 5)', () => {
+  test('🔴 une ligne par événement : son état dit, sans ligne « pas encore créée », et son scénario s’ouvre', async ({ page }) => {
+    await monter(page, {
+      ecran: '/automations',
+      etat: { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned', { modele: null, langue: null, etatChezMeta: null })] },
+    });
+    const section = page.getByTestId('automations-shopify');
+    await expect(section.getByTestId('automations-shopify-etat-order_paid')).toHaveText('active');
+    await expect(section.getByTestId('automations-shopify-etat-order_fulfilled')).toHaveText('pas encore créée');
+    await expect(section.getByTestId('automations-shopify-etat-checkout_abandoned')).toContainText('à compléter');
+    await expect(section.getByTestId('automations-shopify-ouvrir-order_paid')).toHaveAttribute('href', '/workflows?open=wf-order_paid');
+    await expect(section.getByTestId('automations-shopify-ouvrir-order_fulfilled')).toHaveCount(0);
+    await expect(section.getByTestId('automations-shopify-interrupteur-order_paid')).toHaveAttribute('aria-pressed', 'true');
+    await expect(section.getByTestId('automations-shopify-interrupteur-order_fulfilled')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('🔴 l’interrupteur éteint ou rallume sa ligne sur place ; le délai du panier part avec elle', async ({ page }) => {
+    const trace = await monter(page, {
+      ecran: '/automations', etat: { ...RELANCE_ACTIVE, lignes: [...RELANCE_ACTIVE.lignes, ligne('order_fulfilled', { actif: false })] },
+    });
+    const section = page.getByTestId('automations-shopify');
+    await section.getByTestId('automations-shopify-interrupteur-order_paid').click();
+    await expect.poll(() => trace.lignes).toEqual([{ evenement: 'order_paid', corps: { actif: false } }]);
+    // Une ligne qui existe déjà se rallume sur place : seul le PREMIER allumage ouvre le builder.
+    await section.getByTestId('automations-shopify-interrupteur-order_fulfilled').click();
+    await expect.poll(() => trace.lignes.length).toBe(2);
+    expect(trace.lignes[1]).toEqual({ evenement: 'order_fulfilled', corps: { actif: true } });
+    await section.getByTestId('automations-shopify-delai').selectOption('180');
+    await expect.poll(() => trace.lignes.length).toBe(3);
+    expect(trace.lignes[2]).toEqual({ evenement: 'checkout_abandoned', corps: { actif: true, delaiMinutes: 180 } });
+    await expect(page).toHaveURL(/\/automations$/);
+  });
+
+  test('🔴 le premier allumage crée le scénario et l’ouvre dans le builder (spec § 2.1)', async ({ page }) => {
+    const trace = await monter(page, { ecran: '/automations', etat: BRANCHEE });
+    await page.getByTestId('automations-shopify-interrupteur-order_fulfilled').click();
+    await expect.poll(() => trace.lignes).toEqual([{ evenement: 'order_fulfilled', corps: { actif: true } }]);
+    await expect(page).toHaveURL(/\/workflows\?open=wf-order_fulfilled$/);
+  });
+
+  test('la pause se dit, avec le chemin pour la reprendre, et les lignes restent', async ({ page }) => {
+    await monter(page, { ecran: '/automations', etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, pauseLe: '2026-11-19T10:00:00.000Z' } } });
+    await expect(page.getByTestId('automations-shopify-pause')).toContainText('Boutique en pause');
+    await expect(page.getByTestId('automations-shopify-order_paid')).toBeVisible();
+  });
+
+  test('la coupure se dit, sans aucune ligne', async ({ page }) => {
+    await monter(page, { ecran: '/automations', etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, etat: 'coupee' } } });
+    await expect(page.getByTestId('automations-shopify-coupee')).toContainText('Boutique coupée');
+    await expect(page.getByTestId('automations-shopify-order_paid')).toHaveCount(0);
+  });
+
+  test('🔴 sans boutique, ou l’API sans la route : aucune section', async ({ page }) => {
+    await monter(page, { ecran: '/automations', etat: VIDE });
+    await expect(page.getByTestId('automation-add')).toBeVisible();
+    await expect(page.getByTestId('automations-shopify')).toHaveCount(0);
+    await monter(page, { ecran: '/automations', etat: 'absente' });
+    await expect(page.getByTestId('automation-add')).toBeVisible();
+    await expect(page.getByTestId('automations-shopify')).toHaveCount(0);
   });
 });

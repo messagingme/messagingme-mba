@@ -152,16 +152,15 @@ function WorkflowsInner({ session }: { session: Session }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  // Deep-link ?open=<id> (depuis Contenu > Blocs) : ouvre le scénario correspondant une fois la liste chargée,
-  // une seule fois (pas de ré-ouverture après un retour manuel à la liste). Scénario absent -> ignoré.
+  // Deep-link ?open=<id> (depuis Contenu > Blocs, un e-mail, une automation Shopify) : ouvre le scénario une fois la liste
+  // chargée, une seule fois (pas de ré-ouverture après un retour manuel à la liste). 🔴 Un scénario d'automation (rayon
+  // Shopify, menu « Scénario », lot 5) n'est pas dans la liste du Builder : il s'ouvre par son identifiant, que la route lit
+  // quel que soit son rayon. Un identifiant inconnu le dit (« Ouverture impossible »), comme un scénario supprimé.
   useEffect(() => {
-    if (deepLinkApplied.current || !deepLinkId || editing || workflows.length === 0) return;
-    const match = workflows.find((w) => w.id === deepLinkId);
-    if (match) {
-      deepLinkApplied.current = true;
-      void open(match);
-    }
-  }, [deepLinkId, workflows, editing]);
+    if (deepLinkApplied.current || !deepLinkId || editing || loading) return;
+    deepLinkApplied.current = true;
+    void open({ id: deepLinkId });
+  }, [deepLinkId, editing, loading]);
 
   async function create() {
     const name = newName.trim();
@@ -176,7 +175,8 @@ function WorkflowsInner({ session }: { session: Session }) {
       setError(err instanceof Error ? err.message : t('Création impossible', 'Unable to create'));
     }
   }
-  async function open(w: WorkflowSummary) {
+  /** Ouvre un scénario par son identifiant : la route rend son graphe, quel que soit son rayon. */
+  async function open(w: Pick<WorkflowSummary, 'id'>) {
     setError(null);
     try {
       const { workflow, departs: lus } = await getWorkflow(session.tenantId, w.id);

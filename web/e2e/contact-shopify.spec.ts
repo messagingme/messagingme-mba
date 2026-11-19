@@ -79,7 +79,7 @@ test.describe('Fiche contact : l’onglet Shopify', () => {
     await page.getByTestId('fiche-onglet-shopify').click();
     await expect(page.getByTestId('fiche-shopify-rapporte')).toContainText('Aucune vente réelle attribuée à WhatsApp');
     await expect(page.getByTestId('fiche-shopify-rapporte-test')).toContainText('ne comptent pas dans ce chiffre');
-    await expect(page.getByTestId('fiche-shopify-commandes')).toContainText('Relance de panier');
+    await expect(page.getByTestId('fiche-shopify-commandes')).toContainText('Panier abandonné');
   });
 
   test('🔴 sans boutique : pas d’onglet Shopify', async ({ page }) => {

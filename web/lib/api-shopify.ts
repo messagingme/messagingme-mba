@@ -1,32 +1,34 @@
 'use client';
 
 import { request } from './http';
+import { EVENEMENTS_SHOPIFY, type EvenementShopify } from './partage/shopify-messages';
 
 /**
- * LE CONNECTEUR SHOPIFY : la carte de Tools > Intégrations (plan 2026-10-21, lot 1 ; conception 2026-10-22). La
- * console lit l'état, branche une boutique (l'app créée à la main sur le tableau de bord de Shopify), règle ses messages
- * par l'assistant, importe ses clients abonnés et coupe.
+ * LE CONNECTEUR SHOPIFY : la carte de Tools > Intégrations (plan 2026-10-21, lot 1 ; conception 2026-10-22) et la section
+ * Shopify de l'écran Automation (menu « Scénario », lot 5). La console lit l'état, branche une boutique (l'app créée à la
+ * main sur le tableau de bord de Shopify), allume ses automations, la met en pause, importe ses clients abonnés et coupe.
+ * Le message d'une automation se règle dans son scénario, plus par un assistant.
  *
  * ⚠️ Importé EN DIRECT (`@/lib/api-shopify`), jamais ajouté au barrel `lib/api.ts`, comme `api-salesforce`.
  */
 
 const base = (tenantId: string): string => `/tenants/${tenantId}/integrations/shopify`;
 
-export interface MessageShopifyVue {
-  evenement: string;
-  modele: string;
-  langue: string;
-  /** Les données Shopify de {{1}}, {{2}}... dans l'ordre : de quoi rendre le texte du modèle à l'assistant. */
-  variables: string[];
+/** Une automation Shopify : sa ligne, son scénario et son premier template chez Meta (`etatDesLignes` côté serveur). */
+export interface LigneShopifyVue {
+  evenement: EvenementShopify;
   actif: boolean;
-}
-
-export interface AttenteShopifyVue {
-  evenement: string;
-  modele: string;
-  langue: string;
-  variables: string[];
-  creeLe: string | null;
+  workflowId: string;
+  scenario: string | null;
+  /** Le premier template, publié ; `null` tant qu'il n'est pas choisi dans le scénario. */
+  modele: string | null;
+  langue: string | null;
+  /** Son statut chez Meta (`APPROVED`, `PENDING`, `REJECTED`...) ; `null` sans template, ou la liste de Meta illisible. */
+  etatChezMeta: string | null;
+  /** Le nombre de blocs du scénario publié. */
+  blocs: number;
+  /** Une nouvelle version du scénario attend Meta pour sa mise en ligne. */
+  versionProgrammee: boolean;
 }
 
 export interface EtatShopifyVue {
@@ -38,8 +40,9 @@ export interface EtatShopifyVue {
     delaiPanierMinutes: number | null;
     /** `console` : branchée par la carte ; `claude_code` : par la skill du plugin. */
     origine: 'console' | 'claude_code';
+    /** La pause (décision 15) : rien ne part ; `null` = active. */
+    pauseLe: string | null;
   } | null;
-  messages: MessageShopifyVue[];
   compteurs: Record<string, number>;
   /**
    * Les paniers des 7 derniers jours, leur durée de vie (lot 2) ; et, sur la date de RELANCE, les relances parties et les
@@ -50,12 +53,23 @@ export interface EtatShopifyVue {
     relancesParties: number; recuperes: number; montantsRecuperes: Array<{ devise: string; montant: string }>; recuperesTest: number;
   };
   pageApps: string | null;
-  /** Les messages préparés par l'assistant, dont le modèle attend l'approbation de Meta. */
-  attentes: AttenteShopifyVue[];
+  /** Les automations réglées, une par événement ; un événement sans ligne n'a jamais été allumé. */
+  lignes: LigneShopifyVue[];
 }
 
 const texte = (v: unknown): string | null => (typeof v === 'string' ? v : null);
-const textes = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+/** Une ligne lue défensivement : sans événement connu, interrupteur ou scénario, elle est écartée. */
+function lireLigne(x: unknown): LigneShopifyVue[] {
+  const l = x as Record<string, unknown> | null;
+  if (!l || typeof l !== 'object' || typeof l.actif !== 'boolean' || typeof l.workflowId !== 'string') return [];
+  if (!(EVENEMENTS_SHOPIFY as readonly unknown[]).includes(l.evenement)) return [];
+  return [{
+    evenement: l.evenement as EvenementShopify, actif: l.actif, workflowId: l.workflowId, scenario: texte(l.scenario),
+    modele: texte(l.modele), langue: texte(l.langue), etatChezMeta: texte(l.etatChezMeta),
+    blocs: typeof l.blocs === 'number' ? l.blocs : 1, versionProgrammee: l.versionProgrammee === true,
+  }];
+}
 
 /** Lu défensivement : une réponse d'une API plus ancienne ou plus récente que la console ne casse pas l'écran. */
 export function lireEtatShopify(brut: unknown): EtatShopifyVue | null {
@@ -68,16 +82,9 @@ export function lireEtatShopify(brut: unknown): EtatShopifyVue | null {
       dernierEvenementLe: texte(b.dernierEvenementLe),
       delaiPanierMinutes: typeof b.delaiPanierMinutes === 'number' ? b.delaiPanierMinutes : null,
       origine: b.origine === 'console' ? 'console' as const : 'claude_code' as const,
+      pauseLe: texte(b.pauseLe),
     }
     : null;
-  const messages = Array.isArray(o.messages)
-    ? o.messages.flatMap((m: unknown) => {
-      const x = m as Record<string, unknown> | null;
-      return x && typeof x.evenement === 'string' && typeof x.modele === 'string'
-        ? [{ evenement: x.evenement, modele: x.modele, langue: texte(x.langue) ?? '', variables: textes(x.variables), actif: x.actif === true }]
-        : [];
-    })
-    : [];
   const compteurs: Record<string, number> = {};
   if (o.compteurs && typeof o.compteurs === 'object') {
     for (const [k, v] of Object.entries(o.compteurs as Record<string, unknown>)) if (typeof v === 'number') compteurs[k] = v;
@@ -98,15 +105,8 @@ export function lireEtatShopify(brut: unknown): EtatShopifyVue | null {
     relances, fermesATemps: nombre(p.fermesATemps), enAttente: nombre(p.enAttente),
     relancesParties: nombre(p.relancesParties), recuperes: nombre(p.recuperes), montantsRecuperes, recuperesTest: nombre(p.recuperesTest),
   };
-  const attentes = Array.isArray(o.attentes)
-    ? o.attentes.flatMap((a: unknown) => {
-      const x = a as Record<string, unknown> | null;
-      return x && typeof x.evenement === 'string' && typeof x.modele === 'string'
-        ? [{ evenement: x.evenement, modele: x.modele, langue: texte(x.langue) ?? '', variables: textes(x.variables), creeLe: texte(x.creeLe) }]
-        : [];
-    })
-    : [];
-  return { boutique, messages, compteurs, paniers, pageApps: texte(o.pageApps), attentes };
+  const lignes = Array.isArray(o.lignes) ? o.lignes.flatMap(lireLigne) : [];
+  return { boutique, compteurs, paniers, pageApps: texte(o.pageApps), lignes };
 }
 
 export async function lireShopify(tenantId: string): Promise<EtatShopifyVue | null> {
@@ -121,21 +121,19 @@ export function brancherShopify(tenantId: string, corps: { boutique: string; cli
   return request(base(tenantId), { method: 'POST', body: JSON.stringify(corps) });
 }
 
-export interface PreparationShopify {
-  evenement: string;
-  texte: string;
-  langue: string;
-  delaiMinutes?: number;
+/** La pause de la boutique (décision 15) : ses parcours s'arrêtent, rien ne part ; la reprise ne rattrape rien. */
+export function reglerPauseShopify(tenantId: string, pause: boolean): Promise<{ changee: boolean }> {
+  return request(base(tenantId), { method: 'PATCH', body: JSON.stringify({ pause }) });
 }
 
-/** `actif` : Meta a approuvé tout de suite ; `en_validation` : le message s'activera seul à l'approbation. */
-export function preparerMessageShopify(tenantId: string, corps: PreparationShopify): Promise<{ etat: 'actif' | 'en_validation'; modele: string }> {
-  return request(`${base(tenantId)}/messages`, { method: 'POST', body: JSON.stringify(corps) });
-}
-
-/** Le délai de la relance, sans repasser par Meta. */
-export function reglerMessageShopify(tenantId: string, evenement: string, corps: { delaiMinutes?: number }): Promise<unknown> {
-  return request(`${base(tenantId)}/messages/${encodeURIComponent(evenement)}`, { method: 'PATCH', body: JSON.stringify(corps) });
+/**
+ * L'interrupteur d'une automation : le premier allumage crée son scénario (un premier bloc verrouillé, sans template),
+ * éteindre arrête ses parcours. Le délai du panier se règle avec sa ligne.
+ */
+export function reglerLigneShopify(
+  tenantId: string, evenement: EvenementShopify, corps: { actif: boolean; delaiMinutes?: number },
+): Promise<{ ligne: unknown }> {
+  return request(`${base(tenantId)}/lignes/${encodeURIComponent(evenement)}`, { method: 'PUT', body: JSON.stringify(corps) });
 }
 
 export interface ApercuClientsShopify {
