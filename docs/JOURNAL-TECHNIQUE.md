@@ -4,7 +4,7 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
-## 2026-11-19 : « un parcours tient le fil » devient une seule règle (préparé, pas encore en production)
+## 2026-11-19 : « un parcours tient le fil » devient une seule règle (en production)
 
 **Pourquoi** : en deux jours, trois correctifs ont posé la même règle (un scénario en cours garde son fil) à trois portes,
 avec trois formes : le signal de passation de Meta (`64a1b9621`, sans borne d'âge, marge de 2 min sur la date de prise), le
@@ -35,6 +35,11 @@ règle en écrivant, le signal de Meta garde une marge de 2 minutes sur la date 
 tout envoi), et l'inventaire voit une écriture en ternaire. Un faux vert évité en route : le fichier de l'inventaire ne se
 chargeait plus (un script avait mangé les antislashs de ses expressions régulières) et le filtre de sortie ne montrait pas
 la ligne `FAIL` ; les contrôles comptent désormais les fichiers non chargés.
+
+**En production** : `4f5f2f410`, CI 44510537620 verte job par job (unit, intégration, sécurité), déploiement 44511507774
+(`migration=aucune`, approuvé par Julien), `/health` à 200. Restent les essais réels sur MUTAC : un texte pendant l'Attente de
+« devis » (le scénario repart à son réveil), et un clic sur un bouton du template plus de 5 minutes après l'envoi (la
+branche du scénario part, pas l'agent de Meta).
 
 ## 2026-11-19 : le balayage rendait à l’agent de Meta un fil qu’un parcours tenait (MUTAC, en production)
 
