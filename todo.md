@@ -157,6 +157,25 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
 - **Bord** : une réponse sur le mauvais canal (parcours RCS, réponse WhatsApp) reste sans réponse, comme avant ; le fil
   reste désormais au scénario jusqu'à 24 h après sa dernière écriture.
 
+## 🟡 Les lots 6 (HubSpot) et 7 (le menu) du menu « Scénario » : ce qui reste (2026-11-20)
+
+- **Lot 6e** : la décision 2 pour la famille « lancés par un workflow » (l'action refuse encore quand un conseiller tient le
+  fil) demande l'envoi par le pont, devis PDF compris.
+- **La console ne dit pas** `automationsCoupees` / `workflowsCoupes` (rendus par `GET /hubspot/lignes`) : une ligne
+  allumée peut sembler active alors que l'interrupteur de Tools > Intégrations est éteint.
+- **L'allumage d'une ligne d'étape ou de rendez-vous ne vérifie pas la catégorie** : un premier template Marketing ressort
+  en `modele_refuse` à l'envoi.
+- **Changer l'étape ou le délai d'une ligne** impose de la supprimer et la recréer (le `PUT` ne prend que `{ actif }`).
+- **La fenêtre de l'origine** est le jour UTC, pas 24 h glissantes ; une ligne supprimée puis recréée fait renaître le même
+  deal le même jour (à dire dans la doc).
+- **Lot 7** : le menu garde « pas de boutique » ou « pas de portail » jusqu'au rechargement après un branchement
+  (`BOUTIQUE_PAR_ESPACE`, `PORTAIL_PAR_ESPACE` dans `AppShell.tsx`) ; `/automations` ne dit pas où sont parties les
+  automations Shopify ; `GET /settings` réveille le connecteur HubSpot à chaque page tant qu'il dort ; la capture
+  `payer-ses-messages-sans-carte-chez-meta` étape 2 ne correspond plus au texte de sa fiche (écran changé avant le lot).
+- **Les films d'aide** (`site/films/aide-*.mp4`) montrent l'ancienne barre.
+- **« Modifier ce template » sur un bloc à données Shopify** reste refusé en 400 (le correctif de 6a a été retiré : il
+  faisait perdre la donnée au bloc). Le refaire en rendant au bloc ses sources `variable` à leurs positions canonisées.
+
 ## 🟡 Le lot 5 du menu « Scénario » (Shopify) : ce qui reste après 5c (2026-11-19)
 
 5c a réglé, de la relecture de 5b : le premier bloc gardé par `set_shopify_message`, l'état qui survit à une panne de Meta,

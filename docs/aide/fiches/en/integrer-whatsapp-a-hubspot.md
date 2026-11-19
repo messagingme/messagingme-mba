@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: 59dea6
+traduit_de: fdd8c3
 description: WhatsApp in HubSpot: every analyzed conversation becomes an action, your lists become campaigns, you reply without leaving HubSpot.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -94,11 +94,14 @@ workflows gain “Send a WhatsApp template (Messaging Me)” and “Launch a Mes
 “Launch a Messaging Me scenario (deal)”.
 
 With the line off, the actions stay visible in HubSpot but do nothing: the workflow history says workflows are not
-enabled. In the action, you choose the workspace, an approved Utility template or a published scenario that starts with
-such a template and contains no Marketing template, the property holding the contact's WhatsApp number and, for each
+enabled. In the action, you choose the workspace, an approved Utility template or a scenario of Scenario > Automation >
+HubSpot, filed under “Started by a HubSpot workflow” (“Add a scenario”, then its name), published, that starts with such a template and
+contains no Marketing template, the property holding the contact's WhatsApp number and, for each
 template variable, the property that fills it (fixed text lives in the template). A scenario that starts with a
 question, a quick message or the AI agent is not offered: WhatsApp requires the contact to have written within the
-last 24 hours.
+last 24 hours. A Builder scenario chosen in an older workflow is no longer launched: the workflow history says
+“scenario refused”; those your workflows were launching on 19 November 2026 were filed under “Started by a HubSpot workflow”,
+and keep going out.
 
 Nothing goes to a contact who said STOP or is blocked, nor to a landline, nor the same template or scenario to the same
 contact twice within 24 hours. A scenario never goes to a conversation an agent
@@ -151,17 +154,23 @@ Place the action right after the trigger, and turn re-enrollment on so that a re
 refused within 24 hours). Do not also connect a console automation to the same stage: the contact would receive two
 scenarios.
 
-**7. Launch a scenario at a deal stage.** No workflow needed: turn on “HubSpot automations: launch a scenario when a
-deal reaches a stage”. In Automation, the “a HubSpot deal reaches a stage” trigger then launches the scenario of your
-choice to the deal's contact, when the deal reaches that stage. You pick the stage by its name; renaming it later in
-HubSpot breaks nothing.
+**7. Launch a scenario at a deal stage or before an appointment.** No workflow needed: turn on “HubSpot automations:
+launch a scenario when a deal reaches a stage”. Then, in Scenario > Automation > HubSpot, “Add a stage” under “Deal stage change”:
+choose the pipeline and the stage.
 
-With the line off, a stage change triggers nothing, and the trigger is greyed out in Automation. A contact Messaging Me does not know yet gets a record, within your plan's contact limit, and the HubSpot fields you
-chose are written to it before the scenario. Without an automation turned on for that stage, no record is created.
+The scenario opens in the builder; its first block, marked “first message”, is the
+Utility template sent to the deal's contact when the deal reaches that stage. Choose that template, link its variables
+to the record's fields, publish, then switch the line on. Under “Appointment”, “Add an appointment” on a “date and time”
+field imported from HubSpot, with the delay before or after: an appointment reminder.
 
-Since the contact is not writing at that moment, the scenario starts with a template. A deal without a contact, or a
-contact without a number, triggers nothing, and a deal moved several times in a row only triggers once. Nothing is sent
-to a contact who said STOP or whom you blocked.
+With the switch off in Tools > Integrations, no line goes out. A contact Messaging Me does not
+know yet gets a record, within your plan's contact limit, and the HubSpot fields you chose are written to it before the
+first message. Without a line switched on for that stage, no record is created.
+
+A deal without a contact, or a contact without a number, triggers nothing, and a deal that comes back to the same stage
+on the same day only triggers once. Nothing is sent to a contact who said STOP or whom you blocked. The rest of the
+scenario is built like a Shopify automation's: the record's fields are read again at each block, so a second deal of
+the same contact can change them on the way.
 
 **8. Receive conversations in the HubSpot Inbox.** Below the switches, the “Conversations in the HubSpot Inbox” block
 offers your portal's inboxes: choose one.

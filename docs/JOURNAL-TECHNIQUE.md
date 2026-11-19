@@ -4,6 +4,20 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-20 : menu « Scénario », lots 6 (HubSpot) et 7 (le menu)
+
+**En ligne la nuit du 19 au 20** (`88017b53e`, console publiée par Vercel, API NON déployée) : le lot 7 (la barre
+« Scénario » : Builder, et Automation > Shopify, HubSpot, Autres ; les pages `/automations/shopify` et
+`/automations/hubspot`, Shopify et HubSpot visibles seulement branchés, décision de Julien ; six fiches et 211 captures),
+la console HubSpot 6c (construite contre le contrat de 6b, page vide tant que l'API n'a pas la route) et le code de 6a
+(le moteur, inerte). CI verte job par job. Relectures : 6a (deux rouges : un correctif du builder qui faisait perdre la
+donnée Shopify d'un bloc, retiré avant le push ; le verrou contre la décision 41, réglé dans 6b), lot 7 et 6c (aucun
+rouge, six jaunes au `todo.md`).
+
+**6b et 6d** (circuits HubSpot, bascule 0304, aide) : prêts à déployer (`migration=avant`), sur l'approbation de Julien.
+La sonde du 19 au soir : une seule automation « étape », éteinte (SANDBOX) ; quatre scénarios lancés par un workflow
+HubSpot, que 0304 déplace au rayon `hubspot` (décision 41), dont `devis_avec_pdf` de MUTAC.
+
 ## 2026-11-19 : menu « Scénario », lots 5c et 5d, l'écran des automations Shopify et leur aide (en production)
 
 **5c** (commits `529452503..3291d3963`, tâches 11 et 12 du plan `docs/superpowers/plans/2026-11-18-menu-scenario-lot-5-shopify.md`) :

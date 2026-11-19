@@ -3,7 +3,7 @@ description: WhatsApp dans HubSpot : chaque conversation analysée devient une a
 ecran: integrations
 ancre_console: integration-hubspot
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 7f1454
+source_empreinte: 618175
 publique: oui
 rubrique: demarrer-console
 rang: 7
@@ -104,11 +104,14 @@ workflows de contacts gagnent « Envoyer un modèle WhatsApp (Messaging Me) » e
 workflows de transactions « Lancer un scénario Messaging Me (transaction) ».
 
 Ligne éteinte, les actions restent visibles dans HubSpot mais n'agissent pas : l'historique du workflow dit que les
-workflows ne sont pas branchés. Dans l'action, vous choisissez l'espace, un modèle Service approuvé ou un scénario
-publié qui commence par un tel modèle et n'en contient aucun Marketing, la propriété qui porte le numéro WhatsApp du
+workflows ne sont pas branchés. Dans l'action, vous choisissez l'espace, un modèle Service approuvé ou un scénario de
+Scénario > Automation > HubSpot, rangé sous « Lancés par un workflow HubSpot » (« Ajouter un scénario », puis son nom), publié, qui commence
+par un tel modèle et n'en contient aucun Marketing, la propriété qui porte le numéro WhatsApp du
 contact et, pour chaque variable du modèle, la propriété qui la remplit (le texte fixe vit dans le modèle). Un scénario
 qui commence par une question, un message rapide ou l'agent IA n'est pas proposé : WhatsApp exige que le contact ait
-écrit dans les 24 heures.
+écrit dans les 24 heures. Un scénario du Builder choisi dans un ancien workflow n'est plus lancé : l'historique
+du workflow dit « scénario refusé » ; ceux que vos workflows lançaient le 19 novembre 2026 ont été rangés sous « Lancés
+par un workflow HubSpot », et continuent de partir.
 
 Rien ne part à un contact qui a dit STOP ou qui est bloqué, ni à un numéro fixe, ni deux fois le même modèle ou le même
 scénario au même contact en 24 heures. Un scénario ne part jamais vers une
@@ -164,18 +167,24 @@ Placez l'action juste après le déclencheur, et activez la réinscription pour 
 est refusée dans les 24 heures). Ne branchez pas en plus une automatisation de la console sur la même étape : le contact
 recevrait deux scénarios.
 
-**7. Lancer un scénario à une étape de transaction.** Sans workflow : allumez « Automations HubSpot : lancer un
-scénario quand un deal atteint une étape ». Dans Automation, le déclencheur « un deal HubSpot atteint une étape » lance
-alors le scénario de votre choix au contact de la transaction, quand elle arrive sur cette étape. Vous choisissez
-l'étape par son nom ; la renommer ensuite dans HubSpot ne casse rien.
+**7. Lancer un scénario à une étape de transaction ou avant un rendez-vous.** Sans workflow : allumez « Automations
+HubSpot : lancer un scénario quand un deal atteint une étape ». Puis, dans Scénario > Automation > HubSpot, « Ajouter
+une étape » sous « Changement d'étape d'un deal » : choisissez le pipeline et l'étape.
 
-Ligne éteinte, un changement d'étape ne déclenche rien, et le déclencheur est grisé dans Automation. Un contact que Messaging Me ne connaît pas encore reçoit sa fiche, dans la limite de contacts de votre offre, et les
-champs HubSpot que vous avez choisis s'y écrivent avant le scénario. Sans automation allumée sur cette étape, aucune
-fiche n'est créée.
+Le scénario s'ouvre dans le builder ; son premier
+bloc, marqué « premier message », est le modèle Service envoyé au contact de la transaction quand elle arrive sur cette
+étape. Choisissez ce modèle, reliez ses variables aux champs de la fiche, publiez, puis allumez la ligne. Sous
+« Rendez-vous », « Ajouter un rendez-vous » sur un champ « date et heure » importé de HubSpot, avec le délai avant ou après : le
+rappel d'un rendez-vous.
 
-Le contact n'écrivant pas à ce moment-là, le scénario commence par un modèle. Une transaction sans contact, ou un
-contact sans numéro, ne déclenche rien, et une transaction déplacée plusieurs fois de suite ne déclenche qu'une fois.
-Rien ne part à un contact qui a dit STOP ou que vous avez bloqué.
+Interrupteur éteint dans Tools > Intégrations, aucune ligne ne part. Un contact que Messaging Me ne
+connaît pas encore reçoit sa fiche, dans la limite de contacts de votre offre, et les champs HubSpot que vous avez
+choisis s'y écrivent avant le premier message. Sans ligne allumée sur cette étape, aucune fiche n'est créée.
+
+Une transaction sans contact, ou un contact sans numéro, ne déclenche rien, et une transaction qui revient sur la même
+étape le même jour ne déclenche qu'une fois. Rien ne part à un contact qui a dit STOP ou que vous avez bloqué. La suite
+du scénario se construit comme celle d'une automation Shopify : les champs de la fiche se relisent à chaque bloc, donc
+un second deal du même contact peut les changer en chemin.
 
 **8. Recevoir les conversations dans l'Inbox HubSpot.** Sous les interrupteurs, le bloc « Conversations dans l'Inbox
 HubSpot » propose les boîtes de réception de votre portail : choisissez-en une.

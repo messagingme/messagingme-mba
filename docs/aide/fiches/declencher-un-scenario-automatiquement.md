@@ -24,10 +24,8 @@ L'écran Scénario > Automation > Autres liste ce que vous avez monté : le nom 
 - **La dernière analyse d'un contact change** : vous choisissez un champ et ce qu'il doit devenir, par exemple
   « le sentiment devient négatif » ou « l'urgence passe à 7 ou plus ». Le scénario part quand une analyse fait
   passer le contact dans ce cas, pas quand il y était déjà. La première analyse d'un contact compte.
-- **Un deal HubSpot atteint une étape** : vous choisissez l'étape dans la liste de vos pipelines, les étapes
-  de fin étant signalées. Ce déclencheur n'apparaît que si un portail HubSpot est relié à votre espace, et il est
-  grisé tant que « Automations HubSpot » est éteinte dans Tools > Intégrations > HubSpot. Un contact que Messaging Me
-  ne connaît pas encore reçoit sa fiche, dans la limite de contacts de votre offre.
+- **Un deal HubSpot atteint une étape** : ce déclencheur a quitté les Autres. Il se règle dans Scénario > Automation >
+  HubSpot, avec les rendez-vous et les scénarios lancés par un workflow (voir « Intégrer WhatsApp à HubSpot »).
 - **Un délai avant ou après une date enregistrée** : de quoi faire un rappel. Vous dites combien de temps
   (en minutes, en heures ou en jours), de quel côté de la date, et sur quel champ. Il vous faut pour cela un
   champ « date et heure » dans votre espace ; sinon l'écran vous le dit et vous propose d'en créer un.

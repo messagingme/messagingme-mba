@@ -2720,7 +2720,9 @@ scénario, comment importer des contacts.
   lancer des scénarios »** (décochée, ouverte par l'offre qui relie HubSpot, indépendante de la réponse : les actions
   « Envoyer un modèle WhatsApp (Messaging Me) » et « Lancer un scénario Messaging Me » des workflows HubSpot de contacts
   n'agissent que cette ligne allumée ; la première envoie un modèle Service approuvé au contact inscrit, la seconde lui
-  lance un scénario publié qui commence par un modèle Service approuvé et dont aucun modèle n'est Marketing ; le champ
+  lance un scénario publié de Scénario > Automation > HubSpot, rangé sous « Lancés par un workflow HubSpot » (depuis le
+  2026-11-20, lot 6 du menu « Scénario » : un scénario du Builder ressort « scénario refusé », et ceux que les workflows
+  lançaient y ont été rangés par la bascule 0304), qui commence par un modèle Service approuvé et dont aucun modèle n'est Marketing ; le champ
   « Envoi marketing » de chaque action, où le client atteste l'accord marketing de ses contacts (2026-11-02), y ajoute
   les modèles et scénarios Marketing et écrit l'accord sur la fiche (source `hubspot-workflow:<id du workflow>`), jamais
   sur un contact qui a dit STOP (un scénario
@@ -2735,9 +2737,12 @@ scénario, comment importer des contacts.
   ci-dessous), que lisent les blocs du scénario et les sources de son modèle d'ouverture ; au plus 60 envois par minute et 2 000 par jour, les trois actions comptées ensemble ; chaque envoi apparaît dans Campagnes, et l'historique du
   workflow dit ce qui est parti ou pourquoi rien n'est parti), **« Automations HubSpot : lancer un scénario quand un
   deal atteint une étape »** (2026-11-02 ; décochée, ouverte par l'offre qui relie HubSpot, déjà allumée pour un espace
-  qui avait une automation « un deal HubSpot atteint une étape » ; éteinte, un changement d'étape ne déclenche rien et
-  ce déclencheur est grisé dans Automations ; allumée, un deal qui atteint l'étape d'une automation allumée lance son
-  scénario au contact de la transaction, et lui crée sa fiche s'il n'en a pas, dans la limite de contacts de l'offre),
+  qui avait une automation « un deal HubSpot atteint une étape » ; éteinte, un changement d'étape ne déclenche rien ;
+  allumée, un deal qui atteint l'étape d'une ligne allumée de Scénario > Automation > HubSpot (depuis le 2026-11-20, lot 6
+  du menu « Scénario » : son scénario, dont le premier bloc est un modèle Service, part au contact de la transaction, une
+  fois par deal et par étape et par jour, plafonné par ligne ; la même page règle les rappels de rendez-vous sur un champ
+  date importé de HubSpot ; les automations « étape » des Autres sont éteintes par la bascule) lui crée sa fiche s'il
+  n'en a pas, dans la limite de contacts de l'offre),
   et vos listes HubSpot comme audience de campagne
   (décochée ; un bouton **« Autoriser l'accès aux listes HubSpot »** demande ce droit au portail s'il manque).
   Le choix validé et les workflows ou les automations allumés, le bloc **« Champs HubSpot à importer »** (2026-11-02) liste les

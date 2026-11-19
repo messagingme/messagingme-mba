@@ -1,7 +1,7 @@
 ---
 description: Prendre un numéro fourni par Messaging Me, relié par la fenêtre de Meta ou mis dans votre application WhatsApp Business : la vidéo, puis les six étapes.
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 7f1454
+source_empreinte: 618175
 publique: oui
 rubrique: demarrer-claude, demarrer-console
 rang: 5, 5
