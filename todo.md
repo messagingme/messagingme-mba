@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 L'accueil d'un nouveau membre : ce qui reste après la relecture (2026-11-19, aucun rouge)
+
+- `/me` fait deux lectures par chargement de page (`getById`, puis `accueilAFaire`), toutes deux par clé primaire :
+  `getById` pourrait rendre `accueil_choisi_le` dans la même requête (`src/http/me.ts`, `src/user/store.pg.ts`).
+- Les textes de la visite et de la fenêtre restent à relire par Julien à l'essai réel (plan
+  `docs/superpowers/plans/2026-11-19-accueil-pro.md`, section Méthode de livraison).
+
 ## 🟡 Le code d'espace visible, après le lot (2026-11-19)
 
 - **Après le déploiement de l'API** : Julien lance `scripts/remplir-codes-espaces.mts --compter` sur la machine des

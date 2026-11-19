@@ -9,6 +9,9 @@ import { Logo, LogoComplet } from './Logo';
 import { AccountMenu } from './AccountMenu';
 import { LienCommentFaire } from './LienCommentFaire';
 import { BoutonAide } from './BoutonAide';
+import { AccueilBienvenue } from './AccueilBienvenue';
+import { VisiteConsole } from './VisiteConsole';
+import { VISITE_EVENT } from '@/lib/accueil-console';
 import { BandeauAbonnement } from './BandeauAbonnement';
 import { BandeauLigneCredit } from './BandeauLigneCredit';
 import { EncartOffre } from './EncartOffre';
@@ -25,6 +28,12 @@ type Tab = 'accueil' | 'perf-synthese' | 'quanti-messages' | 'quanti-couts' | 'q
 // Le modèle d'entrée, le calcul de la chaîne d'ancêtres ET LES QUATRE LISTES vivent dans `lib/nav.ts` : le
 // modèle est récursif depuis que la barre a trois niveaux, et les listes ont suivi le 2026-09-11 parce que
 // cette barre est la CARTE de la console. Tout s'y teste sans monter de composant.
+
+/**
+ * La fenêtre de bienvenue fermée par la croix pendant CETTE visite de la console : elle ne se rouvre pas à chaque page
+ * (la coquille se remonte à chaque navigation), mais revient au prochain chargement, puisque rien n'est marqué.
+ */
+let bienvenueFermeeIci = false;
 
 /** Intervalle de rafraîchissement de la pastille de non-lus. Assez court pour qu'un message vu sur le
  *  téléphone apparaisse vite, assez long pour ne pas marteler l'API depuis toutes les pages. */
@@ -67,6 +76,10 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
   const [refusOffre, setRefusOffre] = useState<RefusOffre | null>(null);
   /** Un membre en trop (lot 6, B2a) : la garde refuse chacune de ses requêtes ; la page entière le dit. */
   const [accesSuspendu, setAccesSuspendu] = useState<RefusOffre | null>(null);
+  /** La fenêtre de bienvenue (plan 2026-11-19-accueil-pro) : `/me` dit qu'elle est à montrer. */
+  const [bienvenue, setBienvenue] = useState(false);
+  /** La visite de la console, lancée par la fenêtre ou par le panneau d'aide (`VISITE_EVENT`). */
+  const [visite, setVisite] = useState(false);
   /**
    * L'OFFRE DE L'ESPACE (lot 6) : `undefined` tant qu'elle n'est pas lue, `null` si elle est inconnue (API plus ancienne,
    * panne), et alors RIEN n'est grisé. Elle ne fait qu'éviter d'ouvrir un écran dont chaque geste serait refusé : la
@@ -143,6 +156,7 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
     let alive = true;
     getMe(session.tenantId)
       .then((me) => {
+        if (alive && me.accueilAFaire === true && !bienvenueFermeeIci) setBienvenue(true);
         // Une réponse sans rôle lisible (une API plus ancienne) garde le rôle connu.
         if (!alive || typeof me.role !== 'string' || me.role === '' || me.role === session.role) return;
         const frais = { ...session, role: me.role };
@@ -200,6 +214,12 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
     const suspendu = (e: Event): void => setAccesSuspendu((e as CustomEvent<RefusOffre>).detail);
     window.addEventListener(ACCES_SUSPENDU_EVENT, suspendu);
     return () => window.removeEventListener(ACCES_SUSPENDU_EVENT, suspendu);
+  }, []);
+
+  useEffect(() => {
+    const lancer = (): void => setVisite(true);
+    window.addEventListener(VISITE_EVENT, lancer);
+    return () => window.removeEventListener(VISITE_EVENT, lancer);
   }, []);
 
   useEffect(() => {
@@ -301,6 +321,7 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
               onClick={() => setOpenGroups((s) => ({ ...s, [item.key]: !s[item.key] }))}
               aria-expanded={!!openGroups[item.key]}
               data-testid={`nav-groupe-${item.key}`}
+              data-nav={item.key}
               className={
                 niveau === 1
                   ? `flex w-full items-center gap-2.5 rounded-controle px-3 py-2 text-sm transition-colors duration-150 hover:bg-ink-100 ${chemin.includes(item.key) ? 'font-medium text-brand-700' : 'text-ink-500'}`
@@ -336,6 +357,7 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
             key={item.key}
             href={item.href!}
             onClick={() => setDrawerOpen(false)}
+            data-nav={item.key}
             className={niveau === 1 ? itemCls(active === item.key) : subCls(active === item.key)}
           >
             {item.icone && <Icone nom={item.icone} taille="nav" />}
@@ -646,6 +668,12 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
           `active` est la clé de nav de la page : c'est ce qui rend l'aide contextuelle sans rien demander. */}
       {/* Sur l'Inbox, il vit dans la barre du haut (`aideDansEntete`) : en bas à droite, il couvrait « Envoyer ». */}
       {!aideDansEntete && <BoutonAide tenantId={session.tenantId} ecranCourant={active} role={session.role} />}
+      {/* L'accueil d'un nouveau membre : jamais en Free (sans console) ni pour une session d'observation. */}
+      {bienvenue && !session.observation && vueOffre && vueOffre.offre !== 'free' && (
+        <AccueilBienvenue tenantId={session.tenantId} admin={session.role === 'admin'}
+          onFermer={() => { bienvenueFermeeIci = true; setBienvenue(false); }} />
+      )}
+      {visite && <VisiteConsole onFin={() => setVisite(false)} />}
     </div>
   );
 }

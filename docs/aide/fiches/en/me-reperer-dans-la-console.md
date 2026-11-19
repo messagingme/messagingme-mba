@@ -1,7 +1,7 @@
 ---
 description: Console, Inbox and Performance Lab: the three tabs of the Messaging Me console, what each one holds, and where the account and settings are.
 slug: find-your-way-around-the-console
-traduit_de: 0d4ea1
+traduit_de: b90db3
 ---
 # Find your way around the console
 
@@ -58,3 +58,7 @@ page.
 
 **An operator only sees one tab, the Inbox.** Showing them three, two of which would send them straight back to the
 Inbox, would be promising them two closed doors.
+
+**The console tour.** When you first sign in, a welcome window offers “Take the tour”: a bubble shows you, one after
+the other, the areas of your screen: Home, the Inbox, the mini-CRM, Campaigns, AI Agent, Tools and the help. You can take it again at any time with
+“Take the tour”, at the top of the help panel.

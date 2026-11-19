@@ -1,7 +1,7 @@
 ---
 description: Console, Inbox et Performance Lab : les trois onglets de la console Messaging Me, ce que chacun range, et où trouver le compte et les paramètres.
 source_section: Navigation (trois onglets en haut, barre latérale par onglet)
-source_empreinte: 0f4a65
+source_empreinte: 66b436
 publique: oui
 rubrique: demarrer-console
 rang: 6
@@ -66,3 +66,8 @@ l'envoyer à un collègue, elle rouvre la même page.
 
 **Un opérateur ne voit qu'un onglet, l'Inbox.** Lui en montrer trois dont deux le renverraient aussitôt à l'Inbox
 serait lui promettre deux portes fermées.
+
+**La visite de la console.** À votre première connexion, une fenêtre de bienvenue vous propose « Faire le tour » : une
+bulle vous montre tour à tour les zones de votre écran : l'Accueil, l'Inbox, le mini-CRM, les Campagnes, AI Agent, Tools
+et l'aide. Vous pouvez la
+refaire à tout moment par « Faire le tour », en haut du panneau d'aide.

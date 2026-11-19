@@ -333,6 +333,17 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   rien ne signalait l'oubli : l'écran d'un espace montrait des horaires que la base ne portait pas. Un jour dont
   l'heure de fin précède l'heure de début est signalé en rouge, et rien n'est enregistré tant qu'il n'est pas corrigé.
   Le **journal des actions** n'est plus sur cette page : il est dans **Sécurité** (« Journaux et traces »).
+- ✅ **La fenêtre de bienvenue d'un nouveau membre** (2026-11-19, plan `2026-11-19-accueil-pro`) : à sa première
+  connexion à la console (Pro, essai compris, et au-delà ; jamais en Free), chaque nouveau membre d'un espace voit
+  « Bienvenue dans votre console » : **« Faire le tour »**, ou un premier geste tout de suite (« Connecter mon numéro »
+  tant qu'il n'y en a pas, « Lancer une campagne », « Construire un agent IA », « Brancher un outil » ; le numéro et les
+  outils, comme les campagnes et les agents, sont des écrans d'administrateur : un autre membre n'a que le tour), ou « Ne
+  plus afficher ». Elle revient à chaque connexion tant qu'aucun de
+  ces choix n'est fait ; la fermer par la croix ne compte pas. Les comptes qui existaient le jour de la livraison ne la
+  voient pas, sauf une invitation encore en attente ce jour-là. **La visite** pointe tour à tour les zones présentes à
+  l'écran (l'Accueil, l'Inbox, le mini-CRM, les Campagnes, AI Agent, Tools et l'aide pour un administrateur sur
+  ordinateur ; moins sur l'Inbox ou sur un téléphone) ; elle se relance à tout moment par « Faire le tour », en haut du
+  panneau d'aide.
 
 ## Le pixel Meta et l'accord publicitaire
 

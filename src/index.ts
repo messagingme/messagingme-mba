@@ -3259,7 +3259,12 @@ async function main(): Promise<void> {
         ? { disconnectHubspot: (tenant: string) => disconnectHubspot({ baseUrl: config.HUBSPOT_SERVICE_URL, secret: config.HUBSPOT_SERVICE_SECRET, transport }, tenant) }
         : {}),
     },
-    me: { getById: (userId) => userStore.getById(userId), estExploitant: (email) => estAdresseOps(opsEmails, email) },
+    me: {
+      getById: (userId) => userStore.getById(userId),
+      estExploitant: (email) => estAdresseOps(opsEmails, email),
+      accueilAFaire: (userId, tenant) => userStore.accueilAFaire(userId, tenant),
+      marquerAccueil: (userId, tenant) => userStore.marquerAccueil(userId, tenant),
+    },
     workflows: {
       scenarios: workflowStore,
       tenantCode: (tenant) => resolveTenantCode(pool, tenant),

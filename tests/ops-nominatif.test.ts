@@ -45,7 +45,7 @@ function serveur(options: Parameters<typeof accesOps>[0] = {}, ops: Partial<OpsR
     queue: new FakeQueue(),
     auth: acces.auth,
     ops: deps,
-    me: { getById: async () => ({ email: ADRESSE_OPS, name: null, role: 'agent' }) },
+    me: { getById: async () => ({ email: ADRESSE_OPS, name: null, role: 'agent' }), accueilAFaire: async () => false, marquerAccueil: async () => {} },
   });
   return { app, acces };
 }

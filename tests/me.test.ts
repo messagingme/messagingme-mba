@@ -21,6 +21,8 @@ const h = (t: string) => ({ headers: { authorization: `Bearer ${t}` } });
 function app(over: Partial<MeRouteDeps> = {}) {
   const deps: MeRouteDeps = {
     getById: async (userId) => (userId === 'u1' ? { email: 'julien@messagingme.fr', name: 'Julien Dumas', role: 'agent' } : null),
+    accueilAFaire: async () => false,
+    marquerAccueil: async () => {},
     ...over,
   };
   return buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET }, me: deps });
@@ -32,7 +34,7 @@ describe('route me', () => {
       queue: new FakeQueue(),
       // Le rôle frais que la garde pose à chaque requête : `getUserState` rend le rôle effectif (`roleEffectif`, src/index.ts).
       auth: { users: noUsers, secret: SECRET, getUserState: async () => ({ role: 'admin', disabled: false, horsOffre: null, sessionsDepuis: null }) },
-      me: { getById: async () => ({ email: 'julien@messagingme.fr', name: 'Julien Dumas', role: 'agent' }) },
+      me: { getById: async () => ({ email: 'julien@messagingme.fr', name: 'Julien Dumas', role: 'agent' }), accueilAFaire: async () => false, marquerAccueil: async () => {} },
     });
     const res = await server.inject({ method: 'GET', url: '/tenants/t1/me', ...h(agentTok) });
     expect(res.statusCode).toBe(200);
@@ -88,6 +90,51 @@ describe('route me', () => {
     const observation = app({ estExploitant: () => true });
     expect((await observation.inject({ method: 'GET', url: '/tenants/t1/me', ...h(observationTok) })).json()).not.toHaveProperty('exploitation');
     await observation.close();
+  });
+
+  describe('la fenêtre de bienvenue (plan 2026-11-19-accueil-pro)', () => {
+    it('`accueilAFaire: true` pour un compte qui n’a pas choisi, lu dans l’espace de la session ; rien sinon', async () => {
+      const lus: Array<[string, string]> = [];
+      const oui = app({ accueilAFaire: async (u, t) => { lus.push([u, t]); return true; } });
+      expect((await oui.inject({ method: 'GET', url: '/tenants/t1/me', ...h(agentTok) })).json()).toMatchObject({ accueilAFaire: true });
+      expect(lus).toEqual([['u1', 't1']]);
+      await oui.close();
+      // Le champ n'est posé que vrai : une réponse ordinaire garde sa forme d'avant.
+      const non = app({ accueilAFaire: async () => false });
+      expect((await non.inject({ method: 'GET', url: '/tenants/t1/me', ...h(agentTok) })).json()).not.toHaveProperty('accueilAFaire');
+      await non.close();
+    });
+
+    it('🔴 la session d’observation de /ops ne la voit jamais, et n’est pas lue en base', async () => {
+      const lus: string[] = [];
+      const server = app({ accueilAFaire: async (u) => { lus.push(u); return true; } });
+      expect((await server.inject({ method: 'GET', url: '/tenants/t1/me', ...h(observationTok) })).json()).not.toHaveProperty('accueilAFaire');
+      expect(lus).toEqual([]);
+      await server.close();
+    });
+
+    it('🔴 le marquage touche le compte de la SESSION dans son espace, jamais un compte nommé par la requête', async () => {
+      const marques: Array<[string, string]> = [];
+      const server = app({ marquerAccueil: async (u, t) => { marques.push([u, t]); } });
+      const res = await server.inject({ method: 'POST', url: '/tenants/t1/moi/accueil', payload: {}, ...h(agentTok) });
+      expect(res.statusCode).toBe(204);
+      expect(marques).toEqual([['u1', 't1']]);
+      // Un identifiant glissé dans le corps est refusé, rien n'est marqué.
+      const refus = await server.inject({ method: 'POST', url: '/tenants/t1/moi/accueil', payload: { userId: 'u2' }, ...h(agentTok) });
+      expect(refus.statusCode).toBe(400);
+      expect(marques).toHaveLength(1);
+      await server.close();
+    });
+
+    it('marquer : 401 sans session, 403 sur un autre espace, 403 pour la session d’observation (la garde refuse ses écritures)', async () => {
+      const marques: string[] = [];
+      const server = app({ marquerAccueil: async (u) => { marques.push(u); } });
+      expect((await server.inject({ method: 'POST', url: '/tenants/t1/moi/accueil', payload: {} })).statusCode).toBe(401);
+      expect((await server.inject({ method: 'POST', url: '/tenants/t1/moi/accueil', payload: {}, ...h(otherTenantTok) })).statusCode).toBe(403);
+      expect((await server.inject({ method: 'POST', url: '/tenants/t1/moi/accueil', payload: {}, ...h(observationTok) })).statusCode).toBe(403);
+      expect(marques).toEqual([]);
+      await server.close();
+    });
   });
 
   it('sans token -> 401', async () => {

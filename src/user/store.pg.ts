@@ -180,6 +180,26 @@ export class PgUserStore {
     return r ? { email: r.email, name: r.name, role: r.role } : null;
   }
 
+  /**
+   * La fenêtre de bienvenue est-elle encore à montrer à ce compte (`accueil_choisi_le` vide, migration 0303) ? Le compte
+   * est cherché DANS l'espace de la session : un identifiant d'un autre espace rend `false`, jamais l'état d'autrui.
+   */
+  async accueilAFaire(userId: string, tenantId: string): Promise<boolean> {
+    const res = await this.pool.query<{ a_faire: boolean }>(
+      `select accueil_choisi_le is null as a_faire from users where id = $1 and tenant_id = $2`,
+      [userId, tenantId],
+    );
+    return res.rows[0]?.a_faire === true;
+  }
+
+  /** Le compte a fait son choix dans la fenêtre de bienvenue. Idempotent : la première date est gardée. */
+  async marquerAccueil(userId: string, tenantId: string): Promise<void> {
+    await this.pool.query(
+      `update users set accueil_choisi_le = now() where id = $1 and tenant_id = $2 and accueil_choisi_le is null`,
+      [userId, tenantId],
+    );
+  }
+
   /** Nom d'un espace, pour personnaliser l'email d'invitation. null si inconnu. */
   async getTenantName(tenantId: string): Promise<string | null> {
     const res = await this.pool.query<{ name: string }>(`select name from tenants where id = $1`, [tenantId]);

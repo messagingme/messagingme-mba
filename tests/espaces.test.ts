@@ -64,7 +64,7 @@ function app(over: { lus?: string[]; connexions?: string[] } = {}) {
         return c ? { role: c.role, disabled: c.disabled, tenantStatus: c.tenantId === 't3' ? 'locked' : 'active', horsOffre: c.tenantId === 't5' ? { limite: 'utilisateurs' as const, max: 1 } : null, sessionsDepuis: null } : null;
       },
     },
-    me: { getById: async () => null },
+    me: { getById: async () => null, accueilAFaire: async () => false, marquerAccueil: async () => {} },
   });
 }
 

@@ -22,9 +22,15 @@ export interface MeResponse {
   role: string;
   /** L'adresse ouvre l'exploitation (`/ops`) : seulement le lien du menu, la garde est côté serveur. Absent = non. */
   exploitation?: true;
+  /** La fenêtre de bienvenue est encore à montrer à ce compte (plan 2026-11-19-accueil-pro). Absent = non. */
+  accueilAFaire?: true;
 }
 export function getMe(tenantId: string): Promise<MeResponse> {
   return request<MeResponse>(`/tenants/${tenantId}/me`);
+}
+/** Le compte a fait son choix dans la fenêtre de bienvenue : elle ne revient plus. */
+export async function marquerAccueil(tenantId: string): Promise<void> {
+  await request<void>(`/tenants/${tenantId}/moi/accueil`, { method: 'POST', body: JSON.stringify({}) });
 }
 
 // --- Changer d'espace sans se déconnecter (menu du compte) ---

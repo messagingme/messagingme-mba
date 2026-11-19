@@ -1,5 +1,6 @@
 'use client';
 
+import { VISITE_EVENT } from '@/lib/accueil-console';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useT, useLocale } from '@/lib/i18n';
@@ -197,6 +198,11 @@ export function BoutonAide({ tenantId, ecranCourant, role, dansEntete = false }:
               <Logo className="h-3.5 w-auto shrink-0" />
               {t('Aide', 'Help')}
             </span>
+            {/* La visite de la console (plan 2026-11-19-accueil-pro) : relançable par tout membre, à tout moment. */}
+            <button type="button" data-testid="aide-visite" className="ml-auto mr-3 text-xs font-medium text-brand-600 hover:underline"
+              onClick={() => { setOuvert(false); window.dispatchEvent(new Event(VISITE_EVENT)); }}>
+              {t('Faire le tour', 'Take the tour')}
+            </button>
             <button type="button" onClick={() => setOuvert(false)} className="text-ink-400 hover:text-ink-900" aria-label={t('Fermer', 'Close')}><Icone nom="fermer" taille="petite" /></button>
           </div>
 

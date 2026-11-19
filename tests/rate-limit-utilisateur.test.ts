@@ -261,6 +261,8 @@ describe('câblage dans buildServer', () => {
 
   const me: MeRouteDeps = {
     getById: async () => ({ email: 'julien@messagingme.fr', name: 'Julien Dumas', role: 'admin' }),
+    accueilAFaire: async () => false,
+    marquerAccueil: async () => {},
   };
 
   function serveur(plafonds: { utilisateurParMinute?: number; couteuxParMinute?: number }) {
