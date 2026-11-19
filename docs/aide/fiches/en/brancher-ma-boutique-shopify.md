@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice with tracking, abandoned checkout reminders.
 slug: connect-my-shopify-store
-traduit_de: 7c20ab
+traduit_de: 7fd28d
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -23,8 +23,8 @@ store, create the app manually (Create app manually) and paste the address and t
 in one click. Allow five minutes.
 
 Untick “Embed app in Shopify admin”, leave the rest as it is, then Create app and Release. Then install it on your
-store: the message “This app hasn’t been reviewed” is expected, it is your own app. Finally, in its Settings, copy its
-Client ID and its Client secret.
+store: the message “This app hasn’t been reviewed” is expected, it is your own app. Finally, open the app in Apps:
+its Client ID and its Client secret are in the Credentials box, on the right.
 
 **3. Connect the store.** Back in the card, paste the store name, the Client ID and the Client secret, then “Connect the
 store”. The card then shows your three messages, each with its status.

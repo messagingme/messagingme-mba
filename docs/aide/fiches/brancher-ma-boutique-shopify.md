@@ -29,8 +29,8 @@ votre boutique, créez l'app à la main (Create app manually) et collez l'adress
 copier d'un clic. Comptez cinq minutes.
 
 Décochez « Embed app in Shopify admin », laissez le reste tel quel, puis Create app et Release. Installez-la ensuite
-sur votre boutique : le message « This app hasn't been reviewed » est normal, c'est votre propre app. Dans ses
-Settings, copiez enfin son Client ID et son Client secret.
+sur votre boutique : le message « This app hasn't been reviewed » est normal, c'est votre propre app. Ouvrez enfin
+l'app dans Apps : son Client ID et son Client secret sont dans le cadre Credentials, à droite.
 
 **3. Brancher la boutique.** Revenez dans la carte, collez le nom de la boutique, le Client ID et le Client secret,
 puis « Brancher la boutique ». La carte montre alors vos trois messages, chacun avec son état.
