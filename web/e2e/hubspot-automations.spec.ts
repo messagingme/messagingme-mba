@@ -96,9 +96,11 @@ test.describe('Automation > HubSpot : les automations que HubSpot lance (menu «
     await expect(page.getByTestId('automations-hubspot')).toHaveCount(0);
   });
 
-  test('🔴 l’API sans la route (pas encore déployée, 404 du routeur) : la page dit l’échec de la lecture, sans ligne', async ({ page }) => {
+  test('🔴 l’API sans la route (pas encore déployée, 404 du routeur) : la page n’affiche que son titre, ni échec ni ligne', async ({ page }) => {
     await monter(page, { etat: 'absente' });
-    await expect(page.getByTestId('automations-hubspot-panne')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Automations HubSpot' })).toBeVisible();
+    await expect(page.getByTestId('automations-hubspot-panne')).toHaveCount(0);
+    await expect(page.getByTestId('automations-hubspot-sans-portail')).toHaveCount(0);
     await expect(page.getByTestId('automations-hubspot')).toHaveCount(0);
   });
 

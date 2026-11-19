@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  SEL_DEFAUT, appliquerIndices, indicesDuTemplate, lignesAvecIndices, lignesParDefaut,
+  SEL_DEFAUT, appliquerIndices, lignesAvecIndices, lignesParDefaut,
   problemeDAssociation, selForSource, selToSource, versParamMapping,
 } from './variables-template';
 import type { UserFieldDef } from './api';
@@ -73,22 +73,6 @@ describe('la donnée d’un événement', () => {
     const lignes = appliquerIndices(lignesParDefaut(2), [{ position: 2, source: { type: 'variable', key: 'checkout_url' } }], PERSO);
     expect(lignes).toEqual([{ sel: SEL_DEFAUT, value: '' }, { sel: 'var:checkout_url', value: '' }]);
     expect(versParamMapping(lignes)[1]).toEqual({ position: 2, source: { type: 'variable', key: 'checkout_url' } });
-  });
-
-  /**
-   * 🔴 « MODIFIER CE TEMPLATE » SUR UN BLOC À DONNÉES SHOPIFY REFUSAIT EN 400 (relecture de 5c) : le formulaire reprend les
-   * choix du bloc et les envoyait en indices du template, que le serveur refuse pour ce type. La donnée reste sur le bloc,
-   * les autres sources partent.
-   */
-  it('🔴 ne part jamais dans les indices d’un template, les autres sources si', () => {
-    expect(indicesDuTemplate([
-      { position: 1, source: { type: 'variable', key: 'first_name' } },
-      { position: 2, source: { type: 'attribute', key: 'name' } },
-      { position: 3, source: { type: 'literal', value: 'Paris' } },
-    ])).toEqual([
-      { position: 2, source: { type: 'attribute', key: 'name' } },
-      { position: 3, source: { type: 'literal', value: 'Paris' } },
-    ]);
   });
 });
 

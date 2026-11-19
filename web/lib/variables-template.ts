@@ -122,15 +122,6 @@ export function versParamMapping(vars: readonly VarRow[]): TemplateParam[] {
 }
 
 /**
- * LES INDICES QUI PARTENT AVEC UN TEMPLATE : jamais une donnée d'événement (`variable`). Elle vit sur le BLOC qui envoie
- * le template, et le serveur la refuse dans les indices d'un template (400 au « Modifier ce template » d'un bloc à
- * données Shopify, relecture de 5c). Les autres sources partent telles quelles.
- */
-export function indicesDuTemplate<T extends { source: { type: string } }>(indices: readonly T[]): T[] {
-  return indices.filter((h) => h.source.type !== 'variable');
-}
-
-/**
  * CE QUE L'APERÇU MET À LA PLACE DE CHAQUE `{{n}}`.
  *
  * 🔴 ELLE VIENT DE L'ANCIEN FORMULAIRE, OÙ ELLE ÉTAIT UN `map` ANONYME, et elle est montée ici pour la

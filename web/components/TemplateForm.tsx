@@ -25,7 +25,6 @@ import { Field } from '@/components/Field';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { ChoixMediatheque } from '@/components/ChoixMediatheque';
-import { indicesDuTemplate } from '@/lib/variables-template';
 
 /**
  * Formulaire de creation (et d'edition) d'un template Meta.
@@ -287,8 +286,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
       }
       const canonBody = canon.body;
       const example = canon.example;
-      // Une donnée d'événement reprise d'un bloc (Shopify) reste sur le bloc : le serveur la refuse en indice (400).
-      const paramHints: TemplateParamHint[] = indicesDuTemplate(canon.paramHints);
+      const paramHints: TemplateParamHint[] = canon.paramHints;
       const header = buildHeader();
       const foot = footer.trim() || undefined;
       // 🔴 Le défaut n'envoie rien : un modèle dont on ne touche pas la durée part comme avant. Seule exception, l'édition

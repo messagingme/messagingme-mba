@@ -87,14 +87,14 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
   const router = useRouter();
   const confirmer = useConfirmation();
   /** `lecture` jusqu'à la première réponse ; `panne` si elle échoue ou ne se lit pas (une API sans la route comprise). */
-  const [vue, setVue] = useState<EtatLignesHubspot | 'lecture' | 'panne'>('lecture');
+  const [vue, setVue] = useState<EtatLignesHubspot | 'lecture' | 'panne' | 'absente'>('lecture');
   const [occupe, setOccupe] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   /** La famille dont le formulaire « Ajouter » est ouvert. */
   const [ajout, setAjout] = useState<FamilleHubspot | null>(null);
 
   // Sa page (menu « Scénario », lot 7) dit chaque état, comme celle de Shopify : la lecture, la panne, le portail absent.
-  const recharger = useCallback(() => lireLignesHubspot(tenantId).then((v) => setVue(v ?? 'panne')).catch(() => setVue('panne')), [tenantId]);
+  const recharger = useCallback(() => lireLignesHubspot(tenantId).then((v) => setVue(v ?? 'panne')).catch((err: unknown) => setVue(routeInconnue(err) ? 'absente' : 'panne')), [tenantId]);
   useEffect(() => { void recharger(); }, [recharger]);
 
   const lue = typeof vue === 'object' ? vue : null;
@@ -130,6 +130,8 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
   }, [besoinEtapes, tenantId]);
 
   if (vue === 'lecture') return <Squelette forme="lignes" />;
+  // L'API d'avant le lot 6b n'a pas la route : rien plutôt qu'un échec, la console part avant l'API (un 404 du routeur).
+  if (vue === 'absente') return null;
   if (vue === 'panne') {
     return (
       <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700" data-testid="automations-hubspot-panne">
