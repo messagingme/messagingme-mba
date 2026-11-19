@@ -296,84 +296,16 @@ export class PgShopifyStore {
     }));
   }
 
-  async message(tenantId: string, evenement: EvenementShopify): Promise<MessageBranche | null> {
-    return (await this.messages(tenantId)).find((m) => m.evenement === evenement) ?? null;
-  }
-
   /**
-   * Brancher REMPLACE le message de l'événement : jamais deux envois pour un même événement. Un modèle OU un texte : la
-   * contrainte de la migration 0252 refuse les deux, et aucun des deux.
+   * Les attentes de l'ancien assistant (lot 5) : la bascule 0302 les a vidées, et plus rien ne les écrit. La lecture reste
+   * pour le ménage de ses modèles (`traiterOubli`), qui garde un modèle encore attendu.
    */
-  async brancher(tenantId: string, m: {
-    evenement: EvenementShopify; modele: string | null; texte: string | null; langue: string; variables: DonneeShopify[]; actif: boolean; par: string | null;
-  }): Promise<void> {
-    await this.pool.query(
-      `insert into shopify_messages (tenant_id, evenement, modele, texte, langue, variables, actif, modifie_par, modifie_le)
-       values ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, now())
-       on conflict (tenant_id, evenement) do update set
-         modele = excluded.modele, texte = excluded.texte, langue = excluded.langue, variables = excluded.variables,
-         actif = excluded.actif, modifie_par = excluded.modifie_par, modifie_le = now()`,
-      [tenantId, m.evenement, m.modele, m.texte, m.langue, JSON.stringify(m.variables), m.actif, m.par],
-    );
-  }
-
-  /** Une nouvelle préparation REMPLACE l'attente de l'événement ; le message actif n'est pas touché. */
-  async poserAttente(tenantId: string, a: Omit<AttenteMessage, 'creeLe'> & { par: string | null }): Promise<void> {
-    await this.pool.query(
-      `insert into shopify_messages_attente (tenant_id, evenement, modele, langue, variables, delai_panier_minutes, par, cree_le)
-       values ($1, $2, $3, $4, $5::jsonb, $6, $7, now())
-       on conflict (tenant_id, evenement) do update set
-         modele = excluded.modele, langue = excluded.langue, variables = excluded.variables,
-         delai_panier_minutes = excluded.delai_panier_minutes, par = excluded.par, cree_le = now()`,
-      [tenantId, a.evenement, a.modele, a.langue, JSON.stringify(a.variables), a.delaiMinutes, a.par],
-    );
-  }
-
   async attentes(tenantId: string): Promise<AttenteMessage[]> {
     const res = await this.pool.query<LigneAttente>(
       `select evenement, modele, langue, variables, delai_panier_minutes, cree_le from shopify_messages_attente where tenant_id = $1 order by evenement`,
       [tenantId],
     );
     return res.rows.map(versAttente);
-  }
-
-  /** L'attente qui porte ce modèle et cette langue, sans la retirer : l'activation branche d'abord, retire ensuite. */
-  async attenteDuModele(tenantId: string, modele: string, langue: string): Promise<AttenteMessage | null> {
-    const res = await this.pool.query<LigneAttente>(
-      `select evenement, modele, langue, variables, delai_panier_minutes, cree_le from shopify_messages_attente
-        where tenant_id = $1 and modele = $2 and langue = $3`,
-      [tenantId, modele, langue],
-    );
-    return res.rows[0] ? versAttente(res.rows[0]) : null;
-  }
-
-  /** Rend l'attente retirée (celle de l'événement, ou celle qui porte ce modèle et cette langue), ou `null`. */
-  async retirerAttente(tenantId: string, cible: { evenement: EvenementShopify } | { modele: string; langue: string }): Promise<AttenteMessage | null> {
-    const res = 'evenement' in cible
-      ? await this.pool.query<LigneAttente>(
-        `delete from shopify_messages_attente where tenant_id = $1 and evenement = $2
-          returning evenement, modele, langue, variables, delai_panier_minutes, cree_le`, [tenantId, cible.evenement],
-      )
-      : await this.pool.query<LigneAttente>(
-        `delete from shopify_messages_attente where tenant_id = $1 and modele = $2 and langue = $3
-          returning evenement, modele, langue, variables, delai_panier_minutes, cree_le`, [tenantId, cible.modele, cible.langue],
-      );
-    return res.rows[0] ? versAttente(res.rows[0]) : null;
-  }
-
-  /**
-   * EXCEPTION TRANSVERSE 6 : le filet de l'activation, toutes boutiques confondues. Les attentes de plus de `minutes`
-   * minutes, tirées au hasard : leur modèle est relu chez Meta, au cas où son statut ne serait pas arrivé. Au hasard et
-   * non les plus anciennes d'abord (relecture des lots 0 et 1) : vingt attentes dont le statut reste illisible
-   * bloqueraient sinon toutes les autres.
-   */
-  async attentesAnciennes(minutes: number, limite: number): Promise<Array<AttenteMessage & { tenantId: string }>> {
-    const res = await this.pool.query<LigneAttente & { tenant_id: string }>(
-      `select tenant_id, evenement, modele, langue, variables, delai_panier_minutes, cree_le from shopify_messages_attente
-        where cree_le < now() - make_interval(mins => $1) order by random() limit $2`,
-      [minutes, limite],
-    );
-    return res.rows.map((r) => ({ ...versAttente(r), tenantId: r.tenant_id }));
   }
 
   async reglerDelaiPanier(tenantId: string, minutes: number): Promise<void> {

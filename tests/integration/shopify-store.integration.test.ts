@@ -49,7 +49,8 @@ describe.skipIf(!url)('le store Shopify', () => {
 
   it('🔴 une boutique connectée ailleurs est refusée ; coupée, elle se reprend et l’autre espace perd son branchement', async () => {
     expect(await store.connecter(B, connexion())).toBe('boutique_ailleurs');
-    await store.brancher(A, { evenement: 'order_paid', modele: 'm', texte: null, langue: 'fr', variables: [], actif: true, par: null });
+    // Un message de l'ancien assistant, posé directement : plus rien ne l'écrit depuis le lot 5, la reprise l'efface encore.
+    await pool.query(`insert into shopify_messages (tenant_id, evenement, modele, langue, variables, actif) values ($1, 'order_paid', 'm', 'fr', '[]'::jsonb, true)`, [A]);
     expect(await store.couper(A, 'test')).toBe(true);
     expect(await store.couper(A, 'test')).toBe(false);
     expect(await store.boutiqueParDomaine(domaine)).toMatchObject({ tenantId: A, etat: 'coupee', secret: 'shpss_itest' });
@@ -57,13 +58,6 @@ describe.skipIf(!url)('le store Shopify', () => {
     expect(await store.lire(A)).toBeNull();
     expect(await store.messages(A)).toEqual([]);
     expect(await store.boutiqueParDomaine(domaine)).toMatchObject({ tenantId: B, etat: 'connectee' });
-  });
-
-  it('brancher remplace le message de l’événement', async () => {
-    await store.brancher(B, { evenement: 'order_paid', modele: 'a', texte: null, langue: 'fr', variables: ['first_name'], actif: true, par: null });
-    await store.brancher(B, { evenement: 'order_paid', modele: 'b', texte: null, langue: 'fr', variables: ['order_number'], actif: false, par: null });
-    const m = await store.messages(B);
-    expect(m.map((x) => [x.evenement, x.modele, x.variables, x.actif])).toEqual([['order_paid', 'b', ['order_number'], false]]);
   });
 
   it('🔴 une connexion efface encore les colonnes de l’ancienne affirmation : l’image d’avant, qui les lit, reste un retour arrière sûr', async () => {
@@ -269,26 +263,13 @@ describe.skipIf(!url)('le store Shopify : la console (origine, attentes, migrati
     expect((await store.boutiqueParDomaine(domaine))?.origine).toBe('console');
   });
 
-  it('🔴 une attente par événement : la nouvelle remplace, le retrait par modèle la rend, le message actif n’est pas touché', async () => {
-    await store.brancher(D, { evenement: 'checkout_abandoned', modele: 'ancien', texte: null, langue: 'fr', variables: ['checkout_url'], actif: true, par: null });
-    await store.poserAttente(D, { evenement: 'checkout_abandoned', modele: 'shopify_a', langue: 'fr', variables: ['first_name'], delaiMinutes: 15, par: null });
-    await store.poserAttente(D, { evenement: 'checkout_abandoned', modele: 'shopify_b', langue: 'fr', variables: ['first_name', 'checkout_url'], delaiMinutes: 30, par: null });
-    expect((await store.attentes(D)).map((a) => [a.modele, a.delaiMinutes, a.variables])).toEqual([['shopify_b', 30, ['first_name', 'checkout_url']]]);
-    expect((await store.message(D, 'checkout_abandoned'))?.modele).toBe('ancien');
-    // L'activation lit l'attente sans la retirer : elle branche d'abord, retire ensuite.
-    expect(await store.attenteDuModele(D, 'shopify_b', 'fr')).toMatchObject({ evenement: 'checkout_abandoned', delaiMinutes: 30 });
-    expect(await store.attenteDuModele(D, 'shopify_b', 'en')).toBeNull();
-    expect(await store.attentes(D)).toHaveLength(1);
-    expect(await store.retirerAttente(D, { modele: 'shopify_a', langue: 'fr' })).toBeNull();
-    expect(await store.retirerAttente(D, { modele: 'shopify_b', langue: 'fr' })).toMatchObject({ evenement: 'checkout_abandoned', modele: 'shopify_b' });
-    expect(await store.attentes(D)).toEqual([]);
-  });
-
-  it('le filet ne voit que les attentes anciennes ; l’effacement du branchement les emporte', async () => {
-    await store.poserAttente(D, { evenement: 'order_paid', modele: 'shopify_c', langue: 'fr', variables: [], delaiMinutes: null, par: null });
-    expect((await store.attentesAnciennes(10, 50)).filter((a) => a.tenantId === D)).toEqual([]);
-    await pool.query(`update shopify_messages_attente set cree_le = now() - interval '20 minutes' where tenant_id = $1`, [D]);
-    expect((await store.attentesAnciennes(10, 50)).filter((a) => a.tenantId === D).map((a) => a.modele)).toEqual(['shopify_c']);
+  it('l’effacement du branchement emporte les attentes de l’ancien assistant', async () => {
+    // Plus rien ne pose d'attente depuis le lot 5 (bascule 0302) : celle-ci est posée directement.
+    await pool.query(
+      `insert into shopify_messages_attente (tenant_id, evenement, modele, langue, variables, delai_panier_minutes, cree_le) values ($1, 'order_paid', 'shopify_c', 'fr', '[]'::jsonb, null, now())`,
+      [D],
+    );
+    expect((await store.attentes(D)).map((a) => a.modele)).toEqual(['shopify_c']);
     await store.effacerBoutique(D);
     expect(await store.attentes(D)).toEqual([]);
     expect(await store.lire(D)).toBeNull();
@@ -313,36 +294,6 @@ describe.skipIf(!url)('le store Shopify : la console (origine, attentes, migrati
     await store.compterRelance(D, new Date('2026-10-27T23:30:00Z'));
     const r = (await pool.query(`select to_char(jour, 'YYYY-MM-DD') as jour, n from relances_panier_jour where tenant_id = $1 order by jour`, [D])).rows;
     expect(r).toEqual([{ jour: '2026-10-27', n: 2 }, { jour: '2026-10-28', n: 1 }]);
-  });
-});
-
-/**
- * LE TEXTE D'UN NUMÉRO RELIÉ PAR QR CODE (migration 0251, plan 2026-10-23, tâche 5) : brancher un texte vide le modèle (la
- * contrainte « l'un ou l'autre »). La relance en texte est partie avec le lot 5 (les lignes Shopify envoient un template).
- */
-describe.skipIf(!url)('le store Shopify : le texte d’un numéro relié par QR code (migration 0251)', () => {
-  let pool: Pool;
-  let store: PgShopifyStore;
-  let E = '';
-
-  beforeAll(async () => {
-    pool = new Pool({ connectionString: url, ssl: pgSsl() });
-    store = new PgShopifyStore(pool, CLE);
-    E = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-shopify-texte-e') returning id`)).rows[0]!.id;
-    await store.connecter(E, { domaine: `itest-t-${randomUUID().slice(0, 8)}.myshopify.com`, clientId: 'cid', secretClair: 'shpss_itest', nom: null, pays: 'FR', devise: 'EUR', par: null, origine: 'claude_code' });
-  });
-
-  afterAll(async () => {
-    await pool.query('delete from tenants where id = $1', [E]);
-    await pool.end();
-  });
-
-  it('brancher un texte vide le modèle, et rebrancher un modèle vide le texte', async () => {
-    await store.brancher(E, { evenement: 'order_paid', modele: 'commande_payee', texte: null, langue: 'fr', variables: ['first_name'], actif: true, par: null });
-    await store.brancher(E, { evenement: 'order_paid', modele: null, texte: 'Merci {{first_name}} pour {{order_number}}', langue: 'fr', variables: ['first_name', 'order_number'], actif: true, par: null });
-    expect(await store.message(E, 'order_paid')).toMatchObject({ modele: null, texte: 'Merci {{first_name}} pour {{order_number}}', variables: ['first_name', 'order_number'], actif: true });
-    await store.brancher(E, { evenement: 'order_paid', modele: 'commande_payee', texte: null, langue: 'fr', variables: [], actif: false, par: null });
-    expect(await store.message(E, 'order_paid')).toMatchObject({ modele: 'commande_payee', texte: null, actif: false });
   });
 });
 
