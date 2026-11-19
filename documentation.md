@@ -4155,6 +4155,14 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   exigé (`facteurExigeSql`), et rendu par `/me`, d'où la console met sa session à jour. Le rôle enregistré ne bouge pas :
   il reprend effet en Business ; changer un rôle en Pro est refusé (409 `roles_en_business`), et une invitation en Pro
   enregistre un administrateur.
+- **La fenêtre de bienvenue d'un nouveau membre** : `users.accueil_choisi_le` (migration 0303), PAR COMPTE d'un espace,
+  vide tant que la personne n'a pas choisi (le tour, un raccourci, « Ne plus afficher »). `/me` rend `accueilAFaire`,
+  posé seulement vrai et jamais pour la session d'observation ; `POST /tenants/:tenantId/moi/accueil` (corps vide,
+  strict) le remplit pour le compte de la SESSION, filtré par `tenant_id` (`accueilAFaire`, `marquerAccueil`,
+  `src/user/store.pg.ts`). La coquille monte `AccueilBienvenue` (Modale) hors Free, et `VisiteConsole` sur l'événement
+  `VISITE_EVENT` (`web/lib/accueil-console.ts`) ; la visite s'ancre sur l'attribut `data-nav` des entrées du menu
+  (`AppShell`) : renommer une clé de `lib/nav.ts` fait sauter son étape en silence. Les comptes antérieurs à 0303 sont
+  marqués, sauf les invitations alors en attente.
 - **Le widget personnalisable** (`widget_personnalise`, Business et Entreprise) : hors offre, une apparence nouvelle
   (couleur, position, libellé, avatar) est refusée en 402, une valeur standard ou déjà enregistrée passe sans rien changer
   (`src/widgets/gestion.ts`), et le script public sert l'apparence standard (`APPARENCE_STANDARD`,

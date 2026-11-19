@@ -4,6 +4,31 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-19 : l'aide des connecteurs API et de l'agent IA, et la fenêtre de bienvenue d'un nouveau membre (en production)
+
+**Les fiches d'aide.** Julien constatait qu'aucune fiche n'expliquait Tools > Connecteurs API, que cinq fiches citaient :
+« Brancher un connecteur API » (`83cd0b366`), six gestes captures dans les deux langues. Puis, à sa demande (« gavé de
+copies d'écran, faut tout détailler »), l'agent IA en cinq fiches (`2c5983cd9`) : l'entrée (l'assistant ou les onglets,
+et quand prendre chacun), la base de connaissance, les outils (une étape par type), le test et l'historique, le modèle,
+le crédit et les garde-fous ; 42 captures par langue, écrites par un agent puis relues. Deux trouvailles : l'assistant
+« Construire en parlant » n'est ouvert qu'en Business (`assistants`, `FONCTIONS_BUSINESS`), ce que les fiches disent ;
+et un pair a changé le diff de l'assistant (« Garder » / « Jeter », `c90e16b0b`) pendant la rédaction, d'où l'étape 5
+réécrite et ses captures refaites sur la console à jour avant le push.
+
+**L'incident.** Les deux lots portaient des `.capture.ts` sous `web/`, donc la CI front (environ 16 minutes) à chaque
+push, pendant laquelle les autres sessions ne poussent pas. Julien : « tu bloques tout le monde avec ta CI ». La run du
+second lot a été annulée (44591134107) : ces fichiers ne sont joués par aucun job, leur typage se vérifie en local.
+
+**La fenêtre de bienvenue** (`0774922a3`, spec et plan `2026-11-19-accueil-pro`, méthode en direct). Cadrée en une ronde
+de questions : une fenêtre sur l'Accueil, « Faire le tour » (visite par bulles) ou quatre raccourcis, qui revient jusqu'à
+un choix, pour tout nouveau membre, jamais pour un compte existant. Relecture indépendante sans rouge ; ses jaunes sur la
+fonction corrigés avant le push (aucun raccourci pour un non-administrateur, que la coquille aurait renvoyé à l'Inbox ;
+les invitations en attente non marquées par la migration ; une bulle dont l'élément disparaît termine la visite).
+Déployée avec `migration=avant` sur `b048971ca` (run 44601536290). 0303 relue en base : colonne `timestamptz` nullable
+sans défaut, 43 comptes dont 3 à faire, tous des invitations en attente. Le vrai store sondé en lecture seule dans
+`mba-worker` : bon état dans l'espace, `false` depuis un autre. `aide:charger` sur l'image en service : 341 lignes,
+0 retirée, les sept fiches de la journée présentes. Reste l'essai réel (registre privé, 282).
+
 ## 2026-11-19 : captures au survol pour brancher Shopify, et la fiche juste sur les clés (en production)
 
 **Le besoin**, de Julien, avec trois captures de dev.shopify.com : montrer, au survol des étapes de la carte Shopify
