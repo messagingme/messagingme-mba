@@ -2,7 +2,7 @@
 
 import { ValidationConnexion, VALIDATION_BOUTON } from '@/components/ValidationConnexion';
 import { AideErreurMeta } from '@/components/AideErreurMeta';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useReducer, useRef, useState, type ReactNode } from 'react';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { useT } from '@/lib/i18n';
@@ -14,16 +14,20 @@ import { ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '@/lib/partage/etapes
 import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { AIDE_NUMERO_FOURNI } from '@/lib/partage/aide-connexion';
+import {
+  prixDuNumero, type DestinationNumeroFourni, type FiliereNumero, type ModeNumero,
+} from '@/lib/partage/parcours-numero';
+import {
+  QUESTIONS_NUMERO_INITIALES, repondreAuxQuestionsNumero, reponsesDesQuestionsNumero,
+  type VarianteDeploiementNumero,
+} from '@/lib/parcours-numero';
 import { QrApplication } from '@/components/QrApplication';
 import {
   BULLE_WHATSAPP_BUSINESS, DEPLOIEMENT_SECOND, ETAPES_A_VENIR, ISSUE_API, ISSUE_FOURNI, ISSUE_FOURNI_APPLICATION, ISSUE_INSTALLER, LOGO_WHATSAPP_BUSINESS, PRIX_NUMERO_FOURNI,
   MAGASINS_APPLICATION, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, NOTE_INSTALLER_APPLICATION, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, QUESTION_APPLICATION,
   QUESTION_COMPTE, QUESTION_DEPLOIEMENT, QUESTION_FOURNIR, QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_NUMERO_APPLICATION, SUITE_FOURNI_APPLICATION,
-  WHATSAPP_ORDINAIRE, type ReponseCompte,
+  WHATSAPP_ORDINAIRE,
 } from '@/lib/questions-numero';
-
-/** Les choix du parcours : le mode du lien de Claude Code, ou celui que les questions de la console ont fait. */
-type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
 
 /**
  * « Avant de commencer, chez Meta » : les conditions d'une fenêtre de Meta, numérotées. Le parcours le pose avant ses
@@ -92,18 +96,18 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
    * `application` : la filière de l'application WhatsApp Business (2026-10-22), ouverte par le lien de Claude Code. Le
    * numéro se relie par un QR code scanné depuis le téléphone, à la place de la fenêtre de Meta. Absente : l'API.
    */
-  filiere?: 'api' | 'application';
+  filiere?: FiliereNumero;
   /** Où Stripe renvoie après le paiement : cette page-ci (`/brancher` ou `/connecter-whatsapp`). */
   retour: 'brancher' | 'console';
   /** Le choix déjà fait (le mode du lien de Claude Code), ou `null` pour poser d'abord les questions du tunnel. */
-  choixInitial: Choix | null;
+  choixInitial: ModeNumero | null;
   /** Le numéro est connecté : la lecture du code s'arrête. */
   connecte: boolean;
   /** La fenêtre de Meta a relié le compte : ses avertissements, à afficher par la page. */
   surConnexion(avertissements: string[]): void;
 }) {
   const t = useT();
-  const [choix, setChoix] = useState<Choix | null>(choixInitial);
+  const [choix, setChoix] = useState<ModeNumero | null>(choixInitial);
   const [numero, setNumero] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
   /** L'application WhatsApp a appelé le numéro fourni, hors de la voie de l'application (2026-11-17). */
@@ -125,25 +129,14 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const [essaiPro, setEssaiPro] = useState(false);
   /** Filière application, numéro fourni : le QR code s'affiche une fois le compte créé dans l'application. */
   const [qrDemande, setQrDemande] = useState(false);
-  /** La réponse à « Avez-vous un compte Meta Business ? » : gardée quand « Retour » ramène aux questions. */
-  const [compte, setCompte] = useState<ReponseCompte | null>(null);
-  /** La réponse à « Avez-vous déjà l'application WhatsApp Business ? ». */
-  const [appli, setAppli] = useState<'oui' | 'non' | null>(null);
-  /** La réponse à « Avez-vous déjà un numéro que vous pourriez utiliser ? » (après le choix de l'API, lot 4 du 2026-11-17). */
-  const [numeroPerso, setNumeroPerso] = useState<'oui' | 'non' | null>(null);
-  /** La réponse à « Avez-vous déjà un numéro qui fonctionne sur cette application ? » (après « Oui », lot 3 du 2026-11-17). */
-  const [numeroAppli, setNumeroAppli] = useState<'oui' | 'non' | null>(null);
-  /** La réponse à « Voulez-vous utiliser ce numéro-là ? » (après « Oui » au numéro de l'application, le cas 4, lot 3a). */
-  const [memeNumero, setMemeNumero] = useState<'oui' | 'non' | null>(null);
-  /** La réponse à « Comment voulez-vous utiliser WhatsApp ? » (lot 4 du 2026-11-17), une seule ouverte à la fois. */
-  const [deploiement, setDeploiement] = useState<'application' | 'api' | null>(null);
-  /** La réponse à « Souhaitez-vous qu'on vous fournisse un numéro ? » (lot 3 du 2026-11-17). */
-  const [fournir, setFournir] = useState<'oui' | 'non' | null>(null);
-  const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); setNumeroAppli(null); setMemeNumero(null); setDeploiement(null); setFournir(null); setNumeroPerso(null); };
-  const repondreAppli = (r: 'oui' | 'non') => { setAppli(r); setNumeroAppli(null); setMemeNumero(null); setDeploiement(null); setFournir(null); setNumeroPerso(null); };
-  const repondreNumeroAppli = (r: 'oui' | 'non') => { setNumeroAppli(r); setMemeNumero(null); setDeploiement(null); setFournir(null); setNumeroPerso(null); };
-  const repondreMemeNumero = (r: 'oui' | 'non') => { setMemeNumero(r); setDeploiement(null); setFournir(null); setNumeroPerso(null); };
-  const repondreDeploiement = (r: 'application' | 'api') => { setDeploiement(r); setFournir(null); setNumeroPerso(null); };
+  /**
+   * Le questionnaire est un seul état valide. Le réducteur possède l'ordre des questions et retire toute ancienne
+   * descendance quand une réponse parente change ; le rendu ne remet plus sept états indépendants à zéro.
+   */
+  const [questions, repondre] = useReducer(repondreAuxQuestionsNumero, QUESTIONS_NUMERO_INITIALES);
+  const {
+    compte, application: appli, numeroApplication: numeroAppli, memeNumero, deploiement, fournir, numero: numeroPerso,
+  } = reponsesDesQuestionsNumero(questions);
   /**
    * Chaque nouvelle question vient à l'écran (Julien, 2026-11-17, lot 4 : « on est obligé de scroller à la main ») : le
    * dernier élément de l'arbre, après chaque réponse, sans animation pour qui la refuse. Rien au chargement.
@@ -161,7 +154,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
    * Retient la voie chez le serveur (lot 3 du 2026-11-17) : le code de l'application ne se montre que sur la voie de
    * l'application (la garde du lot 1). La session de la console seule : le lien de Claude arrive avec sa voie retenue.
    */
-  const retenir = (destination: 'api' | 'application'): Promise<unknown> => Promise.resolve(api.retenirDestination?.(destination));
+  const retenir = (destination: DestinationNumeroFourni): Promise<unknown> => Promise.resolve(api.retenirDestination?.(destination));
   /**
    * Ouvre le numéro fourni par la fenêtre de Meta, et le garde pour le retour de Stripe et le rechargement
    * (`varianteGardee`). Sans attendre la voie : sur la fenêtre de Meta, un échec ne cache aucun code.
@@ -379,7 +372,9 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
    * la même suite que « Fournissez-moi un numéro » du numéro API. `gardeLApplication` : comme chaque voie qui garde
    * l'application, la carte dit qu'on y paie Meta avec sa carte (`NOTE_CARTE_APPLICATION`).
    */
-  const prixNumero = inclus ? PRIX_NUMERO_FOURNI.inclus : essaiPro ? PRIX_NUMERO_FOURNI.pro : PRIX_NUMERO_FOURNI.free;
+  const prix = prixDuNumero({ inclusDansLePro: inclus, essaiPro });
+  const prixNumero = prix === 'inclus' ? PRIX_NUMERO_FOURNI.inclus
+    : prix === 'essai' ? PRIX_NUMERO_FOURNI.pro : PRIX_NUMERO_FOURNI.free;
   const carteNumeroDeChezNous = (testid: string, issue: { titre: Texte; texte: Texte; suite?: Texte }, testidBouton: string, choisir: () => void, gardeLApplication = false) => (
     <div data-testid={testid} className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
       <div className="text-base font-semibold text-ink-900">{t(issue.titre.fr, issue.titre.en)}</div>
@@ -406,9 +401,9 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
           <button type="button" data-testid="choix-fourni" onClick={choisirFourni} className="rounded-carte border border-ink-200 bg-white p-5 text-left hover:border-ink-400">
             <div className="text-base font-semibold text-ink-900">{t('Fournissez-moi un numéro', 'Provide me a number')}</div>
             <p className="mt-1 text-xs text-ink-500">
-              {inclus
+              {prix === 'inclus'
                 ? t('Un numéro dédié, prêt pour WhatsApp. Inclus dans votre offre.', 'A dedicated number, ready for WhatsApp. Included in your plan.')
-                : essaiPro
+                : prix === 'essai'
                 ? t(ESSAI_PRO_CARTE.fr, ESSAI_PRO_CARTE.en)
                 : t('Un numéro dédié, prêt pour WhatsApp : 3,50 € HT par mois.', 'A dedicated number, ready for WhatsApp: €3.50 excl. VAT per month.')}
             </p>
@@ -433,9 +428,13 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
    * l'application, pour un autre numéro que le sien. L'application mène à « Souhaitez-vous qu'on vous fournisse un
    * numéro ? », l'API à « Avez-vous déjà un numéro que vous pourriez utiliser ? », dont « Oui » ne propose que le sien.
    */
-  const suiteDeploiement = (variante: VarianteDeploiement) => (
+  const suiteDeploiement = (variante: VarianteDeploiementNumero) => (
     <>
-      <QuestionDeploiement variante={variante} choisie={deploiement} choisir={repondreDeploiement} />
+      <QuestionDeploiement
+        variante={variante}
+        choisie={deploiement}
+        choisir={(r) => repondre({ question: 'deploiement', reponse: r })}
+      />
       {deploiement === 'application' && variante === 'sans' && (
         <div data-testid="note-installer-application" className="text-sm text-ink-700">
           <p>{t(NOTE_INSTALLER_APPLICATION.fr, NOTE_INSTALLER_APPLICATION.en)}</p>
@@ -448,7 +447,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
           texte={QUESTION_FOURNIR.texte}
           precision={QUESTION_FOURNIR.precision}
           choisie={fournir}
-          reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_FOURNIR[r], choisir: () => setFournir(r) }))}
+          reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_FOURNIR[r], choisir: () => repondre({ question: 'fournir', reponse: r }) }))}
         />
       )}
       {deploiement === 'application' && fournir === 'oui'
@@ -469,7 +468,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
           texte={QUESTION_NUMERO.texte}
           precision={QUESTION_NUMERO.precision}
           choisie={numeroPerso}
-          reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_NUMERO[r], choisir: () => setNumeroPerso(r) }))}
+          reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_NUMERO[r], choisir: () => repondre({ question: 'numero', reponse: r }) }))}
         />
       )}
       {deploiement === 'api' && numeroPerso === 'oui' && issueApi(true)}
@@ -500,7 +499,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
             texte={QUESTION_COMPTE.texte}
             precision={QUESTION_COMPTE.precision}
             choisie={compte}
-            reponses={(['oui', 'non', 'nsp'] as const).map((r) => ({ cle: r, libelle: QUESTION_COMPTE[r], choisir: () => repondreCompte(r) }))}
+            reponses={(['oui', 'non', 'nsp'] as const).map((r) => ({ cle: r, libelle: QUESTION_COMPTE[r], choisir: () => repondre({ question: 'compte', reponse: r }) }))}
           />
           {compte === 'non' && <p data-testid="note-compte" className="text-sm text-ink-700">{t(QUESTION_COMPTE.noteNon.fr, QUESTION_COMPTE.noteNon.en)}</p>}
           {compte === 'nsp' && (
@@ -517,7 +516,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                 texte={QUESTION_APPLICATION.texte}
                 precision={QUESTION_APPLICATION.precision}
                 choisie={appli}
-                reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_APPLICATION[r], choisir: () => repondreAppli(r) }))}
+                reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_APPLICATION[r], choisir: () => repondre({ question: 'application', reponse: r }) }))}
                 bulle={{
                   terme: BULLE_WHATSAPP_BUSINESS.terme,
                   testid: 'bulle-whatsapp-business',
@@ -544,7 +543,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                     texte={QUESTION_NUMERO_APPLICATION.texte}
                     precision={QUESTION_NUMERO_APPLICATION.precision}
                     choisie={numeroAppli}
-                    reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_NUMERO_APPLICATION[r], choisir: () => repondreNumeroAppli(r) }))}
+                    reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_NUMERO_APPLICATION[r], choisir: () => repondre({ question: 'numero_application', reponse: r }) }))}
                   />
                   {numeroAppli === 'oui' && (
                     <Question
@@ -552,7 +551,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                       texte={QUESTION_MEME_NUMERO.texte}
                       precision={QUESTION_MEME_NUMERO.precision}
                       choisie={memeNumero}
-                      reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_MEME_NUMERO[r], choisir: () => repondreMemeNumero(r) }))}
+                      reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_MEME_NUMERO[r], choisir: () => repondre({ question: 'meme_numero', reponse: r }) }))}
                     />
                   )}
                   {numeroAppli === 'oui' && memeNumero === 'oui' && carteCoexistence(null, false)}
@@ -751,10 +750,6 @@ export const APPEL_APPLICATION: Texte = {
 /** Le titre de l'encadré du code, que l'étape « le code s'affiche… » désigne (essai 263). */
 export const CODE_ICI: Texte = { fr: 'Le code s’affichera ici', en: 'The code will appear here' };
 
-/** Où se pose « Comment voulez-vous utiliser WhatsApp ? » (lot 4 du 2026-11-17) : sans l'application, avec elle mais
- * sans numéro dedans, ou pour un 2e compte. */
-type VarianteDeploiement = 'sans' | 'vide' | 'second';
-
 /**
  * Une bulle d'explication (Julien, 2026-11-17, lot 4) : elle s'ouvre au survol, au focus ou au clic, sans quitter le
  * tunnel, comme les bulles de la vitrine. Un vrai bouton (`aria-expanded`, `aria-controls`) ; Échap ou la sortie de la
@@ -804,7 +799,7 @@ function Bulle({ declencheur, testid, children, auDessus = false }: { declencheu
  * « un 2e compte », deux au plus.
  */
 function QuestionDeploiement({ variante, choisie, choisir }: {
-  variante: VarianteDeploiement;
+  variante: VarianteDeploiementNumero;
   choisie: 'application' | 'api' | null;
   choisir(r: 'application' | 'api'): void;
 }) {

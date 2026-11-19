@@ -7,8 +7,8 @@ import { PREREQUIS_LIGNE } from '../web/lib/questions-numero';
 import { blocGuideMeta } from '../scripts/vitrine/guide-meta';
 import { etatMiseEnService, type LecturesMiseEnService } from '../src/mcp/mise-en-service';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
-import { signLienNumero } from '../src/auth/token';
 import type { EtatConnexion } from '../src/otp/etat-connexion';
+import { connexionNumeroPourTest } from './aide/connexion-numero';
 
 /**
  * CE QU'IL FAUT CHEZ META, UNE SEULE SOURCE POUR LA CONSOLE ET POUR CLAUDE (le guide « compte Meta », 2026-10-13). La
@@ -28,17 +28,12 @@ const PRET: LecturesMiseEnService = {
   widgets: [{ id: 'w1', nom: 'Site', actif: true }],
 };
 
-function deps(): DepsMcp {
+function deps(etat: EtatConnexion = VIDE): DepsMcp {
+  const lireEtat = async () => etat;
   return {
     numero: {
-      signerLien: (l: Parameters<typeof signLienNumero>[0]) => signLienNumero(l, SECRET),
-      etat: async () => VIDE,
-      urlConsole: 'https://console.exemple.test',
-      attendre: async () => {},
-      maintenant: () => 1_000_000,
-      // La destination du numéro fourni (0280), que le lien retient : ces tests ne regardent que les consignes.
-      retenirDestination: async () => {},
-      fenetrePartenaire: async () => false,
+      connexion: connexionNumeroPourTest({ secret: SECRET, etat: lireEtat }),
+      etat: lireEtat,
     },
   } as unknown as DepsMcp;
 }
@@ -182,8 +177,7 @@ describe('ce qu’il faut chez Meta', () => {
   });
 
   it('🔴 dès la connexion, la suite de watch_whatsapp_connection donne le chemin de la carte (le drapeau n’est pas encore lu)', async () => {
-    const d = deps();
-    (d.numero as unknown as { etat: () => Promise<EtatConnexion> }).etat = async () => ({ ...VIDE, connecte: { chiffres: '336', aActiver: false } });
+    const d = deps({ ...VIDE, connecte: { chiffres: '336', aActiver: false } });
     const r = await outil('watch_whatsapp_connection').executer(d, 't1', {}, { userId: 'u', autorisationId: 'aut-1' }) as Record<string, string>;
     for (const e of ETAPES_CARTE_META) expect(r.suite).toContain(e.fr);
   });

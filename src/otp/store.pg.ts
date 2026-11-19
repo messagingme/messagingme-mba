@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import { enTransaction } from '../db/transaction';
+import type { DestinationNumeroFourni as DestinationNumeroFourniPartagee } from '../../web/lib/partage/parcours-numero';
 
 /**
  * La réserve de numéros fournis et les codes de vérification captés (migration 0210, lot 3a, spec
@@ -18,7 +19,7 @@ export const RETENTION_CODES_VERIFICATION_JOURS = 7;
 export type StatutNumero = 'libre' | 'attribue' | 'resilie' | 'bloque';
 
 /** Où va le numéro fourni d'un espace (migration 0280) : la fenêtre de Meta, ou l'application WhatsApp Business. */
-export type DestinationNumeroFourni = 'api' | 'application';
+export type DestinationNumeroFourni = DestinationNumeroFourniPartagee;
 
 /** La destination retenue, et l'heure où elle l'a été (`null` seulement pour une ligne écrite à la main). */
 export interface DestinationRetenue {
