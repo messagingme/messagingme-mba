@@ -5,14 +5,18 @@ import { moisDeParis } from '../offres/compteurs';
 import { MAX_OPT_IN_SOURCE } from '../api/contacts-upsert';
 import type { Emission } from '../emails-produit/emission';
 import {
-  DONNEES_PAR_EVENEMENT, donneesDeCommande, donneesDExpedition, schemaCommande, schemaDemandeDonnees,
+  donneesDeCommande, donneesDExpedition, schemaCommande, schemaDemandeDonnees,
   schemaEffacementClient, schemaExpedition, telephoneDeCommande, telephoneDExpedition, telephoneE164,
   avecPrenomDeSecours, estObjetSimple, numeroDeCommandeDExpedition, prenomDeCheckout, schemaCheckout, telephoneDeCheckout, valeurDeVariable,
   type CommandeShopify, type DonneeShopify, type EvenementShopify,
 } from './donnees';
-import { envoyerMessageShopify, type DepsEnvoiShopify, type IssueShopify } from './envoi';
+import { envoyerPremierBloc, pontSelonLOffre, type DepsEnvoiShopify, type IssueShopify } from './envoi';
 import { PREFIXE_LIGNE_SHOPIFY, attribuerCommande, detailsDeCommande } from './attribution';
+import { origineShopify, prefixeShopify } from './lignes';
+import { donneeManquante, premierBloc, type LecturesPremierBloc } from './premier-bloc';
 import type { DetailsCommande, EtatBoutique, OrigineBoutique, PgShopifyStore } from './store.pg';
+import type { SourceOffres } from '../offres/offre.pg';
+import type { WorkflowExecutor } from '../workflow/executor';
 import type { PgVentesStore } from './ventes.pg';
 import type { ProgrammerPreuve } from './preuve-utm';
 
@@ -43,17 +47,24 @@ export interface BoutiqueRecue {
   devise: string | null;
   /** `console` : une boutique désinstallée perd son branchement, `shop/redact` ne viendra jamais (conception 2026-10-22). */
   origine: OrigineBoutique;
+  /** La pause (lot 5, décision 15) : rien ne part et rien ne se réserve ; l'attribution, les paniers fermés et le RGPD continuent. */
+  pause: boolean;
 }
 
 export interface DepsTraitementShopify {
   store: Pick<PgShopifyStore,
-    'message' | 'reserverEvenement' | 'noterIssue' | 'libererEvenement' | 'noterDernierEvenement' | 'lierCommande'
+    'ligne' | 'reserverEvenement' | 'noterIssue' | 'libererEvenement' | 'noterDernierEvenement' | 'lierCommande'
     | 'couperParDomaine' | 'effacerBoutique' | 'contactsLies' | 'noterPanier' | 'fermerPanier' | 'fermerPanierExistant'
     | 'fermerPaniersDuTelephone' | 'effacerPaniersDuTelephone'>;
-  /** L'envoi public (un modèle, filière API), la filière lue à l'envoi, et la porte « écrire en premier » (un texte). */
+  /** L'envoi public (le premier bloc, un template, filière API) et la filière lue à l'envoi. */
   envoyer: DepsEnvoiShopify['envoyer'];
   filiere: DepsEnvoiShopify['filiere'];
-  ecrirePremier: DepsEnvoiShopify['ecrirePremier'];
+  /** Ce que lit le premier bloc d'une ligne (`./premier-bloc.ts`) : les magasins des scénarios et des indices, ENTIERS. */
+  lectures: LecturesPremierBloc;
+  /** L'offre de l'espace (en cache court) : le pont ne se pose qu'avec la fonction `scenarios` (appel A6 du lot 5). */
+  offres: SourceOffres;
+  /** L'exécuteur des parcours, ENTIER (sa méthode lit `this`) : la fermeture d'un panier arrête son parcours. */
+  parcours: Pick<WorkflowExecutor, 'arreterParcours'>;
   /** La fiche vivante d'un numéro E.164 dans l'espace, ou `null`. */
   ficheParTelephone(tenantId: string, e164: string): Promise<string | null>;
   /**
@@ -86,8 +97,11 @@ const LIBELLE: Readonly<Record<EvenementShopify, string>> = {
   checkout_abandoned: 'panier abandonné',
 };
 
-/** Les issues qui ne sont pas un envoi : le traitement s'arrête avant l'envoi public. */
-type IssueAvantEnvoi = 'sans_telephone' | 'donnee_manquante';
+/**
+ * Les issues qui ne sont pas un envoi : le traitement s'arrête avant l'envoi public. `premier_message_absent` : la ligne
+ * est allumée mais son scénario n'a pas de premier bloc prêt (template pas encore écrit, scénario retiré).
+ */
+type IssueAvantEnvoi = 'sans_telephone' | 'donnee_manquante' | 'premier_message_absent';
 export type IssueEvenement = Exclude<IssueShopify, 'en_cours'> | IssueAvantEnvoi;
 
 const SUJETS_RGPD = new Set(['customers/redact', 'customers/data_request', 'shop/redact']);
@@ -108,7 +122,7 @@ export async function traiterWebhookShopify(
       // Une commande payée ferme aussi son panier : `orders/create` peut arriver après (aucun ordre entre sujets).
       await fermerSiPanier(deps, b, c.data.checkout_token, telephoneDeCommande(c.data, b.pays));
       return servir(deps, b, {
-        evenement: 'order_paid', cle: `orders/paid:${c.data.id}`, sujet,
+        evenement: 'order_paid', reference: String(c.data.id), sujet,
         commandeId: String(c.data.id), clientId: c.data.customer?.id ? String(c.data.customer.id) : null,
         telephone: telephoneDeCommande(c.data, b.pays), valeurs: donneesDeCommande(c.data), numero: c.data.name,
         details: detailsDeCommande(c.data, b, deps.maintenant ?? Date.now),
@@ -118,7 +132,7 @@ export async function traiterWebhookShopify(
       const f = schemaExpedition.safeParse(corps);
       if (!f.success) return illisible(b, sujet, f.error);
       return servir(deps, b, {
-        evenement: 'order_fulfilled', cle: `fulfillments/create:${f.data.id}`, sujet,
+        evenement: 'order_fulfilled', reference: String(f.data.id), sujet,
         commandeId: String(f.data.order_id), clientId: null,
         telephone: telephoneDExpedition(f.data, b.pays), valeurs: donneesDExpedition(f.data),
         numero: numeroDeCommandeDExpedition(f.data.name),
@@ -191,16 +205,19 @@ async function attribuerSansFreiner(deps: DepsTraitementShopify, b: BoutiqueRecu
   if (issue === 'hors_budget') journaliser('warn', 'shopify_attribution_hors_budget', { tenantId: b.tenantId, budgetMs: budget });
 }
 
-/** Le message de relance est-il branché et actif ? Sans lui, aucun panier ne se garde : un téléphone sans raison. */
+/**
+ * La relance est-elle allumée ? Sa ligne allumée, et la boutique hors pause (lot 5). Sans elle, aucun panier ne se garde :
+ * un téléphone sans raison.
+ */
 async function relanceActive(deps: DepsTraitementShopify, b: BoutiqueRecue): Promise<boolean> {
-  return (await deps.store.message(b.tenantId, 'checkout_abandoned'))?.actif === true;
+  return !b.pause && (await deps.store.ligne(b.tenantId, 'checkout_abandoned'))?.actif === true;
 }
 
 /**
  * Une commande ferme son panier. 🔴 TOUJOURS celui qui existe, relance éteinte comprise : éteinte puis rallumée, elle
  * relançait sinon le client qui avait commandé pendant la pause (rouge de la relecture du lot 2). La ligne d'un panier
  * pas encore reçu (fermeture avant le panier) ne s'écrit, elle, que relance active. Et les autres paniers ouverts du
- * même numéro se ferment aussi : un achat express passe par un autre checkout.
+ * même numéro se ferment aussi : un achat express passe par un autre checkout. Puis leurs parcours s'arrêtent.
  */
 async function fermerSiPanier(deps: DepsTraitementShopify, b: BoutiqueRecue, jeton: string | null | undefined, telephone: string | null): Promise<void> {
   if (jeton) {
@@ -208,6 +225,30 @@ async function fermerSiPanier(deps: DepsTraitementShopify, b: BoutiqueRecue, jet
     else await deps.store.fermerPanierExistant(b.tenantId, jeton);
   }
   if (telephone !== null) await deps.store.fermerPaniersDuTelephone(b.tenantId, telephone);
+  await arreterParcoursDuPanier(deps, b, jeton, telephone);
+}
+
+/**
+ * 🔴 LE PARCOURS D'UN PANIER S'ARRÊTE QUAND UNE COMMANDE EN NAÎT (menu « Scénario », lot 5, décision 4) : celui de ce
+ * jeton, et ceux des autres paniers du même numéro. AVANT la confirmation, pour que le parcours de la commande trouve la
+ * place unique libre. Jamais bloquant : une panne se journalise et la confirmation part (anti-objectif 1) ; la règle
+ * « encore voulu » (`panierOuvert`) arrêterait de toute façon ce parcours à son prochain pas.
+ */
+async function arreterParcoursDuPanier(
+  deps: DepsTraitementShopify, b: BoutiqueRecue, jeton: string | null | undefined, telephone: string | null,
+): Promise<void> {
+  try {
+    if (jeton) {
+      await deps.parcours.arreterParcours(b.tenantId, { origine: origineShopify(b.domaine, 'checkout_abandoned', jeton) }, 'panier devenu commande');
+    }
+    if (telephone !== null) {
+      await deps.parcours.arreterParcours(
+        b.tenantId, { prefixe: prefixeShopify(b.domaine, 'checkout_abandoned'), waId: telephone.replace(/^\+/, '') }, 'panier devenu commande',
+      );
+    }
+  } catch (err) {
+    journaliser('error', 'shopify_arret_parcours_panier_en_echec', { tenantId: b.tenantId, erreur: messageDe(err) });
+  }
 }
 
 /**
@@ -279,7 +320,8 @@ export function champsIllisibles(erreur: ZodError): string[] {
 
 interface Service {
   evenement: EvenementShopify;
-  cle: string;
+  /** L'identifiant de la commande ou de l'expédition : la fin de la clé d'idempotence et de l'origine du parcours. */
+  reference: string;
   sujet: string;
   commandeId: string;
   clientId: string | null;
@@ -290,30 +332,39 @@ interface Service {
   details?: DetailsCommande;
 }
 
+/**
+ * LA RÉCEPTION D'UNE COMMANDE PAYÉE OU EXPÉDIÉE (lot 5 du menu « Scénario ») : la ligne de l'événement, puis le premier
+ * bloc PUBLIÉ de son scénario, qui part par l'envoi public avec TOUTES les données de l'événement, et le pont quand le bloc
+ * a une suite. La réservation, la clé, le consentement, la fiche et l'issue sont ceux d'avant.
+ */
 async function servir(deps: DepsTraitementShopify, b: BoutiqueRecue, s: Service): Promise<ReponseTraitement> {
-  const m = await deps.store.message(b.tenantId, s.evenement);
-  // Aucun message branché : rien ne s'écrit, pas même une fiche (elle compterait dans la limite de l'offre).
-  if (!m || !m.actif) return OK;
-  const cle = `shopify:${b.domaine}:${s.cle}`;
+  // 🔴 En pause, rien ne part et rien ne se réserve : l'événement est perdu, jamais rejoué après coup (décision 15).
+  if (b.pause) return OK;
+  const ligne = await deps.store.ligne(b.tenantId, s.evenement);
+  // Aucune ligne allumée : rien ne s'écrit, pas même une fiche (elle compterait dans la limite de l'offre).
+  if (!ligne || !ligne.actif) return OK;
+  // La clé d'idempotence d'avant le lot 5, mot pour mot, et l'origine du parcours qui naîtra.
+  const cle = origineShopify(b.domaine, s.evenement, s.reference);
   const resa = await deps.store.reserverEvenement(b.tenantId, cle, s.sujet);
   if (resa === 'servi') return OK;
   if (resa === 'en_cours') return REESSAYER;
   try {
     let issue: IssueEvenement | 'en_cours';
-    // Un prénom absent prend son mot de secours (facultatif chez Shopify) ; les autres données manquent vraiment.
-    const valeurs = avecPrenomDeSecours(s.valeurs, m.langue);
-    const manque = m.variables.some((v) => valeurs[v] === undefined);
-    if (s.telephone === null) issue = 'sans_telephone';
-    else if (manque || m.variables.some((v) => !DONNEES_PAR_EVENEMENT[s.evenement].includes(v))) issue = 'donnee_manquante';
+    const bloc = await premierBloc(deps.lectures, b.tenantId, ligne.workflowId);
+    if (bloc.etat !== 'pret') issue = 'premier_message_absent';
+    else if (s.telephone === null) issue = 'sans_telephone';
     else {
-      // Un modèle part par l'envoi public (filière API) ; un texte par la porte « écrire en premier » (numéro relié par
-      // QR code), qui le met en file : l'issue est alors `en_file`, et le job inscrit la suivante sous la même clé.
-      issue = await envoyerMessageShopify(deps, {
-        tenantId: b.tenantId, cle, origine: 'shopify_commande', reference: cle, evenement: s.evenement,
-        nomLigne: `${PREFIXE_LIGNE_SHOPIFY}${LIBELLE[s.evenement]} · ${s.numero}`, message: m, valeurs, telephone: s.telephone,
-        // Bornée comme toute source de consentement (`MAX_OPT_IN_SOURCE`) : trop longue, le destinataire serait écarté.
-        sourceConsentement: `shopify:${b.domaine}`.slice(0, MAX_OPT_IN_SOURCE),
-      });
+      // Un prénom absent prend son mot de secours (facultatif chez Shopify) ; les autres données manquent vraiment.
+      const valeurs = avecPrenomDeSecours(s.valeurs, bloc.langue);
+      issue = donneeManquante(bloc.params, s.evenement, valeurs)
+        ? 'donnee_manquante'
+        : await envoyerPremierBloc(deps, {
+          tenantId: b.tenantId, cle, nomLigne: `${PREFIXE_LIGNE_SHOPIFY}${LIBELLE[s.evenement]} · ${s.numero}`,
+          modele: bloc.modele, langue: bloc.langue, params: bloc.params, valeurs, telephone: s.telephone,
+          // Bornée comme toute source de consentement (`MAX_OPT_IN_SOURCE`) : trop longue, le destinataire serait écarté.
+          sourceConsentement: `shopify:${b.domaine}`.slice(0, MAX_OPT_IN_SOURCE),
+          parcoursEvenement: await pontSelonLOffre(deps.offres, b.tenantId, bloc, cle),
+        });
     }
     // Un autre traitement tient la même clé d'envoi : le laisser finir, Shopify réessaiera.
     if (issue === 'en_cours') return REESSAYER;

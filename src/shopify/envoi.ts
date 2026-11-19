@@ -1,23 +1,29 @@
 import { compteurEnvoiRefuse, type OptionsEnvoiPublic, type RapportEnvoi, type ResultatEnvoiPublic } from '../api/envoi-public';
+import { VALEUR_VARIABLE_MAX } from '../api/variables';
 import type { Filiere } from '../application/comptes';
-import type {
-  DemandePremierMessage, DepsJobPremier, IssueJobPremier, OriginePremier, RefusPremier, ResultatPremier,
-} from '../application/premier-message';
-import type { DonneeShopify, EvenementShopify } from './donnees';
-import { composerTexteShopify, TEXTE_SHOPIFY_MAX } from './preparation';
-import type { MessageBranche, PgShopifyStore } from './store.pg';
+import type { DepsJobPremier, IssueJobPremier } from '../application/premier-message';
+import type { ParcoursEvenementDeCampagne } from '../campaign/parcours-evenement';
+import type { TemplateParam } from '../crm/template';
+import { journaliser } from '../lib/journal';
+import type { SourceOffres } from '../offres/offre.pg';
+import { ORIGINE_MAX } from '../workflow/evenement';
+import type { DonneeShopify } from './donnees';
+import type { PremierBloc } from './premier-bloc';
+import type { PgShopifyStore } from './store.pg';
 
 /**
  * L'ENVOI D'UN MESSAGE SHOPIFY, troisième adaptateur de `lancerEnvoiPublic` après `POST /v1/sends` et
- * `send_template_to_contact` (plan 2026-10-21, relecture du lot 1).
+ * `send_template_to_contact` (plan 2026-10-21, relecture du lot 1) ; depuis le lot 5 du menu « Scénario », le PREMIER
+ * BLOC d'une ligne (`./premier-bloc.ts`), et le pont du parcours d'événement (lot 4b) quand le bloc a une suite.
  *
  * 🔴 PAS LE MOTEUR DE SCÉNARIO : une automation ordinaire ne reprend jamais le fil (`automatisme_ordinaire`), donc une
  * confirmation ne partirait pas quand l'agent de Meta ou un opérateur tient la conversation, et quand elle part, elle clôt
  * le parcours en cours et la session d'agent IA. L'envoi public ne touche pas au fil, lit la catégorie du modèle chez
  * Meta, applique `optInAllows` (un MARKETING ne part qu'à une fiche consentante), le STOP, la limite des modèles du mois
- * et les gardes du numéro, et crée la fiche (limite de contacts comprise).
+ * et les gardes du numéro, et crée la fiche (limite de contacts comprise). C'est le parcours qui naît ensuite, sur le
+ * message déjà accepté par Meta, qui reprend le fil pour la suite (décision 2 : le premier message part toujours).
  *
- * Quatre choix d'adaptateur, et rien d'autre :
+ * Cinq choix d'adaptateur, et rien d'autre :
  *   - la clé d'idempotence est la clé métier (`shopify:<boutique>:orders/paid:<id>`) : un webhook rejoué relit le rapport
  *     au lieu de renvoyer ;
  *   - 🔴 le destinataire porte TOUJOURS `consent: opted_in` et sa source (décision de Julien du 2026-10-26 : le
@@ -25,8 +31,10 @@ import type { MessageBranche, PgShopifyStore } from './store.pg';
  *     consentante, et `appliquerConsentement` ne lève jamais un STOP : la fiche reste désabonnée, le tri l'écarte ;
  *   - le compteur ne décompte rien : le plafond de l'API publique est fait pour les intégrations, une vente flash ne doit
  *     pas y buter (la limite des modèles du mois, elle, s'applique dans le cycle) ;
- *   - les valeurs partent en variables du destinataire, jamais écrites sur la fiche (le lien de commande porte une clé
- *     d'accès), et une ligne de Campagnes porte le nom de l'événement ; un envoi où personne ne part n'en laisse aucune.
+ *   - 🔴 les valeurs partent en variables du destinataire, TOUTES (la suite du parcours peut demander une donnée que le
+ *     premier message n'affiche pas), jamais écrites sur la fiche (le lien de commande porte une clé d'accès), et une
+ *     ligne de Campagnes porte le nom de l'événement ; un envoi où personne ne part n'en laisse aucune ;
+ *   - le pont n'est posé que par l'appelant (`pontDuPremierBloc`), jamais lu d'un corps.
  */
 
 export type EnvoyerPublic = (
@@ -40,12 +48,15 @@ export interface EnvoiShopify {
   nomLigne: string;
   modele: string;
   langue: string;
-  /** Les données de {{1}}, {{2}}... dans l'ordre ; chacune doit avoir sa valeur dans `valeurs`. */
-  variables: readonly DonneeShopify[];
+  /** Les sources du premier bloc, position par position (celles du template, remplacées par celles du bloc). */
+  params: readonly TemplateParam[];
+  /** TOUTES les données de l'événement : les variables du destinataire (`variablesDuDestinataire`). */
   valeurs: Partial<Record<DonneeShopify, string>>;
   telephone: string;
   /** La source du consentement écrit sur la fiche (`shopify:<boutique>`, bornée par `MAX_OPT_IN_SOURCE`). */
   sourceConsentement: string;
+  /** Le pont du parcours d'événement (`pontDuPremierBloc`) ; absent, le premier message part seul. */
+  parcoursEvenement?: ParcoursEvenementDeCampagne;
 }
 
 /** Ce que devient un événement : l'issue inscrite, comptée par la carte. `en_cours` n'en est pas une (on réessaie). */
@@ -53,17 +64,33 @@ export type IssueEnvoi =
   | 'envoye' | 'desabonne' | 'sans_consentement' | 'bloque' | 'limite_contacts' | 'limite_modeles' | 'modele_refuse'
   | 'numero_indisponible' | 'sans_telephone' | 'refuse' | 'en_cours';
 
+/**
+ * Les variables du destinataire : toutes les données reçues. 🔴 Une valeur plus longue que ce qu'une variable porte
+ * (`VALEUR_VARIABLE_MAX`) n'y entre que si le premier message la demande : sinon une donnée que ce message n'affiche pas
+ * ferait refuser le destinataire, donc la confirmation (anti-objectif 1). La suite qui la demanderait la dira manquante.
+ */
+export function variablesDuDestinataire(
+  valeurs: Partial<Record<DonneeShopify, string>>, params: readonly TemplateParam[],
+): Record<string, string> {
+  const demandees = new Set(params.flatMap((p) => (p.source.type === 'variable' ? [p.source.key] : [])));
+  return Object.fromEntries(Object.entries(valeurs).filter((e): e is [string, string] =>
+    e[1] !== undefined && (e[1].length <= VALEUR_VARIABLE_MAX || demandees.has(e[0]))));
+}
+
 export async function envoyerShopify(envoyer: EnvoyerPublic, e: EnvoiShopify): Promise<IssueEnvoi> {
+  const variables = variablesDuDestinataire(e.valeurs, e.params);
   const corps = {
     idempotencyKey: e.cle,
     target: { template: { name: e.modele, language: e.langue } },
-    params: e.variables.map((cle, i) => ({ position: i + 1, source: { type: 'variable', key: cle } })),
+    params: e.params.map((p) => ({ position: p.position, source: p.source })),
     recipients: [{
       phone: e.telephone, consent: 'opted_in', consentSource: e.sourceConsentement,
-      ...(e.variables.length > 0 ? { variables: Object.fromEntries(e.variables.map((cle) => [cle, e.valeurs[cle] ?? ''])) } : {}),
+      ...(Object.keys(variables).length > 0 ? { variables } : {}),
     }],
   };
-  const r = await envoyer(e.tenantId, corps, async () => true, { nom: e.nomLigne, sansCampagneVide: true });
+  const r = await envoyer(e.tenantId, corps, async () => true, {
+    nom: e.nomLigne, sansCampagneVide: true, ...(e.parcoursEvenement !== undefined ? { parcoursEvenement: e.parcoursEvenement } : {}),
+  });
   if (compteurEnvoiRefuse(r)) return 'refuse';
   const c = r.corps as { code?: unknown; limite?: unknown } | null;
   if (r.statut === 201 || r.statut === 200) return issueDuRapport(r.corps as RapportEnvoi);
@@ -77,24 +104,41 @@ export async function envoyerShopify(envoyer: EnvoyerPublic, e: EnvoiShopify): P
 }
 
 /**
- * LES ISSUES DU TEXTE D'UN NUMÉRO RELIÉ PAR QR CODE (plan 2026-10-23, tâche 5), en plus de celles de l'envoi public.
- * `en_file` : la porte « écrire en premier » a mis le message en file ; le job inscrit ensuite son issue finale
- * (`noterIssueShopify`). `filiere_differente` : le message réglé ne correspond plus à la filière de l'espace (un modèle
- * sur un numéro relié par QR code, un texte sur l'API), rien ne part. `texte_trop_long` : une fois les données
- * remplies, le texte dépasse ce qu'un message WhatsApp porte, rien ne part. `premier_contact` : la porte refuse depuis le
- * 2026-10-24 tout message qu'un numéro relié par QR code écrirait en premier, donc chacun des trois (un texte réglé
- * avant cette règle), et le branchement en refuse un neuf (`brancherMessage`). Les autres viennent du job
- * (`IssueJobPremier`).
+ * Le pont d'un premier bloc prêt (menu « Scénario », lot 5, appel A6) : seulement s'il a une suite, que l'offre de
+ * l'espace a la fonction `scenarios`, et que l'origine tient dans `ORIGINE_MAX`. Sinon le premier message part seul et
+ * aucun parcours ne naît : en Free, seule la première étape part (§ 5.6) ; une origine trop longue (domaine et jeton à
+ * leur maximum) se journalise chez l'appelant.
+ */
+export function pontDuPremierBloc(
+  bloc: Extract<PremierBloc, { etat: 'pret' }>, origine: string, offreAScenarios: boolean,
+): ParcoursEvenementDeCampagne | undefined {
+  if (!bloc.aUneSuite || !offreAScenarios || origine.length > ORIGINE_MAX) return undefined;
+  return { workflowId: bloc.workflowId, noeudId: bloc.noeudId, type: 'evenement_shopify', origine, boutons: bloc.boutons };
+}
+
+/**
+ * Le pont d'un premier bloc prêt, l'offre lue seulement quand le bloc a une suite (le cache court de l'offre, passé
+ * ENTIER). Une origine trop longue sur une offre qui a `scenarios` se journalise : le premier message part seul.
+ */
+export async function pontSelonLOffre(
+  offres: SourceOffres, tenantId: string, bloc: Extract<PremierBloc, { etat: 'pret' }>, origine: string,
+): Promise<ParcoursEvenementDeCampagne | undefined> {
+  if (!bloc.aUneSuite) return undefined;
+  const scenarios = (await offres.offreDe(tenantId)).droits.fonctions.has('scenarios');
+  const pont = pontDuPremierBloc(bloc, origine, scenarios);
+  if (pont === undefined && scenarios) journaliser('warn', 'shopify_pont_origine_trop_longue', { tenantId, longueur: origine.length });
+  return pont;
+}
+
+/**
+ * LES ISSUES D'UN TEXTE D'UN NUMÉRO RELIÉ PAR QR CODE (plan 2026-10-23, tâche 5), que le job de la file « écrire en
+ * premier » inscrit encore pour un message déjà en file. Le lot 5 n'en envoie plus : une ligne Shopify part par un
+ * template. `filiere_differente` : le premier bloc (un template) ne part pas d'un numéro relié par QR code.
  */
 export type IssueTexte =
   | 'en_file' | 'pas_sur_whatsapp' | 'gele' | 'numero_coupe' | 'refuse_whatsapp' | 'filiere_differente' | 'envoi_incertain'
   | 'expire' | 'abandonne' | 'texte_trop_long' | 'premier_contact';
 export type IssueShopify = IssueEnvoi | IssueTexte;
-
-/** Un refus de la porte devient l'issue du même nom ; `filiere_api` (l'espace est passé à l'API) est un croisement. */
-export function issueDuRefusPremier(r: RefusPremier): IssueShopify {
-  return r === 'filiere_api' ? 'filiere_differente' : r;
-}
 
 /** L'issue finale du job, inscrite chez Shopify : la même, `filiere_api` lue comme un croisement. */
 export function issueDuJobPremier(i: IssueJobPremier): IssueShopify {
@@ -105,53 +149,16 @@ export interface DepsEnvoiShopify {
   envoyer: EnvoyerPublic;
   /** La filière de l'espace, lue à l'envoi (`filiereDe`) : un espace a pu passer de l'une à l'autre depuis le réglage. */
   filiere(tenantId: string): Promise<Filiere | null>;
-  /** La porte « écrire en premier » de la filière application (`enfilerPremierMessage`, liée par le câblage). */
-  ecrirePremier(demande: DemandePremierMessage): Promise<ResultatPremier>;
-}
-
-export interface MessageShopify {
-  tenantId: string;
-  /** La clé métier de l'envoi public (`shopify:<boutique>:orders/paid:<id>`), clé de la file aussi. */
-  cle: string;
-  origine: Extract<OriginePremier, 'shopify_commande' | 'shopify_panier'>;
-  /** La clé de l'événement ou le jeton du panier : là où le job inscrit l'issue finale. */
-  reference: string;
-  evenement: EvenementShopify;
-  nomLigne: string;
-  message: Pick<MessageBranche, 'modele' | 'texte' | 'langue' | 'variables'>;
-  valeurs: Partial<Record<DonneeShopify, string>>;
-  /** En E.164. */
-  telephone: string;
-  /** La source du consentement écrit sur la fiche (`shopify:<boutique>`). */
-  sourceConsentement: string;
 }
 
 /**
- * L'AIGUILLAGE D'UN MESSAGE SHOPIFY, à l'envoi : un texte sur la filière application va à la porte « écrire en premier »,
- * qui le refuse depuis le 2026-10-24 (`premier_contact` : ce numéro ne fait que répondre, et un message Shopify ne répond
- * à rien) ; un modèle sur la filière API part par l'envoi public, comme avant. Tout croisement rend `filiere_differente`, sans rien envoyer. Un espace sans filière (son numéro retiré)
- * suit la voie de son réglage, qui le dit (`numero_indisponible`).
+ * L'envoi du premier bloc : un template, qui ne part que par la filière API. Sur un numéro relié par QR code (filière
+ * application), rien ne part (`filiere_differente`). Un espace sans filière (son numéro retiré) tente l'envoi public,
+ * qui le dit (`numero_indisponible`).
  */
-export async function envoyerMessageShopify(d: DepsEnvoiShopify, e: MessageShopify): Promise<IssueShopify> {
-  const filiere = await d.filiere(e.tenantId);
-  if (e.message.texte !== null) {
-    if (filiere === 'api') return 'filiere_differente';
-    const texte = composerTexteShopify(e.message.texte, e.evenement, e.valeurs, e.message.langue);
-    if (texte.length > TEXTE_SHOPIFY_MAX) return 'texte_trop_long';
-    const r = await d.ecrirePremier({
-      tenantId: e.tenantId, cle: e.cle, telephone: e.telephone.replace(/^\+/, ''), texte, origine: e.origine,
-      reference: e.reference, consentement: { mode: 'marchand', source: e.sourceConsentement },
-    });
-    // Déjà en file (un rejeu de la même clé) : la même issue, rien n'est compté deux fois.
-    return r.ok ? 'en_file' : issueDuRefusPremier(r.refus);
-  }
-  // La contrainte de la migration 0252 exige l'un ou l'autre : sans modèle ni texte, rien ne part.
-  if (e.message.modele === null) return 'refuse';
-  if (filiere === 'application') return 'filiere_differente';
-  return envoyerShopify(d.envoyer, {
-    tenantId: e.tenantId, cle: e.cle, nomLigne: e.nomLigne, modele: e.message.modele, langue: e.message.langue,
-    variables: e.message.variables, valeurs: e.valeurs, telephone: e.telephone, sourceConsentement: e.sourceConsentement,
-  });
+export async function envoyerPremierBloc(d: DepsEnvoiShopify, e: EnvoiShopify): Promise<IssueShopify> {
+  if ((await d.filiere(e.tenantId)) === 'application') return 'filiere_differente';
+  return envoyerShopify(d.envoyer, e);
 }
 
 /**

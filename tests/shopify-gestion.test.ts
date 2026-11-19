@@ -32,7 +32,7 @@ const CHIFFRE: ChiffreVentes = {
 const T = 't1';
 const VUE: VueBoutique = {
   domaine: 'b.myshopify.com', nom: 'Essai', pays: 'FR', devise: 'EUR', etat: 'connectee', motifCoupure: null, coupeeLe: null,
-  connecteeLe: '2026-10-21T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'claude_code',
+  connecteeLe: '2026-10-21T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'claude_code', pauseLe: null,
 };
 
 function monter(o: {

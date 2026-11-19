@@ -5,61 +5,105 @@ import { PgShopifyStore, type PanierDu } from '../src/shopify/store.pg';
 import type { RapportEnvoi, ResultatEnvoiPublic } from '../src/api/envoi-public';
 import type { Emission } from '../src/emails-produit/emission';
 import type { Filiere } from '../src/application/comptes';
-import type { DemandePremierMessage, ResultatPremier } from '../src/application/premier-message';
+import type { DonneeShopify } from '../src/shopify/donnees';
+import { MARQUE_PREMIER_BLOC } from '../src/shopify/premier-bloc';
+import type { ParamHint } from '../src/crm/template-hints.pg';
+import { DROITS } from '../src/offres/offres';
+import type { OffreEspace } from '../src/offres/offre.pg';
+import type { WorkflowNode } from '../src/workflow/graph';
+import type { WorkflowRow } from '../src/workflow/store.pg';
 
 /**
- * LA RELANCE DES PANIERS ABANDONNÉS (plan 2026-10-21, lot 2), un passage du balayage. La réclamation (une écriture
- * atomique en base) est prouvée par le test d'intégration ; ici, ce qu'un panier réclamé devient.
+ * LA RELANCE DES PANIERS ABANDONNÉS (plan 2026-10-21, lot 2), un passage du balayage ; depuis le lot 5 du menu
+ * « Scénario », le premier bloc du scénario de la ligne du panier. La réclamation (une écriture atomique en base) est
+ * prouvée par le test d'intégration ; ici, ce qu'un panier réclamé devient.
  */
 
 const panier = (over: Partial<PanierDu> = {}): PanierDu => ({
-  // Un modèle, filière API : la relance d'avant le texte simple.
   tenantId: 't1', jeton: 'jeton-1', telephone: '+33633921577', nom: 'Julien', lien: 'https://b.myshopify.com/1/checkouts/ac/x/recover?key=k',
-  domaine: 'b.myshopify.com', modele: 'relance_panier', texte: null, langue: 'fr', variables: ['first_name', 'checkout_url'], ...over,
+  domaine: 'b.myshopify.com', workflowId: 'wf-panier', ...over,
 });
 const rapport = (over: Partial<RapportEnvoi> = {}): RapportEnvoi => ({
   sendId: 's1', opening: 'whatsapp_template', recipientCount: 1, created: 1, matched: 0, skipped: [], skippedTotal: 0, ...over,
 });
 
-/** Un numéro relié par QR code : la filière, les espaces à relance en texte due, leur reste du mois, la réponse de la porte. */
-interface Application {
-  filiere?: (tenantId: string) => Filiere | null;
-  enTexte?: string[];
-  reste?: Record<string, number | null>;
-  premier?: (demande: DemandePremierMessage) => ResultatPremier;
+/** Le premier bloc du scénario de la ligne du panier : un template, ses variables rangées sur le bloc. */
+interface BlocDeTest { modele: string | null; langue: string; variables: DonneeShopify[]; suite?: boolean }
+const BLOC: BlocDeTest = { modele: 'relance_panier', langue: 'fr', variables: ['first_name', 'checkout_url'] };
+
+const scenarioDe = (tenantId: string, b: BlocDeTest): WorkflowRow => {
+  const depart: WorkflowNode = {
+    id: 'depart', type: 'template', position: { x: 0, y: 0 },
+    data: {
+      [MARQUE_PREMIER_BLOC]: true,
+      ...(b.modele !== null ? { templateName: b.modele, language: b.langue } : {}),
+      templateButtons: b.suite ? [{ type: 'QUICK_REPLY', text: 'Oui' }] : [],
+      variables: b.variables.map((key, i) => ({ position: i + 1, source: { type: 'variable', key } })),
+    },
+  };
+  const suite: WorkflowNode = { id: 'suite', type: 'template', position: { x: 0, y: 1 }, data: { templateName: 'merci', language: 'fr' } };
+  return {
+    id: 'wf-panier', tenantId, name: 'Panier abandonné', rayon: 'shopify', draftGraph: null,
+    publishedAt: '2026-11-19T00:00:00.000Z', createdAt: '2026-11-19T00:00:00.000Z', updatedAt: '2026-11-19T00:00:00.000Z',
+    graph: b.suite
+      ? { nodes: [depart, suite], edges: [{ id: 'e1', source: 'depart', target: 'suite', sourceHandle: 'btn:0' }] }
+      : { nodes: [depart], edges: [] },
+  };
+};
+
+/** Les faux des magasins injectés : des CLASSES dont les méthodes lisent `this`, passés ENTIERS. */
+class FauxScenarios {
+  lus: string[] = [];
+  constructor(private readonly bloc: BlocDeTest) {}
+  async getById(id: string, tenantId: string): Promise<WorkflowRow | null> {
+    this.lus.push(`${tenantId}:${id}`);
+    return id === 'wf-panier' ? scenarioDe(tenantId, this.bloc) : null;
+  }
+}
+class FauxIndices {
+  private readonly indices: ParamHint[] = [];
+  async get(): Promise<ParamHint[]> { return this.indices; }
+}
+class FauxOffres {
+  constructor(private readonly offre: 'base' | 'pro') {}
+  async offreDe(): Promise<OffreEspace> { return { offre: this.offre, droits: DROITS[this.offre], retourEnBaseLe: null }; }
+}
+type CibleArret = { origine: string } | { prefixe: string; waId?: string } | { workflowIds: readonly string[] };
+class FauxParcours {
+  arrets: CibleArret[] = [];
+  constructor(private readonly ordre: string[], private readonly leve: boolean) {}
+  async arreterParcours(_t: string, cible: CibleArret, _motif: string): Promise<number> {
+    this.ordre.push('arret');
+    if (this.leve) throw new Error('base indisponible');
+    this.arrets.push(cible);
+    return 0;
+  }
 }
 
 function monter(
   paniers: PanierDu[], reponse: (corps: unknown) => Promise<ResultatEnvoiPublic> = async () => ({ statut: 201, corps: rapport() }),
-  fermes: readonly string[] = [], app: Application = {},
+  fermes: readonly string[] = [],
+  o: { bloc?: BlocDeTest; filiere?: (t: string) => Filiere | null; offre?: 'base' | 'pro'; arretLeve?: boolean } = {},
 ) {
   const journal = {
     limites: [] as number[], issues: [] as Array<[string, string]>, envois: [] as Array<{ corps: unknown; options: unknown }>,
-    emails: [] as Emission[], exclus: [] as string[][], liberes: [] as string[], premiers: [] as DemandePremierMessage[],
-    comptees: [] as Array<[string, string]>,
+    emails: [] as Emission[], comptees: [] as Array<[string, string]>, ordre: [] as string[],
   };
+  const scenarios = new FauxScenarios(o.bloc ?? BLOC);
+  const parcours = new FauxParcours(journal.ordre, o.arretLeve === true);
   const deps: DepsRelance = {
     store: {
-      // Comme la vraie réclamation : un espace exclu n'est pas examiné.
-      reclamerPaniersDus: async (limite, exclus) => {
-        journal.limites.push(limite);
-        journal.exclus.push([...exclus]);
-        return paniers.filter((p) => !exclus.includes(p.tenantId));
-      },
+      reclamerPaniersDus: async (limite) => { journal.limites.push(limite); return paniers; },
       noterIssuePanier: async (_t, jeton, issue) => { journal.issues.push([jeton, issue]); },
       panierOuvert: async (_t, jeton) => !fermes.includes(jeton),
-      espacesAPaniersDusEnTexte: async () => app.enTexte ?? [],
-      libererPanier: async (_t, jeton) => { journal.liberes.push(jeton); },
       compterRelance: async (t, le) => { journal.comptees.push([t, le.toISOString()]); },
     },
-    // La filière API par défaut : les tests d'avant le texte simple (plan 2026-10-23) restent ceux de l'API.
-    filiere: async (t) => (app.filiere ? app.filiere(t) : 'api'),
-    ecrirePremier: async (demande) => {
-      journal.premiers.push(demande);
-      return app.premier ? app.premier(demande) : { ok: true, id: 'p1', prevuLe: new Date('2026-10-22T10:01:00Z'), dejaEnFile: false };
-    },
-    quota: { etatDuMois: async (t) => { const r = app.reste?.[t]; return r === undefined || r === null ? null : { max: 1000, reste: r }; } },
+    filiere: async (t) => (o.filiere ? o.filiere(t) : 'api'),
+    lectures: { workflows: scenarios, indices: new FauxIndices() },
+    offres: new FauxOffres(o.offre ?? 'pro'),
+    parcours,
     envoyer: async (_t, corps, compter, options) => {
+      journal.ordre.push('envoi');
       journal.envois.push({ corps, options });
       expect(await compter(1)).toBe(true);
       return reponse(corps);
@@ -68,26 +112,25 @@ function monter(
     pageOffre: 'https://console.test/offre',
     maintenant: () => Date.parse('2026-10-22T10:00:00Z'),
   };
-  return { deps, journal };
+  return { deps, journal, scenarios, parcours };
 }
 
 /**
- * LES PANIERS DUS, DANS LE SQL DU STORE (2026-10-26) : plus aucune affirmation du marchand n'y est lue. Le test
- * d'intégration le prouve sur une vraie base, mais seulement en CI ; celui-ci le voit partout, sur le SQL lui-même.
+ * LES PANIERS DUS, DANS LE SQL DU STORE (2026-10-26, lot 5) : plus aucune affirmation du marchand n'y est lue ; la ligne
+ * du panier, la pause et `paniers_depuis`, si. Le test d'intégration le prouve sur une vraie base, mais seulement en CI ;
+ * celui-ci le voit partout, sur le SQL lui-même.
  */
 describe('les paniers dus, dans le SQL du store', () => {
-  it('🔴 ni la réclamation ni l’examen des relances en texte ne lisent l’affirmation du consentement', async () => {
+  it('🔴 la réclamation ne lit pas l’affirmation du consentement ; elle lit la ligne allumée, la pause et `paniers_depuis`', async () => {
     const lus: string[] = [];
     const pool = { query: async (sql: string) => { lus.push(sql); return { rows: [] }; } } as unknown as Pool;
     const store = new PgShopifyStore(pool, 'cle-de-test');
-    expect(await store.reclamerPaniersDus(50, [])).toEqual([]);
-    expect(await store.espacesAPaniersDusEnTexte(10)).toEqual([]);
-    expect(lus).toHaveLength(2);
-    for (const sql of lus) {
-      // L'affirmation n'est plus exigée ; la boutique connectée et le message actif, si.
-      expect(sql).not.toMatch(/consentement/);
-      expect(sql).toContain("b.etat = 'connectee' and m.actif");
-    }
+    expect(await store.reclamerPaniersDus(50)).toEqual([]);
+    expect(lus).toHaveLength(1);
+    expect(lus[0]).not.toMatch(/consentement/);
+    expect(lus[0]).not.toMatch(/shopify_messages/);
+    expect(lus[0]).toContain("b.etat = 'connectee' and b.pause_le is null and l.actif");
+    expect(lus[0]).toContain('(b.paniers_depuis is null or p.maj_le >= b.paniers_depuis)');
   });
 });
 
@@ -108,17 +151,17 @@ describe('la relance d’un panier réclamé', () => {
     expect(journal.issues).toEqual([['jeton-1', 'envoye']]);
   });
 
-  it('🔴 un prénom absent (facultatif chez Shopify) : la relance part avec son mot de secours, dans la langue du modèle', async () => {
+  it('🔴 un prénom absent (facultatif chez Shopify) : la relance part avec son mot de secours, dans la langue du bloc', async () => {
     const fr = monter([panier({ nom: null })]);
     await relancerPaniers(fr.deps);
     expect(fr.journal.issues).toEqual([['jeton-1', 'envoye']]);
     expect(fr.journal.envois[0]!.corps).toMatchObject({ recipients: [{ variables: { first_name: 'à vous' } }] });
-    const en = monter([panier({ nom: null, langue: 'en_US' })]);
+    const en = monter([panier({ nom: null })], undefined, [], { bloc: { ...BLOC, langue: 'en_US' } });
     await relancerPaniers(en.deps);
     expect(en.journal.envois[0]!.corps).toMatchObject({ recipients: [{ variables: { first_name: 'there' } }] });
   });
 
-  it('une autre donnée absente (le lien du panier) alors que le modèle la demande : rien ne part, l’issue le dit', async () => {
+  it('une autre donnée absente (le lien du panier) alors que le bloc la demande : rien ne part, l’issue le dit', async () => {
     const { deps, journal } = monter([panier({ lien: '' })]);
     await relancerPaniers(deps);
     expect(journal.envois).toEqual([]);
@@ -154,7 +197,7 @@ describe('la relance d’un panier réclamé', () => {
     expect(journal.issues).toEqual([['jeton-1', 'erreur'], ['jeton-2', 'envoye']]);
   });
 
-  it('un écart de l’envoi public devient l’issue (STOP, limite de contacts) ; une clé tenue ailleurs n’écrit rien', async () => {
+  it('un écart de l’envoi public devient l’issue (STOP, limite de contacts, modèles du mois) ; une clé tenue ailleurs n’écrit rien', async () => {
     const ecarte = (reason: RapportEnvoi['skipped'][number]['reason']): ResultatEnvoiPublic =>
       ({ statut: 200, corps: rapport({ sendId: '', recipientCount: 0, skipped: [{ index: 0, reason }] }) });
     const stop = monter([panier()], async () => ecarte('opted_out'));
@@ -166,6 +209,10 @@ describe('la relance d’un panier réclamé', () => {
     // La limite prévient les admins, une fois par mois civil (l'occasion), comme un message de commande.
     expect(limite.journal.emails).toMatchObject([{ cle: 'shopify_limite_contacts', a: 'admins', occasion: '2026-10', valeurs: { boutique: 'b.myshopify.com', lien_offre: 'https://console.test/offre' } }]);
     expect(stop.journal.emails).toEqual([]);
+    // La limite des modèles du mois garde son issue : la relance est consommée (une seule relance).
+    const mois = monter([panier()], async () => ({ statut: 402, corps: { code: 'plan_limit_reached', limite: 'envoisModelesMois' } }));
+    await relancerPaniers(mois.deps);
+    expect(mois.journal.issues).toEqual([['jeton-1', 'limite_modeles']]);
     const tenue = monter([panier()], async () => ({ statut: 409, corps: { code: 'idempotency_in_progress' } }));
     expect((await relancerPaniers(tenue.deps)).issues).toEqual({ en_cours: 1 });
     expect(tenue.journal.issues).toEqual([]);
@@ -182,71 +229,67 @@ describe('la relance d’un panier réclamé', () => {
     const { deps, journal } = monter([]);
     expect(await relancerPaniers(deps, 7)).toEqual({ reclames: 0, issues: {} });
     expect(journal.limites).toEqual([7]);
-    // Sans relance en texte due, aucun espace n'est exclu.
-    expect(journal.exclus).toEqual([[]]);
+  });
+
+  it('🔴 le premier bloc, un template, ne part pas d’un numéro relié par QR code : filiere_differente, l’issue est gardée', async () => {
+    const { deps, journal } = monter([panier()], undefined, [], { filiere: () => 'application' });
+    await relancerPaniers(deps);
+    expect([journal.envois, journal.issues]).toEqual([[], [['jeton-1', 'filiere_differente']]]);
   });
 });
 
-/**
- * LA RELANCE SUR UN NUMÉRO RELIÉ PAR QR CODE (plan 2026-10-23, tâche 5) : un texte, par la porte « écrire en premier »,
- * comptée dans les messages du mois. 🔴 Une limite atteinte ne consomme aucune relance : l'espace épuisé n'est pas
- * réclamé, et un panier refusé pendant le passage redevient dû.
- */
-describe('la relance sur un numéro relié par QR code', () => {
-  const QR = (t: string): Filiere | null => (t === 't-api' ? 'api' : 'application');
-  const texte = (over: Partial<PanierDu> = {}) => panier({ modele: null, texte: 'Bonjour {{first_name}}, votre panier vous attend : {{checkout_url}}', ...over });
-
-  it('🔴 enfile son texte, données remplies, la consigne STOP en dernière ligne, sous la clé et le jeton du panier', async () => {
-    const { deps, journal } = monter([texte()], undefined, [], { filiere: QR });
-    expect(await relancerPaniers(deps)).toEqual({ reclames: 1, issues: { en_file: 1 } });
-    expect(journal.envois).toEqual([]);
-    expect(journal.premiers).toEqual([{
-      tenantId: 't1', cle: 'shopify:b.myshopify.com:checkouts/abandoned:jeton-1', telephone: '33633921577',
-      texte: 'Bonjour Julien, votre panier vous attend : https://b.myshopify.com/1/checkouts/ac/x/recover?key=k\n\nRépondez STOP pour ne plus recevoir ces messages',
-      origine: 'shopify_panier', reference: 'jeton-1', consentement: { mode: 'marchand', source: 'shopify:b.myshopify.com' },
-    }]);
-    expect(journal.premiers[0]!.texte.split('\n').at(-1)).toBe('Répondez STOP pour ne plus recevoir ces messages');
-    expect(journal.issues).toEqual([['jeton-1', 'en_file']]);
-    // En anglais, le pied et le prénom de secours suivent la langue.
-    const en = monter([texte({ nom: null, langue: 'en_US', texte: 'Hello {{first_name}}: {{checkout_url}}' })], undefined, [], { filiere: QR });
-    await relancerPaniers(en.deps);
-    expect(en.journal.premiers[0]!.texte).toBe('Hello there: https://b.myshopify.com/1/checkouts/ac/x/recover?key=k\n\nReply STOP to stop these messages');
+/** Le premier bloc de la ligne du panier, le pont et la décision 33 (lot 5 du menu « Scénario »). */
+describe('la relance du lot 5 : premier bloc, pont et place du panier le plus récent', () => {
+  it('🔴 le premier bloc se lit UNE fois par espace et par passage, pas une fois par panier', async () => {
+    const { deps, scenarios } = monter([panier(), panier({ jeton: 'jeton-2' }), panier({ tenantId: 't2', jeton: 'jeton-3' })]);
+    await relancerPaniers(deps);
+    expect(scenarios.lus).toEqual(['t1:wf-panier', 't2:wf-panier']);
   });
 
-  it('🔴 un croisement rend filiere_differente, sans rien envoyer, et le panier garde son issue', async () => {
-    const texteSurApi = monter([texte({ tenantId: 't-api' })], undefined, [], { filiere: QR });
-    await relancerPaniers(texteSurApi.deps);
-    expect([texteSurApi.journal.premiers, texteSurApi.journal.envois, texteSurApi.journal.issues]).toEqual([[], [], [['jeton-1', 'filiere_differente']]]);
-    const modeleSurQr = monter([panier()], undefined, [], { filiere: QR });
-    await relancerPaniers(modeleSurQr.deps);
-    expect([modeleSurQr.journal.premiers, modeleSurQr.journal.envois, modeleSurQr.journal.issues]).toEqual([[], [], [['jeton-1', 'filiere_differente']]]);
+  it('🔴 un scénario sans premier bloc prêt : l’issue premier_message_absent, rien ne part, la relance est consommée', async () => {
+    const { deps, journal } = monter([panier()], undefined, [], { bloc: { ...BLOC, modele: null } });
+    expect((await relancerPaniers(deps)).issues).toEqual({ premier_message_absent: 1 });
+    expect([journal.envois, journal.issues]).toEqual([[], [['jeton-1', 'premier_message_absent']]]);
   });
 
-  it('🔴 une relance refusée par la limite libère son panier : rien n’est noté, il redevient dû', async () => {
-    const { deps, journal } = monter([texte(), texte({ jeton: 'jeton-2' })], undefined, [], {
-      filiere: QR, premier: (d) => (d.reference === 'jeton-1' ? { ok: false, refus: 'limite_modeles' } : { ok: false, refus: 'desabonne' }),
+  it('🔴 décision 33 : avant la relance, les parcours des AUTRES paniers du contact s’arrêtent (préfixe des paniers, son numéro)', async () => {
+    const { deps, journal, parcours } = monter([panier()]);
+    await relancerPaniers(deps);
+    expect(parcours.arrets).toEqual([{ prefixe: 'shopify:b.myshopify.com:checkouts/abandoned:', waId: '33633921577' }]);
+    expect(journal.ordre).toEqual(['arret', 'envoi']);
+  });
+
+  it('🔴 un arrêt en panne n’empêche pas la relance', async () => {
+    const { deps, journal } = monter([panier()], undefined, [], { arretLeve: true });
+    expect((await relancerPaniers(deps)).issues).toEqual({ envoye: 1 });
+    expect(journal.issues).toEqual([['jeton-1', 'envoye']]);
+  });
+
+  it('un panier fermé ou dont une donnée manque n’arrête aucun parcours', async () => {
+    const { deps, parcours } = monter([panier({ jeton: 'ferme' }), panier({ jeton: 'sans-lien', lien: '' })], undefined, ['ferme']);
+    await relancerPaniers(deps);
+    expect(parcours.arrets).toEqual([]);
+  });
+
+  it('🔴 le pont : posé quand le bloc a une suite et que l’offre a `scenarios`, l’origine étant le jeton ; jamais en Free', async () => {
+    const pro = monter([panier()], undefined, [], { bloc: { ...BLOC, suite: true } });
+    await relancerPaniers(pro.deps);
+    expect(pro.journal.envois[0]!.options).toEqual({
+      nom: 'Shopify · panier abandonné', sansCampagneVide: true,
+      parcoursEvenement: {
+        workflowId: 'wf-panier', noeudId: 'depart', type: 'evenement_shopify',
+        origine: 'shopify:b.myshopify.com:checkouts/abandoned:jeton-1', boutons: [{ type: 'QUICK_REPLY', text: 'Oui' }],
+      },
     });
-    expect((await relancerPaniers(deps)).issues).toEqual({ limite_modeles: 1, desabonne: 1 });
-    expect(journal.liberes).toEqual(['jeton-1']);
-    // Un autre refus de la porte, lui, consomme la relance avec son issue, comme un écart de l'envoi public.
-    expect(journal.issues).toEqual([['jeton-2', 'desabonne']]);
-    // Sur l'API, la limite des modèles garde son issue, comme avant : rien n'est libéré.
-    const api = monter([panier()], async () => ({ statut: 402, corps: { code: 'plan_limit_reached', limite: 'envoisModelesMois' } }));
-    await relancerPaniers(api.deps);
-    expect([api.journal.liberes, api.journal.issues]).toEqual([[], [['jeton-1', 'limite_modeles']]]);
+    const free = monter([panier()], undefined, [], { bloc: { ...BLOC, suite: true }, offre: 'base' });
+    await relancerPaniers(free.deps);
+    expect(free.journal.envois[0]!.options).toEqual({ nom: 'Shopify · panier abandonné', sansCampagneVide: true });
   });
 
-  it('🔴 un espace sans reste du mois n’est pas réclamé ; un espace de l’API, ou au reste illisible, l’est', async () => {
-    const { deps, journal } = monter(
-      [texte({ tenantId: 't-vide', jeton: 'vide' }), texte({ tenantId: 't-reste', jeton: 'reste' }), texte({ tenantId: 't-illisible', jeton: 'illisible' }), panier({ tenantId: 't-api', jeton: 'api' })],
-      undefined, [],
-      { filiere: QR, enTexte: ['t-vide', 't-reste', 't-illisible', 't-api'], reste: { 't-vide': 0, 't-reste': 5, 't-illisible': null, 't-api': 0 } },
-    );
-    const bilan = await relancerPaniers(deps);
-    expect(journal.exclus).toEqual([['t-vide']]);
-    expect(bilan.reclames).toBe(3);
-    expect(journal.premiers.map((p) => p.reference)).toEqual(['reste', 'illisible']);
-    expect(journal.envois).toHaveLength(1);
-    expect(journal.issues.map(([jeton]) => jeton)).not.toContain('vide');
+  it('🔴 un jeton qui porte l’origine au-delà de 200 caractères : la relance part seule, sans pont, sous sa clé coupée', async () => {
+    const { deps, journal } = monter([panier({ jeton: 'j'.repeat(190) })], undefined, [], { bloc: { ...BLOC, suite: true } });
+    await relancerPaniers(deps);
+    expect(journal.envois[0]!.options).toEqual({ nom: 'Shopify · panier abandonné', sansCampagneVide: true });
+    expect((journal.envois[0]!.corps as { idempotencyKey: string }).idempotencyKey).toHaveLength(200);
   });
 });

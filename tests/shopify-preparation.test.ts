@@ -19,7 +19,7 @@ import { EVENEMENTS_SHOPIFY } from '../src/shopify/donnees';
 const T = 't1';
 const VUE: VueBoutique = {
   domaine: 'b.myshopify.com', nom: 'Essai', pays: 'FR', devise: 'EUR', etat: 'connectee', motifCoupure: null, coupeeLe: null,
-  connecteeLe: '2026-10-22T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'console',
+  connecteeLe: '2026-10-22T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'console', pauseLe: null,
 };
 /** L'heure des tests, après la mise en service de l'assistant : les noms qu'il crée sont alors les siens. */
 const MAINTENANT = Date.UTC(2026, 9, 23, 12);

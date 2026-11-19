@@ -27,7 +27,7 @@ const URL_T1 = '/tenants/t1/integrations/shopify';
 const CIBLE = { kind: 'integration', id: 'shopify' };
 const VUE: VueBoutique = {
   domaine: 'b.myshopify.com', nom: 'Essai', pays: 'FR', devise: 'EUR', etat: 'connectee', motifCoupure: null, coupeeLe: null,
-  connecteeLe: '2026-10-22T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'console',
+  connecteeLe: '2026-10-22T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'console', pauseLe: null,
 };
 
 function monter() {

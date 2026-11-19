@@ -1,4 +1,5 @@
 import type { EvenementShopify } from '../../web/lib/partage/shopify-messages';
+import { SUJET_DE_L_EVENEMENT } from './lignes';
 
 /**
  * LA RÈGLE « LE PARCOURS EST-IL ENCORE VOULU ? » D'UN PARCOURS SHOPIFY (menu « Scénario », lot 5, décisions 4 et 15).
@@ -23,11 +24,9 @@ export interface LecturesParcoursShopify {
  * Le sujet d'une origine (celui de la clé d'idempotence du circuit : `shopify:<domaine>:<sujet>:<référence>`) et
  * l'événement de sa ligne.
  */
-const EVENEMENT_DU_SUJET: Readonly<Record<string, EvenementShopify>> = {
-  'orders/paid': 'order_paid',
-  'fulfillments/create': 'order_fulfilled',
-  'checkouts/abandoned': 'checkout_abandoned',
-};
+const EVENEMENT_DU_SUJET: Readonly<Record<string, EvenementShopify>> = Object.fromEntries(
+  (Object.entries(SUJET_DE_L_EVENEMENT) as Array<[EvenementShopify, string]>).map(([evenement, sujet]) => [sujet, evenement]),
+);
 
 export async function parcoursShopifyEncoreVoulu(store: LecturesParcoursShopify, tenantId: string, origine: string): Promise<boolean> {
   const [source, domaine, sujet, ...reste] = origine.split(':');

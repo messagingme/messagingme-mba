@@ -126,13 +126,22 @@ describe.skipIf(!url)('le store Shopify : les paniers', () => {
   let C = '';
   const domaine = `itest-p-${randomUUID().slice(0, 8)}.myshopify.com`;
   const due = async (jeton: string) => pool.query(`update shopify_paniers set maj_le = now() - interval '2 hours' where tenant_id = $1 and jeton = $2`, [C, jeton]);
+  let workflowC = '';
+  /** Le rallumage de la ligne pose `paniers_depuis` : ramené d'un jour, il admet les paniers que ces tests vieillissent. */
+  const anciensPaniersAdmis = () => pool.query(`update shopify_boutiques set paniers_depuis = now() - interval '1 day' where tenant_id = $1`, [C]);
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl() });
     store = new PgShopifyStore(pool, CLE);
     C = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-shopify-paniers') returning id`)).rows[0]!.id;
     await store.connecter(C, { domaine, clientId: 'cid', secretClair: 'shpss_itest', nom: null, pays: 'FR', devise: 'EUR', par: null, origine: 'claude_code' });
-    await store.brancher(C, { evenement: 'checkout_abandoned', modele: 'relance', texte: null, langue: 'fr', variables: ['checkout_url'], actif: true, par: null });
+    const wf = (await pool.query<{ id: string }>(
+      `insert into workflows (tenant_id, name, graph, rayon) values ($1, 'Panier abandonné', '{"nodes":[],"edges":[]}'::jsonb, 'shopify') returning id`, [C],
+    )).rows[0]!.id;
+    workflowC = wf;
+    await store.poserLigne(C, { evenement: 'checkout_abandoned', workflowId: wf, par: null });
+    await store.allumerLigne(C, 'checkout_abandoned', null);
+    await anciensPaniersAdmis();
   });
 
   afterAll(async () => {
@@ -157,28 +166,33 @@ describe.skipIf(!url)('le store Shopify : les paniers', () => {
 
   it('🔴 un panier échu est dû sans aucune affirmation du marchand (2026-10-26), et une seule réclamation sous deux balayages simultanés', async () => {
     await due('p1');
-    const [a, b] = await Promise.all([store.reclamerPaniersDus(50, []), store.reclamerPaniersDus(50, [])]);
+    const [a, b] = await Promise.all([store.reclamerPaniersDus(50), store.reclamerPaniersDus(50)]);
     const miens = [...a, ...b].filter((p) => p.tenantId === C);
-    expect(miens.map((p) => [p.jeton, p.telephone, p.lien, p.domaine, p.modele, p.variables])).toEqual([
-      ['p1', '+33600000948', 'https://lien-1', domaine, 'relance', ['checkout_url']],
+    expect(miens.map((p) => [p.jeton, p.telephone, p.lien, p.domaine, p.workflowId])).toEqual([
+      ['p1', '+33600000948', 'https://lien-1', domaine, workflowC],
     ]);
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === C)).toEqual([]);
+    expect((await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === C)).toEqual([]);
     await store.noterIssuePanier(C, 'p1', 'envoye');
   });
 
-  it('un panier pas encore échu, fermé, sur un message éteint ou une boutique coupée n’est pas dû', async () => {
+  it('un panier pas encore échu, fermé, sur une ligne éteinte, une boutique en pause ou coupée n’est pas dû', async () => {
     await store.noterPanier(C, { jeton: 'recent', telephone: '+33600000949', nom: null, lien: 'https://l' });
     await store.noterPanier(C, { jeton: 'ferme', telephone: '+33600000950', nom: null, lien: 'https://l' });
     await due('ferme');
     await store.fermerPanier(C, 'ferme');
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === C)).toEqual([]);
+    expect((await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === C)).toEqual([]);
     await store.noterPanier(C, { jeton: 'eteint', telephone: '+33600000951', nom: null, lien: 'https://l' });
     await due('eteint');
-    await store.brancher(C, { evenement: 'checkout_abandoned', modele: 'relance', texte: null, langue: 'fr', variables: ['checkout_url'], actif: false, par: null });
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === C)).toEqual([]);
-    await store.brancher(C, { evenement: 'checkout_abandoned', modele: 'relance', texte: null, langue: 'fr', variables: ['checkout_url'], actif: true, par: null });
+    await store.eteindreLigne(C, 'checkout_abandoned', null);
+    expect((await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === C)).toEqual([]);
+    await store.allumerLigne(C, 'checkout_abandoned', null);
+    await anciensPaniersAdmis();
+    await store.mettreEnPause(C);
+    expect((await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === C)).toEqual([]);
+    await store.reprendre(C);
+    await anciensPaniersAdmis();
     await store.couper(C, 'test');
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === C)).toEqual([]);
+    expect((await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === C)).toEqual([]);
   });
 
   it('les compteurs : relancés par issue, fermés à temps, en attente, seuls les paniers notés ; la purge à 7 jours', async () => {
@@ -214,19 +228,19 @@ describe.skipIf(!url)('le store Shopify : les paniers', () => {
     await store.reglerDelaiPanier(C, 60);
     await store.noterPanier(C, { jeton: 'delai', telephone: '+33600000954', nom: null, lien: 'https://l' });
     await pool.query(`update shopify_paniers set maj_le = now() - interval '30 minutes' where tenant_id = $1 and jeton = 'delai'`, [C]);
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === C)).toEqual([]);
+    expect((await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === C)).toEqual([]);
     await store.reglerDelaiPanier(C, 15);
     // Un autre balayage tient la ligne : `skip locked` la saute au lieu de l'attendre (ni double relance, ni blocage).
     const verrou = await pool.connect();
     try {
       await verrou.query('begin');
       await verrou.query(`select 1 from shopify_paniers where tenant_id = $1 and jeton = 'delai' for update`, [C]);
-      expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === C)).toEqual([]);
+      expect((await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === C)).toEqual([]);
     } finally {
       await verrou.query('rollback');
       verrou.release();
     }
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === C).map((p) => p.jeton)).toEqual(['delai']);
+    expect((await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === C).map((p) => p.jeton)).toEqual(['delai']);
   });
 });
 
@@ -303,31 +317,23 @@ describe.skipIf(!url)('le store Shopify : la console (origine, attentes, migrati
 });
 
 /**
- * LE TEXTE D'UN NUMÉRO RELIÉ PAR QR CODE (migration 0251, plan 2026-10-23, tâche 5) : ce qu'aucun faux ne prouve. Brancher
- * un texte vide le modèle (la contrainte « l'un ou l'autre ») ; la réclamation n'examine pas les espaces exclus et rend le
- * texte du message ; un panier libéré redevient dû, dans SON espace, et pas s'il porte déjà son issue.
+ * LE TEXTE D'UN NUMÉRO RELIÉ PAR QR CODE (migration 0251, plan 2026-10-23, tâche 5) : brancher un texte vide le modèle (la
+ * contrainte « l'un ou l'autre »). La relance en texte est partie avec le lot 5 (les lignes Shopify envoient un template).
  */
 describe.skipIf(!url)('le store Shopify : le texte d’un numéro relié par QR code (migration 0251)', () => {
   let pool: Pool;
   let store: PgShopifyStore;
   let E = '';
-  let F = '';
-  const brancherRelance = (t: string, m: { modele: string | null; texte: string | null }) =>
-    store.brancher(t, { evenement: 'checkout_abandoned', ...m, langue: 'fr', variables: ['checkout_url'], actif: true, par: null });
-  const miens = <T extends { tenantId: string }>(paniers: T[]): T[] => paniers.filter((p) => p.tenantId === E || p.tenantId === F);
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl() });
     store = new PgShopifyStore(pool, CLE);
     E = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-shopify-texte-e') returning id`)).rows[0]!.id;
-    F = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-shopify-texte-f') returning id`)).rows[0]!.id;
-    for (const t of [E, F]) {
-      await store.connecter(t, { domaine: `itest-t-${randomUUID().slice(0, 8)}.myshopify.com`, clientId: 'cid', secretClair: 'shpss_itest', nom: null, pays: 'FR', devise: 'EUR', par: null, origine: 'claude_code' });
-    }
+    await store.connecter(E, { domaine: `itest-t-${randomUUID().slice(0, 8)}.myshopify.com`, clientId: 'cid', secretClair: 'shpss_itest', nom: null, pays: 'FR', devise: 'EUR', par: null, origine: 'claude_code' });
   });
 
   afterAll(async () => {
-    await pool.query('delete from tenants where id = any($1::uuid[])', [[E, F]]);
+    await pool.query('delete from tenants where id = $1', [E]);
     await pool.end();
   });
 
@@ -338,30 +344,101 @@ describe.skipIf(!url)('le store Shopify : le texte d’un numéro relié par QR 
     await store.brancher(E, { evenement: 'order_paid', modele: 'commande_payee', texte: null, langue: 'fr', variables: [], actif: false, par: null });
     expect(await store.message(E, 'order_paid')).toMatchObject({ modele: 'commande_payee', texte: null, actif: false });
   });
+});
 
-  it('🔴 la réclamation n’examine pas les espaces exclus, et rend le texte du message ; seule une relance en texte compte parmi les espaces à examiner', async () => {
-    await brancherRelance(E, { modele: null, texte: 'Votre panier : {{checkout_url}}' });
-    await brancherRelance(F, { modele: 'relance', texte: null });
-    await store.noterPanier(E, { jeton: 'e1', telephone: '+33600000961', nom: null, lien: 'https://l' });
-    await store.noterPanier(F, { jeton: 'f1', telephone: '+33600000962', nom: null, lien: 'https://l' });
-    await pool.query(`update shopify_paniers set maj_le = now() - interval '2 hours' where tenant_id = any($1::uuid[])`, [[E, F]]);
-    const enTexte = await store.espacesAPaniersDusEnTexte(1000);
-    expect([enTexte.includes(E), enTexte.includes(F)]).toEqual([true, false]);
-    expect(miens(await store.reclamerPaniersDus(50, [E])).map((p) => [p.tenantId, p.jeton])).toEqual([[F, 'f1']]);
-    const e = (await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === E);
-    expect(e.map((p) => [p.jeton, p.modele, p.texte, p.variables])).toEqual([['e1', null, 'Votre panier : {{checkout_url}}', ['checkout_url']]]);
-    // Réclamé, il n'est plus dû : l'espace n'est plus à examiner.
-    expect(await store.espacesAPaniersDusEnTexte(1000)).not.toContain(E);
+/**
+ * LES LIGNES ET LA PAUSE (menu « Scénario », lot 5, migration 0299, décision 15 et appel A2) : ce qu'aucun faux ne prouve.
+ * Une ligne par événement, posée éteinte ; allumer et éteindre ne valent qu'une fois ; rallumer la ligne du panier et
+ * reprendre la boutique posent `paniers_depuis`, donc un panier noté avant ne part jamais après coup ; en pause, aucun
+ * panier n'est dû ; effacer la boutique garde les lignes, éteintes.
+ */
+describe.skipIf(!url)('le store Shopify : les lignes et la pause (migration 0299)', () => {
+  let pool: Pool;
+  let store: PgShopifyStore;
+  let L = '';
+  let M = '';
+  let wfL = '';
+  const domaine = `itest-l-${randomUUID().slice(0, 8)}.myshopify.com`;
+  const scenario = async (t: string, nom: string) => (await pool.query<{ id: string }>(
+    `insert into workflows (tenant_id, name, graph, rayon) values ($1, $2, '{"nodes":[],"edges":[]}'::jsonb, 'shopify') returning id`, [t, nom],
+  )).rows[0]!.id;
+  const miens = async () => (await store.reclamerPaniersDus(50)).filter((p) => p.tenantId === L);
+  const vieillir = (jeton: string, intervalle: string) =>
+    pool.query(`update shopify_paniers set maj_le = now() - $3::interval where tenant_id = $1 and jeton = $2`, [L, jeton, intervalle]);
+
+  beforeAll(async () => {
+    pool = new Pool({ connectionString: url, ssl: pgSsl() });
+    store = new PgShopifyStore(pool, CLE);
+    L = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-shopify-lignes-l') returning id`)).rows[0]!.id;
+    M = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-shopify-lignes-m') returning id`)).rows[0]!.id;
+    await store.connecter(L, { domaine, clientId: 'cid', secretClair: 'shpss_itest', nom: null, pays: 'FR', devise: 'EUR', par: null, origine: 'claude_code' });
+    wfL = await scenario(L, 'Panier abandonné');
   });
 
-  it('🔴 un panier libéré redevient dû, dans SON espace seulement, et pas s’il porte déjà son issue', async () => {
-    await store.libererPanier(F, 'e1');
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === E)).toEqual([]);
-    await store.libererPanier(E, 'e1');
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === E).map((p) => p.jeton)).toEqual(['e1']);
-    await store.noterIssuePanier(E, 'e1', 'en_file');
-    await store.libererPanier(E, 'e1');
-    expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === E)).toEqual([]);
+  afterAll(async () => {
+    await pool.query('delete from tenants where id = any($1::uuid[])', [[L, M]]);
+    await pool.end();
+  });
+
+  it('une ligne se pose ÉTEINTE, une par événement : la reposer rend celle qui existe ; un autre espace ne la voit pas', async () => {
+    expect(await store.poserLigne(L, { evenement: 'checkout_abandoned', workflowId: wfL, par: null }))
+      .toMatchObject({ evenement: 'checkout_abandoned', workflowId: wfL, actif: false });
+    const autre = await scenario(L, 'Autre');
+    expect(await store.poserLigne(L, { evenement: 'checkout_abandoned', workflowId: autre, par: null })).toMatchObject({ workflowId: wfL });
+    expect((await store.lignes(L)).map((l) => [l.evenement, l.workflowId, l.actif])).toEqual([['checkout_abandoned', wfL, false]]);
+    expect(await store.ligne(L, 'order_paid')).toBeNull();
+    expect(await store.ligne(M, 'checkout_abandoned')).toBeNull();
+    expect(await store.lignes(M)).toEqual([]);
+  });
+
+  it('allumer et éteindre ne valent qu’une fois, et seulement dans l’espace de la ligne', async () => {
+    expect(await store.allumerLigne(M, 'checkout_abandoned', null)).toBe(false);
+    expect(await store.allumerLigne(L, 'checkout_abandoned', null)).toBe(true);
+    expect(await store.allumerLigne(L, 'checkout_abandoned', null)).toBe(false);
+    expect((await store.ligne(L, 'checkout_abandoned'))?.actif).toBe(true);
+    expect(await store.eteindreLigne(M, 'checkout_abandoned', null)).toBe(false);
+    expect(await store.eteindreLigne(L, 'checkout_abandoned', null)).toBe(true);
+    expect(await store.eteindreLigne(L, 'checkout_abandoned', null)).toBe(false);
+    expect((await store.ligne(L, 'checkout_abandoned'))?.actif).toBe(false);
+  });
+
+  it('🔴 rallumer la ligne du panier pose `paniers_depuis` : un panier noté avant ne part jamais, un panier modifié après, oui', async () => {
+    await store.noterPanier(L, { jeton: 'avant', telephone: '+33600000981', nom: null, lien: 'https://l' });
+    await store.noterPanier(L, { jeton: 'apres', telephone: '+33600000982', nom: null, lien: 'https://l' });
+    await vieillir('avant', '2 hours');
+    await vieillir('apres', '2 hours');
+    expect(await store.allumerLigne(L, 'checkout_abandoned', null)).toBe(true);
+    expect(await miens()).toEqual([]);
+    // Le rallumage ramené 90 minutes plus tôt : « apres », modifié depuis (il y a 80 minutes, au-delà du délai de 60), est
+    // dû ; « avant », non. Jamais pile sur le délai : la comparaison stricte rendrait le test instable.
+    await pool.query(`update shopify_boutiques set paniers_depuis = now() - interval '90 minutes' where tenant_id = $1`, [L]);
+    await vieillir('apres', '80 minutes');
+    expect((await miens()).map((p) => [p.jeton, p.workflowId])).toEqual([['apres', wfL]]);
+  });
+
+  it('🔴 la pause : la vue et la boutique signée la disent, aucun panier n’est dû ; la reprise pose `paniers_depuis`', async () => {
+    expect(await store.mettreEnPause(L)).toBe(true);
+    expect(await store.mettreEnPause(L)).toBe(false);
+    expect(await store.mettreEnPause(M)).toBe(false);
+    expect((await store.lire(L))?.pauseLe).not.toBeNull();
+    expect((await store.boutiqueParDomaine(domaine))?.pause).toBe(true);
+    await store.noterPanier(L, { jeton: 'pendant', telephone: '+33600000983', nom: null, lien: 'https://l' });
+    await vieillir('pendant', '2 hours');
+    await pool.query(`update shopify_boutiques set paniers_depuis = now() - interval '1 day' where tenant_id = $1`, [L]);
+    expect(await miens()).toEqual([]);
+    expect(await store.reprendre(L)).toBe(true);
+    expect(await store.reprendre(L)).toBe(false);
+    expect((await store.lire(L))?.pauseLe).toBeNull();
+    expect((await store.boutiqueParDomaine(domaine))?.pause).toBe(false);
+    // Noté pendant la pause : jamais relancé après coup (décision 15).
+    expect(await miens()).toEqual([]);
+  });
+
+  it('🔴 effacer la boutique garde ses lignes, ÉTEINTES (la configuration, sans donnée personnelle)', async () => {
+    expect((await store.ligne(L, 'checkout_abandoned'))?.actif).toBe(true);
+    await store.effacerBoutique(L);
+    expect(await store.lire(L)).toBeNull();
+    expect((await store.lignes(L)).map((l) => [l.evenement, l.workflowId, l.actif])).toEqual([['checkout_abandoned', wfL, false]]);
   });
 });
 

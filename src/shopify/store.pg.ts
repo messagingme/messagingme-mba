@@ -2,16 +2,16 @@ import type { Pool, PoolClient } from 'pg';
 import { decryptSecret, encryptSecret } from '../crypto/secretbox';
 import { enTransaction } from '../db/transaction';
 import { estDonneeShopify, type DonneeShopify, type EvenementShopify } from './donnees';
+import type { LigneShopify } from './lignes';
 
 /**
  * LE STORE DU CONNECTEUR SHOPIFY (plan 2026-10-21, lot 1), seul à écrire les tables `shopify_*` (migration 0246) ;
  * `purgeMany` y efface aussi les lignes d'une fiche purgée.
  *
- * 🔴 `tenant_id = $1` SUR CHAQUE REQUÊTE, sauf SEPT lectures transverses nommées ici : `boutiqueParDomaine` et
- * `couperParDomaine` (ce sont elles qui DONNENT l'espace, à partir du domaine qui signe un webhook), et cinq balayages
- * de toutes les boutiques : `purgerEvenements`, `reclamerPaniersDus` (qui joint chaque panier à SA boutique et à SON
- * message par `tenant_id`), `espacesAPaniersDusEnTexte` (la même jointure, en lecture), `purgerPaniers` et
- * `attentesAnciennes` (le filet de l'activation, console).
+ * 🔴 `tenant_id = $1` SUR CHAQUE REQUÊTE, sauf SIX lectures transverses nommées ici : `boutiqueParDomaine` et
+ * `couperParDomaine` (ce sont elles qui DONNENT l'espace, à partir du domaine qui signe un webhook), et quatre balayages
+ * de toutes les boutiques : `purgerEvenements`, `reclamerPaniersDus` (qui joint chaque panier à SA boutique et à SA
+ * ligne par `tenant_id`), `purgerPaniers` et `attentesAnciennes` (le filet de l'activation, console).
  *
  * 🔴 LE SECRET NE SORT JAMAIS VERS UN ÉCRAN : `lire` ne le sélectionne pas, et seule `boutiqueParDomaine` le rend
  * déchiffré, pour vérifier une signature.
@@ -48,6 +48,8 @@ export interface VueBoutique {
   dernierEvenementLe: string | null;
   delaiPanierMinutes: number;
   origine: OrigineBoutique;
+  /** La pause (lot 5, décision 15) : rien ne part, aucun panier n'est noté ; `null` = active. */
+  pauseLe: string | null;
 }
 
 /**
@@ -73,6 +75,8 @@ export interface BoutiqueSignee {
   pays: string | null;
   devise: string | null;
   origine: OrigineBoutique;
+  /** En pause, un webhook est rendu 200 sans rien réserver ni envoyer (perdu, jamais rejoué). */
+  pause: boolean;
 }
 
 /** De quoi demander un jeton à Shopify pour l'espace : l'import des clients (lot 3). */
@@ -108,7 +112,7 @@ export interface DetailsCommande {
   test: boolean;
 }
 
-/** Un panier réclamé pour sa relance, avec ce que l'envoi demande. */
+/** Un panier réclamé pour sa relance : le scénario de la ligne du panier dit ce qui part (`./premier-bloc.ts`). */
 export interface PanierDu {
   tenantId: string;
   jeton: string;
@@ -116,10 +120,7 @@ export interface PanierDu {
   nom: string | null;
   lien: string;
   domaine: string;
-  modele: string | null;
-  texte: string | null;
-  langue: string;
-  variables: DonneeShopify[];
+  workflowId: string;
 }
 
 /** Une issue nulle depuis plus longtemps que ce bail = un traitement mort en route : il se reprend. */
@@ -127,16 +128,17 @@ export const BAIL_EVENEMENT_S = 120;
 
 /**
  * Ce qui rend un panier DÛ : ouvert, jamais relancé, avec un téléphone et un lien, dont la dernière modification a dépassé
- * le délai de SA boutique, connectée, et dont le message `checkout_abandoned` est actif. Aucune affirmation du marchand
- * n'est exigée (décision de Julien du 2026-10-26 : le consentement de ses clients est sa responsabilité). Les deux
- * lectures de la relance (`reclamerPaniersDus`, `espacesAPaniersDusEnTexte`) le reprennent mot pour mot ; la suite de la
- * requête commence par `and`.
+ * le délai de SA boutique, connectée et hors pause, et dont la ligne `checkout_abandoned` est allumée (lot 5, migration
+ * 0299). 🔴 Et modifié depuis la dernière reprise de la boutique ou le dernier rallumage de la ligne (`paniers_depuis`,
+ * décision 15) : un panier noté avant ne part jamais après coup. Aucune affirmation du marchand n'est exigée (décision de
+ * Julien du 2026-10-26 : le consentement de ses clients est sa responsabilité).
  */
 const PANIERS_DUS = `from shopify_paniers p
            join shopify_boutiques b on b.tenant_id = p.tenant_id
-           join shopify_messages m on m.tenant_id = p.tenant_id and m.evenement = 'checkout_abandoned'
+           join shopify_lignes l on l.tenant_id = p.tenant_id and l.evenement = 'checkout_abandoned'
           where p.ferme_le is null and p.relance_le is null and p.telephone is not null and p.lien is not null
-            and b.etat = 'connectee' and m.actif
+            and b.etat = 'connectee' and b.pause_le is null and l.actif
+            and (b.paniers_depuis is null or p.maj_le >= b.paniers_depuis)
             and p.maj_le < now() - make_interval(mins => b.delai_panier_minutes)`;
 
 export type Reservation = 'nouveau' | 'en_cours' | 'servi';
@@ -144,8 +146,14 @@ export type Reservation = 'nouveau' | 'en_cours' | 'servi';
 interface LigneBoutique {
   domaine: string; nom: string | null; pays: string | null; devise: string | null; etat: EtatBoutique;
   motif_coupure: string | null; coupee_le: Date | null; connectee_le: Date; dernier_evenement_le: Date | null;
-  delai_panier_minutes: number; origine: OrigineBoutique;
+  delai_panier_minutes: number; origine: OrigineBoutique; pause_le: Date | null;
 }
+
+interface LigneLue { evenement: EvenementShopify; workflow_id: string; actif: boolean; modifie_le: Date }
+
+const versLigne = (r: LigneLue): LigneShopify => ({
+  evenement: r.evenement, workflowId: r.workflow_id, actif: r.actif, modifieLe: r.modifie_le.toISOString(),
+});
 
 export class PgShopifyStore {
   constructor(private readonly pool: Pool, private readonly cle: string) {}
@@ -153,7 +161,7 @@ export class PgShopifyStore {
   async lire(tenantId: string): Promise<VueBoutique | null> {
     const res = await this.pool.query<LigneBoutique>(
       `select domaine, nom, pays, devise, etat, motif_coupure, coupee_le, connectee_le, dernier_evenement_le,
-              delai_panier_minutes, origine
+              delai_panier_minutes, origine, pause_le
          from shopify_boutiques where tenant_id = $1`,
       [tenantId],
     );
@@ -163,7 +171,7 @@ export class PgShopifyStore {
       domaine: r.domaine, nom: r.nom, pays: r.pays, devise: r.devise, etat: r.etat, motifCoupure: r.motif_coupure,
       coupeeLe: r.coupee_le?.toISOString() ?? null, connecteeLe: r.connectee_le.toISOString(),
       dernierEvenementLe: r.dernier_evenement_le?.toISOString() ?? null,
-      delaiPanierMinutes: r.delai_panier_minutes, origine: r.origine,
+      delaiPanierMinutes: r.delai_panier_minutes, origine: r.origine, pauseLe: r.pause_le?.toISOString() ?? null,
     };
   }
 
@@ -188,14 +196,17 @@ export class PgShopifyStore {
   async boutiqueParDomaine(domaine: string): Promise<BoutiqueSignee | null> {
     const res = await this.pool.query<{
       tenant_id: string; etat: EtatBoutique; secret_chiffre: string; pays: string | null; devise: string | null; origine: OrigineBoutique;
+      en_pause: boolean;
     }>(
-      `select tenant_id, etat, secret_chiffre, pays, devise, origine from shopify_boutiques where domaine = $1`,
+      `select tenant_id, etat, secret_chiffre, pays, devise, origine, pause_le is not null as en_pause
+         from shopify_boutiques where domaine = $1`,
       [domaine],
     );
     const r = res.rows[0];
     if (!r) return null;
     return {
       tenantId: r.tenant_id, etat: r.etat, secret: decryptSecret(r.secret_chiffre, this.cle), pays: r.pays, devise: r.devise, origine: r.origine,
+      pause: r.en_pause,
     };
   }
 
@@ -369,6 +380,90 @@ export class PgShopifyStore {
     await this.pool.query(`update shopify_boutiques set delai_panier_minutes = $2, maj_le = now() where tenant_id = $1`, [tenantId, minutes]);
   }
 
+  /** Les lignes de l'espace (lot 5, migration 0299), une par événement au plus. */
+  async lignes(tenantId: string): Promise<LigneShopify[]> {
+    const res = await this.pool.query<LigneLue>(
+      `select evenement, workflow_id, actif, modifie_le from shopify_lignes where tenant_id = $1 order by evenement`,
+      [tenantId],
+    );
+    return res.rows.map(versLigne);
+  }
+
+  async ligne(tenantId: string, evenement: EvenementShopify): Promise<LigneShopify | null> {
+    const r = (await this.pool.query<LigneLue>(
+      `select evenement, workflow_id, actif, modifie_le from shopify_lignes where tenant_id = $1 and evenement = $2`,
+      [tenantId, evenement],
+    )).rows[0];
+    return r ? versLigne(r) : null;
+  }
+
+  /**
+   * Pose la ligne d'un événement, ÉTEINTE, sur son scénario. Une ligne existe déjà : elle est rendue telle quelle, son
+   * scénario n'est jamais remplacé (deux créations simultanées gardent la première).
+   */
+  async poserLigne(tenantId: string, l: { evenement: EvenementShopify; workflowId: string; par: string | null }): Promise<LigneShopify> {
+    await this.pool.query(
+      `insert into shopify_lignes (tenant_id, evenement, workflow_id, actif, modifie_par, modifie_le)
+       values ($1, $2, $3, false, $4, now())
+       on conflict (tenant_id, evenement) do nothing`,
+      [tenantId, l.evenement, l.workflowId, l.par],
+    );
+    const ligne = await this.ligne(tenantId, l.evenement);
+    if (ligne === null) throw new Error(`ligne Shopify ${l.evenement} introuvable après sa pose`);
+    return ligne;
+  }
+
+  /**
+   * Allume la ligne ; `false` si elle l'était déjà ou n'existe pas. 🔴 Rallumer la ligne du panier pose `paniers_depuis`
+   * dans la même transaction : un panier noté avant ne part jamais après coup (appel A2 du plan du lot 5).
+   */
+  async allumerLigne(tenantId: string, evenement: EvenementShopify, par: string | null): Promise<boolean> {
+    return enTransaction(this.pool, async (client) => {
+      const res = await client.query(
+        `update shopify_lignes set actif = true, modifie_par = $3, modifie_le = now()
+          where tenant_id = $1 and evenement = $2 and not actif`,
+        [tenantId, evenement, par],
+      );
+      const allumee = (res.rowCount ?? 0) > 0;
+      if (allumee && evenement === 'checkout_abandoned') {
+        await client.query(`update shopify_boutiques set paniers_depuis = now(), maj_le = now() where tenant_id = $1`, [tenantId]);
+      }
+      return allumee;
+    });
+  }
+
+  /** Éteint la ligne ; `false` si elle l'était déjà ou n'existe pas. L'arrêt de ses parcours revient à l'appelant. */
+  async eteindreLigne(tenantId: string, evenement: EvenementShopify, par: string | null): Promise<boolean> {
+    const res = await this.pool.query(
+      `update shopify_lignes set actif = false, modifie_par = $3, modifie_le = now()
+        where tenant_id = $1 and evenement = $2 and actif`,
+      [tenantId, evenement, par],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * La pause de la boutique (décision 15) : rien ne part, aucun panier ne se note ; l'attribution, la fermeture des
+   * paniers et le RGPD continuent. `false` si elle l'était déjà. L'arrêt des parcours revient à l'appelant.
+   */
+  async mettreEnPause(tenantId: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `update shopify_boutiques set pause_le = now(), maj_le = now() where tenant_id = $1 and pause_le is null`,
+      [tenantId],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  /** La reprise : 🔴 pose `paniers_depuis`, pour qu'aucun panier noté avant ne parte après coup. */
+  async reprendre(tenantId: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `update shopify_boutiques set pause_le = null, paniers_depuis = now(), maj_le = now()
+        where tenant_id = $1 and pause_le is not null`,
+      [tenantId],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
   async noterDernierEvenement(tenantId: string): Promise<void> {
     await this.pool.query(`update shopify_boutiques set dernier_evenement_le = now() where tenant_id = $1`, [tenantId]);
   }
@@ -505,61 +600,30 @@ export class PgShopifyStore {
   }
 
   /**
-   * EXCEPTION TRANSVERSE 4 : le balayage des relances, toutes boutiques confondues. Un panier DÛ : ouvert, jamais relancé,
-   * avec un téléphone et un lien, dont la dernière modification a dépassé le délai de SA boutique, connectée, et dont le
-   * message `checkout_abandoned` est actif (`PANIERS_DUS`). 🔴 La réclamation POSE `relance_le` dans la
-   * même écriture (`for update skip locked`) : deux balayages, de deux copies de l'API, ne relancent jamais le même panier.
-   * Les espaces d'`exclus` ne sont pas examinés : leurs paniers restent dus (la relance y met ceux qui n'ont plus de
-   * messages du mois, plan 2026-10-23, tâche 5).
+   * EXCEPTION TRANSVERSE 4 : le balayage des relances, toutes boutiques confondues. Un panier DÛ : `PANIERS_DUS`.
+   * 🔴 La réclamation POSE `relance_le` dans la même écriture (`for update skip locked`) : deux balayages, de deux copies
+   * de l'API, ne relancent jamais le même panier. Elle rend le scénario de la ligne du panier.
    */
-  async reclamerPaniersDus(limite: number, exclus: readonly string[]): Promise<PanierDu[]> {
+  async reclamerPaniersDus(limite: number): Promise<PanierDu[]> {
     const res = await this.pool.query<{
-      tenant_id: string; jeton: string; telephone: string; nom: string | null; lien: string; domaine: string;
-      modele: string | null; texte: string | null; langue: string; variables: unknown;
+      tenant_id: string; jeton: string; telephone: string; nom: string | null; lien: string; domaine: string; workflow_id: string;
     }>(
       `with dus as (
          select p.tenant_id, p.jeton ${PANIERS_DUS}
-            and not (p.tenant_id = any($2::uuid[]))
           order by p.maj_le
           limit $1
           for update of p skip locked
        )
        update shopify_paniers p set relance_le = now()
-         from dus, shopify_boutiques b, shopify_messages m
+         from dus, shopify_boutiques b, shopify_lignes l
         where p.tenant_id = dus.tenant_id and p.jeton = dus.jeton and p.relance_le is null
-          and b.tenant_id = p.tenant_id and m.tenant_id = p.tenant_id and m.evenement = 'checkout_abandoned'
-       returning p.tenant_id, p.jeton, p.telephone, p.nom, p.lien, b.domaine, m.modele, m.texte, m.langue, m.variables`,
-      [limite, exclus],
-    );
-    return res.rows.map((r) => ({
-      tenantId: r.tenant_id, jeton: r.jeton, telephone: r.telephone, nom: r.nom, lien: r.lien, domaine: r.domaine,
-      modele: r.modele, texte: r.texte, langue: r.langue, variables: Array.isArray(r.variables) ? r.variables.filter(estDonneeShopify) : [],
-    }));
-  }
-
-  /**
-   * EXCEPTION TRANSVERSE 7 : les espaces qui ont au moins un panier dû et une relance en TEXTE (numéro relié par QR code),
-   * au plus `limite`, sans rien réclamer. La relance y cherche ceux dont les messages du mois sont épuisés, pour les
-   * exclure de la réclamation : sinon leurs paniers seraient réclamés, refusés, libérés, à chaque passage, devant ceux
-   * des autres espaces.
-   */
-  async espacesAPaniersDusEnTexte(limite: number): Promise<string[]> {
-    const res = await this.pool.query<{ tenant_id: string }>(
-      `select distinct p.tenant_id ${PANIERS_DUS} and m.texte is not null limit $1`,
+          and b.tenant_id = p.tenant_id and l.tenant_id = p.tenant_id and l.evenement = 'checkout_abandoned'
+       returning p.tenant_id, p.jeton, p.telephone, p.nom, p.lien, b.domaine, l.workflow_id`,
       [limite],
     );
-    return res.rows.map((r) => r.tenant_id);
-  }
-
-  /**
-   * Un panier réclamé redevient dû (`relance_le` à null) : sa relance n'est pas partie et ne doit pas se perdre (les
-   * messages du mois épuisés pendant le passage). Un panier qui porte déjà une issue n'est pas touché.
-   */
-  async libererPanier(tenantId: string, jeton: string): Promise<void> {
-    await this.pool.query(
-      `update shopify_paniers set relance_le = null where tenant_id = $1 and jeton = $2 and issue is null`,
-      [tenantId, jeton],
-    );
+    return res.rows.map((r) => ({
+      tenantId: r.tenant_id, jeton: r.jeton, telephone: r.telephone, nom: r.nom, lien: r.lien, domaine: r.domaine, workflowId: r.workflow_id,
+    }));
   }
 
   async noterIssuePanier(tenantId: string, jeton: string, issue: string): Promise<void> {
@@ -640,10 +704,13 @@ export class PgShopifyStore {
 
 /**
  * Tout le branchement d'un espace, dans la transaction de l'appelant. 🔴 Les ventes attribuées n'en font pas partie : elles
- * perdent leur commande et leur contact, et restent anonymes (spec du 2026-10-28) ; un chiffre déjà lu ne change pas.
+ * perdent leur commande et leur contact, et restent anonymes (spec du 2026-10-28) ; un chiffre déjà lu ne change pas. Les
+ * lignes (lot 5) restent, ÉTEINTES : une configuration sans donnée personnelle, dont le scénario (au nom unique dans son
+ * rayon) resservira à la reconnexion.
  */
 async function effacerBranchement(client: PoolClient, tenantId: string): Promise<void> {
   await client.query(`update ventes_attribuees set commande_id = null, contact_id = null where tenant_id = $1`, [tenantId]);
+  await client.query(`update shopify_lignes set actif = false, modifie_le = now() where tenant_id = $1 and actif`, [tenantId]);
   for (const table of ['shopify_messages', 'shopify_messages_attente', 'shopify_paniers', 'shopify_evenements', 'shopify_commandes', 'shopify_boutiques']) {
     await client.query(`delete from ${table} where tenant_id = $1`, [tenantId]);
   }

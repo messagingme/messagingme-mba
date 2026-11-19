@@ -823,8 +823,9 @@ describe('POST /v1/sends : le consentement par destinataire', () => {
 describe('le connecteur Shopify, par le vrai cycle d’envoi public', () => {
   const envoiShopify = (over: Partial<EnvoiShopify> = {}): EnvoiShopify => ({
     tenantId: 't1', cle: 'shopify:b.myshopify.com:orders/paid:1002', nomLigne: 'Shopify · commande payée · #1002',
-    modele: 'confirmation', langue: 'fr', variables: [], valeurs: {}, telephone: PHONE(1), sourceConsentement: 'shopify:b.myshopify.com', ...over,
+    modele: 'confirmation', langue: 'fr', params: [], valeurs: {}, telephone: PHONE(1), sourceConsentement: 'shopify:b.myshopify.com', ...over,
   });
+  const variable = (position: number, key: string) => ({ position, source: { type: 'variable' as const, key } });
   const branche = (sends: DepsEnvoiPublic) => (t: string, corps: unknown, compter: (n: number) => Promise<boolean>, options: OptionsEnvoiPublic) =>
     lancerEnvoiPublic(sends, t, corps, undefined, compter, options);
 
@@ -850,15 +851,29 @@ describe('le connecteur Shopify, par le vrai cycle d’envoi public', () => {
   it('un utility avec ses variables : le corps passe la forme, et les valeurs partent avec le destinataire', async () => {
     const { sends, cap } = app({}, { modele: { statut: 'approuve', categorie: 'utility', variables: 2 } });
     const issue = await envoyerShopify(branche(sends), envoiShopify({
-      variables: ['first_name', 'order_number'], valeurs: { first_name: 'Julien', order_number: '#1002' },
+      params: [variable(1, 'first_name'), variable(2, 'order_number')], valeurs: { first_name: 'Julien', order_number: '#1002' },
     }));
     expect(issue).toBe('envoye');
     expect(cap.sends[0]!.recipients.map((r) => r.toE164)).toEqual([PHONE(1)]);
     // Rejoué avec la même clé : le rapport est relu, rien ne repart.
     expect(await envoyerShopify(branche(sends), envoiShopify({
-      variables: ['first_name', 'order_number'], valeurs: { first_name: 'Julien', order_number: '#1002' },
+      params: [variable(1, 'first_name'), variable(2, 'order_number')], valeurs: { first_name: 'Julien', order_number: '#1002' },
     }))).toBe('envoye');
     expect(cap.sends).toHaveLength(1);
+  });
+
+  it('🔴 lot 5 : TOUTES les données de l’événement partent avec le destinataire, et le pont atteint la campagne', async () => {
+    // La suite du parcours peut demander le lien de la commande, que le premier message n'affiche pas.
+    const { sends, cap } = app({}, { modele: { statut: 'approuve', categorie: 'utility', variables: 1 } });
+    const pont = {
+      workflowId: 'wf-1', noeudId: 'depart', type: 'evenement_shopify' as const,
+      origine: 'shopify:b.myshopify.com:orders/paid:1002', boutons: [{ type: 'QUICK_REPLY', text: 'Merci' }],
+    };
+    const valeurs = { first_name: 'Julien', order_number: '#1002', order_status_url: 'https://b.myshopify.com/s/1002?key=k' };
+    expect(await envoyerShopify(branche(sends), envoiShopify({ params: [variable(1, 'first_name')], valeurs, parcoursEvenement: pont })))
+      .toBe('envoye');
+    expect(cap.sends[0]!.recipients[0]!.variables).toEqual(valeurs);
+    expect(cap.sends[0]!.input.parcoursEvenement).toEqual(pont);
   });
 });
 

@@ -71,7 +71,7 @@ export function registerShopifyWebhooks(app: FastifyInstance, deps: ShopifyWebho
       return reply.code(401).send(refus);
     }
     const r = await deps.traiter(
-      { tenantId: b.tenantId, domaine, etat: b.etat, pays: b.pays, devise: b.devise, origine: b.origine },
+      { tenantId: b.tenantId, domaine, etat: b.etat, pays: b.pays, devise: b.devise, origine: b.origine, pause: b.pause },
       entete(req, 'x-shopify-topic') ?? '',
       req.body,
     );

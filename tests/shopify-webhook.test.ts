@@ -14,7 +14,7 @@ import type { BoutiqueRecue } from '../src/shopify/traitement';
 
 const SECRET = randomBytes(16).toString('hex');
 const DOMAINE = 'b.myshopify.com';
-const BOUTIQUE: BoutiqueSignee = { tenantId: 't1', etat: 'connectee', secret: SECRET, pays: 'FR', devise: 'EUR', origine: 'claude_code' };
+const BOUTIQUE: BoutiqueSignee = { tenantId: 't1', etat: 'connectee', secret: SECRET, pays: 'FR', devise: 'EUR', origine: 'claude_code', pause: false };
 
 function monter(o: { boutique?: BoutiqueSignee | null; statut?: 200 | 503; maintenant?: () => number } = {}) {
   const lectures: string[] = [];
@@ -37,7 +37,14 @@ describe('POST /shopify/webhooks', () => {
     const { srv, traites } = monter();
     const r = await poster(srv, { 'x-shopify-shop-domain': DOMAINE, 'x-shopify-hmac-sha256': signer(corps), 'x-shopify-topic': 'orders/paid' });
     expect(r.statusCode).toBe(200);
-    expect(traites).toEqual([{ b: { tenantId: 't1', domaine: DOMAINE, etat: 'connectee', pays: 'FR', devise: 'EUR', origine: 'claude_code' }, sujet: 'orders/paid', corps: { id: 1002, name: '#1002' } }]);
+    expect(traites).toEqual([{ b: { tenantId: 't1', domaine: DOMAINE, etat: 'connectee', pays: 'FR', devise: 'EUR', origine: 'claude_code', pause: false }, sujet: 'orders/paid', corps: { id: 1002, name: '#1002' } }]);
+  });
+
+  it('🔴 lot 5 : la pause de la boutique, relue sans cache à chaque webhook, arrive au traitement', async () => {
+    const { srv, traites } = monter({ boutique: { ...BOUTIQUE, pause: true } });
+    const r = await poster(srv, { 'x-shopify-shop-domain': DOMAINE, 'x-shopify-hmac-sha256': signer(corps), 'x-shopify-topic': 'orders/paid' });
+    expect(r.statusCode).toBe(200);
+    expect(traites[0]!.b.pause).toBe(true);
   });
 
   it('🔴 domaine absent ou mal formé : 401 sans toucher la base', async () => {

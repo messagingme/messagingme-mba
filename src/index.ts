@@ -1733,9 +1733,14 @@ async function main(): Promise<void> {
   const traitementShopify: DepsTraitementShopify = {
     store: shopifyStore,
     envoyer: (tenant, corps, compter, options) => lancerEnvoiPublic(depsEnvois, tenant, corps, undefined, compter, options),
-    // Un texte sur un numéro relié par QR code part par la porte « écrire en premier », la MÊME que Claude et l'API.
+    // Le premier bloc est un template : il ne part pas d'un numéro relié par QR code.
     filiere: (tenant) => comptesApplication.filiereDe(tenant),
-    ecrirePremier: (demande) => enfilerPremierMessage(depsPremier, demande),
+    // Le premier bloc d'une ligne (lot 5 du menu « Scénario ») : les magasins passés ENTIERS (leurs méthodes lisent `this`).
+    lectures: { workflows: workflowStore, indices: templateHintStore },
+    // L'offre en cache court : le pont ne se pose qu'avec la fonction `scenarios`.
+    offres,
+    // L'exécuteur ENTIER : la fermeture d'un panier arrête son parcours, la relance laisse la place au panier le plus récent.
+    parcours: workflowRuntime.executor,
     ficheParTelephone: async (tenant, e164) => (await contactStore.findByPhone(tenant, e164))?.id ?? null,
     // Le chiffre d'affaires attribué (plan 2026-10-28) : le store partagé avec sa lecture.
     ventes: ventesStore,
@@ -1758,9 +1763,7 @@ async function main(): Promise<void> {
   /** La relance des paniers abandonnés (lot 2), par le MÊME envoi que les messages de commande. */
   const relancePaniers: DepsRelance = {
     store: shopifyStore, envoyer: traitementShopify.envoyer, emails: emetteurEmails, pageOffre: traitementShopify.pageOffre,
-    filiere: traitementShopify.filiere, ecrirePremier: traitementShopify.ecrirePremier,
-    // Les espaces d'un numéro relié par QR code dont les messages du mois sont épuisés ne sont pas réclamés.
-    quota: quotaModeles,
+    filiere: traitementShopify.filiere, lectures: traitementShopify.lectures, offres, parcours: workflowRuntime.executor,
   };
   let relancePaniersEnCours = false;
 
