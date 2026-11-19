@@ -5,6 +5,7 @@ import { useLocale, useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
 import { BoutonCopier } from '@/components/doc-api/elements';
+import { CaptureAuSurvol } from '@/components/CaptureAuSurvol';
 import { brancherShopify } from '@/lib/api-shopify';
 
 /**
@@ -64,13 +65,30 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
           'Open the Shopify developer dashboard, signed in with the account that manages your store, then Apps > Create app > Create app manually.',
         )}{' '}
         <a href="https://dev.shopify.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">dev.shopify.com</a>
+        {' · '}
+        <CaptureAuSurvol
+          src="/aide/shopify/1-creer-l-app.webp" testid="shopify-capture-creer"
+          alt={t('Apps, puis Create app, puis Create app manually', 'Apps, then Create app, then Create app manually')}
+        />
       </li>
       <li>
-        {t('Dans le formulaire : nommez l’app « Messaging Me », puis collez son adresse (App URL) :', 'In the form: name the app “Messaging Me”, then paste its address (App URL):')}
+        {t('Dans le formulaire', 'In the form')}{' · '}
+        <CaptureAuSurvol
+          src="/aide/shopify/2-formulaire.webp" testid="shopify-capture-formulaire"
+          alt={t('Le formulaire de l’app, ses quatre champs numérotés', 'The app form, its four numbered fields')}
+        />
+        <span className="mt-1 block">{t('1. App name : écrivez « Messaging Me ».', '1. App name: type “Messaging Me”.')}</span>
+        <span className="mt-1 block">{t('2. App URL : collez cette adresse.', '2. App URL: paste this address.')}</span>
         {ligneCopiable(adresse, t('Adresse de l’app', 'App URL'), 'shopify-copier-adresse')}
-        <span className="mt-1 block">{t('Décochez « Embed app in Shopify admin ». Dans les droits (Scopes), collez :', 'Untick “Embed app in Shopify admin”. In the access scopes, paste:')}</span>
+        <span className="mt-1 block">{t('3. Décochez « Embed app in Shopify admin ».', '3. Untick “Embed app in Shopify admin”.')}</span>
+        <span className="mt-1 block">
+          {t(
+            '4. Scopes : appuyez sur « Select from list » et cochez read_customers, read_orders, read_checkouts et read_fulfillments (ou collez la liste dans le champ).',
+            '4. Scopes: click “Select from list” and tick read_customers, read_orders, read_checkouts and read_fulfillments (or paste the list in the field).',
+          )}
+        </span>
         {ligneCopiable(DROITS_SHOPIFY, t('Droits de l’app', 'App scopes'), 'shopify-copier-droits')}
-        <span className="mt-1 block text-ink-500">{t('Laissez le reste tel quel, puis Create app, et Release.', 'Leave the rest as it is, then Create app, and Release.')}</span>
+        <span className="mt-1 block text-ink-500">{t('Laissez le reste tel quel, appuyez sur Create app en haut à droite, puis Release.', 'Leave the rest as it is, click Create app at the top right, then Release.')}</span>
       </li>
       <li>
         {t(
@@ -78,7 +96,16 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
           'Install the app: its row’s “⋯” menu > Install app, pick your store, then Install. “This app hasn’t been reviewed” is expected: it is your own app.',
         )}
       </li>
-      <li>{t('Dans Settings, copiez le Client ID et le Client secret, puis collez-les ci-dessous.', 'In Settings, copy the Client ID and the Client secret, then paste them below.')}</li>
+      <li>
+        {t(
+          'Dans Apps, cliquez sur l’app Messaging Me : le Client ID et le Client secret sont dans le cadre Credentials, à droite. Copiez-les, puis collez-les ci-dessous.',
+          'In Apps, click the Messaging Me app: the Client ID and the Client secret are in the Credentials box, on the right. Copy them, then paste them below.',
+        )}{' '}
+        <CaptureAuSurvol
+          src="/aide/shopify/3-cles-de-l-app.webp" testid="shopify-capture-cles"
+          alt={t('La page de l’app, cadre Credentials', 'The app page, Credentials box')}
+        />
+      </li>
     </ol>
   );
 
