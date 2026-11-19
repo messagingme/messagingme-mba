@@ -2243,7 +2243,8 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   `premier_bloc_verrouille` ; un « Aller à » d'un autre scénario vers un premier bloc est refusé à la publication
   (`viseUnPremierBloc`). `GET /nodes?scenario=<id>` liste les blocs du rayon du scénario édité, et le panneau « Aller à »
   la demande. Le builder respecte la marque (`web/lib/partage/premier-bloc.ts`, partagée avec le serveur) : ni ✕ ni
-  poignée d'entrée sur le bloc, ni « Supprimer » au panneau, ni suppression au clavier, aucune connexion qui y entre, et
+  poignée d'entrée sur le bloc, ni « Supprimer » au panneau, ni suppression du bloc au clavier (la touche Retour arrière
+  retire encore ses flèches : `todo.md`), aucune connexion qui y entre, et
   « Aller à » ne le propose pas. Il s'ouvre par `?open=<id>` quel que soit le rayon (une automation n'est pas dans la liste
   du Builder). Dans un scénario `shopify`, les variables d'un template proposent les données de l'événement de sa ligne
   (toutes pour une copie : `donneesDuScenario`), en source `variable` (`var:<clé>`) rangée sur le bloc, et un texte

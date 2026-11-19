@@ -156,6 +156,31 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
 le ménage qui épargne le Builder général, la décision 35, l'entrée réelle (rouverte, redélivrance) du message confié, les
 tests X1 et `rouverte`, et les e-mails et méthodes de l'ancien assistant. Restent :
 
+La relecture indépendante de 5c (2026-11-19, AUCUN ROUGE, déployé tel quel) laisse six jaunes, les deux premiers à prendre
+en tête du prochain lot qui touche le builder :
+
+- **La touche Retour arrière sur le premier bloc détache sa suite** (`web/components/WorkflowBuilder.tsx`) : le filtre
+  ne retire que le `remove` du bloc, et React Flow 12 supprime d'abord ses flèches par `onEdgesChange`. Le bloc reste,
+  ses flèches de sortie partent, le brouillon s'enregistre ainsi. Poser `deletable: false` sur le bloc marqué dans
+  `toRF` (`web/lib/workflow-canevas.ts`), ou passer par `onBeforeDelete`.
+- **« Modifier ce template » échoue sur un bloc dont les variables sont des données Shopify** : le formulaire reçoit les
+  sources `variable` du bloc et les envoie en `paramHints`, que le serveur lit sans `accepterVariables`
+  (`src/templates/corps.ts`) : 400 « paramHints invalides ». Contournement : « Écrire un nouveau template ». Écarter les
+  sources `variable` des `paramHints` envoyés (elles restent sur le bloc).
+- **Un parcours ordinaire qui dort perd son silence quand un parcours d'événement dort aussi** : la marque
+  `horsDuParcoursDEvenement` lève toute la garde « un parcours tient le fil » (`src/inbox/fil.ts`) ; en mode agent IA, le
+  lancement `repondeur` clôt alors l'ordinaire. Rare. Sous la marque, lire `parcoursOrdinaireTientLeFil`.
+- **`etatChezMeta: null` mêle « Meta illisible » et « template introuvable chez Meta »** (`src/shopify/lignes-gestion.ts`) :
+  la console dit « l'état n'a pas pu être lu » pour une automation dont le template a été supprimé. Un drapeau `metaLu`.
+- **`pendantUneAttente` ne distingue pas une avance synthétique** : la sortie d'un bloc agent (`sortie:<code>`, message
+  `agent:…`) qui court contre la fin du parcours de l'agent pendant qu'un parcours d'événement dort atteindrait la remise.
+  Rare. Ne rien faire pour un `boutonRecu` en `sortie:`.
+- **`set_shopify_message` pose `templateCards: []`** même pour un carrousel, quand le builder pose
+  `carouselOutputs(tpl)` : les sorties des cartes ne sont pas dessinées, et le commentaire « comme au choix dans le
+  constructeur » est faux pour un carrousel.
+
+Et ce que 5c reporte :
+
 - **Le premier bloc n'est pas pré-rempli d'un texte proposé** (spec § 2.1) : le formulaire « Écrire un nouveau template »
   part vide sur le bloc verrouillé ; le marchand écrit son texte, puis relie chaque variable aux données Shopify dans le
   panneau du bloc. Le pré-remplir passe par `TemplateForm`, dont les sources de variables deviennent des indices du
