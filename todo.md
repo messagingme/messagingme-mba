@@ -114,9 +114,8 @@ textes faux sont corrigés avant le push) :
 
 Les jaunes 1 à 4, 7, 10 et 12 à 14 de cette relecture sont corrigés avec la console (3b). Restent :
 
-- **Lignes en validation à vie** : un template supprimé chez Meta (`statutsDuModele` rend « inconnu », donc null) est relu à
-  chaque passe du filet, et la version programmée qui l'attend ne part jamais, sans prévenir personne. Et un statut reçu
-  AVANT l'insertion de la ligne (approbation immédiate) la laisse en validation jusqu'au filet.
+- **Un statut reçu AVANT l'insertion de la ligne** (approbation immédiate) la laisse en validation jusqu'au filet (dix à
+  vingt minutes). Le template supprimé chez Meta, lui, se tranche refusé depuis le lot 5b (`RAISON_MODELE_INCONNU`).
 - **Une programmation qui attend une campagne n'expire jamais** : une campagne en pause compte comme active, et la mise en
   ligne peut partir des jours plus tard. La console le dit ; une expiration serait plus sûre.
 - **E-mails** : la raison est en français dans l'e-mail anglais ; une raison `NONE` venue du webhook s'imprime telle quelle
@@ -151,28 +150,25 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
 - **Bord** : une réponse sur le mauvais canal (parcours RCS, réponse WhatsApp) reste sans réponse, comme avant ; le fil
   reste désormais au scénario jusqu'à 24 h après sa dernière écriture.
 
+## 🟡 Le lot 5b du menu « Scénario » (Shopify) : ce qui reste (2026-11-19)
+
+- **Les deux e-mails de l'ancien assistant n'ont plus d'émetteur** (`shopify_message_actif`, `shopify_modele_refuse`,
+  `src/emails-produit/catalogue.ts`) : les retirer avec l'écran d'avant (5c), et les méthodes du magasin qui n'écrivent
+  plus que pour lui (`brancher`, `message`, `poserAttente`, `attenteDuModele`, `retirerAttente`, `attentesAnciennes`).
+- **La phrase du 410 de l'ancien assistant renvoie à « Automation, section Shopify »**, qui n'existe qu'avec 5c : entre le
+  déploiement de 5b et le push de 5c, elle annonce un écran à venir.
+- **Un « Aller à » d'un autre scénario vers un premier bloc** n'est refusé qu'à la publication : son brouillon
+  s'enregistre.
+- **L'enregistrement d'un graphe lit le scénario avant d'écrire** (le verrou du premier bloc) : une lecture de plus par
+  sauvegarde automatique, tous rayons.
+
 ## 🟡 Le moteur des parcours d'événement : ce qui reste après la relecture de 5a (2026-11-19, aucun rouge)
 
-Le pont s'allume au lot 5b : les quatre premiers points se règlent AVANT qu'il s'allume.
+Le lot 5b a réglé, avant d'allumer le pont, le clic qui n'est pas pour le parcours (décision 34), la raison d'un parcours
+non né (`noterRaison`), les gardes de la naissance par le pont et le premier template sans choix. Reste :
 
-- **A5, le clic qui n'est pas pour le parcours, n'arrive à personne** (à trancher avec Julien, c'était son appel).
-  L'avance le rend à la remise (`false`), qui voit qu'un parcours tient le fil et appelle `laisserALEquipe`, qui n'ouvre
-  une demande que pour un fil `app_human` : le fil est `app_workflow`, que « À traiter » exclut. Ni réponse, ni demande.
-  Cas : « commande payée » attend, « commande expédiée » part sans parcours, le client clique sa réponse rapide. Avant 5a,
-  le clic clôturait le parcours (décision 22) et allait au répondeur. A5 disait « va au répondeur ou à l'agent, le
-  parcours continue d'attendre ».
-- **La raison d'un parcours non né efface le code d'erreur d'un accusé `failed`** : le second `markResult`
-  (`src/campaign/engine.ts`) réécrit `error_code = null` pour un statut `sent` ; un 131026 reçu pendant la naissance
-  sort le destinataire de la relance automatique (sonde de la relecture). Écrire la raison par un `update ... set error`
-  ciblé.
-- **L'idempotence par origine et l'événement illisible se décident APRÈS `apply`** : le refus vient de `start`, après la
-  reprise du fil et les effets synchrones de la suite ; un premier template sans bouton ni délai suivi d'un template
-  envoie la suite, puis la naissance est refusée (`deja_ne`). Vérifier l'origine et `evenementValide` dans
-  `gardesDuBlocDejaEnvoye`, le prédicat de `start` restant la garde de course.
-- **Un premier template sans bouton ni délai quitte son bloc dès la naissance** : son échec de livraison ne clôt rien
-  (`clorePremierNonLivre` exige le bloc de départ), et la suite part vers un client qui n'a pas reçu le premier message ;
-  la JSDoc « sa suite est partie » est inexacte dans ce cas. Course voisine : un `failed` traité avant la mesure et la
-  naissance ne clôt rien, le parcours garde la place 72 h au plus.
+- **Course voisine du premier message non livré** : un `failed` traité avant la mesure et la naissance ne clôt rien, le
+  parcours garde la place 72 h au plus.
 - **Tests qu'une mutation passe** : `handler.ts` qui ne transmet plus `parcours: parcoursSurEchec` (358 tests verts :
   tester `handleWebhookJob` avec un accusé `failed`) ; la sortie « gelée » d'un parcours ordinaire qui rendrait `void` ;
   la jointure de `etatPourParcours` sans `l.tenant_id = b.tenant_id` ; `clorePremierNonLivre` sans

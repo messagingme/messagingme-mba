@@ -2173,9 +2173,12 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   reste). ⚠️ Une variable RENDUE dans un message envoyé (le lien d'un panier) est dans le fil comme tout message : l'agent
   IA et l'agent de Meta la lisent dans l'historique de la conversation ; seul l'événement l'oublie.
   🔴 **Un clic ne va à un parcours d'événement que sur SON message.** Un clic qui cite un message d'un autre scénario, ou
-  le premier message d'un événement FRÈRE (même bloc de départ, un autre `messageId`), n'est pas pour lui : l'avance le
-  rend à la remise et le parcours continue d'attendre. Deux parcours peuvent attendre ensemble : un clic va à celui qui
-  attend sur le bloc du message cité (`findWaitingSurBloc`).
+  le premier message d'un événement FRÈRE (même bloc de départ, un autre `messageId`), n'est pas pour lui (décision 34) :
+  la remise le donne à la voie désignée (le répondeur de la campagne, sinon le mode de l'espace ;
+  `remettreLeClicHorsParcours`, `src/inbox/fil.ts`). Une voie qui COEXISTE (agent IA, scénario répondeur, application :
+  `VOIES_QUI_COEXISTENT`) le prend et le parcours continue d'attendre ; sinon (agent de Meta, équipe), le parcours
+  s'ARRÊTE par son origine et la remise leur donne le clic : jamais deux maîtres du fil. Deux parcours peuvent attendre
+  ensemble : un clic va à celui qui attend sur le bloc du message cité (`findWaitingSurBloc`).
   🔴 **`advance` rend un verdict** : `true` pris, `false` non pris (un opérateur tient le fil, un gel, un clic qui n'est
   pas pour lui, un clic sur un parcours plus voulu), rien pour les sorties qui gardent la règle d'avant (« tour perdu »,
   « canal attendu »). `avanceDuParcours` le lit AVANT de relire « à nous ». ⚠️ La réservation du tour (`reserverAvance`)
@@ -2187,9 +2190,12 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   ses réponses rapides avec leur payload `btn:<i>` (`composantReponseRapide`, seul constructeur,
   `src/meta/template-components.ts`). Quand Meta a accepté, le moteur écrit D'ABORD le destinataire `sent` et le fil de
   l'Inbox, puis pose la mesure « envoyé » du bloc et demande le parcours une fois, avec l'identifiant Meta du message ;
-  un refus ou une panne écrit ensuite sa raison sur le destinataire (`markResult`, sans renoter l'envoi). En DRY_RUN, ni
+  un refus ou une panne écrit ensuite sa raison sur le destinataire (`noterRaison`, la raison seule : le statut `sent`
+  reste, et une relance 131026 voit encore son destinataire). La naissance par le pont passe les gardes de `start` avant
+  l'escalade (`gardesDuBlocDejaEnvoye` : événement valide, origine pas encore née, `ORIGINE_DEJA_NEE`). En DRY_RUN, ni
   mesure ni naissance (capacités câblées dans le bloc `dryRun` du worker). Un accusé `failed` du premier message clôt le
-  parcours né sur lui, s'il est encore sur son bloc de départ (`clorePremierNonLivre`, puits `parcoursSurEchec` des deux
+  parcours né sur lui, s'il est encore sur son bloc de départ, ou s'il n'a encore reçu aucun message du contact (un premier
+  template sans choix a pu avancer seul) (`clorePremierNonLivre`, puits `parcoursSurEchec` des deux
   files d'accusés : l'espace et le contact lus dans la mesure « envoyé », les variables effacées, la marque
   `premierNonLivre` qui rend la naissance possible à la relance). Sans la colonne, la campagne envoie exactement ce
   qu'elle envoyait.
@@ -2214,10 +2220,27 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   horodatage en base 36), jamais dans le corps reçu. `trancher` n'écrit que si la ligne est encore en validation : le
   statut rejoué par Meta et le filet ne trouvent ensuite plus rien. Un scénario dont le brouillon ne nomme aucun
   template de bloc se publie exactement comme avant, sans aucune lecture chez Meta ni des campagnes (une seule lecture
-  de `modeles_de_bloc`). Le filet de l'API, au tour de celui de
-  Shopify (toutes les dix minutes), relit chez Meta vingt templates encore en validation depuis plus de dix minutes,
-  tirés au hasard, puis retente vingt programmations anciennes (`relireModelesDeBloc`) ; le worker tranche au statut
-  reçu, après l'assistant Shopify et dans sa propre capture (`surStatutDesModeles`).
+  de `modeles_de_bloc`). Le filet de l'API (toutes les dix minutes) relit chez Meta vingt templates encore en validation
+  depuis plus de dix minutes, tirés au hasard, puis retente vingt programmations anciennes (`relireModelesDeBloc`) ; le
+  worker tranche au statut reçu, dans sa propre capture (`surStatutDesModeles`). Un template que Meta ne connaît plus
+  (supprimé) se lit REFUSÉ, avec sa raison (`statutRelu`, `RAISON_MODELE_INCONNU`) : la version programmée qui l'attendait
+  tombe et le dit, au lieu d'attendre à vie.
+- 🔴 **LE PREMIER BLOC D'UNE AUTOMATION EST VERROUILLÉ** (rayon Shopify, décisions 13 et 23, lot 5). Le bloc marqué
+  `data.verrouille` (`MARQUE_PREMIER_BLOC`), posé par le serveur à la naissance de la ligne, reste le MÊME (la référence
+  est le bloc marqué de la version en ligne, ou du brouillon d'une copie jamais publiée), reste un template, et rien n'y
+  mène, ni flèche ni « Aller à » (`refusDuVerrou`, `src/shopify/premier-bloc.ts`). L'enregistrement (`PATCH`, qui lit
+  le scénario avant d'écrire) et les contrôles de publication (la route et la version programmée) refusent en 422
+  `premier_bloc_verrouille` ; un « Aller à » d'un autre scénario vers un premier bloc est refusé à la publication
+  (`viseUnPremierBloc`). `GET /nodes?scenario=<id>` liste les blocs du rayon du scénario édité. Le scénario d'une ligne
+  ne se supprime pas : ses utilisations nomment l'automation (`UTILISATIONS`), la clé étrangère de `shopify_lignes` étant
+  en cascade.
+- 🔴 **LE MÉNAGE DES TEMPLATES REMPLACÉS DANS UNE AUTOMATION** (spec § 5.1, lot 5). À chaque mise en ligne d'un scénario
+  d'automation (la route, `set_shopify_message`, une version programmée), chaque template que la version d'avant
+  envoyait, que la nouvelle ne nomme plus ET qui a été écrit depuis un bloc (une ligne de `modeles_de_bloc`) est
+  programmé à l'oubli un quart d'heure plus tard (`programmerMenage`, travail `type: 'bloc'` de la file
+  `shopify-oubli-modele`). Le worker relit sa marque et vérifie qu'aucun graphe de l'espace ne le nomme plus (publié,
+  brouillon ou programmé, tous rayons : `nommeLeModele`) avant de le supprimer, sous la garde des campagnes actives.
+  Jamais au rayon général (décision 14) ; un template choisi à la main ne part jamais.
 - 🔴 **UN CONTACT RÉEL NE TOMBE JAMAIS DANS UN BROUILLON.** `grapheEditable(wf)` n'apparaît qu'à UN endroit
   des chemins d'exécution : l'entrée des lancements (`src/workflow/lancements.ts`), pour le seul type dont la
   politique joue le brouillon (`lien_de_test`, `graphe: 'brouillon_fige'`) ; tous les autres types jouent
@@ -2820,6 +2843,29 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   (`shopify:<boutique>:orders/paid:<id>`), le compteur ne décompte pas le plafond de l'API publique, les valeurs partent
   en variables du destinataire (jamais écrites sur la fiche), et `sansCampagneVide` évite une ligne de Campagnes à zéro
   destinataire ;
+- 🔴 **UNE LIGNE PAR ÉVÉNEMENT, ET SON SCÉNARIO** (menu « Scénario », lot 5, migration 0299) : `shopify_lignes` porte,
+  par espace et par événement, le scénario du rayon `shopify` et son interrupteur. Le circuit (réception, relance)
+  envoie le PREMIER BLOC PUBLIÉ de ce scénario (`premierBloc`, `src/shopify/premier-bloc.ts`) par l'envoi public, avec
+  toutes les données de l'événement en variables du destinataire ; un premier bloc illisible note l'issue
+  `premier_message_absent`. Avec une suite et la fonction `scenarios` de l'offre, l'envoi porte le pont
+  (`parcours_evenement`) : le parcours d'événement naît sur ce premier message. La ligne naît ÉTEINTE avec un scénario
+  d'un seul bloc verrouillé, publié, sans template chez Meta (`assurerLigne`, `src/shopify/lignes-gestion.ts`), au
+  premier allumage dans la console (`PUT .../integrations/shopify/lignes/:evenement`) ou au premier
+  `set_shopify_message`. Éteindre une ligne arrête ses parcours par son préfixe d'origine ; la pause de la boutique
+  (`PATCH .../integrations/shopify { pause }`, `pause_le`) arrête ceux de la boutique, comme la coupure, et la reprise
+  ne relance que les paniers modifiés après elle (`paniers_depuis`, posé aussi au rallumage de la ligne du panier).
+  Ces gestes se journalisent (`shopify.pause`, `shopify.reprise`, `shopify.ligne`) ;
+- **`set_shopify_message` pose le template du premier bloc** (décision 7) : la ligne et son scénario naissent s'ils
+  manquent ; la suite est gardée, et un template dont les réponses rapides ne mènent plus aux branches d'où part une
+  flèche est refusé ; le brouillon en cours reçoit le même bloc ; une version programmée est annulée par cette
+  publication, et l'outil le dit. Les contrôles chez Meta (approuvé, catégorie admise, nombre de variables) ne valent
+  que pour allumer ; un numéro relié par QR code n'allume rien. L'outil rend les automations et dit les étapes qu'il ne
+  change pas (elles se changent dans la console) ; sans la fonction `scenarios` (Free), seule la première part ;
+- **la bascule (migration 0302)** : les anciens messages (`shopify_messages`) sont éteints et les attentes de l'ancien
+  assistant (`shopify_messages_attente`) vidées ; les deux tables ne se lisent plus que par `get_shopify_state` (pour
+  les plugins d'avant) et par le ménage des modèles de l'assistant. L'assistant est retiré : `POST
+  .../integrations/shopify/messages` répond 410 avec la phrase qui dit où les messages se règlent, et `PATCH
+  .../messages/:evenement` règle encore le délai de la relance, pour l'écran d'avant ;
 - **le traitement se fait DANS la requête**, et Shopify tient lieu de file : l'envoi public n'existe que dans l'API, un
   503 fait réessayer Shopify, et chaque événement se réserve (`shopify_evenements`, bail de 2 minutes) ; aucun ordre
   n'est supposé entre sujets (mesuré : `orders/paid` arrive avant `orders/create`) ;
@@ -2843,7 +2889,7 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   confirmation et dans un budget (`BUDGET_ATTRIBUTION_MS`, `src/shopify/traitement.ts`), une commande payée d'une fiche
   EXISTANTE (par le téléphone de la commande ; aucune fiche n'est créée) revient à une seule source (`choisirSource`,
   `src/shopify/attribution.ts`) : le panier relancé qu'elle paie (preuve `panier`), sinon le dernier envoi livré des
-  5 jours (campagne, relance de panier, scénario, agent IA `ia`, agent de Meta `mba`). Une panne ou une lenteur se
+  5 jours (campagne, une automation Shopify, scénario du Builder, agent IA `ia`, agent de Meta `mba`). Une panne ou une lenteur se
   journalise et ne retarde jamais la confirmation. Le montant est `shop_money` (devise de la boutique), sinon
   `total_price` et `shopify_boutiques.devise` ; une commande de test est gardée avec `test = true`. Les champs que seule
   l'attribution lit se lisent absents sous une forme inattendue (`.catch(null)`), jamais refusés : un refus rejetterait
@@ -2896,7 +2942,12 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   scénario, IA ou agent de Meta) vit UNE fois, dans `src/shopify/perimetre-leviers.ts`, interpolé par `TOUCHES` ET par
   la lecture du coût ; `tests/shopify-perimetre-leviers.test.ts` casse si l'une recopie sa condition. Un message de
   scénario lancé par une campagne coûte à la campagne (`ATTRIBUTION_CAMPAGNE_SCENARIO`, exporté de
-  `src/stats/store.pg.ts`). Le prix se choisit message par message : la provision non rendue du Crédit WhatsApp
+  `src/stats/store.pg.ts`). 🔴 **Une ligne par automation Shopify** (décision 32, lot 5) : un message du scénario d'une
+  LIGNE (la mesure `workflow_node_events` de son bloc, par l'identifiant Meta) est une touche et un coût de l'automation
+  de la ligne (`ligneDuMessage`, `sourceDeLaLigne`) : la suite du panier sous `relance_panier` (datée de l'envoi qui
+  touche), celle des commandes sous `commande_payee` et `commande_expediee`, sans l'heuristique de rattachement à une
+  campagne. Le premier message d'une commande reste hors leviers : il suit la vente. `get_revenue_stats` nomme
+  l'automation de chaque ligne (`automation`). Le prix se choisit message par message : la provision non rendue du Crédit WhatsApp
   (EUR) si le message en a une, sinon l'estimation de `getPrixLeviers` (`src/stats/chiffrage.ts` : `prixFactures`, et le
   prix de service de `prixServiceEffectif`, le même que le coût par campagne), le RCS au prix SIMPLE de la grille (la
   bascule conversationnelle n'est pas rejouée par source : un coût RCS peut être sous-estimé, l'écran dit « estimé »).
@@ -2919,9 +2970,12 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   `src/index.ts`), pour la même raison que le traitement : l'envoi public n'existe qu'ici. Chaque copie balaie ; la
   réclamation (`reclamerPaniersDus`, `for update skip locked`) pose `relance_le` dans la même écriture, donc un panier
   n'est relancé qu'une fois, et une relance qui échoue après sa réclamation est perdue, pas renvoyée. Un panier dû :
-  ouvert, avec téléphone et lien, sa dernière modification au-delà du délai de SA boutique (connectée, message
-  `checkout_abandoned` actif). Un panier ne se garde que si ce message est actif (une relance branchée plus tard ne
-  relance pas d'un coup des paniers notés sans elle), et toute connexion efface les paniers de l'espace. 🔴 Une
+  ouvert, avec téléphone et lien, sa dernière modification au-delà du délai de SA boutique (connectée, hors pause, la
+  ligne du panier allumée, le panier modifié après `paniers_depuis`). Un panier ne se garde que si cette ligne est
+  allumée et la boutique hors pause (une relance branchée plus tard ne relance pas d'un coup des paniers notés sans
+  elle), et toute connexion efface les paniers de l'espace. Avant d'envoyer la relance d'un panier, les parcours des
+  AUTRES paniers du contact s'arrêtent (décision 33 : le plus récent prend la place) ; une commande arrête le parcours de
+  son panier AVANT la confirmation, sans jamais la bloquer (`fermerSiPanier`). 🔴 Une
   commande (`orders/create` ou `orders/paid`, par `checkout_token`) ou un `completed_at` ferme TOUJOURS le panier qui
   existe, relance éteinte comprise (éteinte puis rallumée, elle relancerait sinon un client qui a commandé), et ne
   l'ÉCRIT fermé d'avance que relance active ; elle ferme aussi les autres paniers ouverts de son numéro. Un panier
@@ -2949,41 +3003,27 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   Abonner ceux d'une app de la CLI ferait tout recevoir en double. Les sujets RGPD ne s'abonnent pas sans la CLI : une
   boutique de la console ne reçoit pas les demandes d'effacement (le marchand efface à la main), et sa désinstallation
   (`app/uninstalled`) EFFACE son branchement au lieu de le couper, puisque `shop/redact` ne viendra jamais ;
-- 🔴 **l'assistant de la console** (`src/shopify/preparation.ts`) transforme un texte à repères (`{{first_name}}`...)
-  en modèle créé chez Meta par la MÊME création que l'écran Modèles (`creerUnModele`) ; le message ne s'active qu'à
-  l'approbation (`activerSelonStatut`, appelé par le statut des modèles dans le worker et par un filet de l'API qui
-  relit toutes les dix minutes vingt attentes de plus de dix minutes, TIRÉES AU HASARD pour que des attentes bloquées
-  n'affament pas les autres). 🔴 L'activation BRANCHE avant de retirer l'attente : une panne entre les deux laisse
-  l'attente au rejeu et au filet, et un second passage ne trouve plus rien à retirer, donc l'e-mail ne part qu'une fois.
-  Cet e-mail « actif » ne part que si le message part vraiment (boutique branchée). Le message ACTIF n'est jamais
-  touché par une préparation ni par un refus ; le dernier geste gagne (`set_shopify_message` retire l'attente du même
-  événement). Une relance porte en pied « Répondez STOP... » (une réponse texte désabonne ; un bouton, non). Le
-  réglage (`PATCH .../messages/:evenement`) ne porte que le délai de la relance, sans repasser par Meta ;
-- 🔴 **le ménage des modèles remplacés** (2026-10-23) : l'assistant ne MODIFIE jamais un modèle chez Meta, il en crée un
-  nouveau (`shopify_<événement>_<horodatage base 36>`), donc la limite de Meta d'une modification par 24 h ne s'applique
-  pas. Le modèle remplacé (à l'approbation, à une nouvelle préparation, au branchement direct par Claude Code), refusé
-  par Meta ou refusé dès sa création, est supprimé chez Meta, SEULEMENT si `estModeleDeLAssistant` le reconnaît (le nom
-  exact ET un horodatage entre la mise en service de l'assistant et maintenant). 🔴 **La suppression est DIFFÉRÉE** : le
-  geste programme un travail (`oublierPlusTard`, file `shopify-oubli-modele`, un quart d'heure plus tard) que le worker
-  traite (`traiterOubli`) en relisant les messages et les attentes ; supprimer tout de suite ferait échouer les envois
-  qui ont lu l'ancien modèle juste avant (confirmation en vol, lot de relances réclamé), et une préparation concurrente
-  d'une approbation pourrait supprimer le modèle que l'approbation vient de brancher. La suppression est celle de
-  l'écran Modèles (`supprimerUnModele`), qui refuse tant qu'une campagne active s'en sert : un refus se retente toutes
-  les heures, six fois, puis s'abandonne (`shopify_modele_oubli_abandonne`). ⚠️ **Limite assumée** : un scénario, un
-  étage de repli de campagne ou un appel `/v1` qui enverrait un modèle de l'assistant par son nom n'est pas gardé ;
-  la fiche d'aide dit de ne pas les réutiliser hors de la boutique ;
+- 🔴 **le ménage différé** (`src/shopify/preparation.ts`, file `shopify-oubli-modele`) : un travail programmé (`oublierPlusTard`,
+  un quart d'heure plus tard) que le worker traite (`traiterOubli`) en RELISANT avant de supprimer, parce que supprimer
+  tout de suite ferait échouer les envois qui ont lu l'ancien modèle juste avant (confirmation en vol, lot de relances
+  réclamé). Deux sortes de travaux : un modèle de l'ancien assistant (`shopify_<événement>_<horodatage base 36>`,
+  reconnu par `estModeleDeLAssistant` : le nom exact ET un horodatage plausible), gardé tant qu'un ancien message ou une
+  attente le nomme, que plus aucun geste n'enfile depuis le lot 5 ; un template de bloc d'une automation (`type:
+  'bloc'`, ci-dessus). La suppression est celle de l'écran Modèles (`supprimerUnModele`), qui refuse tant qu'une
+  campagne active s'en sert : un refus se retente toutes les heures, six fois, puis s'abandonne
+  (`shopify_modele_oubli_abandonne`). Une relance porte en pied « Répondez STOP... » (une réponse texte désabonne ; un
+  bouton, non) ;
 - **le prénom de secours** (2026-10-23, `avecPrenomDeSecours`) : le prénom est facultatif au paiement de Shopify ; un
   envoi (relance comme message de commande) qui demande `first_name` sans l'avoir le remplace par `PRENOM_DE_SECOURS`
   (« à vous », « there », selon la langue du modèle, la règle du pied), au lieu de finir en `donnee_manquante` (relance
   consommée). Les autres données manquantes, elles, bloquent toujours l'envoi ;
 - **les textes, les données et leurs libellés** vivent dans `web/lib/partage/shopify-messages.ts`, que le serveur
-  importe (`src/shopify/donnees.ts`, `preparation.ts`) : l'aperçu de l'assistant et le modèle créé chez Meta disent la
-  même chose. La carte écrit les repères `{prénom}` et les convertit en `{{first_name}}` (`web/lib/shopify-assistant.ts`).
+  importe (`src/shopify/donnees.ts`) : la console et le serveur disent la même chose.
 
 `tenant_id = $1` sur chaque requête du store, sauf SIX lectures transverses nommées dans le fichier :
 `boutiqueParDomaine` et `couperParDomaine` (le domaine DONNE l'espace), `purgerEvenements`, `reclamerPaniersDus` (qui
-joint chaque panier à sa boutique et à son message par `tenant_id`), `purgerPaniers` et `attentesAnciennes` (le filet
-de l'activation).
+joint chaque panier à sa boutique et à sa ligne par `tenant_id`), `purgerPaniers` et `attentesAnciennes` (l'ancien filet
+de l'activation, sans appelant depuis le lot 5b : à retirer avec l'écran d'avant).
 
 ---
 
