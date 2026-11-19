@@ -69,6 +69,17 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     expect((await store.claimDueQuestions(500)).find((r) => r.id === question)?.evenement).toEqual(ev('question'));
   });
 
+  it('🔴 lot 5 (relecture de 5a) : le message et le bloc de départ se relisent par les deux lectures d’`advance`, la marque du premier message non livré aussi', async () => {
+    // L'exécuteur route un clic par `messageId` et `noeudDepart` (`clicPasPourLeParcours`) : relus `undefined`, le clic sur le
+    // premier message d'un événement FRÈRE prenait la branche de ce parcours-ci, avec l'ancien lien.
+    const e: EvenementDuParcours = { ...ev('repere'), messageId: 'wamid.A', noeudDepart: 'n1' };
+    const id = await nait(tenantId, workflowId, '33600009105', e);
+    expect((await store.findWaitingByWaId(tenantId, '33600009105'))?.evenement).toEqual(e);
+    expect((await store.findWaitingSurBloc(tenantId, '33600009105', workflowId, 'n1'))?.evenement).toEqual(e);
+    await pool.query(`update workflow_runs set evenement = evenement || '{"premierNonLivre": true}'::jsonb where id = $1`, [id]);
+    expect((await store.byId(tenantId, id))?.evenement).toEqual({ ...e, premierNonLivre: true });
+  });
+
   it('🔴 un SECOND parcours d’événement actif pour le même contact est refusé ; un ordinaire coexiste', async () => {
     const wa = '33600009111';
     const premier = await nait(tenantId, workflowId, wa, ev('a'));

@@ -88,5 +88,13 @@ export function lireEvenement(brut: unknown, runId: string): EvenementDuParcours
     console.error(`workflow_runs ${runId}: evenement illisible, le parcours est lu comme ordinaire`);
     return null;
   }
-  return { origine: lu.data.origine, variables: lu.data.variables ?? {} };
+  // 🔴 L'événement ENTIER (relecture de 5a) : sans `messageId` ni `noeudDepart`, l'exécuteur ne reconnaissait plus le clic
+  // sur le premier message d'un événement frère, et sans `premierNonLivre` une relecture effaçait la marque.
+  const { origine, variables, messageId, noeudDepart, premierNonLivre } = lu.data;
+  return {
+    origine, variables: variables ?? {},
+    ...(messageId !== undefined ? { messageId } : {}),
+    ...(noeudDepart !== undefined ? { noeudDepart } : {}),
+    ...(premierNonLivre !== undefined ? { premierNonLivre } : {}),
+  };
 }

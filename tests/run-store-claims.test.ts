@@ -261,16 +261,3 @@ describe('PgWorkflowRunStore : les lectures et clôtures du lot 4', () => {
     for (const e of ecritures) expect(e).toContain('${EFFACER_VARIABLES');
   });
 });
-
-/**
- * LOT 5 (point 1(b) de la relecture du correctif du balayage, 71981d5f6) : réserver le tour d'une avance DATE l'activité du
- * parcours. Le balayage garde le fil d'un parcours qui a écrit son état dans les 24 h ; un parcours resté plus longtemps sans
- * écrire, et qui reçoit enfin une réponse, ne doit pas perdre le fil pendant son avance (il n'écrit son état qu'à la fin).
- */
-describe('PgWorkflowRunStore : la réservation d’une avance date l’activité du parcours', () => {
-  it('🔴 reserverAvance pose updated_at = now()', async () => {
-    const { pool, appels } = fauxPool([{ avance_token: 'j1' }]);
-    expect(await new PgWorkflowRunStore(pool).reserverAvance('t1', 'r1', 'n1', 30)).toBe('j1');
-    expect(appels[0]!.sql.split('where')[0]).toContain('updated_at = now()');
-  });
-});

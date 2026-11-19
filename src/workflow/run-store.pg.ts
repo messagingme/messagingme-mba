@@ -411,12 +411,12 @@ export class PgWorkflowRunStore {
     // réponse traitée entre la réclamation et la reprise, qui laisse le parcours sur son bloc, la fait renoncer
     // (relecture de 2b-1). `advance` ne la passe pas.
     const res = await this.pool.query<{ avance_token: string }>(
-      // Lot 5 (relecture du correctif du balayage) : la réservation date l'activité du parcours (`updated_at`), que lit la
-      // garde du balayage : un parcours longtemps silencieux ne perd pas son fil pendant l'avance qu'il commence.
+      // 🔴 La réservation ne date PAS l'activité du parcours (`updated_at`, que lit la règle « un parcours tient le fil ») :
+      // elle précède la garde du gel, et un parcours gelé, ou qui attend sur un autre canal, se remettrait à tenir le fil
+      // à chaque message du contact (relecture de 5a, `tests/integration/reservation-avance-gel.integration.test.ts`).
       `update workflow_runs
           set avance_token = gen_random_uuid(),
-              avance_jusqu_a = now() + make_interval(secs => $4::double precision),
-              updated_at = now()
+              avance_jusqu_a = now() + make_interval(secs => $4::double precision)
         where id = $1 and tenant_id = $2 and status = 'waiting'
           and current_node is not distinct from $3
           and (avance_jusqu_a is null or avance_jusqu_a <= now())
