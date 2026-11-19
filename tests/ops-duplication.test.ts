@@ -5,7 +5,7 @@ import { accesOps, ADRESSE_OPS, SECRET_OPS } from './acces-ops';
 import { FakeQueue } from './fake-queue';
 import { capturerJournal } from './journal';
 import { verrousEnMemoire } from './verrous';
-import type { OpsDuplicationDeps } from '../src/http/ops-duplication';
+import { creerDuplicationScenario, type DependancesDuplicationScenario } from '../src/ops/duplication/service';
 import type { EtatEnBase } from '../src/ops/duplication/store.pg';
 import type { TemplateDeLaWaba } from '../src/ops/duplication/plan';
 import type { EntreeMeta } from '../src/ops/duplication/meta-execution';
@@ -67,12 +67,12 @@ const ETAT_AVEC_AGENT: EtatEnBase = {
 
 interface Options {
   etat?: EtatEnBase;
-  templatesDe?: OpsDuplicationDeps['templatesDe'];
-  ecrire?: OpsDuplicationDeps['store']['ecrire'];
-  declareTags?: OpsDuplicationDeps['declareTags'];
+  templatesDe?: DependancesDuplicationScenario['templatesDe'];
+  ecrire?: DependancesDuplicationScenario['store']['ecrire'];
+  declareTags?: DependancesDuplicationScenario['declareTags'];
   verrous?: ReturnType<typeof verrousEnMemoire>;
-  modelesDe?: OpsDuplicationDeps['modelesDe'];
-  executerChezMeta?: OpsDuplicationDeps['executerChezMeta'];
+  modelesDe?: DependancesDuplicationScenario['modelesDe'];
+  executerChezMeta?: DependancesDuplicationScenario['executerChezMeta'];
   creditIaOuvert?: boolean;
 }
 
@@ -84,21 +84,60 @@ function monter(o: Options = {}) {
   let lectures = 0;
   let creditsLus = 0;
   const verrous = o.verrous ?? verrousEnMemoire();
-  const deps: OpsDuplicationDeps = {
-    store: {
-      espaces: async () => { lectures += 1; return [{ id: SRC, nom: 'Source', waba: true }, { id: DST, nom: 'Destination', waba: true }]; },
-      scenarios: async (t) => { lectures += 1; return t === SRC ? [{ id: WF, nom: 'Accueil' }] : []; },
-      lireEtat: async (s, w, d) => { lectures += 1; return s === SRC && w === WF && d === DST ? (o.etat ?? ETAT) : null; },
-      flowsSource: async () => [],
-      ecrire: o.ecrire ?? (async (destination, _source, scenario, plan, flows) => {
-        ecrits.push({ destination, nom: scenario.nom, agentsCopies: plan.copies.agents.map((a) => a.id), flows: [...(flows ?? new Map()).keys()] });
-        return {
-          scenarioId: 'wf-copie', nom: `${scenario.nom} (copie)`, champsCrees: ['ville'], declencheursCopies: 0,
-          dependancesCopiees: { agents: plan.copies.agents.map((a) => a.label), requetes: [], modelesEmail: [], sourcesAvecSecret: [] },
-          debranches: plan.graphe.debranches,
-        };
-      }),
-    },
+  type Store = DependancesDuplicationScenario['store'];
+  /**
+   * Même forme qu'en production : une instance dont les méthodes dépendent de `this`. Un futur câblage qui recopierait
+   * une méthode du store au lieu de passer l'instance ferait donc tomber toute cette suite.
+   */
+  class StoreDeTest {
+    readonly #receveur = 'store-de-test';
+
+    #verifierReceveur(): void {
+      if (this.#receveur !== 'store-de-test') throw new Error('méthode du store détachée de son instance');
+    }
+
+    espaces(): ReturnType<Store['espaces']> {
+      this.#verifierReceveur();
+      lectures += 1;
+      return Promise.resolve([{ id: SRC, nom: 'Source', waba: true }, { id: DST, nom: 'Destination', waba: true }]);
+    }
+
+    scenarios(t: string): ReturnType<Store['scenarios']> {
+      this.#verifierReceveur();
+      lectures += 1;
+      return Promise.resolve(t === SRC ? [{ id: WF, nom: 'Accueil' }] : []);
+    }
+
+    lireEtat(s: string, w: string, d: string): ReturnType<Store['lireEtat']> {
+      this.#verifierReceveur();
+      lectures += 1;
+      return Promise.resolve(s === SRC && w === WF && d === DST ? (o.etat ?? ETAT) : null);
+    }
+
+    flowsSource(): ReturnType<Store['flowsSource']> {
+      this.#verifierReceveur();
+      return Promise.resolve([]);
+    }
+
+    ecrire(...args: Parameters<Store['ecrire']>): ReturnType<Store['ecrire']> {
+      this.#verifierReceveur();
+      if (o.ecrire) return o.ecrire(...args);
+      const [destination, , scenario, plan, flows] = args;
+      ecrits.push({
+        destination,
+        nom: scenario.nom,
+        agentsCopies: plan.copies.agents.map((a) => a.id),
+        flows: [...(flows ?? new Map()).keys()],
+      });
+      return Promise.resolve({
+        scenarioId: 'wf-copie', nom: `${scenario.nom} (copie)`, champsCrees: ['ville'], declencheursCopies: 0,
+        dependancesCopiees: { agents: plan.copies.agents.map((a) => a.label), requetes: [], modelesEmail: [], sourcesAvecSecret: [] },
+        debranches: plan.graphe.debranches,
+      });
+    }
+  }
+  const deps: DependancesDuplicationScenario = {
+    store: new StoreDeTest(),
     templatesDe: o.templatesDe ?? (async (): Promise<TemplateDeLaWaba[]> => [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED', boutons: [] }]),
     modelesDe: o.modelesDe ?? (async () => [BIENVENUE]),
     indicesDe: async () => [],
@@ -112,7 +151,7 @@ function monter(o: Options = {}) {
     verrous,
     audit: async (tenantId, actor, action, _cible, details) => { traces.push({ tenantId, email: actor.email, action, details }); },
   };
-  const server = buildServer({ queue: new FakeQueue(), auth: acces.auth, opsDuplication: deps });
+  const server = buildServer({ queue: new FakeQueue(), auth: acces.auth, opsDuplication: creerDuplicationScenario(deps) });
   return { server, ecrits, tagsDeclares, traces, chezMeta, verrous, lus: () => lectures, creditsLus: () => creditsLus };
 }
 
@@ -346,6 +385,41 @@ describe('lot 3 : les templates et les Flows recréés chez Meta', () => {
     expect(ecrits).toHaveLength(1);
     expect(res.json<{ crees: unknown[] }>().crees).toEqual([{ sorte: 'template', nom: 'bienvenue', langue: 'fr', statut: 'PENDING', categorie: 'marketing' }]);
     expect(traces.at(-1)!.details).toMatchObject({ copies: { templates: ['bienvenue (fr)'], flows: [] } });
+    await server.close();
+  });
+
+  it('🔴 si la base échoue après Meta : les objets déjà créés sont rendus, sans second appel à Meta', async () => {
+    let metaTerminee = false;
+    let appelsMeta = 0;
+    const { server, verrous } = monter({
+      templatesDe: SANS_TEMPLATE,
+      executerChezMeta: async () => {
+        appelsMeta += 1;
+        metaTerminee = true;
+        return {
+          ok: true,
+          flows: new Map(),
+          crees: [{ sorte: 'template', nom: 'bienvenue', langue: 'fr', statut: 'PENDING', categorie: 'marketing' }],
+          champsCrees: [],
+        };
+      },
+      ecrire: async () => {
+        expect(metaTerminee).toBe(true);
+        throw new Error('base en panne après Meta');
+      },
+    });
+    const empreinte = await empreinteDe(server);
+    const res = await server.inject({
+      method: 'POST', url: '/ops/duplication', headers: ops,
+      payload: { ...corps, empreinte, dupliquer: cocher([{ nom: 'bienvenue', langue: 'fr' }]) },
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ error: string; crees: unknown[] }>()).toMatchObject({
+      error: expect.stringContaining('créé chez Meta y reste'),
+      crees: [{ sorte: 'template', nom: 'bienvenue', langue: 'fr' }],
+    });
+    expect(appelsMeta).toBe(1);
+    expect(verrous.tenues()).toEqual([]);
     await server.close();
   });
 

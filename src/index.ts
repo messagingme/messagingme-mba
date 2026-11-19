@@ -221,7 +221,7 @@ import { programmerLaFinDuNumero } from './numero/fin-abonnement';
 import { servirLAttente } from './numero/reserve';
 import type { ContexteTiers } from './ops/suppression-espace';
 import type { OpsSuppressionDeps } from './http/ops-suppression';
-import type { OpsDuplicationDeps } from './http/ops-duplication';
+import { creerDuplicationScenario } from './ops/duplication/service';
 import { PgDuplicationStore } from './ops/duplication/store.pg';
 import { CompteChez360dialog, TokenInvalidError } from './meta/credentials';
 import { lireMediaRecu } from './inbox/media-entrant';
@@ -1486,7 +1486,7 @@ async function main(): Promise<void> {
    * cache du catalogue : l'aperçu doit voir un template qui vient d'apparaître, et « pas de WABA » (null) n'est pas
    * « aucun template ».
    */
-  const duplicationScenario: OpsDuplicationDeps = {
+  const duplicationScenario = creerDuplicationScenario({
     store: new PgDuplicationStore(pool),
     templatesDe: async (tenant) => {
       const waba = await repo.getTenantWabaId(tenant);
@@ -1518,7 +1518,7 @@ async function main(): Promise<void> {
     declareTags: async (tenant, tags) => { for (const t of tags) await tagStore.create(tenant, t); },
     verrous: verrousCourts,
     audit: auditSink,
-  };
+  });
 
   /**
    * Les dépendances de l'écran Modèles, partagées avec `POST /v1/templates` et l'outil `create_template` (lot 13,

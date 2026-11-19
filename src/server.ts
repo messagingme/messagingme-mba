@@ -134,7 +134,8 @@ import { registerDesinscriptionEmails, type DesinscriptionRouteDeps } from './ht
 import { registerPieceQuestion, type PieceQuestionRouteDeps } from './http/piece-question';
 import { registerEmailsMoi, type EmailsMoiDeps } from './http/emails-moi';
 import { registerOpsSuppression, type OpsSuppressionDeps } from './http/ops-suppression';
-import { registerOpsDuplication, type OpsDuplicationDeps } from './http/ops-duplication';
+import { registerOpsDuplication } from './http/ops-duplication';
+import type { DuplicationScenario } from './ops/duplication/service';
 import { registerOtpPont, type OtpPontRouteDeps } from './http/otp-pont';
 import { MetaApiError } from './meta/errors';
 import { CompteChez360dialog } from './meta/credentials';
@@ -517,7 +518,7 @@ export interface ServerDeps {
   /** La suppression définitive d'un espace par l'exploitation (RC8, `/ops/espaces/:tenantId`). */
   opsSuppression?: OpsSuppressionDeps;
   /** La duplication d'un scénario d'un espace à l'autre par l'exploitation (`/ops/duplication`). */
-  opsDuplication?: OpsDuplicationDeps;
+  opsDuplication?: DuplicationScenario;
   /** Les e-mails du produit dans `/ops` (lot 7, `/ops/emails`). */
   opsEmails?: OpsEmailsDeps;
   /** Le webhook signé de Resend (lot 7, `/webhooks/resend`) : livrés, ouverts, cliqués, rebonds, plaintes. */
