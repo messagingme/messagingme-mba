@@ -35,7 +35,7 @@ import { creerTravauxEnVol } from '../src/lib/en-vol';
 import { DROITS, FONCTIONS } from '../src/offres/offres';
 import { grilleDesOffres } from '../src/offres/vue';
 import type { StripeWebhookRouteDeps } from '../src/http/credit-stripe';
-import { offresToutOuvert, filiereApiSeule, aucunPremierMessage, aucunCompteApplication } from './gardes';
+import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
 import type { DepsScenariosApi } from '../src/workflow/scenarios-api';
 import { depsScenarios } from './aide/scenarios-api';
 
@@ -651,11 +651,11 @@ offres: offresToutOuvert,
  */
 export const mcpNumeroInerte: Pick<DepsMcp, 'numero'> = {
   numero: {
-    signerLien: neDevraitPasEtreAppelee('numero.signerLien'),
+    connexion: {
+      demarrer: neDevraitPasEtreAppelee('numero.connexion.demarrer'),
+      suivre: neDevraitPasEtreAppelee('numero.connexion.suivre'),
+    },
     etat: async () => ({ fourni: null, code: null, connecte: null, abonnement: null, inclusDansLePro: false }),
-    urlConsole: 'https://console.inerte.test',
-    attendre: async () => {},
-    maintenant: () => Date.now(),
     ouvrirPortail: neDevraitPasEtreAppelee('numero.ouvrirPortail'),
     // Lot 4 : aucun abonnement, donc aucun rappel dans les réponses d'outil.
     abonnement: async () => null,
@@ -663,12 +663,6 @@ export const mcpNumeroInerte: Pick<DepsMcp, 'numero'> = {
     // Lot 6, B2b : aucun Pro, donc aucune suite à rappeler ; rendre le numéro n'est pas le sujet de ces montages.
     suiteDuPro: async () => null,
     rendreLeNumero: neDevraitPasEtreAppelee('numero.rendreLeNumero'),
-    // La filière application : aucun compte à préparer dans ces montages.
-    comptesApplication: aucunCompteApplication.comptes,
-    // La destination du numéro fourni (0280) : retenue seulement par un lien, que ces montages ne signent pas.
-    retenirDestination: neDevraitPasEtreAppelee('numero.retenirDestination'),
-    // Sans fenêtre du partenaire : la connexion par la carte, comme avant le lot 3v-2b.
-    fenetrePartenaire: async () => false,
   },
 };
 

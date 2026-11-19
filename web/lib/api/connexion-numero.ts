@@ -1,4 +1,5 @@
 import { BASE, ApiError, messageDErreur, langue, request } from '../http';
+import type { DestinationNumeroFourni } from '../partage/parcours-numero';
 import {
   obtenirNumeroFourni, lireNumeroFourni, remplacerNumeroFourni, abandonnerNumeroFourni, getEsConfig, completeEmbeddedSignup,
   type EsConfig, type EsCompleteResult, type NumeroFourniEtat,
@@ -32,7 +33,7 @@ export interface ApiConnexionNumero {
    * montrer le code de l'application. La session de la console SEULE : le lien de Claude la retient déjà
    * (`start_whatsapp_connection`).
    */
-  retenirDestination?(destination: 'api' | 'application'): Promise<unknown>;
+  retenirDestination?(destination: DestinationNumeroFourni): Promise<unknown>;
   /** La filière application (2026-10-22) : ouvrir la session du compte, qui produit le QR code. */
   relierApplication(): Promise<{ ok: true }>;
   /** Le QR code en image (`data:`), jusqu'à « relié ». */

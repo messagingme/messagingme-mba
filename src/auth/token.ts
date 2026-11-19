@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { z } from 'zod';
+import { MODES_NUMERO } from '../../web/lib/partage/parcours-numero';
 
 export interface Session {
   userId: string;
@@ -324,7 +325,7 @@ const lienNumero = z.object({
    * `fourni_application` (plan 2026-10-31) : un numéro fourni, mis DANS l'application WhatsApp Business (son code sur la
    * page), puis relié en coexistence par la même fenêtre.
    */
-  mode: z.enum(['fourni', 'apporte', 'coexistence', 'fourni_application']),
+  mode: z.enum(MODES_NUMERO),
   /**
    * La filière application WhatsApp Business (2026-10-22) : la page montre le QR code au lieu de la fenêtre de Meta.
    * Absente : la filière API, et le jeton est exactement celui d'avant.

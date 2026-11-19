@@ -13,6 +13,7 @@ import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI } from '../web/lib/parta
 import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION, AIDE_NUMERO_FOURNI } from '../web/lib/partage/aide-connexion';
 import { COEXISTENCE_BOUTON } from '../web/lib/fenetre-meta';
 import { NOTE_CARTE_APPLICATION } from '../web/lib/questions-numero';
+import { creerAccompagnementConnexionNumeroMcp } from '../src/mcp/connexion-numero';
 
 /**
  * LES OUTILS DE LA CONNEXION DU NUMÉRO (lot 3c, livraison A, tâche 4). `start_whatsapp_connection` donne le lien qui
@@ -33,7 +34,7 @@ function monter(etats: (t: number) => EtatConnexion, o: {
   ligneActive?: boolean;
   /** L'option payée (ses places), à jour ou en retard ; sans ligne posée, l'état de la ligne est « en attente ». */
   option?: 'actif' | 'en_retard';
-  offre?: string;
+  offre?: 'base' | 'pro' | 'business' | 'entreprise';
   /** La lecture des lignes en panne. */
   lecturePanne?: boolean;
   /**
@@ -52,14 +53,47 @@ function monter(etats: (t: number) => EtatConnexion, o: {
   const couteux: string[] = [];
   const rendus: Array<{ tenant: string; rendre: boolean }> = [];
   const destinations: Array<{ tenant: string; destination: string }> = [];
+  const lireEtat = async (tenant: string) => { lectures.push({ tenant, t }); return etats(t); };
+  const fenetrePartenaire = async () => (
+    Array.isArray(o.ligne) ? (o.ligne.length > 1 ? o.ligne.shift()! : o.ligne[0]!) : o.ligne ?? false
+  );
+  const creditWhatsapp = {
+    option: {
+      offre: async () => o.offre ?? 'pro', optionPrenable: async () => true,
+      options: { vivante: async () => (o.option ? { places: 1, statut: o.option } : null) },
+      numeroAvecCarte: async () => {
+        lecturesCarte.push(t);
+        return Array.isArray(o.avecCarte) ? (o.avecCarte.length > 1 ? o.avecCarte.shift()! : o.avecCarte[0]!) : o.avecCarte ?? false;
+      },
+    },
+    vue: {
+      lignes: async () => { if (o.lecturePanne) throw new Error('base injoignable'); return o.ligneActive ? [{ arreteeLe: null }] : []; },
+      numeros: async () => [{ coexistence: false, delie: false, attendLigne: o.attendLigne ?? false }],
+    },
+  };
+  const connexion = creerAccompagnementConnexionNumeroMcp({
+    signerLien: (l) => signLienNumero(l, SECRET),
+    etat: lireEtat,
+    urlConsole: 'https://console.exemple.test',
+    attendre: async (ms) => { t += ms; },
+    maintenant: () => t,
+    comptesApplication: {
+      preparer: async (tenantId, entree) => ({
+        ok: true as const,
+        compte: {
+          id: 'app-1', tenantId, numero: entree.numero, jid: null, statut: 'en_attente' as const,
+          fourniId: entree.fourniId, relieLe: null, dernierMessageLe: null, statutChangeLe: new Date(t),
+        },
+      }),
+    },
+    retenirDestination: async (tenant, destination) => { destinations.push({ tenant, destination }); },
+    fenetrePartenaire,
+    creditWhatsapp,
+  });
   const deps = {
     numero: {
-      retenirDestination: async (tenant: string, destination: string) => { destinations.push({ tenant, destination }); },
-      signerLien: (l: Parameters<typeof signLienNumero>[0]) => signLienNumero(l, SECRET),
-      etat: async (tenant: string) => { lectures.push({ tenant, t }); return etats(t); },
-      urlConsole: 'https://console.exemple.test',
-      attendre: async (ms: number) => { t += ms; },
-      maintenant: () => t,
+      connexion,
+      etat: lireEtat,
       ouvrirPortail: async (tenant: string, payeur: string) => {
         portails.push({ tenant, payeur });
         return o.portail ?? { ok: true as const, valeur: { url: 'https://billing.stripe.com/p/session/x' } };
@@ -71,29 +105,14 @@ function monter(etats: (t: number) => EtatConnexion, o: {
       },
       suiteDuPro: async () => null,
       rendreLeNumero: async (tenant: string, rendre: boolean) => { rendus.push({ tenant, rendre }); return o.proVivant ?? true; },
-      // Une suite de réponses, la dernière répétée : la fenêtre ouverte un instant, puis refermée (la course du lot 3v-2b).
-      fenetrePartenaire: async () => (Array.isArray(o.ligne) ? (o.ligne.length > 1 ? o.ligne.shift()! : o.ligne[0]!) : o.ligne ?? false),
     },
     // Les lectures de l'état de la ligne (`lireEtatLigne`) : une ligne active, ou aucune (une option jamais prise).
     agentIa: {
-      creditWhatsapp: {
-        option: {
-          offre: async () => o.offre ?? 'pro', optionPrenable: async () => true,
-          options: { vivante: async () => (o.option ? { places: 1, statut: o.option } : null) },
-          numeroAvecCarte: async () => {
-            lecturesCarte.push(t);
-            return Array.isArray(o.avecCarte) ? (o.avecCarte.length > 1 ? o.avecCarte.shift()! : o.avecCarte[0]!) : o.avecCarte ?? false;
-          },
-        },
-        vue: {
-          lignes: async () => { if (o.lecturePanne) throw new Error('base injoignable'); return o.ligneActive ? [{ arreteeLe: null }] : []; },
-          numeros: async () => [{ coexistence: false, delie: false, attendLigne: o.attendLigne ?? false }],
-        },
-      },
+      creditWhatsapp,
     },
     couteux: { consommer: async (tenant: string) => { couteux.push(tenant); return { accepte: true, attenteMs: 0 }; } },
   } as unknown as DepsMcp;
-  return { deps, lectures, lecturesCarte, debut: t, portails, couteux, paiements, rendus, destinations };
+  return { deps, lectures, lecturesCarte, debut: t, maintenant: () => t, portails, couteux, paiements, rendus, destinations };
 }
 
 describe('start_whatsapp_connection', () => {
@@ -200,20 +219,20 @@ describe('watch_whatsapp_connection', () => {
   });
 
   it('rend dès que l’état change, avec le code en clair pour que Claude l’affiche', async () => {
-    const { deps, debut } = monter((t) => (t >= 1_000_000 + 6_000 ? AVEC_CODE : ATTRIBUE));
+    const { deps, debut, maintenant } = monter((t) => (t >= 1_000_000 + 6_000 ? AVEC_CODE : ATTRIBUE));
     const r = await outil('watch_whatsapp_connection').executer(deps, 't1', { etat_connu: empreinteEtat(ATTRIBUE) }, PERSONNE) as Record<string, unknown>;
     expect(r.change).toBe(true);
     expect(r.code).toBe('123456');
     expect(r.empreinte).toBe(empreinteEtat(AVEC_CODE));
-    expect(deps.numero.maintenant() - debut).toBe(6_000);
+    expect(maintenant() - debut).toBe(6_000);
   });
 
   it(`🔴 sans changement : rend au plus tard à ${DELAI_ATTENTE_MS / 1000} s, sans aucune lecture au-delà`, async () => {
-    const { deps, lectures, debut } = monter(() => ATTRIBUE);
+    const { deps, lectures, debut, maintenant } = monter(() => ATTRIBUE);
     const r = await outil('watch_whatsapp_connection').executer(deps, 't1', { etat_connu: empreinteEtat(ATTRIBUE) }, PERSONNE) as Record<string, unknown>;
     expect(r.change).toBe(false);
     expect(lectures.every((l) => l.t - debut <= DELAI_ATTENTE_MS)).toBe(true);
-    expect(deps.numero.maintenant() - debut).toBeLessThanOrEqual(DELAI_ATTENTE_MS);
+    expect(maintenant() - debut).toBeLessThanOrEqual(DELAI_ATTENTE_MS);
     expect(lectures.length).toBe(Math.floor(DELAI_ATTENTE_MS / PAS_ATTENTE_MS) + 1);
     expect(lectures.every((l) => l.tenant === 't1')).toBe(true);
   });
@@ -958,7 +977,7 @@ describe('la connexion sans carte chez Meta (lot 3v-2b)', () => {
    * est la seule suite, comme le dit la console (texte (1)). Plus jamais « sous 24 h ouvrées » ni « aucune carte ».
    */
   it('🔴 connecté avec sa carte, l’option payée ou en Entreprise : la ligne de crédit ne le prend pas, sa carte paie', async () => {
-    for (const o of [{ option: 'actif' as const }, { option: 'en_retard' as const }, { offre: 'entreprise' }]) {
+    for (const o of [{ option: 'actif' as const }, { option: 'en_retard' as const }, { offre: 'entreprise' as const }]) {
       const s = await suite({ ...o, avecCarte: true });
       const cas = JSON.stringify(o);
       expect(s, cas).toMatch(/la ligne de crédit ne peut pas le prendre en charge/);

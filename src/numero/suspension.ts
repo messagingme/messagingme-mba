@@ -1,5 +1,6 @@
 import type { EtatAbonnementNumero } from '../stripe/etat-abonnement';
 import { NumeroBloqueError } from '../meta/numero-delie';
+import type { FiliereNumero } from '../../web/lib/partage/parcours-numero';
 
 /**
  * UN NUMÉRO SUSPENDU (lot 4, spec `docs/superpowers/specs/2026-10-06-numero-impaye-design.md`) : le numéro FOURNI
@@ -44,7 +45,7 @@ export function creerNumeroBloqueDeLEspace(o: {
    * espace passé à l'application n'envoie pas par son ancien numéro de Meta, délié : il ne le bloque pas, sinon la remise
    * et le tour d'agent se taisaient (relecture du 2026-10-22).
    */
-  filiereDe(tenantId: string): Promise<'api' | 'application' | null>;
+  filiereDe(tenantId: string): Promise<FiliereNumero | null>;
 }): (tenantId: string) => Promise<boolean> {
   return async (tenantId) => {
     const numero = await o.numeroDeLEspace(tenantId);

@@ -1,3 +1,5 @@
+import type { FiliereNumero } from '../../web/lib/partage/parcours-numero';
+
 /**
  * LES COMPTES DE LA FILIÈRE « APPLICATION WHATSAPP BUSINESS » (spec `docs/superpowers/specs/2026-10-22-filiere-
  * application-whatsapp-design.md`, migration 0247). Un espace sans compte Meta Business relie le compte de
@@ -24,7 +26,7 @@ export interface CompteApplication {
   statutChangeLe: Date;
 }
 
-export type Filiere = 'api' | 'application';
+export type Filiere = FiliereNumero;
 
 /**
  * La fin des refus d'un numéro relié par QR code qui voudrait écrire en premier (le premier contact, les messages Shopify,

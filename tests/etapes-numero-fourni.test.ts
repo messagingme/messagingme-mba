@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { ETAPES_NUMERO_FOURNI, SECONDES_SANS_CODE, SI_SEUL_TEXT_MESSAGE } from '../web/lib/partage/etapes-numero-fourni';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
-import { signLienNumero } from '../src/auth/token';
 import type { EtatConnexion } from '../src/otp/etat-connexion';
+import { connexionNumeroPourTest } from './aide/connexion-numero';
 
 /**
  * LES ÉTAPES DU NUMÉRO FOURNI, UNE SEULE SOURCE POUR LA PAGE ET POUR CLAUDE (essai réel 99, 2026-10-13). Écrites deux
@@ -18,16 +18,11 @@ const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
 const APPEL = ETAPES_NUMERO_FOURNI.filter((e) => e.insiste);
 
 function deps(etat: EtatConnexion): DepsMcp {
+  const lireEtat = async () => etat;
   return {
     numero: {
-      signerLien: (l: Parameters<typeof signLienNumero>[0]) => signLienNumero(l, SECRET),
-      etat: async () => etat,
-      urlConsole: 'https://console.exemple.test',
-      attendre: async () => {},
-      maintenant: () => 1_000_000,
-      // La destination du numéro fourni (0280), que le lien retient : ces tests ne regardent que les consignes.
-      retenirDestination: async () => {},
-      fenetrePartenaire: async () => false,
+      connexion: connexionNumeroPourTest({ secret: SECRET, etat: lireEtat }),
+      etat: lireEtat,
     },
   } as unknown as DepsMcp;
 }

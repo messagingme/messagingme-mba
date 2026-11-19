@@ -9,6 +9,7 @@ import type { CompteApplication, StatutCompte } from '../src/application/comptes
 import type { ClientApplication } from '../src/application/client';
 import { OUTILS, type DepsMcp, type OutilMcp } from '../src/mcp/outils';
 import { etatMiseEnService, type LecturesMiseEnService } from '../src/mcp/mise-en-service';
+import { connexionNumeroPourTest } from './aide/connexion-numero';
 
 /**
  * RELIER, FILIÈRE APPLICATION (plan 2026-10-22, tâche 6) : depuis Claude (`start_whatsapp_connection` avec
@@ -198,19 +199,25 @@ const VIDE: EtatConnexion = { fourni: null, code: null, connecte: null, abonneme
 
 function mcp(o: { etat?: EtatConnexion; preparer?: Awaited<ReturnType<DepsConnexionApplication['comptes']['preparer']>> } = {}) {
   const prepares: string[] = [];
+  const lireEtat = async () => o.etat ?? VIDE;
+  class ComptesApplicationDeTest {
+    constructor(private readonly traces: string[]) {}
+
+    async preparer(t: string, e: { numero: string; fourniId: string | null }) {
+      this.traces.push(`${t}:${e.numero}`);
+      return o.preparer ?? { ok: true as const, compte: compte('en_attente', e.numero) };
+    }
+  }
+  const connexion = connexionNumeroPourTest({
+    secret: SECRET,
+    etat: lireEtat,
+    // Même forme que la production (`PgComptesApplication`) : cette méthode échoue si elle est détachée de son instance.
+    comptesApplication: new ComptesApplicationDeTest(prepares),
+  });
   const deps = {
     numero: {
-      signerLien: (l: Parameters<typeof signLienNumero>[0]) => signLienNumero(l, SECRET),
-      etat: async () => o.etat ?? VIDE,
-      urlConsole: 'https://console.exemple.test',
-      attendre: async () => {},
-      maintenant: () => 1_000_000,
-      comptesApplication: {
-        preparer: async (t: string, e: { numero: string; fourniId: string | null }) => {
-          prepares.push(`${t}:${e.numero}`);
-          return o.preparer ?? { ok: true as const, compte: compte('en_attente', e.numero) };
-        },
-      },
+      connexion,
+      etat: lireEtat,
     },
   } as unknown as DepsMcp;
   return { deps, prepares };

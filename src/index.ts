@@ -290,6 +290,7 @@ import { creerGelMembres, roleEffectif } from './offres/membres';
 import { commissionPour } from './offres/commission';
 import { inclutLeNumero, surFinDeLOffreManuelle, surFinDuPro, surNumeroPayePendantLEssai, surPassageEnPro, type DepsNumeroInclus } from './offres/numero-inclus';
 import { contratOpenapi } from './api/openapi';
+import { creerAccompagnementConnexionNumeroMcp } from './mcp/connexion-numero';
 
 /**
  * Le nom de cette copie de l'API dans `/ops` et dans ses alertes : `api` seule, `api-<copie>` à plusieurs, et
@@ -1988,6 +1989,25 @@ async function main(): Promise<void> {
       signaler: (detail) => { journaliser('warn', 'cockpit_illisible', detail); },
     })
     : null;
+
+  const lireEtatNumeroMcp = async (tenant: string) => servirLeCreditSiRelie(
+    await lireEtatConnexion({
+      numeros: numerosFournis, numeroConnecte, abonnements: abonnementsNumero,
+      offre: offreQuiInclutLeNumero, application: connexionApplication,
+    }, tenant),
+    tenant, (t) => connexionApplication.offrirCredit(t),
+  );
+  const connexionNumeroMcp = creerAccompagnementConnexionNumeroMcp({
+    signerLien: (lien) => signLienNumero(lien, config.AUTH_SECRET),
+    etat: lireEtatNumeroMcp,
+    urlConsole: config.APP_URL,
+    attendre: (ms) => new Promise((resoudre) => { setTimeout(resoudre, ms); }),
+    maintenant: () => Date.now(),
+    comptesApplication,
+    retenirDestination: (tenant, destination) => numerosFournis.retenirDestination(tenant, destination),
+    fenetrePartenaire: async (tenant) => (await solutionDuPartenaire(fenetreDuPartenaire, tenant)) !== null,
+    creditWhatsapp: creditWhatsappDeLaConsole,
+  });
 
   const app = buildServer({
     /**
@@ -3980,21 +4000,8 @@ async function main(): Promise<void> {
         // La connexion du numéro depuis Claude Code (lot 3c) : le lien signé avec le secret des sessions, vers la page
         // `/brancher` de la console, et la MÊME lecture de l'état que cette page.
         numero: {
-          signerLien: (l) => signLienNumero(l, config.AUTH_SECRET),
-          // Le crédit offert d'un compte de l'application relié se sert à cette lecture aussi : l'attente de Claude ne lit qu'elle.
-          etat: async (tenant) => servirLeCreditSiRelie(
-            await lireEtatConnexion({ numeros: numerosFournis, numeroConnecte, abonnements: abonnementsNumero, offre: offreQuiInclutLeNumero, application: connexionApplication }, tenant),
-            tenant, (t) => connexionApplication.offrirCredit(t),
-          ),
-          urlConsole: config.APP_URL,
-          attendre: (ms) => new Promise((r) => { setTimeout(r, ms); }),
-          maintenant: () => Date.now(),
-          // La filière application : son propre numéro se prépare dès le lien (`start_whatsapp_connection`).
-          comptesApplication,
-          // Où va le numéro fourni (migration 0280) : retenu au lien, relu par la reprise (`modeDeReprise`).
-          retenirDestination: (tenant, destination) => numerosFournis.retenirDestination(tenant, destination),
-          // La connexion sans carte (lot 3v-2b) : la MÊME règle que la configuration du lien, que `/brancher` lit.
-          fenetrePartenaire: async (tenant) => (await solutionDuPartenaire(fenetreDuPartenaire, tenant)) !== null,
+          connexion: connexionNumeroMcp,
+          etat: lireEtatNumeroMcp,
           ouvrirPortail: (tenant, payeur) => ouvrirPortail(abonnementDuNumero, tenant, 'console', payeur),
           // Lot 4 : la seule lecture de l'état, et le réabonnement du même numéro (retour sur `/paiement-recu`).
           abonnement: (tenant) => abonnementsNumero.etatDeLEspace(tenant),

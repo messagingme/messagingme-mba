@@ -1,4 +1,5 @@
 import type { EtatConnexion } from './api/connexion-numero';
+import { estModeNumero, type FiliereNumero, type ModeNumero } from './partage/parcours-numero';
 
 /**
  * LE JETON DU LIEN DE CONNEXION DU NUMÉRO, côté console (lot 3c). Claude Code donne `…/brancher#<jeton>` : la page lit
@@ -12,9 +13,9 @@ export interface LienLu {
    * `coexistence` (plan 2026-10-24) : le numéro reste dans l'application WhatsApp Business. `fourni_application` (plan
    * 2026-10-31) : un numéro fourni, mis dans l'application, puis relié en coexistence.
    */
-  mode: 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
+  mode: ModeNumero;
   /** `application` : la filière de l'application WhatsApp Business, reliée par QR code (2026-10-22). Absente du jeton : `api`. */
-  filiere: 'api' | 'application';
+  filiere: FiliereNumero;
 }
 
 const ESPACE_RE = /^[A-Za-z0-9-]{1,64}$/;
@@ -30,7 +31,7 @@ export function lireLien(jeton: string): LienLu | null {
     const { kind, tenantId, mode, filiere } = brut as { kind?: unknown; tenantId?: unknown; mode?: unknown; filiere?: unknown };
     if (kind !== 'lien_numero') return null;
     if (typeof tenantId !== 'string' || !ESPACE_RE.test(tenantId)) return null;
-    if (mode !== 'fourni' && mode !== 'apporte' && mode !== 'coexistence' && mode !== 'fourni_application') return null;
+    if (!estModeNumero(mode)) return null;
     return { tenantId, mode, filiere: filiere === 'application' ? 'application' : 'api' };
   } catch {
     return null;

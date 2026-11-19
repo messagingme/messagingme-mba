@@ -11,6 +11,7 @@ import type { VueOffre } from '../offres/vue';
 import type { WidgetRow } from '../widgets/store.pg';
 import { journaliser } from '../lib/journal';
 import { creditPaieMeta, SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
+import type { FiliereNumero } from '../../web/lib/partage/parcours-numero';
 import { lireEtatLigne, tousGardentLApplication, type EtatLigne, type SourcesEtatLigne } from '../credit-whatsapp/etat-ligne';
 
 /**
@@ -117,7 +118,7 @@ export interface EtatMiseEnService {
   numero: {
     connecte: boolean; a_activer: boolean; chiffres: string | null; fourni: string | null; abonnement: string | null;
     /** `application` : un compte de l'application WhatsApp Business, relié par QR code ; `api` sinon. */
-    filiere: 'api' | 'application';
+    filiere: FiliereNumero;
     /**
      * Le numéro fourni pas encore relié : le mode du lien neuf qui le reprend (`modeDeReprise`, plan 2026-11-06), pour que
      * Claude ne le devine pas et ne le demande pas au client. `null` : rien à reprendre, ou une destination inconnue.
