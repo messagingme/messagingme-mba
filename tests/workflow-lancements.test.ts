@@ -779,3 +779,22 @@ describe('la garde marketing, type par type (décision A)', () => {
     }
   });
 });
+
+/**
+ * LOT 5 (jaune de 4a) : LA COLONNE « DEVANT UN PARCOURS D'ÉVÉNEMENT », TYPE PAR TYPE (décision 28). Elle décide si un
+ * démarrage remplace le parcours d'événement d'un contact, lui cède la place, ou coexiste avec lui ; aucun test ne la tenait
+ * ligne par ligne (sept mutations d'une ligne passaient). Changer un type de colonne doit être un choix écrit ici.
+ */
+const DEVANT_UN_EVENEMENT_ATTENDU: Record<TypeDeLancement, PolitiqueDeLancement['devantUnEvenement']> = {
+  inbox: 'remplace', lien_de_test: 'remplace', campagne_scenario: 'remplace', campagne_bloc: 'remplace', workflow_hubspot: 'remplace',
+  automatisme_chaine: 'remplace', automatisme_publicite_ou_widget: 'remplace',
+  automatisme_ordinaire: 'cede', evenement_shopify: 'cede',
+  repondeur: 'coexiste', repondeur_scenario: 'coexiste', agent_meta_scenario: 'coexiste', agent_meta_bloc: 'coexiste',
+  agent_ia_scenario: 'coexiste', aller_a: 'coexiste', aller_a_masse: 'coexiste',
+};
+
+describe('devant un parcours d’événement : la colonne, type par type (décision 28)', () => {
+  it('🔴 chaque type a sa ligne, et la table de la politique est celle-ci', () => {
+    for (const type of TYPES_DE_LANCEMENT) expect(POLITIQUE_DE_LANCEMENT[type].devantUnEvenement, type).toBe(DEVANT_UN_EVENEMENT_ATTENDU[type]);
+  });
+});

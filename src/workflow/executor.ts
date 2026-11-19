@@ -2008,7 +2008,11 @@ export class WorkflowExecutor {
       if (reprise === 'operateur') {
         // eslint-disable-next-line no-console
         console.log(`workflow ${workflowId}: fil tenu par un opérateur, run non démarré pour ${contact.waId}`);
-        return "la conversation est tenue par un opérateur : ce démarrage, déclenché par le contact, ne lui prend pas la main. Le message l'attend dans l'Inbox.";
+        // Lot 5 (jaune de 4a) : la naissance d'un parcours d'événement n'est pas déclenchée par le contact, et sa raison va
+        // dans Campagnes (`campaign_recipients.error`) : elle le dit autrement (décision 20 : le premier message est parti).
+        return opts.dejaEnvoye !== undefined
+          ? 'la conversation est tenue par un opérateur : le premier message est parti, sa suite ne démarre pas (décision 20).'
+          : "la conversation est tenue par un opérateur : ce démarrage, déclenché par le contact, ne lui prend pas la main. Le message l'attend dans l'Inbox.";
       }
       // Une reprise qui échoue arrête le démarrage : sinon l'agent de Meta, qui a ce contact sur sa liste, répondrait
       // à la place du scénario. La raison remonte jusqu'au destinataire (`campaign_recipients.error`).
@@ -2463,7 +2467,8 @@ export class WorkflowExecutor {
         const reprise = await this.deps.reclaimControl(tenantId, waId, { saufOperateur: true });
         if (reprise === 'operateur' || reprise === false) {
           // eslint-disable-next-line no-console
-          console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} arrêté, le fil de ${waId} est tenu par un opérateur`);
+          // Lot 5 (jaune de 4a) : le journal distingue un opérateur d'un refus de Meta de retirer le contact de la liste de l'agent.
+          console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} arrêté, ${reprise === 'operateur' ? `le fil de ${waId} est tenu par un opérateur` : `Meta refuse de retirer ${waId} de la liste de son agent`}`);
           await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
           await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId });
           return false;

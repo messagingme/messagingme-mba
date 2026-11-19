@@ -30,8 +30,8 @@ export const TYPES_DE_LANCEMENT = [
   'agent_meta_scenario',
   /**
    * Un agent IA lance le scénario fixé de son outil « Lancer un scénario » (RC4, `src/agent/gestes-envoi.ts`) : le
-   * scénario prend la conversation et l'agent se retire. Le parcours qui portait l'agent est remplacé ici, comme par
-   * tout démarrage, et sa session close en `sortie` (`sessionRemplacee: 'retiree'`).
+   * scénario prend la conversation et l'agent se retire. Le parcours ORDINAIRE qui portait l'agent est remplacé ici, et sa
+   * session close en `sortie` (`sessionRemplacee: 'retiree'`) ; un parcours d'événement, lui, coexiste (décision 28).
    */
   'agent_ia_scenario',
   /** L'agent de Meta envoie un bloc par son outil « Envoyer un bloc », dans un graphe réduit à ce bloc. */

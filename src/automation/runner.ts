@@ -282,7 +282,8 @@ export async function runAutomations(
       }
 
       // Pas de garde « un parcours attend déjà » : `runFrom` clôt le parcours actif avant de persister le nouveau,
-      // donc un nouveau déclenchement tranche au lieu de bloquer. Ce qui freine un scénario qui repose son propre
+      // donc un nouveau déclenchement tranche au lieu de bloquer. Sauf devant un parcours d'ÉVÉNEMENT (lot 4, décision 28) :
+      // une automation « Autres » lui cède la place (colonne `devantUnEvenement`), et rien ne démarre. Ce qui freine un scénario qui repose son propre
       // déclencheur, c'est l'anti-rebond, et seulement s'il est non nul : une automation réglée à 0, sans plafond,
       // sur un scénario qui repose son propre tag, boucle.
 
