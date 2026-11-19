@@ -1136,6 +1136,13 @@ export function deleteUser(tenantId: string, userId: string): Promise<{ id: stri
   return request(`/tenants/${tenantId}/users/${userId}`, { method: 'DELETE' });
 }
 /**
+ * Un lien NEUF pour une invitation en attente, à faire passer autrement que par l'e-mail (2026-11-19). Il annule les
+ * liens précédents ; 404 si le membre a déjà accepté.
+ */
+export function lienInvitation(tenantId: string, userId: string): Promise<{ lien: string }> {
+  return request(`/tenants/${tenantId}/users/${userId}/lien-invitation`, { method: 'POST' });
+}
+/**
  * Retire le second facteur d'un membre (téléphone perdu, codes épuisés). 409 si la personne a un compte dans un
  * autre espace : ce cas passe par le support.
  */

@@ -477,7 +477,10 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   identité C, 2026-11-06) : ni Google, ni la connexion par mot de passe, ni le sélecteur d'espaces, ni l'autorisation
   de Claude Code n'ouvrent un compte « invité », qui ne compte pas non plus parmi les administrateurs d'un espace ni
   pour l'obligation du second facteur. L'email est un **HTML brandé** (logo Messaging Me, couleurs de marque) et
-  **personnalisé** (« X (adresse) vous invite à rejoindre l'espace Y »). **La création de compte par mot de passe
+  **personnalisé** (« X (adresse) vous invite à rejoindre l'espace Y »). **L'e-mail n'arrive pas ?** « Copier le
+  lien », sur la ligne « Invité » de Compte & équipe, donne un lien neuf à envoyer par un autre moyen (2026-11-19) : il
+  annule le lien de l'e-mail, vaut 7 jours, et ne laisse pas choisir le mot de passe d'une adresse qui a déjà un compte
+  Messaging Me (elle entre alors par Google ou par l'e-mail). **La création de compte par mot de passe
   (posé par l'admin) est SUPPRIMÉE** : on n'ajoute un membre QUE par invitation (front + route + code backend retirés).
 - ✅ **Mot de passe** : « oublié » (`/forgot`, lien de réinitialisation par email, réponse toujours générique
   anti-énumération, y compris pour une adresse dont le seul compte est une invitation en attente) + changement

@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-19 : « Copier le lien » d'une invitation, avec la garde de l'identité partagée
+
+**Le besoin**, de Julien : un invité dont la messagerie bloque l'e-mail d'invitation restait bloqué. Le lien n'existe qu'en
+empreinte (`auth_tokens.token_hash`) et réinviter la même adresse rend 409 tant que la ligne « Invité » existe.
+
+**Le piège trouvé avant de construire** : la page de l'invitation laisse CHOISIR un mot de passe à une adresse qui n'en a
+pas, et `accepterInvitation` l'écrit sur l'IDENTITÉ, partagée par tous les espaces de la personne. Donner le lien à l'admin
+tel quel aurait permis à un admin malveillant d'inviter une personne connectée par Google ailleurs, de choisir son mot de
+passe et d'entrer dans ses autres espaces. Tant que le lien ne partait que par e-mail, la boîte le prouvait.
+
+**Ce qui est livré** (plan `docs/superpowers/plans/2026-11-19-lien-invitation-copie.md`) : migration 0301
+(`auth_tokens.partage`), `remplacerInvitation` (lien neuf, anciens annulés, compte exigé invitation en attente de
+l'espace), `POST /tenants/:t/users/:u/lien-invitation`, la garde `lien_partage` dans `accepterInvitation` (un autre compte,
+ouvert ou en attente, interdit le mot de passe choisi par un lien copié), le bouton et le lien affiché en clair dans
+Compte & équipe, le message de la page d'invitation. Risque restant accepté par Julien : une adresse sans aucun autre
+compte, dont l'admin choisirait lui-même le mot de passe.
+
+**Mesures** : quatre tests neufs en base sur le banc PGlite (16/16 avec les existants) et cinq mutations rouges (garde
+retirée, jeton non marqué, anciens jetons non annulés, garde de l'espace retirée, refus sans annulation de la
+transaction), code restauré à l'empreinte près. Un e2e (`second-facteur.spec.ts`, bloc « copier le lien ») a trouvé un
+défaut avant tout push : le rechargement de la liste (`useChargement`) effaçait la raison d'un 404 ; vu rouge, corrigé.
+Typecheck, lint et auto-attaque à 0 ; suite racine verte (sept délais dépassés sous la charge d'une construction
+parallèle, verts rejoués à froid).
+
+**Relecture indépendante** : aucun rouge. Deux jaunes corrigés dans le lot : l'ordre des verrous de
+`remplacerInvitation` (le compte puis le jeton, inverse de l'acceptation : un clic pendant une acceptation pouvait
+interbloquer), et la portée du risque accepté, plus large qu'écrit (le mot de passe choisi par l'admin ouvrirait aussi un
+compte que la personne ouvrirait plus tard avec la même adresse). Un jaune laissé : un retour arrière d'image d'avant le
+lot accepterait un jeton `partage` sans la garde.
+
 ## 2026-11-19 : « un parcours tient le fil » devient une seule règle (en production)
 
 **Pourquoi** : en deux jours, trois correctifs ont posé la même règle (un scénario en cours garde son fil) à trois portes,

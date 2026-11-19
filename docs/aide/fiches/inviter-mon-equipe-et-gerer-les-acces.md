@@ -1,6 +1,6 @@
 ---
 source_section: Comptes & authentification
-source_empreinte: bdc44a
+source_empreinte: ae3908
 ---
 # Inviter mon équipe, et gérer les accès
 
@@ -11,7 +11,10 @@ l'espace Y »). Le lien ouvre la page de l'invitation, qui redit l'espace et qui
 l'adresse invitée, avec son mot de passe actuel si elle a déjà un compte Messaging Me, ou en en choisissant un. Tant
 qu'elle ne l'a pas fait, son compte reste « invité », et il n'ouvre rien : ni Google, ni la connexion par mot de passe,
 ni Claude Code ne la font entrer dans votre espace sans passer par ce lien. Le lien vaut 7 jours ; passé ce délai,
-supprimez le compte invité et invitez-la de nouveau. Supprimer un membre éteint aussi les outils d'agent qu'il avait
+supprimez le compte invité et invitez-la de nouveau. **L'e-mail n'arrive pas** (filtre de sa messagerie, indésirables) :
+sur sa ligne « Invité », « Copier le lien » vous donne un lien neuf, à lui envoyer par le moyen de votre choix. Il vaut
+7 jours et remplace celui de l'e-mail. Si son adresse a déjà un compte Messaging Me, ce lien ne lui laisse pas choisir
+de mot de passe : elle entre avec Google, ou par l'invitation reçue par e-mail. Supprimer un membre éteint aussi les outils d'agent qu'il avait
 activés depuis Claude : un administrateur les rallume depuis l'onglet Outils de l'agent. Vous ne pouvez pas créer un
 compte en choisissant vous-même son mot de passe, et c'est voulu : personne d'autre que la personne concernée ne doit
 connaître le sien.

@@ -3926,6 +3926,16 @@ attente ne reçoit jamais de marque de connexion (`touchLastLogin`), et une invi
   `mot_de_passe_existe`, 409, tout annulé), drapeau levé. L'état du second facteur se relit APRÈS. Les trois routes
   passent d'abord le plafond `invitation` (par réseau du client) ; l'acceptation par mot de passe aussi `accept` (par
   jeton). Jamais 401.
+- **Le lien copié depuis la console** (`POST /tenants/:t/users/:u/lien-invitation`, migration 0301) : l'e-mail n'arrive
+  pas, l'admin fait passer un lien NEUF (l'ancien n'existe qu'en empreinte). `remplacerInvitation` (une transaction : le
+  compte verrouillé et exigé invitation en attente de l'espace, non révoquée ; les jetons d'invitation vivants annulés ;
+  un jeton marqué `auth_tokens.partage`). 🔴 Un jeton `partage` ne prouve pas la boîte : `accepterInvitation` refuse qu'il
+  CHOISISSE le mot de passe d'une identité qui a un autre compte, ouvert ou en attente (`lien_partage`, 409, tout annulé,
+  jeton intact), sinon l'admin entrerait dans les autres espaces d'une personne connectée par Google. Google et le mot de
+  passe actuel restent ouverts. Risque accepté (Julien, 2026-11-19) : sur une adresse sans aucun autre compte, l'admin
+  qui garde le lien peut choisir le mot de passe de l'identité lui-même ; il n'ouvre d'abord que son espace, mais aussi
+  tout compte que la personne ouvrira plus tard avec la même adresse, jusqu'à une réinitialisation par e-mail. Le
+  journal (`utilisateur.lien_invitation`) ne porte jamais le lien.
 - **« Mot de passe oublié »** (`compteAReinitialiser`) vise aussi une identité dont le seul compte est une invitation en
   attente : la réinitialisation prouve l'adresse et n'ouvre rien, et un membre retiré puis réinvité, qui garde son mot
   de passe, doit pouvoir le reprendre avant d'accepter.

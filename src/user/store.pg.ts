@@ -18,6 +18,7 @@ const estDoublon = (err: unknown): boolean =>
 class MotDePasseDejaPose extends Error {}
 class AdresseDejaConnue extends Error {}
 class InvitationRevoquee extends Error {}
+class LienPartageSurIdentiteOuverte extends Error {}
 
 export interface UserRow {
   id: string;
@@ -407,10 +408,10 @@ export class PgUserStore {
     if (!jeton) return { statut: 'invalide' };
     try {
       return await enTransaction(this.pool, async (client) => {
-        const t = await client.query<{ user_id: string }>(
+        const t = await client.query<{ user_id: string; partage: boolean }>(
           `update auth_tokens set used_at = now()
             where token_hash = $1 and purpose = 'invite' and used_at is null and expires_at > now()
-            returning user_id`,
+            returning user_id, partage`,
           [sha256Hex(jeton)],
         );
         const userId = t.rows[0]?.user_id;
@@ -425,6 +426,12 @@ export class PgUserStore {
         if (u.rows[0]!.disabled_at !== null) throw new InvitationRevoquee();
         const identityId = u.rows[0]!.identity_id;
         if (identityId !== null) await client.query(`select 1 from identities where id = $1 for update`, [identityId]);
+        if (nouveauHash !== null && t.rows[0]!.partage && identityId !== null) {
+          // 🔴 Un lien copié depuis la console ne prouve pas la boîte : il ne choisit pas le mot de passe d'une identité qui
+          // a un AUTRE compte, ouvert ou en attente (migration 0301). Lu après le verrou de l'identité.
+          const autre = await client.query(`select 1 from users where identity_id = $1 and id <> $2 limit 1`, [identityId, userId]);
+          if ((autre.rowCount ?? 0) > 0) throw new LienPartageSurIdentiteOuverte();
+        }
         if (nouveauHash !== null) {
           const pose = identityId === null
             ? await client.query(`update users set password_hash = $2 where id = $1 and password_hash is null`, [userId, nouveauHash])
@@ -441,6 +448,7 @@ export class PgUserStore {
       });
     } catch (err) {
       if (err instanceof MotDePasseDejaPose) return { statut: 'mot_de_passe_existe' };
+      if (err instanceof LienPartageSurIdentiteOuverte) return { statut: 'lien_partage' };
       if (err instanceof InvitationRevoquee) return { statut: 'invalide' };
       throw err;
     }

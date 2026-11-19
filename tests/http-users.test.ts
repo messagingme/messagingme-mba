@@ -357,6 +357,58 @@ describe('users route — invitation', () => {
 });
 
 /**
+ * LE LIEN D'UNE INVITATION À COPIER (2026-11-19) : l'e-mail n'arrive pas, l'admin fait passer le lien autrement. La route
+ * fabrique un lien neuf par `lienInvitation`, qui annule les précédents et marque le jeton (sa garde est dans le store).
+ */
+describe('users route : copier le lien d’une invitation', () => {
+  const INVITE = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const url = (id: string) => `/tenants/t1/users/${id}/lien-invitation`;
+
+  it('admin -> 200 et le lien de la page d’invitation, demandé pour CET espace et CE compte, jamais mis en cache', async () => {
+    const appels: Array<[string, string]> = [];
+    const { server } = app({ lienInvitation: async (t, u) => { appels.push([t, u]); return 'JETON_NEUF'; } });
+    const res = await server.inject({ method: 'POST', url: url(INVITE), ...h(adminTok) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ lien: 'https://mba.messagingme.app/invite/JETON_NEUF' });
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(appels).toEqual([['t1', INVITE]]);
+    await server.close();
+  });
+
+  it('un compte qui n’est pas une invitation en attente de l’espace -> 404', async () => {
+    const { server } = app({ lienInvitation: async () => null });
+    const res = await server.inject({ method: 'POST', url: url(INVITE), ...h(adminTok) });
+    expect(res.statusCode).toBe(404);
+    await server.close();
+  });
+
+  it('un identifiant mal formé -> 404 sans toucher la base (une colonne uuid rendrait 22P02, donc 500)', async () => {
+    const { server } = app({ lienInvitation: async () => { throw new Error('ne doit pas être appelée'); } });
+    const res = await server.inject({ method: 'POST', url: url('pas-un-uuid'), ...h(adminTok) });
+    expect(res.statusCode).toBe(404);
+    await server.close();
+  });
+
+  it('🔴 agent -> 403 : seul un admin tire un lien', async () => {
+    const appels: string[] = [];
+    const { server } = app({ lienInvitation: async (_t, u) => { appels.push(u); return 'X'; } });
+    const res = await server.inject({ method: 'POST', url: url(INVITE), ...h(agentTok) });
+    expect(res.statusCode).toBe(403);
+    expect(appels).toEqual([]);
+    await server.close();
+  });
+
+  it('sans adresse de console configurée -> 503, aucun jeton fabriqué', async () => {
+    const appels: string[] = [];
+    const { server } = app({ appUrl: '', lienInvitation: async (_t, u) => { appels.push(u); return 'X'; } });
+    const res = await server.inject({ method: 'POST', url: url(INVITE), ...h(adminTok) });
+    expect(res.statusCode).toBe(503);
+    expect(appels).toEqual([]);
+    await server.close();
+  });
+});
+
+/**
  * LE NOM AFFICHÉ D'UN MEMBRE.
  *
  * 🔴 CE QUE CETTE ROUTE RÉPARE : la colonne `users.name` existait depuis toujours, tous les écrans font déjà

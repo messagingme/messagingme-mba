@@ -23,6 +23,11 @@ export interface UsersRouteDeps {
   users: MembresDep;
   /** Génère un token d'invitation à usage unique pour ce compte, renvoie le token en clair. */
   createInviteToken(userId: string): Promise<string>;
+  /**
+   * Un lien neuf pour une invitation en attente de l'espace, qui annule les précédents et se marque `partage`
+   * (`PgAuthTokenStore.remplacerInvitation`). `null` : le compte n'est pas une invitation en attente de cet espace.
+   */
+  lienInvitation(tenantId: string, userId: string): Promise<string | null>;
   /** Envoi de l'email d'invitation (Resend). Absent -> l'invitation est créée mais aucun email n'est envoyé. */
   sendEmail?(input: { to: string; subject: string; text: string; html?: string }): Promise<void>;
   mfa: {
@@ -196,6 +201,24 @@ export function registerUsers(app: FastifyInstance, deps: UsersRouteDeps, garde:
       if (err instanceof DuplicateEmailError) return reply.code(409).send({ error: 'email déjà utilisé' });
       throw err;
     }
+  });
+
+  /**
+   * LE LIEN D'UNE INVITATION, À FAIRE PASSER AUTREMENT (2026-11-19) : l'e-mail n'arrive pas (filtre d'entreprise, boîte
+   * pleine), l'admin copie le lien et l'envoie par un autre canal. Un lien NEUF : l'ancien n'existe qu'en empreinte. Il
+   * annule les précédents, vaut le même délai, et ne choisit pas le mot de passe d'une adresse qui a un autre compte
+   * (garde dans `accepterInvitation`). Le journal dit qui l'a tiré, jamais le lien.
+   */
+  app.post('/tenants/:tenantId/users/:userId/lien-invitation', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const { userId } = req.params as { userId: string };
+    if (!deps.appUrl) return reply.code(503).send({ error: 'adresse de la console non configurée' });
+    // Un identifiant mal formé partirait dans un `where id = $1` sur une colonne `uuid` : 22P02, donc un 500.
+    if (!estUuid(userId)) return reply.code(404).send({ error: 'invitation introuvable' });
+    const raw = await deps.lienInvitation(tenant, userId);
+    if (raw === null) return reply.code(404).send({ error: 'invitation introuvable : le membre l’a peut-être déjà acceptée' });
+    await journal(tenant, req, 'utilisateur.lien_invitation', { kind: 'user', id: userId });
+    return reply.code(200).header('cache-control', 'no-store').send({ lien: `${deps.appUrl}/invite/${raw}` });
   });
 
   /**

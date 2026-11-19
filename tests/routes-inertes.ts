@@ -511,9 +511,10 @@ export const modelesInertes: Pick<DepsGestionModeles, 'getPublishedFlow' | 'indi
 /** `listActiveCampaignsForTemplate` absente : pas de garde-fou, donc aucune campagne active. */
 export const aucuneCampagneActive = async (): Promise<[]> => [];
 
-export const membresInertes: Pick<UsersRouteDeps, 'audit' | 'createInviteToken' | 'mfa' | 'appUrl' | 'opsEmails'> = {
+export const membresInertes: Pick<UsersRouteDeps, 'audit' | 'createInviteToken' | 'lienInvitation' | 'mfa' | 'appUrl' | 'opsEmails'> = {
   audit: journalMuet,
   createInviteToken: neDevraitPasEtreAppelee('createInviteToken'),
+  lienInvitation: neDevraitPasEtreAppelee('lienInvitation'),
   mfa: { reinitialiserDansEspace: neDevraitPasEtreAppelee('reinitialiserDansEspace') },
   // Absente : aucun e-mail d'invitation ne partait. Une adresse vide produit le même saut.
   appUrl: '',

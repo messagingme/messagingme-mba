@@ -270,4 +270,75 @@ describe.skipIf(!url)('les invitations en attente, en base', () => {
     expect(await users.setDisabled(t.tenantId, invite.id, false)).toBe('ok');
     expect((await users.accepterInvitation(jeton, null)).statut).toBe('acceptee');
   });
+
+  /**
+   * LE LIEN COPIÉ DEPUIS LA CONSOLE (migration 0301) : l'e-mail n'arrive pas, l'admin fait passer le lien autrement. Un
+   * lien neuf annule les précédents et se marque `partage`, et ce jeton ne choisit pas le mot de passe d'une identité qui
+   * a un autre compte : l'admin qui le détient entrerait dans les autres espaces de la personne.
+   */
+  const partage = async (userId: string) =>
+    (await pool.query<{ partage: boolean; vivant: boolean }>(
+      `select partage, used_at is null as vivant from auth_tokens where user_id = $1 and purpose = 'invite' order by created_at, id`, [userId],
+    )).rows;
+
+  it('lien copié : les jetons vivants du compte annulés, un jeton neuf marqué `partage` qui s’accepte ; refusé hors de l’espace ou sur un compte ouvert', async () => {
+    const t = await espace('Espace L1', adresse('invitantL1'));
+    const autre = await espace('Espace L1 autre', adresse('invitantL1b'));
+    const invite = await users.createPending(t.tenantId, adresse('victimeL1'), 'agent', '', t.userId);
+    const parMail = await jetons.create('invite', invite.id, JOUR);
+    expect(await jetons.remplacerInvitation(autre.tenantId, invite.id, JOUR)).toBeNull();
+    expect(await jetons.remplacerInvitation(t.tenantId, t.userId, JOUR)).toBeNull();
+    expect(await jetons.lire('invite', parMail)).toBe(invite.id);
+    const copie = await jetons.remplacerInvitation(t.tenantId, invite.id, JOUR);
+    expect(copie).toEqual(expect.any(String));
+    expect(await jetons.lire('invite', parMail)).toBeNull();
+    expect(await jetons.lire('invite', copie!)).toBe(invite.id);
+    expect((await partage(invite.id)).map((j) => j.partage).sort()).toEqual([false, true]);
+    // Une adresse sans aucun autre compte : le lien copié choisit son mot de passe (risque accepté par Julien).
+    expect(await users.accepterInvitation(copie!, 'scrypt$L1$1')).toEqual({ statut: 'acceptee', userId: invite.id });
+    // Acceptée, l'invitation ne donne plus de lien.
+    expect(await jetons.remplacerInvitation(t.tenantId, invite.id, JOUR)).toBeNull();
+  });
+
+  it('🔴 lien copié sur une adresse qui a un compte ailleurs (Google, sans mot de passe) : pas de mot de passe choisi, rien d’écrit, jeton intact ; Google accepte', async () => {
+    const t = await espace('Espace L2', adresse('invitantL2'));
+    const v = adresse('googleL2');
+    await espace('Espace Google L2', v, null);
+    const avant = await identite(v);
+    const invite = await users.createPending(t.tenantId, v, 'admin', '', t.userId);
+    const copie = (await jetons.remplacerInvitation(t.tenantId, invite.id, JOUR))!;
+    expect(await users.accepterInvitation(copie, 'scrypt$L2$admin')).toEqual({ statut: 'lien_partage' });
+    expect(await identite(v)).toEqual(avant);
+    expect(await drapeau(invite.id)).toBe(true);
+    expect(await jetons.lire('invite', copie)).toBe(invite.id);
+    // Google (ou le mot de passe actuel, déjà vérifié par la route) n'écrit rien : accepté.
+    expect(await users.accepterInvitation(copie, null)).toEqual({ statut: 'acceptee', userId: invite.id });
+    expect(await identite(v)).toEqual(avant);
+  });
+
+  it('🔴 un compte AILLEURS encore en attente compte aussi ; le lien parti par e-mail, lui, choisit toujours son mot de passe', async () => {
+    const t = await espace('Espace L3', adresse('invitantL3'));
+    const ailleurs = await espace('Espace L3 ailleurs', adresse('invitantL3b'));
+    const v = adresse('victimeL3');
+    await users.createPending(ailleurs.tenantId, v, 'agent', '', ailleurs.userId);
+    const invite = await users.createPending(t.tenantId, v, 'agent', '', t.userId);
+    const copie = (await jetons.remplacerInvitation(t.tenantId, invite.id, JOUR))!;
+    expect(await users.accepterInvitation(copie, 'scrypt$L3$admin')).toEqual({ statut: 'lien_partage' });
+    expect((await identite(v))?.password_hash).toBeNull();
+    // Un lien par e-mail prouve la boîte : la garde ne le concerne pas.
+    const parMail = await jetons.create('invite', invite.id, JOUR);
+    expect(await users.accepterInvitation(parMail, 'scrypt$L3$elle')).toEqual({ statut: 'acceptee', userId: invite.id });
+    expect((await identite(v))?.password_hash).toBe('scrypt$L3$elle');
+  });
+
+  it('une invitation révoquée ne donne pas de lien, et le refus n’annule pas le lien de l’e-mail', async () => {
+    const t = await espace('Espace L4', adresse('invitantL4'));
+    const invite = await users.createPending(t.tenantId, adresse('victimeL4'), 'agent', '', t.userId);
+    const parMail = await jetons.create('invite', invite.id, JOUR);
+    expect(await users.setDisabled(t.tenantId, invite.id, true)).toBe('ok');
+    expect(await jetons.remplacerInvitation(t.tenantId, invite.id, JOUR)).toBeNull();
+    // Rien n'est écrit : réactivée, l'invitation s'accepte encore par le lien de l'e-mail.
+    expect(await jetons.lire('invite', parMail)).toBe(invite.id);
+    expect((await partage(invite.id)).map((j) => j.partage)).toEqual([false]);
+  });
 });

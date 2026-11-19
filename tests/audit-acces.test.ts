@@ -98,6 +98,25 @@ describe('les actions sur les COMPTES laissent une trace', () => {
     await app.close();
   });
 
+  it('🔴 un lien d’invitation copié est journalisé, et la ligne ne porte jamais le lien', async () => {
+    // Le lien ouvre l'invitation : gravé dans un journal gardé deux ans, il serait lisible par tout admin de l'espace.
+    const h = harnais();
+    const app = Fastify();
+    monterAvecEtapeEspace(app, () => registerUsers(app, {
+      ...membresInertes,
+      audit: h.audit,
+      users: { ...membresDepInertes, list: async () => [], setRole: async () => 'ok', setDisabled: async () => 'ok', deleteUser: async () => 'ok' },
+      appUrl: 'https://console.test',
+      lienInvitation: async () => 'JETON_SECRET',
+    }, gardeQuiPose));
+    await app.ready();
+    const r = await app.inject({ method: 'POST', url: '/tenants/t1/users/7c9e6679-7425-40de-944b-e07fc1f90ae7/lien-invitation' });
+    expect(r.statusCode).toBe(200);
+    expect(h.lignes.map((l) => l.action)).toEqual(['utilisateur.lien_invitation']);
+    expect(JSON.stringify(h.lignes[0])).not.toContain('JETON_SECRET');
+    await app.close();
+  });
+
   it('🔴 un REFUS n’écrit rien : ce journal est un registre de changements, pas de tentatives', async () => {
     /**
      * La nuance décide de la lisibilité de l'écran. Une ligne « rôle changé » sur une requête refusée en 409

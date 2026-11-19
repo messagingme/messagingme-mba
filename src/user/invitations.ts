@@ -19,4 +19,10 @@ export type AcceptationInvitation =
   /** Jeton inconnu, échu ou déjà servi, ou compte supprimé : rien n'est écrit. */
   | { statut: 'invalide' }
   /** L'adresse a reçu un mot de passe entre l'aperçu et l'envoi : il faut désormais l'actuel. Rien n'est écrit, jeton intact. */
-  | { statut: 'mot_de_passe_existe' };
+  | { statut: 'mot_de_passe_existe' }
+  /**
+   * 🔴 Un lien COPIÉ depuis la console (jeton `partage`, migration 0301) ne choisit pas le mot de passe d'une identité qui a
+   * un autre compte : l'admin qui détient le lien entrerait dans les autres espaces de la personne. Rien n'est écrit,
+   * jeton intact : Google à l'adresse invitée reste ouvert.
+   */
+  | { statut: 'lien_partage' };

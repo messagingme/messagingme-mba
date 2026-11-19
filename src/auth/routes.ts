@@ -636,6 +636,12 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     if (r.statut === 'mot_de_passe_existe') {
       return reply.code(409).send({ error: 'cette adresse a désormais un mot de passe : saisissez-le', code: 'mot_de_passe_existe' });
     }
+    if (r.statut === 'lien_partage') {
+      return reply.code(409).send({
+        error: 'cette adresse a déjà un compte Messaging Me : rejoignez avec Google, ou demandez l’invitation par e-mail',
+        code: 'lien_partage',
+      });
+    }
     const su = await deps.comptes.getSessionUser(r.userId);
     const facteur = await deps.mfa.lireParCompte(r.userId);
     if (!su || !facteur) return reply.code(400).send(INVITATION_INVALIDE);

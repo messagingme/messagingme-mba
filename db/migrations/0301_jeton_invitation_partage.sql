@@ -1,0 +1,11 @@
+-- 0301_jeton_invitation_partage.sql : un lien d invitation copie depuis la console (plan
+-- docs/superpowers/plans/2026-11-19-lien-invitation-copie.md).
+--
+-- Un jeton d invitation parti par e-mail prouve la boite de l invite ; un jeton copie par l admin ne prouve rien, l admin
+-- le detient. Marque partage, il ne pose pas de mot de passe sur une identite qui a un autre compte (garde dans
+-- accepterInvitation) : sans elle, l admin choisirait le mot de passe d une personne connectee par Google ailleurs et
+-- entrerait dans ses autres espaces.
+--
+-- AVANT le code (migration=avant) : le code neuf ecrit et lit la colonne, l ancien l ignore. Un defaut constant ne
+-- reecrit pas la table (Postgres 11 et plus) : verrou bref, auth_tokens n est pas une table chaude.
+alter table auth_tokens add column if not exists partage boolean not null default false;

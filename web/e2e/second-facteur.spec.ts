@@ -539,6 +539,50 @@ test.describe('Équipe : réinitialiser le facteur d’un membre', () => {
   });
 });
 
+/**
+ * L'E-MAIL D'INVITATION N'ARRIVE PAS (2026-11-19) : l'admin copie un lien neuf et le fait passer autrement. Ce bloc vit
+ * ici parce que le harnais de Compte & équipe (`monter`) y est.
+ */
+test.describe('Équipe : copier le lien d’une invitation', () => {
+  const USERS = [
+    { id: 'u-moi', email: 'admin@e2e.test', name: 'Moi', role: 'admin', disabled: false, pending: false, createdAt: '2026-09-01T00:00:00.000Z', lastLoginAt: null },
+    { id: 'u-invite', email: 'invite@e2e.test', name: null, role: 'agent', disabled: false, pending: true, createdAt: '2026-09-01T00:00:00.000Z', lastLoginAt: null },
+    { id: 'u-revoque', email: 'revoque@e2e.test', name: null, role: 'agent', disabled: true, pending: true, createdAt: '2026-09-01T00:00:00.000Z', lastLoginAt: null },
+  ];
+
+  test('🔴 seulement sur une invitation en attente ; le lien neuf s’affiche en clair ; déjà acceptée, la raison', async ({ page }) => {
+    let accepte = false;
+    const appels = await monter(page, (chemin, methode) => {
+      if (chemin === '/tenants/t-e2e/users' && methode === 'GET') return { body: { users: accepte ? USERS.map((u) => ({ ...u, pending: false })) : USERS } };
+      if (chemin === '/tenants/t-e2e/nom') return { body: { nom: 'Espace E2E' } };
+      if (chemin === '/tenants/t-e2e/users/u-invite/lien-invitation' && methode === 'POST') {
+        return accepte
+          ? { status: 404, body: { error: 'invitation introuvable : le membre l’a peut-être déjà acceptée' } }
+          : { body: { lien: 'https://console.test/invite/JETON_NEUF' } };
+      }
+      return undefined;
+    }, SESSION_E2E);
+    await page.goto('/admin');
+    await expect(page.getByTestId('membre-lien-u-invite')).toBeVisible();
+    await expect(page.getByTestId('membre-lien-u-moi')).toHaveCount(0);
+    await expect(page.getByTestId('membre-lien-u-revoque')).toHaveCount(0);
+
+    await page.getByTestId('membre-lien-u-invite').click();
+    const panneau = page.getByTestId('admin-lien-invitation');
+    await expect(panneau).toContainText('invite@e2e.test');
+    await expect(panneau).toContainText(/7 jours|7 days/);
+    await expect(panneau.getByRole('textbox')).toHaveValue('https://console.test/invite/JETON_NEUF');
+    expect(appels.filter((a) => a.chemin.endsWith('/lien-invitation')).map((a) => a.methode)).toEqual(['POST']);
+
+    accepte = true;
+    await page.getByTestId('membre-lien-u-invite').click();
+    await expect(page.getByTestId('admin-erreur')).toHaveText(/n’est plus en attente|no longer pending/);
+    await expect(panneau).toHaveCount(0);
+    // La liste relue montre le membre actif : plus de bouton.
+    await expect(page.getByTestId('membre-lien-u-invite')).toHaveCount(0);
+  });
+});
+
 test.describe('Compte & équipe : la double authentification des administrateurs, au choix de l’espace', () => {
   test('🔴 cocher l’exige pour tous les administrateurs, décocher la laisse au choix ; chaque geste part et se lit', async ({ page }) => {
     const appels = await monter(page, (chemin, methode, corps) => {

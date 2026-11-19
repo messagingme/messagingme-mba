@@ -1,8 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { sha256Hex } from '../lib/signature';
+import { enTransaction } from '../db/transaction';
 
 export type TokenPurpose = 'invite' | 'reset';
+
+/** Lève dans la transaction de `remplacerInvitation` pour annuler l'annulation des jetons : rien n'est écrit. */
+class PasUneInvitationEnAttente extends Error {}
 
 /**
  * Jetons à usage unique (invitation d'équipe, réinitialisation de mot de passe). `create` rend le jeton en
@@ -21,6 +25,41 @@ export class PgAuthTokenStore {
       [purpose, sha256Hex(raw), userId, expiresAt],
     );
     return raw;
+  }
+
+  /**
+   * LE LIEN D'UNE INVITATION COPIÉ DEPUIS LA CONSOLE (migration 0301) : l'e-mail n'arrive pas, l'admin fait passer le lien
+   * autrement. En une transaction : les jetons d'invitation vivants du compte annulés (un lien de plus, jamais deux
+   * vivants), puis la ligne du compte verrouillée et exigée invitation en attente de CET espace, non révoquée (sinon tout
+   * est annulé et `null`), puis un jeton neuf marqué `partage`, que `accepterInvitation` garde.
+   * ⚠️ L'ORDRE DES VERROUS est celui de `accepterInvitation` (le jeton, puis le compte) : l'ordre inverse interbloquerait
+   * un clic pendant une acceptation (relecture du lot). Une acceptation en vol tient le jeton : ce clic l'attend, puis
+   * relit le compte, qui n'est plus en attente. Un refus (autre espace, compte ouvert ou révoqué) LÈVE : la transaction
+   * entière est annulée, l'annulation des jetons comprise, et le lien de l'e-mail reste valable.
+   */
+  async remplacerInvitation(tenantId: string, userId: string, ttlMs: number): Promise<string | null> {
+    try {
+      return await enTransaction(this.pool, async (client) => {
+        await client.query(
+          `update auth_tokens set used_at = now() where user_id = $1 and purpose = 'invite' and used_at is null`,
+          [userId],
+        );
+        const u = await client.query(
+          `select 1 from users where id = $1 and tenant_id = $2 and invitation_en_attente and disabled_at is null for update`,
+          [userId, tenantId],
+        );
+        if ((u.rowCount ?? 0) === 0) throw new PasUneInvitationEnAttente();
+        const raw = randomBytes(32).toString('base64url');
+        await client.query(
+          `insert into auth_tokens (purpose, token_hash, user_id, expires_at, partage) values ('invite', $1, $2, $3, true)`,
+          [sha256Hex(raw), userId, new Date(Date.now() + ttlMs)],
+        );
+        return raw;
+      });
+    } catch (err) {
+      if (err instanceof PasUneInvitationEnAttente) return null;
+      throw err;
+    }
   }
 
   /**

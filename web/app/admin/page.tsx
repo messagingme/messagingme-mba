@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import type { Session } from '@/lib/session';
-import { listUsers, inviteMember, setUserRole, setUserDisabled, deleteUser, renommerMembre, lireNomEspace, renommerEspace, reinitialiserSecondFacteur, lireSecondFacteurEspace, poserSecondFacteurEspace, type AdminUser, type UserRole } from '@/lib/api';
+import { listUsers, inviteMember, setUserRole, setUserDisabled, deleteUser, lienInvitation, renommerMembre, lireNomEspace, renommerEspace, reinitialiserSecondFacteur, lireSecondFacteurEspace, poserSecondFacteurEspace, type AdminUser, type UserRole } from '@/lib/api';
 import { useT, useLocale } from '@/lib/i18n';
 import { formatDate, hourMin } from '@/lib/day';
 import { inputCls } from '@/lib/ui';
@@ -37,6 +37,8 @@ function AdminInner({ session }: { session: Session }) {
   /** Le membre dont l'admin s'apprête à réinitialiser le facteur : la fenêtre du mot de passe est ouverte pour lui. */
   const [aReinitialiser, setAReinitialiser] = useState<AdminUser | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  /** Le dernier lien d'invitation tiré : affiché en clair, pour le cas où le presse-papiers a refusé la copie. */
+  const [lienTire, setLienTire] = useState<{ email: string; lien: string; copie: boolean } | null>(null);
 
   const charger = useCallback(async () => {
     const { users } = await listUsers(session.tenantId);
@@ -104,6 +106,33 @@ function AdminInner({ session }: { session: Session }) {
   }
 
   /**
+   * L'E-MAIL D'INVITATION N'ARRIVE PAS (filtre d'entreprise, indésirables) : l'admin copie un lien NEUF et le fait passer
+   * par un autre moyen. Le lien de l'e-mail n'existe qu'en empreinte, il ne se relit pas ; le neuf l'annule. Il est
+   * affiché en clair en plus de la copie : Safari refuse le presse-papiers après un appel réseau.
+   */
+  async function copierLien(u: AdminUser) {
+    setError(null);
+    setInfo(null);
+    setLienTire(null);
+    try {
+      const { lien } = await lienInvitation(session.tenantId, u.id);
+      let copie = false;
+      try { await navigator.clipboard.writeText(lien); copie = true; } catch { /* le lien s'affiche, à copier à la main */ }
+      setLienTire({ email: u.email, lien, copie });
+    } catch (err) {
+      const raison = routeInconnue(err)
+        ? t('Le lien d’invitation n’est pas encore disponible : le serveur n’est pas à jour. Réessayez un peu plus tard.', 'The invitation link is not available yet: the server is not up to date. Try again a bit later.')
+        : err instanceof ApiError && err.status === 404
+          ? t('Cette invitation n’est plus en attente : le membre l’a peut-être déjà acceptée.', 'This invitation is no longer pending: the member may have accepted it already.')
+          : err instanceof Error ? err.message : t('Lien impossible à obtenir', 'Unable to get the link');
+      // La liste relue d'abord : son rechargement efface l'erreur affichée (`useChargement`), la raison viendrait sinon
+      // à disparaître aussitôt.
+      if (err instanceof ApiError && err.status === 404 && !routeInconnue(err)) await load();
+      setError(raison);
+    }
+  }
+
+  /**
    * Retire le second facteur d'un membre (téléphone perdu, codes épuisés). Si l'espace exige la double
    * authentification de ses administrateurs, un administrateur la reposera à sa prochaine connexion ; sinon, la
    * personne se connectera sans code.
@@ -156,6 +185,20 @@ function AdminInner({ session }: { session: Session }) {
       )}
 
       <InviteCard tenantId={session.tenantId} onInvited={load} tousAdmins={tousAdmins} />
+
+      {/* Au-dessus du tableau, là où l’admin vient de cliquer : en haut de page, il passerait inaperçu. */}
+      {lienTire && (
+        <div className="space-y-2 rounded-controle bg-succes-50 px-3 py-2 text-sm text-succes-800" data-testid="admin-lien-invitation">
+          <p>
+            {lienTire.copie
+              ? t(`Lien d’invitation copié pour ${lienTire.email} : envoyez-le par le moyen de votre choix.`, `Invitation link copied for ${lienTire.email}: send it any way you like.`)
+              : t(`Copiez ce lien et envoyez-le à ${lienTire.email} par le moyen de votre choix.`, `Copy this link and send it to ${lienTire.email} any way you like.`)}
+            {' '}
+            {t('Il vaut 7 jours et remplace le lien de l’e-mail.', 'It is valid for 7 days and replaces the link in the email.')}
+          </p>
+          <input readOnly value={lienTire.lien} onFocus={(e) => e.currentTarget.select()} aria-label={t('Lien d’invitation', 'Invitation link')} className={`${inputCls} font-mono text-xs`} />
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-carte border border-ink-200 bg-white">
         <div className="border-b border-ink-100 px-5 py-3 text-sm font-semibold text-ink-900">
@@ -237,6 +280,16 @@ function AdminInner({ session }: { session: Session }) {
                       <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
                         {/* Pas sur soi (le serveur refuse, et une session volée ne doit pas retirer le facteur de
                             son porteur), ni sur une invitation en attente, qui n'a pas encore de facteur. */}
+                        {u.pending && !u.disabled && (
+                          <button
+                            onClick={() => { void copierLien(u); }}
+                            data-testid={`membre-lien-${u.id}`}
+                            title={t('Si l’e-mail d’invitation n’arrive pas : un lien neuf, à envoyer par un autre moyen', 'If the invitation email does not arrive: a new link, to send another way')}
+                            className="text-ink-500 hover:text-ink-900"
+                          >
+                            {t('Copier le lien', 'Copy link')}
+                          </button>
+                        )}
                         {!isSelf && !u.pending && (
                           <button
                             onClick={() => setAReinitialiser(u)}

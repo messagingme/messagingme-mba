@@ -80,6 +80,14 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
         setActuelExige(true);
         setPassword('');
         setError(t('Cette adresse a désormais un mot de passe : saisissez-le.', 'This address now has a password: enter it.'));
+      } else if (code === 'lien_partage') {
+        // Un lien copié par l'admin, sur une adresse qui a déjà un compte : il ne choisit pas son mot de passe (garde de la
+        // migration 0301). Google à l'adresse invitée, ou l'invitation par e-mail, restent ouverts.
+        setPassword('');
+        setError(t(
+          'Cette adresse a déjà un compte Messaging Me : continuez avec Google, ou demandez à recevoir l’invitation par e-mail.',
+          'This address already has a Messaging Me account: continue with Google, or ask to receive the invitation by email.',
+        ));
       } else if (code === 'mot_de_passe_incorrect') {
         // Sans aperçu (ancien formulaire, « choisissez »), c'est aussi ce que répond l'API à une adresse qui a déjà un mot
         // de passe : la page demande alors l'actuel, sans minimum de longueur, avec « Mot de passe oublié ? ».

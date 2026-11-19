@@ -2622,6 +2622,7 @@ async function main(): Promise<void> {
       audit: auditSink,
       users: userStore,
       createInviteToken: (userId) => authTokenStore.create('invite', userId, config.INVITE_TOKEN_TTL_MS),
+      lienInvitation: (tenantId, userId) => authTokenStore.remplacerInvitation(tenantId, userId, config.INVITE_TOKEN_TTL_MS),
       mfa: mfaStore,
       // Un admin d'espace ne réinitialise jamais le facteur d'une adresse d'exploitation (audit du 2026-11-04).
       opsEmails,

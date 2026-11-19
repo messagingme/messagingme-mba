@@ -280,6 +280,14 @@ describe('POST /auth/invitations/accept', () => {
     expect(res.json<{ code: string }>().code).toBe('mot_de_passe_existe');
     await server.close();
   });
+  it('🔴 un lien copié depuis la console sur une adresse qui a un autre compte -> 409 `lien_partage`, aucune session', async () => {
+    const { server } = app({ comptes: { getPasswordHash: async () => null, accepterInvitation: async () => ({ statut: 'lien_partage' }) } });
+    const res = await server.inject(accepter('nouveaupass12'));
+    expect(res.statusCode).toBe(409);
+    expect(res.json<{ code: string; token?: string }>()).toMatchObject({ code: 'lien_partage' });
+    expect(res.json<{ token?: string }>().token).toBeUndefined();
+    await server.close();
+  });
   it('🔴 l’état du second facteur se lit APRÈS l’acceptation : le compte accepté compte pour l’obligation', async () => {
     const { server, cap } = app();
     expect((await server.inject(accepter('current-pass-123'))).statusCode).toBe(200);

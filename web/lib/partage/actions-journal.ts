@@ -69,6 +69,8 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'oauth.revoque': ['Accès de Claude révoqué', 'Claude access revoked'],
   // Les accès et les portes (2026-09-16) : ces actions s'écrivaient sans libellé, et l'écran montrait leur identifiant.
   'utilisateur.invite': ['Collaborateur invité', 'Teammate invited'],
+  // Un lien d'invitation neuf copié depuis Compte et équipe (2026-11-19) : la ligne dit qui l'a tiré, jamais le lien.
+  'utilisateur.lien_invitation': ['Lien d’invitation copié', 'Invitation link copied'],
   'utilisateur.role_change': ['Rôle d’un collaborateur changé', 'Teammate role changed'],
   'utilisateur.desactive': ['Collaborateur désactivé', 'Teammate deactivated'],
   'utilisateur.retire': ['Collaborateur retiré de l’espace', 'Teammate removed from the workspace'],
