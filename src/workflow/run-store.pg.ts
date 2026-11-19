@@ -15,6 +15,17 @@ const INDEX_EVENEMENT_ACTIF = 'workflow_runs_evenement_actif_uniq';
 const EFFACER_VARIABLES = `evenement = evenement - 'variables'`;
 /** Lot 5 : la même fin, et la marque d'un premier message non livré (une nouvelle tentative pourra le faire renaître). */
 const EFFACER_VARIABLES_PREMIER_NON_LIVRE = `evenement = (evenement - 'variables') || '{"premierNonLivre": true}'::jsonb`;
+
+/**
+ * 🔴 LA MÊME ORIGINE DÉJÀ NÉE POUR CE CONTACT (lot 5, naissance idempotente, servie par l'index 0300) : un parcours de
+ * cette origine existe, quel que soit son statut, sauf s'il a été clos sur un premier message non livré. UN SEUL texte,
+ * pour la naissance (`start`, la garde de course) et pour la garde qui la précède (`evenementDejaNe`) : ils ne doivent
+ * jamais diverger. `t`, `w`, `o` : les paramètres de l'espace, du contact et de l'origine.
+ */
+const ORIGINE_DEJA_NEE = (t: string, w: string, o: string): string => `select 1 from workflow_runs d
+             where d.tenant_id = ${t}::uuid and d.wa_id = ${w}::text and d.evenement is not null
+               and d.evenement->>'origine' = ${o}::text
+               and not coalesce((d.evenement->>'premierNonLivre')::boolean, false)`;
 function EFFACER_VARIABLES_SI_TERMINAL(statut: string): string {
   return `evenement = case when ${statut} in ('done', 'inbox') then evenement - 'variables' else evenement end`;
 }
@@ -198,10 +209,7 @@ export class PgWorkflowRunStore {
         `insert into workflow_runs (workflow_id, tenant_id, contact_id, wa_id, current_node, status, resume_at, channel, graphe_fige, last_message_id, accord_marketing_exige, ne_en_masse, evenement)
          select $1::uuid, $2::uuid, $3::uuid, $4::text, $5::text, $6::text, $7::timestamptz, $8::text, $9::jsonb, $10::text, $11::boolean, $12::boolean, $13::jsonb
           where not exists (
-            select 1 from workflow_runs d
-             where d.tenant_id = $2::uuid and d.wa_id = $4::text and d.evenement is not null
-               and d.evenement->>'origine' = $14::text
-               and not coalesce((d.evenement->>'premierNonLivre')::boolean, false)
+            ${ORIGINE_DEJA_NEE('$2', '$4', '$14')}
           )
          returning id`,
         [...valeurs, evenement.origine],
@@ -315,6 +323,20 @@ export class PgWorkflowRunStore {
    * Le parcours d'événement actif de ce contact, s'il en a un. La clause reprend MOT POUR MOT le prédicat de l'index
    * unique de 0298 (`tests/run-store-claims.test.ts` les compare) : un index partiel est un contrat avec une requête.
    */
+  /**
+   * Relecture de 5a (jaune 5) : la naissance de cette origine a-t-elle déjà eu lieu ? Lue par la garde du départ
+   * `deja_envoye`, AVANT la reprise du fil et la suite synchrone ; `start` garde le même prédicat contre une course.
+   */
+  async evenementDejaNe(tenantId: string, waId: string, origine: string): Promise<boolean> {
+    const res = await this.pool.query<{ ne: boolean }>(
+      `select exists (
+         ${ORIGINE_DEJA_NEE('$1', '$2', '$3')}
+       ) as ne`,
+      [tenantId, waId, origine],
+    );
+    return res.rows[0]?.ne === true;
+  }
+
   async parcoursDEvenementActif(tenantId: string, waId: string): Promise<{ id: string } | null> {
     const res = await this.pool.query<{ id: string }>(
       `select id from workflow_runs where tenant_id = $1 and wa_id = $2 and evenement is not null and status in ('waiting', 'sleeping') limit 1`,
@@ -327,8 +349,10 @@ export class PgWorkflowRunStore {
    * 🔴 LOT 5 : LE PREMIER MESSAGE D'UN PARCOURS D'ÉVÉNEMENT N'A PAS ÉTÉ LIVRÉ (accusé `failed` de Meta, relecture de 4b).
    * Le parcours est né quand Meta a ACCEPTÉ le template ; resté sur son bloc de départ, il est clos (aucun envoi : rien
    * n'est parti de lui), ses variables effacées et la marque `premierNonLivre` posée, pour qu'une nouvelle tentative
-   * d'envoi le fasse renaître (`start`, naissance idempotente). Un parcours qui a déjà quitté ce bloc continue : sa suite
-   * est partie. L'accusé ne connaît que l'identifiant du message : l'espace et le contact se lisent dans sa mesure « envoyé »,
+   * d'envoi le fasse renaître (`start`, naissance idempotente). 🔴 Il est clos aussi quand il a quitté ce bloc SANS un mot
+   * du contact (`last_message_id` vide, relecture de 5a) : un premier bloc sans choix part dans la naissance et le parcours
+   * dort déjà sur l'attente qui suit, alors que le contact n'a rien reçu. Un parcours que le contact a fait avancer en
+   * répondant continue. L'accusé ne connaît que l'identifiant du message : l'espace et le contact se lisent dans sa mesure « envoyé »,
    * écrite par nous à l'envoi (comme `recordStatusForMessage`, index partiel `idx_wf_node_events_message`), puis la
    * clôture filtre par eux, au prédicat de l'index 0298 écrit tel quel. Rend le nombre de parcours clos (0 ou 1).
    */
@@ -339,7 +363,8 @@ export class PgWorkflowRunStore {
                 where meta_message_id = $1 and kind = 'sent' limit 1) m
         where r.tenant_id = m.tenant_id and r.wa_id = m.wa_id
           and r.evenement is not null and r.status in ('waiting', 'sleeping')
-          and r.evenement->>'messageId' = $1 and r.current_node = r.evenement->>'noeudDepart'`,
+          and r.evenement->>'messageId' = $1
+          and (r.current_node = r.evenement->>'noeudDepart' or r.last_message_id is null)`,
       [metaMessageId],
     );
     return res.rowCount ?? 0;

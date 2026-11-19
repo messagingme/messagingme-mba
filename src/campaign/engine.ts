@@ -91,6 +91,12 @@ export interface RecipientStore {
     r: { status: 'sent' | 'failed' | 'skipped'; messageId?: string; error?: string; sentAt?: number; errorCode?: number },
   ): Promise<void>;
   /**
+   * La raison écrite APRÈS COUP sur un destinataire déjà `sent` (le parcours d'événement non né, lot 5), et rien d'autre :
+   * 🔴 un second `markResult` effacerait le code d'un accusé `failed` traité entre-temps, et la relance automatique ne le
+   * verrait plus (relecture de 5a).
+   */
+  noterRaison(id: string, raison: string): Promise<void>;
+  /**
    * Combien de destinataires sont réservés mais pas encore résolus (`sending`) ? Sert à ne pas déclarer une
    * campagne terminée alors qu'un destinataire est en suspens. Absent (faux de test) -> non vérifié.
    */
@@ -1025,7 +1031,7 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
       }
       if (parcoursNonNe !== null) {
         try {
-          await deps.recipients.markResult(r.id, { status: 'sent', messageId, sentAt: at, error: parcoursNonNe });
+          await deps.recipients.noterRaison(r.id, parcoursNonNe);
         } catch (e) {
           // eslint-disable-next-line no-console
           console.error(`campagne ${campaign.id}: raison du parcours non né non écrite pour ${waId}:`, messageDe(e));

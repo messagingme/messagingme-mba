@@ -34,6 +34,8 @@ class FakeSender implements MessageSender {
   }
 }
 class FakeRecipients implements RecipientStore {
+  /** La raison d'un parcours d'événement non né (lot 5) : sans objet pour ce faux. */
+  async noterRaison(): Promise<void> { /* rien */ }
   readonly results = new Map<string, { status: string }>();
   constructor(private readonly pending: Recipient[]) {}
   async listPending(): Promise<Recipient[]> {
@@ -570,7 +572,7 @@ describe('campaignRunJob : un seul run vivant par campagne', () => {
         repo: {
           getCampaign: async () => campaign,
         },
-        recipients: { listPending: async () => { throw new Error('base indisponible'); }, claim: async () => true, relacher: async () => {}, markResult: async () => {} },
+        recipients: { listPending: async () => { throw new Error('base indisponible'); }, claim: async () => true, relacher: async () => {}, markResult: async () => {}, noterRaison: async () => {} },
       }, relances),
     )).rejects.toThrow('base indisponible');
     expect(verrou.rendus).toEqual([{ campaignId: 'c1', holder: 'jeton-1' }]);

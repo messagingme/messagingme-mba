@@ -192,6 +192,16 @@ describe('PgWorkflowRunStore : start et la place unique d’un parcours d’év�
     expect(appels[0]!.params.at(-1)).toBe(evenement.origine);
   });
 
+  it('🔴 relecture de 5a (jaune 5) : la garde qui précède la naissance lit le MÊME prédicat, dans l’espace et pour le contact', async () => {
+    const { pool, appels } = fauxPool([{ ne: true }]);
+    expect(await new PgWorkflowRunStore(pool).evenementDejaNe('t1', '336', evenement.origine)).toBe(true);
+    const sql = appels[0]!.sql.replace(/\s+/g, ' ');
+    expect(sql).toContain('select 1 from workflow_runs d where d.tenant_id = $1::uuid and d.wa_id = $2::text and d.evenement is not null');
+    expect(sql).toContain("and d.evenement->>'origine' = $3::text");
+    expect(sql).toContain("and not coalesce((d.evenement->>'premierNonLivre')::boolean, false)");
+    expect(appels[0]!.params).toEqual(['t1', '336', evenement.origine]);
+  });
+
   it('🔴 le 23505 de l’index unique devient un refus typé, jamais une exception', async () => {
     const pool = { query: async () => { throw Object.assign(new Error('duplicate key'), { code: '23505', constraint: 'workflow_runs_evenement_actif_uniq' }); } } as unknown as Pool;
     expect(await new PgWorkflowRunStore(pool).start('t1', 'w1', '336', null, etat, null, false, false, evenement)).toEqual({ refus: 'evenement_actif' });

@@ -140,6 +140,8 @@ describe('le vrai exécuteur sur un numéro délié', () => {
 
 /** Des destinataires qui ont un ÉTAT : ce que le run réserve, rend à la file ou résout. */
 class Destinataires implements RecipientStore {
+  /** La raison d'un parcours d'événement non né (lot 5) : sans objet pour ce faux. */
+  async noterRaison(): Promise<void> { /* rien */ }
   readonly etats = new Map<string, Recipient['status']>();
   constructor(private readonly tous: Recipient[]) { for (const r of tous) this.etats.set(r.id, 'pending'); }
   async listPending(): Promise<Recipient[]> {

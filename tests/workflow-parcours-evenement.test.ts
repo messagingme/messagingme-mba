@@ -5,13 +5,13 @@ import { bancDuFil, ESPACE } from './banc-du-fil';
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowExecutorDeps } from '../src/workflow/executor';
 import {
-  creerLancements, REFUS_DEJA_NE, REFUS_EVENEMENT_EN_COURS, REFUS_SCENARIOS_HORS_OFFRE, type DemandeDeLancement,
+  creerLancements, REFUS_DEJA_NE, REFUS_EVENEMENT_EN_COURS, REFUS_EVENEMENT_INVALIDE, REFUS_SCENARIOS_HORS_OFFRE, type DemandeDeLancement,
 } from '../src/workflow/lancements';
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
 import type { WorkflowRow } from '../src/workflow/store.pg';
 import type { ControlOwner } from '../src/inbox/store.pg';
 import type { RunState, WorkflowRunRow } from '../src/workflow/run-store.pg';
-import { PLAFOND_ATTENTE_EVENEMENT_MS, variablesDuTexte, type EvenementDuParcours } from '../src/workflow/evenement';
+import { ORIGINE_MAX, PLAFOND_ATTENTE_EVENEMENT_MS, variablesDuTexte, type EvenementDuParcours } from '../src/workflow/evenement';
 import { walk } from '../src/workflow/engine';
 import { DROITS, type Offre } from '../src/offres/offres';
 
@@ -66,6 +66,8 @@ interface Options {
   courseperdue?: boolean;
   /** `start` rend le refus de la naissance idempotente (lot 5 : un parcours de la même origine existe déjà). */
   dejaNe?: boolean;
+  /** La LECTURE de la garde rend « déjà né » (relecture de 5a, jaune 5 : refusé avant la reprise du fil et la suite). */
+  origineDejaNee?: boolean;
   offre?: Offre;
   /** L'horloge de l'exécuteur (`now`), pour lire une échéance. */
   maintenant?: number;
@@ -99,6 +101,7 @@ function banc(o: Options = {}) {
       closeActiveByWaId: async () => { clotures.push('tous'); return ['r-avant']; },
       closeOrdinairesByWaId: async () => { clotures.push('ordinaires'); return ['r-avant']; },
       parcoursDEvenementActif: async () => (o.dejaActif ? { id: 'r-evenement' } : null),
+      evenementDejaNe: async () => o.origineDejaNee === true,
     }),
     getGraph: async () => null,
     applyTag: async () => true,
@@ -146,6 +149,30 @@ describe('la naissance d’un parcours d’événement, sur le bloc déjà envoy
     const m = banc({ dejaNe: true });
     expect(await m.lancements.lancer(naissance())).toBe(REFUS_DEJA_NE);
     expect(m.crees).toEqual([]);
+  });
+
+  /** Un premier template sans bouton ni délai, suivi d'un template : la suite part dans la naissance même (décision 29). */
+  const SUITE_SYNCHRONE: WorkflowGraph = {
+    nodes: [n('tpl', 'template', { templateName: 'panier_relance', language: 'fr' }), n('t2', 'template', { templateName: 'avis_produit', language: 'fr' })],
+    edges: [{ id: 'e1', source: 'tpl', target: 't2' }],
+  };
+
+  it('🔴 relecture de 5a (jaune 5) : une origine déjà née se refuse AVANT la reprise du fil et la suite : rien ne repart', async () => {
+    silence();
+    const m = banc({ origineDejaNee: true, scenario: { graph: SUITE_SYNCHRONE, draftGraph: null, rayon: 'shopify' } });
+    expect(await m.lancements.lancer(naissance())).toBe(REFUS_DEJA_NE);
+    expect(m.envois, 'la suite ne part pas une seconde fois').toEqual([]);
+    expect(m.crees).toEqual([]);
+    expect(m.b.etat(WA)?.owner, 'le fil n’est pas repris à l’agent de Meta').toBe('mba');
+  });
+
+  it('🔴 relecture de 5a (jaune 5) : un événement illisible se refuse avant la reprise du fil et la suite', async () => {
+    silence();
+    const m = banc({ scenario: { graph: SUITE_SYNCHRONE, draftGraph: null, rayon: 'shopify' } });
+    const illisible: EvenementDuParcours = { ...EVENEMENT, origine: 'x'.repeat(ORIGINE_MAX + 1) };
+    expect(await m.lancements.lancer(naissance({ evenement: illisible }))).toBe(REFUS_EVENEMENT_INVALIDE);
+    expect([m.envois, m.crees]).toEqual([[], []]);
+    expect(m.b.etat(WA)?.owner).toBe('mba');
   });
 
   it('🔴 lot 5 (jaune de 4a) : une suite qui mène tout de suite à « Passer à un humain » escalade en COLLANT : le premier template est parti', async () => {

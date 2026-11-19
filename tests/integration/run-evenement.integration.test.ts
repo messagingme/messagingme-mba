@@ -164,16 +164,23 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     const wa = '33600009181';
     const e = ev('une-fois');
     const etat = { currentNode: 'tpl', status: 'waiting' as const };
+    // La garde qui précède la naissance (relecture de 5a, jaune 5) lit le MÊME prédicat : rien avant, la place après.
+    expect(await store.evenementDejaNe(tenantId, wa, e.origine)).toBe(false);
     const premier = await store.start(tenantId, workflowId, wa, null, etat, null, false, false, e);
     expect('id' in premier).toBe(true);
+    expect(await store.evenementDejaNe(tenantId, wa, e.origine)).toBe(true);
     // Terminé normalement (la suite est partie) : la relance automatique ne le fait pas renaître.
     await pool.query(`update workflow_runs set status = 'done', current_node = null where id = $1 and tenant_id = $2`, [(premier as { id: string }).id, tenantId]);
+    expect(await store.evenementDejaNe(tenantId, wa, e.origine)).toBe(true);
     expect(await store.start(tenantId, workflowId, wa, null, etat, null, false, false, e)).toEqual({ refus: 'deja_ne' });
     // Le même événement pour un AUTRE contact, ou dans un AUTRE espace : rien ne l'empêche.
+    expect(await store.evenementDejaNe(tenantId, '33600009182', e.origine)).toBe(false);
+    expect(await store.evenementDejaNe(autreTenant, wa, e.origine)).toBe(false);
     expect('id' in (await store.start(tenantId, workflowId, '33600009182', null, etat, null, false, false, e))).toBe(true);
     expect('id' in (await store.start(autreTenant, autreWorkflow, wa, null, etat, null, false, false, e))).toBe(true);
     // Clos parce que son premier message n'a pas été livré : une nouvelle tentative le fait renaître.
     await pool.query(`update workflow_runs set evenement = evenement || '{"premierNonLivre": true}'::jsonb where id = $1 and tenant_id = $2`, [(premier as { id: string }).id, tenantId]);
+    expect(await store.evenementDejaNe(tenantId, wa, e.origine)).toBe(false);
     expect('id' in (await store.start(tenantId, workflowId, wa, null, etat, null, false, false, e))).toBe(true);
   });
 
@@ -197,14 +204,27 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     expect(r.evenement).toEqual({ origine: e.origine, messageId: 'wamid.nonlivre', noeudDepart: 'tpl', premierNonLivre: true });
   });
 
-  it('un parcours qui a QUITTÉ son bloc de départ, ou un message inconnu, ne se clôt pas', async () => {
+  it('un parcours que le contact a fait avancer (il a répondu), ou un message inconnu, ne se clôt pas', async () => {
     const wa = '33600009192';
     const e: EvenementDuParcours = { ...ev('parti'), messageId: 'wamid.parti', noeudDepart: 'tpl' };
-    const id = await nait(tenantId, workflowId, wa, e, { currentNode: 'qm1' });
+    const id = await nait(tenantId, workflowId, wa, e, { currentNode: 'qm1', lastMessageId: 'wamid.reponse' });
     await envoye(wa, 'wamid.parti');
     expect(await store.clorePremierNonLivre('wamid.parti')).toBe(0);
     expect(await store.clorePremierNonLivre('wamid.inconnu')).toBe(0);
     expect((await lireRun(id)).status).toBe('waiting');
+  });
+
+  it('🔴 relecture de 5a : un premier template sans bouton ni délai a quitté son bloc à la naissance, sans un mot du contact : son échec le clôt quand même', async () => {
+    // La suite d'un premier bloc sans choix part dans la naissance (décision 29) : le parcours dort déjà sur l'attente qui
+    // suit, et le contact n'a jamais rien reçu. Sans la clôture, l'étape d'après partirait vers lui deux jours plus tard.
+    const wa = '33600009193';
+    const e: EvenementDuParcours = { ...ev('sans-choix'), messageId: 'wamid.sanschoix', noeudDepart: 'tpl' };
+    const id = await nait(tenantId, workflowId, wa, e, { currentNode: 'attente', status: 'sleeping', resumeAt: new Date(Date.now() + 86_400_000) });
+    await envoye(wa, 'wamid.sanschoix');
+    expect(await store.clorePremierNonLivre('wamid.sanschoix')).toBe(1);
+    const r = await lireRun(id);
+    expect(r.status).toBe('done');
+    expect(r.evenement).toMatchObject({ premierNonLivre: true });
   });
 
   it('🔴 lot 5 : l’arrêt par préfixe, pour un contact ou toute la boutique ; un autre espace intact ; « _ » n’est pas un joker', async () => {

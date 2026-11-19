@@ -76,6 +76,13 @@ class FakeRecipients implements RecipientStore {
     if (r.status === 'sent' && this.throwSentFor.has(id)) throw new Error('db down');
     this.results.set(id, r);
   }
+  /** La raison écrite après coup (lot 5) : elle seule, rien d'autre du destinataire. */
+  readonly raisons: Array<[string, string]> = [];
+  async noterRaison(id: string, raison: string): Promise<void> {
+    this.raisons.push([id, raison]);
+    const r = this.results.get(id);
+    if (r) this.results.set(id, { ...r, error: raison });
+  }
 }
 class FakeCampaigns implements CampaignStore {
   readonly statuses: string[] = [];
@@ -1634,6 +1641,10 @@ describe('runCampaign : le pont du parcours d’événement (lot 4)', () => {
         ordre.push(`resultat:${r.status}${r.error ? ':raison' : ''}`);
         await super.markResult(id, r);
       }
+      override async noterRaison(id: string, raison: string): Promise<void> {
+        ordre.push('raison');
+        await super.noterRaison(id, raison);
+      }
     }
     const recipients = new EnOrdre([destinataire('r1', '+33611')]);
     await lancerCampagne(avecPont, deps({
@@ -1642,8 +1653,9 @@ describe('runCampaign : le pont du parcours d’événement (lot 4)', () => {
       mesurerEnvoiDuBloc: async () => { ordre.push('mesure'); },
       naitreParcoursEvenement: async () => { ordre.push('parcours'); return 'place prise'; },
     }));
-    // Un accusé traité pendant la naissance trouve son destinataire, et l'Inbox montre le template avant la suite.
-    expect(ordre).toEqual(['resultat:sent', 'fil', 'mesure', 'parcours', 'resultat:sent:raison']);
+    // Un accusé traité pendant la naissance trouve son destinataire, et l'Inbox montre le template avant la suite. La raison
+    // s'écrit SEULE (relecture de 5a) : un second `markResult` effacerait le code d'un accusé failed reçu entre-temps.
+    expect(ordre).toEqual(['resultat:sent', 'fil', 'mesure', 'parcours', 'raison']);
     expect(recipients.results.get('r1')).toMatchObject({ status: 'sent', messageId: 'm1', error: 'Parcours non né : place prise' });
   });
 

@@ -45,6 +45,8 @@ class Sender implements MessageSender {
   }
 }
 class Recipients implements RecipientStore {
+  /** La raison d'un parcours d'événement non né (lot 5) : sans objet pour ce faux. */
+  async noterRaison(): Promise<void> { /* rien */ }
   readonly claimed: string[] = [];
   readonly relaches: string[] = [];
   readonly resultats = new Map<string, string>();

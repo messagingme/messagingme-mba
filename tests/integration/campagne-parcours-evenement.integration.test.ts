@@ -2,7 +2,7 @@ import '../../src/charger-env';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
 import { pgSsl } from '../../src/db/ssl';
-import { PgCampaignRepo } from '../../src/campaign/store.pg';
+import { PgCampaignRepo, PgRecipientStore } from '../../src/campaign/store.pg';
 import type { ParcoursEvenementDeCampagne } from '../../src/campaign/parcours-evenement';
 
 /**
@@ -64,5 +64,30 @@ describe.skipIf(!url)('campaigns.parcours_evenement : écrite à la création, r
     const id = await repo.insertCampaign({ ...base(), workflowId, parcoursEvenement: PONT });
     const brut = await pool.query<{ parcours_evenement: unknown }>(`select parcours_evenement from campaigns where id = $1`, [id]);
     expect(brut.rows[0]?.parcours_evenement).toBeNull();
+  });
+
+  it('🔴 lot 5 (relecture de 5a) : la raison du parcours non né n’efface pas le code d’un accusé failed reçu pendant la naissance', async () => {
+    // Le moteur écrit le destinataire `sent`, puis demande le parcours ; un 131026 traité entre les deux doit rester dans la
+    // relance automatique, la raison écrite après coup comprise.
+    const store = new PgRecipientStore(pool);
+    await pool.query(
+      `insert into tenant_settings (tenant_id, auto_retry_enabled) values ($1, true)
+       on conflict (tenant_id) do update set auto_retry_enabled = true`, [tenantId],
+    );
+    const contactId = (await pool.query<{ id: string }>(
+      `insert into contacts (tenant_id, phone_e164, opt_in_status) values ($1, '+33600005055', 'opted_in') returning id`, [tenantId],
+    )).rows[0]!.id;
+    const cid = await repo.insertCampaign({ ...base(), parcoursEvenement: PONT });
+    await repo.insertRecipients(cid, [{ contactId, toE164: '+33600005055', resolvedParams: [] }]);
+    const rid = (await pool.query<{ id: string }>(`select id from campaign_recipients where campaign_id = $1`, [cid])).rows[0]!.id;
+    await store.markResult(rid, { status: 'sent', messageId: 'wamid.pont', sentAt: Date.now() });
+    await store.updateDeliveryByMessageId('wamid.pont', 'failed', 'Message undeliverable', 131026, null);
+    expect((await repo.listRetry131026()).map((r) => r.id)).toContain(rid);
+    await store.noterRaison(rid, 'Parcours non né : place prise');
+    expect((await repo.listRetry131026()).map((r) => r.id)).toContain(rid);
+    const ligne = (await pool.query<{ status: string; error_code: number | null; error: string | null }>(
+      `select status, error_code, error from campaign_recipients where id = $1`, [rid],
+    )).rows[0]!;
+    expect(ligne).toEqual({ status: 'sent', error_code: 131026, error: 'Parcours non né : place prise' });
   });
 });

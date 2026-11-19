@@ -117,6 +117,8 @@ describe('la garde mise en cache (NUMERO_DELIE_TTL_MS)', () => {
 // --------------------------------------------------------------------------------------------------------
 
 class Destinataires implements RecipientStore {
+  /** La raison d'un parcours d'événement non né (lot 5) : sans objet pour ce faux. */
+  async noterRaison(): Promise<void> { /* rien */ }
   constructor(private readonly pending: Recipient[]) {}
   async listPending(): Promise<Recipient[]> { return this.pending; }
   async claim(): Promise<boolean> { return true; }
@@ -223,6 +225,8 @@ describe('campagne et numéro délié', () => {
 
 /** Ce que le moteur a fait de chaque destinataire, dans l'ordre. */
 class DestinatairesTraces implements RecipientStore {
+  /** La raison d'un parcours d'événement non né (lot 5) : sans objet pour ce faux. */
+  async noterRaison(): Promise<void> { /* rien */ }
   readonly gestes: string[] = [];
   constructor(private readonly pending: Recipient[]) {}
   async listPending(): Promise<Recipient[]> { return this.pending; }

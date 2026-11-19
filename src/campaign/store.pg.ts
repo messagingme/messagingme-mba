@@ -1941,6 +1941,14 @@ export class PgRecipientStore implements RecipientStore, DeliveryStore {
       [id, r.status, r.messageId ?? null, r.error ?? null, r.sentAt ?? null, r.errorCode ?? null],
     );
   }
+
+  /**
+   * La raison écrite après coup sur un destinataire `sent` (le parcours d'événement non né, lot 5), SEULE : ni le statut,
+   * ni le message, ni le code d'erreur qu'un accusé `failed` a pu poser entre-temps (la relance automatique le lit).
+   */
+  async noterRaison(id: string, raison: string): Promise<void> {
+    await this.pool.query(`update campaign_recipients set error = $2 where id = $1 and status = 'sent'`, [id, raison]);
+  }
 }
 
 export class PgQualityProvider implements QualityProvider {

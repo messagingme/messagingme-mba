@@ -33,6 +33,8 @@ class SenderQuiCapture implements MessageSender {
   }
 }
 class FakeRecipients implements RecipientStore {
+  /** La raison d'un parcours d'événement non né (lot 5) : sans objet pour ce faux. */
+  async noterRaison(): Promise<void> { /* rien */ }
   constructor(private readonly pending: Recipient[]) {}
   async listPending(): Promise<Recipient[]> { return this.pending; }
   async claim(): Promise<boolean> { return true; }

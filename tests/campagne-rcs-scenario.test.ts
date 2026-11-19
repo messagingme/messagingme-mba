@@ -28,6 +28,8 @@ import type { SendResult, MarketingParams, TemplateSpec } from '../src/meta/type
  */
 
 class Recipients implements RecipientStore {
+  /** La raison d'un parcours d'événement non né (lot 5) : sans objet pour ce faux. */
+  async noterRaison(): Promise<void> { /* rien */ }
   readonly resultats = new Map<string, { status: string; error?: string }>();
   constructor(private readonly p: Recipient[]) {}
   async listPending(): Promise<Recipient[]> { return this.p; }

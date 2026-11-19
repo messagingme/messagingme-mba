@@ -106,7 +106,7 @@ export const rcsSansAgent: WorkflowExecutorDeps['rcs'] = {
 
 type Runs = WorkflowExecutorDeps['runs'];
 type GardesDEtat = Pick<Runs, 'setStateSiVivant' | 'setStateSiEncoreSur' | 'reserverAvance' | 'prolongerAvance' | 'libererAvance'
-  | 'parcoursDEvenementActif' | 'closeOrdinairesByWaId' | 'cloreAutresActifs' | 'cloreParOrigine' | 'cloreParScenarios' | 'cloreParPrefixe' | 'findWaitingSurBloc'>;
+  | 'parcoursDEvenementActif' | 'evenementDejaNe' | 'closeOrdinairesByWaId' | 'cloreAutresActifs' | 'cloreParOrigine' | 'cloreParScenarios' | 'cloreParPrefixe' | 'findWaitingSurBloc'>;
 
 /**
  * Le parcours d'événement (lot 4) dans un faux qui ne le connaît pas : aucun n'est actif, donc fermer les parcours
@@ -115,6 +115,10 @@ type GardesDEtat = Pick<Runs, 'setStateSiVivant' | 'setStateSiEncoreSur' | 'rese
  */
 async function parcoursDEvenementActifInerte(): Promise<{ id: string } | null> {
   return null;
+}
+/** Aucune origine déjà née : la garde du départ `deja_envoye` laisse la naissance à `start` (relecture de 5a). */
+async function aucuneOrigineDejaNee(): Promise<boolean> {
+  return false;
 }
 async function closeOrdinairesInerte(this: Partial<Pick<Runs, 'closeActiveByWaId'>>, tenantId: string, waId: string): Promise<string[]> {
   return this.closeActiveByWaId ? this.closeActiveByWaId(tenantId, waId) : [];
@@ -174,6 +178,7 @@ export function avecGardesDEtatInertes<R extends Pick<Runs, 'setState'> & Partia
     prolongerAvance: runs.prolongerAvance ?? prolongerAvanceInerte,
     libererAvance: runs.libererAvance ?? libererAvanceInerte,
     parcoursDEvenementActif: runs.parcoursDEvenementActif ?? parcoursDEvenementActifInerte,
+    evenementDejaNe: runs.evenementDejaNe ?? aucuneOrigineDejaNee,
     closeOrdinairesByWaId: runs.closeOrdinairesByWaId ?? closeOrdinairesInerte,
     cloreAutresActifs: runs.cloreAutresActifs ?? aucunParcoursClos,
     cloreParOrigine: runs.cloreParOrigine ?? aucunParcoursClos,

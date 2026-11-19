@@ -8,7 +8,7 @@ import { renderText } from '../crm/render';
 import type { ParamSource } from '../crm/template';
 import { besoinsDesClauses, clausesDuBloc, type BesoinsContexte, type EvalContext } from './conditions';
 import type { RunState, WorkflowRunRow, RunChannel, RunStatus } from './run-store.pg';
-import { PLAFOND_ATTENTE_EVENEMENT_MS, variablesDuTexte, type EvenementDuParcours } from './evenement';
+import { evenementValide, PLAFOND_ATTENTE_EVENEMENT_MS, variablesDuTexte, type EvenementDuParcours } from './evenement';
 import type { RcsSender } from '../rcs/sender';
 import type { RcsOutbound, RcsSuggestion } from '../rcs/types';
 import { rcsSuggestionSchema, apercuRcsSortant } from '../rcs/schema';
@@ -157,6 +157,8 @@ export interface WorkflowExecutorDeps {
      * née du panier) ou de scénarios (boutique en pause). Les fixtures passent `avecGardesDEtatInertes`.
      */
     parcoursDEvenementActif(tenantId: string, waId: string): Promise<{ id: string } | null>;
+    /** La même origine déjà née pour ce contact (le prédicat de la naissance idempotente, index 0300). */
+    evenementDejaNe(tenantId: string, waId: string, origine: string): Promise<boolean>;
     closeOrdinairesByWaId(tenantId: string, waId: string): Promise<string[]>;
     cloreAutresActifs(tenantId: string, waId: string, saufId: string): Promise<string[]>;
     cloreParOrigine(tenantId: string, origine: string): Promise<string[]>;
@@ -1938,7 +1940,12 @@ export class WorkflowExecutor {
    */
   private async gardesDuBlocDejaEnvoye(
     tenantId: string, graph: WorkflowGraph, waId: string, noeudId: string, modele: { nom: string; langue: string },
+    evenement: EvenementDuParcours | null | undefined,
   ): Promise<string | null> {
+    // 🔴 Relecture de 5a (jaune 5) : un événement illisible et une origine déjà née se refusent ICI, avant la reprise du
+    // fil et la suite synchrone d'un premier bloc sans choix ; `start` garde le même prédicat contre une course.
+    if (!evenement || !evenementValide(evenement)) return REFUS_EVENEMENT_INVALIDE;
+    if (await this.deps.runs.evenementDejaNe(tenantId, waId, evenement.origine)) return REFUS_DEJA_NE;
     if ((await this.deps.runs.parcoursDEvenementActif(tenantId, waId)) !== null) return REFUS_EVENEMENT_EN_COURS;
     const bloc = graph.nodes.find((n) => n.id === noeudId);
     if (!bloc || bloc.type !== 'template') return 'le bloc envoyé n’est plus un bloc template du scénario : aucun parcours';
@@ -1992,7 +1999,7 @@ export class WorkflowExecutor {
     // 🔴 LE PARCOURS D'ÉVÉNEMENT (lot 4, décisions 3, 21 et 28). Ces gardes ne font que LIRE, avant toute reprise du fil :
     // un démarrage qui cède, ou un parcours d'événement qui n'a pas sa place, n'écrit rien.
     if (opts.dejaEnvoye) {
-      const refus = await this.gardesDuBlocDejaEnvoye(tenantId, graph, contact.waId, startNodeId, opts.dejaEnvoye.modele);
+      const refus = await this.gardesDuBlocDejaEnvoye(tenantId, graph, contact.waId, startNodeId, opts.dejaEnvoye.modele, opts.evenement);
       if (refus !== null) {
         // eslint-disable-next-line no-console
         console.log(`workflow ${workflowId}: parcours d’événement non né pour ${contact.waId} : ${refus}`);
