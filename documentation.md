@@ -2560,6 +2560,12 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   requête ; le retirer et archiver n'y touchent pas) : le compte à rebours de reprise court depuis le plus tardif
   des deux. Reposer le même détenteur, lui, ne le rafraîchit pas (`setControlOwner` n'écrit rien), et « Traité » ne
   rend pas la main.
+- 🔴 **UN FIL TENU PAR UN SCÉNARIO NE REVIENT À L'AGENT DE META QUE SI AUCUN PARCOURS DU CONTACT N'A BOUGÉ DEPUIS
+  `CONTROL_WORKFLOW_TIMEOUT_MS`** (24 h, `listHeldControl`) : un parcours qui attend ou dort et dont l'état a été écrit
+  dans le délai (`workflow_runs.updated_at`) garde le fil, quelle que soit la date de prise, nulle pour une conversation
+  née d'un envoi et jamais rafraîchie quand un scénario démarre sur un fil déjà à lui. Sans cette garde, le fil partait
+  à l'agent de Meta quelques secondes ou minutes après l'envoi du template, et le clic sur son bouton allait à l'IA au
+  lieu de la branche du scénario (mesuré chez MUTAC le 2026-11-19). Un parcours abandonné rend le fil comme avant.
 - 🔴 **LE DÉLAI DE REPRISE EST UNE SEULE RÈGLE, À DEUX LECTEURS** (`repriseDue`, `src/inbox/delai-reprise.ts`) : le
   balayage (`runControlSweep`) et la remise « personne ne suit ». Une escalade sans réponse n'est jamais échue, un
   délai absent ou nul garde la main, un fil non daté est échu. Le délai de l'espace

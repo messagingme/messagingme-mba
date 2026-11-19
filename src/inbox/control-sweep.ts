@@ -18,6 +18,8 @@ export interface ControlSweepDeps {
     /**
      * Les conversations dont le fil est détenu. `ageScenarioMs` ne ramène que les fils de scénario plus vieux que
      * ce délai : `app_workflow` est l'état normal, les ramener tous saturerait le lot au détriment des fils humains.
+     * Un fil de scénario dont un parcours en cours a bougé dans ce délai n'y est jamais : c'est la dernière activité du
+     * parcours qui compte, pas la date de prise du fil (défaut mesuré chez MUTAC le 2026-11-19).
      */
     listHeldControl(
       limit?: number,

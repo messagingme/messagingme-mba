@@ -1062,6 +1062,8 @@ const constantes = {
    * Fixe, jamais réglable par client : c'est un garde-fou technique, et c'est ce qui permet de le filtrer en
    * SQL sans saturer le lot du balayage. 24 h et pas 2 h : un scénario attend légitimement longtemps (une
    * relance le lendemain), le couper rendrait le fil à l'agent de Meta à la place du bloc suivant.
+   * L'inactivité se compte depuis la dernière écriture d'un parcours du contact qui attend ou dort, pas depuis la
+   * prise du fil (`listHeldControl`) : sinon un scénario qui démarre sur un vieux fil le perdait aussitôt.
    * 0 désactive la reprise.
    */
   CONTROL_WORKFLOW_TIMEOUT_MS: 24 * 60 * 60 * 1000,

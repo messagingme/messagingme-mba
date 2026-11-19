@@ -883,6 +883,15 @@ export class PgInboxStore implements InboxStore {
      *
      * Les escalades sortent du lot en SQL : elles s'accumulaient en tête du tri et pouvaient remplir les 500
      * places. La garde de `runControlSweep` reste le contrat.
+     *
+     * 🔴 UN PARCOURS EN COURS GARDE SON FIL (défaut mesuré chez MUTAC le 2026-11-19). La date de prise ne dit pas qu'un
+     * scénario est actif : un scénario qui démarre sur un fil déjà à lui ne la remet pas à jour, et une conversation née
+     * d'un envoi n'en a pas. Le fil partait donc à l'agent de Meta quelques secondes après l'envoi du template, et le
+     * clic sur son bouton allait à l'IA au lieu de la branche du scénario. Un parcours du contact qui attend ou dort, et
+     * qui a bougé (`updated_at`, chaque écriture de son état) dans le délai, garde le fil : la soupape compte depuis la
+     * dernière activité du PARCOURS, et un parcours abandonné rend le fil comme avant. Même garde que la remise à
+     * l'arrivée d'un message (`remettreSiPersonneNeSuit`), bornée ici par le délai. Le prédicat de statut est celui de
+     * l'index partiel `workflow_runs_actif_idx` (0115), écrit tel quel.
      */
     const res = await this.pool.query<{ tenant_id: string; wa_id: string; control_owner: ControlOwner; control_changed_at: Date | null; last_message_at: Date | null; escaladee: boolean }>(
       `select tenant_id, wa_id, control_owner, control_changed_at, last_message_at, escaladee_le is not null as escaladee
@@ -895,6 +904,12 @@ export class PgInboxStore implements InboxStore {
             and (
               control_changed_at is null
               or control_changed_at < now() - make_interval(secs => $2::bigint / 1000.0)
+            )
+            and not exists (
+              select 1 from workflow_runs r
+               where r.tenant_id = conversations.tenant_id and r.wa_id = conversations.wa_id
+                 and r.status in ('waiting', 'sleeping')
+                 and r.updated_at > now() - make_interval(secs => $2::bigint / 1000.0)
             )
           ))
        order by control_changed_at nulls first
