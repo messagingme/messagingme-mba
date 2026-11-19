@@ -5789,6 +5789,13 @@ Claude Code devait d'abord ouvrir la console pour en créer une. Désormais, la 
 clique « Autoriser », et Claude travaille dans son espace. Les clés d'API ne changent pas. Depuis le lot 15
 (2026-10-09), les autres clients MCP se connectent de la même façon (plus bas).
 
+**Le mode d'emploi dans la console (2026-11-19).** En bas de la barre de la Console, au-dessus de Paramètres, l'entrée
+« Utiliser avec Claude / ChatGPT » (les deux logos, administrateurs seulement) ouvre une fenêtre à trois onglets :
+Claude (Personnaliser > Connecteurs, connecteur personnalisé), ChatGPT (Plugins, « Add custom MCP server », OAuth) et
+Claude Code (les deux commandes du plugin, `/mcp`, puis la mise en service). Chacun donne l'adresse à copier et finit
+sur la page « Autoriser » ; aucun ne passe par une clé d'API, qui ouvrirait moins d'outils. Un lien mène à Developers >
+Serveur MCP pour les autres clients.
+
 **La page « Autoriser ».** Avant tout bouton, elle dit quel client demande l'accès (« Claude Code » ou « Claude »),
 vers quelle adresse il repartira (`localhost` ou `claude.ai`), ce qu'il pourra lire et faire, et que ces données
 seront lues par Claude et traitées par Anthropic, avec un lien vers notre politique de confidentialité. Puis deux

@@ -16,6 +16,7 @@ import { BandeauAbonnement } from './BandeauAbonnement';
 import { BandeauLigneCredit } from './BandeauLigneCredit';
 import { EncartOffre } from './EncartOffre';
 import { Icone } from './Icone';
+import { UtiliserAvecIA } from './UtiliserAvecIA';
 import { useT } from '@/lib/i18n';
 import { repeterAvecGigue } from '@/lib/poll';
 import { arbresNav, groupesAOuvrir, ongletDeLaPage, accesAutorise, navPourRole, navPourOffre, navSansShopify, fonctionDeLaPage, premiereDestination, type NavEntree, type Onglet } from '@/lib/nav';
@@ -459,7 +460,12 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
           fermé. Il se décide désormais sur le CONTENU (`navBas.length`), donc un rôle qui n'a rien à voir
           ici ne voit pas un séparateur vide, et un rôle qui a quelque chose le voit, sans nouvelle règle. */}
       {onglet === 'console' && navBas.length > 0 && (
-        <div data-testid="nav-bas" className="border-t border-ink-100 px-2 py-3">{renderNav(navBas)}</div>
+        <div data-testid="nav-bas" className="border-t border-ink-100 px-2 py-3">
+          {/* Au-dessus de Paramètres (demande de Julien, 2026-11-19), et pour les seuls admins : seul un admin peut
+              autoriser la connexion OAuth qu'elle explique. Une fenêtre, pas une page : ce n'est pas une entrée de `nav.ts`. */}
+          {session.role === 'admin' && <UtiliserAvecIA />}
+          {renderNav(navBas)}
+        </div>
       )}
     </div>
   );

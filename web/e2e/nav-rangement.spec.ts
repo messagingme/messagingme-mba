@@ -41,6 +41,27 @@ test.describe('Barre : où sont rangées les entrées', () => {
     expect(textes.indexOf('Support')).toBeLessThan(textes.indexOf('Developers'));
   });
 
+  test('🔴 « Utiliser avec Claude / ChatGPT » est au-dessus de Paramètres et ouvre ses trois onglets, sans clé', async ({ page }) => {
+    // Demande de Julien du 2026-11-19 : la fenêtre explique la connexion OAuth de `/mcp`, sur l'API publique (son nom
+    // n'est pas écrit ici : `tests/ci-decoupage.test.ts` refuse un spec qui nomme le vrai backend).
+    await mock(page);
+    await page.goto('/accueil');
+    const blocBas = page.getByTestId('nav-bas');
+    const textes = await blocBas.innerText();
+    expect(textes.indexOf('Utiliser avec Claude / ChatGPT')).toBeGreaterThanOrEqual(0);
+    expect(textes.indexOf('Utiliser avec Claude / ChatGPT')).toBeLessThan(textes.indexOf('Paramètres'));
+
+    await blocBas.getByTestId('utiliser-avec-ia').click();
+    const fenetre = page.getByTestId('fenetre-utiliser-avec-ia');
+    await expect(fenetre.getByTestId('ia-adresse-claude')).toHaveText(/^https:\/\/api\.[^/]+\/mcp$/);
+    await fenetre.getByRole('tab', { name: 'ChatGPT' }).click();
+    await expect(fenetre.getByTestId('ia-adresse-chatgpt')).toHaveText(/^https:\/\/api\.[^/]+\/mcp$/);
+    await fenetre.getByRole('tab', { name: 'Claude Code' }).click();
+    await expect(fenetre.getByTestId('ia-onglet-claude-code')).toContainText('/plugin install messagingme@messagingme');
+    // Aucun chemin ne passe par une clé d'API : elle ouvrirait moins d'outils qu'OAuth.
+    await expect(fenetre).not.toContainText('VOTRE_CLE');
+  });
+
   test('🔴 « AI Agent » porte deux liens directs : MBA vers ses paramètres, Other AI agent vers /agents', async ({ page }) => {
     // Le rangement du 2026-09-29 (décision de Julien) : plus de troisième niveau sous « AI Agent », plus de guide.
     await mock(page);

@@ -434,6 +434,8 @@ test.describe('Centre de sécurité & compliance', () => {
     await page.goto('/securite');
     const bas = page.getByTestId('nav-bas');
     await expect(bas.getByRole('link', { name: 'Consentement' })).toBeVisible();
+    // Seul un admin peut autoriser la connexion OAuth : l'entree Claude / ChatGPT n'est pas pour lui.
+    await expect(bas.getByTestId('utiliser-avec-ia')).toHaveCount(0);
     // Parametres est pour lui depuis le 2026-09-19 : il y regle UNE chose, la prise d une conversation par
     // les agents (demande de Julien). Ce cas affirmait le contraire et a rougi la CI : il suit la decision.
     // ⚠️ Parametres est un GROUPE depuis le 2026-09-29 (General et Credit IA) : pour lui, un groupe qui ne porte que
