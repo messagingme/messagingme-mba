@@ -2145,25 +2145,51 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   404 du routeur, `routeInconnue`). La copie d'un scénario et la suppression d'un template suivent dans la console.
 - 🔴 **Un run endormi est CLOS par le démarrage suivant, pas préservé.** `closeActiveByWaId` couvre `waiting`
   ET `sleeping` et efface `resume_at`. Sans les deux, une automation lancerait un second parcours en parallèle
-  et les deux écriraient au réveil.
-- 🔴 **AU PLUS UN PARCOURS D'ÉVÉNEMENT PAR CONTACT, ET DES PARCOURS ORDINAIRES** (menu « Scénario », lot 4,
-  décisions 21 et 28 à 31). Un parcours né d'un événement (`workflow_runs.evenement`, `{ origine, variables }`) a une
-  place unique, tenue par l'index unique de 0298 (`parcoursDEvenementActif` reprend son prédicat mot pour mot) ; le
-  23505 devient le refus `evenement_actif`. La colonne `devantUnEvenement` de `POLITIQUE_DE_LANCEMENT` dit qui le
-  REMPLACE (Inbox, lien de test, campagnes, chaîne, publicité, widget : `closeActiveByWaId`), qui lui CÈDE (automations
-  « Autres », un second événement : rien n'est écrit) et qui COEXISTE (répondeurs, outils d'agent, sauts :
-  `closeOrdinairesByWaId`). Il naît sur le template déjà envoyé (départ `deja_envoye`, sans le rejouer) ; à une réponse
-  comme au réveil, il reprend le fil à l'agent de Meta mais s'ARRÊTE devant un opérateur (un gel garderait la place),
-  se clôt si `parcoursEncoreVoulu` le dit (lot 5), et clôt les parcours qui coexistaient quand il reprend la main.
-  Une étape sans choix ne le retient pas ; une attente sans échéance propre reçoit 72 h
-  (`PLAFOND_ATTENTE_EVENEMENT_MS`), à la fin desquelles il se clôt sans suivre aucune flèche. Ses variables se lisent
-  dans la source `variable` d'un template et, préfixées (`{{shopify.checkout_url}}`), dans le texte ; elles ne vont
-  jamais sur la fiche et s'effacent à sa fin (son origine reste). Deux parcours peuvent alors attendre un contact : un
-  clic va à celui qui attend sur le bloc du message cité (`findWaitingSurBloc`).
-  Le pont (lot 4b) : une campagne template porteuse de `campaigns.parcours_evenement` (option INTERNE de l'envoi public,
-  un corps HTTP qui la porte est refusé en 400) envoie ses réponses rapides avec leur payload `btn:<i>` ; quand Meta a
-  accepté, le moteur pose D'ABORD la mesure « envoyé » du bloc, puis demande le parcours une fois ; un refus ou une panne
-  laisse le destinataire `sent` avec la raison. Sans la colonne, la campagne envoie exactement ce qu'elle envoyait.
+  et les deux écriraient au réveil. ⚠️ Devant un parcours d'ÉVÉNEMENT, la colonne `devantUnEvenement` décide
+  (ci-dessous) : un démarrage qui lui cède ne clôt rien, un démarrage qui coexiste ne clôt que les parcours ordinaires.
+- 🔴 **AU PLUS UN PARCOURS D'ÉVÉNEMENT PAR CONTACT, ET DES PARCOURS ORDINAIRES** (menu « Scénario », lots 4 et 5,
+  décisions 21 et 28 à 31). Un parcours né d'un événement (`workflow_runs.evenement`, `{ origine, variables, messageId,
+  noeudDepart }`, relu ENTIER par `lireEvenement`) a une place unique, tenue par l'index unique de 0298
+  (`parcoursDEvenementActif` reprend son prédicat mot pour mot) ; le 23505 devient le refus `evenement_actif`. La colonne
+  `devantUnEvenement` de `POLITIQUE_DE_LANCEMENT` dit qui le REMPLACE (Inbox, lien de test, campagnes, chaîne, publicité,
+  widget : `closeActiveByWaId`), qui lui CÈDE (automations « Autres », un second événement : rien n'est écrit) et qui
+  COEXISTE (répondeurs, outils d'agent, sauts : `closeOrdinairesByWaId`) ; `tests/workflow-lancements.test.ts` la tient
+  type par type. Il naît sur le template déjà envoyé (départ `deja_envoye`, sans le rejouer), UNE fois par origine et par
+  contact quel que soit son statut (`insert … where not exists`, servi par l'index 0300 ; refus `deja_ne` : une relance
+  d'envoi ne le rejoue pas), sauf si le précédent a été clos sur un premier message non livré (ci-dessous). Un événement
+  illisible est refusé (`evenement_invalide`, `evenementValide`), et un parcours qui naît déjà terminé n'écrit pas ses
+  variables. À une réponse comme au réveil, il reprend le fil à l'agent de Meta mais s'ARRÊTE devant un opérateur (un gel
+  garderait la place), se clôt quand `parcoursEncoreVoulu` le dit, lu AVANT la reprise du fil (pour une origine Shopify,
+  `shopify:<domaine>:<sujet>:<référence>` : la boutique absente, coupée ou en pause, la ligne de l'événement éteinte, le
+  panier qui n'est plus ouvert ; `src/shopify/parcours-voulu.ts`), et clôt les parcours qui coexistaient quand il reprend
+  la main. Au réveil, les gardes du graphe absent et du plafond passent aussi avant la reprise du fil, et un message de
+  session atteint fenêtre fermée le clôt et rend la main à l'agent de Meta, sans passer à l'équipe. Une étape sans choix
+  ne le retient pas ; une attente sans échéance propre reçoit 72 h (`PLAFOND_ATTENTE_EVENEMENT_MS`), à la fin desquelles
+  il se clôt sans suivre aucune flèche. Ses variables se lisent dans la source `variable` d'un template et, préfixées
+  (`{{shopify.checkout_url}}`), dans le texte ; elles ne vont jamais sur la fiche et s'effacent à sa fin (son origine
+  reste). ⚠️ Une variable RENDUE dans un message envoyé (le lien d'un panier) est dans le fil comme tout message : l'agent
+  IA et l'agent de Meta la lisent dans l'historique de la conversation ; seul l'événement l'oublie.
+  🔴 **Un clic ne va à un parcours d'événement que sur SON message.** Un clic qui cite un message d'un autre scénario, ou
+  le premier message d'un événement FRÈRE (même bloc de départ, un autre `messageId`), n'est pas pour lui : l'avance le
+  rend à la remise et le parcours continue d'attendre. Deux parcours peuvent attendre ensemble : un clic va à celui qui
+  attend sur le bloc du message cité (`findWaitingSurBloc`).
+  🔴 **`advance` rend un verdict** : `true` pris, `false` non pris (un opérateur tient le fil, un gel, un clic qui n'est
+  pas pour lui, un clic sur un parcours plus voulu), rien pour les sorties qui gardent la règle d'avant (« tour perdu »,
+  « canal attendu »). `avanceDuParcours` le lit AVANT de relire « à nous ». ⚠️ La réservation du tour (`reserverAvance`)
+  ne date pas l'activité du parcours : elle précède la garde du gel. `arreterParcours` clôt les parcours d'événement par
+  origine, par scénarios ou par PRÉFIXE d'origine (`cloreParPrefixe`, `starts_with`, pour un contact ou pour tous),
+  sessions d'agent comprises.
+  Le pont : une campagne template porteuse de `campaigns.parcours_evenement` (option INTERNE de l'envoi public, un corps
+  HTTP qui la porte est refusé en 400 ; jamais écrite pour une campagne RCS ou à scénario, `insertCampaignRow`) envoie
+  ses réponses rapides avec leur payload `btn:<i>` (`composantReponseRapide`, seul constructeur,
+  `src/meta/template-components.ts`). Quand Meta a accepté, le moteur écrit D'ABORD le destinataire `sent` et le fil de
+  l'Inbox, puis pose la mesure « envoyé » du bloc et demande le parcours une fois, avec l'identifiant Meta du message ;
+  un refus ou une panne écrit ensuite sa raison sur le destinataire (`markResult`, sans renoter l'envoi). En DRY_RUN, ni
+  mesure ni naissance (capacités câblées dans le bloc `dryRun` du worker). Un accusé `failed` du premier message clôt le
+  parcours né sur lui, s'il est encore sur son bloc de départ (`clorePremierNonLivre`, puits `parcoursSurEchec` des deux
+  files d'accusés : l'espace et le contact lus dans la mesure « envoyé », les variables effacées, la marque
+  `premierNonLivre` qui rend la naissance possible à la relance). Sans la colonne, la campagne envoie exactement ce
+  qu'elle envoyait.
 - 🔴 **UN PARCOURS JOUE LE MÊME GRAPHE DU DÉBUT À LA FIN**, et un seul point de passage le décide :
   `grapheDuRun(run, lirePublie)` (`src/workflow/executor.ts`), lu par les TROIS reprises (`resume`,
   `runEnAttenteSur`, `advance`). Il rend `workflow_runs.graphe_fige` s'il y en a un, le publié sinon.
@@ -6528,7 +6554,9 @@ aucun renvoi :
    passage unique de l'envoi, et son bouton reste celui d'avant.
 34. **Les variables d'un destinataire de l'API ne touchent jamais la fiche** : `campaign_recipients.variables`,
    relues à l'envoi d'un message RCS (elles priment sur le champ de fiche du même nom) et au renvoi F7, remises
-   à `null` par la purge RGPD. Un scénario ou un bloc les refuse (400) : il n'a nulle part où les ranger.
+   à `null` par la purge RGPD. Un scénario ou un bloc les refuse (400) : il n'a nulle part où les ranger. ⚠️ Un
+   parcours d'ÉVÉNEMENT porte, lui, ses variables (`workflow_runs.evenement.variables`) : seul un événement interne les
+   remplit, l'API publique les refuse toujours pour un scénario.
 
 Ajouté par le lot 4 de l'API publique :
 

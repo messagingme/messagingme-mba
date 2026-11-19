@@ -116,8 +116,11 @@ La règle « un parcours tient le fil » est unique depuis le 2026-11-19 (`src/i
 `tests/parcours-tient-le-fil-inventaire.test.ts`) : la fenêtre du démarrage, la garde rejouée à l'écriture du balayage,
 les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traités. Reste :
 
-- **L'avance d'un parcours resté plus de 24 h sans écrire** : il n'écrit qu'à la fin d'`advance` ; `reserverAvance`
-  posera `updated_at = now()` (lot 5a du menu « Scénario », `run-store.pg.ts`).
+- **L'avance d'un parcours resté plus de 24 h sans écrire** : il n'écrit qu'à la fin d'`advance`, et le balayage peut
+  rendre le fil pendant qu'elle travaille. La réservation ne peut PAS dater l'activité : elle précède la garde du gel, et
+  un parcours gelé (ou qui attend sur un autre canal) se remettait à tenir le fil à chaque message (relecture de 5a,
+  `tests/integration/reservation-avance-gel.integration.test.ts`). Dater seulement quand l'avance continue, après la
+  garde du gel et celle du canal.
 - **Défaut à part : la campagne de templates SANS parcours, en mode agent de Meta.** La conversation (`app_workflow`, date
   nulle, `last_message_at` = le template) est rendue à l'agent dans les 5 min, fenêtre réellement fermée. Le filet « le
   balayage appelle Meta avant d'écrire » n'existe plus (`confier` prend un `release` refusé pour un succès). La réponse du
@@ -133,76 +136,66 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
 - **Bord** : une réponse sur le mauvais canal (parcours RCS, réponse WhatsApp) reste sans réponse, comme avant ; le fil
   reste désormais au scénario jusqu'à 24 h après sa dernière écriture.
 
+## 🟡 Le moteur des parcours d'événement : ce qui reste après la relecture de 5a (2026-11-19, aucun rouge)
+
+Le pont s'allume au lot 5b : les quatre premiers points se règlent AVANT qu'il s'allume.
+
+- **A5, le clic qui n'est pas pour le parcours, n'arrive à personne** (à trancher avec Julien, c'était son appel).
+  L'avance le rend à la remise (`false`), qui voit qu'un parcours tient le fil et appelle `laisserALEquipe`, qui n'ouvre
+  une demande que pour un fil `app_human` : le fil est `app_workflow`, que « À traiter » exclut. Ni réponse, ni demande.
+  Cas : « commande payée » attend, « commande expédiée » part sans parcours, le client clique sa réponse rapide. Avant 5a,
+  le clic clôturait le parcours (décision 22) et allait au répondeur. A5 disait « va au répondeur ou à l'agent, le
+  parcours continue d'attendre ».
+- **La raison d'un parcours non né efface le code d'erreur d'un accusé `failed`** : le second `markResult`
+  (`src/campaign/engine.ts`) réécrit `error_code = null` pour un statut `sent` ; un 131026 reçu pendant la naissance
+  sort le destinataire de la relance automatique (sonde de la relecture). Écrire la raison par un `update ... set error`
+  ciblé.
+- **L'idempotence par origine et l'événement illisible se décident APRÈS `apply`** : le refus vient de `start`, après la
+  reprise du fil et les effets synchrones de la suite ; un premier template sans bouton ni délai suivi d'un template
+  envoie la suite, puis la naissance est refusée (`deja_ne`). Vérifier l'origine et `evenementValide` dans
+  `gardesDuBlocDejaEnvoye`, le prédicat de `start` restant la garde de course.
+- **Un premier template sans bouton ni délai quitte son bloc dès la naissance** : son échec de livraison ne clôt rien
+  (`clorePremierNonLivre` exige le bloc de départ), et la suite part vers un client qui n'a pas reçu le premier message ;
+  la JSDoc « sa suite est partie » est inexacte dans ce cas. Course voisine : un `failed` traité avant la mesure et la
+  naissance ne clôt rien, le parcours garde la place 72 h au plus.
+- **Tests qu'une mutation passe** : `handler.ts` qui ne transmet plus `parcours: parcoursSurEchec` (358 tests verts :
+  tester `handleWebhookJob` avec un accusé `failed`) ; la sortie « gelée » d'un parcours ordinaire qui rendrait `void` ;
+  la jointure de `etatPourParcours` sans `l.tenant_id = b.tenant_id` ; `clorePremierNonLivre` sans
+  `r.tenant_id = m.tenant_id` (le test « un failed d'un autre espace ne touche rien » prévu au plan manque).
+- **Le reste** : « (décision 20) » dans un texte qui arrive dans Campagnes (`executor.ts`) ; deux JSDoc orphelines
+  (`cardComponents` dans `template-components.ts`, `REFUS_DEJA_NE` dans `lancements.ts`) et celle de
+  `cloreAutresActifs` qui dit encore « qui naît ou se réveille » ; en DRY_RUN, chaque destinataire d'une campagne
+  porteuse du pont reçoit « Parcours non né : pont non câblé. » ; la raison ne va plus dans `campaign_envois`, seulement
+  sur le destinataire ; un clic sur un parcours devenu plus voulu, en mode agent de Meta, n'est probablement pas
+  transmis à l'agent (`rendreLaMainAMba` l'a déjà confié) : à confirmer par un essai ; les sujets de webhook recopiés
+  par `EVENEMENT_DU_SUJET` (`src/shopify/parcours-voulu.ts`) : un sujet inconnu se lit « voulu » sans rien dire.
+
 ## 🟡 Le pont du parcours d'événement : ce qui reste après la relecture de 4b (2026-11-18, aucun rouge)
 
-Le pont est éteint : rien ne pose `campaigns.parcours_evenement` avant le lot 5. Les points 1 et 2 se tranchent dans le
-plan du lot 5, AVANT que le pont s'allume ; le reste part avec lui.
+Le reste a été traité par le lot 5a (2026-11-19).
 
-- **Le clic sur le premier message d'un SECOND événement va au premier parcours.** Reproduit sur le vrai exécuteur :
-  panier A, son parcours naît sur `tpl` et attend ; panier B, même template, la naissance de B est refusée (place prise)
-  mais sa mesure « envoyé » pointe sur `tpl` ; un clic sur le message B trouve A (`parcoursDuClic`), qui envoie le lien
-  de l'ANCIEN panier. Sur un autre bloc, le clic sur « commande expédiée » est lu comme une réponse écrite par le
-  parcours « commande payée », qui se clôt (décision 22) : contraire à l'esprit de la décision 3. Cause : la mesure
-  désigne un bloc, pas un parcours. Piste : passer l'identifiant Meta du message à la naissance, le garder avec
-  l'événement, et ne router vers un parcours d'événement que le clic sur SON message (l'arbitrage de la tâche 3, « le
-  départ porte le modèle, pas l'identifiant ; coût : aucun », était faux).
-- **La relance automatique redemande le parcours** : `resetForRetry` reprend un destinataire `sent` dont la livraison a
-  échoué (131049, 131026), et le run redemande alors la naissance. Premier parcours vivant : refus, le destinataire dit
-  « Parcours non né » alors qu'il existe, et ce parcours né sur un message non livré tient la place jusqu'à 72 h.
-  Premier parcours fini : un second naît et la suite repart une seconde fois.
-- **L'ordre des écritures** : la naissance tourne entre l'acceptation de Meta et l'écriture du destinataire et du fil.
-  Quand la suite part aussitôt, un accusé traité pendant ce temps ne trouve pas son destinataire (un `failed` compté
-  comme l'échec d'un message libre, sans relance), et l'Inbox montre la suite avant le premier template. Même ordre que
-  « message et scénario » : à accepter ou à réordonner au lot 5.
-- **Tests manquants** : le numéro délié et le crédit levés par la naissance (deux mutations passent les tests du
-  commit) ; les cas « jamais sur un échec » un par un ; le test « sans la colonne » tourne sans les deux capacités que la
-  production câble toujours ; le filtre `!cible.workflowId && !cible.rcs` de `envoi-public` (sans effet aujourd'hui,
-  mais rien n'efface la colonne d'une campagne RCS).
-- **Code recopié** : `payloadsDesReponsesRapides` recopie la ligne des réponses rapides de `buildWorkflowTemplateComponents`
-  (`src/workflow/template-send.ts`), alors que `src/meta/template-components.ts` se dit le seul constructeur.
-- **DRY_RUN** : `mesurerEnvoiDuBloc` et `naitreParcoursEvenement` sont câblées hors du bloc `dryRun` du worker,
-  contrairement à `noterJoignabilite` : en DRY_RUN, une mesure inventée s'écrirait (sans effet en production, LIVE).
 - **Pour l'adaptateur du lot 5** : tirer `modele` et `boutons` du bloc par `actionOf` (sinon la naissance refuse, ou les
   index des boutons dérivent) ; `r.variables` porte TOUTES les variables de l'événement, pas seulement celles du
   premier template.
 
 ## 🟡 Le moteur des parcours d'événement : ce qui reste après la relecture de 4a (2026-11-18, aucun rouge)
 
-Rien ne fait naître de parcours d'événement avant le lot 5 : ces points sont à régler AVANT lui, avec lui. Le point 2 de
-la relecture (le nom et la langue du modèle lus comme les lit `actionOf`) est corrigé avec 4b.
+Le lot 5a (2026-11-19) a traité les variables d'un parcours né terminé, l'événement non validé, l'ordre des gardes au
+réveil, le verdict de l'avance, l'origine plutôt que le scénario, les textes et la colonne `devantUnEvenement` type par
+type. Reste :
 
-- **Un parcours né déjà terminé garde ses variables** : `start` insère l'événement entier même quand l'état vaut `inbox`
-  (la suite du template mène tout de suite à « Passer à un humain ») ; les liens à clé d'accès restent jusqu'à la purge.
-  Les retirer à l'insertion d'un statut terminal, et étendre l'inventaire à l'insertion. Au même endroit, l'escalade
-  n'est pas collante (`partis > 0` faux) alors que le premier template est parti.
-- **L'événement s'écrit sans être validé** : `start` n'applique pas `schemaEvenement` ; une origine trop longue ou une
-  variable hors `schemaVariables` se relirait « ordinaire » (plus de plafond) tout en tenant la place unique en base.
-- **Au réveil par le plafond, la reprise du fil passe avant la garde** : le parcours retire le contact de la liste de
-  l'agent de Meta pour rien, puis se clôt. Placer la garde du plafond (et celle du graphe absent) avant `reclaimControl`.
-- **« À nous » relu après l'avance n'est qu'un indice** (`avanceDuParcours`) : faux quand un parcours d'événement pris sur un
-  fil `mba` se termine pendant l'avance ; la remise traite alors aussi le message. Faire rendre « message pris » par
-  `advance`.
 - **Un clic redélivré, deux parcours en attente** : la déduplication lit le parcours routé ; si l'événement a quitté le
-  bloc cité, la redélivrance retombe sur l'ordinaire, qui la lit comme un texte.
-- **Un saut change le scénario du parcours** : `cloreParScenarios` et un `parcoursEncoreVoulu` qui lirait `workflowId`
-  le manqueraient ; au lot 5, raisonner sur l'origine.
-- **La mémoire d'un agent** voit un `{{shopify.checkout_url}}` rendu dans un message (le fil) : à écrire ou à décider.
-- **Textes** : le refus d'une naissance devant un opérateur dit « déclenché par le contact … le message l'attend dans
-  l'Inbox » (faux pour un événement, et il ira dans `campaign_recipients.error`) ; le journal dit « tenu par un
-  opérateur » quand c'est Meta qui refuse le retrait ; un clic sur un parcours plus voulu ne reçoit aucune réponse
-  (choix à confirmer). `documentation.md` (« un run endormi est CLOS par le démarrage suivant ») et l'invariant 34 à
-  nuancer ; `src/automation/runner.ts` (« tranche au lieu de bloquer ») et `lancements.ts` (l'agent IA « remplacé ici »)
-  faux devant un parcours d'événement ; `cloreAutresActifs` décrit comme servant la naissance (il sert le réveil et la
-  réponse) ; la JSDoc de `cloreSessionDuRun` déplacée par `arreterParcours`.
-- **Tests manquants** : la colonne `devantUnEvenement` type par type (sept mutations restent vertes : une table attendue
-  sur le modèle de `MARKETING_ATTENDU`, et un faux qui distingue les deux clôtures) ; le plafond à la réponse et au réveil ;
-  `aUneEcheancePropre` pour un bloc agent ; l'événement porté par un saut au réveil ; les variables d'un bloc envoyé par
-  l'outil d'un agent ; « plus voulu » lu avant la reprise au réveil.
+  bloc cité, la redélivrance retombe sur l'ordinaire, qui la lit comme un texte (course rare).
+- **Tests manquants** : le plafond à la réponse et au réveil ; `aUneEcheancePropre` pour un bloc agent ; l'événement porté
+  par un saut au réveil ; les variables d'un bloc envoyé par l'outil d'un agent ; « plus voulu » lu avant la reprise au
+  réveil (tenu aujourd'hui par l'ordre du code).
+- **`cloreParScenarios` manquerait un parcours dont un saut a changé le scénario** : les arrêts du lot 5 passent par le
+  préfixe d'origine ; ne pas s'en servir pour un parcours d'événement.
 - **Écarts du parcours ordinaire, sans changement de comportement** : une lecture de plus par automation « Autres » qui
-  se déclenche ; `blocDuMessage` lu deux fois pour un clic qui cite un message, et avant la déduplication, avec un
-  `findWaitingSurBloc` non protégé (sa panne fait échouer l'avance, la remise prend le message) ; un message gelé relit
-  le détenteur (une course où personne ne le traite) ; une source `variable` posée à la main dans un scénario ordinaire
-  est désormais refusée à l'envoi au lieu d'être ignorée (aucun écrivain n'en produit).
+  se déclenche ; le bloc du message cité est lu avant la déduplication, et `findWaitingSurBloc` n'est pas protégé (sa
+  panne fait échouer l'avance, la remise prend le message) ; un message gelé relit le détenteur (une course où personne
+  ne le traite) ; une source `variable` posée à la main dans un scénario ordinaire est désormais refusée à l'envoi au
+  lieu d'être ignorée (aucun écrivain n'en produit).
 
 ## 🟡 Les templates écrits depuis un bloc : ce qui reste après la relecture de 3b (2026-11-18, aucun rouge)
 
