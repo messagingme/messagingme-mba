@@ -9,6 +9,7 @@ import type { UserFieldDef } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { Icone } from '@/components/Icone';
+import type { DonneeEvenement } from '@/lib/shopify-lignes';
 
 /**
  * Un corps de message dont les variables s'affichent en CHIPS lisibles (`[Prénom]`) alors que la chaîne
@@ -28,7 +29,7 @@ import { Icone } from '@/components/Icone';
  * sur la fiche du contact). Deux contrats, un seul éditeur en dessous.
  */
 export function ChampCorpsVariables({
-  valeur, onChange, fields, label, placeholder, compact = false, testId, max,
+  valeur, onChange, fields, label, placeholder, compact = false, testId, max, donnees = [],
 }: {
   valeur: string;
   onChange: (v: string) => void;
@@ -42,6 +43,11 @@ export function ChampCorpsVariables({
   testId: string;
   /** Plafond de caractères, affiché en compteur. Absent -> pas de compteur. */
   max?: number;
+  /**
+   * Les données de l'événement d'un scénario Shopify (menu « Scénario », lot 5) : insérées en `{{shopify.<clé>}}`, que
+   * le parcours d'événement remplit à l'envoi. Absentes ailleurs : un texte du Builder général n'en a pas.
+   */
+  donnees?: readonly DonneeEvenement[];
 }) {
   const t = useT();
   const editorRef = useRef<VariableBodyEditorHandle>(null);
@@ -49,7 +55,10 @@ export function ChampCorpsVariables({
 
   // Sert UNIQUEMENT à retrouver le libellé d'une variable pour l'afficher en chip. MÊME liste que le
   // sélecteur, sinon un `{{phone}}` inséré s'afficherait en brut au lieu de « Téléphone ».
-  const variables = emailVariableFields(fields, t);
+  const variables = [
+    ...emailVariableFields(fields, t),
+    ...donnees.map((d) => ({ key: `shopify.${d.cle}`, label: t(...d.libelle) })),
+  ];
   const trop = max !== undefined && valeur.length > max;
 
   return (
@@ -80,6 +89,7 @@ export function ChampCorpsVariables({
             fields={fields}
             testId={`${testId}-variable`}
             onInsert={(cle, libelle) => editorRef.current?.insertToken(`{{${cle}}}`, libelle)}
+            donnees={donnees}
           />
           <button
             type="button"

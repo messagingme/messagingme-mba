@@ -423,7 +423,7 @@ function WorkflowsInner({ session }: { session: Session }) {
         <div className="min-h-0 flex-1">
           {/* L'éditeur ouvre le BROUILLON s'il y en a un (lot 7) : c'est le travail en cours de l'auteur, pas
               forcément ce qui tourne. `brouillonInitial` allume le bouton « Publier » dès l'ouverture. */}
-          <WorkflowBuilder key={editing.id} tenantId={session.tenantId} workflowId={editing.id} initialGraph={grapheEditable(editing)} brouillonInitial={Boolean(editing.draftGraph)} publieLe={editing.publishedAt ?? null} mbaEnabled={mbaEnabled} rcsEnabled={rcsEnabled} emailEnabled={emailEnabled} agents={agents} membres={membres} requetes={requetes} onTesterBloc={ouvrirTestDepuisBloc} departs={departs ?? undefined} />
+          <WorkflowBuilder key={editing.id} tenantId={session.tenantId} workflowId={editing.id} initialGraph={grapheEditable(editing)} brouillonInitial={Boolean(editing.draftGraph)} publieLe={editing.publishedAt ?? null} mbaEnabled={mbaEnabled} rcsEnabled={rcsEnabled} emailEnabled={emailEnabled} agents={agents} membres={membres} requetes={requetes} onTesterBloc={ouvrirTestDepuisBloc} departs={departs ?? undefined} {...(editing.rayon ? { rayon: editing.rayon } : {})} />
         </div>
         {panneauDeTest}
       </div>

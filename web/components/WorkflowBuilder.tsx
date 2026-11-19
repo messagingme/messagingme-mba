@@ -26,6 +26,9 @@ import { estPoigneeDeFamille } from '@/lib/condition-familles';
 import { useEnregistrementScenario } from '@/lib/use-enregistrement-scenario';
 import { ModelesDeBlocCtx, TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
 import { ConfigPanel } from '@/components/WorkflowConfigPanel';
+import { lireShopify } from '@/lib/api-shopify';
+import { donneesDuScenario, type DonneeEvenement } from '@/lib/shopify-lignes';
+import { estPremierBlocVerrouille } from '@/lib/partage/premier-bloc';
 import { analyserFenetreConsole } from '@/lib/fenetre-console';
 import type { Constat, Depart } from '@/lib/partage/fenetre-scenario';
 import { Bouton } from '@/components/Bouton';
@@ -72,7 +75,7 @@ function initialDataFor(wfType: WorkflowNodeType): Record<string, unknown> {
  * contacts : il écrit une version de travail, et seul le bouton « Publier » la met en ligne. Avant ce lot, une
  * retouche partait en production dans la seconde, y compris pour les parcours déjà en cours.
  */
-export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonInitial = false, publieLe = null, mbaEnabled = false, rcsEnabled = false, emailEnabled = false, agents = [], membres = null, requetes = null, canalExige, onPublie, onTesterBloc, departs }: { tenantId: string; workflowId: string;
+export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonInitial = false, publieLe = null, mbaEnabled = false, rcsEnabled = false, emailEnabled = false, agents = [], membres = null, requetes = null, canalExige, onPublie, onTesterBloc, departs, rayon }: { tenantId: string; workflowId: string;
   /** Ce que l'éditeur ouvre : le brouillon s'il existe, sinon la version en ligne (cf. `grapheEditable`). */
   initialGraph: WorkflowGraph;
   /** Un brouillon non publié attendait-il déjà à l'ouverture ? Pilote l'état initial du bouton « Publier ». */
@@ -105,13 +108,45 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
    * D'où part ce scénario, fenêtre ouverte ou fermée (menu « Scénario », lot 2, `GET /workflows/:id`). Absent : un départ
    * ouvert à l'entrée, le comportement d'avant. Le builder en tire ses avertissements de fenêtre, sans jamais refuser.
    */
-  departs?: readonly Depart[] }) {
+  departs?: readonly Depart[];
+  /**
+   * Le rayon du scénario (menu « Scénario ») : `shopify` propose les données de l'événement (variables d'un template,
+   * `{{shopify.<clé>}}` dans un texte). Absent : le Builder général.
+   */
+  rayon?: string }) {
   const t = useT();
   const { locale } = useLocale();
   const seed = useMemo(() => toRF(initialGraph), [initialGraph]);
-  const [nodes, setNodes, onNodesChange] = useNodesState<RFNode>(seed.nodes);
+  const [nodes, setNodes, onNodesChangeBrut] = useNodesState<RFNode>(seed.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<RFEdge>(seed.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  /**
+   * 🔴 LE PREMIER BLOC D'UNE AUTOMATION (décision 13) : il ne se supprime ni au ✕, ni par le panneau, ni au clavier
+   * (Retour arrière), et aucune flèche n'entre en lui. Le serveur refuse de toute façon un graphe qui le perd (422) : ces
+   * gardes évitent un brouillon que l'enregistrement refuserait.
+   */
+  const estVerrouille = useCallback(
+    (nodeId: string | null | undefined): boolean => nodes.some((n) => n.id === nodeId && estPremierBlocVerrouille(n.data as Record<string, unknown>)),
+    [nodes],
+  );
+  const onNodesChange = useCallback<typeof onNodesChangeBrut>(
+    (changes) => onNodesChangeBrut(changes.filter((c) => !(c.type === 'remove' && estVerrouille(c.id)))),
+    [onNodesChangeBrut, estVerrouille],
+  );
+  const connexionPermise = useCallback((c: { target: string | null }) => !estVerrouille(c.target), [estVerrouille]);
+
+  // Les données de l'événement d'un scénario Shopify : celles de sa ligne, toutes pour une copie. Une lecture en échec
+  // laisse le choix sans elles (les variables déjà posées restent affichées, `SourceDeVariable`).
+  const [donneesEvenement, setDonneesEvenement] = useState<DonneeEvenement[] | undefined>(undefined);
+  useEffect(() => {
+    if (rayon !== 'shopify') return;
+    let vivant = true;
+    lireShopify(tenantId)
+      .then((v) => { if (vivant) setDonneesEvenement(donneesDuScenario(v?.lignes ?? [], workflowId)); })
+      .catch(() => { if (vivant) setDonneesEvenement(donneesDuScenario([], workflowId)); });
+    return () => { vivant = false; };
+  }, [rayon, tenantId, workflowId]);
 
   // Données de config des blocs.
   // Menu « Scénario », lot 3 : la liste COMPLÈTE sert l'aperçu des blocs et la valeur d'un bloc dont le template est en
@@ -180,8 +215,26 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
     () => new Map((modelesDeBloc?.modeles ?? []).map((m) => [`${m.modele}|${m.langue}`, { etat: m.etat, raison: m.raison }])),
     [modelesDeBloc],
   );
-  /** Le formulaire du bloc ouvert : écrire un template neuf, ou modifier celui du bloc choisi. */
-  const [formulaireDuBloc, setFormulaireDuBloc] = useState<{ nodeId: string; mode: 'nouveau' | 'modifier' } | null>(null);
+  /**
+   * Le formulaire du bloc ouvert : écrire un template neuf, ou modifier celui du bloc choisi. 🔴 Le template de départ et
+   * les choix de variables du bloc sont FIGÉS à l'ouverture (relecture de 3b) : recalculés à chaque rendu, un rechargement
+   * de la liste par le sondage (un autre template tranché) rejouait les indices par-dessus les choix faits dans le formulaire.
+   */
+  const [formulaireDuBloc, setFormulaireDuBloc] = useState<{
+    nodeId: string; mode: 'nouveau' | 'modifier'; initial?: TemplateSummary; sourcesDuBloc: TemplateParamHint[];
+  } | null>(null);
+  const ouvrirFormulaireDuBloc = (bloc: RFNode, mode: 'nouveau' | 'modifier'): void => {
+    const d = bloc.data as Record<string, unknown>;
+    const nom = typeof d.templateName === 'string' ? d.templateName : '';
+    const initial = mode === 'modifier'
+      ? tousLesTemplates.find((x) => x.name === nom && x.language === d.language) ?? tousLesTemplates.find((x) => x.name === nom)
+      : undefined;
+    // Les choix de variables du bloc (`node.data.variables`, lus défensivement : du JSON libre).
+    const sourcesDuBloc: TemplateParamHint[] = Array.isArray(d.variables)
+      ? (d.variables as Array<{ position?: unknown; source?: unknown }>).flatMap((v) => (typeof v?.position === 'number' && v.source && typeof v.source === 'object' ? [v as TemplateParamHint] : []))
+      : [];
+    setFormulaireDuBloc({ nodeId: bloc.id, mode, ...(initial ? { initial } : {}), sourcesDuBloc });
+  };
   /** Une demande de relecture de l'état des templates, à servir APRÈS l'enregistrement du bloc patché (plus bas). */
   const [relireApresEnregistrement, setRelireApresEnregistrement] = useState(0);
 
@@ -463,11 +516,11 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   }, [patcherBloc, rechargerTemplates]);
 
   const deleteSelected = useCallback(() => {
-    if (!selectedId) return;
+    if (!selectedId || estVerrouille(selectedId)) return;
     setNodes((ns) => ns.filter((n) => n.id !== selectedId));
     setEdges((eds) => eds.filter((e) => e.source !== selectedId && e.target !== selectedId));
     setSelectedId(null);
-  }, [selectedId, setNodes, setEdges]);
+  }, [selectedId, setNodes, setEdges, estVerrouille]);
 
   // Enregistrement automatique du scénario : debounce, un seul PATCH en vol, vidage au démontage et à la
   // fermeture d'onglet. Tout est dans `useEnregistrementScenario` (aucun de ces états ne touche le canevas).
@@ -893,6 +946,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onConnectEnd={onConnectEnd}
+            isValidConnection={connexionPermise}
             onInit={(inst) => { rfRef.current = inst; }}
             onNodeClick={(_, n) => setSelectedId(n.id)}
             onPaneClick={() => setSelectedId(null)}
@@ -957,7 +1011,8 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
           ) : (
             <ConfigPanel node={selected} tenantId={tenantId} workflowId={workflowId} blocsDuScenario={nodes} isRoot={selected.id === rootNodeId} campaignEligible={campaignEligible} onPatch={patchSelected} onDelete={deleteSelected} templates={templates} flows={flows} tags={tags} fields={fields} usageChamps={usageChamps} emailAccounts={emailAccounts} emailTemplates={emailTemplates} rcsMessages={rcsMessages} agents={agents} membres={membres} requetes={requetes} onCommitTag={commitTag} onCreerChamp={creerChamp} mbaEnabled={mbaEnabled} alerteFenetre={alerteDuBlocChoisi ? phraseFenetre(alerteDuBlocChoisi) : null}
               tousLesTemplates={tousLesTemplates} modelesDeBloc={etatParModele}
-              {...(workflowId ? { onEcrireModele: (mode: 'nouveau' | 'modifier') => setFormulaireDuBloc({ nodeId: selected.id, mode }) } : {})} />
+              {...(donneesEvenement ? { donneesEvenement } : {})}
+              {...(workflowId ? { onEcrireModele: (mode: 'nouveau' | 'modifier') => ouvrirFormulaireDuBloc(selected, mode) } : {})} />
           )}
         </div>
       </div>
@@ -966,15 +1021,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
       {formulaireDuBloc && workflowId && (() => {
         const bloc = nodes.find((n) => n.id === formulaireDuBloc.nodeId);
         if (!bloc) return null;
-        const d = bloc.data as Record<string, unknown>;
-        const nom = typeof d.templateName === 'string' ? d.templateName : '';
-        const initial = formulaireDuBloc.mode === 'modifier'
-          ? tousLesTemplates.find((x) => x.name === nom && x.language === d.language) ?? tousLesTemplates.find((x) => x.name === nom)
-          : undefined;
-        // Les choix de variables du bloc (`node.data.variables`, lus défensivement : du JSON libre).
-        const sourcesDuBloc: TemplateParamHint[] = Array.isArray(d.variables)
-          ? (d.variables as Array<{ position?: unknown; source?: unknown }>).flatMap((v) => (typeof v?.position === 'number' && v.source && typeof v.source === 'object' ? [v as TemplateParamHint] : []))
-          : [];
+        const { initial, sourcesDuBloc } = formulaireDuBloc;
         return (
           <ModeleDuBloc
             tenantId={tenantId}

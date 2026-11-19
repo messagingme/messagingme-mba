@@ -18,7 +18,10 @@ import { SYSTEM_FIELDS, isSystemFieldKey, systemFieldExample } from './fields';
 
 /** Une ligne du sélecteur : la variable `{{i+1}}` et d'où elle vient. */
 export interface VarRow {
-  /** Option choisie : `sys:<key>` (champ de base), `field:<key>` (champ perso), `now`, ou `literal`. */
+  /**
+   * Option choisie : `sys:<key>` (champ de base), `field:<key>` (champ perso), `now`, `literal`, ou `var:<key>` (une
+   * donnée de l'événement d'une automation, menu « Scénario » lot 5).
+   */
   sel: string;
   /** Valeur saisie, et UNIQUEMENT pour `literal`. */
   value: string;
@@ -37,6 +40,7 @@ export const SEL_DEFAUT = 'sys:name';
 export function selToSource(sel: string, value: string): ParamSource {
   if (sel === 'now') return { type: 'now' };
   if (sel === 'literal') return { type: 'literal', value };
+  if (sel.startsWith('var:')) return { type: 'variable', key: sel.slice('var:'.length) };
   if (sel.startsWith('sys:')) {
     const f = SYSTEM_FIELDS.find((s) => `sys:${s.key}` === sel);
     return f ? f.source : { type: 'attribute', key: 'name' };
@@ -54,6 +58,9 @@ export function selToSource(sel: string, value: string): ParamSource {
 export function selForSource(s: ParamSource, customFields: UserFieldDef[]): string {
   if (s.type === 'now') return 'now';
   if (s.type === 'literal') return 'literal';
+  // 🔴 La donnée d'un événement se garde telle quelle : retombée sur le défaut, modifier une autre variable du bloc la
+  // réécrivait en « Nom » (menu « Scénario », lot 5).
+  if (s.type === 'variable') return `var:${s.key ?? ''}`;
   if (s.type === 'attribute') return `sys:${s.key ?? 'name'}`;
   const key = s.key ?? '';
   if (isSystemFieldKey(key)) return `sys:${key}`; // prenom/email = champ système
@@ -137,6 +144,7 @@ export function exemplesDApercu(vars: readonly VarRow[]): string[] {
   return vars.map((v) =>
     v.sel === 'literal' ? (v.value.trim() || '…')
       : v.sel.startsWith('sys:') ? systemFieldExample(v.sel.slice('sys:'.length))
+      : v.sel.startsWith('var:') ? `[${v.sel.slice('var:'.length)}]`
       : `[${v.sel.slice('field:'.length) || 'champ'}]`,
   );
 }

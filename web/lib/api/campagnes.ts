@@ -110,7 +110,8 @@ export interface PhoneNumber {
   verifiedName: string | null;
 }
 export interface ParamSource {
-  type: 'attribute' | 'field' | 'literal' | 'now';
+  /** `variable` : une donnée de l'événement d'une automation (Shopify, menu « Scénario » lot 5), lue hors de la fiche. */
+  type: 'attribute' | 'field' | 'literal' | 'now' | 'variable';
   key?: string;
   value?: string;
 }

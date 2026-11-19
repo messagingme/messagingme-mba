@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { delaiEnClair, etatDeLAutomation } from './shopify-lignes';
+import { delaiEnClair, donneesDuScenario, etatDeLAutomation } from './shopify-lignes';
+import { DONNEES_SHOPIFY } from './partage/shopify-messages';
 import { lireEtatShopify, type LigneShopifyVue } from './api-shopify';
 
 const ligne = (o: Partial<LigneShopifyVue> = {}): LigneShopifyVue => ({
@@ -25,6 +26,20 @@ describe('l’état d’une automation Shopify (menu « Scénario », lot 5)', (
 
   it('la liste de Meta illisible : allumée, l’état de son template non lu (jamais « refusé » par défaut)', () => {
     expect(etatDeLAutomation(ligne({ etatChezMeta: null }))).toBe('meta_non_lu');
+  });
+});
+
+describe('les données qu’un scénario Shopify peut lire (le builder)', () => {
+  it('🔴 celles de l’événement de sa ligne, dans l’ordre, avec leur libellé', () => {
+    const d = donneesDuScenario([ligne({ evenement: 'checkout_abandoned', workflowId: 'wf-panier' }), ligne()], 'wf-panier');
+    expect(d).toEqual([
+      { cle: 'first_name', libelle: ['prénom', 'first name'] },
+      { cle: 'checkout_url', libelle: ['lien du panier', 'checkout link'] },
+    ]);
+  });
+
+  it('une copie qu’aucune ligne n’envoie (atteinte par un « Aller à ») : toutes les données Shopify', () => {
+    expect(donneesDuScenario([ligne()], 'wf-copie').map((x) => x.cle)).toEqual([...DONNEES_SHOPIFY]);
   });
 });
 

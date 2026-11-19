@@ -5,6 +5,7 @@ import type { WorkflowGraph, WorkflowNode } from '../workflow/graph';
 import type { WorkflowRow } from '../workflow/store.pg';
 import { sourcesDuBloc } from '../workflow/template-send';
 import { DONNEES_PAR_EVENEMENT, type DonneeShopify, type EvenementShopify } from './donnees';
+import { MARQUE_PREMIER_BLOC, estPremierBlocVerrouille } from '../../web/lib/partage/premier-bloc';
 
 /**
  * LE PREMIER BLOC D'UNE LIGNE SHOPIFY (menu « Scénario », lot 5, décisions 13 et 23) : le template que le circuit envoie
@@ -17,11 +18,12 @@ import { DONNEES_PAR_EVENEMENT, type DonneeShopify, type EvenementShopify } from
  * sinon la naissance du parcours refuserait un modèle qui ne correspond plus au bloc.
  */
 
-/** La marque du premier bloc d'un scénario Shopify (et HubSpot au lot 6), posée par le serveur dans `data`. */
-export const MARQUE_PREMIER_BLOC = 'verrouille';
+/** La marque du premier bloc d'un scénario Shopify (et HubSpot au lot 6), posée par le serveur dans `data` : une seule
+ *  source, partagée avec le builder (`web/lib/partage/premier-bloc.ts`). */
+export { MARQUE_PREMIER_BLOC };
 
 export function estBlocVerrouille(n: WorkflowNode): boolean {
-  return n.data[MARQUE_PREMIER_BLOC] === true;
+  return estPremierBlocVerrouille(n.data);
 }
 
 /** Le bloc marqué d'un graphe, s'il y en a exactement un. */

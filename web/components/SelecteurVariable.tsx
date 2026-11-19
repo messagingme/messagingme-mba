@@ -6,6 +6,7 @@ import { emailVariableFields } from '@/lib/fields';
 import type { UserFieldDef } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { Icone } from '@/components/Icone';
+import type { DonneeEvenement } from '@/lib/shopify-lignes';
 
 /**
  * LE sélecteur de variables. Un bouton « Variable », un panneau qui liste les champs du contact par leur
@@ -22,7 +23,7 @@ import { Icone } from '@/components/Icone';
  * un champ d'une ligne, une zone de code HTML et un éditeur enrichi sans se dédoubler.
  */
 export function SelecteurVariable({
-  fields, onInsert, testId, ancrage = 'bas', className,
+  fields, onInsert, testId, ancrage = 'bas', className, donnees = [],
 }: {
   /** Champs bruts du tenant. Le filtrage `emailResolvableFields` est fait ICI : c'est la même règle partout
    *  (exclut les clés que le serveur ne sait pas résoudre, « Nom » et « WhatsApp ID »), et la centraliser
@@ -32,6 +33,8 @@ export function SelecteurVariable({
   testId: string;
   ancrage?: 'bas' | 'haut';
   className?: string;
+  /** Les données de l'événement d'un scénario Shopify (menu « Scénario », lot 5) : insérées en `{{shopify.<clé>}}`. */
+  donnees?: readonly DonneeEvenement[];
 }) {
   const t = useT();
   const [ouvert, setOuvert] = useState(false);
@@ -50,6 +53,23 @@ export function SelecteurVariable({
       </button>
       {ouvert && (
         <Flottant onClose={() => setOuvert(false)} ancrage={ancrage}>
+          {donnees.length > 0 && (
+            <>
+              <p className="px-2 pt-1 text-xs font-medium text-ink-500">{t('Données Shopify', 'Shopify data')}</p>
+              {donnees.map((d) => (
+                <button
+                  type="button"
+                  key={d.cle}
+                  data-testid={`${testId}-shopify-${d.cle}`}
+                  onClick={() => { onInsert(`shopify.${d.cle}`, t(...d.libelle)); setOuvert(false); }}
+                  className="block w-full truncate rounded-controle px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-brand-50"
+                >
+                  {t(...d.libelle)}
+                </button>
+              ))}
+              <p className="px-2 pt-1 text-xs font-medium text-ink-500">{t('Champs du contact', 'Contact fields')}</p>
+            </>
+          )}
           {variables.length === 0 ? (
             <p className="px-2 py-1.5 text-xs text-ink-500">{t('Aucun champ disponible.', 'No field available.')}</p>
           ) : (

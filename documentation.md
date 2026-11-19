@@ -2179,6 +2179,16 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   `VOIES_QUI_COEXISTENT`) le prend et le parcours continue d'attendre ; sinon (agent de Meta, équipe), le parcours
   s'ARRÊTE par son origine et la remise leur donne le clic : jamais deux maîtres du fil. Deux parcours peuvent attendre
   ensemble : un clic va à celui qui attend sur le bloc du message cité (`findWaitingSurBloc`).
+  🔴 **Pendant une Attente, la même règle (décision 35).** Aucun parcours n'attend le contact et son parcours d'événement
+  DORT (`parcoursDEvenementEndormi`, le prédicat de l'index 0298 plus le sommeil) : ce qu'il écrit ou clique est servi
+  comme ce clic (`pendantUneAttente`, `src/workflow/executor.ts`). Une voie qui coexiste répond et le parcours reprend à
+  son réveil ; sinon il s'arrête et l'agent de Meta ou « À traiter » prend le client. Un parcours ORDINAIRE qui dort
+  garde le silence (`src/inbox/parcours-tient-le-fil.ts`) ; rien pour une réaction, hors WhatsApp, ni quand un opérateur
+  ou l'agent de Meta tient le fil. Le message confié emporte son entrée réelle (`rouverte`, `redelivre`, que la réception
+  transmet à l'avance : `processWorkflowAdvance`) : une conversation « Traité » rouverte rouvre la demande de l'équipe
+  qui tient le fil, une redélivrance de Meta ne relance pas le robot. L'application coexiste vraiment : sa réponse par
+  l'API ne prend pas un fil que seul un parcours d'événement tient (`tenuParLApplication` lit
+  `parcoursOrdinaireTientLeFil`), sinon le parcours s'arrêtait à son réveil ou au clic suivant.
   🔴 **`advance` rend un verdict** : `true` pris, `false` non pris (un opérateur tient le fil, un gel, un clic qui n'est
   pas pour lui, un clic sur un parcours plus voulu), rien pour les sorties qui gardent la règle d'avant (« tour perdu »,
   « canal attendu »). `avanceDuParcours` le lit AVANT de relire « à nous ». ⚠️ La réservation du tour (`reserverAvance`)
@@ -2231,12 +2241,19 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   mène, ni flèche ni « Aller à » (`refusDuVerrou`, `src/shopify/premier-bloc.ts`). L'enregistrement (`PATCH`, qui lit
   le scénario avant d'écrire) et les contrôles de publication (la route et la version programmée) refusent en 422
   `premier_bloc_verrouille` ; un « Aller à » d'un autre scénario vers un premier bloc est refusé à la publication
-  (`viseUnPremierBloc`). `GET /nodes?scenario=<id>` liste les blocs du rayon du scénario édité. Le scénario d'une ligne
+  (`viseUnPremierBloc`). `GET /nodes?scenario=<id>` liste les blocs du rayon du scénario édité, et le panneau « Aller à »
+  la demande. Le builder respecte la marque (`web/lib/partage/premier-bloc.ts`, partagée avec le serveur) : ni ✕ ni
+  poignée d'entrée sur le bloc, ni « Supprimer » au panneau, ni suppression au clavier, aucune connexion qui y entre, et
+  « Aller à » ne le propose pas. Il s'ouvre par `?open=<id>` quel que soit le rayon (une automation n'est pas dans la liste
+  du Builder). Dans un scénario `shopify`, les variables d'un template proposent les données de l'événement de sa ligne
+  (toutes pour une copie : `donneesDuScenario`), en source `variable` (`var:<clé>`) rangée sur le bloc, et un texte
+  WhatsApp insère `{{shopify.<clé>}}` ; une donnée déjà choisie reste affichée, jamais remplacée par « Nom ». Le scénario d'une ligne
   ne se supprime pas : ses utilisations nomment l'automation (`UTILISATIONS`), la clé étrangère de `shopify_lignes` étant
   en cascade.
 - 🔴 **LE MÉNAGE DES TEMPLATES REMPLACÉS DANS UNE AUTOMATION** (spec § 5.1, lot 5). À chaque mise en ligne d'un scénario
   d'automation (la route, `set_shopify_message`, une version programmée), chaque template que la version d'avant
-  envoyait, que la nouvelle ne nomme plus ET qui a été écrit depuis un bloc (une ligne de `modeles_de_bloc`) est
+  envoyait, que la nouvelle ne nomme plus ET qui a été écrit depuis un bloc d'un scénario d'AUTOMATION (une ligne de
+  `modeles_de_bloc` dont le scénario d'origine n'est pas au rayon général : `desModelesDAutomation`, décision 14) est
   programmé à l'oubli un quart d'heure plus tard (`programmerMenage`, travail `type: 'bloc'` de la file
   `shopify-oubli-modele`). Le worker relit sa marque et vérifie qu'aucun graphe de l'espace ne le nomme plus (publié,
   brouillon ou programmé, tous rayons : `nommeLeModele`) avant de le supprimer, sous la garde des campagnes actives.
@@ -2857,15 +2874,21 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   Ces gestes se journalisent (`shopify.pause`, `shopify.reprise`, `shopify.ligne`) ;
 - **`set_shopify_message` pose le template du premier bloc** (décision 7) : la ligne et son scénario naissent s'ils
   manquent ; la suite est gardée, et un template dont les réponses rapides ne mènent plus aux branches d'où part une
-  flèche est refusé ; le brouillon en cours reçoit le même bloc ; une version programmée est annulée par cette
+  flèche est refusé ; seules les clés du template changent (template, langue, boutons, cartes, variables : la sortie
+  « Pas de réponse » et le code du bloc restent) ; le brouillon en cours reçoit le même bloc ; une version programmée est annulée par cette
   publication, et l'outil le dit. Les contrôles chez Meta (approuvé, catégorie admise, nombre de variables) ne valent
-  que pour allumer ; un numéro relié par QR code n'allume rien. L'outil rend les automations et dit les étapes qu'il ne
+  que pour allumer ; un numéro relié par QR code n'allume rien. La liste des templates illisible chez Meta : l'état des
+  lignes se lit sans l'état de chaque template (`etatChezMeta` nul), et brancher un premier bloc est refusé en 503 avant
+  toute écriture. L'outil rend les automations et dit les étapes qu'il ne
   change pas (elles se changent dans la console) ; sans la fonction `scenarios` (Free), seule la première part ;
 - **la bascule (migration 0302)** : les anciens messages (`shopify_messages`) sont éteints et les attentes de l'ancien
   assistant (`shopify_messages_attente`) vidées ; les deux tables ne se lisent plus que par `get_shopify_state` (pour
   les plugins d'avant) et par le ménage des modèles de l'assistant. L'assistant est retiré : `POST
   .../integrations/shopify/messages` répond 410 avec la phrase qui dit où les messages se règlent, et `PATCH
-  .../messages/:evenement` règle encore le délai de la relance, pour l'écran d'avant ;
+  .../messages/:evenement` règle encore le délai de la relance, pour l'écran d'avant. Ses e-mails et les méthodes du
+  magasin qui n'écrivaient que pour lui sont retirés. La console règle les automations dans la section Shopify de l'écran
+  Automation (`AutomationsShopify` : interrupteur, état, délai du panier, scénario ; le premier allumage ouvre le
+  builder) et la pause dans Tools > Intégrations (`ReglageShopify`) ;
 - **le traitement se fait DANS la requête**, et Shopify tient lieu de file : l'envoi public n'existe que dans l'API, un
   503 fait réessayer Shopify, et chaque événement se réserve (`shopify_evenements`, bail de 2 minutes) ; aucun ordre
   n'est supposé entre sujets (mesuré : `orders/paid` arrive avant `orders/create`) ;

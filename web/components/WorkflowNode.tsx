@@ -20,6 +20,7 @@ import { sortiesDuBloc, type EmailRecipientData } from '@/lib/workflow-canevas';
 import { brand, ink } from '@/lib/couleurs';
 import { Icone, type NomIcone } from '@/components/Icone';
 import { genreDeLAdresse } from '@/lib/champ-fichier';
+import { estPremierBlocVerrouille } from '@/lib/partage/premier-bloc';
 
 /**
  * Ce qui est DESSINÉ sur le canevas : la carte d'un bloc et la flèche entre deux blocs.
@@ -242,6 +243,7 @@ function WFNode({ id, data, selected }: NodeProps) {
   const updateNodeInternals = useUpdateNodeInternals();
   const wfType = (data.wfType as WorkflowNodeType) ?? 'template';
   const meta = nodeMetaOf(wfType); // tolérant : un type pas encore connu du front (ex. condition) -> repli neutre
+  const verrouille = estPremierBlocVerrouille(data);
   // Un template CAROUSEL n'a aucun bouton de premier niveau : ses boutons vivent dans les cartes, et chacun
   // vaut une sortie (10 cartes x 2 boutons = 20 destinations). `templateCards` sert UNIQUEMENT à dessiner ces
   // sorties : le moteur d'envoi ne lit que `templateButtons`, qui reste vide pour un carousel (sinon on
@@ -419,15 +421,28 @@ function WFNode({ id, data, selected }: NodeProps) {
       )}
       {/* COPIER LE CODE, à côté du bouton lecture (ou à sa place quand l'hôte ne propose pas de test). */}
       <BoutonCopierCode id={id} code={codeDuBloc} decale={testDepuisBloc !== null} />
-      <Handle type="target" position={Position.Top} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-brand-400" />
-      {/* Suppression directe du bloc (sans passer par le menu de droite). nodrag + stopPropagation : ne déclenche ni
-          le drag ni la sélection du bloc. Même pattern que le ✕ des arêtes (CustomEvent -> listener parent). */}
-      <button
-        className="nodrag absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-ink-300 bg-white text-[11px] text-danger shadow-mm-sm hover:bg-danger-50"
-        title={t('Supprimer le bloc', 'Delete block')}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('wf-node-delete', { detail: id })); }}
-      ><Icone nom="fermer" taille="mini" /></button>
+      {/* 🔴 LE PREMIER BLOC D'UNE AUTOMATION (décision 13) : rien ne mène à lui (aucune poignée d'entrée) et il ne se
+          supprime pas (aucun ✕) ; le serveur refuse de toute façon un graphe qui le perd ou y mène. */}
+      {verrouille ? (
+        <span
+          data-testid={`wf-premier-bloc-${id}`}
+          className="absolute -top-2 right-2 z-10 rounded-full bg-ink-700 px-1.5 py-0.5 text-[9px] font-medium leading-none text-white shadow-mm-sm"
+        >
+          {t('premier message', 'first message')}
+        </span>
+      ) : (
+        <>
+          <Handle type="target" position={Position.Top} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-brand-400" />
+          {/* Suppression directe du bloc (sans passer par le menu de droite). nodrag + stopPropagation : ne déclenche ni
+              le drag ni la sélection du bloc. Même pattern que le ✕ des arêtes (CustomEvent -> listener parent). */}
+          <button
+            className="nodrag absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-ink-300 bg-white text-[11px] text-danger shadow-mm-sm hover:bg-danger-50"
+            title={t('Supprimer le bloc', 'Delete block')}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('wf-node-delete', { detail: id })); }}
+          ><Icone nom="fermer" taille="mini" /></button>
+        </>
+      )}
       <div className="flex items-center gap-1.5 rounded-t-carte border-b border-ink-200 bg-white px-2 py-1">
         <Icone nom={meta.icone} taille="petite" />
         <span className="truncate text-[11px] font-semibold text-ink-900">{String(data.name ?? '').trim() || t(...meta.label)}</span>

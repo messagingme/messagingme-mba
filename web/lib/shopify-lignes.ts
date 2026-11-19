@@ -1,4 +1,5 @@
 import type { LigneShopifyVue } from './api-shopify';
+import { DONNEES_PAR_EVENEMENT, DONNEES_SHOPIFY, LIBELLES_DONNEES, type DonneeShopify } from './partage/shopify-messages';
 
 /**
  * LES AUTOMATIONS SHOPIFY DE LA CONSOLE, LEUR PARTIE SANS ÉCRAN (menu « Scénario », lot 5) : l'état d'une ligne tel que la
@@ -29,6 +30,23 @@ export function etatDeLAutomation(l: LigneShopifyVue | undefined): EtatAutomatio
   if (l.etatChezMeta === 'PENDING' || l.etatChezMeta === 'IN_APPEAL') return 'en_validation';
   if (l.etatChezMeta !== 'APPROVED') return 'refuse';
   return l.versionProgrammee ? 'active_nouvelle_version' : 'active';
+}
+
+/** Une donnée de l'événement qu'un scénario Shopify lit : sa clé, et son libellé dans les deux langues. */
+export interface DonneeEvenement {
+  cle: DonneeShopify;
+  libelle: readonly [string, string];
+}
+
+/**
+ * Les données qu'un scénario Shopify peut lire, dans le builder (les variables d'un template, `{{shopify.<clé>}}` dans un
+ * texte) : celles de l'événement de sa ligne ; toutes, pour une copie qu'aucune ligne n'envoie, atteinte par un « Aller
+ * à » (elle reçoit les données de l'événement d'où l'on vient).
+ */
+export function donneesDuScenario(lignes: readonly LigneShopifyVue[], workflowId: string): DonneeEvenement[] {
+  const ligne = lignes.find((l) => l.workflowId === workflowId);
+  const cles = ligne ? DONNEES_PAR_EVENEMENT[ligne.evenement] : DONNEES_SHOPIFY;
+  return cles.map((cle) => ({ cle, libelle: LIBELLES_DONNEES[cle] }));
 }
 
 /** Le délai en clair : « 15 min », « 1 h », « 1 h 30 », « 24 h ». */

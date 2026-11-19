@@ -150,54 +150,42 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
 - **Bord** : une réponse sur le mauvais canal (parcours RCS, réponse WhatsApp) reste sans réponse, comme avant ; le fil
   reste désormais au scénario jusqu'à 24 h après sa dernière écriture.
 
-## 🟡 Le lot 5b du menu « Scénario » (Shopify) : ce qui reste (2026-11-19)
+## 🟡 Le lot 5 du menu « Scénario » (Shopify) : ce qui reste après 5c (2026-11-19)
 
-- **Les deux e-mails de l'ancien assistant n'ont plus d'émetteur** (`shopify_message_actif`, `shopify_modele_refuse`,
-  `src/emails-produit/catalogue.ts`) : les retirer avec l'écran d'avant (5c), et les méthodes du magasin qui n'écrivent
-  plus que pour lui (`brancher`, `message`, `poserAttente`, `attenteDuModele`, `retirerAttente`, `attentesAnciennes`).
-- **La phrase du 410 de l'ancien assistant renvoie à « Automation, section Shopify »**, qui n'existe qu'avec 5c : entre le
-  déploiement de 5b et le push de 5c, elle annonce un écran à venir.
+5c a réglé, de la relecture de 5b : le premier bloc gardé par `set_shopify_message`, l'état qui survit à une panne de Meta,
+le ménage qui épargne le Builder général, la décision 35, l'entrée réelle (rouverte, redélivrance) du message confié, les
+tests X1 et `rouverte`, et les e-mails et méthodes de l'ancien assistant. Restent :
+
+- **Le premier bloc n'est pas pré-rempli d'un texte proposé** (spec § 2.1) : le formulaire « Écrire un nouveau template »
+  part vide sur le bloc verrouillé ; le marchand écrit son texte, puis relie chaque variable aux données Shopify dans le
+  panneau du bloc. Le pré-remplir passe par `TemplateForm`, dont les sources de variables deviennent des indices du
+  template : les données Shopify doivent rester sur le BLOC (contrainte du plan), et la validation des indices refuse la
+  source `variable` (`src/crm/template.ts`, `accepterVariables`). Une prop `proposition` (corps à `{{1}}`, exemples
+  `EXEMPLES_DONNEES`, catégorie, pied STOP) dont les sources partent sur le bloc et jamais dans les indices.
+- **Le lien de test d'un scénario Shopify n'a pas de données d'exemple** : le premier bloc lit ses variables dans
+  l'événement, absent d'un lancement `lien_de_test`, donc l'envoi échoue sur une donnée manquante. Démarrer ce lancement
+  avec un événement d'exemple (`EXEMPLES_DONNEES` de l'événement de la ligne) quand le scénario est au rayon `shopify`.
+- **Une voie qui coexiste mais ne peut pas partir** (crédit épuisé, plafond, scénario répondeur déjà parti) : le message
+  confié pendant une Attente ou par un clic hors parcours (décisions 34 et 35) se heurte à `saufParcours` et reste sans
+  réponse jusqu'au réveil du parcours. `remettreLeClicHorsParcours` ne sait pas si la voie est partie.
+- **La fiche du bloc, étape 7** (français et anglais) : « et le bloc l'envoie aussitôt » contredit « il ne part pas » juste
+  en dessous ; écrire « le bloc le prend aussitôt » (5d : `vitrine:aide`, puis `aide:charger`).
+- **La capture d'aide de Shopify** (`web/e2e/captures/brancher-ma-boutique-shopify.capture.ts`) montre encore l'assistant
+  retiré : la refaire avec la section Shopify de l'écran Automation (5d, avec la fiche).
 - **Un « Aller à » d'un autre scénario vers un premier bloc** n'est refusé qu'à la publication : son brouillon
-  s'enregistre.
+  s'enregistre. (Dans le MÊME scénario, le builder ne le propose plus.)
 - **L'enregistrement d'un graphe lit le scénario avant d'écrire** (le verrou du premier bloc) : une lecture de plus par
   sauvegarde automatique, tous rayons.
-
-La relecture indépendante de 5b (2026-11-19, AUCUN ROUGE, déployable tel quel) note qu'en 5b aucun scénario Shopify ne
-peut avoir de suite (rien ne l'écrit encore : le pont n'est jamais posé). Ses jaunes, dans l'ordre où les régler avec 5c :
-
-- **AVANT le push de 5c : `set_shopify_message` écrase toute la `data` du premier bloc** (`avecLePremierBloc`,
-  `src/shopify/lignes-gestion.ts`) : il perd la sortie « Pas de réponse » (`timeoutValue`, `timeoutUnit`, décision 12), le
-  `code` et ce que l'éditeur y range. Dès qu'un scénario de ligne a une suite, changer le premier template par Claude fait
-  taire la suite d'un « Pas de réponse », sans erreur (contraire à la décision 7). Partir de `n.data` et n'y remplacer que
-  template, langue, boutons et variables.
-- **AVANT le push de 5c : l'état Shopify dépend de la liste des templates chez Meta, sans filet** (`etatDesLignes`,
-  `brancherLePremierBloc`) : Meta en panne ou un jeton invalide font lever `GET /integrations/shopify` (la carte en
-  erreur, l'entrée Shopify masquée par `AppShell`), `get_shopify_state`, et `set_shopify_message` APRÈS son changement.
-  Capturer la panne et rendre `etatChezMeta: null`.
-- **Le ménage peut supprimer chez Meta un template né dans le Builder général** (rare, vrai dès 5b) : choisi par Claude
-  comme premier bloc d'une ligne puis remplacé, il porte la marque (une ligne de `modeles_de_bloc`, quel que soit le rayon
-  d'origine) ; la décision 14 protège pourtant les templates du Builder. Filtrer par le rayon du scénario d'origine
-  (`modeles_de_bloc.workflow_id`).
-- **À TRANCHER PAR JULIEN avant 5c** : la décision 34 ne vaut que pour un parcours qui ATTEND une réponse ; pendant une
-  Attente (`sleeping`), la règle « un parcours tient le fil » rend le silence jusqu'à 24 h (ni agent IA, ni agent de
-  Meta, ni « À traiter »), alors que la décision 21 promettait que le répondeur répond pendant le sommeil d'un parcours
-  d'événement. Et le mode « application » rangé parmi les voies qui coexistent étend la décision 34.
-- **Le clic confié à une voie qui coexiste perd l'entrée réelle** (`remettreLeClicHorsParcours`, `rouverte: false`, sans
-  `redelivre`) : une conversation « Traité » rouverte par ce clic ne rouvre pas de demande ; une voie qui ne peut pas
-  partir (crédit, plafond, scénario répondeur déjà parti) se heurte à `saufParcours` (silence) ; un clic redélivré sur le
-  premier message d'un événement frère relance l'agent IA (réponse et coût doublés).
 - **Double envoi rare** né de l'extension de `clorePremierNonLivre` : un premier template sans choix échoue en 131049, le
   second (utility) est livré, la relance automatique du lendemain fait renaître le parcours et le second repart. Course
   voisine : un panier relancé juste avant la commande peut voir son parcours naître après l'arrêt (la naissance ne relit
   pas `panierOuvert`) et tenir la place unique de « Commande payée ».
-- **Tests** : la référence du verrou à l'enregistrement (une copie jamais publiée, `PATCH`) et le cas `rouverte` ne sont
-  tenus par aucun test qui rougit (mutation X1 de la relecture).
 - **Petits écarts** : `noterRaison` sans `tenant_id` (identifiant interne) ; `PUT .../lignes/:evenement` allume une ligne
   sur un numéro relié par QR code (chaque événement finit `filiere_differente`) ; `assurerLigne` non atomique (un scénario
   orphelin possible) ; le filtre de longueur de `variablesDuDestinataire` est mort (`valeurDeVariable` coupe déjà à
   1 024) ; un bloc agent IA d'un scénario de ligne compte en `agent` ; un récupéré daté du bloc de suite peut faire plus de
-  récupérés que de relances à la lisière d'une période ; `premier_message_absent` s'affiche brut dans l'écran d'avant et
-  `get_shopify_state` ne le décrit pas.
+  récupérés que de relances à la lisière d'une période ; `premier_message_absent` n'est pas décrit par
+  `get_shopify_state`.
 
 ## 🟡 Le moteur des parcours d'événement : ce qui reste après la relecture de 5a (2026-11-19, aucun rouge)
 
@@ -247,18 +235,9 @@ type. Reste :
 
 ## 🟡 Les templates écrits depuis un bloc : ce qui reste après la relecture de 3b (2026-11-18, aucun rouge)
 
-À prendre avec le prochain lot de fonctionnalité qui touche le Builder. Les trois premiers touchent le client :
+À prendre avec le prochain lot de fonctionnalité qui touche le Builder (5c a réglé « Modifier ce template » sur un template
+que Templates refuse, et les choix de variables écrasés par le sondage ; la fiche de l'étape 7 part avec 5d) :
 
-- **« Modifier ce template » est proposé sur un template que l'écran Templates refuse de modifier** (`modifiable`,
-  `web/components/WorkflowConfigPanel.tsx`, n'exclut que le carousel et l'en-tête média) : un bouton d'appel y est relu
-  comme une réponse rapide, sans l'avertissement de la duplication, et une offre limitée disparaît. Suivre
-  `editable !== false`, la règle de l'écran Templates et de `modifierUnModele`.
-- **Les choix de variables peuvent être écrasés pendant « Modifier »** : `initial` est recalculé à chaque rendu
-  (`web/components/WorkflowBuilder.tsx`), donc un rechargement de la liste par le sondage (un autre template tranché)
-  rejoue l'effet des indices de `TemplateForm` par-dessus les choix faits dans le formulaire. Figer `initial` et
-  `sourcesDuBloc` à l'ouverture.
-- **Fiche du bloc, étape 7** (français et anglais) : « et le bloc l'envoie aussitôt » contredit « il ne part pas » juste en
-  dessous ; écrire « le bloc le prend aussitôt » (page publique : `vitrine:aide`, puis `aide:charger`).
 - **Parcourir la liste des templates efface des flèches sans retour** (« Choisir… » ou un template intermédiaire ; au
   clavier sous Windows, chaque template survolé) : la perte se voit (poignées rouges) mais ne s'annule pas. Calculer la
   correspondance depuis les boutons pris à l'ouverture du panneau, ou rendre les flèches au retour sur l'ancien template.

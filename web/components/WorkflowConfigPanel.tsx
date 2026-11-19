@@ -25,6 +25,8 @@ import { ApiError } from '@/lib/http';
 import { rangementDuBloc } from '@/lib/partage/rangement-formulaire';
 import { PROFILE_NAME_SAVE_KEY } from '@/lib/flow-mapping';
 import { SourceDeVariable } from '@/components/SourceDeVariable';
+import { estPremierBlocVerrouille } from '@/lib/partage/premier-bloc';
+import type { DonneeEvenement } from '@/lib/shopify-lignes';
 import { SEL_AUCUN, lignesDuBloc, lireSourcesDuBloc, versSourcesDuBloc } from '@/lib/variables-bloc-template';
 import type { VarRow } from '@/lib/variables-template';
 import { useEffect, useRef, useState } from 'react';
@@ -486,8 +488,13 @@ function AdresseDuLien({ valeur, fields, onChange }: {
 
 export function ConfigPanel({
   node, tenantId, workflowId, blocsDuScenario = [], isRoot, campaignEligible, onPatch, onDelete, templates, flows, tags, fields, usageChamps, emailAccounts, emailTemplates, rcsMessages, agents, membres, requetes, onCommitTag, onCreerChamp, mbaEnabled, alerteFenetre = null,
-  tousLesTemplates, modelesDeBloc, onEcrireModele,
+  tousLesTemplates, modelesDeBloc, onEcrireModele, donneesEvenement,
 }: {
+  /**
+   * Les données de l'événement d'un scénario Shopify (menu « Scénario », lot 5) : le choix des variables d'un template et
+   * `{{shopify.<clé>}}` dans un texte WhatsApp. Absentes au Builder général.
+   */
+  donneesEvenement?: readonly DonneeEvenement[];
   /**
    * Menu « Scénario », lot 3. La liste COMPLÈTE des templates (la valeur d'un bloc peut être un template en validation,
    * qui doit rester affiché), l'état chez Meta des templates écrits depuis un bloc, et l'ouverture du formulaire du bloc.
@@ -530,12 +537,22 @@ export function ConfigPanel({
   const t = useT();
   const d = node.data as Record<string, unknown>;
   const wfType = (d.wfType as WorkflowNodeType) ?? 'template';
+  // Le premier bloc d'une automation (décision 13) : jamais supprimé, rien ne mène à lui, toujours un template.
+  const verrouille = estPremierBlocVerrouille(d);
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-900"><Icone nom={nodeMetaOf(wfType).icone} />{t(...nodeMetaOf(wfType).label)}</span>
-        <button onClick={onDelete} className="text-xs text-danger hover:underline">{t('Supprimer', 'Delete')}</button>
+        {!verrouille && <button onClick={onDelete} className="text-xs text-danger hover:underline">{t('Supprimer', 'Delete')}</button>}
       </div>
+      {verrouille && (
+        <p className="rounded-controle border border-ink-200 bg-ink-50 px-2.5 py-2 text-xs leading-snug text-ink-700" data-testid="panneau-premier-bloc">
+          {t(
+            'Le premier message de l’automation : Shopify l’envoie à chaque événement, puis la suite du scénario répond au client. Il reste un template, et rien ne mène à lui.',
+            'The automation’s first message: Shopify sends it on each event, then the rest of the scenario answers the customer. It stays a template, and nothing leads to it.',
+          )}
+        </p>
+      )}
 
       {/* Lot D : ouvrir sur autre chose qu'un template est désormais AUTORISÉ (l'enregistrement passe). Ce n'est
           plus une erreur mais une CONSÉQUENCE à connaître : le scénario sort du champ des campagnes broadcast.
@@ -775,7 +792,10 @@ export function ConfigPanel({
           : liste.find((x) => x.name === nom && x.language === d.language) ?? liste.find((x) => x.name === nom);
         const etat = nom === '' ? undefined : modelesDeBloc?.get(`${nom}|${String(d.language ?? 'fr')}`);
         const horsListe = nom !== '' && !templates.some((x) => x.name === nom);
-        const modifiable = !!actuel && !actuel.isCarousel && !(actuel.headerFormat === 'IMAGE' || actuel.headerFormat === 'VIDEO' || actuel.headerFormat === 'DOCUMENT');
+        // La règle de l'écran Templates et de `modifierUnModele` (`editable`, relecture de 3b) : un bouton d'appel, un code à
+        // copier ou un catalogue bloquent aussi l'édition ; le carousel et l'en-tête média, pour une réponse plus ancienne.
+        const modifiable = !!actuel && actuel.editable !== false && !actuel.isCarousel
+          && !(actuel.headerFormat === 'IMAGE' || actuel.headerFormat === 'VIDEO' || actuel.headerFormat === 'DOCUMENT');
         return (
         <div>
           <label className="mb-1 block text-xs font-medium text-ink-500">{t('Template à envoyer', 'Template to send')}</label>
@@ -820,6 +840,7 @@ export function ConfigPanel({
               template={actuel}
               variables={d.variables}
               fields={fields}
+              donnees={donneesEvenement}
               onPatch={onPatch}
             />
           )}
@@ -848,6 +869,7 @@ export function ConfigPanel({
                 valeur={(d.body as string) ?? ''}
                 onChange={(body) => onPatch({ body })}
                 fields={fields}
+                donnees={donneesEvenement}
                 label={t('La question', 'The question')}
                 testId="question-node-body"
                 max={4096}
@@ -928,6 +950,7 @@ export function ConfigPanel({
                 valeur={(d.body as string) ?? ''}
                 onChange={(body) => onPatch({ body })}
                 fields={fields}
+                donnees={donneesEvenement}
                 label={t('Message', 'Message')}
                 placeholder={t('Votre message…', 'Your message…')}
                 testId="quick-node-body"
@@ -1582,11 +1605,13 @@ function ReglagesReponseRangee({ node, d, fields: champsDeLEspace, onPatch, avec
  * template. Composant à part pour la même raison que `FonctionJs` (il porte un état). Indices illisibles : rien
  * n'est affiché plutôt qu'une alerte fausse.
  */
-function VariablesDuTemplate({ tenantId, template, variables, fields, onPatch }: {
+function VariablesDuTemplate({ tenantId, template, variables, fields, donnees, onPatch }: {
   tenantId: string;
   template: TemplateSummary | undefined;
   variables: unknown;
   fields: UserFieldDef[];
+  /** Les données de l'événement d'un scénario Shopify, proposées au choix de chaque variable (lot 5). */
+  donnees: readonly DonneeEvenement[] | undefined;
   onPatch: (p: Record<string, unknown>) => void;
 }) {
   const t = useT();
@@ -1633,6 +1658,7 @@ function VariablesDuTemplate({ tenantId, template, variables, fields, onPatch }:
           onChange={(patch) => changer(i, patch)}
           testId={`template-node-variable-${i + 1}`}
           avecAucun={l.sel === SEL_AUCUN}
+          {...(donnees ? { donnees } : {})}
         />
       ))}
       {lignes.some((l) => l.sel === SEL_AUCUN) ? (

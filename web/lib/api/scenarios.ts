@@ -170,6 +170,8 @@ export interface WorkflowSummary {
   name: string;
   /** Code public « scn_<client>_<ulid> » (schéma A). Absent tant que le backfill n'a pas tourné. */
   code?: string | null;
+  /** Le rayon (menu « Scénario ») : `general` au Builder, `shopify` pour une automation. Rendu par `getWorkflow`. */
+  rayon?: string;
   /**
    * Le graphe EN LIGNE : celui que les contacts parcourent. Ne change que sur « Publier ».
    *
@@ -333,10 +335,16 @@ export interface NodeListItem {
   workflowName: string;
   summary: string;
 }
-/** Liste tous les blocs des scénarios du tenant, optionnellement filtrés par type. */
-export function listNodes(tenantId: string, type?: WorkflowNodeType): Promise<{ nodes: NodeListItem[] }> {
-  const qs = type ? `?type=${encodeURIComponent(type)}` : '';
-  return request<{ nodes: NodeListItem[] }>(`/tenants/${tenantId}/nodes${qs}`);
+/**
+ * Liste tous les blocs des scénarios du tenant, optionnellement filtrés par type. `scenario` : ceux du RAYON de ce scénario
+ * (menu « Scénario », lot 2), pour qu'un « Aller à » reste dans le rayon ; absent, le Builder général.
+ */
+export function listNodes(tenantId: string, type?: WorkflowNodeType, scenario?: string): Promise<{ nodes: NodeListItem[] }> {
+  const qs = new URLSearchParams();
+  if (type) qs.set('type', type);
+  if (scenario) qs.set('scenario', scenario);
+  const s = qs.toString();
+  return request<{ nodes: NodeListItem[] }>(`/tenants/${tenantId}/nodes${s ? `?${s}` : ''}`);
 }
 
 // --- Contenu : Tags + User fields (édition) ---

@@ -5,6 +5,7 @@ import { listNodes, listWorkflows, type NodeListItem, type WorkflowSummary } fro
 import { useT } from '@/lib/i18n';
 import { nodeMetaOf } from '@/lib/nodeMeta';
 import type { RFNode } from '@/lib/workflow-canevas';
+import { estPremierBlocVerrouille } from '@/lib/partage/premier-bloc';
 
 /**
  * LE PANNEAU DU BLOC « ALLER À » (RC5, livraison B). La cible se choisit de deux façons, au choix de Julien : un
@@ -39,12 +40,16 @@ export function PanneauAllerA({ tenantId, workflowId, nodeId, data, blocsDuScena
     // Lectures défensives : une réponse sans le champ attendu (serveur plus ancien) laisse la liste vide, jamais l'écran
     // par terre. Le code collé reste utilisable dans tous les cas.
     listWorkflows(tenantId).then((r) => setScenarios(Array.isArray(r.workflows) ? r.workflows : [])).catch(() => setScenarios([]));
-    listNodes(tenantId).then((r) => setPublies(Array.isArray(r.nodes) ? r.nodes : [])).catch(() => setPublies([]));
-  }, [tenantId]);
+    // Les blocs du RAYON de ce scénario (`?scenario=`, menu « Scénario », lot 2) : un « Aller à » d'une automation reste
+    // dans son rayon ; au Builder général, la même liste qu'avant.
+    listNodes(tenantId, undefined, workflowId).then((r) => setPublies(Array.isArray(r.nodes) ? r.nodes : [])).catch(() => setPublies([]));
+  }, [tenantId, workflowId]);
 
   const libelleType = (type: string): string => t(...nodeMetaOf(type).label);
   const ici = useMemo<BlocChoisissable[]>(() => blocsDuScenario
-    .filter((n) => n.id !== nodeId && typeof n.data.code === 'string' && CODE_BLOC_RE.test(n.data.code))
+    // Jamais le premier bloc d'une automation (décision 13) : rien ne mène à lui, le serveur le refuserait.
+    .filter((n) => n.id !== nodeId && typeof n.data.code === 'string' && CODE_BLOC_RE.test(n.data.code)
+      && !estPremierBlocVerrouille(n.data as Record<string, unknown>))
     .map((n) => ({
       code: String(n.data.code),
       nom: String(n.data.name ?? '').trim() || libelleType(String(n.data.wfType ?? '')),

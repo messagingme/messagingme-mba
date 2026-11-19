@@ -58,6 +58,24 @@ describe('selForSource', () => {
   });
 });
 
+/**
+ * 🔴 LA DONNÉE D'UN ÉVÉNEMENT (menu « Scénario », lot 5) : le premier bloc d'une automation Shopify lit ses variables dans
+ * l'événement (`{ type: 'variable', key }`), pas sur la fiche. Lue comme une source inconnue, elle retombait sur « Nom » :
+ * modifier UNE variable du bloc réécrivait toutes les autres, et le numéro de commande partait remplacé par le nom.
+ */
+describe('la donnée d’un événement', () => {
+  it('🔴 fait l’aller et retour sans perte, sans tomber sur le défaut', () => {
+    expect(selForSource({ type: 'variable', key: 'order_number' }, PERSO)).toBe('var:order_number');
+    expect(selToSource('var:order_number', '')).toEqual({ type: 'variable', key: 'order_number' });
+  });
+
+  it('🔴 un indice qui la porte la garde dans la ligne, et le mapping la rend telle quelle', () => {
+    const lignes = appliquerIndices(lignesParDefaut(2), [{ position: 2, source: { type: 'variable', key: 'checkout_url' } }], PERSO);
+    expect(lignes).toEqual([{ sel: SEL_DEFAUT, value: '' }, { sel: 'var:checkout_url', value: '' }]);
+    expect(versParamMapping(lignes)[1]).toEqual({ position: 2, source: { type: 'variable', key: 'checkout_url' } });
+  });
+});
+
 describe('lignesParDefaut et lignesAvecIndices', () => {
   it('autant de lignes que de variables, toutes au defaut', () => {
     expect(lignesParDefaut(2)).toEqual([{ sel: SEL_DEFAUT, value: '' }, { sel: SEL_DEFAUT, value: '' }]);
