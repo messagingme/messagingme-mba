@@ -35,6 +35,7 @@ import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireC
 import { lireFinEssaiBusiness, lireUtilisateursBusiness, retraitCoupeLeNumero } from '@/lib/ops-offre';
 import { OpsEmailsCard } from '@/components/OpsEmailsCard';
 import { lienGmail } from '@/lib/ops-email';
+import { filtrerEspaces } from '@/lib/ops-filtre';
 import { MbaTabs } from '@/components/MbaTabs';
 import { OpsSante } from '@/components/OpsSante';
 import { OpsCapacite } from '@/components/OpsCapacite';
@@ -1883,7 +1884,19 @@ function TenantTable({ tenants, expediteur, onObserver, onSupprimer, onQuotas, o
   const { locale } = useLocale();
   const dot = (q: string | null) => (q === 'GREEN' ? succes[400] : q === 'YELLOW' ? alerte[500] : q === 'RED' ? danger[500] : ink[300]);
   const fmtDate = (iso: string | null) => (iso ? formatDate(iso, locale, { day: '2-digit', month: '2-digit', year: '2-digit' }) : <Nd />);
+  // Retrouver un espace par son nom ou son code d'espace, celui que le client donne au support (2026-11-19).
+  const [recherche, setRecherche] = useState('');
+  const affiches = filtrerEspaces(tenants, recherche);
   return (
+    <div className="space-y-3">
+    <input
+      className={`${inputCls} max-w-xs`}
+      value={recherche}
+      onChange={(e) => setRecherche(e.target.value)}
+      placeholder={t('Nom ou code d’espace', 'Name or workspace code')}
+      aria-label={t('Chercher un espace', 'Search a workspace')}
+      data-testid="ops-filtre-espaces"
+    />
     <div className="overflow-x-auto rounded-carte border border-ink-200 bg-white">
       <table className="w-full min-w-[820px] text-sm">
         <thead>
@@ -1899,10 +1912,13 @@ function TenantTable({ tenants, expediteur, onObserver, onSupprimer, onQuotas, o
           </tr>
         </thead>
         <tbody>
-          {tenants.map((tn) => (
+          {affiches.map((tn) => (
             <tr key={tn.id} className="border-b border-ink-50 last:border-0">
               <td className="px-4 py-2.5">
-                <div className="font-medium text-ink-900">{tn.name}</div>
+                <div className="font-medium text-ink-900">
+                  {tn.name}
+                  {tn.code && <span className="ml-1.5 font-mono text-xs font-normal text-ink-500" data-testid={`code-${tn.id}`}>{tn.code}</span>}
+                </div>
                 <div className="text-xs text-ink-500">{t('créé le', 'created on')} {fmtDate(tn.createdAt)}</div>
                 {/* Entrer dans l'espace pour VOIR ce que le client voit. Session en lecture seule, d'une
                     heure : elle ne peut rien modifier et ne marque rien comme lu. */}
@@ -1961,6 +1977,7 @@ function TenantTable({ tenants, expediteur, onObserver, onSupprimer, onQuotas, o
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

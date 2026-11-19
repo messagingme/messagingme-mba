@@ -10,7 +10,8 @@ import { lireJetonPiece } from './workflow/piece-lien';
 import type { DepsPubInscription } from './pub/inscription';
 import { puisSignaler } from './pub/declencheurs';
 import { surveillerOps } from './ops/tentatives';
-import { envoyerTelegram, sendTelegram } from './ops/telegram';
+import { envoyerTelegram, sendTelegram, brancherLibelleur } from './ops/telegram';
+import { creerLibelleurEspaces } from './ops/libelle-espaces';
 import { creerVerificateurTurnstile } from './auth/turnstile';
 import { creerSuiviRetoursInscription } from './auth/retours-inscription';
 import { creerAlertesReserve } from './http/numero-fourni';
@@ -302,6 +303,8 @@ async function main(): Promise<void> {
    * `APP_URL` rendait : la règle et son cas particulier vivent dans `src/lib/adresses-publiques.ts`.
    */
   const adressesApi = adressesPubliques(config.APP_URL, config.PUBLIC_API_URL);
+  // Chaque alerte Telegram qui cite un espace par son uuid le cite aussi par « Nom » (code) (2026-11-19).
+  brancherLibelleur(creerLibelleurEspaces(pool));
 
   // L'API ne fait qu'EMPILER : elle PRÊTE son pool applicatif à pg-boss, qui n'en ouvre aucun à lui. Une copie de
   // l'API ne retient donc plus aucune connexion de session, et N copies ne multiplient plus `PGBOSS_MAX` (lu par le

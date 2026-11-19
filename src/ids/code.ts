@@ -92,3 +92,12 @@ function codeAleatoire(longueur: number): string {
 export function deriveTenantCode(seed: string): string {
   return base32(createHash('sha256').update(seed).digest(), 6).toLowerCase();
 }
+
+/**
+ * Le code d'espace AFFICHÉ (console, `/ops`, alertes) : celui de la base, ou à défaut le calcul depuis l'uuid, qui est
+ * exactement la valeur que la base recevrait (un espace d'avant 0031 peut n'en avoir aucun). 🔴 Un repère, jamais une
+ * clé : aucune route ne l'accepte à la place d'un `tenantId`, 6 caractères s'énumèrent.
+ */
+export function codeDEspace(tenantId: string, publicCode: string | null): string {
+  return publicCode !== null && publicCode !== '' ? publicCode : deriveTenantCode(tenantId);
+}

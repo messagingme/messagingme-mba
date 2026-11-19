@@ -24,6 +24,26 @@ function codeDeLaCause(err: unknown): string | null {
 }
 
 /**
+ * Le libelleur branché au démarrage (`src/index.ts`, `src/worker.ts`) : il ajoute nom et code aux UUID d'espace d'une
+ * alerte (`creerLibelleurEspaces`). `null` (défaut, et tests) : le texte part tel quel.
+ */
+let libelleur: ((texte: string) => Promise<string>) | null = null;
+
+export function brancherLibelleur(f: ((texte: string) => Promise<string>) | null): void {
+  libelleur = f;
+}
+
+/** Le texte libellé, ou le texte d'origine si le libelleur manque ou lève : une alerte ne se perd jamais pour lui. */
+async function libeller(texte: string): Promise<string> {
+  if (libelleur === null) return texte;
+  try {
+    return await libelleur(texte);
+  } catch {
+    return texte;
+  }
+}
+
+/**
  * Petit client d'alerte Telegram (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID). Il ne bloque ni ne lève jamais :
  * no-op sans configuration, timeout dur. Une panne Telegram ne doit pas pouvoir tuer le worker, le seul process qui
  * envoie les messages. Rend l'issue de l'envoi (`IssueTelegram`).
@@ -35,12 +55,14 @@ export async function envoyerTelegram(
   const token = opts.token ?? config.TELEGRAM_BOT_TOKEN;
   const chatId = opts.chatId ?? config.TELEGRAM_CHAT_ID;
   if (token === '' || chatId === '') return 'non_recue'; // alerting facultatif : non configuré = no-op
+  // Après le test de configuration : sans Telegram, aucune lecture en base pour rien.
+  const corps = await libeller(text);
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // Telegram plafonne un message à 4096 caractères : on tronque (une alerte n'a pas besoin du corps entier).
-      body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 4000) }),
+      body: JSON.stringify({ chat_id: chatId, text: corps.slice(0, 4000) }),
       signal: AbortSignal.timeout(opts.timeoutMs ?? 5000),
     });
     if (!res.ok) {

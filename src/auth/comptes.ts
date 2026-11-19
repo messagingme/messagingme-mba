@@ -7,6 +7,11 @@ export interface CompteParAdresse {
   id: string;
   tenantId: string;
   tenantName: string;
+  /**
+   * `tenants.public_code`, tel que le store le lit (2026-11-19) : peut manquer (faux de test, espace d'avant 0031).
+   * Un affichage passe par `codeDEspace`, jamais par ce champ seul. 🔴 Un repère, jamais une clé.
+   */
+  tenantCode?: string | null;
   role: string;
   disabled: boolean;
 }

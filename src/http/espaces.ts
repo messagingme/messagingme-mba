@@ -4,6 +4,7 @@ import type { Guard, UserStateLoader } from '../auth/middleware';
 import { marquerConnexion, type ComptesAuthDep } from '../auth/comptes';
 import { echeanceSession, signSession } from '../auth/token';
 import { espaceVerifie } from './scope';
+import { codeDEspace } from '../ids/code';
 
 /**
  * CHANGER D'ESPACE SANS SE DÉCONNECTER (RC3, plan `docs/superpowers/plans/2026-10-06-rc3-changer-d-espace.md`).
@@ -37,7 +38,7 @@ export interface EspacesRouteDeps {
 }
 
 /** Un compte de l'identité, tel que la liste et la bascule le lisent. */
-interface CompteDEspace { id: string; tenantId: string; tenantName: string; role: string }
+interface CompteDEspace { id: string; tenantId: string; tenantName: string; tenantCode?: string | null; role: string }
 
 const CorpsBascule = z.object({ tenantId: z.string().min(1).max(100) });
 
@@ -79,7 +80,12 @@ export function registerEspaces(app: FastifyInstance, deps: EspacesRouteDeps, ga
     if (auth.impersonated === true) return reply.code(200).send({ espaces: [] });
     if (!deps.comptes?.getSessionUser || !deps.comptes.getByEmail) return reply.code(503).send({ error: 'changement d’espace indisponible' });
     const lu = await comptesDeLIdentite(auth.userId);
-    const espaces = (lu?.comptes ?? []).map((c) => ({ tenantId: c.tenantId, tenantName: c.tenantName, role: c.role, actuel: c.tenantId === tenant }));
+    // Le code d'espace (2026-11-19) : affiché et copié dans le menu du compte. 🔴 Un repère : `changer-espace` ne
+    // l'accepte pas, il ne prend que l'uuid.
+    const espaces = (lu?.comptes ?? []).map((c) => ({
+      tenantId: c.tenantId, tenantName: c.tenantName, tenantCode: codeDEspace(c.tenantId, c.tenantCode ?? null), role: c.role,
+      actuel: c.tenantId === tenant,
+    }));
     return reply.code(200).send({ espaces });
   });
 

@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { enTransaction } from '../db/transaction';
-import { makeCode, deriveTenantCode } from '../ids/code';
+import { makeCode, deriveTenantCode, codeDEspace } from '../ids/code';
 import { resolveTenantCode } from '../ids/tenant-code';
 import { sha256Hex } from '../lib/signature';
 import { verifierPlaceMembre, type LimitesMembres, type RangMembre } from '../offres/membres';
@@ -244,9 +244,9 @@ export class PgUserStore {
    * 🔴 Une invitation en attente n'y figure jamais (lot identité C) : elle ne s'ouvre que par sa page, et une adresse
    * qui n'a qu'elle est, pour Google, une adresse inconnue (son propre espace naît).
    */
-  async getByEmail(email: string): Promise<Array<{ id: string; tenantId: string; tenantName: string; role: string; disabled: boolean }>> {
-    const res = await this.pool.query<{ id: string; tenant_id: string; tenant_name: string; role: string; disabled_at: Date | null }>(
-      `select u.id, u.tenant_id, t.name as tenant_name, u.role, u.disabled_at
+  async getByEmail(email: string): Promise<Array<{ id: string; tenantId: string; tenantName: string; tenantCode: string; role: string; disabled: boolean }>> {
+    const res = await this.pool.query<{ id: string; tenant_id: string; tenant_name: string; public_code: string | null; role: string; disabled_at: Date | null }>(
+      `select u.id, u.tenant_id, t.name as tenant_name, t.public_code, u.role, u.disabled_at
          from users u
          join tenants t on t.id = u.tenant_id
         where lower(u.email) = lower($1) and not u.invitation_en_attente
@@ -254,7 +254,8 @@ export class PgUserStore {
       [email],
     );
     return res.rows.map((r) => ({
-      id: r.id, tenantId: r.tenant_id, tenantName: r.tenant_name, role: r.role, disabled: r.disabled_at !== null,
+      id: r.id, tenantId: r.tenant_id, tenantName: r.tenant_name, tenantCode: codeDEspace(r.tenant_id, r.public_code),
+      role: r.role, disabled: r.disabled_at !== null,
     }));
   }
 

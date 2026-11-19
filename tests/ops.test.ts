@@ -17,7 +17,7 @@ beforeAll(async () => {
 });
 
 const OVERVIEW: Awaited<ReturnType<ExploitationOps['getTenantOverview']>> = [
-  { id: 't1', name: 'Acme', createdAt: '2026-07-01T00:00:00.000Z', mbaEnabled: true, users: 2, contacts: 10, messages: 50, templatesUsed: 3, lastSendAt: null, phone: '+33 5 25 68 02 50', phoneStatus: 'CONNECTED', quality: 'GREEN', emails: ['admin@acme.test'] },
+  { id: 't1', name: 'Acme', code: 'k7m2p3', createdAt: '2026-07-01T00:00:00.000Z', mbaEnabled: true, users: 2, contacts: 10, messages: 50, templatesUsed: 3, lastSendAt: null, phone: '+33 5 25 68 02 50', phoneStatus: 'CONNECTED', quality: 'GREEN', emails: ['admin@acme.test'] },
 ];
 
 /** La tranche d'exploitation se surcharge membre par membre. */

@@ -1773,7 +1773,10 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
 
 **Comptes et accès**
 
-- `tenants` (`status` ∈ trial | active | locked, `public_code`), `users` (`role` ∈ **admin | manager |
+- `tenants` (`status` ∈ trial | active | locked, `public_code` : le code d'espace, racine des identifiants publics de
+  l'API, AFFICHÉ depuis le 2026-11-19 dans le menu du compte, `/ops` et les alertes Telegram ; tout affichage passe
+  par `codeDEspace`, qui retombe sur `deriveTenantCode(id)` quand la colonne est vide ; 🔴 un repère, aucune route ne
+  l'accepte à la place d'un `tenantId`), `users` (`role` ∈ **admin | manager |
   agent**), `identities` (le mot de passe vit sur l'ADRESSE, pas sur le compte : « une adresse = UN mot de
   passe » est exprimé par la structure ; le SECOND FACTEUR y vit aussi, migration 0182 : `mfa_secret_enc`,
   `mfa_active_le`, `mfa_dernier_pas`, `mfa_secret_attente_enc`), `mfa_codes_secours` (empreintes SHA-256 des

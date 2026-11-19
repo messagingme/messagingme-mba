@@ -3,6 +3,7 @@ import { decodeJwt } from 'jose';
 import Fastify, { type FastifyRequest } from 'fastify';
 import { buildServer } from '../src/server';
 import { registerEspaces } from '../src/http/espaces';
+import { deriveTenantCode } from '../src/ids/code';
 import { monterAvecEtapeEspace } from '../src/http/scope';
 import { FakeQueue } from './fake-queue';
 import { signSession, verifySession } from '../src/auth/token';
@@ -19,10 +20,10 @@ import type { ComptesAuthDep } from '../src/auth/comptes';
 
 const SECRET = 'test-secret';
 const MOI = 'julien@exemple.fr';
-type Compte = { id: string; tenantId: string; tenantName: string; role: string; disabled: boolean };
+type Compte = { id: string; tenantId: string; tenantName: string; tenantCode?: string; role: string; disabled: boolean };
 const COMPTES: Record<string, Compte[]> = {
   [MOI]: [
-    { id: 'u1', tenantId: 't1', tenantName: 'Alpha', role: 'admin', disabled: false },
+    { id: 'u1', tenantId: 't1', tenantName: 'Alpha', tenantCode: 'alpha1', role: 'admin', disabled: false },
     { id: 'u2', tenantId: 't2', tenantName: 'Beta', role: 'agent', disabled: false },
     // Espace suspendu : la garde refuserait toute session dessus.
     { id: 'u3', tenantId: 't3', tenantName: 'Gamma', role: 'admin', disabled: false },
@@ -81,8 +82,9 @@ describe('GET /tenants/:tenantId/espaces', () => {
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({
       espaces: [
-        { tenantId: 't1', tenantName: 'Alpha', role: 'admin', actuel: true },
-        { tenantId: 't2', tenantName: 'Beta', role: 'agent', actuel: false },
+        { tenantId: 't1', tenantName: 'Alpha', tenantCode: 'alpha1', role: 'admin', actuel: true },
+        // Un compte dont le store n'a pas lu de code (espace d'avant 0031) : le code calculé, jamais un vide.
+        { tenantId: 't2', tenantName: 'Beta', tenantCode: deriveTenantCode('t2'), role: 'agent', actuel: false },
       ],
     });
     await a.close();

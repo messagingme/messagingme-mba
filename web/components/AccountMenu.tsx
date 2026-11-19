@@ -10,6 +10,7 @@ import { useOffre } from '@/lib/use-offre';
 import { nomDeLOffre } from '@/lib/offre';
 import { portailPro } from '@/lib/api/offre';
 import { ApiError } from '@/lib/http';
+import { BoutonCopier } from '@/components/doc-api/elements';
 
 /** Initiales pour la pastille (nom si dispo, sinon partie locale de l'email). */
 function initials(email: string): string {
@@ -142,6 +143,15 @@ export function AccountMenu({ session, onLogout }: { session: Session; onLogout:
           <div className="border-b border-ink-100 px-3 py-2">
             <div className="truncate text-sm font-medium text-ink-900">{session.email}</div>
             {actuel && <div className="truncate text-xs text-ink-700" data-testid="menu-espace-actuel">{actuel.tenantName}</div>}
+            {/* Le code d'espace, à donner au support (2026-11-19) ; rien tant que l'API ne l'envoie pas. */}
+            {actuel?.tenantCode && (
+              <div className="mt-1 flex items-center justify-between gap-2 text-xs text-ink-500">
+                <span data-testid="menu-code-espace">
+                  {t('Code d’espace', 'Workspace code')} : <span className="font-mono text-ink-700">{actuel.tenantCode}</span>
+                </span>
+                <BoutonCopier texte={actuel.tenantCode} quoi={t('Code d’espace', 'Workspace code')} testid="menu-copier-code" />
+              </div>
+            )}
             <div className="text-xs text-ink-500">{libelleRole(session.role, t)}</div>
           </div>
           {/* Langue de l'interface (FR/EN), mémorisée par navigateur. Le serveur la retient aussi pour les e-mails du
@@ -205,7 +215,10 @@ export function AccountMenu({ session, onLogout }: { session: Session; onLogout:
                   title={e.tenantName}
                   className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-ink-900 transition-colors duration-150 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-wait disabled:opacity-60"
                 >
-                  <span className="truncate">{e.tenantName}</span>
+                  <span className="truncate">
+                    {e.tenantName}
+                    {e.tenantCode && <span className="ml-1.5 font-mono text-xs text-ink-500">{e.tenantCode}</span>}
+                  </span>
                   <span className="shrink-0 text-xs text-ink-500">{bascule === e.tenantId ? t('Ouverture…', 'Opening…') : libelleRole(e.role, t)}</span>
                 </button>
               ))}

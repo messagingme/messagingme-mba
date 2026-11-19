@@ -12,7 +12,7 @@ import { PgTemplateHintStore } from '../../src/crm/template-hints.pg';
 import { PgUserStore } from '../../src/user/store.pg';
 import { PgTrackedLinkStore } from '../../src/links/tracked-links.pg';
 import { fabriquerJeton, estJeton } from '../../src/links/jeton-contact';
-import { newTrackingCode } from '../../src/ids/code';
+import { newTrackingCode, deriveTenantCode } from '../../src/ids/code';
 import { PgAuthTokenStore } from '../../src/auth/token-store.pg';
 import { PgUserFieldStore } from '../../src/crm/field-store.pg';
 import { PgTagStore } from '../../src/crm/tag-store.pg';
@@ -424,8 +424,8 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
         // 🔴 La connexion Google voit les DEUX espaces, triés par nom comme l'écran de choix du mot de passe.
         // C'était un `limit 1` sans tri : l'adresse entrait dans l'un des deux au hasard (2026-09-25).
         expect(await users.getByEmail(email.toUpperCase())).toEqual([
-          { id: second.userId, tenantId: second.tenantId, tenantName: 'Deuxième espace', role: 'admin', disabled: false },
-          { id: userId, tenantId: newTenant, tenantName: 'Espace itest', role: 'admin', disabled: false },
+          { id: second.userId, tenantId: second.tenantId, tenantName: 'Deuxième espace', tenantCode: deriveTenantCode(second.tenantId), role: 'admin', disabled: false },
+          { id: userId, tenantId: newTenant, tenantName: 'Espace itest', tenantCode: deriveTenantCode(newTenant), role: 'admin', disabled: false },
         ]);
       } finally {
         await pool.query('delete from tenants where id = $1', [second.tenantId]);
@@ -1546,6 +1546,10 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
         const overview = await new PgOpsStore(pool, 'pgboss').getTenantOverview();
         expect(overview.find((t) => t.id === espace)?.emails).toEqual(['admin@ops-emails.test', 'agent@ops-emails.test']);
         expect(overview.find((t) => t.id === vide)?.emails).toEqual([]);
+        // Le code d'espace (2026-11-19) : un espace inséré sans `public_code` (comme avant 0031) reçoit le code calculé.
+        expect(overview.find((t) => t.id === vide)?.code).toBe(deriveTenantCode(vide));
+        await pool.query(`update tenants set public_code = 'zz9zz9' where id = $1`, [vide]);
+        expect((await new PgOpsStore(pool, 'pgboss').getTenantOverview()).find((t) => t.id === vide)?.code).toBe('zz9zz9');
       } finally {
         await pool.query('delete from tenants where id = $1', [vide]);
       }

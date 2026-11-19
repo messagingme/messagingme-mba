@@ -57,6 +57,37 @@ async function ouvrirMenu(page: Page, tenant: string): Promise<void> {
   await expect(page.getByTestId('menu-mon-compte')).toBeVisible();
 }
 
+/**
+ * LE CODE D'ESPACE (2026-11-19) : celui de l'espace actuel s'affiche sous son nom, avec un bouton copier, et celui de
+ * chaque autre espace à côté de son nom. Une API d'avant le champ (les espaces sans `tenantCode`, comme `DEUX`)
+ * n'affiche ni code ni bouton : la console part au push, l'API à son déploiement.
+ */
+test.describe('Menu du compte : le code d’espace', () => {
+  const AVEC_CODES = (actuel: string) => [
+    { ...espace('t-alpha', 'Espace Alpha', 'admin', actuel), tenantCode: 'k7m2p3' },
+    { ...espace('t-beta', 'Espace Beta', 'agent', actuel), tenantCode: 'b4x9qa' },
+  ];
+
+  test('le code de l’espace actuel se lit et se copie ; celui de l’autre espace se lit dans la liste', async ({ page }) => {
+    await monter(page, ALPHA, (tenant) => ({ espaces: AVEC_CODES(tenant) }));
+    await page.goto('/inbox');
+    await ouvrirMenu(page, 't-alpha');
+    await expect(page.getByTestId('menu-espace-actuel')).toHaveText('Espace Alpha');
+    await expect(page.getByTestId('menu-code-espace')).toContainText('k7m2p3');
+    await expect(page.getByTestId('menu-copier-code')).toBeVisible();
+    await expect(page.getByTestId('menu-espace-t-beta')).toContainText('b4x9qa');
+  });
+
+  test('une API sans le champ : ni code ni bouton', async ({ page }) => {
+    await monter(page, ALPHA, (tenant) => ({ espaces: DEUX(tenant) }));
+    await page.goto('/inbox');
+    await ouvrirMenu(page, 't-alpha');
+    await expect(page.getByTestId('menu-espace-actuel')).toHaveText('Espace Alpha');
+    await expect(page.getByTestId('menu-code-espace')).toHaveCount(0);
+    await expect(page.getByTestId('menu-copier-code')).toHaveCount(0);
+  });
+});
+
 test.describe('Menu du compte : changer d’espace', () => {
   test('🔴 deux espaces : on bascule, la session est remplacée, et l’Inbox montre l’autre espace', async ({ page }) => {
     const appels = await monter(page, ALPHA, (tenant) => ({ espaces: DEUX(tenant) }));

@@ -1,11 +1,14 @@
 import type { Pool } from 'pg';
 import { ALL_QUEUES, BASE_QUEUES, dlqName } from '../queue/names';
 import { CHAMPS_DU_COMPTE } from '../webhooks/parse';
+import { codeDEspace } from '../ids/code';
 
 /** Rollup par tenant pour la surface d'exploitation cross-tenant (lecture seule). */
 export interface TenantOverviewRow {
   id: string;
   name: string;
+  /** Le code d'espace (`codeDEspace`, 2026-11-19) : affiché et filtrable dans `/ops`, jamais un paramètre de route. */
+  code: string;
   createdAt: string;
   mbaEnabled: boolean;
   users: number;
@@ -129,13 +132,13 @@ export class PgOpsStore {
 
   async getTenantOverview(): Promise<TenantOverviewRow[]> {
     const res = await this.pool.query<{
-      id: string; name: string; created_at: Date; mba_enabled: boolean;
+      id: string; name: string; public_code: string | null; created_at: Date; mba_enabled: boolean;
       users: number; contacts: number; messages: number; templates_used: number;
       last_send_at: Date | null; phone: string | null; phone_status: string | null; quality: string | null;
       emails: string[];
     }>(
       `select
-         t.id, t.name, t.created_at,
+         t.id, t.name, t.public_code, t.created_at,
          coalesce(ts.mba_enabled, false) as mba_enabled,
          (select count(*) from users u where u.tenant_id = t.id)::int as users,
          (select count(*) from contacts c where c.tenant_id = t.id)::int as contacts,
@@ -161,6 +164,7 @@ export class PgOpsStore {
     return res.rows.map((r) => ({
       id: r.id,
       name: r.name,
+      code: codeDEspace(r.id, r.public_code),
       createdAt: r.created_at.toISOString(),
       mbaEnabled: r.mba_enabled,
       users: Number(r.users),

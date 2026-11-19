@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { newUlid, makeCode, deriveTenantCode } from '../src/ids/code';
+import { newUlid, makeCode, deriveTenantCode, codeDEspace } from '../src/ids/code';
 
 const CROCKFORD_RE = /^[0-9A-HJKMNP-TV-Z]+$/; // base32 Crockford (sans I, L, O, U)
 
@@ -52,6 +52,23 @@ describe('deriveTenantCode', () => {
 
   it('des seeds différents donnent des codes différents (attendu)', () => {
     expect(deriveTenantCode('tenant-a')).not.toBe(deriveTenantCode('tenant-b'));
+  });
+});
+
+describe('codeDEspace (le code affiché, 2026-11-19)', () => {
+  const ID = '00000000-0000-0000-0000-000000000001';
+
+  it('rend le code stocké quand il existe', () => {
+    expect(codeDEspace(ID, 'k7m2p3')).toBe('k7m2p3');
+  });
+
+  it('sans code stocké (espace ancien), rend le calcul : la valeur que la base recevrait', () => {
+    expect(codeDEspace(ID, null)).toBe('fb0vhn');
+    expect(codeDEspace(ID, null)).toBe(deriveTenantCode(ID));
+  });
+
+  it('un code stocké vide vaut une absence', () => {
+    expect(codeDEspace(ID, '')).toBe('fb0vhn');
   });
 });
 

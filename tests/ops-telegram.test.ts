@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { envoyerTelegram, sendTelegram } from '../src/ops/telegram';
+import { envoyerTelegram, sendTelegram, brancherLibelleur } from '../src/ops/telegram';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  brancherLibelleur(null);
 });
 
 describe('sendTelegram', () => {
@@ -35,6 +36,40 @@ describe('sendTelegram', () => {
       throw new Error('network down');
     }));
     await expect(sendTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).resolves.toBe(false);
+  });
+});
+
+/**
+ * LE LIBELLEUR (code d'espace visible, 2026-11-19) : branché au démarrage, il ajoute nom et code aux UUID d'espace.
+ * Il ne coûte rien quand Telegram n'est pas configuré, et une panne de sa part n'empêche jamais l'alerte de partir.
+ */
+describe('brancherLibelleur', () => {
+  const okFetch = () => vi.fn(async (..._args: unknown[]) => ({ ok: true, status: 200, text: async () => '' }));
+  const texteEnvoye = (spy: ReturnType<typeof okFetch>): string =>
+    (JSON.parse((spy.mock.calls[0] as unknown as [string, { body: string }])[1].body) as { text: string }).text;
+
+  it('configuré : le texte posté est celui du libelleur', async () => {
+    const spy = okFetch();
+    vi.stubGlobal('fetch', spy);
+    brancherLibelleur(async (t) => `${t} [L]`);
+    expect(await envoyerTelegram('alerte', { token: 'T', chatId: 'C', timeoutMs: 100 })).toBe('recue');
+    expect(texteEnvoye(spy)).toBe('alerte [L]');
+  });
+
+  it('non configuré : le libelleur n\'est pas appelé (aucune lecture en base pour rien)', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    const libelleur = vi.fn(async (t: string) => t);
+    brancherLibelleur(libelleur);
+    expect(await envoyerTelegram('alerte')).toBe('non_recue');
+    expect(libelleur).not.toHaveBeenCalled();
+  });
+
+  it('🔴 un libelleur qui lève : le texte d\'origine part, l\'alerte est reçue', async () => {
+    const spy = okFetch();
+    vi.stubGlobal('fetch', spy);
+    brancherLibelleur(async () => { throw new Error('base en panne'); });
+    expect(await envoyerTelegram('alerte', { token: 'T', chatId: 'C', timeoutMs: 100 })).toBe('recue');
+    expect(texteEnvoye(spy)).toBe('alerte');
   });
 });
 

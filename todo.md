@@ -1,5 +1,20 @@
 # todo.md : backlog
 
+## 🟡 Le code d'espace visible, après le lot (2026-11-19)
+
+- **Après le déploiement de l'API** : Julien lance `scripts/remplir-codes-espaces.mts --compter` sur la machine des
+  workers, monté dans l'image comme le dit son en-tête ; s'il reste des espaces sans code, la même commande sans
+  `--compter` les remplit (idempotent, valeur identique à celle déjà affichée).
+- **L'essai réel** (plan `docs/superpowers/plans/2026-11-19-code-espace-visible.md`) : copier le code depuis le menu du
+  compte d'un vrai espace, le retrouver dans `/ops` en le tapant en majuscules, recevoir l'annonce Telegram d'un espace
+  d'essai avec son nom et son code.
+- Jaunes de la relecture : (1) le libellé allonge l'alerte avant la troncature à 4 000 caractères, une alerte déjà
+  longue perd un peu plus de sa fin : tronquer avant de libeller ; (2) le plafond du libelleur (1 s) s'ajoute au délai
+  d'envoi, 500 ms suffiraient ; (3) le nom d'espace, saisi par le client, entre tel quel dans l'alerte (sans risque :
+  alerte interne, aucun `parse_mode`).
+- Hors lot : le code dans le MCP et le plugin (`list_workspaces`, sélecteur d'espace) et dans Stripe, si le besoin se
+  confirme.
+
 ## 🟡 « Copier le lien » d'une invitation, en production (2026-11-19)
 
 - **L'essai réel** (plan `docs/superpowers/plans/2026-11-19-lien-invitation-copie.md`) : inviter une adresse de test,

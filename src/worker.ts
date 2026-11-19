@@ -133,7 +133,8 @@ import { decryptSecret } from './crypto/secretbox';
 import { DryRunSender } from './campaign/dry-run-sender';
 import type { MessageSender } from './campaign/engine';
 import type { Campaign } from './campaign/types';
-import { sendTelegram } from './ops/telegram';
+import { sendTelegram, brancherLibelleur } from './ops/telegram';
+import { creerLibelleurEspaces } from './ops/libelle-espaces';
 import { installGracefulShutdown } from './shutdown';
 import { registreDeTaches } from './worker/taches';
 import { ecouteLesFiles, fileDuRole, minuterieDuRole, nomDuProcessus, superviseLesFiles, tachesDuRole } from './worker/roles';
@@ -254,6 +255,8 @@ export async function demarrerWorker(): Promise<void> {
     emailsProduit, emetteurEmails, envoisResend, prevenirEquipe, lienConversation, quotaModeles, comptesApplication, clientApplication,
     magasinObjets, conversionsMeta, issueEvenement,
   } = construireSocle({ pool, queue, config });
+  // Chaque alerte Telegram qui cite un espace par son uuid le cite aussi par « Nom » (code) (2026-11-19).
+  brancherLibelleur(creerLibelleurEspaces(pool));
   // La commission sur le crédit IA, celle de l'offre de l'espace (lot 6, C) : le cerveau des tours d'agent la lit.
   const commissionDeLEspace = commissionPour(offres);
   /**

@@ -445,6 +445,11 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   désormais affiché « Manager », plus « Agent »). La bascule **ne prolonge pas la session** : elle se termine à la
   même heure qu'avant. Un espace suspendu n'est pas proposé, et une session d'observation (exploitation) ne bascule
   pas.
+- ✅ **Le code d'espace** (2026-11-19) : chaque espace a un code court de six caractères (par exemple `k7m2p3`), fixé à
+  sa création et qui ne change jamais. Il s'affiche dans le menu du compte, sous le nom de l'espace, avec un bouton
+  **Copier**, et à côté du nom de chaque autre espace dans « Changer d'espace ». C'est lui qu'on donne au support pour
+  être retrouvé sans ambiguïté, même quand deux espaces portent le même nom. C'est aussi celui qu'on lit au milieu des
+  identifiants de l'API (`scn_k7m2p3_…`). Un repère seulement : il n'ouvre rien et ne remplace aucune connexion.
 - ✅ **Observer l'espace d'un client** (2026-08-21, interne) : depuis la surface d'exploitation, on entre dans
   un espace pour voir exactement ce que le client voit. **En lecture seule** : aucune modification n'est
   possible, et regarder une conversation ne la marque pas comme lue chez lui. Un bandeau rappelle en
@@ -3994,6 +3999,9 @@ boîte par sous-menu.
   qu'il faut facturer à chaque Entreprise, le mois en cours et le précédent, et la somme de leurs plafonds IA face au
   budget d'équipe de Vercel. **Réglages** : les seuils, la grille de prix, les numéros fournis, les adresses
   d'exploitation. **Dupliquer** : la copie d'un scénario dans un autre espace (ci-dessous).
+- ✅ **Retrouver un espace par son code** (2026-11-19) : la table des espaces de l'onglet **Clients** montre le code
+  d'espace à côté du nom, et un champ filtre la liste sur le nom ou le code, sans tenir compte des majuscules. Les
+  alertes Telegram qui citent un espace par son identifiant le citent aussi par son nom et son code.
 - ✅ **Dupliquer un scénario dans un autre espace** (2026-11-16 ; ses dépendances le 2026-11-17 ; ses templates et ses
   Flows le 2026-11-17). On choisit l'espace source, le scénario, puis l'espace de destination ; un récapitulatif dit,
   avant d'écrire quoi que ce soit, ce qui arrivera : les blocs débranchés (« aller vers », « assigner », et ce qu'on ne

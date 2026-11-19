@@ -29,8 +29,11 @@ export function getMe(tenantId: string): Promise<MeResponse> {
 
 // --- Changer d'espace sans se déconnecter (menu du compte) ---
 
-/** Un espace de l'identité de la session. `actuel` : celui de la session. */
-export interface EspaceDuCompte { tenantId: string; tenantName: string; role: string; actuel: boolean }
+/**
+ * Un espace de l'identité de la session. `actuel` : celui de la session. `tenantCode` : le code d'espace à lire et à
+ * donner au support (2026-11-19), absent d'une API d'avant le champ.
+ */
+export interface EspaceDuCompte { tenantId: string; tenantName: string; tenantCode?: string; role: string; actuel: boolean }
 /**
  * Les espaces que l'adresse connectée peut ouvrir. Une réponse sans liste (API d'avant la route, corps inattendu)
  * vaut aucune : le menu n'affiche alors simplement pas l'entrée.
@@ -173,6 +176,8 @@ export function importHubspotList(tenantId: string, listId: string, listName: st
 export interface TenantOverviewRow {
   id: string;
   name: string;
+  /** Le code d'espace (filtre et affichage de `/ops`) ; absent d'une API d'avant le 2026-11-19. */
+  code?: string;
   createdAt: string;
   mbaEnabled: boolean;
   users: number;
