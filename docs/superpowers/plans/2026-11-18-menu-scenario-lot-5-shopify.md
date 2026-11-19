@@ -318,6 +318,21 @@ template en mode bloc, tests de composant et e2e.
 - La fiche et son empreinte dans le MÊME commit que `features.md` (`tests/aide-proposer.test.ts` avant le push) ; la
   publication du plugin et `aide:charger` par Julien, dans cet ordre, après l'API et la console.
 
+## 5c : ce que la relecture de 5b et les décisions 34 et 35 ajoutent (2026-11-19)
+
+5b est en production sans aucun rouge à sa relecture ; ses jaunes sont au `todo.md`. 5c commence par le serveur, puis la
+console (tâche 11) et le builder (tâche 12), en UNE livraison et une relecture : le serveur se déploie (`migration=aucune`)
+et la console part au même push, ses routes étant celles de 5b.
+
+- **Tâche 10b, le serveur avant la console** : `set_shopify_message` ne remplace dans le premier bloc que template, langue,
+  boutons, cartes et variables (la sortie « Pas de réponse » et le code du bloc gardés, décision 7) ; l'état Shopify
+  survit à une panne de la liste des templates chez Meta (`etatChezMeta` nul, un refus propre au lieu d'une erreur) ; le
+  ménage ne vise que les templates nés dans un scénario d'automation (jamais le Builder général, décision 14) ; la
+  décision 35 (la remise devant un parcours d'événement qui DORT) ; les tests X1 (la référence du verrou à
+  l'enregistrement, une copie jamais publiée) et `rouverte`.
+- Tests vus rouges : chaque point, dont la décision 35 voie par voie (agent IA, scénario répondeur, application : le
+  parcours reprend à son réveil ; agent de Meta, Équipe : le parcours s'arrête et la voie prend le client).
+
 ## Décisions de Julien après la cartographie (2026-11-19, spec § 3.3)
 
 - **32 (Q1, décision 10)** : le retour sur investissement montre UNE LIGNE PAR AUTOMATION Shopify (tâches 1 et 10).

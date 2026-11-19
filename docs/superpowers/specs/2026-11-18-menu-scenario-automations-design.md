@@ -181,6 +181,16 @@ Appels du rédacteur pris sur la cartographie (2026-11-18), à relire :
 33. **Deux paniers : le plus récent prend la place** (précise la décision 3 pour la ligne du panier). La relance d'un second
     panier arrête le parcours du panier précédent du même contact, et le second a son propre parcours, ses boutons et son
     lien. Les commandes gardent la décision 3 : une seconde commande ne coupe pas le parcours de la première.
+34. **Le clic qui n'est pas pour le parcours d'événement en cours** (Julien, 2026-11-19, A5 précisé après la relecture de
+    5a) : l'agent IA, le scénario répondeur ou l'application (les voies qui coexistent) répondent, et le parcours continue
+    (décision 21) ; en mode Équipe, une demande s'ouvre dans « À traiter » ; en mode agent de Meta, l'agent de Meta répond.
+    Dans ces deux derniers cas, le parcours d'événement s'arrête : jamais deux maîtres du fil. La voie est celle que la
+    campagne du message désigne, sinon le mode de l'espace.
+35. **Pendant une Attente, la même règle** (Julien, 2026-11-19, après la relecture de 5b) : un client qui écrit ou clique
+    pendant qu'un parcours d'événement dort dans un bloc « Attendre » est servi comme le clic de la décision 34 : les voies
+    qui coexistent répondent et le parcours reprend à son réveil ; en mode agent de Meta ou Équipe, le parcours s'arrête et
+    l'agent de Meta ou « À traiter » prend le client, au lieu du silence jusqu'à son réveil. Le mode « Application »
+    coexiste (confirmé le même jour).
 
 ## 4. Objectifs, non-objectifs, anti-objectifs
 
