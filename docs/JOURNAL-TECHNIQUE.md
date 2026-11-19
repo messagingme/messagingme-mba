@@ -4,6 +4,27 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-19 : captures au survol pour brancher Shopify, et la fiche juste sur les clés (en production)
+
+**Le besoin**, de Julien, avec trois captures de dev.shopify.com : montrer, au survol des étapes de la carte Shopify
+(Tools > Intégrations), où cliquer chez Shopify, plutôt que de le décrire.
+
+**Ce qui est livré** : `18ace542f` pose `CaptureAuSurvol` (« Voir l'écran ») sur les étapes 1, 2 et 4 de la carte.
+Étape 1 : Apps, Create app, Create app manually (les cercles de Julien). Étape 2 : le formulaire, quatre repères
+numérotés que le texte reprend un par un (App name, App URL, décocher « Embed app in Shopify admin », « Select from
+list » pour les quatre droits), puis Create app en haut à droite. Étape 4 : les clés sont sur la page de l'app, cadre
+Credentials, et plus « dans Settings ». Sur la troisième capture, le Client ID de l'app de Julien, son nom et le nom
+de l'organisation sont masqués. `c2fc2a2d8` aligne la fiche publique (FR et EN, `traduit_de`, `vitrine:aide`) ;
+`aide:charger` lancé par Julien sur ce commit : 341 lignes, 0 retirée.
+
+**Ce que l'essai réel a trouvé, et qu'aucun test ne voyait** (build de production servi en local, trois survols
+pilotés par Playwright) : la capture s'ouvrait SOUS son lien et sortait de l'écran ; et, ouverte, elle recouvrait le
+lien de l'étape suivante, qu'elle gardait sous la souris, donc restait ouverte. Typecheck, lint et tests de forme
+étaient verts. Correction avant le push : centrée à l'écran, bornée en hauteur, `pointer-events-none`.
+
+**Suite** : la session du menu « Scénario » (lot 5d) reprend la fiche pour sa partie messages (l'ancien assistant
+remplacé par les automations, la pause) et le script de captures ; elle garde les trois `CaptureAuSurvol`.
+
 ## 2026-11-19 : le code d'espace, visible dans la console, `/ops` et les alertes (en production)
 
 **Le besoin**, de Julien : identifier un espace sans ambiguïté, au support comme dans `/ops`, quand plusieurs portent le
