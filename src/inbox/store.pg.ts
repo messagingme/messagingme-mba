@@ -3,6 +3,7 @@ import { journaliser } from '../lib/journal';
 import { messageDe } from '../lib/erreur';
 import type { InboxStore, InboundMessage } from '../webhooks/inbound';
 import { MATCH_BY_WAID_SQL } from '../crm/contact-store.pg';
+import { parcoursTientLeFilSql, DELAI_PARCOURS_TIENT_LE_FIL_MS, MARGE_DEMARRAGE_PARCOURS } from './parcours-tient-le-fil';
 import { vautReponseDeLEquipe, type OrigineMessage } from './origine';
 import { visibiliteSql, voitTout, type ActeurConversation } from './assignment';
 import { MEDIA_EXPIRE_SQL } from './media-entrant';
@@ -21,14 +22,6 @@ import {
  * d'accusés en retard ne doit pas rouvrir la course.
  */
 export const ENVOI_EN_VOL = '10 minutes';
-
-/**
- * Le délai pendant lequel un `control_passed` de l'agent de Meta, sur un fil qu'un robot vient de prendre, est l'écho de
- * notre propre retrait de la liste et pas une escalade (`marquerEscalade`). Mesuré le 2026-11-18 : 2,6 s après la
- * reprise. Large exprès, pour une file de webhooks en retard ; une vraie escalade suppose qu'entre-temps le client a
- * écrit et que l'agent lui a répondu, ce que la reprise vient justement d'empêcher.
- */
-export const ECHO_DE_NOTRE_REPRISE = '2 minutes';
 
 /**
  * Qui détient la conversation, et donc qui répond au client. `app_workflow` est le seul état qui autorise un
@@ -540,6 +533,19 @@ export class PgInboxStore implements InboxStore {
   }
 
   /**
+   * Un parcours tient-il le fil de ce contact ? La règle unique (`./parcours-tient-le-fil.ts`), pour les portes du
+   * module du fil qui décident AVANT d'écrire (la remise à l'arrivée d'un message, qui confierait sinon le contact à
+   * l'agent de Meta chez Meta, avant toute écriture chez nous).
+   */
+  async parcoursTientLeFil(tenantId: string, waId: string): Promise<boolean> {
+    const res = await this.pool.query<{ tient: boolean }>(
+      `select ${parcoursTientLeFilSql({ tenant: '$1::uuid', waId: '$2::text', delaiMs: String(DELAI_PARCOURS_TIENT_LE_FIL_MS) })} as tient`,
+      [tenantId, waId],
+    );
+    return res.rows[0]?.tient === true;
+  }
+
+  /**
    * Les contacts dont notre colonne dit le fil tenu par l'agent de Meta, par `wa_id` croissant, strictement après
    * `apres` (`ControleDuFil.reprendreLesFilsDeMeta`, quand l'espace quitte le mode `mba`, RC6).
    */
@@ -722,6 +728,8 @@ export class PgInboxStore implements InboxStore {
             and ($4::text[] is null or c.control_owner = any($4::text[]))
             and (not $5::boolean or c.escaladee_le is null
                  or ($7::timestamptz is not null and $7::timestamptz > c.escaladee_le))
+            and not ($13::boolean and c.control_owner = 'app_workflow'
+                     and ${parcoursTientLeFilSql({ tenant: 'c.tenant_id', waId: 'c.wa_id', delaiMs: String(DELAI_PARCOURS_TIENT_LE_FIL_MS) })})
          returning c.id, avant.ancien_detenteur, avant.ancienne_traitee, avant.ancienne_archive,
                    c.traitee_le, c.archived_at
        ),
@@ -742,7 +750,7 @@ export class PgInboxStore implements InboxStore {
        select id from maj`,
       [tenantId, waId, owner, only ? [...only] : null, opts.saufEscalade === true, opts.effacerEscalade === true,
        opts.messageEnvoyeLe ?? null, opts.escalade === true, auteur.acteur, auteur.cause, opts.rendAgentDeMeta === true,
-       opts.ouvreUneDemande === true],
+       opts.ouvreUneDemande === true, opts.saufParcours === true],
     );
     return (res.rowCount ?? 0) > 0;
   }
@@ -762,10 +770,14 @@ export class PgInboxStore implements InboxStore {
    * contact de la liste de son agent (2,6 s après la reprise, SANDBOX) et quand le contact répond à un template que le
    * routage nous adresse (au clic, 3 h 43 après la reprise, MUTAC). Le lire comme une escalade passait le fil à l'équipe
    * sous le nez du parcours, gelé à la réponse suivante ou au réveil de son Attente, sans une ligne au journal des
-   * échecs. Sur un fil `app_workflow`, rien n'est écrit et la fonction rend `false` (pas d'e-mail) tant qu'un parcours
-   * attend ou dort pour ce contact, ou pendant `ECHO_DE_NOTRE_REPRISE` après la reprise (le parcours n'est pas encore
-   * écrit quand son premier envoi part). Hors de ces deux cas, une passation sur un fil `app_workflow` reste une
-   * escalade : « Rendre la main » l'écrit quand l'agent est le répondeur et garde le fil chez Meta.
+   * échecs. Sur un fil `app_workflow` qu'un parcours tient (la règle unique, `./parcours-tient-le-fil.ts`), rien n'est
+   * écrit et la fonction rend `false` (pas d'e-mail). S'y ajoute, propre à CETTE porte, l'écho de notre propre reprise :
+   * un robot qui vient de prendre le fil (`control_changed_at` de moins de `MARGE_DEMARRAGE_PARCOURS`) a retiré le
+   * contact de la liste de l'agent, et Meta en envoie le signal avant que le scénario n'ait rien écrit (un premier bloc
+   * « Appel API » lent, relecture du 2026-11-19). Cette marge n'entre pas dans la règle commune : la remise, déclenchée
+   * par un message du contact, ne doit pas l'ignorer juste après « Rendre la main ». Hors de ces cas, une passation sur
+   * un fil `app_workflow` reste une escalade : « Rendre la main » l'écrit quand l'agent est le répondeur et garde le fil
+   * chez Meta.
    */
   async marquerEscalade(tenantId: string, waId: string, cause: string): Promise<boolean> {
     const res = await this.pool.query<{ passee: boolean }>(
@@ -783,9 +795,8 @@ export class PgInboxStore implements InboxStore {
            control_owner = 'app_human', control_changed_at = now(), escaladee_le = now(),
            traitee_le = null, archived_at = null
          where not (conversations.control_owner = 'app_workflow'
-                    and (conversations.control_changed_at > now() - interval '${ECHO_DE_NOTRE_REPRISE}'
-                         or exists (select 1 from workflow_runs r
-                                     where r.tenant_id = $1 and r.wa_id = $2 and r.status in ('waiting', 'sleeping'))))
+                    and (${parcoursTientLeFilSql({ tenant: '$1', waId: '$2', delaiMs: String(DELAI_PARCOURS_TIENT_LE_FIL_MS) })}
+                         or conversations.control_changed_at > now() - interval '${MARGE_DEMARRAGE_PARCOURS}'))
          returning id
        ),
        evenement as (
@@ -879,7 +890,8 @@ export class PgInboxStore implements InboxStore {
      * conversation née d'un envoi sortant porte `app_workflow` + `null` alors que nous tenons le fil. C'est la
      * fenêtre qui borne (activité dans les dernières 24 h), pas l'âge du contrôle : un `coalesce` sur
      * `last_message_at` rendrait la branche morte. Un dernier message vieux de plus de 24 h prouve une fenêtre
-     * fermée ; l'inverse n'est pas vrai, le balayage appelle Meta avant d'écrire.
+     * fermée ; l'inverse n'est pas vrai, et rien ne le rattrape aujourd'hui : `last_message_at` compte aussi un SORTANT
+     * (le template d'une campagne), et `confier` prend un `release` refusé pour un succès (défaut à part, `todo.md`).
      *
      * Les escalades sortent du lot en SQL : elles s'accumulaient en tête du tri et pouvaient remplir les 500
      * places. La garde de `runControlSweep` reste le contrat.
@@ -889,9 +901,9 @@ export class PgInboxStore implements InboxStore {
      * d'un envoi n'en a pas. Le fil partait donc à l'agent de Meta quelques secondes après l'envoi du template, et le
      * clic sur son bouton allait à l'IA au lieu de la branche du scénario. Un parcours du contact qui attend ou dort, et
      * qui a bougé (`updated_at`, chaque écriture de son état) dans le délai, garde le fil : la soupape compte depuis la
-     * dernière activité du PARCOURS, et un parcours abandonné rend le fil comme avant. Même garde que la remise à
-     * l'arrivée d'un message (`remettreSiPersonneNeSuit`), bornée ici par le délai. Le prédicat de statut est celui de
-     * l'index partiel `workflow_runs_actif_idx` (0115), écrit tel quel.
+     * dernière activité du PARCOURS, et un parcours abandonné rend le fil comme avant. C'est la règle unique
+     * (`./parcours-tient-le-fil.ts`), la même que la remise à l'arrivée d'un message et que le signal de passation de
+     * Meta ; le délai passé ici la borne, et `rendreApresInactivite` la rejoue au moment d'écrire.
      */
     const res = await this.pool.query<{ tenant_id: string; wa_id: string; control_owner: ControlOwner; control_changed_at: Date | null; last_message_at: Date | null; escaladee: boolean }>(
       `select tenant_id, wa_id, control_owner, control_changed_at, last_message_at, escaladee_le is not null as escaladee
@@ -905,12 +917,7 @@ export class PgInboxStore implements InboxStore {
               control_changed_at is null
               or control_changed_at < now() - make_interval(secs => $2::bigint / 1000.0)
             )
-            and not exists (
-              select 1 from workflow_runs r
-               where r.tenant_id = conversations.tenant_id and r.wa_id = conversations.wa_id
-                 and r.status in ('waiting', 'sleeping')
-                 and r.updated_at > now() - make_interval(secs => $2::bigint / 1000.0)
-            )
+            and not ${parcoursTientLeFilSql({ tenant: 'conversations.tenant_id', waId: 'conversations.wa_id', delaiMs: '$2::bigint' })}
           ))
        order by control_changed_at nulls first
        limit $1`,

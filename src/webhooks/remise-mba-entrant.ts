@@ -7,7 +7,8 @@ import type { InboundMessage } from './inbound';
  * personne ne suit, et il y répond tout de suite. L'agent ne peut prendre un fil que dans une session ouverte, qui s'ouvre exactement quand le client écrit :
  * décidée à l'arrivée du message, la passation fonctionne quel que soit le temps écoulé ; décidée avant, sur un fil
  * muet, elle ne transmet rien. Elle répare aussi une conversation née d'un envoi sortant (`control_owner =
- * 'app_workflow'` par défaut, `control_changed_at` null), que le balayage ignore et que « À traiter » exclut.
+ * 'app_workflow'` par défaut, `control_changed_at` null), que « À traiter » exclut et que le balayage ne rend à
+ * l'agent qu'une fois qu'aucun parcours ne la tient (la règle unique, `src/inbox/parcours-tient-le-fil.ts`).
  */
 export interface RemiseMbaEntrantDeps {
   /**

@@ -4,6 +4,38 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-19 : « un parcours tient le fil » devient une seule règle (préparé, pas encore en production)
+
+**Pourquoi** : en deux jours, trois correctifs ont posé la même règle (un scénario en cours garde son fil) à trois portes,
+avec trois formes : le signal de passation de Meta (`64a1b9621`, sans borne d'âge, marge de 2 min sur la date de prise), le
+balayage (`71981d5f6`, borne de 24 h, sans marge), la remise à l'arrivée d'un message (`findWaitingByWaId`, `waiting` seul,
+sans borne). L'inventaire de toutes les portes a trouvé la suivante avant un client : un contact qui écrit pendant une
+Attente voyait son fil confié au répondeur, et le parcours clos à son réveil. Julien : « on empile les couches et ça pète
+au final ? ».
+
+**Le lot** : la règle vit dans `src/inbox/parcours-tient-le-fil.ts` (un parcours qui attend ou dort et a écrit depuis
+moins de 24 h, ou un envoi du scénario ou d'une campagne de moins de 2 min, jamais l'écho de l'agent de Meta), appelée par
+`marquerEscalade`, `listHeldControl`, une écriture gardée (`saufParcours`, le balayage et la prise par l'équipe), et une
+lecture (`parcoursTientLeFil`) pour la remise, le mode « Votre application », le balayage avant de confier et la prise par
+l'équipe. La dépendance `parcours` du module du fil disparaît. `CONTROL_WORKFLOW_TIMEOUT_MS` reprend la constante de la
+règle. `tests/parcours-tient-le-fil-inventaire.test.ts` classe chaque geste qui peut retirer le fil (automatique, délibéré,
+parole de Meta) et rougit sur un geste neuf non classé.
+
+**Mesures** : six mutations de la règle, chacune rouge sur le banc PGlite (marge, écho de l'agent compté, `sleeping`
+retiré, soupape retirée, espace retiré, écriture gardée neutralisée), fichiers restaurés à l'identique ; deux mutations de
+l'inventaire et deux des portes du fil, rouges. Les cas de la relecture de `71981d5f6` sont repris, le cas « fenêtre du
+démarrage » inversé.
+
+**La relecture indépendante** : un rouge, démontré sur le banc. La marge du démarrage comptait les envois d'une campagne
+sans regarder la réponse du contact, et toutes les portes déclenchées par son message la lisaient : un contact qui
+répondait en moins de 2 minutes à une campagne de template seul n'était ni confié au répondeur, ni pris par l'équipe, ni
+affecté par une campagne « devenir Inbox ». Corrigé : la marge se ferme à la première réponse du contact (enregistrée avant
+l'avance et la remise). Jaunes traités : la prise par l'équipe rend le résultat réel de son écriture, la remise rejoue la
+règle en écrivant, le signal de Meta garde une marge de 2 minutes sur la date de prise (l'écho d'une reprise qui précède
+tout envoi), et l'inventaire voit une écriture en ternaire. Un faux vert évité en route : le fichier de l'inventaire ne se
+chargeait plus (un script avait mangé les antislashs de ses expressions régulières) et le filtre de sortie ne montrait pas
+la ligne `FAIL` ; les contrôles comptent désormais les fichiers non chargés.
+
 ## 2026-11-19 : le balayage rendait à l’agent de Meta un fil qu’un parcours tenait (MUTAC, en production)
 
 **Le défaut**, mesuré en lecture seule chez MUTAC par la session de l'essai réel du PDF : le 2026-11-19 à 07:24:44 UTC, le
@@ -36,6 +68,21 @@ repris tel quel ; le nouveau lot est un sous-ensemble strict de l'ancien.
 **Ce qui reste**, au `todo.md` : trois fenêtres étroites (au démarrage, l'avance d'un parcours resté 24 h sans écrire, entre
 la lecture et l'écriture du balayage), à fermer au lot 5a ; et un défaut voisin à instruire à part, la campagne de
 templates SANS parcours rendue à l'agent de Meta alors que la fenêtre est fermée.
+
+## 2026-11-18 : un signal de passation de Meta gelait les scénarios en cours (SANDBOX, MUTAC, en production)
+
+**Le défaut** : Meta envoie un `control_passed` (« détenteur précédent : son agent ») quand nous retirons un contact de la
+liste de son agent (2,6 s après la reprise d'un lien de test, SANDBOX, « Logis Hotels ») et quand le contact répond à un
+template que le routage nous adresse alors que l'agent tenait le fil chez Meta (4,2 s après le clic, MUTAC, « devis », le
+fil lui ayant été rendu à 09:36 en fermant la conversation dans l'Inbox HubSpot). `marquerEscalade` passait alors le fil à
+l'équipe : le clic suivant était gelé (`mayAct` faux), ou l'Attente de 5 s se réveillait sur un fil perdu et le parcours se
+fermait, sans une ligne au journal des échecs. Course de vitesse : une Attente de 5 s perd contre un signal à 4 s, d'où
+« ça marchait il y a 4 jours ». Diagnostic par sondes en lecture seule (parcours, mesures par bloc, frise).
+
+**Le correctif** (`64a1b9621`) : sur un fil `app_workflow`, la passation n'écrit rien tant qu'un parcours attend ou dort, ou
+dans les 2 minutes après la reprise. Test d'intégration rouge sans chaque clause ; CI verte job par job ; déploiement
+44363315892 (`migration=aucune`, approuvé par Julien), `/health` à 200 ; essai réel de Julien le soir même, les deux cas
+passés. Ce correctif est remplacé par la règle unique ci-dessus.
 
 ## 2026-11-18 : le menu « Scénario », lot 4 : le moteur des parcours d'événement, posé éteint (en production)
 

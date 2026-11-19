@@ -104,7 +104,8 @@ export interface AssignationDeps {
   /**
    * Prend le fil pour l'équipe (`ControleDuFil.prendrePourLEquipe`, `src/inbox/fil.ts`) : à l'agent de Meta chez
    * Meta, puis `app_human` chez nous, pour qu'aucun robot ne réponde et que la conversation entre dans « À
-   * traiter ». Un opérateur qui la tient déjà la garde. `false` = Meta a refusé. Optionnelle : absente, aucun fil
+   * traiter ». Un opérateur qui la tient déjà la garde. `false` = rien n’est pris : Meta a refusé, ou un scénario en
+   * cours tient le fil (la règle unique, `./parcours-tient-le-fil.ts`). Optionnelle : absente, aucun fil
    * n'est pris (câblages de test de l'assignation seule).
    */
   prendreLeFil?(tenantId: string, waId: string, cause: string): Promise<boolean>;
@@ -142,7 +143,7 @@ export async function assignerReponse(
   if (decision.prendreLeFil && campagne.premiereReponse && deps.prendreLeFil
     && !(await deps.prendreLeFil(tenantId, waId, cause))) {
     // eslint-disable-next-line no-console
-    console.warn(`devenir de campagne ${campagne.campaignId} non appliqué pour ${waId} : Meta n’a pas cédé le fil, son agent répond`);
+    console.warn(`devenir de campagne ${campagne.campaignId} non appliqué pour ${waId} : le fil n’a pas été pris (Meta ne l’a pas cédé, ou un scénario en cours le tient)`);
     return null;
   }
 

@@ -174,7 +174,6 @@ function monterBouton(o: {
     reglages: { get: async () => ({ mbaEnabled: true, repondeurMode: 'mba', repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null, repondeurDelaiScenarioS: 86400, controlHandbackSeconds: null }) },
     repondeur: aucunRepondeur,
     delaiRepriseParDefautMs: DELAI_REPRISE_DEFAUT_MS,
-    parcours: { findWaitingByWaId: async () => null },
     numeros: { getTenantPhoneNumberId: async () => (o.numero === undefined ? '1234840649713976' : o.numero) , numeroBloque: numeroJamaisBloque, applicationReliee: async () => false },
     liste,
     consentement: { estDesabonne: jamaisDesabonne, estBloque: jamaisBloque },

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PLAFOND_DESTINATAIRES_DEFAUT } from './campaign/plafond';
 import { PLAFOND_API_DEFAUT } from './auth/plafond-espace';
 import { QUOTAS_API_DEFAUT } from './api/quotas';
+import { DELAI_PARCOURS_TIENT_LE_FIL_MS } from './inbox/parcours-tient-le-fil';
 
 /** Exporté pour les tests : `config` est parsé à l'import, donc inutilisable pour vérifier les fail-fast ;
  *  le schéma, lui, se parse à la demande. */
@@ -1066,7 +1067,7 @@ const constantes = {
    * prise du fil (`listHeldControl`) : sinon un scénario qui démarre sur un vieux fil le perdait aussitôt.
    * 0 désactive la reprise.
    */
-  CONTROL_WORKFLOW_TIMEOUT_MS: 24 * 60 * 60 * 1000,
+  CONTROL_WORKFLOW_TIMEOUT_MS: DELAI_PARCOURS_TIENT_LE_FIL_MS,
   /** Anti-rebond par défaut d'une automation : délai minimum entre deux déclenchements de la même automation
    *  pour le même contact, quand le client n'a rien réglé. 1 h : absorbe un mot-clé répété ou un tag reposé,
    *  sans bloquer une vraie 2e demande dans la journée. Réglable par automation (0 = aucun garde-fou). */

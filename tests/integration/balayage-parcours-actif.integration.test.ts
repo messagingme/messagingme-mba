@@ -102,3 +102,106 @@ describe.skipIf(!url)('PgInboxStore.listHeldControl : un parcours en cours garde
     expect(await dansLeLot('33600009308')).toBe(true);
   });
 });
+
+/**
+ * Les cas de la relecture du correctif du balayage (2026-11-19, `71981d5f6`) : chacun attrape une mutation que les cas
+ * ci-dessus laissent passer (le délai écrit en dur, `status <> 'done'`, le numéro sans l'espace). Chaque cas a son
+ * espace, pour ne dépendre d'aucun ordre. Le dernier, qui documentait la fenêtre du démarrage, est inversé : la règle
+ * unique (`src/inbox/parcours-tient-le-fil.ts`) la ferme par l'envoi du scénario, enregistré avant le parcours.
+ */
+describe.skipIf(!url)('PgInboxStore.listHeldControl : les cas de la relecture', () => {
+  let pool: Pool;
+  let store: PgInboxStore;
+  const espaces: string[] = [];
+  const H = 3600 * 1000;
+
+  beforeAll(async () => {
+    pool = new Pool({ connectionString: url, ssl: pgSsl() });
+    store = new PgInboxStore(pool);
+  });
+  afterAll(async () => {
+    await pool.query('delete from tenants where id = any($1::uuid[])', [espaces]);
+    await pool.end();
+  });
+
+  async function espace(nom: string): Promise<{ t: string; w: string }> {
+    const t = (await pool.query<{ id: string }>(`insert into tenants (name) values ($1) returning id`, [nom])).rows[0]!.id;
+    espaces.push(t);
+    const w = (await pool.query<{ id: string }>(`insert into workflows (tenant_id, name) values ($1, 'rv') returning id`, [t])).rows[0]!.id;
+    return { t, w };
+  }
+  async function fil(t: string, waId: string, prisDepuis: string | null): Promise<string> {
+    return (await pool.query<{ id: string }>(
+      `insert into conversations (tenant_id, wa_id, control_owner, control_changed_at, last_message_at, last_direction)
+       values ($1, $2, 'app_workflow', case when $3::text is null then null else now() - $3::interval end, now(), 'out') returning id`,
+      [t, waId, prisDepuis],
+    )).rows[0]!.id;
+  }
+  async function parcours(t: string, w: string, waId: string, status: string, bougeDepuis: string): Promise<void> {
+    await pool.query(
+      `insert into workflow_runs (workflow_id, tenant_id, wa_id, current_node, status, updated_at)
+       values ($1, $2, $3, 'tpl', $4, now() - $5::interval)`,
+      [w, t, waId, status, bougeDepuis],
+    );
+  }
+  const dansLeLot = async (t: string, waId: string, delaiMs: number): Promise<boolean> =>
+    (await store.listHeldControl(5000, delaiMs)).some((c) => c.tenantId === t && c.waId === waId);
+
+  it('(a) délai 0 : aucun fil de scénario dans le lot, parcours ou non', async () => {
+    const { t } = await espace('rv-zero');
+    await fil(t, '33600009401', null);
+    expect(await dansLeLot(t, '33600009401', 0)).toBe(false);
+  });
+
+  it('(b) un parcours `inbox` récent ne garde pas le fil', async () => {
+    const { t, w } = await espace('rv-inbox');
+    await fil(t, '33600009402', null);
+    await parcours(t, w, '33600009402', 'inbox', '0 seconds');
+    expect(await dansLeLot(t, '33600009402', 24 * H)).toBe(true);
+  });
+
+  it('(c) un parcours périmé ET un parcours frais : le frais garde le fil', async () => {
+    const { t, w } = await espace('rv-deux');
+    await fil(t, '33600009403', '6 days');
+    await parcours(t, w, '33600009403', 'waiting', '30 hours');
+    await parcours(t, w, '33600009403', 'sleeping', '10 minutes');
+    expect(await dansLeLot(t, '33600009403', 24 * H)).toBe(false);
+  });
+
+  it('(d) le parcours frais d’un AUTRE contact du même espace ne garde pas ce fil', async () => {
+    const { t, w } = await espace('rv-autre-contact');
+    await fil(t, '33600009404', null);
+    await parcours(t, w, '33600009499', 'waiting', '0 seconds');
+    expect(await dansLeLot(t, '33600009404', 24 * H)).toBe(true);
+  });
+
+  it('(e) la garde suit le délai PASSÉ, pas 24 h écrites en dur', async () => {
+    const { t, w } = await espace('rv-delai');
+    await fil(t, '33600009405', '6 days');
+    await parcours(t, w, '33600009405', 'waiting', '3 hours');
+    expect(await dansLeLot(t, '33600009405', 2 * H)).toBe(true);
+    expect(await dansLeLot(t, '33600009405', 24 * H)).toBe(false);
+  });
+
+  it('🔴 (f) LA FENÊTRE DU DÉMARRAGE : premier envoi parti, parcours pas encore écrit, le fil reste au scénario', async () => {
+    // L'état de `runFrom` entre `apply` et `runs.start` : le template est enregistré dans la conversation, le parcours
+    // n'existe pas encore. L'envoi du scénario tient le fil pendant la marge du démarrage.
+    const { t } = await espace('rv-fenetre-demarrage');
+    const conv = await fil(t, '33600009406', null);
+    await pool.query(
+      `insert into conversation_messages (conversation_id, direction, type, body, origin) values ($1, 'out', 'template', 'Template « tpl »', 'scenario')`,
+      [conv],
+    );
+    expect(await dansLeLot(t, '33600009406', 24 * H)).toBe(false);
+  });
+
+  it('(g) la phrase de l’agent de Meta, toute récente, ne garde pas le fil d’un scénario fini', async () => {
+    const { t } = await espace('rv-echo-agent');
+    const conv = await fil(t, '33600009407', '2 days');
+    await pool.query(
+      `insert into conversation_messages (conversation_id, direction, type, body, origin) values ($1, 'out', 'mba', 'Bonjour', 'mba')`,
+      [conv],
+    );
+    expect(await dansLeLot(t, '33600009407', 24 * H)).toBe(true);
+  });
+});

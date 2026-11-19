@@ -155,7 +155,8 @@ describe('chaque écriture de l’Inbox porte son événement dans sa propre req
     // la prise ET le passage. Le drapeau d'escalade (`$8`) n'y est pour rien (décision du 2026-09-29).
     expect(c).toContain(`(case when $12::boolean and $3 = 'app_human' and maj.ancien_detenteur in ('app_workflow', 'mba') then 'escaladee' end)`);
     expect(c).toContain('opts.messageEnvoyeLe ?? null, opts.escalade === true, auteur.acteur');
-    expect(c).toMatch(/opts\.rendAgentDeMeta === true,\s+opts\.ouvreUneDemande === true\]/);
+    // `$12` reste `ouvreUneDemande` ; `$13`, ajouté après lui, est `saufParcours` (la règle unique, 2026-11-19).
+    expect(c).toMatch(/opts\.rendAgentDeMeta === true,\s+opts\.ouvreUneDemande === true, opts\.saufParcours === true\]/);
   });
 
   it('🔴 la frise ne nomme que des collaborateurs DE L’ESPACE (acteur, cible, et l’assigné du panneau)', () => {

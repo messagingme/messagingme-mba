@@ -399,7 +399,6 @@ describe.skipIf(!url)('les demandes du Quantitatif > Performance', () => {
       reglages: { get: async () => ({ mbaEnabled: true, repondeurMode: 'mba', repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null, repondeurDelaiScenarioS: 86400, controlHandbackSeconds: null }) },
       repondeur: aucunRepondeur,
       delaiRepriseParDefautMs: DELAI_REPRISE_DEFAUT_MS,
-      parcours: { findWaitingByWaId: async () => null },
       numeros: { getTenantPhoneNumberId: async () => 'pn-itest' , numeroBloque: numeroJamaisBloque, applicationReliee: async () => false },
       liste: creerListeDeLAgent({ store: listeEnMemoire().store, clientMba: async () => faux.client, attendre: async () => {} }),
       consentement: { estDesabonne: jamaisDesabonne, estBloque: jamaisBloque },

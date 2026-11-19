@@ -674,7 +674,6 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     offres,
     // Le délai de reprise de l'équipe quand l'espace n'en a pas réglé : le même que celui du balayage (`src/worker.ts`).
     delaiRepriseParDefautMs: config.CONTROL_HUMAN_TIMEOUT_MS,
-    parcours: runStore,
     numeros: { getTenantPhoneNumberId: numeroDeLEspace, numeroBloque: numeroBloqueDeLEspace, applicationReliee: (t) => envoiApplication.relie(t) },
     liste: listeDeLAgent,
     consentement: {

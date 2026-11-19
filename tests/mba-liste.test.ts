@@ -420,7 +420,6 @@ describe('confier et reprendre, dans l’ordre (`src/inbox/fil.ts` sur `src/mba/
       reglages: { get: async () => ({ mbaEnabled: true, repondeurMode: 'mba', repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null, repondeurDelaiScenarioS: 86400, controlHandbackSeconds: null }) },
       repondeur: aucunRepondeur,
       delaiRepriseParDefautMs: DELAI_REPRISE_DEFAUT_MS,
-      parcours: { findWaitingByWaId: async () => null },
       numeros: { getTenantPhoneNumberId: async () => PN , numeroBloque: numeroJamaisBloque, applicationReliee: async () => false },
       liste,
       consentement: { estDesabonne: jamaisDesabonne, estBloque: jamaisBloque },

@@ -100,17 +100,14 @@ Les jaunes 1 à 4, 7, 10 et 12 à 14 de cette relecture sont corrigés avec la c
 - `GET /workflows/:id/modeles`, sondé toutes les 15 s quand un template attend : `getById` relit les deux graphes, puis
   `publicationProgrammee` un troisième.
 
-## 🟡 Le fil rendu à l'agent de Meta pendant un parcours : ce qui reste après la relecture du correctif du balayage (2026-11-19, `71981d5f6`, aucun rouge)
+## 🟡 Le fil rendu à l'agent de Meta pendant un parcours : ce qui reste (2026-11-19)
 
-Le correctif ferme le cas mesuré chez MUTAC (date de prise nulle ou ancienne). Les points 1, 3 et 4 partent avec le lot 5a
-(il touche le moteur) ; le point 2 est un défaut à part.
+La règle « un parcours tient le fil » est unique depuis le 2026-11-19 (`src/inbox/parcours-tient-le-fil.ts`, tenue par
+`tests/parcours-tient-le-fil-inventaire.test.ts`) : la fenêtre du démarrage, la garde rejouée à l'écriture du balayage,
+les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traités. Reste :
 
-- **Trois fenêtres étroites, même symptôme (le clic part à l'IA)** : (a) au démarrage, `runFrom` envoie avant d'écrire le
-  parcours (`apply` puis `runs.start`) : quelques ms à 1 ou 3 s, soit 0,3 à 1 % des démarrages au passage de 5 min ; une
-  grâce sur un SORTANT récent la fermerait (`last_direction = 'out' and last_message_at > now() - interval '2 minutes'`),
-  c'est le trou que `marquerEscalade` connaît déjà. (b) L'avance d'un parcours resté plus de 24 h sans écrire : il n'écrit
-  qu'à la fin d'`advance` ; `reserverAvance` pourrait poser `updated_at = now()`. (c) Entre la lecture du lot et
-  l'écriture : `rendreApresInactivite` ne rejoue pas la garde ; la rejouer au moment d'écrire.
+- **L'avance d'un parcours resté plus de 24 h sans écrire** : il n'écrit qu'à la fin d'`advance` ; `reserverAvance`
+  posera `updated_at = now()` (lot 5a du menu « Scénario », `run-store.pg.ts`).
 - **Défaut à part : la campagne de templates SANS parcours, en mode agent de Meta.** La conversation (`app_workflow`, date
   nulle, `last_message_at` = le template) est rendue à l'agent dans les 5 min, fenêtre réellement fermée. Le filet « le
   balayage appelle Meta avant d'écrire » n'existe plus (`confier` prend un `release` refusé pour un succès). La réponse du
@@ -118,13 +115,11 @@ Le correctif ferme le cas mesuré chez MUTAC (date de prise nulle ou ancienne). 
   désigne un agent IA (0263) n'est jamais lu (la remise saute les `standby`), l'agent de Meta répond à la place. Le
   correctif durable lirait la fenêtre sur le dernier ENTRANT (`getWindowOpenByWaIds` sait le calculer), que
   `conversations` ne porte pas : un chantier.
-- **Tests** : trois mutations (délai écrit en dur, `status <> 'done'`, le numéro oublié lancé seul) passent le test du
-  commit ; les cas de la relecture qui les attrapent sont dans `scratchpad/revue-balayage/copie/tests/integration/
-  revue-balayage-extra.integration.test.ts` (session du 2026-11-19) ; et un test qui tient le prédicat de 0115 dans la
-  requête, comme `run-store-claims` le fait pour 0298.
-- **Commentaires** : « même garde que la remise » (`store.pg.ts`) est inexact, la remise lit `findWaitingByWaId`
-  (`waiting` seul, sans borne de temps) ; l'en-tête de `remise-mba-entrant.ts` dit qu'une conversation née d'un envoi est
-  ignorée du balayage (faux sans parcours) ; le filet « le balayage appelle Meta avant d'écrire » (`store.pg.ts`).
+- **La réponse « à côté » transmise à l'agent de Meta n'a pas de filet** (mesuré le 2026-11-18 sur MUTAC) : quand un texte
+  n'est pas prévu par le scénario, `transmettreHorsParcours` (`src/workflow/wiring.ts`) envoie un `agent_event` que Meta
+  fait échouer après des messages en texte libre du scénario (`internal_server_error`), sans la lecture de son issue ni le
+  filet vers l'équipe que `message_sans_suite` a (`src/mba/issue-evenement.ts`). Le client reste sans réponse jusqu'à ce
+  qu'il réécrive. Brancher `programmerLecture` sur ce chemin.
 - **Bord** : une réponse sur le mauvais canal (parcours RCS, réponse WhatsApp) reste sans réponse, comme avant ; le fil
   reste désormais au scénario jusqu'à 24 h après sa dernière écriture.
 

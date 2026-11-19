@@ -114,6 +114,14 @@ export interface EcritureDuFil {
    * et que la règle des colonnes lirait alors un fil qui QUITTE l'agent (`prise_mba`), l'inverse du geste.
    */
   rendAgentDeMeta?: boolean;
+  /**
+   * N'écrit pas sur un fil `app_workflow` qu'un parcours tient (`./parcours-tient-le-fil.ts`), rejoué au moment même
+   * d'écrire : entre la lecture d'une porte automatique (le lot du balayage, une prise par l'équipe) et son écriture, un
+   * scénario a pu démarrer. Posé par les portes AUTOMATIQUES seules, jamais par un geste humain ou du scénario. Une
+   * exception, voulue : l'écriture de `mba` qui SUIT un `confier` réussi de la remise ; chez Meta le contact est déjà
+   * confié, et notre colonne doit le dire (la remise relit la règle juste avant de confier).
+   */
+  saufParcours?: boolean;
 }
 
 /**
@@ -124,6 +132,8 @@ export interface DepsControleDuFil {
   depot: {
     /** L'absence de conversation vaut `app_workflow`. */
     getControlOwner(tenantId: string, waId: string): Promise<ControlOwner>;
+    /** Un parcours tient-il le fil de ce contact ? La règle unique (`./parcours-tient-le-fil.ts`). */
+    parcoursTientLeFil(tenantId: string, waId: string): Promise<boolean>;
     /** `true` si la bascule a eu lieu ; jamais d'erreur sur une garde refusée. */
     setControlOwner(tenantId: string, waId: string, owner: ControlOwner, opts: EcritureDuFil): Promise<boolean>;
     /** Marque le fil « à rendre dès l'accusé de notre dernier envoi » et rend ce message, ou `null` : rien en vol. */
@@ -179,8 +189,6 @@ export interface DepsControleDuFil {
    * du balayage. Requis : sans lui, la remise « personne ne suit » et le balayage ne compteraient pas le même délai.
    */
   delaiRepriseParDefautMs: number;
-  /** Un parcours attend-il la réponse de ce contact ? */
-  parcours: { findWaitingByWaId(tenantId: string, waId: string): Promise<object | null> };
   /**
    * Numéro Meta de l'espace ; `null` = aucun numéro connecté. `numeroBloque` : délié, ou suspendu faute de paiement
    * (lot 4, `creerNumeroBloqueDeLEspace`) ; aucun robot ne prend alors le message.
@@ -618,7 +626,7 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
       if ((await depot.getControlOwner(tenantId, waId)) !== 'app_workflow') return false;
       // `app_workflow` désigne AUSSI un parcours qui attend la réponse du contact : celui-là, une réponse par l'API le
       // coupe (elle prend le fil), comme avant ce mode ; sinon deux voix parleraient au client.
-      return (await deps.parcours.findWaitingByWaId(tenantId, waId)) === null;
+      return !(await depot.parcoursTientLeFil(tenantId, waId));
     },
 
     async enModeApplication(tenantId) {
@@ -691,8 +699,9 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
       if (tenuParLEquipe && (!repriseDue(fil, delai) || (mode === 'equipe' && (await designeParLaCampagne()) === null))) {
         return laisserALEquipe();
       }
-      // Donner à l'agent un fil qu'un parcours attend serait bien pire que le silence qu'on répare.
-      if (await deps.parcours.findWaitingByWaId(tenantId, waId)) return laisserALEquipe();
+      // Donner à l'agent un fil qu'un parcours tient serait bien pire que le silence qu'on répare. Un parcours qui DORT
+      // (une Attente) aussi : le confier ici le faisait clore à son réveil (`mayAct` faux), la suite jamais partie.
+      if (await depot.parcoursTientLeFil(tenantId, waId)) return laisserALEquipe();
       // 🔴 Le numéro bloqué (lot 4 : suspendu faute de paiement) : ni le répondeur, qui ne pourrait pas répondre et dont
       // le tour serait payé, ni l'agent de Meta, qui répondrait par Meta sur un numéro impayé. Comme sans numéro : rien
       // n'est écrit, le message reste dans l'Inbox.
@@ -704,7 +713,7 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
        * le scénario déjà parti) ; le balayage ne le rendra pas aux robots avant qu'on ait répondu au client.
        */
       const aLEquipe = (par: AuteurDuChangement, escalade = false): Promise<boolean> =>
-        depot.setControlOwner(tenantId, waId, 'app_human', { par, only: ['app_workflow', 'mba'], ouvreUneDemande: true, escalade });
+        depot.setControlOwner(tenantId, waId, 'app_human', { par, only: ['app_workflow', 'mba'], ouvreUneDemande: true, escalade, saufParcours: true });
       const muet = async (): Promise<boolean> =>
         (await deps.consentement.estDesabonne(tenantId, waId)) || (await deps.consentement.estBloque(tenantId, waId));
       /**
@@ -882,7 +891,7 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
         if (tenuParLEquipe) await laisserALEquipe();
         // Un client dont personne n'a pris le message attend l'équipe : c'est une demande du Quantitatif > Performance
         // (décision de Julien du 2026-09-30).
-        else await depot.setControlOwner(tenantId, waId, 'app_human', { par: CAUSES.nonConfiee, only: ['app_workflow', 'mba'], ouvreUneDemande: true });
+        else await depot.setControlOwner(tenantId, waId, 'app_human', { par: CAUSES.nonConfiee, only: ['app_workflow', 'mba'], ouvreUneDemande: true, saufParcours: true });
         throw err;
       }
       if (issue.sorte !== 'confie') return laisserALEquipe();
@@ -920,7 +929,8 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
     },
 
     async prendrePourLEquipe(tenantId, waId, cause) {
-      if ((await depot.getControlOwner(tenantId, waId)) === 'app_human') {
+      const detenteur = await depot.getControlOwner(tenantId, waId);
+      if (detenteur === 'app_human') {
         // L'équipe tient déjà la conversation, et la réponse du client la lui garde : le délai de reprise repart d'ici,
         // sans quoi une vieille conversation au délai échu partirait aussitôt à l'agent de Meta par la remise du même
         // job (décision du 2026-09-30, relecture du même jour). Et le client attend l'équipe : une demande du KPI.
@@ -928,9 +938,11 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
         await depot.ouvrirUneDemande(tenantId, waId, cause);
         return true;
       }
+      // Une porte automatique : un parcours qui tient le fil le garde (la règle unique), avant de toucher à la liste de
+      // l'agent de Meta, et rejouée à l'écriture. `false` : rien n'est pris, l'appelant le journalise.
+      if (detenteur === 'app_workflow' && (await depot.parcoursTientLeFil(tenantId, waId))) return false;
       if (!(await deps.liste.retirer(tenantId, waId))) return false;
-      await depot.setControlOwner(tenantId, waId, 'app_human', { par: { cause }, ouvreUneDemande: true });
-      return true;
+      return depot.setControlOwner(tenantId, waId, 'app_human', { par: { cause }, ouvreUneDemande: true, saufParcours: true });
     },
 
     passerAUnHumain(tenantId, waId, { escalade, cause }) {
@@ -951,6 +963,9 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
     },
 
     async rendreApresInactivite(tenantId, waId, detenteur, vers) {
+      // Le lot du balayage a été lu plus tôt : un scénario a pu démarrer depuis. La règle unique se rejoue AVANT de
+      // confier le contact à l'agent de Meta (chez Meta, rien ne le reprendrait), puis à l'écriture (`saufParcours`).
+      if (detenteur === 'app_workflow' && (await depot.parcoursTientLeFil(tenantId, waId))) return false;
       if (vers === 'mba') {
         try {
           // Sans droit de faire de la place : ces fils sont inactifs depuis le délai de l'équipe, et les confier en
@@ -965,7 +980,7 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
           return false;
         }
       }
-      return depot.setControlOwner(tenantId, waId, vers, { par: CAUSES.inactivite, only: [detenteur], effacerEscalade: true });
+      return depot.setControlOwner(tenantId, waId, vers, { par: CAUSES.inactivite, only: [detenteur], effacerEscalade: true, saufParcours: true });
     },
 
     async peutAgir(tenantId, waId) {

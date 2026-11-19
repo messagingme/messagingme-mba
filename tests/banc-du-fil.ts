@@ -60,6 +60,8 @@ export function depotEnMemoire(initial: Record<string, Partial<EtatDuFil>> = {})
   const indisponibles: Array<{ waId: string; cause: string }> = [];
   const depot: DepsControleDuFil['depot'] = {
     getControlOwner: async (_t, waId) => lignes.get(waId)?.owner ?? 'app_workflow',
+    // Aucun parcours en mémoire par défaut ; `monterLeFil` le remplace par `enAttente` ou ses parcours.
+    parcoursTientLeFil: async () => false,
     setControlOwner: async (_t, waId, owner, opts) => {
       const l = lignes.get(waId);
       if (!l || l.owner === owner) return false;
@@ -271,7 +273,7 @@ export interface OptionsBanc {
   /** Remplace le démarreur factice (un vrai démarreur, branché par liaison tardive dans le test). */
   repondeur?: DepsControleDuFil['repondeur'];
   /** Remplace la lecture « un parcours attend-il ce contact ? » (de vrais parcours en mémoire). Prime sur `enAttente`. */
-  parcours?: DepsControleDuFil['parcours'];
+  parcours?: { findWaitingByWaId(tenantId: string, waId: string): Promise<object | null> };
   /** Le délai de reprise réglé par l'espace, en secondes (0 = jamais). Défaut : aucun, le délai par défaut s'applique. */
   delaiRepriseSecondes?: number | null;
   /** Le numéro de l'espace ; `null` = aucun numéro connecté. Défaut : un numéro. */
@@ -361,7 +363,12 @@ export function bancDuFil(o: OptionsBanc = {}): {
   const repondeurAgentId = o.repondeurAgentId ?? null;
   const mode: ModeRepondeur = o.mode ?? (repondeurAgentId !== null ? 'agent' : (mbaEnabled ? 'mba' : 'equipe'));
   const fil = creerControleDuFil({
-    depot: { ...memoire.depot, ...o.depot },
+    depot: {
+      ...memoire.depot,
+      // La règle unique, lue en mémoire : un parcours qui attend (`enAttente`, ou de vrais parcours en mémoire).
+      parcoursTientLeFil: async (t, waId) => (o.parcours ? (await o.parcours.findWaitingByWaId(t, waId)) !== null : o.enAttente === true),
+      ...o.depot,
+    },
     reglages: {
       get: async () => ({
         mbaEnabled, repondeurMode: mode, repondeurAgentId, repondeurWorkflowId: o.repondeurWorkflowId ?? null, repondeurAdresseId: o.repondeurAdresseId ?? null,
@@ -370,7 +377,6 @@ export function bancDuFil(o: OptionsBanc = {}): {
     },
     offres: { offreDe: async () => ({ offre: o.offre ?? 'entreprise', droits: DROITS[o.offre ?? 'entreprise'], retourEnBaseLe: null }) },
     delaiRepriseParDefautMs: DELAI_REPRISE_DEFAUT_MS,
-    parcours: o.parcours ?? { findWaitingByWaId: async () => (o.enAttente ? { id: 'run-1' } : null) },
     numeros: {
       getTenantPhoneNumberId: async () => (o.numero === undefined ? 'pn1' : o.numero),
       numeroBloque: async () => o.numeroBloque === true,

@@ -2319,7 +2319,9 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
     demandes encore ouvertes ou qui peuvent commencer dans la période. À surveiller le jour où un espace porte des
     dizaines de milliers d'événements (`todo.md`).
 - 🔴 **UNE ESCALADE EST « À TRAITER » TOUT DE SUITE** (`escaladee_le`, migration 0164), et TROIS chemins la
-  posent : l'agent de Meta qui nous passe le fil (`control_passed`), le bloc « passer à un humain » d'un
+  posent : l'agent de Meta qui nous passe le fil (`control_passed`, sauf sur un fil qu'un parcours tient : Meta envoie
+  aussi ce signal quand nous retirons le contact de la liste de son agent, et au clic sur un template routé vers nous,
+  ce qui n'est pas une escalade), le bloc « passer à un humain » d'un
   scénario, et l'escalade d'un agent IA (une demande ouverte sans bascule la pose aussi, `ouvrirUneDemande`,
   ci-dessus). Les trois font la même promesse au client, et souffraient du même
   défaut : leur dernière phrase est SORTANTE, donc la conversation n'entrait dans le dossier qu'au message
@@ -2560,12 +2562,25 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   requête ; le retirer et archiver n'y touchent pas) : le compte à rebours de reprise court depuis le plus tardif
   des deux. Reposer le même détenteur, lui, ne le rafraîchit pas (`setControlOwner` n'écrit rien), et « Traité » ne
   rend pas la main.
-- 🔴 **UN FIL TENU PAR UN SCÉNARIO NE REVIENT À L'AGENT DE META QUE SI AUCUN PARCOURS DU CONTACT N'A BOUGÉ DEPUIS
-  `CONTROL_WORKFLOW_TIMEOUT_MS`** (24 h, `listHeldControl`) : un parcours qui attend ou dort et dont l'état a été écrit
-  dans le délai (`workflow_runs.updated_at`) garde le fil, quelle que soit la date de prise, nulle pour une conversation
-  née d'un envoi et jamais rafraîchie quand un scénario démarre sur un fil déjà à lui. Sans cette garde, le fil partait
-  à l'agent de Meta quelques secondes ou minutes après l'envoi du template, et le clic sur son bouton allait à l'IA au
-  lieu de la branche du scénario (mesuré chez MUTAC le 2026-11-19). Un parcours abandonné rend le fil comme avant.
+- 🔴 **« UN PARCOURS TIENT LE FIL » EST UNE SEULE RÈGLE, ET AUCUNE PORTE AUTOMATIQUE NE LA CONTOURNE**
+  (`src/inbox/parcours-tient-le-fil.ts`). Un fil `app_workflow` appartient au scénario quand un parcours du contact,
+  dans cet espace, attend ou dort et a écrit son état depuis moins de 24 h (`DELAI_PARCOURS_TIENT_LE_FIL_MS`, que
+  `CONTROL_WORKFLOW_TIMEOUT_MS` reprend ; la soupape d'un parcours abandonné), OU quand le scénario ou une campagne lui a
+  écrit il y a moins de 2 minutes SANS que le contact ait répondu depuis (la fenêtre du démarrage : `runFrom` envoie
+  avant d'écrire le parcours ; seuls les envois d'origine `scenario` et `campagne` comptent, jamais l'écho de l'agent de
+  Meta ; et la première réponse du contact la ferme, sans quoi sa réponse à une campagne sans scénario était ignorée de
+  toutes les portes). Le signal de passation de Meta ajoute sa propre marge : 2 minutes après qu'un robot a pris le fil
+  (`control_changed_at`), l'écho de notre reprise peut précéder tout envoi. La date de prise du fil n'y
+  entre pas : nulle pour une conversation née d'un envoi, jamais rafraîchie quand un scénario démarre sur un fil déjà à
+  lui. Les portes automatiques qui l'appliquent : le signal de passation de Meta (`marquerEscalade`), le balayage
+  (`listHeldControl`, rejouée avant de confier et à l'écriture, `rendreApresInactivite`), la remise à l'arrivée d'un
+  message (une Attente comprise), le mode « Votre application », et la prise par l'équipe (campagne « devenir Inbox »,
+  filet de l'agent de Meta). Les gestes délibérés (opérateur, HubSpot, le scénario lui-même) et le `standby` de Meta en
+  sont exemptés. Un message du contact pendant une Attente ne coupe donc pas le scénario : il repart à son réveil, et
+  personne ne répond d'ici là (décision de Julien du 2026-11-19). `tests/parcours-tient-le-fil-inventaire.test.ts` refuse
+  un geste neuf qui retire le fil sans être classé. Sans cette règle, mesuré les 18 et 19 novembre (SANDBOX, MUTAC) : le clic sur un bouton de template allait à
+  l'IA, ou le parcours était gelé à la réponse suivante ou au réveil de son Attente, sans une ligne au journal des
+  échecs.
 - 🔴 **LE DÉLAI DE REPRISE EST UNE SEULE RÈGLE, À DEUX LECTEURS** (`repriseDue`, `src/inbox/delai-reprise.ts`) : le
   balayage (`runControlSweep`) et la remise « personne ne suit ». Une escalade sans réponse n'est jamais échue, un
   délai absent ou nul garde la main, un fil non daté est échu. Le délai de l'espace
