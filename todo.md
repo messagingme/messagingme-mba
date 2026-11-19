@@ -162,6 +162,43 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
 - **L'enregistrement d'un graphe lit le scénario avant d'écrire** (le verrou du premier bloc) : une lecture de plus par
   sauvegarde automatique, tous rayons.
 
+La relecture indépendante de 5b (2026-11-19, AUCUN ROUGE, déployable tel quel) note qu'en 5b aucun scénario Shopify ne
+peut avoir de suite (rien ne l'écrit encore : le pont n'est jamais posé). Ses jaunes, dans l'ordre où les régler avec 5c :
+
+- **AVANT le push de 5c : `set_shopify_message` écrase toute la `data` du premier bloc** (`avecLePremierBloc`,
+  `src/shopify/lignes-gestion.ts`) : il perd la sortie « Pas de réponse » (`timeoutValue`, `timeoutUnit`, décision 12), le
+  `code` et ce que l'éditeur y range. Dès qu'un scénario de ligne a une suite, changer le premier template par Claude fait
+  taire la suite d'un « Pas de réponse », sans erreur (contraire à la décision 7). Partir de `n.data` et n'y remplacer que
+  template, langue, boutons et variables.
+- **AVANT le push de 5c : l'état Shopify dépend de la liste des templates chez Meta, sans filet** (`etatDesLignes`,
+  `brancherLePremierBloc`) : Meta en panne ou un jeton invalide font lever `GET /integrations/shopify` (la carte en
+  erreur, l'entrée Shopify masquée par `AppShell`), `get_shopify_state`, et `set_shopify_message` APRÈS son changement.
+  Capturer la panne et rendre `etatChezMeta: null`.
+- **Le ménage peut supprimer chez Meta un template né dans le Builder général** (rare, vrai dès 5b) : choisi par Claude
+  comme premier bloc d'une ligne puis remplacé, il porte la marque (une ligne de `modeles_de_bloc`, quel que soit le rayon
+  d'origine) ; la décision 14 protège pourtant les templates du Builder. Filtrer par le rayon du scénario d'origine
+  (`modeles_de_bloc.workflow_id`).
+- **À TRANCHER PAR JULIEN avant 5c** : la décision 34 ne vaut que pour un parcours qui ATTEND une réponse ; pendant une
+  Attente (`sleeping`), la règle « un parcours tient le fil » rend le silence jusqu'à 24 h (ni agent IA, ni agent de
+  Meta, ni « À traiter »), alors que la décision 21 promettait que le répondeur répond pendant le sommeil d'un parcours
+  d'événement. Et le mode « application » rangé parmi les voies qui coexistent étend la décision 34.
+- **Le clic confié à une voie qui coexiste perd l'entrée réelle** (`remettreLeClicHorsParcours`, `rouverte: false`, sans
+  `redelivre`) : une conversation « Traité » rouverte par ce clic ne rouvre pas de demande ; une voie qui ne peut pas
+  partir (crédit, plafond, scénario répondeur déjà parti) se heurte à `saufParcours` (silence) ; un clic redélivré sur le
+  premier message d'un événement frère relance l'agent IA (réponse et coût doublés).
+- **Double envoi rare** né de l'extension de `clorePremierNonLivre` : un premier template sans choix échoue en 131049, le
+  second (utility) est livré, la relance automatique du lendemain fait renaître le parcours et le second repart. Course
+  voisine : un panier relancé juste avant la commande peut voir son parcours naître après l'arrêt (la naissance ne relit
+  pas `panierOuvert`) et tenir la place unique de « Commande payée ».
+- **Tests** : la référence du verrou à l'enregistrement (une copie jamais publiée, `PATCH`) et le cas `rouverte` ne sont
+  tenus par aucun test qui rougit (mutation X1 de la relecture).
+- **Petits écarts** : `noterRaison` sans `tenant_id` (identifiant interne) ; `PUT .../lignes/:evenement` allume une ligne
+  sur un numéro relié par QR code (chaque événement finit `filiere_differente`) ; `assurerLigne` non atomique (un scénario
+  orphelin possible) ; le filtre de longueur de `variablesDuDestinataire` est mort (`valeurDeVariable` coupe déjà à
+  1 024) ; un bloc agent IA d'un scénario de ligne compte en `agent` ; un récupéré daté du bloc de suite peut faire plus de
+  récupérés que de relances à la lisière d'une période ; `premier_message_absent` s'affiche brut dans l'écran d'avant et
+  `get_shopify_state` ne le décrit pas.
+
 ## 🟡 Le moteur des parcours d'événement : ce qui reste après la relecture de 5a (2026-11-19, aucun rouge)
 
 Le lot 5b a réglé, avant d'allumer le pont, le clic qui n'est pas pour le parcours (décision 34), la raison d'un parcours
