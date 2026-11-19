@@ -44,6 +44,10 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'shopify.message': ['Message Shopify préparé', 'Shopify message prepared'],
   'shopify.reglage': ['Message Shopify réglé', 'Shopify message settings changed'],
   'shopify.import': ['Clients Shopify importés', 'Shopify customers imported'],
+  // Le menu « Scénario », lot 5 : la pause de la boutique et l'interrupteur d'une automation (sa ligne).
+  'shopify.pause': ['Boutique Shopify mise en pause', 'Shopify store paused'],
+  'shopify.reprise': ['Boutique Shopify reprise', 'Shopify store resumed'],
+  'shopify.ligne': ['Automation Shopify réglée', 'Shopify automation changed'],
   // L'interrupteur du numéro sur l'Accueil (migration 0180). La cible est l'ESPACE, jamais le numéro affiché.
   'numero.delie': ['Numéro WhatsApp délié', 'WhatsApp number unlinked'],
   'numero.relie': ['Numéro WhatsApp relié', 'WhatsApp number relinked'],

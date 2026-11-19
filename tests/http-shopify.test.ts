@@ -5,7 +5,7 @@ import { signSession } from '../src/auth/token';
 import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { ShopifyRouteDeps } from '../src/http/shopify';
 import type { Connexion, VueBoutique } from '../src/shopify/store.pg';
-import { TEXTES_PROPOSES } from '../src/shopify/preparation';
+import { monterLignes } from './shopify-lignes-faux';
 
 /**
  * LES ROUTES DE PARAMÈTRES > INTÉGRATIONS > SHOPIFY (conception 2026-10-22), montées par le REGISTRE (qui pose l'étape
@@ -31,16 +31,15 @@ const VUE: VueBoutique = {
 };
 
 function monter() {
-  const trace = { connexions: [] as Connexion[], abonnements: [] as unknown[], modeles: [] as unknown[], delais: [] as number[], audit: [] as Array<{ action: string; cible: unknown; detail: unknown }> };
-  let boutique: VueBoutique | null = null;
+  const trace = { connexions: [] as Connexion[], abonnements: [] as unknown[], audit: [] as Array<{ action: string; cible: unknown; detail: unknown }> };
+  // La boutique vit dans le faux des lignes : la gestion, les lignes et la pause lisent la MÊME.
+  const lignes = monterLignes({ vue: null });
   const non = async (): Promise<never> => { throw new Error('hors de ce test'); };
   const store = {
-    lire: async () => boutique,
-    connecter: async (_t: string, c: Connexion) => { trace.connexions.push(c); boutique = { ...VUE, domaine: c.domaine }; return 'ok' as const; },
-    couper: non, messages: async () => [], brancher: non,
-    compteurs: async () => ({}), reglerDelaiPanier: async (_t: string, m: number) => { trace.delais.push(m); },
-    compteursPaniers: async () => ({ relances: {}, fermesATemps: 0, enAttente: 0 }), acces: async () => null,
-    attentes: async () => [], retirerAttente: async () => null, poserAttente: async () => undefined, message: async () => null,
+    lire: () => lignes.store.lire(),
+    connecter: async (_t: string, c: Connexion) => { trace.connexions.push(c); lignes.store.vue = { ...VUE, domaine: c.domaine }; return 'ok' as const; },
+    couper: non, messages: async () => [], compteurs: async () => ({}),
+    compteursPaniers: async () => ({ relances: {}, fermesATemps: 0, enAttente: 0 }), acces: async () => null, attentes: async () => [],
   };
   const deps: ShopifyRouteDeps = {
     gestion: {
@@ -53,22 +52,17 @@ function monter() {
       places: non,
       importer: non,
       abonner: async (a) => { trace.abonnements.push(a); return { ok: true, abonnes: ['ORDERS_PAID'], deja: [] }; },
-      programmerOubli: async () => undefined,
       filiere: async () => 'api',
       chiffreVentes: async (_t, periode) => ({
         periode, reel: { totaux: [], sources: [] }, test: { totaux: [], sources: [] },
         paniers: { relances: 0, recuperes: 0, montants: [], recuperesTest: 0 },
       }),
-    },
-    preparation: {
-      store,
-      creerModele: async (_t, input) => { trace.modeles.push(input); return { ok: true, statut: 'pending', categorie: input.category.toLowerCase() }; },
-      programmerOubli: async () => undefined,
+      lignes: lignes.deps,
     },
     audit: async (_t, _acteur, action, cible, detail) => { trace.audit.push({ action, cible, detail }); },
   };
   const app = buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET }, shopify: deps });
-  return { app, trace, brancher: () => { boutique = VUE; } };
+  return { app, trace, lignes, brancher: () => { lignes.store.vue = VUE; } };
 }
 
 describe('le branchement depuis la console', () => {
@@ -97,46 +91,91 @@ describe('le branchement depuis la console', () => {
   });
 });
 
-describe('l’assistant et les réglages', () => {
-  it('🔴 préparer la relance sans aucune affirmation du consentement (2026-10-26) : en validation, journalisé', async () => {
-    const { app, trace, brancher } = monter();
+/**
+ * LES AUTOMATIONS SHOPIFY (menu « Scénario », lot 5, tâche 8) : la pause de la boutique et l'interrupteur de chaque ligne.
+ * 🔴 L'ancien assistant (préparer un message, son modèle créé chez Meta) est RETIRÉ : sa route refuse avec la phrase qui
+ * dit où les messages se règlent désormais, parce qu'un onglet resté sur l'ancienne console l'appelle encore.
+ */
+describe('les automations et l’ancien assistant', () => {
+  it('🔴 l’ancien assistant refuse avec la phrase (410), sans rien créer ni journaliser', async () => {
+    const { app, trace, lignes, brancher } = monter();
     brancher();
     const r = await app.inject({
       method: 'POST', url: `${URL_T1}/messages`, ...en(admin),
-      payload: { evenement: 'checkout_abandoned', texte: TEXTES_PROPOSES.checkout_abandoned.fr, langue: 'fr', delaiMinutes: 60 },
+      payload: { evenement: 'checkout_abandoned', texte: 'Votre panier vous attend : {{checkout_url}}', langue: 'fr', delaiMinutes: 60 },
     });
-    expect(r.statusCode).toBe(200);
-    expect(r.json()).toMatchObject({ etat: 'en_validation' });
-    expect(trace.modeles).toHaveLength(1);
-    expect(trace.audit).toEqual([{ action: 'shopify.message', cible: CIBLE, detail: { evenement: 'checkout_abandoned', modele: expect.stringMatching(/^shopify_checkout_abandoned_/), etat: 'en_validation' } }]);
+    expect(r.statusCode).toBe(410);
+    expect(r.json().error).toMatch(/scénarios.*Automation, section Shopify/);
+    expect([trace.audit, lignes.workflows.parId.size]).toEqual([[], 0]);
   });
 
-  it('🔴 un onglet resté sur l’ancienne console envoie encore consentementAffirme : accepté, ignoré, absent du journal', async () => {
-    const { app, trace, brancher } = monter();
+  it('🔴 l’interrupteur d’une ligne : allumer crée son scénario, éteindre arrête ses parcours ; chaque geste est journalisé', async () => {
+    const { app, trace, lignes, brancher } = monter();
     brancher();
-    const prepare = await app.inject({
-      method: 'POST', url: `${URL_T1}/messages`, ...en(admin),
-      payload: { evenement: 'order_paid', texte: TEXTES_PROPOSES.order_paid.fr, langue: 'fr', consentementAffirme: true },
-    });
-    expect(prepare.statusCode).toBe(200);
+    const allume = await app.inject({ method: 'PUT', url: `${URL_T1}/lignes/order_paid`, ...en(admin), payload: { actif: true } });
+    expect(allume.statusCode).toBe(200);
+    expect(allume.json()).toMatchObject({ ligne: { evenement: 'order_paid', actif: true } });
+    expect(lignes.workflows.parId.size).toBe(1);
+    const eteint = await app.inject({ method: 'PUT', url: `${URL_T1}/lignes/order_paid`, ...en(admin), payload: { actif: false } });
+    expect(eteint.statusCode).toBe(200);
+    expect(lignes.parcours.arrets).toEqual([{ prefixe: 'shopify:b.myshopify.com:orders/paid:', motif: 'ligne éteinte' }]);
+    expect(trace.audit).toEqual([
+      { action: 'shopify.ligne', cible: CIBLE, detail: { evenement: 'order_paid', actif: true } },
+      { action: 'shopify.ligne', cible: CIBLE, detail: { evenement: 'order_paid', actif: false } },
+    ]);
+  });
+
+  it('le délai du panier se règle avec sa ligne ; un événement inconnu ou un corps hors contrat est refusé ; sans boutique, 409', async () => {
+    const { app, lignes, brancher } = monter();
+    expect((await app.inject({ method: 'PUT', url: `${URL_T1}/lignes/order_paid`, ...en(admin), payload: { actif: true } })).statusCode).toBe(409);
+    brancher();
+    expect((await app.inject({ method: 'PUT', url: `${URL_T1}/lignes/checkout_abandoned`, ...en(admin), payload: { actif: true, delaiMinutes: 30 } })).statusCode).toBe(200);
+    expect(lignes.store.gestes).toEqual(['allumer:checkout_abandoned', 'delai:30']);
+    const refuses: Array<[string, Record<string, unknown>]> = [
+      ['inconnu', { actif: true }], ['order_paid', { actif: 'oui' }], ['order_paid', { actif: true, autre: 1 }],
+      ['order_paid', { actif: true, delaiMinutes: 30 }], ['order_paid', {}],
+    ];
+    for (const [evenement, corps] of refuses) {
+      const r = await app.inject({ method: 'PUT', url: `${URL_T1}/lignes/${evenement}`, ...en(admin), payload: corps });
+      expect(r.statusCode, `${evenement} ${JSON.stringify(corps)}`).toBe(400);
+    }
+  });
+
+  it('🔴 la pause arrête les parcours de la boutique ; pause et reprise sont journalisées une fois chacune', async () => {
+    const { app, trace, lignes, brancher } = monter();
+    brancher();
+    const pause = () => app.inject({ method: 'PATCH', url: URL_T1, ...en(admin), payload: { pause: true } });
+    expect((await pause()).json()).toEqual({ changee: true });
+    expect((await pause()).json()).toEqual({ changee: false });
+    expect(lignes.parcours.arrets).toEqual([{ prefixe: 'shopify:b.myshopify.com:', motif: 'boutique en pause' }]);
+    expect((await app.inject({ method: 'PATCH', url: URL_T1, ...en(admin), payload: { pause: false } })).json()).toEqual({ changee: true });
+    expect(trace.audit.map((a) => a.action)).toEqual(['shopify.pause', 'shopify.reprise']);
+    expect((await app.inject({ method: 'PATCH', url: URL_T1, ...en(admin), payload: { pause: 'oui' } })).statusCode).toBe(400);
+  });
+
+  it('🔴 un agent et l’espace d’un autre client sont refusés sur la pause et l’interrupteur', async () => {
+    const { app, lignes, brancher } = monter();
+    brancher();
+    for (const jeton of [agent, autreEspace]) {
+      expect((await app.inject({ method: 'PATCH', url: URL_T1, ...en(jeton), payload: { pause: true } })).statusCode).toBe(403);
+      expect((await app.inject({ method: 'PUT', url: `${URL_T1}/lignes/order_paid`, ...en(jeton), payload: { actif: true } })).statusCode).toBe(403);
+    }
+    expect([lignes.store.pause, lignes.workflows.parId.size]).toEqual([false, 0]);
+  });
+});
+
+describe('les réglages d’avant', () => {
+  it('🔴 un onglet resté sur l’ancienne console envoie encore consentementAffirme : accepté, ignoré, absent du journal', async () => {
+    const { app, trace, lignes, brancher } = monter();
+    brancher();
     for (const consentementAffirme of [true, false]) {
       const regle = await app.inject({ method: 'PATCH', url: `${URL_T1}/messages/checkout_abandoned`, ...en(admin), payload: { delaiMinutes: 90, consentementAffirme } });
       expect(regle.statusCode, String(consentementAffirme)).toBe(200);
       expect(regle.json()).toEqual({});
     }
-    expect(trace.delais).toEqual([90, 90]);
+    expect(lignes.store.gestes).toEqual(['delai:90', 'delai:90']);
     expect(JSON.stringify(trace.audit)).not.toContain('consentement');
-    expect(trace.audit.map((a) => a.detail)).toMatchObject([{ evenement: 'order_paid' }, { evenement: 'checkout_abandoned', delaiMinutes: 90 }, { evenement: 'checkout_abandoned', delaiMinutes: 90 }]);
-  });
-
-  it('un corps d’assistant hors contrat est refusé ; le délai se règle sans Meta', async () => {
-    const { app, trace, brancher } = monter();
-    brancher();
-    expect((await app.inject({ method: 'POST', url: `${URL_T1}/messages`, ...en(admin), payload: { evenement: 'order_paid', texte: 'x', langue: 'fr', bouton: 'STOP' } })).statusCode).toBe(400);
-    const r = await app.inject({ method: 'PATCH', url: `${URL_T1}/messages/checkout_abandoned`, ...en(admin), payload: { delaiMinutes: 90 } });
-    expect(r.statusCode).toBe(200);
-    expect(trace.delais).toEqual([90]);
-    expect(trace.modeles).toEqual([]);
+    expect(trace.audit.map((a) => a.detail)).toMatchObject([{ evenement: 'checkout_abandoned', delaiMinutes: 90 }, { evenement: 'checkout_abandoned', delaiMinutes: 90 }]);
   });
 
   it('l’import exige le nombre choisi, entier', async () => {

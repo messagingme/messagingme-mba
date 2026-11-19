@@ -154,7 +154,8 @@ export interface WorkflowExecutorDeps {
      * de 0298. `parcoursDEvenementActif` la lit ; un démarrage qui COEXISTE (répondeur, outil d'agent, saut) ou qui CÈDE
      * (automation « Autres ») ne clôt que les parcours ordinaires (`closeOrdinairesByWaId`) ; un parcours d'événement qui
      * se réveille clôt tous les autres (`cloreAutresActifs`) ; le lot 5 arrête les parcours d'une origine (une commande
-     * née du panier) ou de scénarios (boutique en pause). Les fixtures passent `avecGardesDEtatInertes`.
+     * née du panier) ou d'un préfixe d'origine (une ligne éteinte, la boutique en pause ou coupée). Les fixtures passent
+     * `avecGardesDEtatInertes`.
      */
     parcoursDEvenementActif(tenantId: string, waId: string): Promise<{ id: string } | null>;
     /** La même origine déjà née pour ce contact (le prédicat de la naissance idempotente, index 0300). */
@@ -238,9 +239,9 @@ export interface WorkflowExecutorDeps {
    */
   blocDuMessage(tenantId: string, metaMessageId: string): Promise<{ workflowId: string; nodeId: string } | null>;
   /**
-   * Le parcours d'un événement a-t-il encore lieu d'être (lot 4, § 5.4.5) ? Le lot 5 y répond (une commande née du panier
-   * arrête le parcours du panier, la boutique en pause arrête tout) ; au lot 4, câblée inerte : toujours voulu. Lue avant
-   * tout effet d'une reprise d'un parcours d'événement : faux, il se clôt sans passer à l'équipe. Fixtures : `depsInertes`.
+   * Le parcours d'un événement a-t-il encore lieu d'être (lot 4, § 5.4.5) ? Le lot 5 y répond (`src/shopify/parcours-voulu.ts` :
+   * la boutique coupée ou en pause, la ligne éteinte, le panier devenu commande). Lue avant tout effet d'une reprise d'un
+   * parcours d'événement : faux, il se clôt sans passer à l'équipe. Fixtures : `depsInertes`.
    */
   parcoursEncoreVoulu(tenantId: string, run: { workflowId: string; evenement: EvenementDuParcours | null }): Promise<boolean>;
   /**

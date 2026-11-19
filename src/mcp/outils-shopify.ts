@@ -8,7 +8,7 @@ import { DELAI_PANIER_DEFAUT, DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_PAR_EV
 import {
   apercuImportClients, brancherMessage, connecterShopify, couperShopify, etatShopify, importerClients, IMPORT_MAX, type Issue,
 } from '../shopify/gestion';
-import { TEXTE_SHOPIFY_MAX } from '../shopify/preparation';
+import type { EtatLigne } from '../shopify/lignes-gestion';
 import type { MessageBranche } from '../shopify/store.pg';
 
 /**
@@ -29,10 +29,36 @@ function valeur<T>(r: Issue<T>): T {
 
 const evenements = EVENEMENTS_DISPONIBLES.map((e) => `${e} (${DONNEES_PAR_EVENEMENT[e].join(', ')})`).join('; ');
 
-/** Un message réglé, tel que les deux outils le rendent : un modèle (l'API) ou un texte (un numéro relié par QR code). */
+/** Un message d'avant le lot 5 (l'ancienne table), que `get_shopify_state` rend encore aux plugins d'avant. */
 const versMessage = (m: MessageBranche) => ({
   event: m.evenement, template: m.modele, text: m.texte, language: m.langue, variables: m.variables, active: m.actif,
 });
+
+/**
+ * Une automation (menu « Scénario », lot 5), telle que les deux outils la rendent. 🔴 Décision 7 : `set_shopify_message`
+ * ne change que le premier template du scénario ; la note dit les étapes qu'il ne change pas (la console), ou, sans les
+ * scénarios dans l'offre (Free), que seule la première part.
+ */
+function versAutomation(l: EtatLigne, scenarios: boolean) {
+  const suite = l.blocs - 1;
+  const note = l.modele === null
+    ? 'No first template yet: set_shopify_message with a template sets it.'
+    : suite <= 0 ? null
+      : scenarios
+        ? `The scenario has ${suite} more step${suite > 1 ? 's' : ''} after its first template: set_shopify_message changes only the first `
+          + 'template, the other steps are changed in the console (Automation, Shopify, Open the scenario).'
+        : 'On this plan only the first step is sent: the other steps of the scenario need the Pro plan.';
+  return {
+    event: l.evenement, active: l.actif, scenario: l.scenario, template: l.modele, language: l.langue,
+    template_status: l.etatChezMeta, steps: l.blocs, ...(note !== null ? { note } : {}),
+  };
+}
+
+/** Les automations rendues ; l'offre n'est lue que si un scénario a plus d'une étape (sinon elle ne change rien). */
+async function automations(deps: DepsMcp, tenantId: string, lignes: readonly EtatLigne[]) {
+  const scenarios = lignes.some((l) => l.blocs > 1) ? (await deps.offres.offreDe(tenantId)).droits.fonctions.has('scenarios') : true;
+  return lignes.map((l) => versAutomation(l, scenarios));
+}
 
 export const OUTILS_SHOPIFY: OutilMcp[] = [
   {
@@ -67,37 +93,35 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     ...ficheOutilMcp('set_shopify_message'),
     fonction: null,
     description:
-      'Sends a WhatsApp message when a Shopify event happens, or stops it, from an official API number (numero.filiere '
-      + 'api in get_setup_state): an approved template (template, language, variables: the Shopify data of {{1}}, {{2}}... '
-      + 'in order, as many as the template has). On a number linked by QR code (numero.filiere application), Shopify '
-      + 'messages cannot go out: WhatsApp does not let a linked device write first to a customer, so an active message is '
-      + 'refused there; only stopping one set before is allowed (active false, with its text). Link the number through '
-      + 'Meta (with a Meta Business account) for order confirmations, shipping updates and reminders. '
+      'Sets the WhatsApp message sent when a Shopify event happens, or turns it off. Each event has an automation: a scenario '
+      + 'whose first step is an approved template (template, language, variables: the Shopify data of {{1}}, {{2}}... in '
+      + 'order, as many as the template has). This tool creates the automation and its scenario if missing, sets the template '
+      + 'of the first step and keeps the following steps (changing the quick replies a following step starts from is '
+      + 'refused); the other steps are changed in the console, and on the Free plan only the first step is sent. A version of '
+      + 'the scenario scheduled for Meta\'s approval is cancelled. active false turns the automation off and stops its '
+      + 'journeys. On a number linked by QR code (numero.filiere application), Shopify messages cannot go out: WhatsApp does '
+      + 'not let a linked device write first to a customer, so turning one on is refused. Link the number through Meta (with '
+      + 'a Meta Business account) for order confirmations, shipping updates and reminders. '
       + `Events and their data: ${evenements}. `
       + 'An order message must be a utility template, approved at Meta (create_template, then get_template_status), and a '
       + 'checkout_abandoned reminder a marketing template. A checkout_abandoned reminder is sent once, delay_minutes after '
       + 'the checkout last changed and only if no order came out of it. A missing first name is replaced by a neutral '
-      + 'word. Links go in the body (a URL button takes no variable). One message per event: setting it again replaces '
-      + 'it. Each message records the customer as opted in (source shopify:<store>), for campaigns too: the merchant is '
-      + 'responsible for its customers\' consent, and a customer who said STOP stays opted out and receives nothing. '
-      + 'Every message goes through the sends rules (STOP, monthly templates, contact limit) and appears in Campaigns.',
+      + 'word. Links go in the body (a URL button takes no variable). Each message records the customer as opted in (source '
+      + 'shopify:<store>), for campaigns too: the merchant is responsible for its customers\' consent, and a customer who said '
+      + 'STOP stays opted out and receives nothing. Every message goes through the sends rules (STOP, monthly templates, '
+      + 'contact limit) and appears in Campaigns.',
     annotations: { title: 'Set a Shopify message', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     entree: {
       type: 'object',
       properties: {
         event: { type: 'string', enum: [...EVENEMENTS_DISPONIBLES], description: 'The Shopify event.' },
-        template: { type: 'string', minLength: 1, maxLength: 512, description: 'The template name (an official API number only).' },
-        text: {
-          type: 'string', minLength: 1, maxLength: TEXTE_SHOPIFY_MAX,
-          description: 'A number linked by QR code only, to stop a message set before (with active false): its plain text, '
-            + 'the event data in double braces ({{first_name}}). Such a number cannot send Shopify messages.',
-        },
-        language: { type: 'string', minLength: 1, maxLength: 20, description: 'The template or text language (fr, en_US...).' },
+        template: { type: 'string', minLength: 1, maxLength: 512, description: 'The template of the first step (required to turn the automation on).' },
+        language: { type: 'string', minLength: 1, maxLength: 20, description: 'The template language (fr, en_US...).' },
         variables: {
           type: 'array', maxItems: 10, items: { type: 'string', enum: [...new Set(EVENEMENTS_DISPONIBLES.flatMap((e) => DONNEES_PAR_EVENEMENT[e]))] },
-          description: 'The Shopify data of {{1}}, {{2}}..., in order.',
+          description: 'With template: the Shopify data of {{1}}, {{2}}..., in order.',
         },
-        active: { type: 'boolean', description: 'false stops the message (default true).' },
+        active: { type: 'boolean', description: 'false turns the automation off and stops its journeys (default true).' },
         delay_minutes: {
           type: 'integer', minimum: DELAI_PANIER_MIN, maximum: DELAI_PANIER_MAX,
           description: `checkout_abandoned only: minutes after the checkout last changed (default ${DELAI_PANIER_DEFAUT}).`,
@@ -109,20 +133,26 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     async executer(deps: DepsMcp, tenantId, args, personne) {
       // Un plugin d'avant le 2026-10-26 envoie encore `customers_consented` : hors schéma, le serveur la refuse avant
       // l'outil depuis le 2026-11-04 (`refusDesClesInconnues`), avec le refus générique (`todo.md`).
-      const messages = valeur(await brancherMessage(deps.shopify, tenantId, {
-        evenement: args.event, modele: args.template, texte: args.text, langue: args.language, variables: args.variables, actif: args.active,
+      const r = valeur(await brancherMessage(deps.shopify, tenantId, {
+        evenement: args.event, modele: args.template, langue: args.language, variables: args.variables, actif: args.active,
         delaiMinutes: args.delay_minutes,
       }, personne?.userId ?? null));
       journaliser('info', 'mcp_shopify_message', { tenantId, userId: personne?.userId ?? null, evenement: args.event });
-      return { messages: messages.map(versMessage) };
+      return {
+        automations: await automations(deps, tenantId, r.lignes),
+        ...(r.programmationAnnulee
+          ? { scheduled_version_cancelled: 'A version of this scenario was scheduled for Meta\'s approval: it is cancelled, the new first template is live now.' }
+          : {}),
+      };
     },
   },
   {
     ...ficheOutilMcp('get_shopify_state'),
     fonction: null,
     description:
-      'The Shopify store connected to the workspace: its state (connected or cut), the messages set on its events, the last '
-      + 'event received, and the last 30 days of events by outcome (sent, '
+      'The Shopify store connected to the workspace: its state (connected or cut), whether it is paused, its automations (one '
+      + 'per event: on or off, its scenario, the first template and its status at Meta, the number of steps), the last event '
+      + 'received, and the last 30 days of events by outcome (sent, '
       + 'opted out, without consent, contact limit, monthly templates limit, without phone...; on a number linked by QR code '
       + 'also premier_contact: such a number never writes first, so its Shopify messages cannot go out; and for a message '
       + 'queued before that rule, en_file, pas_sur_whatsapp, gele, numero_coupe, refuse_whatsapp, filiere_differente), and '
@@ -130,7 +160,8 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'their delay and, over the last 7 days, the reminders sent, those closed in time by an order, those waiting (all '
       + 'three counted on the checkouts opened in those days), and, by reminder date, the reminders that went out and those '
       + 'recovered (reminded then paid, test orders excluded) with their amount per currency: compare these two together. '
-      + 'The revenue attributed to WhatsApp over any period: get_revenue_stats.',
+      + 'The revenue attributed to WhatsApp over any period: get_revenue_stats. messages: the setting from before automations '
+      + 'became scenarios, kept for older plugins; it no longer sends.',
     annotations: { title: 'Get the Shopify connection', readOnlyHint: true, openWorldHint: false },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
@@ -140,6 +171,8 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         connected: e.boutique.etat === 'connectee',
         store: e.boutique.domaine, name: e.boutique.nom, state: e.boutique.etat, cut_reason: e.boutique.motifCoupure,
         last_event_at: e.boutique.dernierEvenementLe,
+        paused: e.boutique.pauseLe !== null,
+        automations: await automations(deps, tenantId, e.lignes),
         messages: e.messages.map(versMessage),
         last_30_days: e.compteurs,
         checkouts: {

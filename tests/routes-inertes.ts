@@ -990,12 +990,10 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
   shopify: {
     store: {
       lire: async () => null, connecter: neDevraitPasEtreAppelee('shopify.connecter'), couper: neDevraitPasEtreAppelee('shopify.couper'),
-      messages: async () => [], brancher: neDevraitPasEtreAppelee('shopify.brancher'), compteurs: async () => ({}),
-      reglerDelaiPanier: neDevraitPasEtreAppelee('shopify.reglerDelaiPanier'),
+      messages: async () => [], compteurs: async () => ({}),
       compteursPaniers: async () => ({ relances: {}, fermesATemps: 0, enAttente: 0 }),
       acces: async () => null,
       attentes: async () => [],
-      retirerAttente: neDevraitPasEtreAppelee('shopify.retirerAttente'),
     },
     verifier: neDevraitPasEtreAppelee('shopify.verifier'),
     lireModele: neDevraitPasEtreAppelee('shopify.lireModele'),
@@ -1005,10 +1003,24 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
     places: neDevraitPasEtreAppelee('shopify.places'),
     importer: neDevraitPasEtreAppelee('shopify.importer'),
     abonner: neDevraitPasEtreAppelee('shopify.abonner'),
-    programmerOubli: neDevraitPasEtreAppelee('shopify.programmerOubli'),
     filiere: async () => null,
     // Aucune boutique (`lire` rend null) : l'état ne lit jamais le chiffre.
     chiffreVentes: neDevraitPasEtreAppelee('shopify.chiffreVentes'),
+    // Les lignes (menu « Scénario », lot 5) : aucune, et rien ne s'écrit ni ne s'arrête.
+    lignes: {
+      store: {
+        lire: async () => null, lignes: async () => [], ligne: async () => null,
+        poserLigne: neDevraitPasEtreAppelee('shopify.poserLigne'), allumerLigne: neDevraitPasEtreAppelee('shopify.allumerLigne'),
+        eteindreLigne: neDevraitPasEtreAppelee('shopify.eteindreLigne'), mettreEnPause: neDevraitPasEtreAppelee('shopify.mettreEnPause'),
+        reprendre: neDevraitPasEtreAppelee('shopify.reprendre'), reglerDelaiPanier: neDevraitPasEtreAppelee('shopify.reglerDelaiPanier'),
+      },
+      workflows: {
+        insert: neDevraitPasEtreAppelee('shopify.workflows.insert'), publish: neDevraitPasEtreAppelee('shopify.workflows.publish'),
+        getById: async () => null, update: neDevraitPasEtreAppelee('shopify.workflows.update'), publicationProgrammee: async () => null,
+      },
+      parcours: { arreterParcours: neDevraitPasEtreAppelee('shopify.arreterParcours') },
+      modeles: async () => [],
+    },
   },
 };
 

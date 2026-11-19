@@ -32,10 +32,9 @@ export interface StatutsModelesDeps {
   /** La distribution d'un événement d'espace (`distribuerEvenementEspace`), aux adresses qui ont coché son type. */
   distribuer(tenantId: string, ev: { id: string; type: typeof TYPE_STATUT_MODELE; le: string; data: Record<string, unknown> }): Promise<void>;
   /**
-   * Le même statut, pour ses consommateurs du worker (`surStatutDesModeles`, chacun dans sa capture) : les messages
-   * Shopify préparés depuis la console (`activerSelonStatut`, `src/shopify/preparation.ts`) et les templates écrits
-   * depuis un bloc du constructeur (`trancherModeleDeBloc`, `src/workflow/modeles-de-bloc.ts`, lot 3). Un échec ici ne
-   * retient pas la distribution : le filet de l'API relit les attentes anciennes des deux.
+   * Le même statut, pour ses consommateurs du worker (`surStatutDesModeles`, chacun dans sa capture) : les templates
+   * écrits depuis un bloc du constructeur (`trancherModeleDeBloc`, `src/workflow/modeles-de-bloc.ts`, lot 3). Un échec
+   * ici ne retient pas la distribution : le filet de l'API relit les attentes anciennes.
    */
   surStatut(tenantId: string, s: { modele: string; langue: string; statut: string; raison: string | null }): Promise<unknown>;
 }

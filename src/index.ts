@@ -112,7 +112,6 @@ import { FILE_PREUVE_UTM } from './shopify/preuve-utm';
 import { demanderJeton, verifierBoutique } from './shopify/connexion';
 import { lireClientsAbonnes } from './shopify/clients';
 import { abonnerWebhooks } from './shopify/abonnements';
-import { FILE_OUBLI_MODELE, relireAttentes, type DepsPreparation, type ProgrammerOubli } from './shopify/preparation';
 import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
 import { relireModelesDeBloc, type DepsPublication } from './workflow/modeles-de-bloc';
 import type { ModelesDeBlocDep } from './http/workflows';
@@ -267,9 +266,9 @@ import { catalogueBranchable } from './http/agent-setup';
 import type { CountryCode } from 'libphonenumber-js';
 import { handlerMaison } from './agent/outils-maison';
 import type { TemplateSummary } from './meta/templates';
-import { creerUnModele, listerModeles as listerModelesRehabilites, type DepsGestionModeles } from './templates/gestion';
+import { listerModeles as listerModelesRehabilites, type DepsGestionModeles } from './templates/gestion';
 import { executerChezMeta } from './ops/duplication/meta-execution';
-import { refusDeMeta, statutsDuModele, type DepsCreationModele } from './api/creer-modele';
+import { statutsDuModele, type DepsCreationModele } from './api/creer-modele';
 import { placesDeTelechargement, telechargerEnteteProduction } from './api/entete-par-url';
 import { lancerEnvoiPublic, type DepsEnvoiPublic } from './api/envoi-public';
 import { tenter } from './lib/tenter';
@@ -1708,12 +1707,8 @@ async function main(): Promise<void> {
     ia: (t, r) => coutLeviersStore.lireIaParJour(t, r),
     prix: (t, r) => chiffrage.getPrixLeviers(t, r),
   }, tenant, range);
-  // Le ménage des modèles de l'assistant que remplace un nouveau message (2026-10-23) : l'API ne fait que PROGRAMMER
-  // l'oubli ; le worker le traite un quart d'heure plus tard (`traiterOubli`, la suppression de l'écran Modèles).
-  const programmerOubliShopify: ProgrammerOubli = (job, quand) => queue.enqueue(FILE_OUBLI_MODELE, job, { groupId: job.tenantId, startAfter: quand });
   const gestionShopify: DepsGestionShopify = {
     store: shopifyStore,
-    programmerOubli: programmerOubliShopify,
     verifier: (domaine, clientId, secret) => verifierBoutique(domaine, clientId, secret),
     // La MÊME lecture du modèle chez Meta que l'envoi qui le fera partir.
     lireModele: (tenant, nom, langue) => depsEnvois.lireModele(tenant, nom, langue),
@@ -1729,6 +1724,9 @@ async function main(): Promise<void> {
     // Un modèle sur l'API, un texte sur un numéro relié par QR code (plan 2026-10-23, tâche 5).
     filiere: (tenant) => comptesApplication.filiereDe(tenant),
     chiffreVentes: lireChiffreVentes,
+    // Les lignes et leurs scénarios (menu « Scénario », lot 5) : les magasins et l'exécuteur ENTIERS (leurs méthodes lisent
+    // `this`) ; les templates, la MÊME liste que le catalogue (une minute de cache).
+    lignes: { store: shopifyStore, workflows: workflowStore, parcours: workflowRuntime.executor, modeles: listerModeles },
   };
   const traitementShopify: DepsTraitementShopify = {
     store: shopifyStore,
@@ -1767,40 +1765,13 @@ async function main(): Promise<void> {
   };
   let relancePaniersEnCours = false;
 
-  /**
-   * L'assistant des messages Shopify de la console (conception 2026-10-22) : le modèle se crée par la MÊME création que
-   * l'écran Modèles, puis le message s'active seul à l'approbation de Meta. Le signal vient du worker (statut d'un
-   * modèle) ; ce filet relit chez Meta, toutes les dix minutes, les attentes de plus de dix minutes.
-   */
-  const preparationShopify: DepsPreparation = {
-    store: shopifyStore,
-    programmerOubli: programmerOubliShopify,
-    creerModele: async (tenant, input) => {
-      try {
-        const issue = await creerUnModele(depsModeles, tenant, input);
-        if ('res' in issue) return { ok: true, statut: issue.res.status.toLowerCase(), categorie: issue.res.category.toLowerCase() };
-        return { ok: false, message: issue.error };
-      } catch (err) {
-        const refus = refusDeMeta(err);
-        if (refus !== null) return { ok: false, message: refus.message };
-        throw err;
-      }
-    },
+  /** Le statut d'un template relu chez Meta, hors de tout cache : le filet des templates de bloc (lot 3) le lit. */
+  const statutModeleChezMeta = async (tenant: string, modele: string, langue: string) => {
+    const r = await statutsDuModele({ modeles: depsModeles }, tenant, modele, langue);
+    if ('refus' in r) return null;
+    const s = r.languages[0];
+    return s ? { statut: s.status, raison: s.rejectedReason } : null;
   };
-  const filetAttentesShopify = {
-    store: shopifyStore,
-    programmerOubli: programmerOubliShopify,
-    emails: emetteurEmails,
-    // La carte Shopify vit dans Tools > Intégrations depuis le 2026-10-26 (son ancre ne change pas).
-    pageParametres: `${config.APP_URL.trim().replace(/\/+$/, '')}/integrations#integration-shopify`,
-    statutModele: async (tenant: string, modele: string, langue: string) => {
-      const r = await statutsDuModele({ modeles: depsModeles }, tenant, modele, langue);
-      if ('refus' in r) return null;
-      const s = r.languages[0];
-      return s ? { statut: s.status, raison: s.rejectedReason } : null;
-    },
-  };
-  let filetAttentesEnCours = false;
   let toursFiletAttentes = 0;
 
   /**
@@ -1812,7 +1783,7 @@ async function main(): Promise<void> {
   const publicationDesScenarios: DepsPublication = {
     lignes: modelesDeBlocStore,
     scenarios: workflowStore,
-    statutModele: filetAttentesShopify.statutModele,
+    statutModele: statutModeleChezMeta,
     emails: emetteurEmails,
     audit: auditSink,
     lienScenario: (id) => `${config.APP_URL.trim().replace(/\/+$/, '')}/workflows?open=${id}`,
@@ -3320,7 +3291,7 @@ async function main(): Promise<void> {
       } satisfies SalesforceRouteDeps;
     })() } : {}),
     // Tools > Intégrations > Shopify : la carte en lecture et « Couper », par la gestion des outils MCP.
-    shopify: { gestion: gestionShopify, preparation: preparationShopify, audit: auditSink } satisfies ShopifyRouteDeps,
+    shopify: { gestion: gestionShopify, audit: auditSink } satisfies ShopifyRouteDeps,
     // Les webhooks des boutiques : la boutique se reconnaît à son domaine, son secret vérifie la signature.
     shopifyWebhooks: {
       boutiques: shopifyStore,
@@ -4106,17 +4077,8 @@ async function main(): Promise<void> {
         })
         .finally(() => { relancePaniersEnCours = false; }));
     }
-    // Le filet des messages Shopify préparés par la console : une passe toutes les dix minutes, bornée.
+    // Un tour sur dix (dix minutes) : le filet ci-dessous.
     toursFiletAttentes = (toursFiletAttentes + 1) % 10;
-    if (toursFiletAttentes === 0 && !filetAttentesEnCours) {
-      filetAttentesEnCours = true;
-      void travauxEnVol.suivre(relireAttentes(filetAttentesShopify, 10, 20)
-        .catch((err: unknown) => {
-          // eslint-disable-next-line no-console
-          console.error('shopify-attentes: passage en échec:', messageDe(err));
-        })
-        .finally(() => { filetAttentesEnCours = false; }));
-    }
     // Le filet des templates de bloc et des mises en ligne programmées (lot 3) : au même tour, vingt au plus.
     if (toursFiletAttentes === 0 && !filetModelesDeBlocEnCours) {
       filetModelesDeBlocEnCours = true;

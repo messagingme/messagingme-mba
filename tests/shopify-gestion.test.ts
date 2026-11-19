@@ -8,13 +8,18 @@ import type { IssueJeton } from '../src/shopify/connexion';
 import type { ImportInput } from '../src/crm/import';
 import { LimiteOffreError } from '../src/offres/refus';
 import type { LectureModele } from '../src/api/modele-envoi';
-import type { AccesBoutique, AttenteMessage, MessageBranche, VueBoutique } from '../src/shopify/store.pg';
+import type { AccesBoutique, MessageBranche, VueBoutique } from '../src/shopify/store.pg';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import type { Filiere } from '../src/application/comptes';
-import { TEXTE_SHOPIFY_MAX, validerTexteShopify } from '../src/shopify/preparation';
 import { MESSAGE_OPERATIONS_LOURDES } from '../src/auth/plafond-partage';
 import { addDays, todayParis, type DateRange } from '../src/stats/range';
 import type { ChiffreVentes } from '../src/shopify/chiffre';
+import { reglerLigne } from '../src/shopify/lignes-gestion';
+import { blocVerrouille } from '../src/shopify/premier-bloc';
+import { DROITS, type Offre } from '../src/offres/offres';
+import type { TemplateSummary } from '../src/meta/templates';
+import type { WorkflowGraph } from '../src/workflow/graph';
+import { modeleMeta, monterLignes } from './shopify-lignes-faux';
 
 /** Le chiffre que rend la lecture des ventes (plan 2026-10-30, lot 2) : seuls ses paniers entrent dans l'état. */
 const CHIFFRE: ChiffreVentes = {
@@ -26,7 +31,8 @@ const CHIFFRE: ChiffreVentes = {
 
 /**
  * LA GESTION DU CONNECTEUR SHOPIFY (plan 2026-10-21, lot 1), porte unique des outils MCP et de la console. Chaque refus
- * dit le geste qui le règle ; aucun secret n'est gardé sans que Shopify ait accepté la connexion.
+ * dit le geste qui le règle ; aucun secret n'est gardé sans que Shopify ait accepté la connexion. Depuis le menu
+ * « Scénario » (lot 5), un message Shopify est le PREMIER BLOC du scénario de la ligne de son événement.
  */
 
 const T = 't1';
@@ -34,37 +40,33 @@ const VUE: VueBoutique = {
   domaine: 'b.myshopify.com', nom: 'Essai', pays: 'FR', devise: 'EUR', etat: 'connectee', motifCoupure: null, coupeeLe: null,
   connecteeLe: '2026-10-21T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'claude_code', pauseLe: null,
 };
+const PERSONNE = { userId: 'u1', autorisationId: 'aut-1' } as never;
 
 function monter(o: {
   boutique?: VueBoutique | null; modele?: LectureModele; ailleurs?: boolean; verif?: Awaited<ReturnType<DepsGestionShopify['verifier']>>;
   jeton?: Awaited<ReturnType<DepsGestionShopify['jeton']>>; abonnement?: Awaited<ReturnType<DepsGestionShopify['abonner']>>;
   acces?: Awaited<ReturnType<DepsGestionShopify['store']['acces']>>;
-  actifs?: MessageBranche[]; attenteRetiree?: AttenteMessage; filiere?: Filiere | null;
+  anciens?: MessageBranche[]; filiere?: Filiere | null; modeles?: TemplateSummary[]; arretLeve?: boolean;
 } = {}) {
-  let boutique: VueBoutique | null = o.boutique === undefined ? VUE : o.boutique;
-  const journal = { connexions: [] as unknown[], branches: [] as unknown[], coupes: 0, verifs: 0, delais: [] as number[], attentesRetirees: [] as unknown[], abonnements: [] as unknown[], lecturesModele: 0, chiffres: [] as DateRange[] };
-  const messages: MessageBranche[] = [...(o.actifs ?? [])];
-  let attenteRetiree = o.attenteRetiree ?? null;
-  const programmes: string[] = [];
+  // La boutique vit dans le faux des lignes : la gestion et les lignes lisent la MÊME (une coupure se voit des deux côtés).
+  const lignes = monterLignes({ vue: o.boutique === undefined ? VUE : o.boutique, modeles: o.modeles ?? [modeleMeta({ buttons: [] }), modeleMeta({ id: 'm2', name: 'relance', category: 'MARKETING', buttons: [] })], arretLeve: o.arretLeve });
+  const journal = { connexions: [] as unknown[], coupes: 0, verifs: 0, abonnements: [] as unknown[], lecturesModele: 0, chiffres: [] as DateRange[] };
   const deps: DepsGestionShopify = {
     store: {
-      lire: async () => boutique,
-      connecter: async (_t, c) => { journal.connexions.push(c); if (o.ailleurs) return 'boutique_ailleurs'; boutique = { ...VUE, domaine: c.domaine }; return 'ok'; },
-      couper: async () => { journal.coupes += 1; const deja = boutique?.etat === 'coupee'; if (boutique) boutique = { ...boutique, etat: 'coupee' }; return !deja; },
-      messages: async () => messages,
-      // Comme le vrai store : brancher REMPLACE le message de l'événement.
-      brancher: async (_t, m) => {
-        journal.branches.push(m);
-        const i = messages.findIndex((x) => x.evenement === m.evenement);
-        const ligne: MessageBranche = { evenement: m.evenement, modele: m.modele, texte: m.texte, langue: m.langue, variables: m.variables, actif: m.actif, modifieLe: '' };
-        if (i >= 0) messages[i] = ligne; else messages.push(ligne);
+      lire: () => lignes.store.lire(),
+      connecter: async (_t, c) => { journal.connexions.push(c); if (o.ailleurs) return 'boutique_ailleurs'; lignes.store.vue = { ...VUE, domaine: c.domaine }; return 'ok'; },
+      couper: async () => {
+        journal.coupes += 1;
+        const v = lignes.store.vue;
+        const deja = v?.etat === 'coupee';
+        if (v) lignes.store.vue = { ...v, etat: 'coupee' };
+        return !deja;
       },
+      messages: async () => o.anciens ?? [],
       compteurs: async () => ({ envoye: 3 }),
-      reglerDelaiPanier: async (_t, m) => { journal.delais.push(m); },
       compteursPaniers: async () => ({ relances: { envoye: 1 }, fermesATemps: 2, enAttente: 3 }),
       acces: async () => o.acces ?? null,
       attentes: async () => [],
-      retirerAttente: async (_t, cible) => { journal.attentesRetirees.push(cible); const a = attenteRetiree; attenteRetiree = null; return a; },
     },
     verifier: async () => { journal.verifs += 1; return o.verif ?? { ok: true, nom: 'Essai', pays: 'FR', devise: 'EUR' }; },
     lireModele: async () => { journal.lecturesModele += 1; return o.modele ?? { statut: 'approuve', categorie: 'utility', variables: 2 }; },
@@ -74,13 +76,18 @@ function monter(o: {
     places: async () => { throw new Error('places : hors de ce test'); },
     importer: async () => { throw new Error('importer : hors de ce test'); },
     abonner: async (acces) => { journal.abonnements.push(acces); return o.abonnement ?? { ok: true, abonnes: ['ORDERS_PAID'], deja: [] }; },
-    programmerOubli: async (job) => { programmes.push(job.modele); },
     // La filière API par défaut : tous les tests d'avant le texte simple (plan 2026-10-23) restent ceux de l'API.
     filiere: async () => (o.filiere === undefined ? 'api' : o.filiere),
     chiffreVentes: async (_t, range) => { journal.chiffres.push(range); return CHIFFRE; },
+    lignes: lignes.deps,
   };
-  return { deps, journal, programmes };
+  return { deps, journal, lignes };
 }
+
+/** Les dépendances des outils MCP : la gestion, et l'offre de l'espace (la Free n'a pas les scénarios). */
+const mcpDe = (deps: DepsGestionShopify, offre: Offre = 'pro'): DepsMcp => ({
+  shopify: deps, offres: { offreDe: async () => ({ offre, droits: DROITS[offre], retourEnBaseLe: null }) },
+}) as unknown as DepsMcp;
 
 describe('connecter une boutique', () => {
   it('vérifie chez Shopify, puis garde la boutique ; le domaine se normalise', async () => {
@@ -146,24 +153,34 @@ describe('brancher une boutique depuis la console (conception 2026-10-22)', () =
   });
 });
 
-describe('brancher un message', () => {
-  const branchement = { evenement: 'order_paid', modele: 'commande_payee', texte: undefined, langue: 'fr', variables: ['first_name', 'order_number'], actif: true };
+/**
+ * 🔴 UN MESSAGE SHOPIFY EST LE PREMIER BLOC DU SCÉNARIO DE SA LIGNE (menu « Scénario », lot 5, tâche 8). Les attentes
+ * de ces tests ont changé avec la bascule : `set_shopify_message` ne remplit plus l'ancienne table des messages, il pose
+ * le template dans le bloc verrouillé du scénario (la ligne et son scénario naissent s'ils manquent) et règle
+ * l'interrupteur de la ligne ; éteindre arrête ses parcours.
+ */
+describe('brancher un message : le premier bloc du scénario de sa ligne', () => {
+  const branchement = { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: ['first_name', 'order_number'], actif: true };
 
-  it('un modèle utility approuvé, autant de variables que lui : branché', async () => {
-    const { deps, journal } = monter();
-    expect((await brancherMessage(deps, T, branchement, 'u1')).ok).toBe(true);
-    expect(journal.branches).toEqual([{ evenement: 'order_paid', modele: 'commande_payee', texte: null, langue: 'fr', variables: ['first_name', 'order_number'], actif: true, par: 'u1' }]);
-    // Le dernier geste gagne : un message préparé par la console pour cet événement ne le remplacera pas.
-    expect(journal.attentesRetirees).toEqual([{ evenement: 'order_paid' }]);
+  it('un modèle utility approuvé, autant de variables que lui : la ligne naît, son premier bloc le reçoit, elle s’allume', async () => {
+    const { deps, lignes } = monter();
+    const r = await brancherMessage(deps, T, branchement, 'u1');
+    expect(r).toMatchObject({ ok: true, valeur: { programmationAnnulee: false, lignes: [{ evenement: 'order_paid', actif: true, modele: 'commande_payee', langue: 'fr', blocs: 1 }] } });
+    const ligne = (await lignes.store.ligne(T, 'order_paid'))!;
+    expect(blocVerrouille((await lignes.workflows.getById(ligne.workflowId, T))!.graph)?.data).toMatchObject({
+      templateName: 'commande_payee', language: 'fr',
+      variables: [{ position: 1, source: { type: 'variable', key: 'first_name' } }, { position: 2, source: { type: 'variable', key: 'order_number' } }],
+    });
+    expect(lignes.store.gestes).toEqual(['allumer:order_paid']);
   });
 
-  it('🔴 refusé : modèle marketing, non approuvé, ou dont le nombre de variables diffère', async () => {
+  it('🔴 refusé : modèle marketing, non approuvé, ou dont le nombre de variables diffère ; rien ne naît', async () => {
     for (const modele of [
       { statut: 'approuve', categorie: 'marketing', variables: 2 }, { statut: 'absent' }, { statut: 'approuve', categorie: 'utility', variables: 3 },
     ] as LectureModele[]) {
-      const { deps, journal } = monter({ modele });
+      const { deps, lignes } = monter({ modele });
       expect(await brancherMessage(deps, T, branchement, null)).toMatchObject({ ok: false, statut: 422 });
-      expect(journal.branches).toEqual([]);
+      expect([lignes.store.lignesEnBase.size, lignes.workflows.parId.size]).toEqual([0, 0]);
     }
   });
 
@@ -174,55 +191,61 @@ describe('brancher un message', () => {
     expect(await brancherMessage(monter({ boutique: { ...VUE, etat: 'coupee' } }).deps, T, branchement, null)).toMatchObject({ ok: false, statut: 409 });
   });
 
-  it('éteindre un message ne relit pas le modèle chez Meta', async () => {
-    const { deps, journal } = monter({ modele: { statut: 'absent' } });
-    expect((await brancherMessage(deps, T, { ...branchement, actif: false }, null)).ok).toBe(true);
-    expect(journal.branches).toHaveLength(1);
-  });
-});
-
-describe('le ménage des modèles remplacés (2026-10-23)', () => {
-  // Des noms de l'assistant : son horodatage en base 36, après sa mise en service.
-  const ASSISTANT = `shopify_order_paid_${Date.UTC(2026, 9, 22, 9).toString(36)}`;
-  const attente: AttenteMessage = { evenement: 'order_paid', modele: `shopify_order_paid_${Date.UTC(2026, 9, 22, 10).toString(36)}`, langue: 'fr', variables: ['first_name'], delaiMinutes: null, creeLe: '' };
-  const branchement = { evenement: 'order_paid', modele: 'commande_payee', texte: undefined, langue: 'fr', variables: ['first_name', 'order_number'], actif: true };
-  const actif = (modele: string): MessageBranche => ({ evenement: 'order_paid', modele, texte: null, langue: 'fr', variables: ['first_name', 'order_number'], actif: true, modifieLe: '' });
-
-  it('🔴 Claude Code branche par-dessus un message de l’assistant : l’oubli de l’ancien modèle et de l’attente retirée est programmé', async () => {
-    const { deps, programmes } = monter({ actifs: [actif(ASSISTANT)], attenteRetiree: attente });
-    expect((await brancherMessage(deps, T, branchement, null)).ok).toBe(true);
-    expect(programmes.sort()).toEqual([ASSISTANT, attente.modele].sort());
+  it('allumer exige un template ; des variables sans template sont refusées', async () => {
+    const { deps, lignes } = monter();
+    expect(await brancherMessage(deps, T, { ...branchement, modele: undefined, variables: undefined }, null))
+      .toMatchObject({ ok: false, statut: 400, message: expect.stringContaining('template') });
+    expect(await brancherMessage(deps, T, { ...branchement, modele: undefined, actif: false }, null))
+      .toMatchObject({ ok: false, statut: 400, message: expect.stringContaining('variables') });
+    expect(lignes.workflows.parId.size).toBe(0);
   });
 
-  it('🔴 un modèle nommé par le marchand ou par Claude Code n’est jamais visé, ni celui qu’on rebranche', async () => {
-    const nomme = monter({ actifs: [actif('commande_payee_v1')] });
-    await brancherMessage(nomme.deps, T, branchement, null);
-    expect(nomme.programmes).toEqual([]);
-    // Le même modèle de l'assistant, rebranché : c'est la garde (`modele === garde`), pas le nom, qui le protège.
-    const meme = monter({ actifs: [actif(ASSISTANT)] });
-    await brancherMessage(meme.deps, T, { ...branchement, modele: ASSISTANT }, null);
-    expect(meme.programmes).toEqual([]);
+  it('🔴 éteindre ne relit pas le modèle chez Meta : le template se pose, la ligne s’éteint et ses parcours s’arrêtent', async () => {
+    const { deps, journal, lignes } = monter();
+    await brancherMessage(deps, T, branchement, 'u1');
+    expect(journal.lecturesModele).toBe(1);
+    const r = await brancherMessage(deps, T, { ...branchement, actif: false }, 'u1');
+    expect(r).toMatchObject({ ok: true, valeur: { lignes: [{ evenement: 'order_paid', actif: false, modele: 'commande_payee' }] } });
+    expect(journal.lecturesModele).toBe(1);
+    expect(lignes.parcours.arrets).toEqual([{ prefixe: 'shopify:b.myshopify.com:orders/paid:', motif: 'ligne éteinte' }]);
+  });
+
+  it('éteindre sans template : la ligne s’éteint ; sans ligne, rien ne se crée', async () => {
+    const { deps, lignes } = monter();
+    expect(await brancherMessage(deps, T, { evenement: 'order_paid', modele: undefined, langue: 'fr', variables: undefined, actif: false }, null))
+      .toEqual({ ok: true, valeur: { lignes: [], programmationAnnulee: false } });
+    expect(lignes.workflows.parId.size).toBe(0);
+    await brancherMessage(deps, T, branchement, 'u1');
+    expect(await brancherMessage(deps, T, { evenement: 'order_paid', modele: undefined, langue: 'fr', variables: undefined, actif: false }, null))
+      .toMatchObject({ ok: true, valeur: { lignes: [{ evenement: 'order_paid', actif: false, modele: 'commande_payee' }] } });
+  });
+
+  it('🔴 la version programmée que la publication annule est rendue', async () => {
+    const { deps, lignes } = monter();
+    await brancherMessage(deps, T, branchement, 'u1');
+    const ligne = (await lignes.store.ligne(T, 'order_paid'))!;
+    lignes.workflows.programmees.set(ligne.workflowId, { graphe: { nodes: [], edges: [] }, le: '2026-11-19T10:00:00.000Z', par: 'u2' });
+    expect(await brancherMessage(deps, T, branchement, 'u1')).toMatchObject({ ok: true, valeur: { programmationAnnulee: true } });
   });
 });
 
 describe('la relance de panier (lot 2)', () => {
-  const panier = { evenement: 'checkout_abandoned', modele: 'relance', texte: undefined, langue: 'fr', variables: ['first_name', 'checkout_url'], actif: true };
+  const panier = { evenement: 'checkout_abandoned', modele: 'relance', langue: 'fr', variables: ['first_name', 'checkout_url'], actif: true };
   const marketing: LectureModele = { statut: 'approuve', categorie: 'marketing', variables: 2 };
 
-  it('🔴 elle s’active sans aucune affirmation du consentement (décision de Julien du 2026-10-26)', async () => {
-    const { deps, journal } = monter({ modele: marketing });
-    expect((await brancherMessage(deps, T, panier, 'u1')).ok).toBe(true);
-    expect(journal.branches).toEqual([{ evenement: 'checkout_abandoned', modele: 'relance', texte: null, langue: 'fr', variables: ['first_name', 'checkout_url'], actif: true, par: 'u1' }]);
+  it('🔴 elle s’allume sans aucune affirmation du consentement (décision de Julien du 2026-10-26)', async () => {
+    const { deps } = monter({ modele: marketing });
+    expect(await brancherMessage(deps, T, panier, 'u1')).toMatchObject({ ok: true, valeur: { lignes: [{ evenement: 'checkout_abandoned', actif: true, modele: 'relance' }] } });
   });
 
   it('un modèle marketing est admis pour le panier, et le délai se règle dans ses bornes', async () => {
-    const { deps, journal } = monter({ modele: marketing });
+    const { deps, lignes } = monter({ modele: marketing });
     expect((await brancherMessage(deps, T, { ...panier, delaiMinutes: 30 }, null)).ok).toBe(true);
-    expect(journal.delais).toEqual([30]);
+    expect(lignes.store.gestes).toEqual(['allumer:checkout_abandoned', 'delai:30']);
     for (const delaiMinutes of [14, 4321, 30.5, '60']) {
       expect(await brancherMessage(deps, T, { ...panier, delaiMinutes }, null)).toMatchObject({ ok: false, statut: 400 });
     }
-    const commande = { evenement: 'order_paid', modele: 'commande_payee', texte: undefined, langue: 'fr', variables: [], actif: true };
+    const commande = { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: [], actif: true };
     expect(await brancherMessage(deps, T, { ...commande, delaiMinutes: 30 }, null)).toMatchObject({ ok: false, statut: 400 });
   });
 
@@ -233,30 +256,18 @@ describe('la relance de panier (lot 2)', () => {
 });
 
 /**
- * 🔴 SUR UN NUMÉRO RELIÉ PAR QR CODE, AUCUN MESSAGE SHOPIFY NE S'ACTIVE (décision de Julien du 2026-10-24) : ce numéro ne
- * fait que répondre, et un message Shopify écrirait en premier. Le texte simple (plan 2026-10-23, tâche 5) ne sert plus
- * qu'à arrêter un message réglé avant. Sur l'API, le texte est refusé et tout le reste ne change pas (les tests ci-dessus,
- * en filière API par défaut).
+ * 🔴 SUR UN NUMÉRO RELIÉ PAR QR CODE, AUCUN MESSAGE SHOPIFY NE S'ALLUME (décision de Julien du 2026-10-24) : ce numéro ne
+ * fait que répondre, et un message Shopify écrirait en premier. L'éteindre reste permis. Le texte simple de ce numéro
+ * n'existe plus depuis le lot 5 : son automation est un scénario, qu'il ne peut pas envoyer.
  */
 describe('un message Shopify sur un numéro relié par QR code', () => {
-  const texte = (over: Partial<Record<string, unknown>> = {}) => ({
-    evenement: 'order_paid', modele: undefined, texte: '  Bonjour {{first_name}}, votre commande {{order_number}} est payée, merci {{first_name}}.  ',
-    langue: 'fr', variables: undefined, actif: undefined, ...over,
-  });
-
-  it('🔴 un message actif est refusé (409, la phrase de ce numéro), texte ou modèle, pour chacun des trois', async () => {
-    for (const [evenement, corps] of [
-      ['order_paid', 'Merci pour la commande {{order_number}}.'],
-      ['order_fulfilled', 'Votre colis part avec {{carrier}} : {{tracking_url}}'],
-      ['checkout_abandoned', 'Votre panier vous attend : {{checkout_url}}'],
-    ] as const) {
-      for (const b of [
-        texte({ evenement, texte: corps }), texte({ evenement, texte: corps, actif: true }),
-        texte({ evenement, texte: undefined, modele: 'commande_payee', variables: ['order_number'] }),
-      ]) {
-        const { deps, journal } = monter({ filiere: 'application' });
-        expect(await brancherMessage(deps, T, b, 'u1'), evenement).toEqual({ ok: false, statut: 409, message: PHRASE_SHOPIFY_QR_CODE });
-        expect([journal.branches, journal.attentesRetirees, journal.lecturesModele], evenement).toEqual([[], [], 0]);
+  it('🔴 allumer est refusé (409, la phrase de ce numéro), pour chacun des trois, sans rien lire ni créer', async () => {
+    for (const [evenement, modele] of [['order_paid', 'commande_payee'], ['order_fulfilled', 'expedition'], ['checkout_abandoned', 'relance']] as const) {
+      for (const actif of [true, undefined]) {
+        const { deps, journal, lignes } = monter({ filiere: 'application' });
+        expect(await brancherMessage(deps, T, { evenement, modele, langue: 'fr', variables: undefined, actif }, 'u1'), evenement)
+          .toEqual({ ok: false, statut: 409, message: PHRASE_SHOPIFY_QR_CODE });
+        expect([journal.lecturesModele, lignes.workflows.parId.size], evenement).toEqual([0, 0]);
       }
     }
     // La coexistence (plan 2026-10-24, tâche 4) : le même numéro, l'application gardée, et les messages partent en modèles.
@@ -268,76 +279,36 @@ describe('un message Shopify sur un numéro relié par QR code', () => {
     expect(PHRASE_SHOPIFY_QR_CODE).not.toMatch(/coexistence/i);
   });
 
-  it('🔴 l’arrêter reste permis : active false, avec son texte, sans lecture de modèle chez Meta ni oubli', async () => {
-    const { deps, journal, programmes } = monter({
-      filiere: 'application',
-      actifs: [{ evenement: 'order_paid', modele: null, texte: 'Merci {{first_name}}', langue: 'fr', variables: ['first_name'], actif: true, modifieLe: '' }],
-    });
-    const r = await brancherMessage(deps, T, texte({ actif: false }), 'u1');
-    expect(r.ok).toBe(true);
-    expect(journal.branches).toEqual([{
-      evenement: 'order_paid', modele: null, texte: 'Bonjour {{first_name}}, votre commande {{order_number}} est payée, merci {{first_name}}.',
-      langue: 'fr', variables: ['first_name', 'order_number'], actif: false, par: 'u1',
-    }]);
-    expect([journal.lecturesModele, programmes]).toEqual([0, []]);
-    // Le dernier geste gagne : une préparation de la console encore en attente ne le remplacera pas par un modèle.
-    expect(journal.attentesRetirees).toEqual([{ evenement: 'order_paid' }]);
-    expect(r.ok && r.valeur).toMatchObject([{ evenement: 'order_paid', modele: null, actif: false }]);
+  it('🔴 l’éteindre reste permis : active false, sans template ni lecture chez Meta, et ses parcours s’arrêtent', async () => {
+    const { deps, journal, lignes } = monter({ filiere: 'application' });
+    // Une ligne allumée quand le numéro était sur l'API.
+    await reglerLigne(lignes.deps, T, 'order_paid', { actif: true }, 'u1');
+    const r = await brancherMessage(deps, T, { evenement: 'order_paid', modele: undefined, langue: 'fr', variables: undefined, actif: false }, 'u1');
+    expect(r).toMatchObject({ ok: true, valeur: { lignes: [{ evenement: 'order_paid', actif: false }] } });
+    expect(journal.lecturesModele).toBe(0);
+    expect(lignes.parcours.arrets).toEqual([{ prefixe: 'shopify:b.myshopify.com:orders/paid:', motif: 'ligne éteinte' }]);
   });
 
-  it('🔴 arrêté, il reste validé : un modèle, des variables à part, une donnée que l’événement ne porte pas, un repère inconnu, un texte vide ou trop long', async () => {
-    for (const [over, motif] of [
-      [{ modele: 'commande_payee' }, 'template'],
-      [{ variables: ['first_name'] }, 'variables'],
-      [{ texte: 'Suivi : {{tracking_url}}' }, '{{tracking_url}}'],
-      [{ texte: 'Bonjour {{1}}, merci' }, '{{1}}'],
-      [{ texte: 'Bonjour {{ First_Name }}, merci' }, '{{ First_Name }}'],
-      [{ texte: '   ' }, 'text'],
-      [{ texte: undefined }, 'text'],
-      [{ texte: 'x'.repeat(TEXTE_SHOPIFY_MAX + 1) }, 'text'],
-    ] as const) {
-      const { deps, journal } = monter({ filiere: 'application' });
-      const r = await brancherMessage(deps, T, texte({ ...over, actif: false }), 'u1');
-      expect(r, motif).toMatchObject({ ok: false, statut: 400 });
-      expect((r as { message: string }).message, motif).toContain(motif);
-      expect(journal.branches, motif).toEqual([]);
-    }
-    // Un `active` qui n'est pas un booléen n'est ni un arrêt, ni un message actif : refusé pour sa forme.
-    const { deps } = monter({ filiere: 'application' });
-    expect(await brancherMessage(deps, T, texte({ actif: 'non' }), 'u1')).toMatchObject({ ok: false, statut: 400, message: 'active : vrai ou faux.' });
-  });
-
-  it('🔴 sur l’API (ou sans numéro), un texte est refusé, avec la phrase qui dit pourquoi, même à côté d’un modèle', async () => {
-    for (const filiere of ['api', null] as const) {
-      const { deps, journal } = monter({ filiere });
-      for (const b of [texte(), texte({ modele: 'commande_payee', variables: ['first_name', 'order_number'] })]) {
-        const r = await brancherMessage(deps, T, b, null);
-        expect(r, String(filiere)).toMatchObject({ ok: false, statut: 400, message: expect.stringContaining('numéro relié par QR code') });
-      }
-      expect(journal.branches).toEqual([]);
-      expect(journal.lecturesModele).toBe(0);
-      // Et un modèle actif y passe comme avant : la règle du QR code ne touche pas l'API.
-      expect((await brancherMessage(monter({ filiere }).deps, T, texte({ texte: undefined, modele: 'commande_payee', variables: ['first_name', 'order_number'] }), null)).ok).toBe(true);
-    }
-  });
-
-  it('la validation garde ses bornes exactes, et rend les données citées une fois, dans l’ordre', () => {
-    expect(validerTexteShopify('order_paid', 'x'.repeat(TEXTE_SHOPIFY_MAX))).toMatchObject({ ok: true });
-    expect(validerTexteShopify('order_paid', 'x'.repeat(TEXTE_SHOPIFY_MAX + 1))).toMatchObject({ ok: false });
-    expect(validerTexteShopify('order_paid', 'x')).toEqual({ ok: true, texte: 'x', variables: [] });
-    // Sans les règles propres à Meta : une donnée au début et à la fin est permise.
-    expect(validerTexteShopify('checkout_abandoned', '{{first_name}}, {{checkout_url}} {{first_name}}'))
-      .toEqual({ ok: true, texte: '{{first_name}}, {{checkout_url}} {{first_name}}', variables: ['first_name', 'checkout_url'] });
+  it('un template y est refusé, même pour éteindre ; un active qui n’est pas un booléen aussi', async () => {
+    const { deps, lignes } = monter({ filiere: 'application' });
+    expect(await brancherMessage(deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: undefined, actif: false }, 'u1'))
+      .toMatchObject({ ok: false, statut: 400, message: expect.stringContaining('template') });
+    expect(await brancherMessage(deps, T, { evenement: 'order_paid', modele: undefined, langue: 'fr', variables: undefined, actif: 'non' }, 'u1'))
+      .toMatchObject({ ok: false, statut: 400, message: 'active : vrai ou faux.' });
+    expect(lignes.workflows.parId.size).toBe(0);
   });
 });
 
 describe('l’état et la coupure', () => {
-  it('l’état porte les chiffres des 30 jours et la page des apps de la boutique', async () => {
-    const e = await etatShopify(monter().deps, T);
+  it('l’état porte les chiffres des 30 jours, la page des apps de la boutique et les lignes', async () => {
+    const { deps } = monter();
+    await brancherMessage(deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: ['first_name', 'order_number'], actif: true }, 'u1');
+    const e = await etatShopify(deps, T);
     expect(e.compteurs).toEqual({ envoye: 3 });
     expect(e.pageApps).toBe('https://admin.shopify.com/store/b/settings/apps');
+    expect(e.lignes).toMatchObject([{ evenement: 'order_paid', actif: true, modele: 'commande_payee', blocs: 1 }]);
     expect(await etatShopify(monter({ boutique: null }).deps, T)).toEqual({
-      boutique: null, messages: [], compteurs: {}, pageApps: null, attentes: [],
+      boutique: null, messages: [], compteurs: {}, pageApps: null, attentes: [], lignes: [],
       paniers: { relances: {}, fermesATemps: 0, enAttente: 0, relancesParties: 0, recuperes: 0, montantsRecuperes: [], recuperesTest: 0 },
     });
   });
@@ -360,8 +331,7 @@ describe('l’état et la coupure', () => {
 
   it('get_shopify_state rend les paniers récupérés des 7 jours et leur montant, par devise', async () => {
     const { deps } = monter();
-    const mcp = { shopify: deps } as unknown as DepsMcp;
-    const etat = await OUTILS.find((x) => x.nom === 'get_shopify_state')!.executer(mcp, T, {}, { userId: 'u1', autorisationId: 'aut-1' } as never);
+    const etat = await OUTILS.find((x) => x.nom === 'get_shopify_state')!.executer(mcpDe(deps), T, {}, PERSONNE);
     expect(etat).toMatchObject({
       checkouts: {
         sent_reminders_last_7_days: 4, recovered_last_7_days: 2, recovered_amount_last_7_days: [{ currency: 'EUR', amount: '59.9' }],
@@ -374,9 +344,21 @@ describe('l’état et la coupure', () => {
     expect(await couperShopify(deps, T)).toEqual({ ok: true, valeur: { dejaCoupee: false, pageApps: 'https://admin.shopify.com/store/b/settings/apps' } });
     expect(await couperShopify(deps, T)).toMatchObject({ ok: true, valeur: { dejaCoupee: true } });
   });
+
+  it('🔴 couper arrête les parcours de toute la boutique, une fois ; un arrêt en panne n’empêche pas la coupure', async () => {
+    const { deps, lignes } = monter();
+    await couperShopify(deps, T);
+    await couperShopify(deps, T);
+    expect(lignes.parcours.arrets).toEqual([{ prefixe: 'shopify:b.myshopify.com:', motif: 'boutique coupée' }]);
+    const panne = monter({ arretLeve: true });
+    expect(await couperShopify(panne.deps, T)).toMatchObject({ ok: true, valeur: { dejaCoupee: false } });
+  });
 });
 
 describe('les outils MCP du connecteur', () => {
+  const regler = () => OUTILS.find((x) => x.nom === 'set_shopify_message')!;
+  const lire = () => OUTILS.find((x) => x.nom === 'get_shopify_state')!;
+
   it('🔴 les quatre exigent une personne nommée et sont ouverts à toutes les offres', () => {
     for (const nom of ['connect_shopify', 'set_shopify_message', 'get_shopify_state', 'disconnect_shopify']) {
       const o = OUTILS.find((x) => x.nom === nom);
@@ -386,52 +368,92 @@ describe('les outils MCP du connecteur', () => {
     }
   });
 
-  it('le schéma annoncé porte les bornes que la gestion applique (événements du lot, données permises)', () => {
-    const o = OUTILS.find((x) => x.nom === 'set_shopify_message')!;
+  it('le schéma annoncé porte les bornes que la gestion applique (événements du lot, données permises), sans le texte d’avant', () => {
+    const o = regler();
     expect(o.entree.properties.event!.enum).toEqual(['order_paid', 'order_fulfilled', 'checkout_abandoned']);
     expect(o.entree.properties.variables!.maxItems).toBe(10);
     expect(o.entree.properties.variables!.items!.enum).toContain('checkout_url');
     expect([o.entree.properties.delay_minutes!.minimum, o.entree.properties.delay_minutes!.maximum]).toEqual([15, 4320]);
-    // Le texte d'un numéro relié par QR code (plan 2026-10-23) : la borne annoncée est celle que la validation applique, et
-    // ni le modèle ni le texte ne sont requis (l'un ou l'autre, selon la filière).
-    expect([o.entree.properties.text!.minLength, o.entree.properties.text!.maxLength]).toEqual([1, TEXTE_SHOPIFY_MAX]);
-    expect(validerTexteShopify('order_paid', 'x'.repeat(o.entree.properties.text!.maxLength!))).toMatchObject({ ok: true });
-    expect(validerTexteShopify('order_paid', 'x'.repeat(o.entree.properties.text!.maxLength! + 1))).toMatchObject({ ok: false });
+    // Le texte d'un numéro relié par QR code n'existe plus (lot 5) : une automation est un scénario.
+    expect(Object.keys(o.entree.properties)).not.toContain('text');
     expect(o.entree.required).toEqual(['event', 'language']);
   });
 
-  it('🔴 sur un numéro relié par QR code, l’outil refuse un message actif avec la phrase, et en arrête un ; les deux outils rendent le texte', async () => {
+  it('🔴 set_shopify_message rend l’automation, dit les étapes qu’il ne change pas (décision 7) et la version programmée annulée', async () => {
+    const { deps, lignes } = monter();
+    const args = { event: 'order_paid', template: 'commande_payee', language: 'fr', variables: ['first_name', 'order_number'] };
+    expect(await regler().executer(mcpDe(deps), T, args, PERSONNE)).toEqual({
+      automations: [{
+        event: 'order_paid', active: true, scenario: 'Commande payée', template: 'commande_payee', language: 'fr',
+        template_status: 'APPROVED', steps: 1,
+      }],
+    });
+    // La suite écrite dans la console : deux étapes de plus, et une version qui attendait Meta.
+    const ligne = (await lignes.store.ligne(T, 'order_paid'))!;
+    const wf = (await lignes.workflows.getById(ligne.workflowId, T))!;
+    const suite: WorkflowGraph = {
+      nodes: [...wf.graph.nodes, { id: 'a', type: 'quick_message', position: { x: 0, y: 1 }, data: {} }, { id: 'b', type: 'quick_message', position: { x: 0, y: 2 }, data: {} }],
+      edges: [{ id: 'e1', source: 'depart', target: 'a' }, { id: 'e2', source: 'a', target: 'b' }],
+    };
+    await lignes.workflows.publish(ligne.workflowId, T, suite);
+    lignes.workflows.programmees.set(ligne.workflowId, { graphe: suite, le: '2026-11-19T10:00:00.000Z', par: 'u2' });
+    const r = await regler().executer(mcpDe(deps), T, args, PERSONNE) as { automations: Array<{ steps: number; note?: string }>; scheduled_version_cancelled?: string };
+    expect(r.automations[0]!.steps).toBe(3);
+    expect(r.automations[0]!.note).toMatch(/2 more steps.*console/);
+    expect(r.scheduled_version_cancelled).toMatch(/cancelled/);
+  });
+
+  it('🔴 en Free, un scénario de plusieurs étapes n’envoie que la première : les deux outils le disent', async () => {
+    const { deps, lignes } = monter();
+    await brancherMessage(deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: ['first_name', 'order_number'], actif: true }, 'u1');
+    const ligne = (await lignes.store.ligne(T, 'order_paid'))!;
+    const wf = (await lignes.workflows.getById(ligne.workflowId, T))!;
+    await lignes.workflows.publish(ligne.workflowId, T, {
+      nodes: [...wf.graph.nodes, { id: 'a', type: 'quick_message', position: { x: 0, y: 1 }, data: {} }], edges: [{ id: 'e1', source: 'depart', target: 'a' }],
+    });
+    const etat = await lire().executer(mcpDe(deps, 'base'), T, {}, PERSONNE) as { automations: Array<{ note?: string }> };
+    expect(etat.automations[0]!.note).toMatch(/only the first step/i);
+    const pro = await lire().executer(mcpDe(deps, 'pro'), T, {}, PERSONNE) as { automations: Array<{ note?: string }> };
+    expect(pro.automations[0]!.note).toMatch(/console/);
+  });
+
+  it('get_shopify_state rend la pause, les automations, et les anciens messages pour les plugins d’avant', async () => {
+    const ancien: MessageBranche = { evenement: 'order_paid', modele: 'commande_payee', texte: null, langue: 'fr', variables: [], actif: false, modifieLe: '' };
+    const { deps, lignes } = monter({ anciens: [ancien] });
+    await brancherMessage(deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: ['first_name', 'order_number'], actif: true }, 'u1');
+    lignes.store.pause = true;
+    expect(await lire().executer(mcpDe(deps), T, {}, PERSONNE)).toMatchObject({
+      connected: true, paused: true,
+      automations: [{ event: 'order_paid', active: true, template: 'commande_payee', steps: 1 }],
+      messages: [{ event: 'order_paid', template: 'commande_payee', active: false }],
+    });
+  });
+
+  it('🔴 sur un numéro relié par QR code, l’outil refuse d’allumer avec la phrase, et éteint', async () => {
     const { deps } = monter({ filiere: 'application' });
-    const mcp = { shopify: deps } as unknown as DepsMcp;
-    const outil = OUTILS.find((x) => x.nom === 'set_shopify_message')!;
-    await expect(outil.executer(mcp, T, { event: 'order_paid', text: 'Merci pour {{order_number}}.', language: 'fr' }, { userId: 'u1', autorisationId: 'aut-1' } as never))
+    await expect(regler().executer(mcpDe(deps), T, { event: 'order_paid', template: 'commande_payee', language: 'fr' }, PERSONNE))
       .rejects.toThrow(PHRASE_SHOPIFY_QR_CODE);
-    const regle = await outil.executer(mcp, T, {
-      event: 'order_paid', text: 'Merci pour {{order_number}}.', language: 'fr', active: false,
-    }, { userId: 'u1', autorisationId: 'aut-1' } as never);
-    expect(regle).toMatchObject({ messages: [{ event: 'order_paid', template: null, text: 'Merci pour {{order_number}}.', variables: ['order_number'], active: false }] });
-    const etat = await OUTILS.find((x) => x.nom === 'get_shopify_state')!.executer(mcp, T, {}, { userId: 'u1', autorisationId: 'aut-1' } as never);
-    expect(etat).toMatchObject({ messages: [{ event: 'order_paid', template: null, text: 'Merci pour {{order_number}}.' }] });
+    expect(await regler().executer(mcpDe(deps), T, { event: 'order_paid', language: 'fr', active: false }, PERSONNE)).toEqual({ automations: [] });
   });
 
   it('🔴 plus aucune question du consentement (2026-10-26) : ni annoncée ni rendue, et celle d’un ancien plugin est ignorée', async () => {
-    const regler = OUTILS.find((x) => x.nom === 'set_shopify_message')!;
-    const etat = OUTILS.find((x) => x.nom === 'get_shopify_state')!;
-    expect(Object.keys(regler.entree.properties)).not.toContain('customers_consented');
-    for (const o of [regler, etat]) expect(o.description, o.nom).not.toMatch(/customers_consented|affirm/i);
+    expect(Object.keys(regler().entree.properties)).not.toContain('customers_consented');
+    for (const o of [regler(), lire()]) expect(o.description, o.nom).not.toMatch(/customers_consented|affirm/i);
     // Le serveur MCP ne valide pas les arguments contre le schéma : un plugin d'avant le 2026-10-26 envoie encore
-    // `customers_consented`, vrai ou faux. La relance s'active pareil, et rien d'autre n'est rendu.
+    // `customers_consented`, vrai ou faux. La relance s'allume pareil, et rien d'autre n'est rendu.
     for (const customers_consented of [false, true]) {
-      const { deps, journal } = monter({ modele: { statut: 'approuve', categorie: 'marketing', variables: 1 } });
-      const r = await regler.executer({ shopify: deps } as unknown as DepsMcp, T, {
+      const { deps } = monter({ modele: { statut: 'approuve', categorie: 'marketing', variables: 1 } });
+      const r = await regler().executer(mcpDe(deps), T, {
         event: 'checkout_abandoned', template: 'relance', language: 'fr', variables: ['checkout_url'], customers_consented,
-      }, { userId: 'u1', autorisationId: 'aut-1' } as never);
+      }, PERSONNE);
       expect(r, String(customers_consented)).toEqual({
-        messages: [{ event: 'checkout_abandoned', template: 'relance', text: null, language: 'fr', variables: ['checkout_url'], active: true }],
+        automations: [{
+          event: 'checkout_abandoned', active: true, scenario: 'Panier abandonné', template: 'relance', language: 'fr',
+          template_status: 'APPROVED', steps: 1,
+        }],
       });
-      expect(journal.branches, String(customers_consented)).toHaveLength(1);
     }
-    const lu = await etat.executer({ shopify: monter().deps } as unknown as DepsMcp, T, {}, { userId: 'u1', autorisationId: 'aut-1' } as never);
+    const lu = await lire().executer(mcpDe(monter().deps), T, {}, PERSONNE);
     expect(lu).toMatchObject({ connected: true, store: 'b.myshopify.com' });
     expect(lu).not.toHaveProperty('customers_consented_at');
   });

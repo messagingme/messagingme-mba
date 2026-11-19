@@ -2,8 +2,6 @@ import type { LectureModele } from '../api/modele-envoi';
 import { domaineShopify, pageApps, type IssueJeton, type IssueVerification } from './connexion';
 import type { AccesClients, ClientAbonne, LectureClients } from './clients';
 import type { IssueAbonnement } from './abonnements';
-// Le ménage des modèles remplacés : la préparation n'importe de la gestion que des TYPES, aucun cycle à l'exécution.
-import { oublierPlusTard, validerTexteShopify, type ProgrammerOubli } from './preparation';
 import { RELIER_EN_COEXISTENCE, type Filiere } from '../application/comptes';
 import type { ImportInput } from '../crm/import';
 import type { ImportReport } from '../crm/types';
@@ -14,6 +12,8 @@ import {
   type DonneeShopify, type EvenementShopify,
 } from './donnees';
 import type { AttenteMessage, MessageBranche, OrigineBoutique, PgShopifyStore, VueBoutique } from './store.pg';
+import { arreterLesParcours, brancherLePremierBloc, etatDesLignes, reglerLigne, type DepsLignesShopify, type EtatLigne } from './lignes-gestion';
+import { prefixeShopify } from './lignes';
 import type { ChiffreVentes, Montant } from './chiffre';
 import { addDays, todayParis, type DateRange } from '../stats/range';
 
@@ -25,8 +25,7 @@ import { addDays, todayParis, type DateRange } from '../stats/range';
  */
 
 export interface DepsGestionShopify {
-  store: Pick<PgShopifyStore, 'lire' | 'connecter' | 'couper' | 'messages' | 'brancher' | 'compteurs'
-    | 'reglerDelaiPanier' | 'compteursPaniers' | 'acces' | 'attentes' | 'retirerAttente'>;
+  store: Pick<PgShopifyStore, 'lire' | 'connecter' | 'couper' | 'messages' | 'compteurs' | 'compteursPaniers' | 'acces' | 'attentes'>;
   /** `verifierBoutique` lié à `fetchPublic` par le câblage. */
   verifier(domaine: string, clientId: string, secret: string): Promise<IssueVerification>;
   /** Le modèle lu chez Meta, la MÊME lecture que l'envoi public. */
@@ -42,12 +41,12 @@ export interface DepsGestionShopify {
   importer(input: ImportInput): Promise<ImportReport>;
   /** Le branchement par la console (conception 2026-10-22) : `abonnerWebhooks` lié à `fetchPublic` par le câblage. */
   abonner(acces: { domaine: string; jeton: string }): Promise<IssueAbonnement>;
-  /** Le ménage (2026-10-23) : programmer l'oubli du modèle de l'assistant que ce branchement remplace. */
-  programmerOubli: ProgrammerOubli;
   /** La filière de l'espace (`filiereDe`) : un modèle sur l'API, un texte sur un numéro relié par QR code. */
   filiere(tenantId: string): Promise<Filiere | null>;
   /** La lecture du chiffre d'affaires attribué (`chiffreVentes`, plan 2026-10-30) : l'état en tire les récupérés. */
   chiffreVentes(tenantId: string, range: DateRange): Promise<ChiffreVentes>;
+  /** Les lignes et leurs scénarios (menu « Scénario », lot 5) : `./lignes-gestion.ts`. */
+  lignes: DepsLignesShopify;
 }
 
 /**
@@ -89,13 +88,18 @@ export interface EtatShopify {
   pageApps: string | null;
   /** Les messages préparés par la console dont le modèle attend l'approbation de Meta. */
   attentes: AttenteMessage[];
+  /**
+   * Les lignes du lot 5 (une par événement) : ce que le circuit envoie depuis la bascule. `messages` et `attentes`, les
+   * anciennes tables, restent lus pour les plugins d'avant, le temps que l'ancienne console et ses plugins disparaissent.
+   */
+  lignes: EtatLigne[];
 }
 
 export async function etatShopify(deps: DepsGestionShopify, tenantId: string): Promise<EtatShopify> {
   const boutique = await deps.store.lire(tenantId);
   if (boutique === null) {
     return {
-      boutique: null, messages: [], compteurs: {}, pageApps: null, attentes: [],
+      boutique: null, messages: [], compteurs: {}, pageApps: null, attentes: [], lignes: [],
       paniers: { relances: {}, fermesATemps: 0, enAttente: 0, relancesParties: 0, recuperes: 0, montantsRecuperes: [], recuperesTest: 0 },
     };
   }
@@ -114,6 +118,7 @@ export async function etatShopify(deps: DepsGestionShopify, tenantId: string): P
     },
     pageApps: pageApps(boutique.domaine),
     attentes: await deps.store.attentes(tenantId),
+    lignes: await etatDesLignes(deps.lignes, tenantId),
   };
 }
 
@@ -167,61 +172,58 @@ export async function connecterShopify(
 
 export interface Branchement {
   evenement: unknown;
-  /** Le modèle approuvé chez Meta : la filière API seulement. */
+  /** Le template approuvé chez Meta, posé dans le premier bloc du scénario de la ligne. Requis pour allumer. */
   modele: unknown;
-  /** Le texte simple, ses données entre doubles accolades : un numéro relié par QR code seulement (plan 2026-10-23). */
-  texte: unknown;
   langue: unknown;
+  /** Les données Shopify de {{1}}, {{2}}... du template, dans l'ordre : seulement avec lui. */
   variables: unknown;
   actif: unknown;
   /** La relance de panier seulement : le délai après la dernière modification du panier, en minutes. */
   delaiMinutes?: unknown;
 }
 
+/** Ce que rend `set_shopify_message` : les lignes après le geste, et la version programmée que la publication a annulée. */
+export interface IssueBranchement {
+  lignes: EtatLigne[];
+  programmationAnnulee: boolean;
+}
+
+/**
+ * LE MESSAGE D'UN ÉVÉNEMENT, DEPUIS CLAUDE CODE (menu « Scénario », lot 5, tâche 8) : le template va dans le PREMIER BLOC
+ * du scénario de la ligne (`brancherLePremierBloc` : la ligne et son scénario naissent s'ils manquent, la suite est
+ * gardée), puis l'interrupteur de la ligne se règle (`reglerLigne` : éteindre arrête ses parcours). Les contrôles chez
+ * Meta (approuvé, catégorie admise, nombre de variables) ne valent que pour allumer, comme avant le lot 5.
+ */
 export async function brancherMessage(
   deps: DepsGestionShopify, tenantId: string, b: Branchement, par: string | null,
-): Promise<Issue<MessageBranche[]>> {
+): Promise<Issue<IssueBranchement>> {
   if (!estEvenementShopify(b.evenement) || !EVENEMENTS_DISPONIBLES.includes(b.evenement)) {
     return refus(400, `event : ${EVENEMENTS_DISPONIBLES.join(', ')}.`);
   }
   const evenement: EvenementShopify = b.evenement;
-  // 🔴 LA FILIÈRE DÉCIDE DE LA VOIE (plan 2026-10-23, tâche 5) : un modèle approuvé chez Meta sur l'API, un texte simple
-  // sur un numéro relié par QR code, qui n'a pas de modèles. Lue avant tout : chaque refus dit la voie de l'espace.
+  const actif = b.actif === undefined ? true : b.actif;
+  if (typeof actif !== 'boolean') return refus(400, 'active : vrai ou faux.');
+  // 🔴 Sur un numéro relié par QR code, AUCUN message Shopify ne s'allume (2026-10-24) : ce numéro ne fait que répondre, la
+  // porte refuse tout message qu'il écrirait en premier (`premier_contact`), et un message Shopify ne répond à rien.
+  // L'éteindre reste permis. Lue avant tout : le refus dit la voie de l'espace.
   const qrCode = (await deps.filiere(tenantId)) === 'application';
-  // 🔴 Et sur un numéro relié par QR code, AUCUN message Shopify ne s'active (2026-10-24) : ce numéro ne fait que
-  // répondre, la porte refuse tout message qu'il écrirait en premier (`premier_contact`), et un message Shopify ne
-  // répond à rien. Refusé ici, texte ou modèle, plutôt que réglé pour ne jamais partir ; l'arrêter reste permis.
-  if (qrCode && (b.actif === undefined || b.actif === true)) return refus(409, PHRASE_SHOPIFY_QR_CODE);
+  if (qrCode && actif) return refus(409, PHRASE_SHOPIFY_QR_CODE);
   if (qrCode && present(b.modele)) {
-    return refus(400, 'template : sur un numéro relié par QR code, un message Shopify est un texte simple (text), sans modèle chez Meta.');
+    return refus(400, 'template : sur un numéro relié par QR code, les messages Shopify ne peuvent pas partir ; seul active false, qui éteint l’automation, est permis.');
   }
-  if (!qrCode && present(b.texte)) {
-    return refus(400, 'text : un texte simple ne part que d’un numéro relié par QR code ; sur l’API, un message Shopify est un modèle approuvé (template).');
-  }
-  // Le modèle, sur l'API seulement : un numéro relié par QR code n'en a pas.
+  // Le template : requis pour allumer ; pour éteindre, il se pose s'il est donné, et la ligne éteinte le garde.
   let modele: string | null = null;
-  if (!qrCode) {
+  if (present(b.modele) || actif) {
     if (typeof b.modele !== 'string' || b.modele.trim() === '' || b.modele.length > 512) return refus(400, 'template : le nom du modèle WhatsApp.');
     modele = b.modele.trim();
   }
-  if (typeof b.langue !== 'string' || b.langue.trim() === '' || b.langue.length > 20) {
-    return refus(400, qrCode ? 'language : la langue du message (fr, en_US...).' : 'language : la langue du modèle (fr, en_US...).');
-  }
-  const actif = b.actif === undefined ? true : b.actif;
-  if (typeof actif !== 'boolean') return refus(400, 'active : vrai ou faux.');
-  let texte: string | null = null;
+  if (typeof b.langue !== 'string' || b.langue.trim() === '' || b.langue.length > 20) return refus(400, 'language : la langue du modèle (fr, en_US...).');
   const variables: DonneeShopify[] = [];
-  if (qrCode) {
-    if (present(b.variables)) return refus(400, 'variables : avec un texte, les données Shopify s’écrivent dans le texte, entre doubles accolades ({{first_name}}).');
-    const t = validerTexteShopify(evenement, b.texte);
-    if (!t.ok) return refus(400, t.message);
-    texte = t.texte;
-    variables.push(...t.variables);
-  } else {
-    const brutes = b.variables === undefined ? [] : b.variables;
-    if (!Array.isArray(brutes) || brutes.length > VARIABLES_MAX) return refus(400, `variables : une liste de ${VARIABLES_MAX} données au plus.`);
+  if (present(b.variables)) {
+    if (modele === null) return refus(400, 'variables : seulement avec template, les données de {{1}}, {{2}}... du modèle.');
+    if (!Array.isArray(b.variables) || b.variables.length > VARIABLES_MAX) return refus(400, `variables : une liste de ${VARIABLES_MAX} données au plus.`);
     const permises = DONNEES_PAR_EVENEMENT[evenement];
-    for (const v of brutes) {
+    for (const v of b.variables) {
       if (!estDonneeShopify(v) || !permises.includes(v)) return refus(400, `variables : pour ${evenement}, parmi ${permises.join(', ')}.`);
       variables.push(v);
     }
@@ -236,14 +238,10 @@ export async function brancherMessage(
   if (boutique === null) return refus(409, 'Aucune boutique Shopify n’est branchée à cet espace : connect_shopify d’abord.');
   if (boutique.etat === 'coupee') return refus(409, 'La boutique est coupée : rebranchez-la avec connect_shopify avant d’y brancher un message.');
   // Aucune affirmation n'est demandée, relance de panier comprise (décision de Julien du 2026-10-26) : le consentement des
-  // clients est la responsabilité du marchand, chaque envoi écrit la fiche consentante (`servir`, `relancerPaniers`), et
-  // un STOP reste un STOP (`appliquerConsentement`).
+  // clients est la responsabilité du marchand, chaque envoi écrit la fiche consentante, et un STOP reste un STOP.
 
   const langue = b.langue.trim();
-  if (texte !== null) return brancherTexte(deps, tenantId, b, { evenement, texte, langue, variables, actif, par });
-
-  if (modele === null) return refus(400, 'template : le nom du modèle WhatsApp.');
-  if (actif) {
+  if (actif && modele !== null) {
     const m = await deps.lireModele(tenantId, modele, langue);
     if (m.statut === 'illisible') return refus(503, 'Le modèle n’a pas pu être lu chez Meta : réessayez dans un instant.');
     if (m.statut !== 'approuve') {
@@ -256,31 +254,15 @@ export async function brancherMessage(
       return refus(422, `Le modèle « ${modele} » a ${m.variables} variable(s) : variables doit en nommer exactement autant, dans l’ordre.`);
     }
   }
-  const actifAvant = (await deps.store.messages(tenantId)).find((m) => m.evenement === evenement) ?? null;
-  await deps.store.brancher(tenantId, { evenement, modele, texte: null, langue, variables, actif, par });
-  // Le dernier geste gagne (conception 2026-10-22) : un message préparé par la console pour cet événement, encore en
-  // validation chez Meta, ne remplacera pas celui qu'on branche ici à son approbation.
-  const retiree = await deps.store.retirerAttente(tenantId, { evenement });
-  if (typeof b.delaiMinutes === 'number') await deps.store.reglerDelaiPanier(tenantId, b.delaiMinutes);
-  await oublierPlusTard(deps, tenantId, actifAvant?.modele, modele);
-  await oublierPlusTard(deps, tenantId, retiree?.modele, modele);
-  return { ok: true, valeur: await deps.store.messages(tenantId) };
-}
-
-/**
- * Le texte d'un numéro relié par QR code, validé, sans lecture de modèle chez Meta ni oubli de modèle (il n'y en a pas).
- * Depuis le 2026-10-24, il n'arrive ici qu'ARRÊTÉ (`active: false`) : un message actif est refusé avant. L'attente d'une
- * préparation de la console pour cet événement (un espace passé de l'API au QR code) est retirée, comme sur l'API : le
- * dernier geste gagne, et son approbation ne remplacera pas ce texte par un modèle que ce numéro ne peut pas envoyer.
- */
-async function brancherTexte(
-  deps: DepsGestionShopify, tenantId: string, b: Branchement,
-  m: { evenement: EvenementShopify; texte: string; langue: string; variables: DonneeShopify[]; actif: boolean; par: string | null },
-): Promise<Issue<MessageBranche[]>> {
-  await deps.store.brancher(tenantId, { evenement: m.evenement, modele: null, texte: m.texte, langue: m.langue, variables: m.variables, actif: m.actif, par: m.par });
-  await deps.store.retirerAttente(tenantId, { evenement: m.evenement });
-  if (typeof b.delaiMinutes === 'number') await deps.store.reglerDelaiPanier(tenantId, b.delaiMinutes);
-  return { ok: true, valeur: await deps.store.messages(tenantId) };
+  let programmationAnnulee = false;
+  if (modele !== null) {
+    const pose = await brancherLePremierBloc(deps.lignes, tenantId, { evenement, modele, langue, variables }, par);
+    if (!pose.ok) return pose;
+    programmationAnnulee = pose.valeur.programmationAnnulee;
+  }
+  const r = await reglerLigne(deps.lignes, tenantId, evenement, { actif, ...(typeof b.delaiMinutes === 'number' ? { delaiMinutes: b.delaiMinutes } : {}) }, par);
+  if (!r.ok) return r;
+  return { ok: true, valeur: { lignes: await etatDesLignes(deps.lignes, tenantId), programmationAnnulee } };
 }
 
 /** Un argument donné : ni absent, ni `null`. */
@@ -288,10 +270,15 @@ function present(v: unknown): boolean {
   return v !== undefined && v !== null;
 }
 
+/**
+ * Couper la boutique : plus rien ne part, et ses parcours s'arrêtent tout de suite (décision 15), au mieux ; la règle
+ * « encore voulu » les arrête de toute façon à leur prochain pas.
+ */
 export async function couperShopify(deps: DepsGestionShopify, tenantId: string): Promise<Issue<{ dejaCoupee: boolean; pageApps: string | null }>> {
   const boutique = await deps.store.lire(tenantId);
   if (boutique === null) return refus(409, 'Aucune boutique Shopify n’est branchée à cet espace.');
   const coupee = await deps.store.couper(tenantId, 'coupée depuis Messaging Me');
+  if (coupee) await arreterLesParcours(deps.lignes, tenantId, prefixeShopify(boutique.domaine), 'boutique coupée');
   return {
     ok: true,
     valeur: { dejaCoupee: !coupee, pageApps: pageApps(boutique.domaine) },

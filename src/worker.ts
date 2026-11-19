@@ -27,7 +27,7 @@ import { PgShopifyStore } from './shopify/store.pg';
 import { PgVentesStore } from './shopify/ventes.pg';
 import { FILE_PREUVE_UTM, traiterPreuveUtm, type DepsPreuveUtm } from './shopify/preuve-utm';
 import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
-import { activerSelonStatut, FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsActivation, type ProgrammerOubli } from './shopify/preparation';
+import { FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type ProgrammerOubli } from './shopify/preparation';
 import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
 import { surStatutDesModeles, trancherModeleDeBloc, type DepsMiseEnLigne } from './workflow/modeles-de-bloc';
 import { PgTemplateHintStore } from './crm/template-hints.pg';
@@ -507,25 +507,13 @@ export async function demarrerWorker(): Promise<void> {
   };
 
   /**
-   * L'activation des messages Shopify préparés dans la console (conception 2026-10-22), au statut que Meta tranche pour
-   * leur modèle. Construite AVANT l'abonnement à la file : un job peut arriver dès que le worker l'écoute.
+   * Le ménage des modèles Shopify remplacés (2026-10-23) : un quart d'heure après le geste, relire, puis supprimer chez
+   * Meta par la suppression de l'écran Modèles (garde des campagnes actives), si plus rien ne s'en sert. Construit AVANT
+   * l'abonnement à la file : un job peut arriver dès que le worker l'écoute.
    */
   const programmerOubliShopify: ProgrammerOubli = (job, quand) => queue.enqueue(FILE_OUBLI_MODELE, job, { groupId: job.tenantId, startAfter: quand });
-  const activationShopify: DepsActivation = {
-    store: new PgShopifyStore(pool, config.ENCRYPTION_KEY),
-    // Le ménage (2026-10-23) : l'activation ne fait que programmer l'oubli du modèle remplacé (file ci-dessous).
-    programmerOubli: programmerOubliShopify,
-    emails: { emettre: (e) => emetteurEmails.emettre(e) },
-    // La carte Shopify vit dans Tools > Intégrations depuis le 2026-10-26 (son ancre ne change pas).
-    pageParametres: `${config.APP_URL.trim().replace(/\/+$/, '')}/integrations#integration-shopify`,
-  };
-
-  /**
-   * Le ménage des modèles Shopify remplacés (2026-10-23) : un quart d'heure après le geste, relire, puis supprimer chez
-   * Meta par la suppression de l'écran Modèles (garde des campagnes actives), si plus rien ne s'en sert.
-   */
   const oubliShopify = {
-    store: activationShopify.store,
+    store: new PgShopifyStore(pool, config.ENCRYPTION_KEY),
     supprimerModele: suppressionDesModeles({ meta: metaFactory, repo, indices: indicesDesModeles }),
     programmerOubli: programmerOubliShopify,
   };
@@ -587,9 +575,9 @@ export async function demarrerWorker(): Promise<void> {
       statutsModeles: {
         espaceDuCompte: (waba) => repo.espaceDuCompteWhatsapp(waba),
         distribuer: async (t, ev) => { await distribuerEvenementEspace(depsDistributionEspace, t, ev); },
-        // L'assistant Shopify, puis les templates de bloc du constructeur (lot 3) : chacun dans sa capture.
+        // Les templates de bloc du constructeur (lot 3), dans leur capture. L'assistant Shopify, retiré par le lot 5 du
+        // menu « Scénario », n'y est plus.
         surStatut: surStatutDesModeles([
-          { nom: 'shopify', traiter: (t, s) => activerSelonStatut(activationShopify, t, s) },
           { nom: 'bloc', traiter: (t, s) => trancherModeleDeBloc(miseEnLigneDesScenarios, t, s) },
         ]),
       },

@@ -385,7 +385,7 @@ export const OUTILS_MODELES: OutilMcp[] = [
     fonction: null,
     description:
       'Deletes a template, ALL its languages, at Meta and in the workspace. Refused while an active campaign uses it. '
-      + 'Before deleting, check that nothing else sends it: a Shopify message (get_shopify_state) or a published scenario '
+      + 'Before deleting, check that nothing else sends it: a Shopify automation (get_shopify_state) or a published scenario '
       + 'that uses it would then fail without warning. If the template was APPROVED, Meta forbids creating a new one '
       + 'with the same name for 30 days. ' + LOURDE,
     // Monde ouvert : la suppression se fait chez Meta. Supprimer deux fois ne supprime rien de plus.
