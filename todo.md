@@ -175,6 +175,22 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
 - **Les films d'aide** (`site/films/aide-*.mp4`) montrent l'ancienne barre.
 - **« Modifier ce template » sur un bloc à données Shopify** reste refusé en 400 (le correctif de 6a a été retiré : il
   faisait perdre la donnée au bloc). Le refaire en rendant au bloc ses sources `variable` à leurs positions canonisées.
+- **Relecture de 6b (aucun rouge)** :
+  - les `raise notice` d'une migration ne s'affichent nulle part (`db/migrate.ts` n'écoute pas l'événement `notice` de
+    `pg`) : 0304 se vérifie par sa sonde avant, et sa relecture en base après ;
+  - 0304 ne regarde ni les outils d'agent (`agent_tools.binding`), ni les campagnes `draft`, ni les appels par code
+    (`/v1/sends`, MCP) : la sonde les montre pour les candidats ;
+  - `desModelesDAutomation` juge le rayon ACTUEL du scénario : un template écrit depuis un bloc d'un scénario déplacé,
+    quand il était au Builder, deviendrait ménageable (décision 14) ;
+  - supprimer la ligne « lancés par un workflow » d'un scénario déplacé le rend orphelin (ni Builder, ni HubSpot) : le
+    `POST` crée toujours un scénario neuf ;
+  - la création d'une ligne n'est pas transactionnelle (scénario orphelin sur panne), et le doublon d'étape se juge sans
+    verrou (deux clics simultanés, deux lignes) ;
+  - le `message` de la décision 39 n'arrive pas dans l'historique HubSpot (le connecteur ne garde que `issue`), et il dit
+    « pas lancé par un workflow » pour une ligne simplement éteinte ;
+  - l'origine prend le jour UTC de la RÉCEPTION : un rejeu qui passe minuit UTC change la clé d'idempotence ;
+  - une campagne de console nommée « HubSpot · workflow … » sur un scénario du Builder échoue désormais pour chaque
+    destinataire.
 
 ## 🟡 Le lot 5 du menu « Scénario » (Shopify) : ce qui reste après 5c (2026-11-19)
 

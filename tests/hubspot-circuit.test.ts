@@ -121,6 +121,13 @@ describe('le circuit d’une ligne HubSpot', () => {
     expect(enCours.tirs.some((t) => t.startsWith('efface'))).toBe(false);
   });
 
+  it('🔴 un envoi qui lève (panne de base ou de réseau) efface le tir avant de remonter : le rappel n’est pas perdu pour toujours', async () => {
+    const m = monter();
+    m.deps.envoyer = async () => { throw new Error('connexion perdue'); };
+    await expect(servirLigneHubspot(m.deps, 't1', { ...EV, marqueur: '2026-11-20T09:00:00Z' })).rejects.toThrow('connexion perdue');
+    expect(m.tirs.at(-1)).toBe(`efface:${L1}:33612345678`);
+  });
+
   it('🔴 le nom dans Campagnes ne prend jamais le préfixe des workflows (il déciderait `workflow_hubspot` et les leviers)', () => {
     for (const nom of ['workflow devis', 'Étape Gagné', '']) {
       for (const famille of ['etape', 'rdv'] as const) expect(nomDansCampagnes({ famille, nom }).startsWith(PREFIXE_LIGNE_HUBSPOT)).toBe(false);

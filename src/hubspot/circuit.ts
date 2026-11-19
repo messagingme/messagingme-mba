@@ -90,20 +90,27 @@ export async function servirLigneHubspot(d: DepsCircuitHubspot, tenantId: string
   if (!(await d.tirs.markFired(e.ligne.id, e.waId, e.marqueur))) return 'deja_tire';
 
   let issue: IssueLigneHubspot;
-  if ((await d.filiere(tenantId)) === 'application') {
-    issue = 'filiere_differente';
-  } else {
-    const pont = await pontSelonLOffre(d.offres, tenantId, bloc, e.origine, 'evenement_hubspot');
-    const corps = {
-      idempotencyKey: e.origine,
-      target: { template: { name: bloc.modele, language: bloc.langue } },
-      params: bloc.params.map((p) => ({ position: p.position, source: p.source })),
-      recipients: [{ phone: e.telephone }],
-    };
-    issue = issueDeLEnvoi(await d.envoyer(tenantId, corps, async () => true, {
-      nom: nomDansCampagnes(e.ligne), sansCampagneVide: true, serviceSeulement: true,
-      ...(pont !== undefined ? { parcoursEvenement: pont } : {}),
-    }));
+  try {
+    if ((await d.filiere(tenantId)) === 'application') {
+      issue = 'filiere_differente';
+    } else {
+      const pont = await pontSelonLOffre(d.offres, tenantId, bloc, e.origine, 'evenement_hubspot');
+      const corps = {
+        idempotencyKey: e.origine,
+        target: { template: { name: bloc.modele, language: bloc.langue } },
+        params: bloc.params.map((p) => ({ position: p.position, source: p.source })),
+        recipients: [{ phone: e.telephone }],
+      };
+      issue = issueDeLEnvoi(await d.envoyer(tenantId, corps, async () => true, {
+        nom: nomDansCampagnes(e.ligne), sansCampagneVide: true, serviceSeulement: true,
+        ...(pont !== undefined ? { parcoursEvenement: pont } : {}),
+      }));
+    }
+  } catch (err) {
+    // Une panne (base, réseau) après le claim : le tir s'efface, sinon le rappel d'un rendez-vous serait « déjà tiré »
+    // pour toujours (relecture de 6b). L'étape, elle, se rejoue par l'erreur ; la clé d'idempotence évite le doublon.
+    await d.tirs.clearFired(e.ligne.id, e.waId);
+    throw err;
   }
   if (RIEN_PARTI.has(issue)) await d.tirs.clearFired(e.ligne.id, e.waId);
   journaliser('info', 'hubspot_ligne_servie', { tenantId, ligne: e.ligne.id, famille: e.ligne.famille, issue });
