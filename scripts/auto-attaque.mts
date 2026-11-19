@@ -279,14 +279,14 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
   hubspotEvents: {
     secret: SECRET_SERVICE,
     automationsBranchees: async () => false,
-    automationCorrespond: async () => false,
-    findWaId: async () => null,
+    fonctions: async () => new Set<never>(),
+    etapesAllumees: async () => [],
     estBloque: async () => false,
     resoudreFiche: async () => ({ ok: false, code: 'unknown_contact' }),
     champsDeclares: async () => [],
     documents: { telecharger: async () => ({ refus: 'auto-attaque' }), deposer: async () => { throw new Error('auto-attaque'); } },
     ecrireChamps: async () => undefined,
-    publish: async () => undefined,
+    servir: async () => 'refuse',
   } satisfies HubspotEventRouteDeps,
   // La carte HubSpot (lot 2 de la reprise humaine) : le même vrai secret ; derrière lui, une offre sans l'Inbox et un
   // réglage éteint, donc rien ne se lit ni ne part, même pour une sonde qui passerait la signature.

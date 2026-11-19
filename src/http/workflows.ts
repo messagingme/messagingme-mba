@@ -19,7 +19,7 @@ import {
 import { tagsInGraph } from '../workflow/tags-du-graphe';
 import type { Rayon } from '../workflow/rayon';
 import { departsDuScenario, type Lanceur } from '../../web/lib/partage/fenetre-scenario';
-import { blocVerrouille, refusDuVerrou } from '../shopify/premier-bloc';
+import { blocVerrouille, refusSelonLeVerrou } from '../shopify/premier-bloc';
 
 /**
  * La sauvegarde n'exige pas qu'un scénario commence par un template : un scénario qui ouvre sur un message de
@@ -236,11 +236,12 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     if (Object.keys(patch).length === 0) return reply.code(400).send({ error: 'rien à modifier (name/graph)' });
     // 🔴 Le verrou du premier bloc (rayons d'automation : Shopify au lot 5, HubSpot au lot 6 ; décisions 13 et 23) : le graphe
     // enregistré garde le bloc marqué du graphe en place, un template où rien ne mène. La marque n'est posée que par le serveur.
+    // Lot 6b (décision 41) : seulement pour un scénario qui PORTE un bloc marqué (`refusSelonLeVerrou`).
     if (patch.graph) {
       const enPlace = await deps.scenarios.getById(id, tenant);
       if (!enPlace) return reply.code(404).send({ error: 'workflow inconnu' });
       if (enPlace.rayon !== 'general') {
-        const refus = refusDuVerrou(patch.graph, blocVerrouille(grapheEditable(enPlace))?.id ?? null);
+        const refus = refusSelonLeVerrou(patch.graph, [enPlace.graph, enPlace.draftGraph], blocVerrouille(grapheEditable(enPlace))?.id ?? null);
         if (refus !== null) return reply.code(422).send({ error: `Enregistrement refusé : ${refus}.`, code: 'premier_bloc_verrouille' });
       }
     }

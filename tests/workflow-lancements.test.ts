@@ -65,6 +65,9 @@ const SCENARIOS: Record<string, Pick<WorkflowRow, 'graph' | 'draftGraph' | 'rayo
   'wf-session': { graph: session, draftGraph: session, rayon: 'general' },
   /** Le même scénario, rangé sous Automation > Shopify (menu « Scénario », lot 1). */
   'wf-shopify': { graph: modele('publie'), draftGraph: modele('brouillon'), rayon: 'shopify' },
+  // Les mêmes, rangés sous Automation > HubSpot : l'action d'un workflow ne lance que ce rayon (lot 6b, décision 41).
+  'wf-modele-hubspot': { graph: modele('publie'), draftGraph: modele('brouillon'), rayon: 'hubspot' },
+  'wf-session-hubspot': { graph: session, draftGraph: session, rayon: 'hubspot' },
   // Le premier bloc d'une automation d'événement, de chaque rayon (lots 5 et 6) : ses parcours y naissent déjà envoyés.
   'evt-shopify': { graph: premierBloc(true), draftGraph: null, rayon: 'shopify' },
   'evt-hubspot': { graph: premierBloc(true), draftGraph: null, rayon: 'hubspot' },
@@ -73,6 +76,8 @@ const SCENARIOS: Record<string, Pick<WorkflowRow, 'graph' | 'draftGraph' | 'rayo
 };
 /** Le graphe que FOURNIT l'appelant d'un envoi de bloc (le publié réduit au bloc), par scénario. */
 const FOURNI: Record<string, WorkflowGraph> = { 'wf-modele': modele('fourni'), 'wf-session': session };
+/** Le jumeau HubSpot d'un scénario du Builder : celui que lance l'action d'un workflow (lot 6b, décision 41). */
+const JUMEAU_HUBSPOT: Record<string, string> = { 'wf-modele': 'wf-modele-hubspot', 'wf-session': 'wf-session-hubspot' };
 /** Le premier bloc de chaque scénario, celui où démarre un lancement « au bloc ». */
 const PREMIER_BLOC: Record<string, string> = { 'wf-modele': 't', 'wf-session': 'qm', 'wf-shopify': 't' };
 
@@ -157,8 +162,9 @@ function demandeDe(type: Exclude<TypeDeLancement, TypeDuSaut>, v: Variante): Dem
     case 'lien_de_test':
       return { ...base, type, waId: WA, blocDuJeton: v.auBloc === true ? bloc : null };
     case 'campagne_scenario':
-    case 'workflow_hubspot':
       return { ...base, type, waId: WA, contactId: 'c-campagne' };
+    case 'workflow_hubspot':
+      return { ...base, workflowId: JUMEAU_HUBSPOT[v.workflowId] ?? v.workflowId, type, waId: WA, contactId: 'c-campagne' };
     case 'campagne_bloc':
       return { ...base, type, waId: WA, contactId: 'c-campagne', noeudId: bloc };
     case 'repondeur':
@@ -392,7 +398,9 @@ describe('le graphe joué : seul le lien de test joue le brouillon, et lui seul 
       // publié que `resoudreBloc` vient de lire avec le bloc visé : l'entrée de lancement ne relit rien. L'envoi d'un bloc par
       // l'agent de Meta relit la ligne pour son RAYON seulement (menu « Scénario », lot 2) : le graphe joué reste le fourni.
       const relue = type === 'agent_meta_bloc' || !(fourni || estUnSaut(type));
-      expect(m.lectures).toEqual(relue ? [`${ESPACE}/wf-modele`] : []);
+      // L'action d'un workflow lance le jumeau HubSpot du scénario (lot 6b, décision 41).
+      const lu = type === 'workflow_hubspot' ? 'wf-modele-hubspot' : 'wf-modele';
+      expect(m.lectures).toEqual(relue ? [`${ESPACE}/${lu}`] : []);
     });
   }
 });
@@ -493,14 +501,14 @@ describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
     }
   });
 
-  it('🔴 les rayons de chaque type : le Builder seul, le lien de test tous, « sans objet » pour qui ne lit aucune ligne', () => {
+  it('🔴 les rayons de chaque type : le Builder seul, le lien de test tous, « sans objet » pour qui ne lit aucune ligne, HubSpot pour l’action d’un workflow (lot 6b, décision 41)', () => {
     const sansObjet = new Set(['repondeur', 'aller_a', 'aller_a_masse']);
     for (const type of TYPES_DE_LANCEMENT) {
       const r = POLITIQUE_DE_LANCEMENT[type].rayons;
       if (sansObjet.has(type)) expect(r, type).toBe('sans_objet');
       else {
         const attendus = type === 'lien_de_test' ? [...RAYONS].sort()
-          : type === 'evenement_shopify' ? ['shopify'] : type === 'evenement_hubspot' ? ['hubspot'] : ['general'];
+          : type === 'evenement_shopify' ? ['shopify'] : type === 'evenement_hubspot' || type === 'workflow_hubspot' ? ['hubspot'] : ['general'];
         expect([...r].sort(), type).toEqual(attendus);
       }
     }

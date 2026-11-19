@@ -22,14 +22,18 @@ export interface FieldLister {
 
 const eqName = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-/** Scénario par code `scn_...` (exact, jamais ambigu) ou par nom (0/1/plusieurs). */
+/**
+ * Scénario par code `scn_...` (exact, jamais ambigu) ou par nom (0/1/plusieurs), dans UN rayon (menu « Scénario »,
+ * décision 1) : le Builder pour l'API publique, le rayon HubSpot pour l'action d'un workflow (lot 6b, décision 41). Requis :
+ * un rayon oublié ne compile pas plutôt que de retomber sur le Builder en silence.
+ */
 export async function resolveScenario(
   tenantId: string,
   ref: string,
   workflows: WorkflowLister,
+  rayon: Rayon,
 ): Promise<ResolveResult<{ id: string; name: string; graph: WorkflowGraph }>> {
-  // L'API publique ne résout que le Builder (spec du menu « Scénario », décision 1).
-  const all = await workflows.list(tenantId, 'general');
+  const all = await workflows.list(tenantId, rayon);
   const pick = (w: (typeof all)[number]) => ({ id: w.id, name: w.name, graph: w.graph });
   if (ref.startsWith('scn_')) {
     const hit = all.find((w) => w.code === ref);

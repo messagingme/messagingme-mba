@@ -11,10 +11,12 @@ const source = readFileSync(new URL('../src/workflow/wiring.ts', import.meta.url
 const sansCommentaires = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 describe('câblage de la règle « encore voulu » des parcours d’événement', () => {
-  it('🔴 la vraie règle Shopify, le magasin passé ENTIER, et un parcours ordinaire qui ne la lit jamais', () => {
+  it('🔴 les vraies règles Shopify et HubSpot, les magasins passés ENTIERS, et un parcours ordinaire qui ne les lit jamais', () => {
     expect(sansCommentaires).toMatch(/const shopifyPourParcours = new PgShopifyStore\(deps\.pool, config\.ENCRYPTION_KEY\)/);
+    // Lot 6b : une origine `hubspot:` relit sa ligne (épinglé jusque-là à la seule règle Shopify, changé délibérément).
+    expect(sansCommentaires).toMatch(/const lignesHubspotPourParcours = new PgLignesHubspot\(deps\.pool\)/);
     expect(sansCommentaires).toMatch(
-      /parcoursEncoreVoulu: \(tenant, run\) =>\s*run\.evenement === null \? Promise\.resolve\(true\) : parcoursShopifyEncoreVoulu\(shopifyPourParcours, tenant, run\.evenement\.origine\)/,
+      /parcoursEncoreVoulu: \(tenant, run\) =>\s*run\.evenement === null \? Promise\.resolve\(true\)\s*: run\.evenement\.origine\.startsWith\(prefixeHubspot\(\)\) \? parcoursHubspotEncoreVoulu\(lignesHubspotPourParcours, tenant, run\.evenement\.origine\)\s*: parcoursShopifyEncoreVoulu\(shopifyPourParcours, tenant, run\.evenement\.origine\)/,
     );
     expect(sansCommentaires).not.toMatch(/parcoursEncoreVoulu: async \(\) => true/);
   });

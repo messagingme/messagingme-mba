@@ -2708,12 +2708,12 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
       await wf.insert(t, 'Doublon', { nodes: [], edges: [] }, 'general');
       await wf.insert(t, 'doublon', { nodes: [], edges: [] }, 'general'); // même nom (insensible casse) -> ambigu
       const code = (await wf.getById(a.id, t))!.code!;
-      expect(await resolveScenario(t, code, wf)).toMatchObject({ ok: true, value: { id: a.id } });
-      expect(await resolveScenario(t, 'Parcours Unique', wf)).toMatchObject({ ok: true, value: { id: a.id } });
-      const amb = await resolveScenario(t, 'Doublon', wf);
+      expect(await resolveScenario(t, code, wf, 'general')).toMatchObject({ ok: true, value: { id: a.id } });
+      expect(await resolveScenario(t, 'Parcours Unique', wf, 'general')).toMatchObject({ ok: true, value: { id: a.id } });
+      const amb = await resolveScenario(t, 'Doublon', wf, 'general');
       expect(amb.ok).toBe(false);
       if (!amb.ok && amb.reason === 'ambiguous') expect(amb.matches).toHaveLength(2); else throw new Error('attendu ambiguous');
-      expect(await resolveScenario(t, 'Inexistant', wf)).toEqual({ ok: false, reason: 'not_found' });
+      expect(await resolveScenario(t, 'Inexistant', wf, 'general')).toEqual({ ok: false, reason: 'not_found' });
     } finally {
       await pool.query('delete from tenants where id = $1', [t]);
     }

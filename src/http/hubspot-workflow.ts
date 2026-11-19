@@ -78,6 +78,13 @@ export interface HubspotWorkflowDeps {
   windowMs?: number;
 }
 
+/**
+ * Le refus d'un scénario que l'action ne voit pas (menu « Scénario », lot 6b, décision 39), montré dans l'historique du
+ * workflow : depuis la bascule, l'action ne lance que les scénarios rangés sous Automation > HubSpot.
+ */
+export const REFUS_SCENARIO_HORS_LISTE =
+  'Ce scénario n’est pas lancé par un workflow HubSpot : un workflow ne lance que les scénarios rangés dans Messaging Me sous Automation > HubSpot, « Lancés par un workflow ». Créez-le là, publiez-le, allumez sa ligne, puis choisissez-le dans cette action.';
+
 /** Au plus autant de valeurs : l'action a dix champs « Variable » fixes (décision 5). */
 export const VARIABLES_WORKFLOW_MAX = 10;
 /** Ce que le connecteur fait attendre à HubSpot avant de relancer une clé en vol, ou une lecture chez Meta en panne. */
@@ -361,7 +368,12 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     // Le scénario jugé comme la liste le juge, avant la clé : un scénario dépublié, ou dont l'ouverture est devenue une
     // question, un RCS ou un Marketing, ne compte rien. Le cœur relit le modèle d'ouverture chez Meta et reste l'autorité.
     const publie = (await deps.scenariosPublies(tenantId)).find((s) => s.code === scenario);
-    if (!publie) return issue('scenario_refuse');
+    if (!publie) {
+      // Décision 39 du menu « Scénario » : l'issue reste `scenario_refuse` (rien à republier chez HubSpot), avec ce qui
+      // explique un ancien workflow qui vise un scénario du Builder.
+      reply.code(200).send({ issue: 'scenario_refuse', message: REFUS_SCENARIO_HORS_LISTE });
+      return null;
+    }
     const catalogue = await lireCatalogue(tenantId);
     if (catalogue === null) {
       relancer(reply, 503, RELANCE_META_SEC, 'meta_indisponible', 'Le modèle d’ouverture n’a pas pu être lu chez Meta : réessayez dans un instant.');

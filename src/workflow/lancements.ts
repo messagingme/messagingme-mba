@@ -285,9 +285,10 @@ export const POLITIQUE_DE_LANCEMENT = {
    * reprend le fil à l'agent de Meta, JAMAIS à un opérateur qui le tient (le conseiller qui répond dans la fiche HubSpot
    * ne voit pas un scénario lui écrire par-dessus) ; il remplace un parcours automatique en cours, comme une campagne
    * (un parcours peut dormir sans fin) ; aucune étiquette ne publie (un workflow inscrit des milliers de contacts, c'est
-   * un chemin de masse) ; il écrit à froid, donc la fenêtre est gardée.
+   * un chemin de masse) ; il écrit à froid, donc la fenêtre est gardée. Depuis le lot 6b du menu « Scénario » (décision 41),
+   * il ne lance que le rayon HubSpot : un scénario du Builder choisi dans un ancien workflow ne part plus.
    */
-  workflow_hubspot: { reprise: 'sauf_operateur', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre', rayons: ['general'], devantUnEvenement: 'remplace' },
+  workflow_hubspot: { reprise: 'sauf_operateur', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre', rayons: ['hubspot'], devantUnEvenement: 'remplace' },
   /**
    * Le répondeur (lot 5, spec `docs/superpowers/specs/2026-10-04-repondeur-par-defaut-design.md`) : jamais à un
    * opérateur qui tient le fil (c'est le client qui écrit, comme un clic sur une publicité) ; ses étiquettes publient

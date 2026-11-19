@@ -617,7 +617,7 @@ describe('🔴 le rayon : l’écran Automation ne mène qu’au Builder (menu �
  * 🔴 LOT 6 DU MENU « SCÉNARIO » : LE CHANGEMENT D'ÉTAPE D'UN DEAL NE SE CRÉE PLUS DANS « AUTRES ». Il devient une ligne
  * d'Automation > HubSpot (décision 8, spec § 2.3) : le créer ici, ou y faire passer une automation existante, est refusé
  * proprement, avec un message qui dit où aller. Une automation « changement d'étape » qui existe déjà reste modifiable sous
- * son déclencheur jusqu'à la bascule (6b), comme une automation d'analyse d'un espace descendu de l'Entreprise.
+ * son déclencheur, comme une automation d'analyse d'un espace descendu de l'Entreprise, mais ne se rallume plus (6b).
  */
 describe('🔴 lot 6 : le changement d’étape d’un deal ne se crée plus dans « Autres »', () => {
   const ETAPE = { triggerKind: 'hubspot_deal_stage', triggerConfig: { pipelineId: 'p1', stageId: 's-devis', stageLabel: 'Devis envoyé' } };
@@ -644,16 +644,36 @@ describe('🔴 lot 6 : le changement d’étape d’un deal ne se crée plus dan
     await server.close();
   });
 
-  it('une automation « changement d’étape » qui existe déjà reste modifiable sous son déclencheur, éteinte ou rallumée', async () => {
+  it('une automation « changement d’étape » qui existe déjà reste modifiable sous son déclencheur et s’éteint', async () => {
     const { server, cap } = app({
       getById: async (id, _t, rayon) => (id === 'a-etape' && rayon === 'general' ? existante : null),
       update: async (id, tenant, rayon, patch) => { cap.updated.push({ id, tenant, rayon, patch }); return id === 'a-etape' && rayon === 'general'; },
     });
-    for (const payload of [ETAPE, { name: 'Devis envoyé' }, { enabled: false }, { enabled: true }]) {
+    for (const payload of [ETAPE, { name: 'Devis envoyé' }, { enabled: false }]) {
       const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-etape', ...h(adminTok), payload });
       expect(res.statusCode, JSON.stringify(payload)).toBe(200);
     }
-    expect(cap.updated).toHaveLength(4);
+    expect(cap.updated).toHaveLength(3);
+    await server.close();
+  });
+
+  /**
+   * 🔴 LOT 6B (décision 8) : la bascule éteint les automations « changement d'étape » du Builder, et plus rien ne les
+   * rallume (épinglé jusque-là « éteinte ou rallumée », changé délibérément) : l'étape se règle sous Automation > HubSpot, où
+   * le circuit l'envoie. Rallumée ici, elle ne servirait plus rien (la route ne publie plus pour le runner).
+   */
+  it('🔴 lot 6b : la rallumer est refusé (400), avec le message qui renvoie à Automation > HubSpot ; rien n’est écrit', async () => {
+    const eteinte = { ...existante, enabled: false };
+    const { server, cap } = app({
+      getById: async (id, _t, rayon) => (id === 'a-etape' && rayon === 'general' ? eteinte : null),
+      update: async (id, tenant, rayon, patch) => { cap.updated.push({ id, tenant, rayon, patch }); return true; },
+    });
+    for (const payload of [{ enabled: true }, { ...ETAPE, enabled: true }, { name: 'Devis', enabled: true }]) {
+      const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-etape', ...h(adminTok), payload });
+      expect(res.statusCode, JSON.stringify(payload)).toBe(400);
+      expect(res.json<{ error: string }>().error, JSON.stringify(payload)).toMatch(/Automation > HubSpot/);
+    }
+    expect(cap.updated).toEqual([]);
     await server.close();
   });
 });

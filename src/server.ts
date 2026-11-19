@@ -69,6 +69,7 @@ import { registerOps } from './http/ops';
 import { registerOpsCreditWhatsapp } from './http/ops-credit-whatsapp';
 import { registerWorkflows } from './http/workflows';
 import { registerAutomations } from './http/automations';
+import { registerHubspotLignes, type HubspotLignesRouteDeps } from './http/hubspot-lignes';
 import { registerChannelsMeRoutes, type ChannelsMeRouteDeps } from './http/channels-me';
 import { registerEmbeddedSignup } from './http/embedded-signup';
 import { registerNumeroFourni } from './http/numero-fourni';
@@ -397,6 +398,8 @@ export interface ServerDeps {
   workflows?: WorkflowRouteDeps;
   /** Automations : lecture ouverte aux comptes authentifiés, écritures admin-only (garde dans la route). */
   automations?: AutomationRouteDeps;
+  /** Automation > HubSpot (menu « Scénario », lot 6b) : les mêmes rôles que l'écran Automation. */
+  hubspotLignes?: HubspotLignesRouteDeps;
   /** Embedded Signup Meta (connexion du numéro, Tech Provider), réservé aux admins. */
   embeddedSignup?: EmbeddedSignupRouteDeps;
   /** Le numéro fourni côté client (lot 3b) : un numéro de la réserve et le code capté, réservé aux admins. */
@@ -893,6 +896,9 @@ export function modulesDeRoutes(
     entree('workflows', 'tenant', deps.workflows, (app, d, g) => registerWorkflows(app, d, g.admin, g.limiteCouteuse), ecritures('scenarios')),
     entree('workflowReports', 'tenant', deps.workflowReports, (app, d, g) => registerWorkflowReports(app, d, g.admin), toutes('performance_lab')),
     entree('automations', 'tenant', deps.automations, (app, d, g) => registerAutomations(app, d, g.auth)),
+    // Automation > HubSpot (lot 6b) : `auth` comme l'écran Automation, écritures fermées dans la route par `forbidNonAdmin`.
+    // HubSpot est une fonction de l'offre (`crm`), comme les autres écrans HubSpot.
+    entree('hubspotLignes', 'tenant', deps.hubspotLignes, (app, d, g) => registerHubspotLignes(app, d, g.auth), toutes('crm')),
     // `auth` et non `admin` : les écrans de la chaîne se lisent avec un compte agent, et les six
     // ecritures sont fermees dans la route par `forbidNonAdmin`.
     entree('channelsMe', 'tenant', deps.channelsMe, (app, d, g) => registerChannelsMeRoutes(app, d, g.auth), toutes('chaines')),

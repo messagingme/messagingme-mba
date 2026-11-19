@@ -125,6 +125,8 @@ export async function envoyerPourWorkflow(
     return plafond === null;
   }, {
     nom: `${PREFIXE_LIGNE_HUBSPOT}${e.workflowId}`, sansCampagneVide: true, ...(e.accordMarketing ? {} : { serviceSeulement: true as const }),
+    // Lot 6b (décision 41) : un scénario se résout dans le rayon HubSpot, jamais dans le Builder.
+    ...(scenario ? { rayonDuScenario: 'hubspot' as const } : {}),
     ...(e.champsFiche ? { champsFiche: e.champsFiche } : {}),
   });
   if (compteurEnvoiRefuse(r)) return { issue: plafond === 'jour' ? 'plafond_jour' : 'plafond_minute' };

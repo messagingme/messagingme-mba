@@ -4,7 +4,7 @@ import type { Rayon } from './rayon';
 import { refusDePublication } from './aller-a';
 import { refusFichierSansSuite } from './question-piece';
 import { refusSuiteQuiAttend } from './engine';
-import { blocVerrouille, refusDuVerrou, viseUnPremierBloc } from '../shopify/premier-bloc';
+import { blocVerrouille, refusSelonLeVerrou, viseUnPremierBloc } from '../shopify/premier-bloc';
 
 /** Ce qui empêche un graphe d'être mis en ligne, et le code que la console reconnaît. */
 export interface RefusDeControle {
@@ -33,12 +33,13 @@ export async function controlesDePublication(
   let lue: WorkflowRow[] | null = null;
   const liste = async (): Promise<WorkflowRow[]> => (lue ??= await scenariosDuRayon());
   if (rayon !== 'general') {
-    // La référence : le bloc marqué de la version en ligne ; un scénario jamais publié (une copie) n'a que son brouillon,
-    // écrit par le serveur et gardé par l'enregistrement.
+    // La référence : la version en ligne ; un scénario jamais publié (une copie, graphe en ligne vide) n'a que son brouillon,
+    // écrit par le serveur et gardé par l'enregistrement. Jamais le brouillon qu'on publie quand une version est en ligne :
+    // un brouillon forgé se porterait garant de lui-même. Lot 6b (décision 41) : le verrou ne vaut que si la référence porte
+    // un bloc marqué ; sinon le graphe publié ne doit pas en poser (`refusSelonLeVerrou`).
     const enPlace = (await liste()).find((w) => w.id === id) ?? null;
-    const reference = enPlace === null ? null
-      : (blocVerrouille(enPlace.graph) ?? (enPlace.draftGraph ? blocVerrouille(enPlace.draftGraph) : null));
-    const refus = refusDuVerrou(graphe, reference?.id ?? null);
+    const reference = enPlace === null ? null : enPlace.graph.nodes.length > 0 ? enPlace.graph : (enPlace.draftGraph ?? null);
+    const refus = refusSelonLeVerrou(graphe, [reference], reference === null ? null : (blocVerrouille(reference)?.id ?? null));
     if (refus !== null) return { code: 'premier_bloc_verrouille', message: refus };
   }
   if (graphe.nodes.some((n) => n.type === 'aller_a')) {

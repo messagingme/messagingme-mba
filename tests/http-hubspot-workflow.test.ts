@@ -472,7 +472,8 @@ describe('l’action « Lancer un scénario » : les deux routes', () => {
         params: [{ position: 1, source: { type: 'literal', value: 'Julien' } }, { position: 2, source: { type: 'literal', value: 'D-1002' } }],
         recipients: [{ phone: '+33612345678' }],
       },
-      options: { nom: 'HubSpot · workflow 1234567', sansCampagneVide: true, serviceSeulement: true },
+      // Lot 6b (décision 41) : le scénario se résout dans le rayon HubSpot.
+      options: { nom: 'HubSpot · workflow 1234567', sansCampagneVide: true, serviceSeulement: true, rayonDuScenario: 'hubspot' },
     }]);
     expect(comptes).toEqual([T1]);
     await server.close();
@@ -483,7 +484,7 @@ describe('l’action « Lancer un scénario » : les deux routes', () => {
     const champs = { contact: { firstname: 'Claire', lastname: '', jobtitle: 'Notaire' } };
     expect((await server.inject(appel('scenario', { ...LANCEMENT, champs }))).json()).toEqual({ issue: 'envoye', sendId: 'envoi-1' });
     expect(envois[0]!.options).toEqual({
-      nom: 'HubSpot · workflow 1234567', sansCampagneVide: true, serviceSeulement: true,
+      nom: 'HubSpot · workflow 1234567', sansCampagneVide: true, serviceSeulement: true, rayonDuScenario: 'hubspot',
       // `hs_contact_jobtitle` n'est pas déclaré dans l'espace : ignoré.
       champsFiche: { poser: { hs_contact_firstname: 'Claire' }, retirer: ['hs_contact_lastname'] },
     });
@@ -515,10 +516,19 @@ describe('l’action « Lancer un scénario » : les deux routes', () => {
     const { server, envois, comptes } = app({ fonctions: AVEC_SCENARIOS });
     for (const [scenario, issue] of [
       ['scn_promo', 'marketing_refuse'], ['scn_question', 'scenario_refuse'], ['scn_rcs', 'scenario_refuse'],
-      ['scn_absent', 'scenario_refuse'], ['scn_inconnu', 'scenario_refuse'], ['scn_puis_promo', 'marketing_refuse'],
+      ['scn_absent', 'scenario_refuse'], ['scn_puis_promo', 'marketing_refuse'],
     ] as const) {
       expect((await server.inject(appel('scenario', { ...LANCEMENT, scenario, valeurs: [] }))).json(), scenario).toEqual({ issue });
     }
+    expect([envois, comptes]).toEqual([[], []]);
+    await server.close();
+  });
+
+  it('🔴 lot 6b (décision 39) : un scénario hors de la liste (celui du Builder d’un ancien workflow) ressort en scenario_refuse, avec un message qui dit pourquoi', async () => {
+    const { server, envois, comptes } = app({ fonctions: AVEC_SCENARIOS });
+    const res = await server.inject(appel('scenario', { ...LANCEMENT, scenario: 'scn_inconnu', valeurs: [] }));
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ issue: 'scenario_refuse', message: expect.stringContaining('Automation > HubSpot') });
     expect([envois, comptes]).toEqual([[], []]);
     await server.close();
   });
@@ -588,7 +598,7 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
       params: [{ position: 1, source: { type: 'literal', value: 'Claire' } }, { position: 2, source: { type: 'literal', value: 'Cédric Weiss' } }],
     });
     expect(envois[0]!.options).toMatchObject({
-      nom: 'HubSpot · workflow 1234567', sansCampagneVide: true, serviceSeulement: true,
+      nom: 'HubSpot · workflow 1234567', sansCampagneVide: true, serviceSeulement: true, rayonDuScenario: 'hubspot',
       champsFiche: {
         poser: { hs_contact_firstname: 'Claire', hs_deal_montant: '1 200 €', hs_calc_conseiller: 'Cédric Weiss', hs_calc_lien_agenda: LIEN },
         retirer: [],

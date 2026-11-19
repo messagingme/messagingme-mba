@@ -8,20 +8,23 @@ import { parcoursShopifyEncoreVoulu } from '../src/shopify/parcours-voulu';
  * L'origine porte donc la fenêtre : un même deal à la même étape le même jour ne renaît pas ; revenu le lendemain, ou un
  * rendez-vous déplacé, il repart. Elle tient en `ORIGINE_MAX` caractères, sinon aucun pont n'est posé (le premier message
  * part seul, comme pour Shopify).
+ *
+ * Lot 6b : le portail n'y est plus. Il ne se lit que chez le connecteur, par le réseau, et la ligne (une automation de
+ * l'espace) suffit à la rendre propre à l'espace ; une origine se compare toujours dans un espace et pour un contact.
  */
 
 const LIGNE = '6f1d2c3b-4a5e-4f60-8a9b-0c1d2e3f4a5b';
 const AUTRE_LIGNE = '7a2e3d4c-5b6f-4071-9bac-1d2e3f4a5b6c';
 const etape = (o: Partial<Extract<EvenementHubspot, { famille: 'etape' }>> = {}): EvenementHubspot => ({
-  famille: 'etape', portail: '4242', ligne: LIGNE, deal: '9001', etape: 'closedwon', le: new Date('2026-11-19T09:30:00Z'), ...o,
+  famille: 'etape', ligne: LIGNE, deal: '9001', etape: 'closedwon', le: new Date('2026-11-19T09:30:00Z'), ...o,
 });
 const rdv = (o: Partial<Extract<EvenementHubspot, { famille: 'rdv' }>> = {}): EvenementHubspot => ({
-  famille: 'rdv', portail: '4242', ligne: LIGNE, contact: '33611223344', champ: 'hs_date_rdv', date: '2026-11-20T14:30:00+01:00', ...o,
+  famille: 'rdv', ligne: LIGNE, contact: '33611223344', champ: 'hs_date_rdv', date: '2026-11-20T14:30:00+01:00', ...o,
 });
 
 describe('origineHubspot : le changement d’étape d’un deal', () => {
-  it('🔴 le portail, la ligne, le deal, l’étape et le jour UTC du changement', () => {
-    expect(origineHubspot(etape())).toBe(`hubspot:4242:etape:${LIGNE}:9001:closedwon:2026-11-19`);
+  it('🔴 la ligne, le deal, l’étape et le jour UTC du changement', () => {
+    expect(origineHubspot(etape())).toBe(`hubspot:etape:${LIGNE}:9001:closedwon:2026-11-19`);
   });
 
   it('🔴 la fenêtre de 24 h (décision 37) : le même jour UTC, la même origine ; le lendemain, une autre', () => {
@@ -39,8 +42,8 @@ describe('origineHubspot : le changement d’étape d’un deal', () => {
 });
 
 describe('origineHubspot : le rendez-vous', () => {
-  it('🔴 le portail, la ligne, le contact, le champ date et sa valeur, deux-points de l’heure compris', () => {
-    expect(origineHubspot(rdv())).toBe(`hubspot:4242:rdv:${LIGNE}:33611223344:hs_date_rdv:2026-11-20T14:30:00+01:00`);
+  it('🔴 la ligne, le contact, le champ date et sa valeur, deux-points de l’heure compris', () => {
+    expect(origineHubspot(rdv())).toBe(`hubspot:rdv:${LIGNE}:33611223344:hs_date_rdv:2026-11-20T14:30:00+01:00`);
   });
 
   it('🔴 un rendez-vous déplacé repart (une autre date, une autre origine) ; le même, jamais', () => {
@@ -56,7 +59,7 @@ describe('origineHubspot : le rendez-vous', () => {
 
 describe('origineHubspot : ses bornes', () => {
   it('🔴 jusqu’à ORIGINE_MAX caractères, et le schéma de l’événement la relit ; au-delà, aucune origine', () => {
-    const sansDate = `hubspot:4242:rdv:${LIGNE}:33611223344:hs_date_rdv:`;
+    const sansDate = `hubspot:rdv:${LIGNE}:33611223344:hs_date_rdv:`;
     const juste = rdv({ date: 'x'.repeat(ORIGINE_MAX - sansDate.length) });
     const origine = origineHubspot(juste);
     expect(origine).toHaveLength(ORIGINE_MAX);
@@ -66,8 +69,8 @@ describe('origineHubspot : ses bornes', () => {
 
   it('🔴 une partie vide, ou des deux-points ailleurs que dans la date du rendez-vous : aucune origine', () => {
     for (const e of [
-      etape({ portail: '' }), etape({ ligne: '' }), etape({ deal: '' }), etape({ etape: '' }), rdv({ contact: '' }), rdv({ champ: '' }), rdv({ date: '' }),
-      etape({ portail: '42:etape' }), etape({ deal: '9:1' }), etape({ etape: 'a:b' }), rdv({ ligne: 'l:1' }), rdv({ contact: 'c:1' }), rdv({ champ: 'hs:x' }),
+      etape({ ligne: '' }), etape({ deal: '' }), etape({ etape: '' }), rdv({ contact: '' }), rdv({ champ: '' }), rdv({ date: '' }),
+      etape({ ligne: 'l:1' }), etape({ deal: '9:1' }), etape({ etape: 'a:b' }), rdv({ contact: 'c:1' }), rdv({ champ: 'hs:x' }),
     ]) {
       expect(origineHubspot(e), JSON.stringify(e)).toBeNull();
     }
@@ -78,25 +81,25 @@ describe('origineHubspot : ses bornes', () => {
   });
 });
 
-describe('prefixeHubspot : de quoi arrêter les parcours d’un portail, d’une famille ou d’une ligne', () => {
+describe('prefixeHubspot : de quoi arrêter les parcours d’une famille ou d’une ligne', () => {
   it('🔴 chaque origine commence par ses trois préfixes, qui finissent tous par deux-points', () => {
     for (const e of [etape(), rdv()]) {
       const origine = origineHubspot(e)!;
-      for (const prefixe of [prefixeHubspot(e.portail), prefixeHubspot(e.portail, e.famille), prefixeHubspot(e.portail, e.famille, e.ligne)]) {
+      for (const prefixe of [prefixeHubspot(), prefixeHubspot(e.famille), prefixeHubspot(e.famille, e.ligne)]) {
         expect(prefixe.endsWith(':')).toBe(true);
         expect(origine.startsWith(prefixe), prefixe).toBe(true);
       }
     }
   });
 
-  it('🔴 le préfixe d’une ligne ne recouvre jamais une autre ligne, ni un autre portail, dont l’identifiant commence pareil', () => {
-    expect(origineHubspot(etape({ ligne: 'l10' }))!.startsWith(prefixeHubspot('4242', 'etape', 'l1'))).toBe(false);
-    expect(origineHubspot(etape({ portail: '42420' }))!.startsWith(prefixeHubspot('4242'))).toBe(false);
+  it('🔴 le préfixe d’une ligne ne recouvre jamais une autre ligne dont l’identifiant commence pareil, ni l’autre famille', () => {
+    expect(origineHubspot(etape({ ligne: 'l10' }))!.startsWith(prefixeHubspot('etape', 'l1'))).toBe(false);
+    expect(origineHubspot(rdv())!.startsWith(prefixeHubspot('etape'))).toBe(false);
   });
 });
 
 describe('une origine HubSpot devant la règle « encore voulu » (lot 6, tâche 2)', () => {
-  it('🔴 elle reste voulue sans rien lire du magasin Shopify : sa règle viendra avec les lignes HubSpot (6b)', async () => {
+  it('🔴 elle reste voulue sans rien lire du magasin Shopify : la ligne éteinte arrête ses parcours par son préfixe', async () => {
     const lus: string[] = [];
     const magasin = {
       async etatPourParcours() { lus.push('etat'); return { boutique: 'absente' as const, ligneActive: false }; },

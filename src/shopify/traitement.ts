@@ -363,7 +363,7 @@ async function servir(deps: DepsTraitementShopify, b: BoutiqueRecue, s: Service)
           modele: bloc.modele, langue: bloc.langue, params: bloc.params, valeurs, telephone: s.telephone,
           // Bornée comme toute source de consentement (`MAX_OPT_IN_SOURCE`) : trop longue, le destinataire serait écarté.
           sourceConsentement: `shopify:${b.domaine}`.slice(0, MAX_OPT_IN_SOURCE),
-          parcoursEvenement: await pontSelonLOffre(deps.offres, b.tenantId, bloc, cle),
+          parcoursEvenement: await pontSelonLOffre(deps.offres, b.tenantId, bloc, cle, 'evenement_shopify'),
         });
     }
     // Un autre traitement tient la même clé d'envoi : le laisser finir, Shopify réessaiera.

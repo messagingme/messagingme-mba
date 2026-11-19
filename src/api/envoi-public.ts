@@ -9,6 +9,7 @@ import type { EnvoiApiBrut } from '../campaign/store.pg';
 import { validateParamMapping, type TemplateParam } from '../crm/template';
 import type { ResolveResult } from '../ids/resolve';
 import type { WorkflowGraph } from '../workflow/graph';
+import type { Rayon } from '../workflow/rayon';
 import { modeleDOuverture, ouvertureApi, type OuvertureApi } from '../workflow/ouverture-api';
 import type { IdempotencyClaim } from './idempotency-store.pg';
 import { cleIdempotence, DUREE_CLE_IDEMPOTENCE_MS, empreinteCorps } from './idempotence';
@@ -48,8 +49,11 @@ export interface CreationEnvoiPublic {
   parcoursEvenement?: ParcoursEvenementDeCampagne;
 }
 export interface DepsEnvoiPublic {
-  /** Scénario par code `scn_` ou par nom, avec son graphe publié : c'est lui que `ouvertureApi` juge. */
-  resolveScenario(tenantId: string, ref: string): Promise<ResolveResult<{ id: string; name: string; graph: WorkflowGraph }>>;
+  /**
+   * Scénario par code `scn_` ou par nom, avec son graphe publié : c'est lui que `ouvertureApi` juge. Dans UN rayon : le
+   * Builder pour l'API publique, le rayon HubSpot pour l'action d'un workflow (`OptionsEnvoiPublic.rayonDuScenario`).
+   */
+  resolveScenario(tenantId: string, ref: string, rayon: Rayon): Promise<ResolveResult<{ id: string; name: string; graph: WorkflowGraph }>>;
   /** Bloc par code `nod_`, dans les graphes publiés, avec le graphe d'où juger ce qui part depuis lui. */
   resolveNode(tenantId: string, code: string): Promise<ResolveResult<{ workflowId: string; nodeId: string; label: string; graph: WorkflowGraph }>>;
   /** Le template lu chez Meta : sa catégorie, ou pourquoi il ne peut pas partir (`verdictModele`). */
@@ -256,7 +260,9 @@ export function lireCible(corps: Corps, params: TemplateParam[]): CibleDemandee 
  * refusé à la création de campagne, template inconnu ou non approuvé) ; une cible `node` est jugée sur ce qui
  * part en premier depuis elle, et le template qu'elle fait partir est lu chez Meta.
  */
-async function resoudreCible(deps: DepsEnvoiPublic, tenantId: string, c: CibleDemandee, params: TemplateParam[]): Promise<CibleResolue | Refus> {
+async function resoudreCible(
+  deps: DepsEnvoiPublic, tenantId: string, c: CibleDemandee, params: TemplateParam[], rayon: Rayon,
+): Promise<CibleResolue | Refus> {
   if (c.kind === 'template') {
     const m = await modeleEnvoyable(deps, tenantId, c.name, c.language, params, 'template');
     if ('refus' in m) return m;
@@ -271,7 +277,7 @@ async function resoudreCible(deps: DepsEnvoiPublic, tenantId: string, c: CibleDe
     };
   }
   if (c.kind === 'scenario') {
-    const r = await deps.resolveScenario(tenantId, c.ref);
+    const r = await deps.resolveScenario(tenantId, c.ref, rayon);
     if (!r.ok && r.reason === 'ambiguous') {
       return { refus: { statut: 409, code: 'scenario_ambiguous', message: 'plusieurs scénarios portent ce nom : désignez-le par son code scn_' } };
     }
@@ -409,6 +415,12 @@ export interface OptionsEnvoiPublic {
    * `template` seulement : un scénario, un bloc ou un message RCS l'ignorent.
    */
   parcoursEvenement?: ParcoursEvenementDeCampagne;
+  /**
+   * 🔴 INTERNE (menu « Scénario », lot 6b, décision 41) : le rayon où une cible `scenario` se résout, `hubspot` pour l'action
+   * d'un workflow HubSpot (`envoyerPourWorkflow`). Absent : le Builder, celui de `/v1/sends` et de Claude. JAMAIS lu du
+   * corps HTTP : un appelant de l'API publique ne lance jamais un scénario d'automation.
+   */
+  rayonDuScenario?: 'hubspot';
 }
 
 /** La même enveloppe que `refuser` (`{ error, code }`), rendue au lieu d'être envoyée. */
@@ -512,7 +524,7 @@ export async function lancerEnvoiPublic(
     // fourni est ignoré (`numeroDEnvoi` rendrait sinon 409 `no_whatsapp_number` à un espace qui n'a que le RCS).
     const numero = demandee.kind === 'rcsMessage' ? { phoneNumberId: '' } : await numeroDEnvoi(deps, tenantId, corps.phoneNumberId);
     if ('refus' in numero) return await libererEtRefuser(numero.refus);
-    const cible = await resoudreCible(deps, tenantId, demandee, params);
+    const cible = await resoudreCible(deps, tenantId, demandee, params, options.rayonDuScenario ?? 'general');
     if ('refus' in cible) return await libererEtRefuser(cible.refus);
     if (options.serviceSeulement && cible.category !== 'utility') {
       await deps.idempotence.release(tenantId, idem.cle, jeton);

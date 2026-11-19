@@ -670,13 +670,13 @@ describe('les variables du destinataire et le pont d’un premier bloc (lot 5)',
 
   it('🔴 le pont ne se pose qu’avec une suite, la fonction `scenarios` et une origine qui tient', () => {
     const origine = 'shopify:b.myshopify.com:orders/paid:1002';
-    expect(pontDuPremierBloc(pret(true), origine, true)).toEqual({
+    expect(pontDuPremierBloc(pret(true), origine, true, 'evenement_shopify')).toEqual({
       workflowId: 'w', noeudId: 'depart', type: 'evenement_shopify', origine, boutons: [{ type: 'QUICK_REPLY', text: 'Oui' }],
     });
-    expect(pontDuPremierBloc(pret(false), origine, true)).toBeUndefined();
-    expect(pontDuPremierBloc(pret(true), origine, false)).toBeUndefined();
-    expect(pontDuPremierBloc(pret(true), 'x'.repeat(ORIGINE_MAX), true)).toBeDefined();
-    expect(pontDuPremierBloc(pret(true), 'x'.repeat(ORIGINE_MAX + 1), true)).toBeUndefined();
+    expect(pontDuPremierBloc(pret(false), origine, true, 'evenement_shopify')).toBeUndefined();
+    expect(pontDuPremierBloc(pret(true), origine, false, 'evenement_shopify')).toBeUndefined();
+    expect(pontDuPremierBloc(pret(true), 'x'.repeat(ORIGINE_MAX), true, 'evenement_shopify')).toBeDefined();
+    expect(pontDuPremierBloc(pret(true), 'x'.repeat(ORIGINE_MAX + 1), true, 'evenement_shopify')).toBeUndefined();
   });
 });
 

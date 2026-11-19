@@ -1015,6 +1015,22 @@ describe('l’action « Lancer un scénario » d’un workflow HubSpot, par le v
     expect([cap.sends, idem.size]).toEqual([[], 0]);
   });
 
+  it('🔴 lot 6b (décision 41) : le scénario d’un workflow se résout dans le rayon HubSpot, celui de `/v1/sends` dans le Builder', async () => {
+    const rayons: unknown[] = [];
+    const { sends, cap } = app({
+      resolveScenario: async (_t, ref, rayon) => {
+        rayons.push(rayon);
+        return { ok: true, value: { id: `wf-${ref}`, name: ref, graph: G_TEMPLATE } };
+      },
+    });
+    expect((await envoyerPourWorkflow(branche(sends), lancement(), libre)).issue).toBe('envoye');
+    expect(statutDe(await lancerEnvoiPublic(sends, 't1', { ...SCN('scn_template'), recipients: [{ contactId: C1 }] }, 'k-api', async () => true))).toBe(201);
+    // Le modèle envoyé seul par un workflow ne résout aucun scénario.
+    await envoyerPourWorkflow(branche(sends), lancement({ cible: { modele: 'promo', langue: 'fr' } }), libre);
+    expect(rayons).toEqual(['hubspot', 'general']);
+    expect(cap.sends).toHaveLength(3);
+  });
+
   it('🔴 introuvable, ambigu, ou qui ouvre par un message de session : `scenario_refuse`, rien ne part', async () => {
     const { sends, cap } = app();
     for (const scenario of ['scn_absent', 'Ambigu', 'scn_session', 'scn_vide']) {

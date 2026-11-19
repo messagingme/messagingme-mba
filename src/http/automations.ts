@@ -408,6 +408,12 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
           : reply.code(400).send({ error: REFUS_ETAPE_DE_DEAL });
       }
     }
+    // Lot 6b (décision 8) : la bascule a éteint les automations « changement d'étape » du Builder, et rien ne les rallume :
+    // l'étape se règle sous Automation > HubSpot, où le circuit l'envoie. `courant` est relu quand le corps allume sans
+    // dire le déclencheur.
+    if (parsed.input.enabled === true && (parsed.input.triggerKind ?? courant?.triggerKind) === 'hubspot_deal_stage') {
+      return reply.code(400).send({ error: REFUS_ETAPE_DE_DEAL });
+    }
     if (parsed.input.triggerKind !== undefined || parsed.input.enabled === true) {
       const reference = await validateTriggerReferences(
         tenant,

@@ -91,6 +91,14 @@ export async function envoyerShopify(envoyer: EnvoyerPublic, e: EnvoiShopify): P
   const r = await envoyer(e.tenantId, corps, async () => true, {
     nom: e.nomLigne, sansCampagneVide: true, ...(e.parcoursEvenement !== undefined ? { parcoursEvenement: e.parcoursEvenement } : {}),
   });
+  return issueDeLEnvoi(r);
+}
+
+/**
+ * Ce que devient un premier bloc envoyé par le cœur public, lu sur sa réponse : la même lecture pour Shopify et pour les
+ * lignes HubSpot (lot 6b), jamais deux tables qui divergeraient.
+ */
+export function issueDeLEnvoi(r: ResultatEnvoiPublic): IssueEnvoi {
   if (compteurEnvoiRefuse(r)) return 'refuse';
   const c = r.corps as { code?: unknown; limite?: unknown } | null;
   if (r.statut === 201 || r.statut === 200) return issueDuRapport(r.corps as RapportEnvoi);
@@ -110,22 +118,25 @@ export async function envoyerShopify(envoyer: EnvoyerPublic, e: EnvoiShopify): P
  * leur maximum) se journalise chez l'appelant.
  */
 export function pontDuPremierBloc(
-  bloc: Extract<PremierBloc, { etat: 'pret' }>, origine: string, offreAScenarios: boolean,
+  bloc: Extract<PremierBloc, { etat: 'pret' }>, origine: string, offreAScenarios: boolean, type: ParcoursEvenementDeCampagne['type'],
 ): ParcoursEvenementDeCampagne | undefined {
   if (!bloc.aUneSuite || !offreAScenarios || origine.length > ORIGINE_MAX) return undefined;
-  return { workflowId: bloc.workflowId, noeudId: bloc.noeudId, type: 'evenement_shopify', origine, boutons: bloc.boutons };
+  return { workflowId: bloc.workflowId, noeudId: bloc.noeudId, type, origine, boutons: bloc.boutons };
 }
 
 /**
  * Le pont d'un premier bloc prêt, l'offre lue seulement quand le bloc a une suite (le cache court de l'offre, passé
- * ENTIER). Une origine trop longue sur une offre qui a `scenarios` se journalise : le premier message part seul.
+ * ENTIER). Une origine trop longue sur une offre qui a `scenarios` se journalise : le premier message part seul. `type` :
+ * celui du parcours qui naîtra (`evenement_shopify`, ou `evenement_hubspot` au lot 6b), REQUIS : un oubli ne compile pas
+ * plutôt que de faire naître un parcours Shopify d'une ligne HubSpot.
  */
 export async function pontSelonLOffre(
   offres: SourceOffres, tenantId: string, bloc: Extract<PremierBloc, { etat: 'pret' }>, origine: string,
+  type: ParcoursEvenementDeCampagne['type'],
 ): Promise<ParcoursEvenementDeCampagne | undefined> {
   if (!bloc.aUneSuite) return undefined;
   const scenarios = (await offres.offreDe(tenantId)).droits.fonctions.has('scenarios');
-  const pont = pontDuPremierBloc(bloc, origine, scenarios);
+  const pont = pontDuPremierBloc(bloc, origine, scenarios, type);
   if (pont === undefined && scenarios) journaliser('warn', 'shopify_pont_origine_trop_longue', { tenantId, longueur: origine.length });
   return pont;
 }

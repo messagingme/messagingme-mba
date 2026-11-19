@@ -43,9 +43,12 @@ describe('le câblage de l’action de workflow HubSpot', () => {
     expect(bloc).toContain('nomEspace: (t: string) => opsStore.getTenantName(t),');
   });
 
-  it('🔴 l’action scénario : les scénarios en ligne de l’espace, et la conversation tenue par un opérateur, relue', () => {
+  it('🔴 l’action scénario : les scénarios en ligne qu’un workflow lance, et la conversation tenue par un opérateur, relue', () => {
     // `conseillerEnMain: async () => false` compilerait : l'historique du workflow mentirait (relecture du 2026-10-29).
-    expect(bloc).toContain("scenariosPublies: (t: string) => workflowStore.listPublies(t, 'general'),");
+    // Lot 6b (décision 41) : le rayon HubSpot, limité aux scénarios de ses lignes « lancés par un workflow » allumées ; le
+    // Builder n'y est plus (épinglé jusque-là à `listPublies(t, 'general')`, changé délibérément).
+    expect(bloc).toContain('scenariosPublies: (t: string) => scenariosLancesParWorkflow(workflowStore, lignesHubspot, t),');
+    expect(index).toContain('const lignesHubspot = new PgLignesHubspot(pool);');
     expect(bloc).toContain("conseillerEnMain: async (t: string, waId: string) => (await inboxStore.getControlOwner(t, waId)) === 'app_human',");
   });
 
@@ -97,9 +100,36 @@ describe('le câblage du changement d’étape d’un deal HubSpot', () => {
     return index.slice(debut, fin);
   })();
 
-  it('🔴 la ligne lue sur l’espace ; la correspondance par la définition du runner, gel de l’offre compris', () => {
+  it('🔴 la ligne lue sur l’espace ; lot 6b : l’offre de l’espace, les lignes d’étape du magasin, et le vrai circuit', () => {
     expect(evenements).toContain('automationsBranchees: async (t: string) => (await settingsStore.lireChoixHubspot(t)).automations,');
-    expect(evenements).toContain('(await automationsCandidates(t, ev, { automations: automationStore, offres })).length > 0,');
+    // Épinglé jusque-là à la définition du runner (`automationsCandidates`), changé délibérément : la route sert les lignes.
+    expect(evenements).toContain('fonctions: async (t: string) => (await offres.offreDe(t)).droits.fonctions,');
+    expect(evenements).toContain('etapesAllumees: (t: string, pipelineId: string, stageId: string) => lignesHubspot.etapesAllumees(t, pipelineId, stageId),');
+    expect(evenements).toContain('servir: (t: string, e: EvenementDeLigne) => servirLigneHubspot(circuitHubspot, t, e),');
+  });
+
+  it('🔴 le balayage des rendez-vous : les magasins entiers, la tolérance du déclencheur de date, le même circuit, sur la minuterie', () => {
+    const debut = index.indexOf('const rendezVousHubspot: DepsRendezVous = {');
+    const rdv = index.slice(debut, index.indexOf('};', debut));
+    expect(debut).toBeGreaterThan(0);
+    expect(rdv).toContain('lignes: lignesHubspot,');
+    expect(rdv).toContain('declencheurs: automationStore,');
+    expect(rdv).toContain('automationsBranchees: async (t) => (await settingsStore.lireChoixHubspot(t)).automations,');
+    expect(rdv).toContain('servir: (t, e) => servirLigneHubspot(circuitHubspot, t, e),');
+    expect(rdv).toContain('toleranceMinutes: config.AUTOMATION_DATE_TOLERANCE_MINUTES,');
+    // Branché : sans cet appel, aucune ligne de rendez-vous ne partirait jamais, en silence.
+    expect(index).toContain('void travauxEnVol.suivre(balayerRendezVous(rendezVousHubspot)');
+  });
+
+  it('🔴 le circuit : le cœur public avec ses options, les magasins entiers, le plafond horaire de l’instance', () => {
+    const debut = index.indexOf('const circuitHubspot: DepsCircuitHubspot = {');
+    const circuit = index.slice(debut, index.indexOf('};', debut));
+    expect(debut).toBeGreaterThan(0);
+    // Une flèche à trois paramètres compilerait et perdrait `serviceSeulement` et le pont.
+    expect(circuit).toContain('envoyer: (tenant, corps, compter, options) => lancerEnvoiPublic(depsEnvois, tenant, corps, undefined, compter, options),');
+    expect(circuit).toContain('lectures: { workflows: workflowStore, indices: templateHintStore },');
+    expect(circuit).toContain('tirs: automationStore,');
+    expect(circuit).toContain('plafondParHeure: config.AUTOMATION_MAX_FIRES_PER_HOUR,');
   });
 
   it('🔴 la fiche par `resoudreFiche` (limite de contacts, liste de refus), les champs déclarés de l’espace, le blocage relu', () => {

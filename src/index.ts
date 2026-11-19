@@ -126,6 +126,10 @@ import { plafondLePlusBas } from './campaign/pacing';
 import { fetchHubspotLists, importHubspotList, disconnectHubspot, fetchHubspotDealStages, lireHubspotPortal, poserModeTaches, lireChampsHubspot, poserChampsHubspot } from './crm/hubspot-service';
 import { lireBoitesInbox, brancherInbox, debrancherInbox } from './crm/hubspot-service';
 import { PgInboxHubspotStore } from './hubspot/inbox';
+import { PgLignesHubspot } from './hubspot/lignes.pg';
+import { scenariosLancesParWorkflow } from './hubspot/lignes';
+import { servirLigneHubspot, type DepsCircuitHubspot, type EvenementDeLigne } from './hubspot/circuit';
+import { balayerRendezVous, type DepsRendezVous } from './hubspot/rendez-vous';
 import type { HubspotInboxRouteDeps } from './http/hubspot-inbox';
 import type { HubspotChoixRouteDeps } from './http/hubspot-choix';
 import type { HubspotChampsRouteDeps } from './http/hubspot-champs';
@@ -161,7 +165,6 @@ import { gestionDesWidgetsEnBase, type DepsWidgets } from './widgets/gestion';
 import { etatDuScenario } from './workflow/store.pg';
 import { ATTENTE_REVEIL_COURT_A_L_ARRET_MS } from './workflow/reveil-court';
 import { enfilerEvenementAutomation, type AutomationEventJob } from './automation/event-job';
-import { automationsCandidates } from './automation/runner';
 import type { ChampsFiche } from './campaign/build';
 import { RateLimiter } from './auth/rate-limit';
 import { resolveTenantCode } from './ids/tenant-code';
@@ -1605,7 +1608,7 @@ async function main(): Promise<void> {
    * (lot 13, domaine 3, livraison B) : un modèle envoyé par Claude passe par les MÊMES gardes que l'API.
    */
   const depsEnvois: DepsEnvoiPublic = {
-    resolveScenario: (tenant, ref) => resolveScenario(tenant, ref, workflowStore),
+    resolveScenario: (tenant, ref, rayon) => resolveScenario(tenant, ref, workflowStore, rayon),
     /**
      * Cible node : le code `nod_` vit dans le graphe publié, d'où le scan des scénarios de l'espace. Le
      * graphe est rendu avec le bloc : c'est depuis lui que `ouvertureApi` juge ce qui part en premier.
@@ -1690,6 +1693,11 @@ async function main(): Promise<void> {
    * worker serait une liste tenue à la main. Shopify réessaie ce qui n'a pas reçu de 2xx, il tient lieu de file.
    */
   const shopifyStore = new PgShopifyStore(pool, config.ENCRYPTION_KEY);
+  /**
+   * Les lignes d'Automation > HubSpot (menu « Scénario », lot 6b) : l'écran, l'action des workflows, le circuit d'étape et
+   * le balayage des rendez-vous lisent le MÊME magasin, passé entier (ses méthodes lisent `this.pool`).
+   */
+  const lignesHubspot = new PgLignesHubspot(pool);
   /**
    * Le chiffre d'affaires attribué (plans 2026-10-28 et 2026-10-30) : UN store, que la réception écrit, et UNE lecture
    * (`chiffreVentes`) que la route de Quantitatif, l'état de la boutique et l'outil MCP partagent. Le store entier : ses
@@ -1776,6 +1784,33 @@ async function main(): Promise<void> {
     filiere: traitementShopify.filiere, lectures: traitementShopify.lectures, offres, parcours: workflowRuntime.executor,
   };
   let relancePaniersEnCours = false;
+  /**
+   * Le circuit des lignes HubSpot d'étape et de rendez-vous (menu « Scénario », lot 6b) : le MÊME envoi public que Shopify
+   * (options transmises), le premier bloc lu par les magasins ENTIERS, et le plafond par ligne sur les tirs des automations
+   * (le magasin entier : ses méthodes lisent `this.pool`). La route d'étape et le balayage des rendez-vous le partagent.
+   */
+  const circuitHubspot: DepsCircuitHubspot = {
+    envoyer: (tenant, corps, compter, options) => lancerEnvoiPublic(depsEnvois, tenant, corps, undefined, compter, options),
+    filiere: (tenant) => comptesApplication.filiereDe(tenant),
+    lectures: { workflows: workflowStore, indices: templateHintStore },
+    offres,
+    tirs: automationStore,
+    plafondParHeure: config.AUTOMATION_MAX_FIRES_PER_HOUR,
+  };
+  /**
+   * Le balayage des rendez-vous HubSpot (lot 6b, tâche 2) : les lignes et les automations ENTIÈRES, les interrupteurs, l'offre
+   * et le fuseau relus à chaque passage, le même circuit que la route d'étape et la tolérance du déclencheur de date.
+   */
+  const rendezVousHubspot: DepsRendezVous = {
+    lignes: lignesHubspot,
+    declencheurs: automationStore,
+    automationsBranchees: async (t) => (await settingsStore.lireChoixHubspot(t)).automations,
+    fonctions: async (t) => (await offres.offreDe(t)).droits.fonctions,
+    timeZone: async (t) => (await settingsStore.horairesEffectifs(t)).timezone,
+    servir: (t, e) => servirLigneHubspot(circuitHubspot, t, e),
+    toleranceMinutes: config.AUTOMATION_DATE_TOLERANCE_MINUTES,
+  };
+  let rendezVousHubspotEnCours = false;
 
   /**
    * Le statut d'un template relu chez Meta, hors de tout cache : le filet des templates de bloc (lot 3) le lit. Un template
@@ -2288,20 +2323,18 @@ async function main(): Promise<void> {
     ...(config.HUBSPOT_SERVICE_SECRET ? {
       hubspotEvents: {
         secret: config.HUBSPOT_SERVICE_SECRET,
-        // Lot 3a du 2026-11-02 : la ligne « Automations HubSpot », puis la fiche d'un lead inconnu et les champs importés,
-        // seulement quand une automation allumée et permise correspond (la définition du runner, gel de l'offre compris).
+        // Lot 3a du 2026-11-02 : la ligne « Automations HubSpot », puis la fiche d'un lead inconnu et les champs importés.
+        // Lot 6b : seulement quand une LIGNE d'étape allumée du rayon `hubspot` correspond, sous l'offre qui relie HubSpot ;
+        // chaque ligne est servie par son circuit (plus aucun événement pour le runner du Builder).
         automationsBranchees: async (t: string) => (await settingsStore.lireChoixHubspot(t)).automations,
-        automationCorrespond: async (t: string, ev: AutomationEventJob['event']) =>
-          (await automationsCandidates(t, ev, { automations: automationStore, offres })).length > 0,
-        findWaId: async (tenant: string, waId: string) => ((await contactStore.findIdByWaId(tenant, waId)) ? waId : null),
+        fonctions: async (t: string) => (await offres.offreDe(t)).droits.fonctions,
+        etapesAllumees: (t: string, pipelineId: string, stageId: string) => lignesHubspot.etapesAllumees(t, pipelineId, stageId),
         estBloque: (t: string, waId: string) => contactStore.isBlockedByWaId(t, waId),
         resoudreFiche: (t: string, e164: string) => resoudreFiche(contactStore, t, { phone: e164 }, { creer: 'phone' }),
         champsDeclares: (t: string) => fieldStore.list(t),
         documents: recopieDocuments,
         ecrireChamps: (t: string, contactId: string, champs: ChampsFiche) => contactStore.ecrireChampsFiche(t, contactId, champs),
-        publish: async (tenantId: string, event: { kind: 'hubspot_deal_stage'; waId: string; pipelineId: string; stageId: string }) => {
-          await enfilerEvenementAutomation(queue, { tenantId, event } satisfies AutomationEventJob);
-        },
+        servir: (t: string, e: EvenementDeLigne) => servirLigneHubspot(circuitHubspot, t, e),
       } satisfies HubspotEventRouteDeps,
       // La carte HubSpot lit, répond et rend la main (lot 2 de la reprise humaine) : le chemin d'envoi de la console,
       // tel quel (`depsRepondre`), et l'idempotence de `/v1/sends`.
@@ -2378,7 +2411,9 @@ async function main(): Promise<void> {
         nomEspace: (t: string) => opsStore.getTenantName(t),
         // L'action « Lancer un scénario » (cadrage du 2026-10-29) : les scénarios en ligne, et la conversation tenue par
         // un opérateur (décision 3), relue comme le fait la reprise `saufOperateur` (`src/inbox/fil.ts`).
-        scenariosPublies: (t: string) => workflowStore.listPublies(t, 'general'),
+        // Lot 6b (décision 41) : seulement les scénarios en ligne du rayon HubSpot qu'une ligne « lancés par un workflow »
+        // allumée vise ; un scénario du Builder choisi dans un ancien workflow ressort en `scenario_refuse`.
+        scenariosPublies: (t: string) => scenariosLancesParWorkflow(workflowStore, lignesHubspot, t),
         conseillerEnMain: async (t: string, waId: string) => (await inboxStore.getControlOwner(t, waId)) === 'app_human',
         // L'action « Lancer un scénario (transaction) » (cadrage du 2026-10-29, décision 8) : le modèle d'ouverture rempli
         // dans la route, par les sources posées sur le modèle, sur la fiche lue comme le fait le scénario (`varsDuContact`).
@@ -3429,6 +3464,23 @@ async function main(): Promise<void> {
       // Les déclencheurs nés d'une analyse ne se créent qu'où l'analyse tourne (spec offres v2, livraison 5).
       analyseOuverte: async (tenant) => (await offres.offreDe(tenant)).droits.fonctions.has('analyse'),
     },
+    /**
+     * Automation > HubSpot (menu « Scénario », lot 6b) : les lignes d'étape, de rendez-vous et de scénarios lancés par un
+     * workflow. Les magasins et l'exécuteur ENTIERS (leurs méthodes lisent `this`) ; les templates, la MÊME liste que le
+     * catalogue (une minute de cache) ; les interrupteurs de Tools > Intégrations et la ligne, relus à chaque lecture.
+     */
+    hubspotLignes: {
+      gestion: {
+        lignes: lignesHubspot,
+        workflows: workflowStore,
+        indices: templateHintStore,
+        parcours: workflowRuntime.executor,
+        modeles: listerModeles,
+        champs: (t) => fieldStore.list(t),
+        choix: (t) => settingsStore.lireChoixHubspot(t),
+        ligneHubspot: async (t) => etatLigneHubspot(await phoneStatusStore.getPhoneNumber(t)),
+      },
+    },
     // Chaîne WhatsApp (Channels Me) : publier un post dont le bouton démarre un scénario.
     channelsMe: {
       connexions: channelsMeConnections,
@@ -4102,6 +4154,21 @@ async function main(): Promise<void> {
           console.error('shopify-relance: passage en échec:', messageDe(err));
         })
         .finally(() => { relancePaniersEnCours = false; }));
+    }
+    // Les rendez-vous HubSpot (menu « Scénario », lot 6b) : dans l'API aussi, pour la même raison. Le claim du tir et la clé
+    // d'idempotence (l'origine) empêchent deux rappels entre copies ; cette garde, deux passages qui se chevauchent ici.
+    if (!rendezVousHubspotEnCours) {
+      rendezVousHubspotEnCours = true;
+      void travauxEnVol.suivre(balayerRendezVous(rendezVousHubspot)
+        .then((n) => {
+          // eslint-disable-next-line no-console
+          if (n > 0) console.log(`hubspot-rdv: ${n} rappel(s) parti(s)`);
+        })
+        .catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error('hubspot-rdv: passage en échec:', messageDe(err));
+        })
+        .finally(() => { rendezVousHubspotEnCours = false; }));
     }
     // Un tour sur dix (dix minutes) : le filet ci-dessous.
     toursFiletAttentes = (toursFiletAttentes + 1) % 10;

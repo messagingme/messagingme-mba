@@ -196,6 +196,19 @@ describe('tenterMiseEnLigne', () => {
     expect(general.appels.oublis).toEqual([]);
   });
 
+  it('🔴 lot 6b (décision 41) : la version programmée d’un scénario HubSpot sans bloc marqué (lancé par un workflow) se met en ligne ; une marque qu’il poserait l’annule', async () => {
+    // Le scénario déplacé par la bascule : un template ordinaire, aucune marque, ni en ligne ni dans la version programmée.
+    const avant = { id: 'wf1', rayon: 'hubspot', graph: graphe(tpl('n1', 'ancien')), draftGraph: null } as WorkflowRow;
+    const libre = monter({ lignes: [ligneDe('a', 'approuve'), ligneDe('ancien', 'approuve')], enLigne: [avant] });
+    expect(await tenterMiseEnLigne(libre.deps, 't1', { ...programmation(graphe(tpl('n1', 'a'))), rayon: 'hubspot' })).toBe('en_ligne');
+    expect(libre.appels.misEnLigne).toEqual([`wf1@${LE}`]);
+    expect(libre.appels.annules).toEqual([]);
+    const marque = { id: 'n1', type: 'template', position: { x: 0, y: 0 }, data: { templateName: 'a', language: 'fr', verrouille: true } };
+    const forge = monter({ lignes: [ligneDe('a', 'approuve')], enLigne: [avant] });
+    expect(await tenterMiseEnLigne(forge.deps, 't1', { ...programmation(graphe(marque)), rayon: 'hubspot' })).toBe('annulee');
+    expect(forge.appels.misEnLigne).toEqual([]);
+  });
+
   it('les contrôles de publication se rejouent : un refus annule la programmation et le dit', async () => {
     const question = { id: 'q', type: 'question', position: { x: 0, y: 0 }, data: { body: 'Votre pièce ?', attendreFichier: true } };
     const { deps, appels } = monter({ lignes: [ligneDe('a', 'approuve')] });

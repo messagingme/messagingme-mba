@@ -91,7 +91,7 @@ export async function relancerPaniers(deps: DepsRelance, limite = PANIERS_PAR_PA
               tenantId: p.tenantId, cle: origine.slice(0, 200), nomLigne: LIGNE_RELANCE_PANIER,
               modele: bloc.modele, langue: bloc.langue, params: bloc.params, valeurs, telephone: p.telephone,
               sourceConsentement: `shopify:${p.domaine}`.slice(0, MAX_OPT_IN_SOURCE),
-              parcoursEvenement: await pontSelonLOffre(deps.offres, p.tenantId, bloc, origine),
+              parcoursEvenement: await pontSelonLOffre(deps.offres, p.tenantId, bloc, origine, 'evenement_shopify'),
             });
           }
         }

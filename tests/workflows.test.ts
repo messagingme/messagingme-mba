@@ -925,6 +925,60 @@ describe('le verrou du premier bloc (rayon Shopify)', () => {
     await publication.server.close();
   });
 
+  /**
+   * 🔴 LOT 6b (décision 41) : LE VERROU NE VAUT QUE POUR UN SCÉNARIO QUI PORTE UN BLOC MARQUÉ. Un scénario HubSpot « lancé
+   * par un workflow » s'ouvre par le bloc que le client veut (il part par l'envoi d'aujourd'hui, `{ scenario }`) : il
+   * s'enregistre et se publie librement. Mais un corps reçu n'y pose jamais de marque, qui le verrouillerait.
+   */
+  it('🔴 lot 6b : un scénario sans bloc marqué (lancé par un workflow) s’enregistre et se publie librement', async () => {
+    const libre = (over: Partial<WorkflowRow> = {}) => sampleRow({
+      rayon: 'hubspot', name: 'Devis avec PDF',
+      graph: { nodes: [{ ...depart(), data: { templateName: 'devis' } }, merci], edges: [{ id: 'e1', source: 'depart', target: 'merci' }] }, ...over,
+    });
+    const enregistrement = app({ scenarios: { getById: async (id) => (id === W1 ? libre() : null) } });
+    const sansDepart = await enregistrement.server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: { nodes: [merci], edges: [] } } });
+    expect(sansDepart.statusCode).toBe(200);
+    expect(enregistrement.cap.updated).toHaveLength(1);
+    await enregistrement.server.close();
+    const enCours = libre({ draftGraph: { nodes: [merci], edges: [] } });
+    const publication = app({ scenarios: { getById: async (id) => (id === W1 ? enCours : null), list: async () => [enCours] } });
+    expect((await publication.server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok) })).statusCode).toBe(200);
+    expect(publication.cap.publies).toEqual([W1]);
+    await publication.server.close();
+  });
+
+  it('🔴 lot 6b : sur un scénario sans bloc marqué, un corps qui en pose un est refusé, à l’enregistrement comme à la publication', async () => {
+    const libre = (over: Partial<WorkflowRow> = {}) => sampleRow({
+      rayon: 'hubspot', name: 'Devis avec PDF', graph: { nodes: [{ ...depart(), data: { templateName: 'devis' } }], edges: [] }, ...over,
+    });
+    const enregistrement = app({ scenarios: { getById: async (id) => (id === W1 ? libre() : null) } });
+    const marque = await enregistrement.server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: suite } });
+    expect(marque.statusCode).toBe(422);
+    expect(marque.json()).toMatchObject({ code: 'premier_bloc_verrouille', error: expect.stringContaining('serveur') });
+    expect(enregistrement.cap.updated).toEqual([]);
+    await enregistrement.server.close();
+    // Un brouillon forgé (écrit hors de l'éditeur) qui porterait la marque ne se publie pas davantage.
+    const force = libre({ draftGraph: suite });
+    const publication = app({ scenarios: { getById: async (id) => (id === W1 ? force : null), list: async () => [force] } });
+    const r = await publication.server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok) });
+    expect(r.statusCode).toBe(422);
+    expect(r.json()).toMatchObject({ code: 'premier_bloc_verrouille' });
+    expect(publication.cap.publies).toEqual([]);
+    await publication.server.close();
+  });
+
+  it('lot 6b : la console nomme le scénario d’une ligne HubSpot juste après l’avoir créée (`{ name }` seul), marqué ou non', async () => {
+    for (const graph of [{ nodes: [depart(), merci], edges: [] }, { nodes: [{ ...depart(), data: { templateName: 'devis' } }], edges: [] }]) {
+      const ligne = sampleRow({ rayon: 'hubspot', graph });
+      const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? ligne : null) } });
+      const res = await server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { name: 'Relance devis' } });
+      expect(res.statusCode).toBe(200);
+      expect(cap.updated).toHaveLength(1);
+      expect(JSON.stringify(cap.updated[0])).toContain('Relance devis');
+      await server.close();
+    }
+  });
+
   it('une copie jamais publiée d’une automation se publie : son brouillon, écrit par le serveur, fait référence', async () => {
     const copie = ligne({ name: 'Commande payée (copie)', graph: { nodes: [], edges: [] }, draftGraph: suite });
     const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? copie : null), list: async () => [copie] } });

@@ -54,6 +54,20 @@ export function refusDuVerrou(graphe: WorkflowGraph, attendu: string | null): st
   return null;
 }
 
+/**
+ * LE VERROU, SELON CE QUI EST ENREGISTRÉ (lot 6b, décision 41). Il ne vaut que pour un scénario dont une version
+ * enregistrée (`enPlace` : la version en ligne, le brouillon) PORTE un bloc marqué : une ligne Shopify, d'étape ou de
+ * rendez-vous. Un scénario sans marque (un scénario HubSpot lancé par un workflow, envoyé comme aujourd'hui par
+ * `{ scenario }`) s'enregistre et se publie librement, mais un corps reçu n'y pose jamais de marque, qui le verrouillerait.
+ * `attendu` : comme pour `refusDuVerrou`. Rend la phrase du refus, ou null.
+ */
+export function refusSelonLeVerrou(
+  recu: WorkflowGraph, enPlace: ReadonlyArray<WorkflowGraph | null | undefined>, attendu: string | null,
+): string | null {
+  if (enPlace.some((g) => g?.nodes.some(estBlocVerrouille) === true)) return refusDuVerrou(recu, attendu);
+  return recu.nodes.some(estBlocVerrouille) ? 'la marque du premier bloc d’une automation ne se pose que par le serveur' : null;
+}
+
 /** Un « Aller à » de ce graphe vise-t-il le premier bloc verrouillé d'un de ces graphes (ceux des autres scénarios) ? */
 export function viseUnPremierBloc(graphe: WorkflowGraph, autres: readonly WorkflowGraph[]): boolean {
   const cibles = new Set(graphe.nodes.flatMap((n) => (n.type === 'aller_a' && typeof n.data.cible === 'string' ? [n.data.cible] : [])));

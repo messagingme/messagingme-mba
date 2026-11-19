@@ -275,7 +275,7 @@ describe('la naissance d’un parcours d’événement, sur le bloc déjà envoy
 describe('lot 6 : la naissance d’un parcours d’événement HubSpot', () => {
   const HUBSPOT = { graph: PANIER, draftGraph: null, rayon: 'hubspot' as const };
   const EVENEMENT_HUBSPOT: EvenementDuParcours = {
-    origine: origineHubspot({ famille: 'etape', portail: '4242', ligne: 'ligne-1', deal: '9001', etape: 'closedwon', le: new Date('2026-11-19T09:30:00Z') })!,
+    origine: origineHubspot({ famille: 'etape', ligne: 'ligne-1', deal: '9001', etape: 'closedwon', le: new Date('2026-11-19T09:30:00Z') })!,
     variables: {},
   };
   const naissanceHubspot = (): DemandeDeLancement => ({

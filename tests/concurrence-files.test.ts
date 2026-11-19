@@ -54,8 +54,9 @@ describe('l’enfilement pose le CLIENT comme clé de groupe', () => {
     // Depuis le 2026-10-04, la fiche contact, le bloc de scénario et l'agent publient « tag ajouté » par UN point : la
     // file de la pose d'étiquette (`src/crm/poser-etiquette.ts`), branchée dans `workflow/wiring.ts`. `index.ts` y a
     // perdu celui de la fiche, `wiring.ts` les doublons du bloc et de l'agent. Le second du worker (2026-10-13) : une
-    // action de l'agent IA (`agent_action`), unitaire, un contact, une fois par jour et par action.
-    expect(sites).toEqual({ 'index.ts': 2, 'worker.ts': 2, 'socle.ts': 0, 'workflow/wiring.ts': 1, 'engagement/cablage.ts': 1, 'rcs/message-entrant.ts': 1 });
+    // action de l'agent IA (`agent_action`), unitaire, un contact, une fois par jour et par action. Lot 6b du menu « Scénario » :
+    // `index.ts` perd celui du changement d'étape d'un deal, dont la route sert désormais les lignes HubSpot par leur circuit.
+    expect(sites).toEqual({ 'index.ts': 1, 'worker.ts': 2, 'socle.ts': 0, 'workflow/wiring.ts': 1, 'engagement/cablage.ts': 1, 'rcs/message-entrant.ts': 1 });
     const masse = lire('engagement/cablage.ts');
     expect(masse).toMatch(/enfilerEvenementAutomation\(o\.file, \{ tenantId: t, event: \{ kind: 'risque_eleve', waId \} \}/);
     // Ni l'action en masse, ni l'import, ni l'API publique, ni le moteur de campagne n'enfilent.

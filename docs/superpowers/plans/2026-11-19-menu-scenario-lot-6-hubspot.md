@@ -52,17 +52,30 @@ feature est celui de la section « Essai réel », plus bas, sur le portail HubS
 
 - Une place d'événement par contact, toutes sources : l'index 0298, prédicat repris mot pour mot.
 - Une naissance par origine, tous statuts (0300, `executor.ts:1970`) : l'origine HubSpot porte la fenêtre de 24 h de la
-  décision 37 (`hubspot:<portail>:etape:<deal>:<étape>:<jour>`, `hubspot:<portail>:rdv:<contact>:<champ>:<date>`), en
-  200 caractères au plus (`src/workflow/evenement.ts:34`).
+  décision 37 (`hubspot:etape:<ligne>:<deal>:<étape>:<jour UTC>`, `hubspot:rdv:<ligne>:<contact>:<champ>:<date>`, un seul
+  constructeur, `src/hubspot/origine.ts`), en 200 caractères au plus (`src/workflow/evenement.ts:34`). Relu en 6b : la
+  LIGNE y entre (écart accepté : deux lignes sur la même étape font deux parcours, et éteindre ou supprimer une ligne
+  arrête les siens par préfixe) ; le PORTAIL n'y est pas (il ne se lit que par le réseau du connecteur, jamais en base).
+  L'origine est aussi la clé d'idempotence de l'envoi du premier bloc.
+- « Encore voulu » d'une origine `hubspot:` relit sa ligne (`src/hubspot/parcours-voulu.ts`) : absente, éteinte ou d'une
+  autre famille, le parcours se clôt ; une origine `hubspot:` illisible n'est plus voulue.
+- Le verrou du premier bloc ne vaut que si la version de référence PORTE un bloc marqué (`refusSelonLeVerrou`) : un
+  scénario lancé par un workflow (déplacé par la bascule, ou créé par sa ligne) s'enregistre, se publie et se met en ligne
+  librement, mais un corps reçu n'y pose jamais de marque.
 - Décision 24 : `ne_en_masse = !publieLesEtiquettes` (`executor.ts:2174-2177`) ; `workflow_hubspot` garde `false`
   (`lancements.ts:275`), `evenement_hubspot` publie (décision 36).
 - `workflow_hubspot` remplace un parcours Shopify (`lancements.ts:206`) ; les types neufs cèdent (décision 3).
 - Consentement : jamais le `consent: 'opted_in'` de Shopify (`src/shopify/envoi.ts:87`) ; HubSpot n'atteste que par
-  `accordMarketing`, `serviceSeulement` reste (`src/hubspot-workflow/envoi.ts:100`, `:127`).
+  `accordMarketing`, `serviceSeulement` reste (`src/hubspot-workflow/envoi.ts:100`, `:127`). Les lignes d'étape et de
+  rendez-vous n'ont pas d'`accordMarketing` : leur premier bloc part sans consentement écrit, Service seulement
+  (`src/hubspot/circuit.ts`).
 - Plafonds : seul le runner borne une étape changée en masse (`runner.ts:257-270`) ; le compteur Shopify ne compte rien
-  (`src/shopify/envoi.ts:91`) : le plafond par ligne de la décision 36 se reporte sur le nouveau circuit.
-- `listEnabled` ne filtre aucun rayon (`store.pg.ts:154-162`, épinglé `tests/automations-rayon.test.ts:40`) : sans filtre,
-  le runner relirait une ligne `hubspot`, la refuserait, et son tir serait effacé.
+  (`src/shopify/envoi.ts:91`) : le plafond par ligne de la décision 36 se reporte sur le nouveau circuit (6b :
+  `servirLigneHubspot`, `AUTOMATION_MAX_FIRES_PER_HOUR` compté sur `automation_fires`, la ligne étant une automation).
+- `listEnabled` et `tenantsAvecDeclencheurDate` filtrent le rayon `general` depuis 6a (épinglé
+  `tests/automations-rayon.test.ts`) : le runner et le balayage de dates du worker ne relisent jamais une ligne `hubspot`
+  (sans filtre, le runner la relirait, la refuserait, et son tir serait effacé). Les rendez-vous HubSpot ont leur propre
+  balayage, dans l'API (`src/hubspot/rendez-vous.ts`).
 - `PREFIXE_LIGNE_HUBSPOT` décide `workflow_hubspot` (`src/hubspot-workflow/ligne.ts:18-19`) et l'exclusion des leviers
   (`src/shopify/perimetre-leviers.ts:30-33`) : les lignes neuves le respectent.
 - « Un parcours tient le fil » et `pendantUneAttente` (`executor.ts:2406-2419`) : génériques, testés par famille.
@@ -103,10 +116,12 @@ feature est celui de la section « Essai réel », plus bas, sur le portail HubS
    fixé ici pour que la console (6c) se construise en même temps :
 
    ```
-   GET    /tenants/:tenantId/hubspot/lignes          -> { connecte: boolean, lignes: LigneHubspotVue[] }
-   POST   /tenants/:tenantId/hubspot/lignes          { famille, config }  -> 201 { ligne: LigneHubspotVue }
-   PUT    /tenants/:tenantId/hubspot/lignes/:id      { actif?: boolean, config? } -> { ligne: LigneHubspotVue }
+   GET    /tenants/:tenantId/hubspot/lignes          -> { connecte: boolean, automationsCoupees: boolean,
+                                                          workflowsCoupes: boolean, lignes: LigneHubspotVue[] }
+   POST   /tenants/:tenantId/hubspot/lignes          { famille, config, nom? } -> 201 { ligne: LigneHubspotVue }
+   PUT    /tenants/:tenantId/hubspot/lignes/:id      { actif: boolean } -> { ligne: LigneHubspotVue }   (ce soir, l'interrupteur seul)
    DELETE /tenants/:tenantId/hubspot/lignes/:id      -> 204 (arrête ses parcours ; le scénario reste, hors liste)
+   Tout refus : { error: string, code?: string }, une phrase en français que la console affiche telle quelle.
 
    LigneHubspotVue = {
      id: string                      // l'automation, rayon hubspot
@@ -122,9 +137,14 @@ feature est celui de la section « Essai réel », plus bas, sur le portail HubS
    }
    ```
 
-   `POST` crée l'automation ET son scénario (rayon `hubspot`, premier bloc template verrouillé, vide), ligne éteinte ; la
-   console ouvre alors le builder. Une étape déjà réglée (même pipeline et étape) est refusée en 409. `actif: true` sans
-   premier template publié est refusé en 409 (`a_completer`). Les rôles : ceux de l'écran Automation d'aujourd'hui.
+   `POST` crée l'automation ET son scénario (rayon `hubspot`, premier bloc template verrouillé, vide ; pour la famille
+   `workflow`, un bloc template NON marqué), ligne éteinte ; la console ouvre alors le builder, et peut renommer le scénario
+   par `PATCH /tenants/:t/workflows/:id { name }`. Une étape déjà réglée (même paire pipeline et étape) est refusée en 409
+   (`etape_deja_reglee`). `actif: true` sans premier template publié est refusé en 409 (`a_completer`). Un rendez-vous
+   n'accepte qu'une propriété date et heure `hs_*` déclarée dans l'espace, `sens` `avant` ou `apres`, un délai entier
+   positif d'au plus 30 jours. `modele` se lit sur le graphe PUBLIÉ. Les rôles : ceux de l'écran Automation d'aujourd'hui
+   (lecture à tous, écritures aux administrateurs) ; l'offre : `crm` (Entreprise), qui borne aussi la création, la limite
+   d'automations ne comptant que le rayon général.
 5. **La bascule** (migration, `avant`) : les `hubspot_deal_stage` du rayon `general` s'éteignent (la sonde du
    2026-11-19 n'en trouve qu'une, déjà éteinte, sur la SANDBOX) ; « Date d'un champ » reste dans Autres (décision 40) ; et
    (décision 41) les scénarios qu'une action de workflow HubSpot a lancés dans les 90 derniers jours (campagnes

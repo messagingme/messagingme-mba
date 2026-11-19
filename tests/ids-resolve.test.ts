@@ -12,25 +12,25 @@ const fieldLister = (defs: UserFieldDef[]): FieldLister => ({ list: async () => 
 
 describe('resolveScenario', () => {
   it('par code scn_ exact', async () => {
-    const r = await resolveScenario('t1', 'scn_ab_X', wfLister([{ id: 'w1', name: 'Onb', code: 'scn_ab_X' }]));
+    const r = await resolveScenario('t1', 'scn_ab_X', wfLister([{ id: 'w1', name: 'Onb', code: 'scn_ab_X' }]), 'general');
     expect(r).toMatchObject({ ok: true, value: { id: 'w1', name: 'Onb' } });
   });
   it('code scn_ introuvable -> not_found', async () => {
-    const r = await resolveScenario('t1', 'scn_ab_MISS', wfLister([{ id: 'w1', name: 'Onb', code: 'scn_ab_X' }]));
+    const r = await resolveScenario('t1', 'scn_ab_MISS', wfLister([{ id: 'w1', name: 'Onb', code: 'scn_ab_X' }]), 'general');
     expect(r).toEqual({ ok: false, reason: 'not_found' });
   });
   it('par nom (insensible casse)', async () => {
-    const r = await resolveScenario('t1', '  onboarding ', wfLister([{ id: 'w1', name: 'Onboarding' }]));
+    const r = await resolveScenario('t1', '  onboarding ', wfLister([{ id: 'w1', name: 'Onboarding' }]), 'general');
     expect(r).toMatchObject({ ok: true, value: { id: 'w1' } });
   });
   it('nom ambigu (2 workflows même nom) -> ambiguous', async () => {
-    const r = await resolveScenario('t1', 'Relance', wfLister([{ id: 'w1', name: 'Relance' }, { id: 'w2', name: 'relance' }]));
+    const r = await resolveScenario('t1', 'Relance', wfLister([{ id: 'w1', name: 'Relance' }, { id: 'w2', name: 'relance' }]), 'general');
     expect(r.ok).toBe(false);
     if (!r.ok && r.reason === 'ambiguous') expect(r.matches).toHaveLength(2);
     else throw new Error('attendu ambiguous');
   });
   it('nom introuvable -> not_found', async () => {
-    expect(await resolveScenario('t1', 'X', wfLister([{ id: 'w1', name: 'Y' }]))).toEqual({ ok: false, reason: 'not_found' });
+    expect(await resolveScenario('t1', 'X', wfLister([{ id: 'w1', name: 'Y' }]), 'general')).toEqual({ ok: false, reason: 'not_found' });
   });
 });
 
@@ -73,10 +73,11 @@ describe('resolveFieldKey', () => {
 });
 
 describe('🔴 le rayon de la résolution (menu « Scénario », lot 1)', () => {
-  it('resolveScenario (l’API publique) ne demande que le Builder', async () => {
+  it('resolveScenario cherche dans le rayon qu’on lui donne (le Builder pour l’API publique, HubSpot pour un workflow, lot 6b)', async () => {
     const demandes: string[] = [];
-    await resolveScenario('t1', 'scn_ab_X', { list: async (_t, rayon) => { demandes.push(rayon); return []; } });
-    expect(demandes).toEqual(['general']);
+    await resolveScenario('t1', 'scn_ab_X', { list: async (_t, rayon) => { demandes.push(rayon); return []; } }, 'general');
+    await resolveScenario('t1', 'scn_ab_X', { list: async (_t, rayon) => { demandes.push(rayon); return []; } }, 'hubspot');
+    expect(demandes).toEqual(['general', 'hubspot']);
   });
 
   it('resolveNode cherche dans le rayon qu’on lui donne', async () => {
