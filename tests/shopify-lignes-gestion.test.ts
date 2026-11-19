@@ -164,4 +164,13 @@ describe('l’état des lignes', () => {
       expect.objectContaining({ evenement: 'checkout_abandoned', actif: false, modele: null, etatChezMeta: null, blocs: 1 }),
     ]);
   });
+
+  it('🔴 une version programmée du scénario (un template de bloc en validation chez Meta) se dit : la console montre « nouvelle version en validation »', async () => {
+    const m = monter();
+    await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: [] }, 'u1');
+    expect((await etatDesLignes(m.deps, T))[0]).toMatchObject({ versionProgrammee: false });
+    const l = (await m.store.ligne(T, 'order_paid'))!;
+    m.workflows.programmees.set(l.workflowId, { graphe: { nodes: [], edges: [] }, le: '2026-11-19T10:00:00.000Z', par: 'u1' });
+    expect((await etatDesLignes(m.deps, T))[0]).toMatchObject({ versionProgrammee: true });
+  });
 });

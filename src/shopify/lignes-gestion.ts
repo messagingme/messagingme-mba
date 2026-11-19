@@ -176,6 +176,8 @@ export interface EtatLigne {
   etatChezMeta: string | null;
   /** Le nombre de blocs du scénario publié : 1, seul le premier message part. */
   blocs: number;
+  /** Une version du scénario attend Meta pour sa mise en ligne (lot 3) : la console dit « nouvelle version en validation ». */
+  versionProgrammee: boolean;
 }
 
 /** Les lignes de l'espace, dans l'ordre des événements, chacune lue avec son scénario publié et son template chez Meta. */
@@ -194,6 +196,7 @@ export async function etatDesLignes(deps: DepsLignesShopify, tenantId: string): 
     etats.push({
       evenement: l.evenement, actif: l.actif, workflowId: l.workflowId, scenario: wf?.name ?? null,
       modele: nom, langue, etatChezMeta: tpl?.status ?? null, blocs: graphe?.nodes.length ?? 0,
+      versionProgrammee: wf !== null && (await deps.workflows.publicationProgrammee(wf.id, tenantId)) !== null,
     });
   }
   return etats;
