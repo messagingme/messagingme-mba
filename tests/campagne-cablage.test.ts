@@ -81,8 +81,8 @@ describe('câblage des capacités du moteur de campagne', () => {
 
   it('🔴 le pont du parcours d’événement (lot 4) : la mesure « envoyé » du bloc et la naissance en evenement_shopify', () => {
     // Sans elles, le moteur dit « pont non câblé » à chaque destinataire d’une campagne porteuse d’un parcours (lot 5).
-    expect(workerSansCommentaires).toMatch(/mesurerEnvoiDuBloc: \(tenant, e\) =>\s*nodeEventStore\.record\(\{[^}]*kind: 'sent', metaMessageId: e\.messageId \}\)/);
-    expect(workerSansCommentaires).toMatch(/naitreParcoursEvenement: async \(tenant, d\) =>\s*\(await lancements\.lancer\(\{\s*type: 'evenement_shopify',/);
+    expect(workerSansCommentaires).toMatch(/mesurerEnvoiDuBloc: \(tenant[^)]*\) =>\s*nodeEventStore\.record\(\{[^}]*kind: 'sent', metaMessageId: e\.messageId \}\)/);
+    expect(workerSansCommentaires).toMatch(/naitreParcoursEvenement: async \(tenant[^)]*\) =>\s*\(await lancements\.lancer\(\{\s*type: 'evenement_shopify',/);
   });
 
   it('les deux capacités de la panne du 2026-09-02 sont bien DANS le bloc ainsi gardé', () => {
@@ -93,7 +93,8 @@ describe('câblage des capacités du moteur de campagne', () => {
     expect(debut, 'le spread conditionnel des capacités doit exister').toBeGreaterThan(0);
     expect(fin).toBeGreaterThan(debut);
     const bloc = workerSansCommentaires.slice(debut, fin);
-    for (const capacite of ['boutonsTraces', 'jetonsPourContacts', 'getTemplateCarousel', 'getTemplateHeaderMedia', 'categorieDuModele']) {
+    // Lot 5 : les deux capacités du pont aussi (relecture de 4b) : en DRY_RUN, une mesure « envoyé » inventée s'écrirait.
+    for (const capacite of ['boutonsTraces', 'jetonsPourContacts', 'getTemplateCarousel', 'getTemplateHeaderMedia', 'categorieDuModele', 'mesurerEnvoiDuBloc', 'naitreParcoursEvenement']) {
       expect(bloc, `${capacite} doit être dans le bloc gardé`).toContain(`${capacite}:`);
     }
   });

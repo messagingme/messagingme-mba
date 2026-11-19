@@ -1,6 +1,6 @@
 import { resolveHintParams, type ResolvableContact } from '../crm/template';
 import type { ParamHint } from '../crm/template-hints.pg';
-import { buildTemplateComponents } from '../meta/template-components';
+import { buildTemplateComponents, composantReponseRapide } from '../meta/template-components';
 import type { OutboundCarouselCard } from '../meta/template-components';
 import type { WorkflowButton } from './engine';
 
@@ -83,7 +83,7 @@ export function buildWorkflowTemplateComponents(opts: {
   // Un composant par bouton, à l'index du template : quick-reply -> payload contrôlé (`btn:<i>`) ; FLOW ->
   // action + flow_token (requis par Meta pour un template à bouton formulaire) ; URL statique -> rien.
   const buttonComponents = opts.buttons.flatMap((b, i): unknown[] => {
-    if (b.type === 'QUICK_REPLY') return [{ type: 'button', sub_type: 'quick_reply', index: String(i), parameters: [{ type: 'payload', payload: `btn:${i}` }] }];
+    if (b.type === 'QUICK_REPLY') return [composantReponseRapide(i, `btn:${i}`)];
     if (b.type === 'FLOW') return [{ type: 'button', sub_type: 'flow', index: String(i), parameters: [{ type: 'action', action: { flow_token: flowToken } }] }];
     return [];
   });

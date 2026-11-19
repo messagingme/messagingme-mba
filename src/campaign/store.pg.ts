@@ -1637,8 +1637,9 @@ async function insertCampaignRow(q: Pool | PoolClient, input: CreateCampaignInpu
       input.reessayer !== undefined,
       // La date choisie dans l'assistant (migration 0245) : rangée sur le brouillon, programmée au lancement.
       input.prevueLe ?? null,
-      // Le parcours d'événement (0297, lot 4) : une campagne template seulement ; une campagne scénario n'en porte jamais.
-      !isWorkflow && input.parcoursEvenement ? JSON.stringify(input.parcoursEvenement) : null,
+      // Le parcours d'événement (0297, lot 4) : une campagne template WhatsApp seulement ; une campagne scénario ou RCS n'en
+      // porte jamais (le moteur ne la lit jamais pour le RCS : lot 5, relecture de 4b).
+      !isWorkflow && canal !== 'rcs' && input.parcoursEvenement ? JSON.stringify(input.parcoursEvenement) : null,
     ],
   );
   const id = res.rows[0]?.id;

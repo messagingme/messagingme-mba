@@ -12,6 +12,7 @@ import { RetraitDeLaListeRefuse } from '../src/mba/liste';
 import { messageDePause, type MotifDePause } from '../src/campaign/pause';
 import { LimiteOffreError } from '../src/offres/refus';
 import { CreditWhatsappRefus, MESSAGE_REFUS_CREDIT } from '../src/credit-whatsapp/refus';
+import { NumeroBloqueError } from '../src/meta/numero-delie';
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
@@ -1624,6 +1625,58 @@ describe('runCampaign : le pont du parcours d’événement (lot 4)', () => {
       naitreParcoursEvenement: async (_t, d) => { vus.push(d.evenement); return true; },
     }));
     expect(vus).toEqual([{ origine: PONT.origine, variables: { checkout_url: 'https://x/r1' }, messageId: 'm1' }]);
+  });
+
+  it('🔴 lot 5 : le destinataire est sent et le fil écrit AVANT la mesure et la naissance ; la raison s’écrit ensuite', async () => {
+    const ordre: string[] = [];
+    class EnOrdre extends FakeRecipients {
+      override async markResult(id: string, r: { status: 'sent' | 'failed' | 'skipped'; messageId?: string; error?: string; sentAt?: number; errorCode?: number }): Promise<void> {
+        ordre.push(`resultat:${r.status}${r.error ? ':raison' : ''}`);
+        await super.markResult(id, r);
+      }
+    }
+    const recipients = new EnOrdre([destinataire('r1', '+33611')]);
+    await lancerCampagne(avecPont, deps({
+      recipients, sender: new CapturingSender(),
+      inbox: { recordOutboundByWaId: async () => { ordre.push('fil'); } },
+      mesurerEnvoiDuBloc: async () => { ordre.push('mesure'); },
+      naitreParcoursEvenement: async () => { ordre.push('parcours'); return 'place prise'; },
+    }));
+    // Un accusé traité pendant la naissance trouve son destinataire, et l'Inbox montre le template avant la suite.
+    expect(ordre).toEqual(['resultat:sent', 'fil', 'mesure', 'parcours', 'resultat:sent:raison']);
+    expect(recipients.results.get('r1')).toMatchObject({ status: 'sent', messageId: 'm1', error: 'Parcours non né : place prise' });
+  });
+
+  it('🔴 lot 5 : un numéro délié levé par la naissance arrête le run après ce destinataire, resté sent', async () => {
+    const recipients = new FakeRecipients([destinataire('r1', '+33611'), destinataire('r2', '+33622')]);
+    const sender = new CapturingSender();
+    await lancerCampagne(avecPont, deps({
+      recipients, sender, mesurerEnvoiDuBloc: async () => {},
+      naitreParcoursEvenement: async () => { throw new NumeroBloqueError('pn-1', 'numero_delie'); },
+    }));
+    expect(recipients.results.get('r1')).toMatchObject({ status: 'sent' });
+    expect(sender.specs, 'le second destinataire ne part pas').toHaveLength(1);
+  });
+
+  it('🔴 lot 5 : un refus du crédit levé par la naissance arrête le run après ce destinataire, resté sent', async () => {
+    const recipients = new FakeRecipients([destinataire('r1', '+33611'), destinataire('r2', '+33622')]);
+    const sender = new CapturingSender();
+    await lancerCampagne(avecPont, deps({
+      recipients, sender, mesurerEnvoiDuBloc: async () => {},
+      naitreParcoursEvenement: async () => { throw new CreditWhatsappRefus('solde', 10_000, 74_760); },
+    }));
+    expect(recipients.results.get('r1')).toMatchObject({ status: 'sent' });
+    expect(sender.specs).toHaveLength(1);
+  });
+
+  it('🔴 lot 5 : sans la colonne, les deux capacités câblées ne sont jamais appelées et les composants sont ceux d’avant', async () => {
+    const p = pont(async () => true);
+    const avant = new CapturingSender();
+    await lancerCampagne(campaign, deps({ recipients: new FakeRecipients([rec('r1', '+33611')]), sender: avant }));
+    const avec = new CapturingSender();
+    await lancerCampagne(campaign, deps({ recipients: new FakeRecipients([rec('r1', '+33611')]), sender: avec, ...p.capacites }));
+    expect(avec.specs).toEqual(avant.specs);
+    expect(p.appels).toEqual([]);
   });
 
   it('🔴 parcours refusé : la mesure est posée quand même, le destinataire reste sent avec la raison', async () => {

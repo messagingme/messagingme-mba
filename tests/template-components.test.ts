@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildTemplateComponents, carouselSendBlocker, headerMediaSendBlocker } from '../src/meta/template-components';
+import { readdirSync, readFileSync } from 'node:fs';
+import { buildTemplateComponents, carouselSendBlocker, composantReponseRapide, headerMediaSendBlocker } from '../src/meta/template-components';
 import type { OutboundCarouselCard } from '../src/meta/template-components';
 
 describe('buildTemplateComponents', () => {
@@ -201,5 +202,29 @@ describe('le nom d’un en-tête DOCUMENT (plan du 2026-11-12, lot B2)', () => {
       .toEqual([{ type: 'header', parameters: [{ type: 'image', image: { id: 'm1' } }] }]);
     expect(buildTemplateComponents({ bodyParams: [], headerMediaId: 'm1', headerFormat: 'DOCUMENT' }))
       .toEqual([{ type: 'header', parameters: [{ type: 'document', document: { id: 'm1' } }] }]);
+  });
+});
+
+/**
+ * LOT 5 : UN SEUL CONSTRUCTEUR DES RÉPONSES RAPIDES (relecture de 4b). Le pont du moteur de campagne recopiait la ligne de
+ * l'envoi d'un bloc de scénario ; deux recopies d'un même composant finissent par diverger, et le routage d'un clic lit ce
+ * payload. L'inventaire relit le SOURCE : une seule ligne du dépôt écrit un composant `quick_reply`.
+ */
+describe('le constructeur unique des réponses rapides (lot 5)', () => {
+  it('🔴 une seule ligne de src/ écrit un composant quick_reply, dans src/meta/template-components.ts', () => {
+    const racine = new URL('../src/', import.meta.url);
+    const lignes: string[] = [];
+    for (const brut of readdirSync(racine, { recursive: true }) as string[]) {
+      const f = brut.split(String.fromCharCode(92)).join('/');
+      if (!f.endsWith('.ts')) continue;
+      readFileSync(new URL(f, racine), 'utf8').split('\n').forEach((l) => {
+        if (l.includes("sub_type: 'quick_reply'")) lignes.push(f);
+      });
+    }
+    expect(lignes).toEqual(['meta/template-components.ts']);
+  });
+
+  it('composantReponseRapide : l’index du bouton et son payload', () => {
+    expect(composantReponseRapide(2, 'btn:2')).toEqual({ type: 'button', sub_type: 'quick_reply', index: '2', parameters: [{ type: 'payload', payload: 'btn:2' }] });
   });
 });

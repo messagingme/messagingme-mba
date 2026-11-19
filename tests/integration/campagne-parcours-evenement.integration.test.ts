@@ -52,6 +52,14 @@ describe.skipIf(!url)('campaigns.parcours_evenement : écrite à la création, r
     expect((await repo.getCampaign(id))?.parcoursEvenement).toBeNull();
   });
 
+  it('🔴 lot 5 : une campagne RCS n’écrit jamais la colonne, même si on la lui passe (le moteur ne la lit jamais pour le RCS)', async () => {
+    const id = await repo.insertCampaign({
+      ...base(), channel: 'rcs', rcsAgentId: 'agent-itest', rcsMessage: { text: 'Bonjour' }, parcoursEvenement: PONT,
+    });
+    const brut = await pool.query<{ parcours_evenement: unknown }>(`select parcours_evenement from campaigns where id = $1`, [id]);
+    expect(brut.rows[0]?.parcours_evenement).toBeNull();
+  });
+
   it('🔴 une campagne à scénario n’écrit jamais la colonne, même si on la lui passe', async () => {
     const id = await repo.insertCampaign({ ...base(), workflowId, parcoursEvenement: PONT });
     const brut = await pool.query<{ parcours_evenement: unknown }>(`select parcours_evenement from campaigns where id = $1`, [id]);

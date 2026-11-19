@@ -1,5 +1,5 @@
 import type { Campaign, CampaignStatus, Recipient, RunReport, GuardrailThresholds, QualityRating } from './types';
-import { payloadsDesReponsesRapides } from './parcours-evenement';
+import { payloadsDesReponsesRapides, type ParcoursEvenementDeCampagne } from './parcours-evenement';
 import type { EvenementDuParcours } from '../workflow/evenement';
 import { qualityGate, MOTIF_DESABONNE } from './guardrails';
 import { buildTemplateComponents, carouselSendBlocker, headerMediaSendBlocker } from '../meta/template-components';
@@ -776,6 +776,8 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
      * RCS partirait deux fois. `RECIPIENT_FAILED_SQL` ne regarde que `status` et `delivery_status`.
      */
     let scenarioNonDemarre: string | null = null;
+    /** Le parcours d'événement à faire naître pour ce destinataire, une fois le destinataire et le fil écrits (lot 5). */
+    let naissanceDue: { pe: ParcoursEvenementDeCampagne; waId: string; messageId: string } | null = null;
     /**
      * Ce scénario a buté sur le numéro délié. Le destinataire reste `sent`, mais le run s'arrête après lui : les
      * suivants recevraient leur message sans jamais leur suite.
@@ -868,34 +870,11 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
           categorieMeta === 'marketing'
             ? await deps.sender.sendMarketing({ ...messagingTarget(r.toE164), template: tpl })
             : await deps.sender.sendTemplate(r.toE164, tpl);
-        // Meta a accepté le template : la mesure du bloc, puis le parcours d'événement, dans leur propre `try` (une panne du
-        // pont ne marque jamais `failed` un message parti, ni ne le renvoie).
-        const pe = campaign.parcoursEvenement;
-        if (pe && res.messageId) {
-          const waId = waIdOfTarget(r.toE164);
-          try {
-            await deps.mesurerEnvoiDuBloc?.(campaign.tenantId, { workflowId: pe.workflowId, nodeId: pe.noeudId, waId, messageId: res.messageId });
-          } catch (e) {
-            // eslint-disable-next-line no-console
-            console.error(`campagne ${campaign.id}: mesure du premier bloc non écrite pour ${waId}:`, messageDe(e));
-          }
-          try {
-            if (!deps.naitreParcoursEvenement) scenarioNonDemarre = 'Parcours non né : pont non câblé.';
-            else {
-              const issue = await deps.naitreParcoursEvenement(campaign.tenantId, {
-                workflowId: pe.workflowId, noeudId: pe.noeudId, waId, contactId: r.contactId,
-                modele: { nom: contenu.templateName, langue: contenu.templateLanguage },
-                // Lot 5 : l'identifiant Meta du premier message, que le parcours garde (seul un clic sur CE message le touche,
-                // et l'échec de sa livraison le clôt).
-                evenement: { origine: pe.origine, variables: { ...(r.variables ?? {}) }, messageId: res.messageId },
-              });
-              if (issue !== true) scenarioNonDemarre = `Parcours non né : ${issue}`;
-            }
-          } catch (e) {
-            scenarioNonDemarre = `Parcours non né : ${texteDe(e)}`;
-            if (e instanceof NumeroBloqueError) scenarioSurNumeroDelie = e;
-            if (e instanceof CreditWhatsappRefus) scenarioSurCredit = e;
-          }
+        // Meta a accepté le template : le parcours d'événement naîtra APRÈS l'écriture du destinataire et du fil (lot 5),
+        // plus bas. Avant, un accusé traité pendant la naissance ne trouvait pas son destinataire, et l'Inbox montrait la
+        // suite avant le premier template.
+        if (campaign.parcoursEvenement && res.messageId) {
+          naissanceDue = { pe: campaign.parcoursEvenement, waId: waIdOfTarget(r.toE164), messageId: res.messageId };
         }
       }
     } catch (err) {
@@ -1008,6 +987,49 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
         });
       } catch {
         /* log best-effort : ne casse jamais l'envoi réussi */
+      }
+    }
+
+    /**
+     * 🔴 LE PONT DU PARCOURS D'ÉVÉNEMENT (lot 4, décision 28), APRÈS le destinataire `sent` et le fil (lot 5) : la mesure
+     * « envoyé » du bloc (toujours, parcours refusé ou non : la protection du clic tardif la lit), puis UNE demande de
+     * parcours, chacune dans son `try` (une panne du pont ne marque jamais `failed` un message parti, ni ne le renvoie). Un
+     * refus ou une panne s'écrit ensuite sur le destinataire, qui reste `sent` ; un numéro délié ou un refus du crédit levés
+     * par la naissance arrêtent le run après lui, comme pour « message et scénario ».
+     */
+    if (naissanceDue !== null) {
+      const { pe, waId, messageId } = naissanceDue;
+      try {
+        await deps.mesurerEnvoiDuBloc?.(campaign.tenantId, { workflowId: pe.workflowId, nodeId: pe.noeudId, waId, messageId });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(`campagne ${campaign.id}: mesure du premier bloc non écrite pour ${waId}:`, messageDe(e));
+      }
+      let parcoursNonNe: string | null = null;
+      try {
+        if (!deps.naitreParcoursEvenement) parcoursNonNe = 'Parcours non né : pont non câblé.';
+        else {
+          const issue = await deps.naitreParcoursEvenement(campaign.tenantId, {
+            workflowId: pe.workflowId, noeudId: pe.noeudId, waId, contactId: r.contactId,
+            modele: { nom: contenu.templateName, langue: contenu.templateLanguage },
+            // Lot 5 : l'identifiant Meta du premier message, que le parcours garde (seul un clic sur CE message le touche,
+            // et l'échec de sa livraison le clôt).
+            evenement: { origine: pe.origine, variables: { ...(r.variables ?? {}) }, messageId },
+          });
+          if (issue !== true) parcoursNonNe = `Parcours non né : ${issue}`;
+        }
+      } catch (e) {
+        parcoursNonNe = `Parcours non né : ${texteDe(e)}`;
+        if (e instanceof NumeroBloqueError) scenarioSurNumeroDelie = e;
+        if (e instanceof CreditWhatsappRefus) scenarioSurCredit = e;
+      }
+      if (parcoursNonNe !== null) {
+        try {
+          await deps.recipients.markResult(r.id, { status: 'sent', messageId, sentAt: at, error: parcoursNonNe });
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error(`campagne ${campaign.id}: raison du parcours non né non écrite pour ${waId}:`, messageDe(e));
+        }
       }
     }
 

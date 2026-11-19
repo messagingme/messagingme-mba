@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { composantReponseRapide } from '../meta/template-components';
 import { ORIGINE_MAX } from '../workflow/evenement';
 
 /**
@@ -48,6 +49,6 @@ export function lireParcoursEvenement(brut: unknown, campaignId: string): Parcou
  */
 export function payloadsDesReponsesRapides(boutons: ReadonlyArray<{ type: string }>): unknown[] {
   return boutons.flatMap((b, i) => (b.type === 'QUICK_REPLY'
-    ? [{ type: 'button', sub_type: 'quick_reply', index: String(i), parameters: [{ type: 'payload', payload: `btn:${i}` }] }]
+    ? [composantReponseRapide(i, `btn:${i}`)]
     : []));
 }

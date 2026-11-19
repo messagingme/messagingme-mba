@@ -95,6 +95,15 @@ export function headerMediaSendBlocker(headerFormat: string | undefined, mediaId
  * bouton quick-reply. Pas de composant `body` : un `parameters: []` vide déclenche 132012. Boutons URL et FLOW
  * statiques : aucun composant.
  */
+/**
+ * Le composant d'une réponse rapide à l'index `index` d'un template (ou d'une carte de carousel), avec son payload
+ * contrôlé, celui que lit le routage d'un parcours. LE SEUL constructeur du dépôt (lot 5) : le pont du moteur de campagne
+ * et l'envoi d'un bloc de scénario l'appellent, et un inventaire (`tests/template-components.test.ts`) refuse une recopie.
+ */
+export function composantReponseRapide(index: number, payload: string): unknown {
+  return { type: 'button', sub_type: 'quick_reply', index: String(index), parameters: [{ type: 'payload', payload }] };
+}
+
 function cardComponents(card: OutboundCarouselCard, cardIndex: number): unknown[] {
   const key = card.mediaFormat === 'VIDEO' ? 'video' : 'image';
   // `id` et non `link` : cf. OutboundCarouselCard.mediaId.
@@ -103,7 +112,7 @@ function cardComponents(card: OutboundCarouselCard, cardIndex: number): unknown[
     if (b.type !== 'QUICK_REPLY') return;
     // Le payload porte la carte et le bouton : un `btn:<i>` nu ferait suivre à toutes les cartes la même branche.
     // `card:i:btn:j` sans branche correspondante : le run suit son arête par défaut, comme une réponse texte.
-    out.push({ type: 'button', sub_type: 'quick_reply', index: String(i), parameters: [{ type: 'payload', payload: carouselButtonHandle(cardIndex, i) }] });
+    out.push(composantReponseRapide(i, carouselButtonHandle(cardIndex, i)));
   });
   return out;
 }
