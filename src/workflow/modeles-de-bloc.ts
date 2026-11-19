@@ -132,7 +132,7 @@ export type ProgrammationDeScenario = Programmation & { id: string; nom: string;
 
 /** Ce que la mise en ligne d'un scénario d'automation lit et programme pour le ménage de ses templates remplacés. */
 export interface DepsMenage {
-  lignes: Pick<PgModelesDeBloc, 'desModeles'>;
+  lignes: Pick<PgModelesDeBloc, 'desModelesDAutomation'>;
   /** Enfiler le travail du ménage à son heure (file `FILE_OUBLI_MODELE`, lié par le câblage). */
   programmerOubli: ProgrammerOubli;
   maintenant?: () => number;
@@ -141,10 +141,11 @@ export interface DepsMenage {
 /**
  * LE MÉNAGE DES TEMPLATES REMPLACÉS (spec § 5.1, menu « Scénario », lot 5, tâche 9) : à la mise en ligne d'un scénario
  * d'automation (rayon Shopify, HubSpot au lot 6), chaque template que la version d'avant envoyait, que la nouvelle ne nomme
- * plus ET qui a été écrit depuis un bloc (une ligne de `modeles_de_bloc`), est programmé à l'oubli un quart d'heure plus
- * tard : le travail relit tout avant de supprimer (`traiterOubli`, `src/shopify/preparation.ts`). 🔴 Jamais au rayon
- * général (décision 14) : un template y peut servir ailleurs, invisible de notre base. Une panne se journalise et la mise
- * en ligne passe : le template reste simplement dans l'écran Templates.
+ * plus ET qui a été écrit depuis un bloc d'un scénario d'automation (`desModelesDAutomation`), est programmé à l'oubli un
+ * quart d'heure plus tard : le travail relit tout avant de supprimer (`traiterOubli`, `src/shopify/preparation.ts`).
+ * 🔴 Jamais au rayon général (décision 14), ni un template NÉ au Builder général puis remplacé ici : il peut servir
+ * ailleurs, invisible de notre base. Une panne se journalise et la mise en ligne passe : le template reste simplement dans
+ * l'écran Templates.
  */
 export async function programmerMenage(
   deps: DepsMenage, tenantId: string, rayon: Rayon, avant: WorkflowGraph | null, apres: WorkflowGraph,
@@ -155,7 +156,7 @@ export async function programmerMenage(
   if (remplaces.length === 0) return;
   try {
     const quand = new Date((deps.maintenant ?? Date.now)() + DELAI_OUBLI_MS);
-    for (const l of await deps.lignes.desModeles(tenantId, remplaces)) {
+    for (const l of await deps.lignes.desModelesDAutomation(tenantId, remplaces)) {
       await deps.programmerOubli({ type: 'bloc', tenantId, modele: l.modele, langue: l.langue, essai: 0 }, quand);
     }
   } catch (err) {

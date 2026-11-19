@@ -78,7 +78,7 @@ function monter(o: {
     audit: async (_t, _acteur, action, _cible, detail) => { appels.audit.push({ action, detail }); },
     lienScenario: (id) => `https://console.test/workflows?open=${id}`,
     menage: {
-      lignes: { desModeles: async (_t, paires) => paires.flatMap((p) => { const l = lignes.get(`${p.modele}|${p.langue}`); return l ? [{ ...l }] : []; }) },
+      lignes: { desModelesDAutomation: async (_t, paires) => paires.flatMap((p) => { const l = lignes.get(`${p.modele}|${p.langue}`); return l ? [{ ...l }] : []; }) },
       programmerOubli: async (job) => { appels.oublis.push(job); },
     },
   };

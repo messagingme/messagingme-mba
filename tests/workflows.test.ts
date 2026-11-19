@@ -914,6 +914,22 @@ describe('le verrou du premier bloc (rayon Shopify)', () => {
     await server.close();
   });
 
+  /**
+   * 🔴 Relecture de 5b (mutation X1) : à l'enregistrement aussi, la référence d'une copie jamais publiée est son brouillon.
+   * Prise sur le publié (vide), elle vaudrait « aucun premier bloc », et l'éditeur ne pourrait plus rien enregistrer.
+   */
+  it('🔴 PATCH d’une copie jamais publiée : son brouillon fait référence ; sa suite passe, perdre le premier bloc est refusé', async () => {
+    const copie = ligne({ name: 'Commande payée (copie)', graph: { nodes: [], edges: [] }, draftGraph: suite });
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? copie : null) } });
+    const ok = await server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: suite } });
+    expect(ok.statusCode).toBe(200);
+    const perdu = await server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: { nodes: [merci], edges: [] } } });
+    expect(perdu.statusCode).toBe(422);
+    expect(perdu.json()).toMatchObject({ code: 'premier_bloc_verrouille' });
+    expect(cap.updated).toHaveLength(1);
+    await server.close();
+  });
+
   it('🔴 publication : un « Aller à » vers le premier bloc d’une autre automation est refusé', async () => {
     const autre = sampleRow({
       id: W2, rayon: 'shopify', name: 'Panier abandonné',
@@ -934,7 +950,7 @@ describe('le verrou du premier bloc (rayon Shopify)', () => {
   it('🔴 la publication d’un scénario Shopify programme le ménage du template remplacé ; le rayon général jamais', async () => {
     const programmes: unknown[] = [];
     const menage = {
-      lignes: { desModeles: async (_t: string, paires: ReadonlyArray<{ modele: string; langue: string }>) => paires.map((p) => ({ workflowId: W1, modele: p.modele, langue: p.langue, etat: 'approuve' as const, raison: null, creeLe: 'x', trancheLe: null })) },
+      lignes: { desModelesDAutomation: async (_t: string, paires: ReadonlyArray<{ modele: string; langue: string }>) => paires.map((p) => ({ workflowId: W1, modele: p.modele, langue: p.langue, etat: 'approuve' as const, raison: null, creeLe: 'x', trancheLe: null })) },
       programmerOubli: async (job: unknown) => { programmes.push(job); },
     };
     const avecMenage = { ...modelesDeBlocInertes, publication: { ...modelesDeBlocInertes.publication, menage } };

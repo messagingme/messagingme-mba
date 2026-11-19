@@ -26,7 +26,7 @@ function monter(o: { marques?: string[]; leve?: boolean } = {}) {
   const lus: Array<Array<{ modele: string; langue: string }>> = [];
   const deps: DepsMenage = {
     lignes: {
-      desModeles: async (_t, paires) => {
+      desModelesDAutomation: async (_t, paires) => {
         lus.push([...paires]);
         if (o.leve) throw new Error('base indisponible');
         return paires.filter((p) => (o.marques ?? []).includes(p.modele)).map((p) => ligne(p.modele));
@@ -76,7 +76,7 @@ describe('le travail du ménage d’un template de bloc (worker)', () => {
     const journal = { supprimes: [] as string[], programmes: [] as Array<{ job: JobOubli; quand: Date }>, nommes: [] as string[] };
     const deps = {
       store: { messages: async () => [], attentes: async () => [] },
-      blocs: { desModeles: async (_t: string, paires: ReadonlyArray<{ modele: string; langue: string }>) => (o.marque === false ? [] : paires.map((p) => ligne(p.modele))) },
+      blocs: { desModelesDAutomation: async (_t: string, paires: ReadonlyArray<{ modele: string; langue: string }>) => (o.marque === false ? [] : paires.map((p) => ligne(p.modele))) },
       scenarios: { nommeLeModele: async (_t: string, modele: string) => { journal.nommes.push(modele); return o.nomme === true; } },
       supprimerModele: async (_t: string, nom: string) => { journal.supprimes.push(nom); return o.issue ?? { ok: true as const }; },
       programmerOubli: async (j: JobOubli, quand: Date) => { journal.programmes.push({ job: j, quand }); },

@@ -95,8 +95,8 @@ export async function oublierPlusTard(
 /** Ce que le travail du ménage relit avant de supprimer. */
 export interface DepsOubli {
   store: Pick<PgShopifyStore, 'messages' | 'attentes'>;
-  /** La marque d'un template de bloc : sa ligne de `modeles_de_bloc`. */
-  blocs: Pick<PgModelesDeBloc, 'desModeles'>;
+  /** La marque d'un template de bloc : sa ligne de `modeles_de_bloc`, née dans un scénario d'automation (décision 14). */
+  blocs: Pick<PgModelesDeBloc, 'desModelesDAutomation'>;
   /** Un graphe de l'espace (publié, brouillon ou programmé, tous rayons) nomme-t-il encore ce template ? */
   scenarios: Pick<PgWorkflowStore, 'nommeLeModele'>;
   supprimerModele: SupprimerModele;
@@ -116,7 +116,7 @@ export async function traiterOubli(deps: DepsOubli, donnees: unknown): Promise<'
   const maintenant = (deps.maintenant ?? Date.now)();
   if (j.type === 'bloc') {
     if (typeof j.langue !== 'string') return 'ignore';
-    if ((await deps.blocs.desModeles(j.tenantId, [{ modele: j.modele, langue: j.langue }])).length === 0) return 'ignore';
+    if ((await deps.blocs.desModelesDAutomation(j.tenantId, [{ modele: j.modele, langue: j.langue }])).length === 0) return 'ignore';
     if (await deps.scenarios.nommeLeModele(j.tenantId, j.modele)) return 'garde';
   } else {
     if (!estModeleDeLAssistant(j.modele, maintenant)) return 'ignore';

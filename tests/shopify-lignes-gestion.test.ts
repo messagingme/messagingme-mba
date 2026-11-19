@@ -87,7 +87,25 @@ describe('le template du premier bloc (set_shopify_message)', () => {
     const bloc = blocVerrouille((await m.workflows.getById(l!.workflowId, T))!.graph);
     expect(bloc?.data).toEqual({
       [MARQUE_PREMIER_BLOC]: true, templateName: 'commande_payee', language: 'fr', templateButtons: [{ type: 'QUICK_REPLY', text: 'Suivre' }],
+      templateCards: [],
       variables: [{ position: 1, source: { type: 'variable', key: 'first_name' } }, { position: 2, source: { type: 'variable', key: 'order_number' } }],
+    });
+  });
+
+  it('🔴 changer le template garde le reste du bloc : la sortie « Pas de réponse », le code, ce que l’éditeur y range (décision 7)', async () => {
+    const m = monter({ modeles: [modele(), modele({ id: 'm2', name: 'commande_payee_v2', buttons: [] })] });
+    await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: ['first_name'] }, 'u1');
+    const l = (await m.store.ligne(T, 'order_paid'))!;
+    const wf = (await m.workflows.getById(l.workflowId, T))!;
+    const reglee: WorkflowGraph = {
+      nodes: wf.graph.nodes.map((n) => ({ ...n, data: { ...n.data, timeoutValue: 30, timeoutUnit: 'minutes', code: 'nod_k7m2p3_01', templateCards: [{ handle: 'vieux' }] } })),
+      edges: [],
+    };
+    await m.workflows.publish(l.workflowId, T, reglee);
+    await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'commande_payee_v2', langue: 'fr', variables: [] }, 'u1');
+    expect(blocVerrouille((await m.workflows.getById(l.workflowId, T))!.graph)?.data).toEqual({
+      [MARQUE_PREMIER_BLOC]: true, timeoutValue: 30, timeoutUnit: 'minutes', code: 'nod_k7m2p3_01',
+      templateName: 'commande_payee_v2', language: 'fr', templateButtons: [], templateCards: [], variables: [],
     });
   });
 
@@ -134,6 +152,13 @@ describe('le template du premier bloc (set_shopify_message)', () => {
     expect(m.menage.programmes, 'commande_payee_v2 n’est pas marqué : il reste').toHaveLength(1);
   });
 
+  it('🔴 la liste des templates illisible chez Meta : refus propre (503) AVANT toute écriture', async () => {
+    const m = monter({ modeles: 'panne' });
+    expect(await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: [] }, 'u1'))
+      .toMatchObject({ ok: false, statut: 503 });
+    expect([m.workflows.parId.size, m.store.lignesEnBase.size]).toEqual([0, 0]);
+  });
+
   it('un template absent chez Meta est refusé, sans rien créer', async () => {
     const m = monter({ modeles: [] });
     expect(await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'inconnu', langue: 'fr', variables: [] }, 'u1')).toMatchObject({ ok: false, statut: 422 });
@@ -163,6 +188,15 @@ describe('l’état des lignes', () => {
       expect.objectContaining({ evenement: 'order_paid', actif: true, scenario: NOM_DU_SCENARIO.order_paid, modele: 'commande_payee', langue: 'fr', etatChezMeta: 'PENDING', blocs: 1 }),
       expect.objectContaining({ evenement: 'checkout_abandoned', actif: false, modele: null, etatChezMeta: null, blocs: 1 }),
     ]);
+  });
+
+  it('🔴 la liste des templates illisible chez Meta : l’état se lit quand même, sans l’état chez Meta (la carte ne tombe pas)', async () => {
+    const lignes = monter();
+    await brancherLePremierBloc(lignes.deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: [] }, 'u1');
+    const enPanne = { ...lignes.deps, modeles: async () => { throw new Error('Graph indisponible'); } };
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect(await etatDesLignes(enPanne, T)).toEqual([expect.objectContaining({ evenement: 'order_paid', modele: 'commande_payee', etatChezMeta: null, blocs: 1 })]);
+    vi.restoreAllMocks();
   });
 
   it('🔴 une version programmée du scénario (un template de bloc en validation chez Meta) se dit : la console montre « nouvelle version en validation »', async () => {

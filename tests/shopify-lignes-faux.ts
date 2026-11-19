@@ -103,7 +103,7 @@ export class FauxMenage {
   programmes: JobOubli[] = [];
   constructor(public marques: string[] = []) {}
   lignes = {
-    desModeles: async (_t: string, paires: ReadonlyArray<{ modele: string; langue: string }>) => paires
+    desModelesDAutomation: async (_t: string, paires: ReadonlyArray<{ modele: string; langue: string }>) => paires
       .filter((p) => this.marques.includes(p.modele))
       .map((p) => ({ workflowId: 'wf', modele: p.modele, langue: p.langue, etat: 'approuve' as const, raison: null, creeLe: 'x', trancheLe: null })),
   };
@@ -116,11 +116,15 @@ export const modeleMeta = (o: Partial<TemplateSummary> = {}): TemplateSummary =>
 } as TemplateSummary);
 
 /** Les dépendances des lignes, montées sur ces faux. */
-export function monterLignes(o: { vue?: VueBoutique | null; modeles?: TemplateSummary[]; arretLeve?: boolean; store?: FauxBoutique; marques?: string[] } = {}) {
+export function monterLignes(o: { vue?: VueBoutique | null; modeles?: TemplateSummary[] | 'panne'; arretLeve?: boolean; store?: FauxBoutique; marques?: string[] } = {}) {
   const store = o.store ?? new FauxBoutique(o.vue === undefined ? VUE_LIGNES : o.vue);
   const workflows = new FauxScenarios();
   const parcours = new FauxParcours(o.arretLeve === true);
   const menage = new FauxMenage(o.marques);
-  const deps: DepsLignesShopify = { store, workflows, parcours, modeles: async () => o.modeles ?? [modeleMeta()], menage };
+  const modeles = async (): Promise<TemplateSummary[]> => {
+    if (o.modeles === 'panne') throw new Error('Graph indisponible');
+    return o.modeles ?? [modeleMeta()];
+  };
+  const deps: DepsLignesShopify = { store, workflows, parcours, modeles, menage };
   return { deps, store, workflows, parcours, menage };
 }

@@ -4,8 +4,8 @@ import type { EtatModeleDeBloc } from './modeles-de-bloc';
 /**
  * Le magasin de `modeles_de_bloc` (migration 0296) : un template écrit depuis un bloc du constructeur, et son état
  * tranché par Meta. `tenant_id = $1` sur chaque requête, sauf `attentesAnciennes`, la lecture transverse du filet, nommée
- * comme celle de l'assistant Shopify (`src/shopify/store.pg.ts`). Aucune lecture de `workflows` ici : le scénario se lit
- * par `PgWorkflowStore`.
+ * comme celle de l'assistant Shopify (`src/shopify/store.pg.ts`). Le scénario se lit par `PgWorkflowStore` ; une seule
+ * lecture de `workflows` ici, le RAYON du scénario d'origine, qui seul autorise le ménage (`desModelesDAutomation`).
  */
 export interface LigneModeleDeBloc {
   workflowId: string;
@@ -57,6 +57,26 @@ export class PgModelesDeBloc {
     const r = await this.pool.query<Ligne>(
       `select ${COLONNES} from modeles_de_bloc
         where tenant_id = $1 and (modele, langue) in (select * from unnest($2::text[], $3::text[]))`,
+      [tenantId, paires.map((p) => p.modele), paires.map((p) => p.langue)],
+    );
+    return r.rows.map(versLigne);
+  }
+
+  /**
+   * Ceux de ces templates qui ont été écrits depuis un bloc d'un scénario d'AUTOMATION (rayon autre que général) : la seule
+   * marque qui permet au ménage de les supprimer chez Meta. 🔴 Un template né au Builder général n'y entre jamais, même
+   * remplacé ensuite dans un scénario d'automation (décision 14) : il peut servir ailleurs, invisible de notre base.
+   */
+  async desModelesDAutomation(
+    tenantId: string, paires: ReadonlyArray<{ modele: string; langue: string }>,
+  ): Promise<LigneModeleDeBloc[]> {
+    if (paires.length === 0) return [];
+    const r = await this.pool.query<Ligne>(
+      `select m.workflow_id, m.modele, m.langue, m.etat, m.raison, m.cree_le, m.tranche_le
+         from modeles_de_bloc m
+         join workflows w on w.id = m.workflow_id and w.tenant_id = m.tenant_id
+        where m.tenant_id = $1 and w.rayon <> 'general'
+          and (m.modele, m.langue) in (select * from unnest($2::text[], $3::text[]))`,
       [tenantId, paires.map((p) => p.modele), paires.map((p) => p.langue)],
     );
     return r.rows.map(versLigne);

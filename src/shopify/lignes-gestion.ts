@@ -102,14 +102,28 @@ export async function reglerPause(deps: DepsLignesShopify, tenantId: string, pau
   return { ok: true, valeur: { changee } };
 }
 
+/** La liste des templates de l'espace chez Meta, ou `null` quand elle ne se lit pas (journalisé, jamais levé). */
+async function lireModeles(deps: DepsLignesShopify, tenantId: string): Promise<readonly TemplateSummary[] | null> {
+  try {
+    return await deps.modeles(tenantId);
+  } catch (err) {
+    journaliser('warn', 'shopify_liste_modeles_illisible', { tenantId, erreur: messageDe(err) });
+    return null;
+  }
+}
+
 /** Les réponses rapides d'un template, dans l'ordre : leurs index sont les branches `btn:<i>` du bloc. */
 const reponsesRapides = (boutons: ReadonlyArray<{ type: string; text: string }>): string[] =>
   boutons.flatMap((b) => (b.type === 'QUICK_REPLY' ? [b.text] : []));
 
-/** Le graphe dont le bloc verrouillé reçoit ces données, à sa place ; `null` sans bloc verrouillé. */
+/**
+ * Le graphe dont le bloc verrouillé reçoit ces données, à sa place ; `null` sans bloc verrouillé. 🔴 Seules les clés du
+ * template changent, comme quand le constructeur en choisit un : la sortie « Pas de réponse » (`timeoutValue`,
+ * `timeoutUnit`, décision 12), le code du bloc et ce que l'éditeur y range restent (décision 7, relecture de 5b).
+ */
 function avecLePremierBloc(graphe: WorkflowGraph, data: Record<string, unknown>): WorkflowGraph | null {
   if (blocVerrouille(graphe) === null) return null;
-  const nodes: WorkflowNode[] = graphe.nodes.map((n) => (estBlocVerrouille(n) ? { ...n, data: { ...data, [MARQUE_PREMIER_BLOC]: true } } : n));
+  const nodes: WorkflowNode[] = graphe.nodes.map((n) => (estBlocVerrouille(n) ? { ...n, data: { ...n.data, ...data, [MARQUE_PREMIER_BLOC]: true } } : n));
   return { nodes, edges: graphe.edges };
 }
 
@@ -133,7 +147,10 @@ export async function brancherLePremierBloc(
 ): Promise<Issue<PremierBlocPose>> {
   const boutique = await boutiqueConnectee(deps, tenantId);
   if (!boutique.ok) return boutique;
-  const tpl = (await deps.modeles(tenantId)).find((t) => t.name === b.modele && t.language === b.langue);
+  // La liste chez Meta d'abord : illisible (Meta en panne, jeton invalide), le geste est refusé AVANT toute écriture.
+  const liste = await lireModeles(deps, tenantId);
+  if (liste === null) return refus(503, 'La liste des templates n’a pas pu être lue chez Meta : réessayez dans un instant.');
+  const tpl = liste.find((t) => t.name === b.modele && t.language === b.langue);
   if (tpl === undefined) return refus(422, `Le modèle « ${b.modele} » (${b.langue}) n’existe pas chez Meta pour cet espace.`);
   const boutons = (tpl.buttons ?? []).map((x) => ({ type: x.type, text: x.text }));
   const ligne = await assurerLigne(deps, tenantId, b.evenement, par);
@@ -149,7 +166,8 @@ export async function brancherLePremierBloc(
     return refus(409, `Les réponses rapides de « ${b.modele} » ne sont plus celles d’où part la suite du scénario : modifiez-le dans le builder.`);
   }
   const data = {
-    templateName: b.modele, language: b.langue, templateButtons: boutons,
+    // Les cartes d'un carrousel suivent le template, comme au choix dans le constructeur : celles de l'ancien ne valent plus.
+    templateName: b.modele, language: b.langue, templateButtons: boutons, templateCards: [],
     variables: b.variables.map((key, i) => ({ position: i + 1, source: { type: 'variable', key } })),
   };
   const publie = avecLePremierBloc(wf.graph, data);
@@ -184,7 +202,9 @@ export interface EtatLigne {
 export async function etatDesLignes(deps: DepsLignesShopify, tenantId: string): Promise<EtatLigne[]> {
   const lignes = await deps.store.lignes(tenantId);
   if (lignes.length === 0) return [];
-  const modeles = await deps.modeles(tenantId);
+  // Illisible chez Meta : l'état se lit quand même, sans l'état de chaque template (la carte et get_shopify_state ne
+  // tombent pas avec Meta ; relecture de 5b).
+  const modeles = (await lireModeles(deps, tenantId)) ?? [];
   const etats: EtatLigne[] = [];
   for (const l of [...lignes].sort((a, c) => EVENEMENTS_SHOPIFY.indexOf(a.evenement) - EVENEMENTS_SHOPIFY.indexOf(c.evenement))) {
     const wf = await deps.workflows.getById(l.workflowId, tenantId);

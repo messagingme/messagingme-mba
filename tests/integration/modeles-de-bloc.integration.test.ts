@@ -224,6 +224,17 @@ describe.skipIf(!url)('templates de bloc et publication programmée (Postgres)',
       expect(await modeles.rehabiliter(tenantId, 'rehab_a', 'fr')).toBeNull();
     });
 
+    it('🔴 le ménage ne voit que les templates nés dans un scénario d’AUTOMATION, jamais au Builder général (décision 14)', async () => {
+      const { id: general } = await store.insert(tenantId, 'menage-general', grapheEn('v1'), 'general');
+      const { id: shopify } = await store.insert(tenantId, 'menage-shopify', grapheEn('v1'), 'shopify');
+      await modeles.inserer(tenantId, { workflowId: general, modele: 'menage_builder', langue: 'fr', etat: 'approuve', par: null });
+      await modeles.inserer(tenantId, { workflowId: shopify, modele: 'menage_auto', langue: 'fr', etat: 'approuve', par: null });
+      const paires = [{ modele: 'menage_builder', langue: 'fr' }, { modele: 'menage_auto', langue: 'fr' }];
+      expect((await modeles.desModelesDAutomation(tenantId, paires)).map((l) => l.modele)).toEqual(['menage_auto']);
+      expect(await modeles.desModelesDAutomation(autre, paires)).toEqual([]);
+      expect(await modeles.desModelesDAutomation(tenantId, [])).toEqual([]);
+    });
+
     it('supprimer le scénario efface ses lignes (cascade)', async () => {
       const { id } = await store.insert(tenantId, 'cascade', grapheEn('v1'), 'general');
       await modeles.inserer(tenantId, { workflowId: id, modele: 'cascade_a', langue: 'fr', etat: 'en_validation', par: null });

@@ -580,7 +580,7 @@ export const modelesDeBlocInertes: WorkflowRouteDeps['modelesDeBloc'] = {
     emails: { emettre: neDevraitPasEtreAppelee('emettre') },
     audit: journalMuet,
     lienScenario: (id: string) => `/workflows?open=${id}`,
-    menage: { lignes: { desModeles: async () => [] }, programmerOubli: neDevraitPasEtreAppelee('menage.programmerOubli') },
+    menage: { lignes: { desModelesDAutomation: async () => [] }, programmerOubli: neDevraitPasEtreAppelee('menage.programmerOubli') },
   },
 };
 
@@ -1015,7 +1015,7 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
       },
       parcours: { arreterParcours: neDevraitPasEtreAppelee('shopify.arreterParcours') },
       modeles: async () => [],
-      menage: { lignes: { desModeles: async () => [] }, programmerOubli: neDevraitPasEtreAppelee('shopify.menage.programmerOubli') },
+      menage: { lignes: { desModelesDAutomation: async () => [] }, programmerOubli: neDevraitPasEtreAppelee('shopify.menage.programmerOubli') },
     },
   },
 };
