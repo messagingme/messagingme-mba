@@ -838,7 +838,7 @@ describe('WorkflowExecutor.resume (réveil après un bloc Attente)', () => {
     });
     runs.run = { ...runs.run!, channel: 'rcs' } as typeof runs.run;
 
-    expect(await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', channel: 'rcs' } as never)).toBe(true);
+    expect(await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', channel: 'rcs', evenement: null } as never)).toBe(true);
     expect(envoyes).toEqual(['rcs:Alors ?']);   // parti par le bon tuyau
     expect(calls).toEqual([]);                   // et surtout PAS par WhatsApp
     expect(fenetreInterrogee).toBe(false);       // une règle Meta n'a rien à dire ici
@@ -866,7 +866,7 @@ describe('WorkflowExecutor.resume (réveil après un bloc Attente)', () => {
     });
     runs.run = { ...runs.run!, channel: 'rcs' } as typeof runs.run;
 
-    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', channel: 'rcs' } as never);
+    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', channel: 'rcs', evenement: null } as never);
     expect(calls).toContain('tpl:relance');  // le template part, il n'a pas besoin de la fenêtre
     expect(envoyes).toEqual([]);             // et le message rapide ne part PAS en RCS…
     expect(calls).not.toContain('qm:Alors ?'); // …ni en WhatsApp : la fenêtre est fermée
@@ -882,7 +882,7 @@ describe('WorkflowExecutor.resume (réveil après un bloc Attente)', () => {
     });
     runs.run = { ...runs.run!, channel: 'rcs' } as typeof runs.run;
 
-    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', channel: 'rcs' } as never);
+    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'w', channel: 'rcs', evenement: null } as never);
     expect(calls).toEqual([]);
     expect(envoyes).toEqual([]);
     expect(escalations).toEqual(['33600']);

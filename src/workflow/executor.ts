@@ -1387,7 +1387,10 @@ export class WorkflowExecutor {
     // Un message du parcours n'a pas pu atteindre le contact : on clôt et on remonte à un humain. Ce qui
     // pouvait partir (template, tags) est déjà parti.
     if (fenetreFermee && !fenetreSansObjet) {
-      if (!(await clore({ currentNode: null, status: 'inbox' }))) return false;
+      // 🔴 Lot 5 (appel A4) : un parcours d'événement se CLÔT sans passer à l'équipe. Le client n'a pas répondu (le builder
+      // a prévenu, décision 16), et « À traiter » se remplirait d'un client par panier ; la ligne du journal reste.
+      const evenement = run.evenement !== null;
+      if (!(await clore({ currentNode: null, status: evenement ? 'done' : 'inbox' }))) return false;
       // Au journal des échecs : le premier bloc que la fenêtre a retenu (le bloc agent quand il est seul en cause), une
       // ligne par contact plutôt qu'une par bloc retenu, la raison étant la même ; puis les refus de la partie exécutée.
       const premier = actions.find((x) => aBesoinFenetre(x.action));
@@ -1402,6 +1405,11 @@ export class WorkflowExecutor {
         ...(retenu !== null && !seTait ? [retenu] : []),
         ...refusDesBlocs,
       ], 'arret');
+      // Parcours d'événement : fin de parcours ordinaire, la main revient à l'agent de Meta, personne n'est prévenu.
+      if (evenement) {
+        await this.rendreLaMainAMba(tenantId, waId);
+        return false;
+      }
       // Aucun affectataire (aucun bloc « passer à un humain » atteint) et aucune escalade : c'est un réveil,
       // le contact n'attend rien à cet instant.
       await this.deps.escalateToHuman(tenantId, waId, null, false, run.workflowId, false);

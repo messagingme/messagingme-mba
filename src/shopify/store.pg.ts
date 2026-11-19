@@ -485,6 +485,26 @@ export class PgShopifyStore {
   }
 
   /**
+   * Lot 5 : ce que la règle « le parcours est-il encore voulu ? » (`./parcours-voulu.ts`) lit de la boutique et de la
+   * ligne d'un événement (migration 0299) : absente (aucune boutique de ce domaine dans cet espace), coupée, en pause ou
+   * active, et l'interrupteur de la ligne (éteinte ou absente : faux). Une lecture, filtrée par l'espace.
+   */
+  async etatPourParcours(tenantId: string, domaine: string, evenement: EvenementShopify): Promise<{
+    boutique: 'absente' | 'coupee' | 'pause' | 'active';
+    ligneActive: boolean;
+  }> {
+    const r = (await this.pool.query<{ etat: EtatBoutique; en_pause: boolean; actif: boolean | null }>(
+      `select b.etat, b.pause_le is not null as en_pause, l.actif
+         from shopify_boutiques b
+         left join shopify_lignes l on l.tenant_id = b.tenant_id and l.evenement = $3
+        where b.tenant_id = $1 and b.domaine = $2`,
+      [tenantId, domaine, evenement],
+    )).rows[0];
+    if (r === undefined) return { boutique: 'absente', ligneActive: false };
+    return { boutique: r.etat === 'coupee' ? 'coupee' : r.en_pause ? 'pause' : 'active', ligneActive: r.actif === true };
+  }
+
+  /**
    * EXCEPTION TRANSVERSE 4 : le balayage des relances, toutes boutiques confondues. Un panier DÛ : ouvert, jamais relancé,
    * avec un téléphone et un lien, dont la dernière modification a dépassé le délai de SA boutique, connectée, et dont le
    * message `checkout_abandoned` est actif (`PANIERS_DUS`). 🔴 La réclamation POSE `relance_le` dans la

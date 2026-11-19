@@ -325,6 +325,8 @@ interface OptionsReprise {
   varsFiche?: Record<string, string>;
   /** L'événement du parcours qui attend (lot 5 : il garde l'identifiant de son premier message et son bloc de départ). */
   evenement?: EvenementDuParcours;
+  /** La fenêtre de service est-elle ouverte (défaut : oui) ? */
+  fenetre?: boolean;
 }
 
 /** Le premier message d'un parcours d'événement, tel que la naissance du lot 5 le garde. */
@@ -344,12 +346,14 @@ function bancReprise(o: OptionsReprise = {}) {
   const ecritures: string[] = [];
   const priseDeMain: string[] = [];
   const auRepondeur: string[] = [];
+  const escalades: boolean[] = [];
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
     aAccordMarketing: toujoursDAccord,
-    isWindowOpen: async () => true,
+    isWindowOpen: async () => o.fenetre ?? true,
     parcoursEncoreVoulu: async () => o.voulu ?? true,
+    escalateToHuman: async (_t, _w, _a, escalade) => { escalades.push(escalade); },
     blocDuMessage: async (_t, wamid) => BLOCS_DES_MESSAGES[wamid] ?? null,
     confierAuRepondeur: async (_t, _w, messageId) => { auRepondeur.push(messageId); },
     resoudreBloc: async (_t, cible) => (cible === 'code-autre' ? { workflowId: 'wf-autre', nodeId: 'x', graph: AUTRE } : null),
@@ -380,7 +384,7 @@ function bancReprise(o: OptionsReprise = {}) {
     varsFor: async () => o.varsFiche ?? {},
   };
   deps.setField = async (_t, _w, cle, valeur) => { champs.push(`${cle}=${String(valeur)}`); };
-  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur, modeles, champs };
+  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur, modeles, champs, escalades };
 }
 
 const clic = (bouton: string) => ({ reaction: false, messageCite: 'wamid.tpl', type: 'button' as const, bouton });
@@ -607,6 +611,22 @@ describe('l’attente bornée d’un parcours d’événement (décision 29)', (
     expect(await m.executor.resume({ ...runEvenement(), status: 'waiting' })).toBe(false);
     expect(m.envois).toEqual([]);
     expect(m.ecritures).toEqual(['r-evt:done']);
+  });
+
+  it('🔴 lot 5 (appel A4) : la relance mène à un message de session, fenêtre fermée : clos sans passer à l’équipe ; un ordinaire, lui, y passe', async () => {
+    silence();
+    const RELANCE_EN_SESSION: WorkflowGraph = {
+      nodes: [
+        n('tpl', 'template', { templateName: 'panier_relance', language: 'fr', timeoutValue: 30, timeoutUnit: 'minutes' }),
+        n('qm', 'quick_message', { body: 'Toujours là ?' }),
+      ],
+      edges: [{ id: 'e1', source: 'tpl', target: 'qm', sourceHandle: 'timeout' }],
+    };
+    const evt = bancReprise({ graphe: RELANCE_EN_SESSION, fenetre: false });
+    await evt.executor.resume({ ...runEvenement(), status: 'waiting' });
+    expect(evt.envois).toEqual([]);
+    expect(evt.ecritures).toEqual(['r-evt:done']);
+    expect(evt.escalades, 'aucun client par panier dans « À traiter »').toEqual([]);
   });
 
   it('🔴 lot 5 (jaune de 4a) : clos au plafond SANS reprendre le fil à l’agent de Meta (le contact reste sur sa liste)', async () => {
