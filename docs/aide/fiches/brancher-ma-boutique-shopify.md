@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 39fd3e
+source_empreinte: 664ed1
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -39,8 +39,8 @@ puis « Brancher la boutique ». Vos messages se règlent ensuite dans le menu A
 **4. Allumer une automation.** Dans le menu Automation, la section Shopify liste vos trois automations : Commande payée,
 Commande expédiée et Panier abandonné, chacune avec son état. Allumez-en une : son scénario s'ouvre dans le builder.
 
-Pour le panier, choisissez aussi le délai après sa dernière modification (1 h par défaut, de 15 min à 72 h). « Ouvrir
-le scénario » vous y ramène à tout moment ; éteindre une automation arrête ses parcours en cours.
+Pour le panier, choisissez aussi le délai après sa dernière modification : 15 min, 1 h (par défaut), 3 h ou 24 h.
+« Ouvrir le scénario » vous y ramène à tout moment ; éteindre une automation arrête ses parcours en cours.
 
 **5. Choisir le premier message, puis publier.** Le premier bloc, marqué « premier message », est le template que
 l'événement envoie. Choisissez-en un, ou « Écrire un nouveau template », puis reliez chacune de ses variables à une
@@ -64,7 +64,7 @@ vous choisissez combien en importer, les plus récents d'abord.
 Les fiches sont étiquetées « Shopify » et arrivent sans consentement WhatsApp : un accord e-mail ou SMS n'en est pas un.
 
 **8. Suivre, mettre en pause ou couper.** La carte Shopify montre la boutique branchée, le dernier événement reçu et les
-chiffres des 30 derniers jours : messages partis, clients écartés et pourquoi. « Boutique en pause » arrête tous les
+chiffres des 30 derniers jours : messages partis, clients écartés et pourquoi. L'interrupteur de pause arrête tous les
 envois sans rien débrancher ; « Couper » débranche la boutique.
 
 En pause, vos automations gardent leur réglage, mais rien ne part, ni premier message ni suite ; les parcours en cours
@@ -83,8 +83,8 @@ suite de son scénario. Rien ne part si une commande en est née entre-temps, m�
 panier arrête son parcours, où qu'il en soit. Un second panier prend la place du premier : sa relance arrête le
 parcours du précédent.
 
-C'est un message marketing : un client qui répond STOP n'en reçoit plus, dites-le en bas du template (« Répondez STOP
-pour ne plus recevoir ces messages »). La carte compte les relances parties, les paniers devenus une commande à temps,
+Un client qui répond STOP ne reçoit plus rien : dites-le en bas du template de relance (« Répondez STOP pour ne plus
+recevoir ces messages »). La carte compte les relances parties, les paniers devenus une commande à temps,
 et ceux en attente ; et, selon la date de la relance, les paniers récupérés (relancés puis payés) et leur montant.
 
 **Bon à savoir.** Le prénom est facultatif chez Shopify : beaucoup de clients ne le donnent pas, surtout avant
@@ -132,9 +132,10 @@ messages ; la carte les compte, et vous recevez un e-mail au premier refus du mo
 dans Campagnes, une ligne par commande. Il part même quand l'agent ou votre équipe tient la conversation, sans la
 couper.
 
-Si le client écrit ou clique pendant le parcours sans que l'automation l'attende, ou pendant un bloc Attente : l'agent
-IA, le scénario répondeur ou votre application lui répond, et l'automation continue. En mode Équipe ou agent de Meta,
-l'automation s'arrête : la demande arrive dans « À traiter », ou l'agent de Meta répond.
+Si le client écrit pendant un bloc Attente, ou clique sur le bouton d'un autre de vos messages : l'agent IA, le
+scénario répondeur ou votre application lui répond, et l'automation continue. En mode Équipe ou agent de Meta,
+l'automation s'arrête : la demande arrive dans « À traiter », ou l'agent de Meta répond. S'il répond par écrit à un bloc
+qui attend sa réponse, l'automation suit la sortie « Toute autre réponse » de ce bloc ; sans elle, elle s'arrête.
 
 ## Les demandes de vos clients
 

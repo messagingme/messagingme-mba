@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 43db1a
+traduit_de: 1636b1
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -33,7 +33,7 @@ store”. Your messages are then set in the Automation menu.
 **4. Switch on an automation.** In the Automation menu, the Shopify section lists your three automations: Order paid,
 Order shipped and Abandoned checkout, each with its status. Switch one on: its scenario opens in the builder.
 
-For the checkout, also choose the delay after its last change (1 h by default, from 15 min to 72 h). “Open the
+For the checkout, also choose the delay after its last change: 15 min, 1 h (by default), 3 h or 24 h. “Open the
 scenario” takes you back to it at any time; switching an automation off stops its journeys under way.
 
 **5. Choose the first message, then publish.** The first block, marked “first message”, is the template the event
@@ -58,7 +58,7 @@ you choose how many to import, the most recent first.
 The records are tagged “Shopify” and arrive without WhatsApp consent: an email or SMS agreement is not one.
 
 **8. Follow up, pause or cut.** The Shopify card shows the connected store, the last event received and the figures for
-the last 30 days: messages sent, customers left out and why. “Store paused” stops every send without disconnecting
+the last 30 days: messages sent, customers left out and why. The pause switch stops every send without disconnecting
 anything; “Cut” disconnects the store.
 
 While paused, your automations keep their settings, but nothing goes out, neither first message nor follow-up; the
@@ -77,8 +77,8 @@ follow-up of its scenario. Nothing goes out if an order came of it in the meanti
 born from the checkout stops its journey, wherever it stands. A second checkout takes the place of the first: its
 reminder stops the journey of the previous one.
 
-It is a marketing message: a customer who replies STOP gets no more of them, so say it at the bottom of the template
-(“Reply STOP to stop these messages”). The card counts the reminders sent, the checkouts that turned into an order in
+A customer who replies STOP gets nothing more: say it at the bottom of the reminder template (“Reply STOP to stop
+these messages”). The card counts the reminders sent, the checkouts that turned into an order in
 time, and those waiting; and, by reminder date, the checkouts recovered (reminded then paid) and their amount.
 
 **Good to know.** The first name is optional at Shopify: many customers do not give it, especially before abandoning
@@ -123,9 +123,10 @@ customer’s record counts. If that limit is reached, new customers no longer ge
 and you get an email at the first refusal of the month. Each first message shows in Campaigns, one line per order. It
 goes out even when the agent or your team holds the conversation, without cutting it.
 
-If the customer writes or clicks during the journey without the automation expecting it, or during a Wait block: the AI
-agent, the responder scenario or your application answers them, and the automation goes on. In Team or Meta agent mode,
-the automation stops: the request lands in “To handle”, or Meta’s agent answers.
+If the customer writes during a Wait block, or taps a button of another of your messages: the AI agent, the responder
+scenario or your application answers them, and the automation goes on. In Team or Meta agent mode, the automation
+stops: the request lands in “To handle”, or Meta’s agent answers. If they reply in writing to a block that waits for
+their reply, the automation follows that block’s “Any other reply” output; without it, it stops.
 
 ## Your customers’ requests
 

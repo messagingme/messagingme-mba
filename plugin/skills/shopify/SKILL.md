@@ -114,7 +114,7 @@ On the official API (track `api`), two events can send a message: `order_paid` (
 
 Each event has an automation: a scenario whose first step is the template the event sends. `set_shopify_message`
 creates the automation and its scenario if missing, sets that first template and keeps the steps that follow. On Pro
-and Business, the user can add steps after the first message in the console (Automation, Shopify section, "Open the
+and above, the user can add steps after the first message in the console (Automation, Shopify section, "Open the
 scenario"): a reminder after a wait, an answer to a button, a message quoting the order's data. You only change the
 first message: when an automation has more than one step (`get_shopify_state`), say that the others are changed in the
 console. On Free there is no console, and only the first message is sent.
@@ -132,9 +132,10 @@ Never ask the user about their customers' consent: the merchant is responsible f
 customer as opted in, for campaigns too, and a customer who said STOP stays opted out and receives nothing. Every
 message goes through the sending rules of Messaging Me (STOP, monthly templates, contact limit), and each first message
 shows up in Campaigns, one line per order. `set_shopify_message` with `active` false turns an automation off and stops
-its journeys. If a customer writes during a journey without being asked to, the workspace's AI agent, responder
-scenario or application answers and the journey goes on; in Team or Meta agent mode, the journey stops and the team or
-Meta's agent takes over.
+its journeys. If a customer writes while the journey sleeps in a Wait step, or taps a button of another message,
+the workspace's AI agent, responder scenario or application answers and the journey goes on; in Team or Meta agent
+mode, the journey stops and the team or Meta's agent takes over. A written reply to a step that waits for one follows
+its "any other reply" output, or ends the journey.
 
 ## Remind abandoned checkouts
 

@@ -3015,28 +3015,30 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
 
 - **Trois automations** (menu « Scénario », lot 5, 2026-11-19) : « Commande payée », « Commande expédiée » (avec le
   transporteur et le lien de suivi) et « Panier abandonné » (plus bas). Chacune a son scénario, dont le PREMIER message
-  est le template que l'événement envoie (de service pour une commande, marketing pour le panier, approuvé par Meta) ;
-  ses variables lisent les données de la commande ou du panier (prénom, numéro, montant payé, lien de la commande,
-  suivi, lien du panier). La suite, facultative, se construit dans la console (Pro et Entreprise) : un bouton mène à un
+  est le template que l'événement envoie, approuvé par Meta (Claude Code exige un template de service pour une commande
+  et marketing pour le panier ; la console laisse le choix) ; ses variables lisent les données de la commande ou du panier (prénom, numéro, montant payé, lien de la commande,
+  suivi, lien du panier). La suite, facultative, se construit dans la console (offre Pro et au-delà) : un bouton mène à un
   message, une relance part sans réponse après un délai, un texte cite une donnée de l'événement
   (`{{shopify.<donnée>}}`). Le scénario démarre fenêtre de service fermée : tout envoi atteint sans réponse ni clic du
-  client est un template, et le builder le dit. En Free, sans console, le scénario n'a qu'un bloc, réglé par Claude Code
+  client doit être un template, et le builder le signale. En Free, sans console, le scénario n'a qu'un bloc, réglé par Claude Code
   (`set_shopify_message`), qui ne change jamais que ce premier message et dit quand une suite existe, à modifier dans
   la console. Une seconde commande ne coupe pas le parcours de la première.
 - **Les règles des envois s'appliquent** : STOP, modèles du mois, limite de contacts de l'offre (la fiche d'un nouveau
-  client compte). Chaque message fait une ligne dans Campagnes (« Shopify · commande payée · #1002 ») ; un client
+  client compte). Chaque premier message fait une ligne dans Campagnes (« Shopify · commande payée · #1002 ») ; un client
   écarté (STOP, limite) n'en fait aucune. Le premier message part même quand l'agent ou un opérateur tient la
-  conversation, et ne la coupe pas. Un client qui répond ou clique hors de ce que l'automation attend, ou pendant
-  qu'elle dort dans un bloc « Attente » (décisions 34 et 35) : l'agent IA, le scénario répondeur ou l'application de
+  conversation, et ne la coupe pas. Un client qui écrit pendant que l'automation dort dans un bloc « Attente », ou qui
+  clique sur le bouton d'un autre message (décisions 34 et 35) : l'agent IA, le scénario répondeur ou l'application de
   l'espace lui répond, et l'automation continue ; en mode Équipe, une demande s'ouvre dans « À traiter », en mode agent
-  de Meta, l'agent de Meta répond, et l'automation s'arrête (jamais deux maîtres du fil).
+  de Meta, l'agent de Meta répond, et l'automation s'arrête (jamais deux maîtres du fil). Une réponse écrite à un bloc
+  qui attend la sienne suit sa sortie « Toute autre réponse » ; sans elle, l'automation s'arrête et le message va à
+  celui qui répond d'habitude.
 - **Le consentement** (décision de Julien du 2026-10-26) : Shopify ne recueille aucun consentement WhatsApp, et le
   consentement de ses clients relève du marchand : aucune question ne le lui demande. Chaque message né d'un événement
   de la boutique (commande payée, expédition, relance) rend la fiche du client consentante partout, campagnes comprises
   (source `shopify:<boutique>`) ; un client qui a dit STOP le reste et ne reçoit rien.
 - **Limite de contacts atteinte** : les nouveaux clients ne reçoivent plus leurs messages ; la carte et l'outil d'état
   les comptent, et un e-mail part aux admins au premier refus du mois.
-- **Tools > Intégrations > Shopify** (Pro et Entreprise, 2026-10-22) :
+- **Tools > Intégrations > Shopify** (offre Pro et au-delà, 2026-10-22) :
   - **sans boutique**, un mode opératoire de cinq minutes chez Shopify : créer l'app à la main sur le tableau de bord
     développeur (son adresse et ses droits se copient d'un clic), l'installer sur la boutique, copier son identifiant et
     son secret ; puis les coller dans la carte, qui branche la boutique et abonne ses événements ;
@@ -3046,7 +3048,7 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
     des 30 jours et des paniers, et « Couper » (plus aucun message ; l'app se désinstalle depuis la boutique ; une
     boutique coupée se rebranche depuis la carte). Les messages se règlent dans l'écran Automation (ci-dessous) : ils ont
     quitté la carte le 2026-11-19, avec l'assistant qui les écrivait.
-- **Automation > Shopify** (Pro et Entreprise, 2026-11-19) : avec une boutique branchée, une ligne par automation, son
+- **Automation > Shopify** (offre Pro et au-delà, 2026-11-19) : avec une boutique branchée, une ligne par automation, son
   interrupteur, son état (pas encore créée, éteinte, à compléter, en validation chez Meta, refusée ou bloquée par Meta,
   active, active avec une nouvelle version en validation), le délai du panier et « Ouvrir le scénario ». Le premier
   allumage crée le scénario et l'ouvre dans le builder ; éteindre arrête ses parcours en cours. Le premier bloc, marqué
