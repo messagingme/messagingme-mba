@@ -4,6 +4,8 @@ import { supprimerUnModele, type DepsGestionModeles } from '../templates/gestion
 import { DELAI_PANIER_MAX, DELAI_PANIER_MIN, EVENEMENTS_DISPONIBLES, estEvenementShopify } from './donnees';
 import type { Issue, Refus } from './gestion';
 import type { PgShopifyStore } from './store.pg';
+import type { PgModelesDeBloc } from '../workflow/modeles-de-bloc.pg';
+import type { PgWorkflowStore } from '../workflow/store.pg';
 
 /**
  * CE QUI RESTE DE L'ANCIEN ASSISTANT DES MESSAGES SHOPIFY (conception 2026-10-22) depuis que chaque message est le premier
@@ -18,6 +20,9 @@ import type { PgShopifyStore } from './store.pg';
  * `FILE_OUBLI_MODELE`), qui relit tout un quart d'heure plus tard (`traiterOubli`). Supprimée tout de suite, la version
  * remplacée ferait échouer les envois qui l'ont lue juste avant (une confirmation de commande en vol, un lot de relances
  * réclamé). Le travail sort aussi l'appel à Meta de la file des messages entrants.
+ *
+ * La même file sert le ménage des TEMPLATES DE BLOC d'un scénario d'automation (spec § 5.1, menu « Scénario », lot 5) :
+ * un travail `type: 'bloc'`, programmé à la mise en ligne (`programmerMenage`, `src/workflow/modeles-de-bloc.ts`).
  */
 
 /** Supprimer un modèle chez Meta, toutes langues : `supprimerUnModele` (garde des campagnes actives), traduite. */
@@ -31,7 +36,11 @@ export const DELAI_OUBLI_MS = 15 * 60_000;
 export const REESSAI_OUBLI_MS = 60 * 60_000;
 export const ESSAIS_OUBLI = 6;
 
-export interface JobOubli { tenantId: string; modele: string; essai: number }
+/**
+ * Un travail du ménage. Sans `type` : un modèle de l'ancien assistant (son nom le dit). `type: 'bloc'` : un template écrit
+ * depuis un bloc d'un scénario d'automation, avec sa langue pour relire sa marque (sa ligne de `modeles_de_bloc`).
+ */
+export interface JobOubli { tenantId: string; modele: string; essai: number; type?: 'bloc'; langue?: string }
 /** Enfiler un travail du ménage à son heure (`queue.enqueue` avec `startAfter`, lié par le câblage). */
 export type ProgrammerOubli = (job: JobOubli, quand: Date) => Promise<void>;
 
@@ -83,28 +92,45 @@ export async function oublierPlusTard(
   }
 }
 
+/** Ce que le travail du ménage relit avant de supprimer. */
+export interface DepsOubli {
+  store: Pick<PgShopifyStore, 'messages' | 'attentes'>;
+  /** La marque d'un template de bloc : sa ligne de `modeles_de_bloc`. */
+  blocs: Pick<PgModelesDeBloc, 'desModeles'>;
+  /** Un graphe de l'espace (publié, brouillon ou programmé, tous rayons) nomme-t-il encore ce template ? */
+  scenarios: Pick<PgWorkflowStore, 'nommeLeModele'>;
+  supprimerModele: SupprimerModele;
+  programmerOubli: ProgrammerOubli;
+  maintenant?: () => number;
+}
+
 /**
- * Le travail du ménage (worker) : relire, puis supprimer le modèle s'il ne sert plus. Rien s'il est ENCORE branché à un
- * message ou attendu par une préparation (relus au moment même : un geste a pu le rebrancher entre-temps). Un refus se
- * retente une heure plus tard, `ESSAIS_OUBLI` fois au plus.
+ * Le travail du ménage (worker) : relire, puis supprimer le modèle s'il ne sert plus. Un modèle de l'assistant : rien s'il
+ * est ENCORE branché à un message ou attendu par une préparation. Un template de bloc : rien sans sa marque, ni s'il est
+ * ENCORE nommé par un graphe de l'espace (relus au moment même : un geste a pu le remettre entre-temps). La suppression
+ * garde les campagnes actives ; un refus se retente une heure plus tard, `ESSAIS_OUBLI` fois au plus.
  */
-export async function traiterOubli(
-  deps: { store: Pick<PgShopifyStore, 'messages' | 'attentes'>; supprimerModele: SupprimerModele; programmerOubli: ProgrammerOubli; maintenant?: () => number },
-  donnees: unknown,
-): Promise<'supprime' | 'garde' | 'reessai' | 'abandon' | 'ignore'> {
+export async function traiterOubli(deps: DepsOubli, donnees: unknown): Promise<'supprime' | 'garde' | 'reessai' | 'abandon' | 'ignore'> {
   const j = donnees as Partial<JobOubli> | null;
   if (!j || typeof j.tenantId !== 'string' || typeof j.modele !== 'string' || typeof j.essai !== 'number') return 'ignore';
   const maintenant = (deps.maintenant ?? Date.now)();
-  if (!estModeleDeLAssistant(j.modele, maintenant)) return 'ignore';
-  const [messages, attentes] = await Promise.all([deps.store.messages(j.tenantId), deps.store.attentes(j.tenantId)]);
-  if (messages.some((m) => m.modele === j.modele) || attentes.some((a) => a.modele === j.modele)) return 'garde';
+  if (j.type === 'bloc') {
+    if (typeof j.langue !== 'string') return 'ignore';
+    if ((await deps.blocs.desModeles(j.tenantId, [{ modele: j.modele, langue: j.langue }])).length === 0) return 'ignore';
+    if (await deps.scenarios.nommeLeModele(j.tenantId, j.modele)) return 'garde';
+  } else {
+    if (!estModeleDeLAssistant(j.modele, maintenant)) return 'ignore';
+    const [messages, attentes] = await Promise.all([deps.store.messages(j.tenantId), deps.store.attentes(j.tenantId)]);
+    if (messages.some((m) => m.modele === j.modele) || attentes.some((a) => a.modele === j.modele)) return 'garde';
+  }
   const r = await deps.supprimerModele(j.tenantId, j.modele);
   if (r.ok) {
     journaliser('info', 'shopify_modele_oublie', { tenantId: j.tenantId, modele: j.modele });
     return 'supprime';
   }
   if (j.essai + 1 < ESSAIS_OUBLI) {
-    await deps.programmerOubli({ tenantId: j.tenantId, modele: j.modele, essai: j.essai + 1 }, new Date(maintenant + REESSAI_OUBLI_MS));
+    const suite: JobOubli = j.type === 'bloc' ? { type: 'bloc', tenantId: j.tenantId, modele: j.modele, langue: j.langue, essai: j.essai + 1 } : { tenantId: j.tenantId, modele: j.modele, essai: j.essai + 1 };
+    await deps.programmerOubli(suite, new Date(maintenant + REESSAI_OUBLI_MS));
     journaliser('info', 'shopify_modele_oubli_reporte', { tenantId: j.tenantId, modele: j.modele, raison: r.message, essai: j.essai + 1 });
     return 'reessai';
   }

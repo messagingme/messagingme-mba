@@ -10,6 +10,7 @@ import type { Emission } from '../emails-produit/emission';
 import type { AuditSink } from '../audit/journal';
 import { journaliser } from '../lib/journal';
 import { messageDe, texteDe } from '../lib/erreur';
+import { DELAI_OUBLI_MS, type ProgrammerOubli } from '../shopify/preparation';
 
 /**
  * Les templates écrits ou modifiés depuis un bloc du constructeur (menu « Scénario », lot 3, spec
@@ -129,6 +130,39 @@ export async function creerModeleDuBloc(
 /** Une version programmée, avec ce qu'il faut pour la juger et la dire. */
 export type ProgrammationDeScenario = Programmation & { id: string; nom: string; rayon: Rayon };
 
+/** Ce que la mise en ligne d'un scénario d'automation lit et programme pour le ménage de ses templates remplacés. */
+export interface DepsMenage {
+  lignes: Pick<PgModelesDeBloc, 'desModeles'>;
+  /** Enfiler le travail du ménage à son heure (file `FILE_OUBLI_MODELE`, lié par le câblage). */
+  programmerOubli: ProgrammerOubli;
+  maintenant?: () => number;
+}
+
+/**
+ * LE MÉNAGE DES TEMPLATES REMPLACÉS (spec § 5.1, menu « Scénario », lot 5, tâche 9) : à la mise en ligne d'un scénario
+ * d'automation (rayon Shopify, HubSpot au lot 6), chaque template que la version d'avant envoyait, que la nouvelle ne nomme
+ * plus ET qui a été écrit depuis un bloc (une ligne de `modeles_de_bloc`), est programmé à l'oubli un quart d'heure plus
+ * tard : le travail relit tout avant de supprimer (`traiterOubli`, `src/shopify/preparation.ts`). 🔴 Jamais au rayon
+ * général (décision 14) : un template y peut servir ailleurs, invisible de notre base. Une panne se journalise et la mise
+ * en ligne passe : le template reste simplement dans l'écran Templates.
+ */
+export async function programmerMenage(
+  deps: DepsMenage, tenantId: string, rayon: Rayon, avant: WorkflowGraph | null, apres: WorkflowGraph,
+): Promise<void> {
+  if (rayon === 'general' || avant === null) return;
+  const gardes = new Set(modelesDuGraphe(apres).map((m) => m.modele));
+  const remplaces = modelesDuGraphe(avant).filter((m) => !gardes.has(m.modele));
+  if (remplaces.length === 0) return;
+  try {
+    const quand = new Date((deps.maintenant ?? Date.now)() + DELAI_OUBLI_MS);
+    for (const l of await deps.lignes.desModeles(tenantId, remplaces)) {
+      await deps.programmerOubli({ type: 'bloc', tenantId, modele: l.modele, langue: l.langue, essai: 0 }, quand);
+    }
+  } catch (err) {
+    journaliser('warn', 'menage_modeles_non_programme', { tenantId, err: messageDe(err) });
+  }
+}
+
 /** Ce dont la mise en ligne et le tranchage d'un statut ont besoin (le worker, qui reçoit le statut, ne relit rien). */
 export interface DepsMiseEnLigne {
   lignes: Pick<PgModelesDeBloc, 'desModeles' | 'trancher' | 'rehabiliter'>;
@@ -140,14 +174,19 @@ export interface DepsMiseEnLigne {
   audit: AuditSink;
   /** L'adresse du scénario dans la console (`/workflows?open=<id>`), que les e-mails donnent. */
   lienScenario(workflowId: string): string;
+  /** Le ménage des templates que la mise en ligne remplace (rayons d'automation seulement). */
+  menage: DepsMenage;
 }
 
 /** Ce dont le jugement de « Publier » et le filet ont besoin en plus : relire chez Meta, et les lectures transverses. */
 export interface DepsPublication extends DepsMiseEnLigne {
   lignes: Pick<PgModelesDeBloc, 'desModeles' | 'trancher' | 'rehabiliter' | 'attentesAnciennes'>;
   scenarios: DepsMiseEnLigne['scenarios'] & Pick<PgWorkflowStore, 'programmeesAnciennes'>;
-  /** Le statut d'un template relu chez Meta, hors de tout cache ; null quand il est illisible. */
-  statutModele(tenantId: string, modele: string, langue: string): Promise<{ statut: string; raison: string | null } | null>;
+  /**
+   * Le statut d'un template relu chez Meta, hors de tout cache ; null quand il est illisible (Meta injoignable : on
+   * réessaie), `inconnu` quand Meta ne le connaît plus (supprimé) : il se tranche alors refusé (`statutRelu`).
+   */
+  statutModele(tenantId: string, modele: string, langue: string): Promise<{ statut: string; raison: string | null } | 'inconnu' | null>;
 }
 
 /** Le statut d'un modèle tel que la file des webhooks le lit. */
@@ -182,6 +221,18 @@ const etatTranche = (statut: string): 'approuve' | 'refuse' | null => {
   return s === 'APPROVED' ? 'approuve' : s === 'REJECTED' ? 'refuse' : null;
 };
 
+/** La raison d'un template que Meta ne connaît plus (jaune 3a de la relecture du lot 3 : il attendait « à vie »). */
+export const RAISON_MODELE_INCONNU = 'le template n’existe plus chez Meta (supprimé ?)';
+
+/**
+ * Le statut relu chez Meta, un template INCONNU lu REFUSÉ avec sa raison : sans ça, la ligne restait en validation à vie,
+ * relue à chaque passe du filet, et la version programmée qui l'attend ne partait jamais, sans prévenir personne.
+ */
+async function statutRelu(deps: DepsPublication, tenantId: string, modele: string, langue: string): Promise<{ statut: string; raison: string | null } | null> {
+  const s = await deps.statutModele(tenantId, modele, langue).catch(() => null);
+  return s === 'inconnu' ? { statut: 'REJECTED', raison: RAISON_MODELE_INCONNU } : s;
+}
+
 const raisonDe = (l: LigneModeleDeBloc): string => `Meta a refusé le template « ${l.modele} » (raison : ${l.raison ?? 'non précisée'})`;
 
 /**
@@ -195,7 +246,7 @@ async function lignesRelues(deps: DepsPublication, tenantId: string, g: Workflow
   const lignes = await deps.lignes.desModeles(tenantId, paires);
   return Promise.all(lignes.map(async (l) => {
     if (l.etat === 'approuve') return l;
-    const s = await deps.statutModele(tenantId, l.modele, l.langue).catch(() => null);
+    const s = await statutRelu(deps, tenantId, l.modele, l.langue);
     const etat = s ? etatTranche(s.statut) : null;
     if (!s || !etat) return l;
     if (l.etat === 'refuse') {
@@ -256,11 +307,16 @@ export async function tenterMiseEnLigne(deps: DepsMiseEnLigne, tenantId: string,
   if (refuse) return (await annulerEtDire(deps, tenantId, p, raisonDe(refuse))) ? 'annulee' : 'rien';
   if (lignes.some((l) => l.etat === 'en_validation')) return 'attend_modeles';
   if ((await deps.scenarios.lanceursDuScenario(tenantId, p.id)).some((l) => l.type === 'campagne')) return 'attend_campagne';
-  const controle = await controlesDePublication(p.graphe, p.id, () => deps.scenarios.list(tenantId, p.rayon));
+  // La version en ligne, lue AVANT la mise en ligne : le ménage compare ses templates à ceux qui la remplacent.
+  let rayonLu: Awaited<ReturnType<DepsMiseEnLigne['scenarios']['list']>> | null = null;
+  const duRayon = async () => (rayonLu ??= await deps.scenarios.list(tenantId, p.rayon));
+  const controle = await controlesDePublication(p.graphe, p.id, duRayon, p.rayon);
   if (controle) return (await annulerEtDire(deps, tenantId, p, controle.message)) ? 'annulee' : 'rien';
+  const avant = p.rayon === 'general' ? null : ((await duRayon()).find((w) => w.id === p.id)?.graph ?? null);
 
   const row = await deps.scenarios.mettreEnLigneLaVersionProgrammee(p.id, tenantId, p.le);
   if (!row) return 'rien';
+  await programmerMenage(deps.menage, tenantId, p.rayon, avant, row.graph);
   try {
     await deps.audit(tenantId, { userId: p.par, email: null }, 'workflow.published', { kind: 'workflow', id: p.id }, { blocs: row.graph.nodes.length, programmee: true });
   } catch (err) {
@@ -311,7 +367,7 @@ export async function trancherModeleDeBloc(
 export async function relireModelesDeBloc(deps: DepsPublication, minutes: number, limite: number): Promise<number> {
   let faits = 0;
   for (const a of await deps.lignes.attentesAnciennes(minutes, limite)) {
-    const s = await deps.statutModele(a.tenantId, a.modele, a.langue).catch(() => null);
+    const s = await statutRelu(deps, a.tenantId, a.modele, a.langue);
     if (s === null) continue;
     if ((await trancherModeleDeBloc(deps, a.tenantId, { modele: a.modele, langue: a.langue, ...s })) !== 'rien') faits += 1;
   }

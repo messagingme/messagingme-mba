@@ -5,6 +5,7 @@ import type { VueBoutique } from '../src/shopify/store.pg';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import type { Programmation, WorkflowRow } from '../src/workflow/store.pg';
 import type { TemplateSummary } from '../src/meta/templates';
+import type { JobOubli } from '../src/shopify/preparation';
 
 /**
  * LES FAUX DES LIGNES SHOPIFY (menu « Scénario », lot 5, tâche 8), partagés par les tests de la gestion des lignes, de la
@@ -97,16 +98,29 @@ export class FauxParcours {
   }
 }
 
+/** Le ménage des templates remplacés : les templates « écrits depuis un bloc » (`marques`), et ce qui est programmé. */
+export class FauxMenage {
+  programmes: JobOubli[] = [];
+  constructor(public marques: string[] = []) {}
+  lignes = {
+    desModeles: async (_t: string, paires: ReadonlyArray<{ modele: string; langue: string }>) => paires
+      .filter((p) => this.marques.includes(p.modele))
+      .map((p) => ({ workflowId: 'wf', modele: p.modele, langue: p.langue, etat: 'approuve' as const, raison: null, creeLe: 'x', trancheLe: null })),
+  };
+  programmerOubli = async (job: JobOubli): Promise<void> => { this.programmes.push(job); };
+}
+
 export const modeleMeta = (o: Partial<TemplateSummary> = {}): TemplateSummary => ({
   id: 'm1', name: 'commande_payee', status: 'APPROVED', category: 'UTILITY', language: 'fr', body: 'Merci {{1}}', headerFormat: null,
   buttons: [{ type: 'QUICK_REPLY', text: 'Suivre' }], ...o,
 } as TemplateSummary);
 
 /** Les dépendances des lignes, montées sur ces faux. */
-export function monterLignes(o: { vue?: VueBoutique | null; modeles?: TemplateSummary[]; arretLeve?: boolean; store?: FauxBoutique } = {}) {
+export function monterLignes(o: { vue?: VueBoutique | null; modeles?: TemplateSummary[]; arretLeve?: boolean; store?: FauxBoutique; marques?: string[] } = {}) {
   const store = o.store ?? new FauxBoutique(o.vue === undefined ? VUE_LIGNES : o.vue);
   const workflows = new FauxScenarios();
   const parcours = new FauxParcours(o.arretLeve === true);
-  const deps: DepsLignesShopify = { store, workflows, parcours, modeles: async () => o.modeles ?? [modeleMeta()] };
-  return { deps, store, workflows, parcours };
+  const menage = new FauxMenage(o.marques);
+  const deps: DepsLignesShopify = { store, workflows, parcours, modeles: async () => o.modeles ?? [modeleMeta()], menage };
+  return { deps, store, workflows, parcours, menage };
 }

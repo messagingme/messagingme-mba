@@ -14,6 +14,16 @@ export interface LigneShopify {
 }
 
 /**
+ * Le nom de l'automation d'un événement, et du scénario de sa ligne (unique dans le rayon `shopify` de l'espace) : la
+ * console, `get_shopify_state` et le refus de supprimer un scénario tenu par une ligne le disent.
+ */
+export const NOM_DU_SCENARIO: Readonly<Record<EvenementShopify, string>> = {
+  order_paid: 'Commande payée',
+  order_fulfilled: 'Commande expédiée',
+  checkout_abandoned: 'Panier abandonné',
+};
+
+/**
  * Le sujet du webhook de chaque événement : celui de la clé d'idempotence d'aujourd'hui, et donc celui de l'origine d'un
  * parcours (`shopify:<domaine>:<sujet>:<référence>`), que la règle « encore voulu » relit (`./parcours-voulu.ts`).
  */

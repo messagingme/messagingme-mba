@@ -27,7 +27,7 @@ import { PgShopifyStore } from './shopify/store.pg';
 import { PgVentesStore } from './shopify/ventes.pg';
 import { FILE_PREUVE_UTM, traiterPreuveUtm, type DepsPreuveUtm } from './shopify/preuve-utm';
 import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
-import { FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type ProgrammerOubli } from './shopify/preparation';
+import { FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsOubli, type ProgrammerOubli } from './shopify/preparation';
 import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
 import { surStatutDesModeles, trancherModeleDeBloc, type DepsMiseEnLigne } from './workflow/modeles-de-bloc';
 import { PgTemplateHintStore } from './crm/template-hints.pg';
@@ -512,8 +512,13 @@ export async function demarrerWorker(): Promise<void> {
    * l'abonnement à la file : un job peut arriver dès que le worker l'écoute.
    */
   const programmerOubliShopify: ProgrammerOubli = (job, quand) => queue.enqueue(FILE_OUBLI_MODELE, job, { groupId: job.tenantId, startAfter: quand });
-  const oubliShopify = {
+  // Les templates écrits depuis un bloc (lot 3) : leur marque, que le ménage relit (lot 5), et leur mise en ligne.
+  const modelesDeBlocStore = new PgModelesDeBloc(pool);
+  const oubliShopify: DepsOubli = {
     store: new PgShopifyStore(pool, config.ENCRYPTION_KEY),
+    // Le ménage des templates de bloc d'un scénario d'automation (lot 5) : la marque, et « un graphe le nomme-t-il encore ? ».
+    blocs: modelesDeBlocStore,
+    scenarios: workflowStore,
     supprimerModele: suppressionDesModeles({ meta: metaFactory, repo, indices: indicesDesModeles }),
     programmerOubli: programmerOubliShopify,
   };
@@ -525,11 +530,13 @@ export async function demarrerWorker(): Promise<void> {
    * reçoit le statut : il ne relit rien chez Meta (le filet de l'API le fait).
    */
   const miseEnLigneDesScenarios: DepsMiseEnLigne = {
-    lignes: new PgModelesDeBloc(pool),
+    lignes: modelesDeBlocStore,
     scenarios: workflowStore,
     emails: { emettre: (e) => emetteurEmails.emettre(e) },
     audit: (tenant, actor, action, target, detail) => auditStore.record(tenant, actor, action, target, detail),
     lienScenario: (id) => `${config.APP_URL.trim().replace(/\/+$/, '')}/workflows?open=${id}`,
+    // Une version programmée d'une automation qui part : le ménage des templates qu'elle remplace (spec § 5.1).
+    menage: { lignes: modelesDeBlocStore, programmerOubli: programmerOubliShopify },
   };
 
   /**

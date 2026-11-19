@@ -6,6 +6,7 @@ import { scanOpening } from './engine';
 import { estRayon, type Rayon } from './rayon';
 import { AUTOMATION_TRIGGER_KINDS, type AutomationTriggerKind } from '../../web/lib/partage/automations';
 import type { Lanceur } from '../../web/lib/partage/fenetre-scenario';
+import { NOM_DU_SCENARIO } from '../shopify/lignes';
 
 /**
  * Par quoi ce scénario ouvre, quand il peut ouvrir une campagne. `null` = il ne le peut pas.
@@ -191,7 +192,12 @@ export type LigneApi = WorkflowRow & { origine: 'console' | 'api' };
  * (relevé des clés étrangères vers `workflows`) sauf ses propres traces (`workflow_runs`, `workflow_node_events`,
  * `workflow_reports`), plus le répondeur et les « Aller à » d'autres scénarios, qui n'ont pas de clé étrangère. Une
  * campagne ne compte que tant qu'elle peut encore partir. Tout est scopé à l'espace.
+ *
+ * 🔴 La ligne Shopify qui tient le scénario (lot 5) : `shopify_lignes.workflow_id` est en `on delete cascade` (0299), une
+ * suppression emporterait l'automation en silence. Son nom vient de `NOM_DU_SCENARIO` (constantes du serveur, aucune saisie).
  */
+const NOM_DE_LA_LIGNE = `case l.evenement ${Object.entries(NOM_DU_SCENARIO).map(([e, n]) => `when '${e}' then '${n}'`).join(' ')} end`;
+
 const UTILISATIONS = `
   select 'l’automation « ' || name || ' »' as u from automations where tenant_id = $1 and workflow_id = $2
   union all
@@ -208,6 +214,8 @@ const UTILISATIONS = `
   select 'un lien de chaîne WhatsApp' from channelsme_links where tenant_id = $1 and workflow_id = $2
   union all
   select 'le répondeur de l’espace' from tenant_settings where tenant_id = $1 and repondeur_workflow_id = $2
+  union all
+  select 'l’automation Shopify « ' || ${NOM_DE_LA_LIGNE} || ' »' from shopify_lignes l where l.tenant_id = $1 and l.workflow_id = $2
   union all
   select 'le bloc « Aller à » du scénario « ' || w2.name || ' »' from workflows w2
    where w2.tenant_id = $1 and w2.id <> $2 and w2.systeme is null and exists (
@@ -695,6 +703,23 @@ export class PgWorkflowStore {
       [tenantId, [...ids]],
     );
     return new Map(r.rows.map((x) => [x.id, x.graph ?? EMPTY_GRAPH]));
+  }
+
+  /**
+   * Un graphe de l'espace nomme-t-il encore ce template (un bloc `template`, nom lu sans ses espaces comme `actionOf`) ? Le
+   * publié, le brouillon et la version programmée, TOUS rayons, scénario système compris : le ménage des templates de bloc
+   * (`traiterOubli`) ne supprime chez Meta que ce que plus rien ici n'envoie ni n'enverra.
+   */
+  async nommeLeModele(tenantId: string, modele: string): Promise<boolean> {
+    const r = await this.pool.query<{ nomme: boolean }>(
+      `select exists (
+         select 1 from workflows w
+          cross join lateral jsonb_array_elements(coalesce(w.graph->'nodes', '[]'::jsonb)
+            || coalesce(w.draft_graph->'nodes', '[]'::jsonb) || coalesce(w.programmed_graph->'nodes', '[]'::jsonb)) n
+          where w.tenant_id = $1 and n->>'type' = 'template' and btrim(n->'data'->>'templateName') = $2) as nomme`,
+      [tenantId, modele],
+    );
+    return r.rows[0]?.nomme === true;
   }
 
   /** Ce qui utilise ce scénario (`UTILISATIONS`) : vide = il peut partir. */

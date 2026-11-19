@@ -30,6 +30,33 @@ export function blocVerrouille(graphe: WorkflowGraph): WorkflowNode | null {
   return marques.length === 1 ? marques[0]! : null;
 }
 
+/**
+ * LE VERROU DU PREMIER BLOC (décisions 13 et 23, lot 5 tâche 9) : dans un scénario du rayon Shopify, le bloc marqué reste
+ * le MÊME (`attendu`, l'identifiant du bloc marqué du graphe en place), reste un template, et rien n'y mène (ni flèche, ni
+ * « Aller à » du scénario). La marque n'est posée que par le serveur : en poser une, l'ôter ou la déplacer par un corps
+ * reçu est refusé, comme un graphe en place qui n'en a plus (`attendu` null). Rend la phrase du refus, ou null.
+ */
+export function refusDuVerrou(graphe: WorkflowGraph, attendu: string | null): string | null {
+  const bloc = blocVerrouille(graphe);
+  if (attendu === null || bloc === null || bloc.id !== attendu) {
+    return 'le premier bloc d’une automation (le template qui l’ouvre) ne se supprime pas et ne se déplace pas';
+  }
+  if (bloc.type !== 'template') return 'le premier bloc d’une automation reste un template';
+  if (graphe.edges.some((e) => e.target === bloc.id)) return 'rien n’y mène : le premier bloc ouvre le scénario de l’automation';
+  const code = typeof bloc.data.code === 'string' ? bloc.data.code : null;
+  if (code !== null && graphe.nodes.some((n) => n.type === 'aller_a' && n.data.cible === code)) {
+    return 'un « Aller à » ne vise jamais le premier bloc d’une automation';
+  }
+  return null;
+}
+
+/** Un « Aller à » de ce graphe vise-t-il le premier bloc verrouillé d'un de ces graphes (ceux des autres scénarios) ? */
+export function viseUnPremierBloc(graphe: WorkflowGraph, autres: readonly WorkflowGraph[]): boolean {
+  const cibles = new Set(graphe.nodes.flatMap((n) => (n.type === 'aller_a' && typeof n.data.cible === 'string' ? [n.data.cible] : [])));
+  if (cibles.size === 0) return false;
+  return autres.some((g) => g.nodes.some((n) => estBlocVerrouille(n) && typeof n.data.code === 'string' && cibles.has(n.data.code)));
+}
+
 export interface LecturesPremierBloc {
   /** Le magasin des scénarios, passé ENTIER (ses méthodes lisent `this`). */
   workflows: { getById(id: string, tenantId: string): Promise<WorkflowRow | null> };

@@ -124,6 +124,16 @@ describe('le template du premier bloc (set_shopify_message)', () => {
     expect(m.workflows.programmees.size).toBe(0);
   });
 
+  it('🔴 le template remplacé, écrit depuis un bloc, part au ménage ; un template choisi à la main jamais', async () => {
+    const m = monter({ modeles: [modele(), modele({ id: 'm2', name: 'commande_payee_v2' })], marques: ['commande_payee'] });
+    await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: [] }, 'u1');
+    expect(m.menage.programmes, 'la première pose ne remplace rien').toEqual([]);
+    await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'commande_payee_v2', langue: 'fr', variables: [] }, 'u1');
+    expect(m.menage.programmes).toEqual([{ type: 'bloc', tenantId: T, modele: 'commande_payee', langue: 'fr', essai: 0 }]);
+    await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: [] }, 'u1');
+    expect(m.menage.programmes, 'commande_payee_v2 n’est pas marqué : il reste').toHaveLength(1);
+  });
+
   it('un template absent chez Meta est refusé, sans rien créer', async () => {
     const m = monter({ modeles: [] });
     expect(await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'inconnu', langue: 'fr', variables: [] }, 'u1')).toMatchObject({ ok: false, statut: 422 });

@@ -14,11 +14,12 @@ import { executerFonctionJs } from '../workflow/fonction-js';
 import { sautsDeLaCopie } from '../workflow/aller-a';
 import { controlesDePublication } from '../workflow/publication';
 import {
-  creerModeleDuBloc, jugerPublication, modelesDuGraphe, type DepsCreationDeBloc, type DepsPublication,
+  creerModeleDuBloc, jugerPublication, modelesDuGraphe, programmerMenage, type DepsCreationDeBloc, type DepsPublication,
 } from '../workflow/modeles-de-bloc';
 import { tagsInGraph } from '../workflow/tags-du-graphe';
 import type { Rayon } from '../workflow/rayon';
 import { departsDuScenario, type Lanceur } from '../../web/lib/partage/fenetre-scenario';
+import { blocVerrouille, refusDuVerrou } from '../shopify/premier-bloc';
 
 /**
  * La sauvegarde n'exige pas qu'un scénario commence par un template : un scénario qui ouvre sur un message de
@@ -193,10 +194,13 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
   // node porte son code public (nod_..., ou null s'il n'a jamais été re-sauvegardé). Lecture dérivée des workflows.
   app.get('/tenants/:tenantId/nodes', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const q = (req.query ?? {}) as { type?: unknown };
+    const q = (req.query ?? {}) as { type?: unknown; scenario?: unknown };
     const type = isWorkflowNodeType(q.type) ? q.type : undefined;
-    // Les blocs du Builder : un code `nod_` ne se résout que là (`/v1`, décision 1 du menu « Scénario »).
-    const workflows = await deps.scenarios.list(tenant, 'general');
+    // Les blocs du Builder : un code `nod_` ne se résout que là (`/v1`, décision 1 du menu « Scénario »). Le builder d'un
+    // scénario d'automation demande ceux de SON rayon (`?scenario=`, jaune du lot 2) : un « Aller à » reste dans le rayon.
+    let rayon: Rayon = 'general';
+    if (typeof q.scenario === 'string' && estUuid(q.scenario)) rayon = (await deps.scenarios.getById(q.scenario, tenant))?.rayon ?? 'general';
+    const workflows = await deps.scenarios.list(tenant, rayon);
     return reply.code(200).send({ nodes: collectNodes(workflows, type) });
   });
 
@@ -230,6 +234,16 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
       patch.graph = mintNodeCodes(graph, await deps.tenantCode(tenant));
     }
     if (Object.keys(patch).length === 0) return reply.code(400).send({ error: 'rien à modifier (name/graph)' });
+    // 🔴 Le verrou du premier bloc (rayon Shopify, lot 5, décisions 13 et 23) : le graphe enregistré garde le bloc marqué du
+    // graphe en place, un template où rien ne mène. La marque n'est posée que par le serveur.
+    if (patch.graph) {
+      const enPlace = await deps.scenarios.getById(id, tenant);
+      if (!enPlace) return reply.code(404).send({ error: 'workflow inconnu' });
+      if (enPlace.rayon === 'shopify') {
+        const refus = refusDuVerrou(patch.graph, blocVerrouille(grapheEditable(enPlace))?.id ?? null);
+        if (refus !== null) return reply.code(422).send({ error: `Enregistrement refusé : ${refus}.`, code: 'premier_bloc_verrouille' });
+      }
+    }
 
     const maj = await deps.scenarios.update(id, tenant, patch);
     if (!maj.trouve) return reply.code(404).send({ error: 'workflow inconnu' });
@@ -262,7 +276,7 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
       const brouillon = avant.draftGraph;
       // Les contrôles du graphe (Question qui attend un fichier, « Puis, sans attendre », « Aller à » du même rayon) :
       // les mêmes que la mise en ligne d'une version programmée rejoue (`controlesDePublication`).
-      const refus = await controlesDePublication(brouillon, id, () => deps.scenarios.list(tenant, avant.rayon));
+      const refus = await controlesDePublication(brouillon, id, () => deps.scenarios.list(tenant, avant.rayon), avant.rayon);
       if (refus !== null) return reply.code(422).send({ error: `Publication refusée : ${refus.message}.`, code: refus.code });
       // 🔴 Un template écrit depuis un bloc et encore en validation chez Meta (lot 3, décision 18) : la mise en ligne se
       // PROGRAMME (202), sous réserve qu'aucune campagne active n'utilise le scénario. Un scénario sans template de bloc
@@ -279,6 +293,8 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     // Le brouillon JUGÉ, pas celui du moment (relecture de 3a) : un enregistrement tombé pendant le jugement reste un brouillon.
     const row = await deps.scenarios.publish(id, tenant, avant?.draftGraph ?? undefined);
     if (!row) return reply.code(404).send({ error: 'workflow inconnu' });
+    // Le ménage des templates que cette version remplace (rayons d'automation, spec § 5.1) : best-effort, il ne bloque rien.
+    if (avant) await programmerMenage(deps.modelesDeBloc.publication.menage, tenant, avant.rayon, avant.graph, row.graph);
     // Le journal porte qui a publié : la table `workflows`, elle, ne garde que la date. Détail non identifiant
     // (un nombre de blocs), comme partout dans ce journal.
     await journal(tenant, req, 'workflow.published', { kind: 'workflow', id }, { blocs: row.graph.nodes.length });

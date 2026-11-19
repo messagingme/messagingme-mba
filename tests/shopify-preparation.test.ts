@@ -67,6 +67,9 @@ describe('le travail du ménage (worker)', () => {
     const journal = { supprimes: [] as string[], programmes: [] as Array<{ job: JobOubli; quand: Date }> };
     const deps = {
       store: { messages: async () => o.messages ?? [], attentes: async () => o.attentes ?? [] },
+      // Le chemin des templates de bloc (lot 5) : jamais lu pour un modèle de l'assistant.
+      blocs: { desModeles: async () => { throw new Error('desModeles : hors du chemin de l’assistant'); } },
+      scenarios: { nommeLeModele: async () => { throw new Error('nommeLeModele : hors du chemin de l’assistant'); } },
       supprimerModele: async (_t: string, nom: string) => { journal.supprimes.push(nom); return o.issue ?? { ok: true as const }; },
       programmerOubli: async (j: JobOubli, quand: Date) => { journal.programmes.push({ job: j, quand }); },
       maintenant: () => MAINTENANT,

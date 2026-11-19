@@ -22,7 +22,9 @@ const programmation = (g: WorkflowGraph, id = 'wf1'): ProgrammationDeScenario =>
 
 function monter(o: {
   lignes?: LigneModeleDeBloc[];
-  meta?: Record<string, { statut: string; raison: string | null } | 'panne'>;
+  meta?: Record<string, { statut: string; raison: string | null } | 'panne' | 'inconnu'>;
+  /** Les scénarios du rayon tels qu'en ligne (la version qu'une mise en ligne remplace, le verrou du premier bloc). */
+  enLigne?: WorkflowRow[];
   campagnes?: string[];
   programmees?: ProgrammationDeScenario[];
   anciennes?: Array<ProgrammationDeScenario & { tenantId: string }>;
@@ -32,7 +34,7 @@ function monter(o: {
 } = {}) {
   const lignes = new Map((o.lignes ?? []).map((l) => [`${l.modele}|${l.langue}`, { ...l }]));
   const appels = {
-    meta: [] as string[], tranches: [] as string[], rehabilites: [] as string[], lanceurs: 0, misEnLigne: [] as string[], annules: [] as Array<string | null>,
+    meta: [] as string[], oublis: [] as unknown[], tranches: [] as string[], rehabilites: [] as string[], lanceurs: 0, misEnLigne: [] as string[], annules: [] as Array<string | null>,
     emails: [] as Array<{ cle: string; occasion: string; valeurs: Record<string, string> }>, audit: [] as Array<{ action: string; detail: unknown }>,
   };
   const deps: DepsPublication = {
@@ -56,7 +58,7 @@ function monter(o: {
     },
     scenarios: {
       lanceursDuScenario: async (): Promise<Lanceur[]> => { appels.lanceurs += 1; return (o.campagnes ?? []).map((nom) => ({ type: 'campagne', nom, declencheur: null, blocDeDepart: null })); },
-      list: async () => [],
+      list: async () => o.enLigne ?? [],
       programmeesDeLEspace: async () => o.programmees ?? [],
       programmeesAnciennes: async () => o.anciennes ?? [],
       mettreEnLigneLaVersionProgrammee: async (id, _t, le) => {
@@ -75,6 +77,10 @@ function monter(o: {
     emails: { emettre: async (e) => { appels.emails.push({ cle: e.cle, occasion: e.occasion, valeurs: e.valeurs as Record<string, string> }); } },
     audit: async (_t, _acteur, action, _cible, detail) => { appels.audit.push({ action, detail }); },
     lienScenario: (id) => `https://console.test/workflows?open=${id}`,
+    menage: {
+      lignes: { desModeles: async (_t, paires) => paires.flatMap((p) => { const l = lignes.get(`${p.modele}|${p.langue}`); return l ? [{ ...l }] : []; }) },
+      programmerOubli: async (job) => { appels.oublis.push(job); },
+    },
   };
   return { deps, appels, lignes };
 }
@@ -179,6 +185,17 @@ describe('tenterMiseEnLigne', () => {
     expect(refuse.appels.emails).toEqual([]);
   });
 
+  it('🔴 la version programmée d’une automation qui part programme le ménage du template qu’elle remplace ; le Builder général jamais', async () => {
+    const verrouille = (nom: string) => ({ id: 'depart', type: 'template', position: { x: 0, y: 0 }, data: { templateName: nom, language: 'fr', verrouille: true } });
+    const avant = { id: 'wf1', rayon: 'shopify', graph: graphe(verrouille('ancien')) } as WorkflowRow;
+    const shopify = monter({ lignes: [ligneDe('a', 'approuve'), ligneDe('ancien', 'approuve')], enLigne: [avant] });
+    expect(await tenterMiseEnLigne(shopify.deps, 't1', { ...programmation(graphe(verrouille('a'))), rayon: 'shopify' })).toBe('en_ligne');
+    expect(shopify.appels.oublis).toEqual([{ type: 'bloc', tenantId: 't1', modele: 'ancien', langue: 'fr', essai: 0 }]);
+    const general = monter({ lignes: [ligneDe('a', 'approuve'), ligneDe('ancien', 'approuve')], enLigne: [{ ...avant, rayon: 'general' }] });
+    expect(await tenterMiseEnLigne(general.deps, 't1', programmation(graphe(tpl('n1', 'a'))))).toBe('en_ligne');
+    expect(general.appels.oublis).toEqual([]);
+  });
+
   it('les contrôles de publication se rejouent : un refus annule la programmation et le dit', async () => {
     const question = { id: 'q', type: 'question', position: { x: 0, y: 0 }, data: { body: 'Votre pièce ?', attendreFichier: true } };
     const { deps, appels } = monter({ lignes: [ligneDe('a', 'approuve')] });
@@ -240,6 +257,26 @@ describe('relireModelesDeBloc (le filet)', () => {
     expect(await relireModelesDeBloc(deps, 10, 20)).toBe(2);
     expect(appels.tranches).toEqual(['a:approuve']);
     expect(appels.misEnLigne).toEqual([`wf3@${LE}`]);
+  });
+});
+
+describe('un template supprimé chez Meta (jaune 3a « en validation à vie »)', () => {
+  it('🔴 le filet le tranche refusé, avec la raison : sa version programmée tombe et le dit, au lieu d’attendre à vie', async () => {
+    const { deps, appels } = monter({
+      lignes: [ligneDe('a', 'en_validation')], meta: { a: 'inconnu' }, programmees: [programmation(graphe(tpl('n1', 'a')))],
+    });
+    expect(await relireModelesDeBloc(deps, 10, 20)).toBe(1);
+    expect(appels.tranches).toEqual(['a:refuse']);
+    expect(appels.annules).toEqual([LE]);
+    expect(appels.emails).toHaveLength(1);
+    expect(appels.emails[0]!.valeurs.raison).toContain('n’existe plus chez Meta');
+  });
+
+  it('🔴 « Publier » le voit aussi : refus avec la raison, rien ne se programme', async () => {
+    const { deps } = monter({ lignes: [ligneDe('a', 'en_validation')], meta: { a: 'inconnu' } });
+    const j = await jugerPublication(deps, 't1', 'wf1', graphe(tpl('n1', 'a')));
+    expect(j).toMatchObject({ type: 'refus', code: 'modele_refuse' });
+    expect((j as { erreur: string }).erreur).toContain('n’existe plus chez Meta');
   });
 });
 

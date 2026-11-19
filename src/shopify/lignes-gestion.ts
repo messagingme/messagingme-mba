@@ -4,8 +4,9 @@ import type { TemplateSummary } from '../meta/templates';
 import type { WorkflowGraph, WorkflowNode } from '../workflow/graph';
 import type { PgWorkflowStore } from '../workflow/store.pg';
 import type { WorkflowExecutor } from '../workflow/executor';
+import { programmerMenage, type DepsMenage } from '../workflow/modeles-de-bloc';
 import { DELAI_PANIER_MAX, DELAI_PANIER_MIN, EVENEMENTS_SHOPIFY, type DonneeShopify, type EvenementShopify } from './donnees';
-import { prefixeShopify, type LigneShopify } from './lignes';
+import { NOM_DU_SCENARIO, prefixeShopify, type LigneShopify } from './lignes';
 import { blocVerrouille, estBlocVerrouille, MARQUE_PREMIER_BLOC } from './premier-bloc';
 import type { PgShopifyStore } from './store.pg';
 
@@ -27,18 +28,15 @@ export interface DepsLignesShopify {
   parcours: Pick<WorkflowExecutor, 'arreterParcours'>;
   /** Les templates de l'espace chez Meta (`listerModeles`) : le statut et les boutons du premier template. */
   modeles(tenantId: string): Promise<readonly TemplateSummary[]>;
+  /** Le ménage du template que le premier bloc remplace (spec § 5.1) : programmé, jamais supprimé ici. */
+  menage: DepsMenage;
 }
 
 export type Refus = { ok: false; statut: 400 | 409 | 422 | 503; message: string };
 export type Issue<T> = { ok: true; valeur: T } | Refus;
 const refus = (statut: Refus['statut'], message: string): Refus => ({ ok: false, statut, message });
 
-/** Le nom du scénario d'une ligne, unique dans le rayon `shopify` de l'espace. */
-export const NOM_DU_SCENARIO: Readonly<Record<EvenementShopify, string>> = {
-  order_paid: 'Commande payée',
-  order_fulfilled: 'Commande expédiée',
-  checkout_abandoned: 'Panier abandonné',
-};
+export { NOM_DU_SCENARIO };
 
 /** Le graphe d'une ligne neuve : un seul bloc, le template verrouillé, sans template ni flèche. */
 export function grapheDUneLigne(): WorkflowGraph {
@@ -158,6 +156,7 @@ export async function brancherLePremierBloc(
   if (publie === null) return refus(409, 'Le scénario de cette automation n’a plus son premier bloc.');
   const programmee = await deps.workflows.publicationProgrammee(wf.id, tenantId);
   await deps.workflows.publish(wf.id, tenantId, publie);
+  await programmerMenage(deps.menage, tenantId, 'shopify', wf.graph, publie);
   const brouillon = wf.draftGraph ? avecLePremierBloc(wf.draftGraph, data) : null;
   if (brouillon !== null) await deps.workflows.update(wf.id, tenantId, { graph: brouillon });
   return { ok: true, valeur: { ligne: (await deps.store.ligne(tenantId, b.evenement)) ?? ligne, programmationAnnulee: programmee !== null } };

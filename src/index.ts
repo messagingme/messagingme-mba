@@ -113,10 +113,11 @@ import { demanderJeton, verifierBoutique } from './shopify/connexion';
 import { lireClientsAbonnes } from './shopify/clients';
 import { abonnerWebhooks } from './shopify/abonnements';
 import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
-import { relireModelesDeBloc, type DepsPublication } from './workflow/modeles-de-bloc';
+import { relireModelesDeBloc, type DepsMenage, type DepsPublication } from './workflow/modeles-de-bloc';
 import type { ModelesDeBlocDep } from './http/workflows';
 import { importContacts } from './crm/import';
 import type { DepsGestionShopify } from './shopify/gestion';
+import { FILE_OUBLI_MODELE } from './shopify/preparation';
 import { traiterWebhookShopify, type DepsTraitementShopify } from './shopify/traitement';
 import { relancerPaniers, type DepsRelance } from './shopify/relance';
 import { effacerContacts } from './crm/effacement';
@@ -1707,6 +1708,16 @@ async function main(): Promise<void> {
     ia: (t, r) => coutLeviersStore.lireIaParJour(t, r),
     prix: (t, r) => chiffrage.getPrixLeviers(t, r),
   }, tenant, range);
+  /**
+   * Les templates écrits depuis un bloc (lot 3) et le MÉNAGE de ceux qu'une mise en ligne remplace dans un scénario
+   * d'automation (lot 5, spec § 5.1) : l'API ne fait que PROGRAMMER l'oubli, le worker le traite un quart d'heure plus tard
+   * (`traiterOubli`, qui relit tout avant de supprimer).
+   */
+  const modelesDeBlocStore = new PgModelesDeBloc(pool);
+  const menageDesModeles: DepsMenage = {
+    lignes: modelesDeBlocStore,
+    programmerOubli: (job, quand) => queue.enqueue(FILE_OUBLI_MODELE, job, { groupId: job.tenantId, startAfter: quand }),
+  };
   const gestionShopify: DepsGestionShopify = {
     store: shopifyStore,
     verifier: (domaine, clientId, secret) => verifierBoutique(domaine, clientId, secret),
@@ -1726,7 +1737,7 @@ async function main(): Promise<void> {
     chiffreVentes: lireChiffreVentes,
     // Les lignes et leurs scénarios (menu « Scénario », lot 5) : les magasins et l'exécuteur ENTIERS (leurs méthodes lisent
     // `this`) ; les templates, la MÊME liste que le catalogue (une minute de cache).
-    lignes: { store: shopifyStore, workflows: workflowStore, parcours: workflowRuntime.executor, modeles: listerModeles },
+    lignes: { store: shopifyStore, workflows: workflowStore, parcours: workflowRuntime.executor, modeles: listerModeles, menage: menageDesModeles },
   };
   const traitementShopify: DepsTraitementShopify = {
     store: shopifyStore,
@@ -1765,10 +1776,13 @@ async function main(): Promise<void> {
   };
   let relancePaniersEnCours = false;
 
-  /** Le statut d'un template relu chez Meta, hors de tout cache : le filet des templates de bloc (lot 3) le lit. */
+  /**
+   * Le statut d'un template relu chez Meta, hors de tout cache : le filet des templates de bloc (lot 3) le lit. Un template
+   * que Meta ne connaît plus rend `inconnu` (il se tranche refusé) ; toute autre panne, null (on réessaie).
+   */
   const statutModeleChezMeta = async (tenant: string, modele: string, langue: string) => {
     const r = await statutsDuModele({ modeles: depsModeles }, tenant, modele, langue);
-    if ('refus' in r) return null;
+    if ('refus' in r) return r.refus.code === 'template_not_found' ? 'inconnu' as const : null;
     const s = r.languages[0];
     return s ? { statut: s.status, raison: s.rejectedReason } : null;
   };
@@ -1779,7 +1793,6 @@ async function main(): Promise<void> {
    * relecture de statut chez Meta que le filet Shopify (hors de tout cache), les e-mails aux administrateurs, et un filet
    * qui tourne au même tour que celui de Shopify.
    */
-  const modelesDeBlocStore = new PgModelesDeBloc(pool);
   const publicationDesScenarios: DepsPublication = {
     lignes: modelesDeBlocStore,
     scenarios: workflowStore,
@@ -1787,6 +1800,7 @@ async function main(): Promise<void> {
     emails: emetteurEmails,
     audit: auditSink,
     lienScenario: (id) => `${config.APP_URL.trim().replace(/\/+$/, '')}/workflows?open=${id}`,
+    menage: menageDesModeles,
   };
   const modelesDeBloc: ModelesDeBlocDep = {
     creation: { gestion: depsModeles, scenarios: workflowStore, lignes: modelesDeBlocStore, maintenant: () => new Date() },

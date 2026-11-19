@@ -857,3 +857,112 @@ describe('🔴 templates de bloc et publication programmée (menu « Scénario �
     await sans.server.close();
   });
 });
+
+/**
+ * LE VERROU DU PREMIER BLOC D'UNE AUTOMATION (menu « Scénario », lot 5, tâche 9 ; décisions 13 et 23) : dans le rayon
+ * Shopify, l'enregistrement et la publication refusent un graphe qui perd, déplace ou change le bloc marqué, ou qui y mène ;
+ * un « Aller à » ne vise jamais le premier bloc d'une autre automation. Le rayon général n'en voit rien.
+ */
+describe('le verrou du premier bloc (rayon Shopify)', () => {
+  const W2 = '22222222-2222-4222-8222-222222222222';
+  const depart = (code?: string) => ({
+    id: 'depart', type: 'template' as const, position: { x: 0, y: 0 },
+    data: { verrouille: true, templateName: 'commande_payee', ...(code ? { code } : {}) },
+  });
+  const merci = { id: 'merci', type: 'quick_message' as const, position: { x: 0, y: 1 }, data: { body: 'Merci' } };
+  const ligne = (over: Partial<WorkflowRow> = {}): WorkflowRow => sampleRow({
+    rayon: 'shopify', name: 'Commande payée', graph: { nodes: [depart('nod_k7m2p3_01')], edges: [] }, ...over,
+  });
+  const suite = { nodes: [depart(), merci], edges: [{ id: 'e1', source: 'depart', target: 'merci' }] };
+
+  it('🔴 PATCH : un graphe qui perd le premier bloc est refusé (422), rien n’est écrit ; sa suite passe', async () => {
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? ligne() : null) } });
+    const perdu = await server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: { nodes: [merci], edges: [] } } });
+    expect(perdu.statusCode).toBe(422);
+    expect(perdu.json()).toMatchObject({ code: 'premier_bloc_verrouille', error: expect.stringContaining('premier bloc') });
+    expect(cap.updated).toEqual([]);
+    const ok = await server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: suite } });
+    expect(ok.statusCode).toBe(200);
+    expect(cap.updated).toHaveLength(1);
+    await server.close();
+  });
+
+  it('le rayon général n’a pas de verrou ; un PATCH du nom seul ne juge aucun graphe', async () => {
+    const general = app();
+    expect((await general.server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: { nodes: [merci], edges: [] } } })).statusCode).toBe(200);
+    await general.server.close();
+    const nom = app({ scenarios: { getById: async (id) => (id === W1 ? ligne() : null) } });
+    expect((await nom.server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { name: 'Merci pour la commande' } })).statusCode).toBe(200);
+    await nom.server.close();
+  });
+
+  it('🔴 publication : un brouillon qui a perdu le premier bloc est refusé (422), rien n’est publié', async () => {
+    const enCours = ligne({ draftGraph: { nodes: [merci], edges: [] } });
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? enCours : null), list: async () => [enCours] } });
+    const r = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok) });
+    expect(r.statusCode).toBe(422);
+    expect(r.json()).toMatchObject({ code: 'premier_bloc_verrouille' });
+    expect(cap.publies).toEqual([]);
+    await server.close();
+  });
+
+  it('une copie jamais publiée d’une automation se publie : son brouillon, écrit par le serveur, fait référence', async () => {
+    const copie = ligne({ name: 'Commande payée (copie)', graph: { nodes: [], edges: [] }, draftGraph: suite });
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? copie : null), list: async () => [copie] } });
+    expect((await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok) })).statusCode).toBe(200);
+    expect(cap.publies).toEqual([W1]);
+    await server.close();
+  });
+
+  it('🔴 publication : un « Aller à » vers le premier bloc d’une autre automation est refusé', async () => {
+    const autre = sampleRow({
+      id: W2, rayon: 'shopify', name: 'Panier abandonné',
+      graph: { nodes: [{ ...depart(), id: 'depart2' }], edges: [] },
+      draftGraph: {
+        nodes: [{ ...depart(), id: 'depart2' }, { id: 'saut', type: 'aller_a', position: { x: 0, y: 1 }, data: { cible: 'nod_k7m2p3_01' } }],
+        edges: [{ id: 'e1', source: 'depart2', target: 'saut' }],
+      },
+    });
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W2 ? autre : id === W1 ? ligne() : null), list: async () => [ligne(), autre] } });
+    const r = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W2}/publish`, ...h(adminTok) });
+    expect(r.statusCode).toBe(422);
+    expect(r.json()).toMatchObject({ code: 'aller_a_invalide', error: expect.stringContaining('premier bloc') });
+    expect(cap.publies).toEqual([]);
+    await server.close();
+  });
+
+  it('🔴 la publication d’un scénario Shopify programme le ménage du template remplacé ; le rayon général jamais', async () => {
+    const programmes: unknown[] = [];
+    const menage = {
+      lignes: { desModeles: async (_t: string, paires: ReadonlyArray<{ modele: string; langue: string }>) => paires.map((p) => ({ workflowId: W1, modele: p.modele, langue: p.langue, etat: 'approuve' as const, raison: null, creeLe: 'x', trancheLe: null })) },
+      programmerOubli: async (job: unknown) => { programmes.push(job); },
+    };
+    const avecMenage = { ...modelesDeBlocInertes, publication: { ...modelesDeBlocInertes.publication, menage } };
+    const v2 = { nodes: [{ ...depart(), data: { verrouille: true, templateName: 'commande_payee_v2' } }], edges: [] };
+    const enCours = ligne({ draftGraph: v2 });
+    const shopify = app({
+      scenarios: { getById: async () => enCours, list: async () => [enCours], publish: async () => ({ ...enCours, graph: v2, draftGraph: null }) },
+      modelesDeBloc: avecMenage,
+    });
+    expect((await shopify.server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok) })).statusCode).toBe(200);
+    expect(programmes).toEqual([{ type: 'bloc', tenantId: 't1', modele: 'commande_payee', langue: 'fr', essai: 0 }]);
+    await shopify.server.close();
+    const general = sampleRow({ graph: { nodes: [{ id: 'n1', type: 'template', position: { x: 0, y: 0 }, data: { templateName: 'ancien' } }], edges: [] }, draftGraph: { nodes: [{ id: 'n1', type: 'template', position: { x: 0, y: 0 }, data: { templateName: 'neuf' } }], edges: [] } });
+    const builder = app({ scenarios: { getById: async () => general, publish: async () => ({ ...general, graph: general.draftGraph!, draftGraph: null }) }, modelesDeBloc: avecMenage });
+    expect((await builder.server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok) })).statusCode).toBe(200);
+    expect(programmes).toHaveLength(1);
+    await builder.server.close();
+  });
+
+  it('GET /nodes au rayon du scénario édité ; sans scénario, ou inconnu, le Builder général', async () => {
+    const rayons: string[] = [];
+    const { server } = app({
+      scenarios: { getById: async (id) => (id === W1 ? ligne() : null), list: async (_t, rayon) => { rayons.push(rayon); return []; } },
+    });
+    for (const url of [`/tenants/t1/nodes?scenario=${W1}`, '/tenants/t1/nodes', `/tenants/t1/nodes?scenario=${W2}`, '/tenants/t1/nodes?scenario=pas-un-uuid']) {
+      expect((await server.inject({ method: 'GET', url, ...h(adminTok) })).statusCode, url).toBe(200);
+    }
+    expect(rayons).toEqual(['shopify', 'general', 'general', 'general']);
+    await server.close();
+  });
+});
