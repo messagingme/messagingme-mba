@@ -4,7 +4,7 @@ import { PREFIXE_LIGNE_HUBSPOT } from '../hubspot-workflow/envoi';
 import { ficheActive } from '../crm/contact-store.pg';
 import { BOUNDS_CTE, STATS_TZ, type DateRange } from '../stats/range';
 import { LIGNE_RELANCE_PANIER, PREFIXE_LIGNE_SHOPIFY, type SourceVente, type Touche, type VenteAttribuee } from './attribution';
-import { campagneLevier, origineLevier, sourceDeCampagne, sourceDeLOrigine } from './perimetre-leviers';
+import { campagneLevier, ligneDuMessage, origineLevier, sourceDeCampagne, sourceDeLaLigne, sourceDeLOrigine } from './perimetre-leviers';
 import { BORNES_ACHATS, type AchatsShopifyVue } from '../../web/lib/partage/achats-shopify';
 
 /**
@@ -52,7 +52,8 @@ interface LigneTouche { source: SourceVente; le: Date; campaign_id: string | nul
  *   jamais une, bien qu'elles partagent l'origine `campagne` : elles se reconnaissent par leur nom (`attribution.ts`,
  *   `PREFIXE_ENVOI_API`, `PREFIXE_LIGNE_HUBSPOT`) ;
  * - les MESSAGES du fil du contact, pour le scénario (`scenario`), l'agent IA (`ia`) et l'agent de Meta (`mba`). Le fil
- *   se trouve par son `wa_id` (chiffres du numéro, ou BSUID), la règle de `matchWaIdPredicat`, par l'index unique.
+ *   se trouve par son `wa_id` (chiffres du numéro, ou BSUID), la règle de `matchWaIdPredicat`, par l'index unique. Un
+ *   message du scénario d'une LIGNE Shopify est une touche de son automation (`ligneDuMessage`, décision 32).
  * « Livré » = `delivered` ou `read`. En filière `application`, aucun accusé n'arrive jamais : parti sans échec suffit.
  * Une campagne qui lance un scénario n'a pas d'accusé non plus (identifiant de message synthétique) : partie suffit.
  */
@@ -78,9 +79,10 @@ export const TOUCHES = `
      and (r.delivery_status in ('delivered', 'read')
           or (r.delivery_status is distinct from 'failed' and ($5 or k.workflow_id is not null)))
   union all
-  select ${sourceDeLOrigine('m')},
+  select coalesce(${sourceDeLaLigne('lg')}, ${sourceDeLOrigine('m')}),
          m.created_at, null::uuid, m.template_name, false
     from conversation_messages m
+    ${ligneDuMessage('m', '$1', 'lg')}
    where m.conversation_id in (select id from fils)
      and m.direction = 'out' and ${origineLevier('m')}
      and ($3::timestamptz is null or m.created_at >= $3) and m.created_at <= $4

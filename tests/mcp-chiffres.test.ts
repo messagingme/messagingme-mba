@@ -293,14 +293,14 @@ describe('get_revenue_stats (plan 2026-10-30, lot 2)', () => {
     expect(r.periode).toEqual({ du: '2026-10-01', au: '2026-10-30', fuseau: 'Europe/Paris' });
     expect(r.chiffre).toEqual([{ devise: 'EUR', brut: '170.5', prouve: '100.5', commandes: 3 }, { devise: 'USD', brut: '30', prouve: '0', commandes: 1 }]);
     expect(r.par_source).toEqual([
-      { source: 'campagne', campagne_id: 'k1', campagne: 'Soldes', devise: 'EUR', brut: '150.5', prouve: '100.5', commandes: 2 },
-      { source: 'agent', campagne_id: null, campagne: null, devise: 'USD', brut: '30', prouve: '0', commandes: 1 },
-      { source: 'campagne', campagne_id: null, campagne: null, devise: 'EUR', brut: '20', prouve: '0', commandes: 1 },
+      { source: 'campagne', automation: null, campagne_id: 'k1', campagne: 'Soldes', devise: 'EUR', brut: '150.5', prouve: '100.5', commandes: 2 },
+      { source: 'agent', automation: null, campagne_id: null, campagne: null, devise: 'USD', brut: '30', prouve: '0', commandes: 1 },
+      { source: 'campagne', automation: null, campagne_id: null, campagne: null, devise: 'EUR', brut: '20', prouve: '0', commandes: 1 },
     ]);
     expect(r.paniers).toEqual({ relances: 7, recuperes: 2, montant_recupere: [{ devise: 'EUR', montant: '40' }] });
     expect(r.commandes_de_test).toEqual({
       chiffre: [{ devise: 'USD', brut: '2148.85', prouve: '1548.85', commandes: 4 }],
-      par_source: [{ source: 'relance_panier', campagne_id: null, campagne: null, devise: 'USD', brut: '785.95', prouve: '785.95', commandes: 1 }],
+      par_source: [{ source: 'relance_panier', automation: 'Panier abandonné', campagne_id: null, campagne: null, devise: 'USD', brut: '785.95', prouve: '785.95', commandes: 1 }],
       paniers_recuperes: 1,
     });
     // La règle, dite pour que l'assistant ne présente jamais une concordance comme une cause.
@@ -311,6 +311,24 @@ describe('get_revenue_stats (plan 2026-10-30, lot 2)', () => {
     expect(r.a_savoir.join(' ')).toMatch(/get_shopify_state/);
     // Une commande peut changer de source OU apparaître quand sa preuve arrive, jamais après (relecture du lot A).
     expect(r.a_savoir.join(' ')).toMatch(/apparaître/);
+  });
+
+  it('🔴 une ligne par automation Shopify, nommée (décision 32), et la règle qui les dit', async () => {
+    const parAutomation = {
+      ...CHIFFRE,
+      reel: {
+        totaux: CHIFFRE.reel.totaux,
+        sources: [
+          { source: 'commande_payee' as const, campaignId: null, nom: null, devise: 'EUR', brut: '40', prouve: '0', commandes: 1 },
+          { source: 'commande_expediee' as const, campaignId: null, nom: null, devise: 'EUR', brut: '25', prouve: '0', commandes: 1 },
+        ],
+      },
+    };
+    const r = await appelerOutil('get_revenue_stats', { chiffreVentes: async () => parAutomation })({ du: '2026-10-01', au: '2026-10-30' });
+    expect(r.par_source.map((s: { source: string; automation: string | null }) => [s.source, s.automation])).toEqual([
+      ['commande_payee', 'Commande payée'], ['commande_expediee', 'Commande expédiée'],
+    ]);
+    expect(r.a_savoir.join(' ')).toMatch(/commande_payee/);
   });
 
   it('la période seule : une maille, que l’outil ne déclare pas, n’est pas lue', async () => {

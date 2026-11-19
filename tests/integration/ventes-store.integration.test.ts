@@ -131,6 +131,60 @@ describe.skipIf(!url)('le store des ventes', () => {
     expect((await store.touches(T, contact, depuis, maintenant, false)).map((t) => t.source)).toEqual(['scenario', 'agent_meta', 'agent']);
   });
 
+  /**
+   * 🔴 DÉCISION 32 (menu « Scénario », lot 5, tâche 10) : un message envoyé par un bloc du scénario d'une LIGNE Shopify (la
+   * mesure `workflow_node_events`, par son identifiant Meta) est une touche de l'automation de cette ligne ; un scénario du
+   * Builder reste « scenario ».
+   */
+  it('🔴 la suite du scénario d’une ligne Shopify est une touche de son automation ; un scénario du Builder reste scenario', async () => {
+    await vider();
+    const scenarioDe = async (evenement: string | null): Promise<string> => {
+      const wf = (await pool.query<{ id: string }>(
+        `insert into workflows (tenant_id, name, rayon) values ($1, $2, $3) returning id`, [T, `itest ${evenement ?? 'builder'}`, evenement ? 'shopify' : 'general'],
+      )).rows[0]!.id;
+      if (evenement) await pool.query(`insert into shopify_lignes (tenant_id, evenement, workflow_id, actif) values ($1, $2, $3, true)`, [T, evenement, wf]);
+      return wf;
+    };
+    const envoiDe = async (wf: string, wamid: string, le: Date): Promise<void> => {
+      await pool.query(
+        `insert into conversation_messages (conversation_id, direction, type, body, origin, statut, created_at, meta_message_id)
+         values ($1, 'out', 'text', 'x', 'scenario', 'delivered', $2, $3)`, [fil, le, wamid],
+      );
+      await pool.query(
+        `insert into workflow_node_events (tenant_id, workflow_id, node_id, wa_id, kind, meta_message_id, at) values ($1, $2, 'b2', '33600000001', 'sent', $3, $4)`,
+        [T, wf, wamid, le],
+      );
+    };
+    await envoiDe(await scenarioDe('order_paid'), 'wamid.payee', ilYA(4));
+    await envoiDe(await scenarioDe('order_fulfilled'), 'wamid.expediee', ilYA(3));
+    await envoiDe(await scenarioDe('checkout_abandoned'), 'wamid.panier', ilYA(2));
+    await envoiDe(await scenarioDe(null), 'wamid.builder', ilYA(1));
+    expect((await store.touches(T, contact, depuis, maintenant, false)).map((t) => [t.source, t.campaignId])).toEqual([
+      ['scenario', null], ['relance_panier', null], ['commande_expediee', null], ['commande_payee', null],
+    ]);
+    await pool.query('delete from shopify_lignes where tenant_id = $1', [T]);
+  });
+
+  it('🔴 la mesure d’un AUTRE espace ne classe jamais un message (isolation de la ligne d’un message)', async () => {
+    await vider();
+    const B = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-ventes-b') returning id`)).rows[0]!.id;
+    try {
+      const wfB = (await pool.query<{ id: string }>(`insert into workflows (tenant_id, name, rayon) values ($1, 'itest b', 'shopify') returning id`, [B])).rows[0]!.id;
+      await pool.query(`insert into shopify_lignes (tenant_id, evenement, workflow_id, actif) values ($1, 'order_paid', $2, true)`, [B, wfB]);
+      await pool.query(
+        `insert into workflow_node_events (tenant_id, workflow_id, node_id, wa_id, kind, meta_message_id, at) values ($1, $2, 'b2', '33600000001', 'sent', 'wamid.partage', $3)`,
+        [B, wfB, ilYA(2)],
+      );
+      await pool.query(
+        `insert into conversation_messages (conversation_id, direction, type, body, origin, statut, created_at, meta_message_id)
+         values ($1, 'out', 'text', 'x', 'scenario', 'delivered', $2, 'wamid.partage')`, [fil, ilYA(2)],
+      );
+      expect((await store.touches(T, contact, depuis, maintenant, false)).map((t) => t.source)).toEqual(['scenario']);
+    } finally {
+      await pool.query('delete from tenants where id = $1', [B]);
+    }
+  });
+
   it('hors de la période, rien ; la dernière touche d’un modèle se lit sans limite de date', async () => {
     await vider();
     const k = await campagne('Ancienne', { modele: 'vieux', envoye: ilYA(24 * 30) });

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { TOUCHES } from '../src/shopify/ventes.pg';
 import { LEVIERS_ENVOIS } from '../src/shopify/cout-leviers.pg';
 import {
-  VALEURS_CAMPAGNE_LEVIER, campagneLevier, origineLevier, sourceDeCampagne, sourceDeLOrigine,
+  VALEURS_CAMPAGNE_LEVIER, campagneLevier, ligneDuMessage, origineLevier, sourceDeCampagne, sourceDeLaLigne, sourceDeLOrigine,
 } from '../src/shopify/perimetre-leviers';
 import { LIGNE_RELANCE_PANIER, PREFIXE_LIGNE_SHOPIFY } from '../src/shopify/attribution';
 import { PREFIXE_ENVOI_API } from '../src/api/cible-rcs';
@@ -27,6 +27,15 @@ describe('le périmètre des leviers, une seule définition', () => {
     expect(LEVIERS_ENVOIS).toMatch(/starts_with\(k\.name, \$\d+\) or starts_with\(k\.name, \$\d+\)/);
     expect(LEVIERS_ENVOIS).toContain(origineLevier('m'));
     expect(LEVIERS_ENVOIS).toContain(sourceDeLOrigine('m'));
+  });
+
+  it('🔴 la ligne Shopify d’un message de scénario (décision 32) : les deux lectures interpolent la même jointure et la même source', () => {
+    expect(TOUCHES).toContain(ligneDuMessage('m', '$1', 'lg'));
+    expect(TOUCHES).toContain(sourceDeLaLigne('lg'));
+    expect(LEVIERS_ENVOIS).toContain(ligneDuMessage('m', 'cv.tenant_id', 'lg'));
+    expect(LEVIERS_ENVOIS).toContain(sourceDeLaLigne('lg'));
+    expect(sourceDeLaLigne('lg')).toBe("case lg.evenement when 'checkout_abandoned' then 'relance_panier' when 'order_paid' then 'commande_payee' "
+      + "when 'order_fulfilled' then 'commande_expediee' end");
   });
 
   it('les valeurs liées sont celles des lignes techniques, la relance incluse et les trois préfixes exclus', () => {

@@ -143,6 +143,36 @@ describe.skipIf(!url)('les lectures du ROI', () => {
     ].sort());
   });
 
+  /**
+   * 🔴 DÉCISION 32 (lot 5, tâche 10) : le coût compte la suite d'un scénario de ligne Shopify sous l'automation de la ligne,
+   * comme l'attribution la prend pour touche ; une campagne à scénario partie juste avant ne la vole pas (la mesure du bloc
+   * dit QUEL scénario l'a envoyée, l'heuristique de rattachement ne le devine plus).
+   */
+  it('🔴 la suite du scénario d’une ligne Shopify coûte à son automation, même après une campagne à scénario', async () => {
+    await vider();
+    // Une campagne à scénario au même numéro, juste avant : l'heuristique lui rattacherait la suite des lignes.
+    await campagne('Parcours', { workflow: true, envoye: le('2026-10-19T09:00:00Z') });
+    const ligne = async (evenement: string): Promise<string> => {
+      const wf = (await pool.query<{ id: string }>(`insert into workflows (tenant_id, name, rayon) values ($1, $2, 'shopify') returning id`, [T, `itest ${evenement}`])).rows[0]!.id;
+      await pool.query(`insert into shopify_lignes (tenant_id, evenement, workflow_id, actif) values ($1, $2, $3, true)`, [T, evenement, wf]);
+      return wf;
+    };
+    for (const [evenement, wamid, heure] of [['order_paid', 'w-payee', '10'], ['checkout_abandoned', 'w-panier', '11']] as const) {
+      const wf = await ligne(evenement);
+      await message('scenario', { wamid, le: le(`2026-10-19T${heure}:00:00Z`) });
+      await pool.query(
+        `insert into workflow_node_events (tenant_id, workflow_id, node_id, wa_id, kind, meta_message_id, at) values ($1, $2, 'b2', '33600000009', 'sent', $3, $4)`,
+        [T, wf, wamid, le(`2026-10-19T${heure}:00:00Z`)],
+      );
+    }
+    const v = await leviers.lireVolumes(T, range);
+    expect(v.map((l) => [l.source, l.campaignId, l.nature, l.n]).sort()).toEqual([
+      ['commande_payee', null, 'service', 1],
+      ['relance_panier', null, 'service', 1],
+    ].sort());
+    await pool.query('delete from shopify_lignes where tenant_id = $1', [T]);
+  });
+
   it('une provision non rendue du Crédit WhatsApp est portée par son message, une rendue non', async () => {
     await vider();
     await campagne('Payée', { wamid: 'w-1' });

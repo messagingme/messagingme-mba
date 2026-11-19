@@ -6,7 +6,7 @@
  * flottant les arrondirait, deux devises ne s'additionnent pas). `Number` ne sert qu'à l'affichage.
  */
 
-export const SOURCES_VENTES = ['campagne', 'relance_panier', 'scenario', 'agent', 'agent_meta'] as const;
+export const SOURCES_VENTES = ['campagne', 'relance_panier', 'commande_payee', 'commande_expediee', 'scenario', 'agent', 'agent_meta'] as const;
 export type SourceVente = (typeof SOURCES_VENTES)[number];
 
 export interface TotalVentesVue { devise: string; brut: string; prouve: string; commandes: number }
@@ -75,6 +75,9 @@ export function libelleSource(s: { source: SourceVente; nom: string | null }, t:
   switch (s.source) {
     case 'campagne': return s.nom ? t(`Campagne « ${s.nom} »`, `Campaign “${s.nom}”`) : t('Campagne supprimée', 'Deleted campaign');
     case 'relance_panier': return t('Relance de panier', 'Checkout reminder');
+    // Les automations Shopify (décision 32 du menu « Scénario ») : la suite de leur scénario.
+    case 'commande_payee': return t('Commande payée', 'Order paid');
+    case 'commande_expediee': return t('Commande expédiée', 'Order shipped');
     case 'scenario': return t('Scénarios', 'Scenarios');
     case 'agent': return t('Agent IA', 'AI agent');
     case 'agent_meta': return t('Agent de Meta', 'Meta’s agent');

@@ -4,7 +4,8 @@ import { horsEntreeGratuite } from '../stats/entree-gratuite';
 import { ATTRIBUTION_CAMPAGNE_SCENARIO } from '../stats/store.pg';
 import type { SourceVente } from './attribution';
 import {
-  VALEURS_CAMPAGNE_LEVIER, campagneLevier, origineLevier, sourceDeCampagne, sourceDeLOrigine, type MarqueursCampagne,
+  VALEURS_CAMPAGNE_LEVIER, campagneLevier, ligneDuMessage, origineLevier, sourceDeCampagne, sourceDeLaLigne, sourceDeLOrigine,
+  type MarqueursCampagne,
 } from './perimetre-leviers';
 
 /**
@@ -22,6 +23,8 @@ import {
  * 3. les messages sortants WhatsApp et RCS d'origine levier qui ne sont pas déjà un envoi de campagne. Un message de
  *    scénario lancé par une campagne levier revient à cette campagne (la règle de rattachement des écrans de coût,
  *    `ATTRIBUTION_CAMPAGNE_SCENARIO`), comme la vente lui revient dans l'attribution (spec, choix 1 après relecture).
+ *    🔴 Sauf un message du scénario d'une LIGNE Shopify (décision 32) : la mesure de son bloc dit quel scénario l'a envoyé,
+ *    il coûte à l'automation de la ligne, que l'heuristique ne devine plus.
  *
  * Chaque groupe porte, à côté de son volume, ce que le Crédit WhatsApp a provisionné pour ses messages (le coût RÉEL,
  * en micro-euros, commission comprise) et combien de messages en ont une : le reste se chiffre à l'estimation.
@@ -73,13 +76,14 @@ export const LEVIERS_ENVOIS = `
        and (e.delivery_status is null or e.delivery_status <> 'failed')
        and ${campagneLevier('k', P)}
     union all
-    select m.created_at, coalesce(case when ks.id is not null then 'campagne' end, ${sourceDeLOrigine('m')}),
-           ks.id,
+    select m.created_at, coalesce(${sourceDeLaLigne('lg')}, case when ks.id is not null then 'campagne' end, ${sourceDeLOrigine('m')}),
+           case when lg.evenement is null then ks.id end,
            case when m.channel = 'rcs' then 'rcs' when m.type = 'template' then 'modele' else 'service' end,
            case when m.type = 'template' then m.template_category end, m.meta_message_id
       from conversation_messages m
       join conversations cv on cv.id = m.conversation_id
       cross join bounds b
+      ${ligneDuMessage('m', 'cv.tenant_id', 'lg')}
       left join campaigns ks on ks.tenant_id = cv.tenant_id
             and ks.id = (case when m.origin = 'scenario' then ${ATTRIBUTION_CAMPAGNE_SCENARIO} end)
             and ${campagneLevier('ks', P)}

@@ -15,7 +15,12 @@ import { messageDe } from '../lib/erreur';
  * visite que Shopify rattache à nos UTM).
  */
 
-export type SourceVente = 'campagne' | 'relance_panier' | 'scenario' | 'agent' | 'agent_meta';
+/**
+ * La source d'une vente. `relance_panier`, `commande_payee` et `commande_expediee` sont les trois automations Shopify
+ * (décision 32 du menu « Scénario », lot 5) : la relance et la suite du scénario de leur ligne ; `scenario` reste celle
+ * des scénarios du Builder, en bloc.
+ */
+export type SourceVente = 'campagne' | 'relance_panier' | 'commande_payee' | 'commande_expediee' | 'scenario' | 'agent' | 'agent_meta';
 
 /** Un envoi d'une source, livré au contact (ou parti, là où aucun accusé n'existe). */
 export interface Touche {

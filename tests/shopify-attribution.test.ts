@@ -50,6 +50,16 @@ describe('le choix de la source d’une vente', () => {
       .toBeNull();
   });
 
+  it('🔴 la suite du scénario d’une ligne Shopify (décision 32) gagne comme dernière touche, sans revenir à une campagne à scénario', () => {
+    expect(choisirSource({
+      payeeLe, panierRelance: null, toucheUtm: null,
+      touches: [touche({ source: 'commande_payee', le: jours(1) }), touche({ source: 'campagne', le: jours(2), campaignId: 'k-scen', lanceScenario: true })],
+    })).toEqual({ source: 'commande_payee', campaignId: null, preuve: null, relanceLe: null });
+    // La suite du scénario du panier : une relance, datée de l'envoi qui touche.
+    expect(choisirSource({ payeeLe, panierRelance: null, toucheUtm: null, touches: [touche({ source: 'relance_panier', le: jours(2) })] }))
+      .toEqual({ source: 'relance_panier', campaignId: null, preuve: null, relanceLe: jours(2) });
+  });
+
   it('un scénario lancé par une campagne revient à la campagne', () => {
     expect(choisirSource({
       payeeLe, panierRelance: null, toucheUtm: null,

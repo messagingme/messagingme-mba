@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fmtMontant, lireVentes } from './ventes';
+import { fmtMontant, libelleSource, lireVentes } from './ventes';
 
 /**
  * Quantitatif > Shopify (plan 2026-10-30, lot 2, tâche 5) : la réponse de `/stats/ventes` lue défensivement. Une API
@@ -39,6 +39,15 @@ describe('lireVentes', () => {
       },
     });
     expect(v?.reel).toEqual({ totaux: [COMPLET.reel.totaux[1]], sources: [COMPLET.reel.sources[1]] });
+  });
+
+  it('🔴 les automations Shopify (décision 32) se lisent et se nomment : commande payée, commande expédiée', () => {
+    const v = lireVentes({ ...COMPLET, reel: { totaux: COMPLET.reel.totaux, sources: [
+      { ...COMPLET.reel.sources[1], source: 'commande_payee' }, { ...COMPLET.reel.sources[1], source: 'commande_expediee' },
+    ] } });
+    expect(v?.reel.sources.map((s) => s.source)).toEqual(['commande_payee', 'commande_expediee']);
+    const t = (fr: string) => fr;
+    expect(v?.reel.sources.map((s) => libelleSource(s, t))).toEqual(['Commande payée', 'Commande expédiée']);
   });
 
   it('une réponse illisible rend null', () => {

@@ -13,6 +13,13 @@ import { eurosDepuisMicro } from '../agent/devise';
 import { estUuid } from '../http/scope';
 import { adresseOffre } from '../offres/refus';
 import type { BlocVentes, ChiffreVentes } from '../shopify/chiffre';
+import type { SourceVente } from '../shopify/attribution';
+import { NOM_DU_SCENARIO } from '../shopify/lignes';
+
+/** Le nom de l’automation Shopify d’une source de vente (décision 32 du menu « Scénario ») ; les autres n’en ont pas. */
+const AUTOMATION_DE_LA_SOURCE: Partial<Record<SourceVente, string>> = {
+  relance_panier: NOM_DU_SCENARIO.checkout_abandoned, commande_payee: NOM_DU_SCENARIO.order_paid, commande_expediee: NOM_DU_SCENARIO.order_fulfilled,
+};
 
 /**
  * LES CHIFFRES DE L'ESPACE POUR CLAUDE CODE (plan `docs/superpowers/plans/2026-10-13-donnees-graphiques-mcp.md`).
@@ -461,14 +468,16 @@ export const OUTILS_CHIFFRES: OutilMcp[] = [
     fonction: null,
     description:
       'The revenue that WhatsApp sends brought in over the period (default: the last 30 days), from the connected Shopify '
-      + 'store: orders paid within 5 days after a delivered message from a campaign (each by its name), an abandoned checkout '
-      + 'reminder, a scenario, an AI agent or the Meta Business Agent, each order credited to the last one. Per currency '
+      + 'store: orders paid within 5 days after a delivered message from a campaign (each by its name), a Shopify automation '
+      + '(abandoned checkout, order paid, order shipped: its reminder and the next steps of its scenario, one line each), a '
+      + 'Builder scenario, an AI agent or the Meta Business Agent, each order credited to the last one. Per currency '
       + '(never add two currencies), gross (refunds and cancellations are not deducted), with the proven part: the reminded '
       + 'checkout itself paid, or a visit that Shopify ties to a WhatsApp link by its UTM parameters. The rest is a match in '
       + 'time, not a proven cause: present it as such. Also the abandoned checkouts reminded and recovered, and the amount '
       + 'recovered, by reminder date. Orders from the Shopify test gateway are returned apart and never counted. Only orders '
       + 'paid since the store was connected: from a contact already in the workspace, or, without one, through a campaign '
-      + 'link (proven by UTM); order confirmations, shipping updates, team replies and API sends are never a source.',
+      + 'link (proven by UTM); order confirmations and shipping updates themselves (the first message of those automations), '
+      + 'team replies and API sends are never a source.',
     annotations: { title: 'Read the revenue from WhatsApp sends', readOnlyHint: true, openWorldHint: false },
     entree: { type: 'object', properties: { du: ENTREE_PERIODE.du!, au: ENTREE_PERIODE.au! }, additionalProperties: false },
     async executer(deps, tenantId, args) {
@@ -476,7 +485,7 @@ export const OUTILS_CHIFFRES: OutilMcp[] = [
       const { range } = lirePeriode({ du: args.du, au: args.au });
       const c = await deps.chiffres.chiffreVentes(tenantId, range);
       const sources = (b: BlocVentes) => b.sources.map((s) => ({
-        source: s.source, campagne_id: s.campaignId, campagne: s.nom, devise: s.devise, brut: s.brut, prouve: s.prouve, commandes: s.commandes,
+        source: s.source, automation: AUTOMATION_DE_LA_SOURCE[s.source] ?? null, campagne_id: s.campaignId, campagne: s.nom, devise: s.devise, brut: s.brut, prouve: s.prouve, commandes: s.commandes,
       }));
       return {
         periode: { du: range.from, au: range.to, fuseau: STATS_TZ },
@@ -491,8 +500,11 @@ export const OUTILS_CHIFFRES: OutilMcp[] = [
             + 'additionner deux devises.',
           'prouve : la part dont la preuve existe. Le reste est une concordance dans le temps (un message reçu dans les 5 '
             + 'jours), à présenter comme telle, jamais comme une cause.',
-          'source : campagne (campagne null : supprimée depuis), relance_panier (la relance des paniers abandonnés de '
-            + 'Shopify), scenario (les scénarios, en bloc), agent (l’agent IA), agent_meta (l’agent de Meta).',
+          'source : campagne (campagne null : supprimée depuis), relance_panier (l’automation « Panier abandonné » de '
+            + 'Shopify : sa relance et la suite de son scénario), commande_payee et commande_expediee (la suite des scénarios '
+            + 'des automations « Commande payée » et « Commande expédiée » ; leur premier message suit la vente, il n’en est '
+            + 'jamais une source), scenario (les scénarios du Builder, en bloc), agent (l’agent IA), agent_meta (l’agent de '
+            + 'Meta). automation : le nom de l’automation Shopify d’une source qui en est une.',
           'paniers : relancés, récupérés et montant récupéré se comptent à la date de la RELANCE ; la source relance_panier, '
             + 'elle, à la date du paiement : à la lisière de la période, les deux peuvent différer.',
           'Le chiffre des trois dernières heures peut encore bouger : une commande peut changer de source, ou apparaître, '

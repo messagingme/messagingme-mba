@@ -45,6 +45,25 @@ export function origineLevier(m: string): string {
   return `${m}.origin in (${ORIGINES_LEVIER.map((o) => `'${o}'`).join(', ')})`;
 }
 
+/**
+ * LA LIGNE SHOPIFY D'UN MESSAGE DE SCÉNARIO (menu « Scénario », lot 5, décision 32) : le bloc qui l'a envoyé (la mesure
+ * `workflow_node_events`, par son identifiant Meta) appartient au scénario d'une ligne, et le message est alors une touche
+ * de l'automation de cette ligne, jamais d'une campagne à scénario que l'heuristique de rattachement lui prêterait. Une
+ * jointure latérale qui rend `evenement` (null hors ligne) sous `alias` ; `tenant`, l'espace de la requête appelante.
+ */
+export function ligneDuMessage(m: string, tenant: string, alias: string): string {
+  return `left join lateral (select l.evenement from workflow_node_events e `
+    + `join shopify_lignes l on l.tenant_id = e.tenant_id and l.workflow_id = e.workflow_id `
+    + `where ${m}.origin = 'scenario' and e.meta_message_id = ${m}.meta_message_id and e.tenant_id = ${tenant} and e.kind = 'sent' `
+    + `limit 1) ${alias} on true`;
+}
+
+/** La source de l'automation d'une ligne : le panier en relance de panier, les commandes sous leur nom (décision 32). */
+export function sourceDeLaLigne(alias: string): string {
+  return `case ${alias}.evenement when 'checkout_abandoned' then 'relance_panier' when 'order_paid' then 'commande_payee' `
+    + `when 'order_fulfilled' then 'commande_expediee' end`;
+}
+
 /** La source d'un message levier, par son origine. */
 export function sourceDeLOrigine(m: string): string {
   return `case ${m}.origin when 'scenario' then 'scenario' when 'ia' then 'agent' else 'agent_meta' end`;

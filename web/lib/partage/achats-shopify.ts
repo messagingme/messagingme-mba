@@ -5,7 +5,7 @@
  * Les montants sont des décimaux en TEXTE, sommés par Postgres (jamais par un flottant), dans la devise de la commande.
  * `boutique` nulle : l'espace n'a pas de boutique, rien d'autre n'est lu.
  */
-export type SourceVenteVue = 'campagne' | 'relance_panier' | 'scenario' | 'agent' | 'agent_meta';
+export type SourceVenteVue = 'campagne' | 'relance_panier' | 'commande_payee' | 'commande_expediee' | 'scenario' | 'agent' | 'agent_meta';
 
 export interface CommandeShopifyVue {
   commandeId: string;
