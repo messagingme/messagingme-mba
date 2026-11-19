@@ -78,6 +78,28 @@ describe.skipIf(!url)('la règle unique : un parcours tient le fil', () => {
     expect(await tient('33600009599')).toBe(false); // ni conversation ni parcours
   });
 
+  it('🔴 décisions 34 et 35 : un parcours d’ÉVÉNEMENT tient le fil, mais pas pour la réponse de l’application ; un ordinaire, si', async () => {
+    const ordinaire = (waId: string) => store.parcoursOrdinaireTientLeFil(tenantId, waId);
+    await fil('33600009521');
+    await pool.query(
+      `insert into workflow_runs (workflow_id, tenant_id, wa_id, current_node, status, updated_at, evenement)
+       values ($1, $2, $3, 'b', 'sleeping', now() - interval '1 hour', '{"origine":"shopify:b:orders/paid:1","variables":{}}'::jsonb)`,
+      [wf, tenantId, '33600009521'],
+    );
+    expect(await tient('33600009521')).toBe(true);
+    expect(await ordinaire('33600009521')).toBe(false);
+    // Un ordinaire à côté (un répondeur qui coexiste) retient de nouveau la réponse de l'application.
+    await parcours(tenantId, wf, '33600009521', 'waiting', '0 seconds');
+    expect(await ordinaire('33600009521')).toBe(true);
+    // La soupape et l'espace valent pour elle aussi.
+    await fil('33600009522');
+    await parcours(tenantId, wf, '33600009522', 'sleeping', '25 hours');
+    expect(await ordinaire('33600009522')).toBe(false);
+    await fil('33600009523');
+    await parcours(autreTenant, autreWf, '33600009523', 'waiting', '0 seconds');
+    expect(await ordinaire('33600009523')).toBe(false);
+  });
+
   it('🔴 le parcours d’un AUTRE espace pour le même numéro ne tient pas ce fil', async () => {
     await fil('33600009505');
     await parcours(autreTenant, autreWf, '33600009505', 'waiting', '0 seconds');

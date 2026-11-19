@@ -26,6 +26,10 @@
  * Un message du contact pendant une Attente (parcours `sleeping`) : le scénario garde le fil et repart à son réveil, et
  * personne ne répond d'ici là, ni l'agent de Meta ni l'équipe (décision de Julien du 2026-11-19, préférée à « l'agent
  * répond et le scénario s'arrête »). Une Attente longue doit donc être pensée comme un silence.
+ * 🔴 SAUF un parcours d'ÉVÉNEMENT (décision 35, le même jour) : l'exécuteur sert ce message avant la remise
+ * (`pendantUneAttente`, `src/workflow/executor.ts`) ; un répondeur qui coexiste répond, sinon le parcours s'arrête et
+ * l'agent de Meta ou l'équipe prend le client. Et la réponse de l'application ne lit que les parcours ORDINAIRES
+ * (`ordinaires`) : elle coexiste avec un parcours d'événement (décisions 34 et 35).
  *
  * Ce que la règle ne garde PAS, délibérément : les gestes d'un humain (un opérateur qui prend ou rend la main, HubSpot
  * qui ferme le fil), ceux du scénario lui-même (« Assigner à un agent », « Envoyer au MBA », sa fin), et le `standby`
@@ -49,13 +53,15 @@ export const ORIGINES_DU_PARCOURS = ['scenario', 'campagne'] as const;
  * Le prédicat SQL (une expression booléenne). `tenant` et `waId` sont des expressions SQL (une colonne de la requête
  * appelante ou un paramètre) ; `delaiMs` aussi, en millisecondes, strictement positif (le balayage passe le sien,
  * qu'il désactive à 0 avant d'arriver ici). Les alias internes (`pr`, `pc`, `pm`) ne heurtent pas ceux de l'appelant.
+ * `ordinaires` : les parcours d'événement ne comptent pas (la réponse de l'application, décisions 34 et 35) ; la marge
+ * du démarrage, qui ne sait pas quel parcours naît, compte toujours.
  */
-export function parcoursTientLeFilSql(o: { tenant: string; waId: string; delaiMs: string }): string {
+export function parcoursTientLeFilSql(o: { tenant: string; waId: string; delaiMs: string; ordinaires?: true }): string {
   const origines = ORIGINES_DU_PARCOURS.map((x) => `'${x}'`).join(', ');
   return `(exists (
              select 1 from workflow_runs pr
               where pr.tenant_id = ${o.tenant} and pr.wa_id = ${o.waId}
-                and pr.status in ('waiting', 'sleeping')
+                and pr.status in ('waiting', 'sleeping')${o.ordinaires ? ' and pr.evenement is null' : ''}
                 and pr.updated_at > now() - make_interval(secs => (${o.delaiMs})::bigint / 1000.0)
            )
            or exists (

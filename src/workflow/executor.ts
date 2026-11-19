@@ -158,6 +158,11 @@ export interface WorkflowExecutorDeps {
      * `avecGardesDEtatInertes`.
      */
     parcoursDEvenementActif(tenantId: string, waId: string): Promise<{ id: string } | null>;
+    /**
+     * Décision 35 : le parcours d'événement de ce contact s'il DORT dans une Attente (`sleeping`), avec son origine, par
+     * laquelle on l'arrête. Fixtures : `avecGardesDEtatInertes` (aucun).
+     */
+    parcoursDEvenementEndormi(tenantId: string, waId: string): Promise<{ id: string; origine: string } | null>;
     /** La même origine déjà née pour ce contact (le prédicat de la naissance idempotente, index 0300). */
     evenementDejaNe(tenantId: string, waId: string, origine: string): Promise<boolean>;
     closeOrdinairesByWaId(tenantId: string, waId: string): Promise<string[]>;
@@ -493,12 +498,16 @@ export interface WorkflowExecutorDeps {
    */
   confierAuRepondeur(tenantId: string, waId: string, messageId: string): Promise<void>;
   /**
-   * 🔴 Décision 34 : le clic qu'un parcours d'événement rend (il cite un message qui n'est pas le sien). `confie` : la voie
-   * de ce message coexiste avec le parcours (agent IA, scénario répondeur, application), qui l'a reçu et continue
-   * d'attendre. `ne_coexiste_pas` : l'agent de Meta ou l'équipe, l'exécuteur arrête d'abord le parcours. C'est
-   * `ControleDuFil.remettreLeClicHorsParcours`. Requise ; fixtures : `aucunRobotQuiCoexiste`.
+   * 🔴 Décision 34 : le clic qu'un parcours d'événement rend (il cite un message qui n'est pas le sien) ; décision 35 : un
+   * message pendant son Attente. `confie` : la voie de ce message coexiste avec le parcours (agent IA, scénario
+   * répondeur, application), qui l'a reçu et continue d'attendre ou de dormir. `ne_coexiste_pas` : l'agent de Meta ou
+   * l'équipe, l'exécuteur arrête d'abord le parcours. `entree` : l'entrée réelle du message (`EntrantAvance`), que la
+   * remise lit comme pour tout message. C'est `ControleDuFil.remettreLeClicHorsParcours`. Requise ; fixtures :
+   * `aucunRobotQuiCoexiste`.
    */
-  remettreLeClicHorsParcours(tenantId: string, waId: string, messageId: string): Promise<'confie' | 'ne_coexiste_pas'>;
+  remettreLeClicHorsParcours(
+    tenantId: string, waId: string, messageId: string, entree: { rouverte: boolean; redelivre: boolean },
+  ): Promise<'confie' | 'ne_coexiste_pas'>;
   /**
    * Publie « ce tag vient d'être posé » pour les automations. Seulement sur un démarrage unitaire (réponse
    * d'un contact, automation, test), jamais depuis une campagne : voir `apply`. Fixtures : `aucunEvenement`.
@@ -603,7 +612,19 @@ export interface EntrantAvance {
   formulaire?: boolean;
   type?: string;
   texte?: string | null;
+  /**
+   * Décisions 34 et 35 : ce que la remise saurait de ce message, pour celui que la remise hors parcours confie à une voie
+   * qui coexiste. `rouverte` : il a sorti la conversation de « Traité » ou d'Archivé ; `redelivre` : Meta l'avait déjà
+   * livré. Absents : non (RCS, reprises internes).
+   */
+  rouverte?: boolean;
+  redelivre?: boolean;
   media?: { mime: string | null };
+}
+
+/** L'entrée réelle d'un message, telle que la remise hors parcours la reçoit (décisions 34 et 35). */
+function entreeReelle(entrant: EntrantAvance): { rouverte: boolean; redelivre: boolean } {
+  return { rouverte: entrant.rouverte === true, redelivre: entrant.redelivre === true };
 }
 
 /** Le genre de la pièce reçue, s'il est l'un de ceux que le bloc Question attend ; sinon `null`. */
@@ -2373,6 +2394,31 @@ export class WorkflowExecutor {
   }
 
   /**
+   * 🔴 DÉCISION 35 (Julien, 2026-11-19) : aucun parcours n'attend le contact, et son parcours d'ÉVÉNEMENT dort dans une
+   * Attente. Ce qu'il écrit ou clique est servi comme le clic de la décision 34 : une voie qui coexiste (agent IA, scénario
+   * répondeur, application) répond, et le parcours reprend à son réveil (`true`, le message est pris) ; l'agent de Meta ou
+   * l'équipe ne partagent pas le fil : le parcours s'arrête par son origine, puis le message revient à la remise (`false`),
+   * qui le leur donne, au lieu du silence jusqu'au réveil. Un parcours ORDINAIRE qui dort garde la règle du silence
+   * (`src/inbox/parcours-tient-le-fil.ts`). Rien (`undefined`, la remise ordinaire) pour une réaction, qui n'appelle pas
+   * de réponse et n'arrête rien, hors WhatsApp, ni quand le fil n'est pas à nous : un opérateur le garde, et le réveil en
+   * décide (décision 20).
+   */
+  private async pendantUneAttente(
+    tenantId: string, waId: string, messageId: string, canalRetour: RunChannel, entrant: EntrantAvance,
+  ): Promise<boolean | void> {
+    if (canalRetour !== 'whatsapp' || entrant.reaction) return;
+    const endormi = await this.deps.runs.parcoursDEvenementEndormi(tenantId, waId);
+    if (endormi === null || !(await this.deps.mayAct(tenantId, waId))) return;
+    if ((await this.deps.remettreLeClicHorsParcours(tenantId, waId, messageId, entreeReelle(entrant))) === 'confie') {
+      // eslint-disable-next-line no-console
+      console.log(`parcours d’événement ${endormi.id} : un message de ${waId} pendant son Attente, confié au répondeur ; il reprendra à son réveil`);
+      return true;
+    }
+    await this.arreterParcours(tenantId, { origine: endormi.origine }, 'un message pendant son Attente, et un répondeur qui ne partage pas le fil');
+    return false;
+  }
+
+  /**
    * Avance le run en attente d'un contact quand il répond. No-op si aucun run ou message déjà traité.
    * `boutonRecu` = bouton quick-reply tapé (`btn:<index>`). Routage, dans cet ordre :
    *   1. une arête part de ce handle -> sa branche ;
@@ -2396,7 +2442,7 @@ export class WorkflowExecutor {
     entrant: EntrantAvance = { reaction: false },
   ): Promise<boolean | void> {
     const leDernier = await this.deps.runs.findWaitingByWaId(tenantId, waId);
-    if (!leDernier) return;
+    if (!leDernier) return this.pendantUneAttente(tenantId, waId, messageId, canalRetour, entrant);
     // Lot 4 : deux parcours peuvent attendre ce contact (un parcours d'événement et un ordinaire qui coexiste, décision 21) ;
     // un clic va au parcours qui attend sur le bloc du message qu'il cite, sinon au plus récent. Le bloc cité est lu UNE fois.
     const blocCite = await this.blocDuClic(tenantId, boutonRecu, entrant.messageCite);
@@ -2409,7 +2455,7 @@ export class WorkflowExecutor {
      * puis le clic revient à la remise (`false`), qui le leur donne. Jamais avalé sans réponse.
      */
     if (run.evenement !== null && this.clicPasPourLeParcours(run, blocCite, entrant.messageCite)) {
-      if ((await this.deps.remettreLeClicHorsParcours(tenantId, waId, messageId)) === 'confie') {
+      if ((await this.deps.remettreLeClicHorsParcours(tenantId, waId, messageId, entreeReelle(entrant))) === 'confie') {
         // eslint-disable-next-line no-console
         console.log(`workflow ${run.workflowId}: clic « ${boutonRecu ?? 'null'} » hors du parcours d’événement ${run.id} (bloc ${blocCite?.nodeId ?? '?'}) : confié au répondeur, le parcours attend`);
         return true;

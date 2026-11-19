@@ -94,8 +94,20 @@ export function avanceDuParcours(d: {
  * handler : ne doit jamais faire échouer le job webhook partagé. Le bouton tapé choisit la branche ; une réponse
  * texte suit la 1re arête sortante.
  */
+/**
+ * Ce que la réception sait de chaque message, et que la remise lit : il a rouvert la conversation (`rouvertes`), Meta l'a
+ * redélivré (`dejaVus`). Le parcours d'événement qui rend un message à une voie qui coexiste (décisions 34 et 35) le
+ * transmet avec lui.
+ */
+export interface EntreeDesMessages {
+  rouvertes: ReadonlySet<string>;
+  dejaVus: ReadonlySet<string>;
+}
+
 /** Rend les messages qu'un parcours en attente a reçus (`advance` a rendu `true`) : la remise les laisse de côté. */
-export async function processWorkflowAdvance(entrants: readonly EntrantRattache[], deps: WorkflowAdvanceDeps, consumed?: ReadonlySet<string>): Promise<ReadonlySet<string>> {
+export async function processWorkflowAdvance(
+  entrants: readonly EntrantRattache[], deps: WorkflowAdvanceDeps, consumed?: ReadonlySet<string>, entree?: EntreeDesMessages,
+): Promise<ReadonlySet<string>> {
   const parParcours = new Set<string>();
   for (const { message: m, tenantId } of entrants) {
     // Message déjà consommé par une étape prioritaire (jeton de test) : ce n'est pas une réponse du contact
@@ -117,6 +129,8 @@ export async function processWorkflowAdvance(entrants: readonly EntrantRattache[
         ...(m.type === 'text' && m.body !== null ? { texte: m.body } : {}),
         ...(m.media ? { media: { mime: m.media.mime } } : {}),
         ...(m.messageCite ? { messageCite: m.messageCite } : {}),
+        ...(entree?.rouvertes.has(m.messageId) ? { rouverte: true } : {}),
+        ...(entree?.dejaVus.has(m.messageId) ? { redelivre: true } : {}),
       };
       if ((await deps.advance(tenantId, m.waId, m.messageId, m.buttonPayload, entrant)) === true) {
         parParcours.add(m.messageId);

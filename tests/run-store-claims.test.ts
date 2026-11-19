@@ -230,6 +230,19 @@ describe('PgWorkflowRunStore : les lectures et clôtures du lot 4', () => {
     expect(rendu).toEqual({ id: 'r1' });
   });
 
+  it('🔴 décision 35 : parcoursDEvenementEndormi reprend le prédicat de l’index unique 0298, plus le sommeil, et rend l’origine', async () => {
+    const migration = readFileSync(new URL('../db/migrations/0298_parcours_evenement_unique.sql', import.meta.url), 'utf8');
+    const predicat = /where (evenement is not null and status in \('waiting', 'sleeping'\));/.exec(migration)?.[1];
+    expect(predicat).toBeDefined();
+    const origine = 'shopify:b.myshopify.com:orders/paid:1';
+    const { pool, appels } = fauxPool([{ id: 'r1', origine }]);
+    expect(await new PgWorkflowRunStore(pool).parcoursDEvenementEndormi('t1', '336')).toEqual({ id: 'r1', origine });
+    expect(appels[0]!.sql).toBe(`select id, evenement->>'origine' as origine from workflow_runs where tenant_id = $1 and wa_id = $2 and ${predicat} and status = 'sleeping' limit 1`);
+    expect(appels[0]!.params).toEqual(['t1', '336']);
+    // Sans origine, rien ne pourrait l'arrêter : la lecture ne le rend pas (la remise ordinaire garde la main).
+    expect(await new PgWorkflowRunStore(fauxPool([{ id: 'r2', origine: null }]).pool).parcoursDEvenementEndormi('t1', '336')).toBeNull();
+  });
+
   it('closeOrdinairesByWaId ne clôt que les parcours ORDINAIRES actifs de ce contact', async () => {
     const { sql, params, rendu } = await sqlDe((s) => s.closeOrdinairesByWaId('t1', '336'));
     expect(sql).toContain("where tenant_id = $1 and wa_id = $2 and status in ('waiting', 'sleeping') and evenement is null returning id");

@@ -124,7 +124,8 @@ export async function traiterEntrantApplication(job: JobEntrant, deps: DepsEntra
   if ((await messagesEcartes(entrants, deps.espacesPleins, deps.entrants)).has(m.messageId)) return;
   const rouvertes = await processInbound(entrants, deps.inbox, deps.entrants);
   // L'avance avant la remise, comme la réception de Meta (`src/webhooks/handler.ts`) : un message qu'un parcours a reçu
-  // est à lui, la remise ne le confie pas une seconde fois à l'agent.
-  const parParcours = await processWorkflowAdvance(entrants, deps.avance);
+  // est à lui, la remise ne le confie pas une seconde fois à l'agent. Aucune redélivrance ici : un message déjà
+  // enregistré est sorti plus haut (`dejaRecu`).
+  const parParcours = await processWorkflowAdvance(entrants, deps.avance, undefined, { rouvertes, dejaVus: new Set() });
   await processRemiseMbaEntrant(entrants, deps.remise, parParcours, rouvertes);
 }

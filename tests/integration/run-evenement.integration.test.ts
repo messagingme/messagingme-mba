@@ -93,6 +93,19 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     await nait(autreTenant, autreWorkflow, wa, ev('a'));
   });
 
+  it('🔴 décision 35 : parcoursDEvenementEndormi ne rend que le parcours d’événement qui DORT, de cet espace, avec son origine', async () => {
+    const dort = '33600009301';
+    const id = await nait(tenantId, workflowId, dort, ev('dort'), { status: 'sleeping', resumeAt: new Date(Date.now() + 3_600_000) });
+    expect(await store.parcoursDEvenementEndormi(tenantId, dort)).toEqual({ id, origine: ev('dort').origine });
+    expect(await store.parcoursDEvenementEndormi(autreTenant, dort), 'un autre espace').toBeNull();
+    const attend = '33600009302';
+    await nait(tenantId, workflowId, attend, ev('attend'));
+    expect(await store.parcoursDEvenementEndormi(tenantId, attend), 'il attend, il ne dort pas').toBeNull();
+    const ordinaire = '33600009303';
+    await nait(tenantId, workflowId, ordinaire, null, { status: 'sleeping', resumeAt: new Date(Date.now() + 3_600_000) });
+    expect(await store.parcoursDEvenementEndormi(tenantId, ordinaire), 'un parcours ordinaire').toBeNull();
+  });
+
   it('🔴 closeOrdinairesByWaId épargne le parcours d’événement ; cloreAutresActifs épargne celui qui prend la main', async () => {
     const wa = '33600009121';
     const evenement = await nait(tenantId, workflowId, wa, ev('c'));

@@ -533,8 +533,9 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     // L'agent de Meta n'est pas le répondeur : le message « à côté » va au répondeur du mode (agent IA, scénario, équipe),
     // par la remise et ses gardes (lot 5, RC6). Le dernier message nommé : son parcours naît en l'ayant reçu.
     confierAuRepondeur: (tenant, waId, messageId) => fil.remettreSiPersonneNeSuit(tenant, waId, '', { rouverte: false, messageDeclencheur: messageId }),
-    // Décision 34 : le clic qu'un parcours d'événement rend va à la voie de son message, si elle coexiste avec lui.
-    remettreLeClicHorsParcours: (tenant, waId, messageId) => fil.remettreLeClicHorsParcours(tenant, waId, messageId),
+    // Décisions 34 et 35 : le clic qu'un parcours d'événement rend, ou le message reçu pendant son Attente, va à la voie de
+    // son message si elle coexiste avec lui, avec son entrée réelle (réouverture, redélivrance).
+    remettreLeClicHorsParcours: (tenant, waId, messageId, entree) => fil.remettreLeClicHorsParcours(tenant, waId, messageId, entree),
     // Contexte d'évaluation des conditions et des valeurs dynamiques. Contact introuvable -> null -> le
     // moteur prend la branche 'false'.
     evalContext: buildEvalContext,

@@ -356,6 +356,8 @@ interface OptionsReprise {
   fenetre?: boolean;
   /** Décision 34 : le répondeur de la voie de ce message coexiste-t-il avec le parcours (défaut : non) ? */
   horsParcours?: 'confie' | 'ne_coexiste_pas';
+  /** Décision 35 : aucun parcours n'attend le contact ; celui de l'événement DORT dans une Attente, ou un ordinaire. */
+  endormi?: 'evenement' | 'ordinaire';
 }
 
 /** Le premier message d'un parcours d'événement, tel que la naissance du lot 5 le garde. */
@@ -376,6 +378,8 @@ function bancReprise(o: OptionsReprise = {}) {
   const priseDeMain: string[] = [];
   const auRepondeur: string[] = [];
   const horsParcours: string[] = [];
+  /** L'entrée réelle transmise à la remise hors parcours, par appel (décisions 34 et 35). */
+  const entrees: unknown[] = [];
   const arrets: string[] = [];
   const escalades: boolean[] = [];
   const deps: WorkflowExecutorDeps = {
@@ -387,7 +391,8 @@ function bancReprise(o: OptionsReprise = {}) {
     escalateToHuman: async (_t, _w, _a, escalade) => { escalades.push(escalade); },
     blocDuMessage: async (_t, wamid) => BLOCS_DES_MESSAGES[wamid] ?? null,
     confierAuRepondeur: async (_t, _w, messageId) => { auRepondeur.push(messageId); },
-    remettreLeClicHorsParcours: async (_t, _w, messageId) => {
+    remettreLeClicHorsParcours: async (_t, _w, messageId, entree) => {
+      entrees.push(entree);
       const issue = o.horsParcours ?? 'ne_coexiste_pas';
       if (issue === 'confie') horsParcours.push(messageId);
       return issue;
@@ -395,7 +400,8 @@ function bancReprise(o: OptionsReprise = {}) {
     resoudreBloc: async (_t, cible) => (cible === 'code-autre' ? { workflowId: 'wf-autre', nodeId: 'x', graph: AUTRE } : null),
     runs: avecGardesDEtatInertes({
       start: async () => ({ id: 'r-saut' }),
-      findWaitingByWaId: async () => o.dernier ?? runEvenement(o.evenement ? { evenement: o.evenement } : {}),
+      findWaitingByWaId: async () => (o.endormi !== undefined ? null : o.dernier ?? runEvenement(o.evenement ? { evenement: o.evenement } : {})),
+      parcoursDEvenementEndormi: async () => (o.endormi === 'evenement' ? { id: 'r-evt', origine: (o.evenement ?? EVENEMENT).origine } : null),
       findWaitingSurBloc: async (_t: string, _w: string, wf: string, noeud: string) =>
         (wf === 'wf-panier' && noeud === 'tpl' ? runEvenement(o.evenement ? { evenement: o.evenement } : {}) : null),
       setState: async (id: string, s: RunState) => { ecritures.push(`${id}:${s.status}`); },
@@ -421,7 +427,7 @@ function bancReprise(o: OptionsReprise = {}) {
     varsFor: async () => o.varsFiche ?? {},
   };
   deps.setField = async (_t, _w, cle, valeur) => { champs.push(`${cle}=${String(valeur)}`); };
-  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur, horsParcours, arrets, modeles, champs, escalades };
+  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur, horsParcours, entrees, arrets, modeles, champs, escalades };
 }
 
 const clic = (bouton: string) => ({ reaction: false, messageCite: 'wamid.tpl', type: 'button' as const, bouton });
@@ -505,6 +511,66 @@ describe('la réponse du contact à un parcours d’événement (advance)', () =
       expect(pris, cite).toBe(false);
       expect(m.arrets, cite).toEqual([SIEN.origine]);
       expect([m.envois, m.auRepondeur], cite).toEqual([[], []]);
+    }
+  });
+
+  /** Décision 35 : ce que le contact envoie pendant l'Attente, un texte ou un clic. */
+  const pendantLAttente = [
+    { nom: 'texte', bouton: null, entrant: { reaction: false, type: 'text', texte: 'Merci !' } },
+    { nom: 'clic', bouton: 'btn:0', entrant: clic('btn:0') },
+  ];
+
+  it('🔴 décision 35 : un message pendant l’Attente d’un parcours d’événement, robot qui coexiste : confié, le parcours dort toujours', async () => {
+    silence();
+    for (const c of pendantLAttente) {
+      const m = bancReprise({ evenement: SIEN, endormi: 'evenement', horsParcours: 'confie' });
+      expect(await m.executor.advance(ESPACE, WA, 'm1', c.bouton, 'whatsapp', c.entrant), c.nom).toBe(true);
+      expect(m.horsParcours, c.nom).toEqual(['m1']);
+      expect([m.envois, m.ecritures, m.arrets], `${c.nom} : rien ne part, le parcours reprendra à son réveil`).toEqual([[], [], []]);
+    }
+  });
+
+  it('🔴 décision 35 : l’agent de Meta ou l’équipe : le parcours s’arrête par son origine, puis le message revient à la remise', async () => {
+    silence();
+    for (const c of pendantLAttente) {
+      const m = bancReprise({ evenement: SIEN, endormi: 'evenement', horsParcours: 'ne_coexiste_pas' });
+      expect(await m.executor.advance(ESPACE, WA, 'm1', c.bouton, 'whatsapp', c.entrant), c.nom).toBe(false);
+      expect(m.arrets, c.nom).toEqual([SIEN.origine]);
+      expect([m.envois, m.auRepondeur, m.horsParcours], c.nom).toEqual([[], [], []]);
+    }
+  });
+
+  it('🔴 décisions 34 et 35 : l’entrée réelle du message (réouverture, redélivrance) va à la remise hors parcours', async () => {
+    silence();
+    const entree = { rouverte: true, redelivre: true };
+    // Décision 34 : un clic sur le premier message d'un événement frère, pendant que le parcours attend.
+    const attend = bancReprise({ evenement: SIEN, horsParcours: 'confie' });
+    await attend.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', { ...clic('btn:0'), messageCite: 'wamid.frere', ...entree });
+    // Décision 35 : un texte pendant l'Attente.
+    const dort = bancReprise({ evenement: SIEN, endormi: 'evenement', horsParcours: 'confie' });
+    await dort.executor.advance(ESPACE, WA, 'm2', null, 'whatsapp', { reaction: false, type: 'text', texte: 'Merci !', ...entree });
+    // Une entrée qui ne dit rien : ni réouverture ni redélivrance.
+    const simple = bancReprise({ evenement: SIEN, endormi: 'evenement', horsParcours: 'confie' });
+    await simple.executor.advance(ESPACE, WA, 'm3', null, 'whatsapp', { reaction: false, type: 'text', texte: 'Merci !' });
+    expect([attend.entrees, dort.entrees, simple.entrees]).toEqual([[entree], [entree], [{ rouverte: false, redelivre: false }]]);
+  });
+
+  it('🔴 décision 35 : rien pour une réaction, un message RCS, un fil qui n’est pas à nous, ni un parcours ORDINAIRE qui dort (son silence)', async () => {
+    silence();
+    const texte = { reaction: false, type: 'text', texte: 'Merci !' };
+    const cas = [
+      { nom: 'réaction', o: { endormi: 'evenement' as const }, canal: 'whatsapp' as const, entrant: { reaction: true, type: 'reaction' } },
+      { nom: 'RCS', o: { endormi: 'evenement' as const }, canal: 'rcs' as const, entrant: texte },
+      { nom: 'opérateur', o: { endormi: 'evenement' as const, detenteur: 'app_human' as const }, canal: 'whatsapp' as const, entrant: texte },
+      { nom: 'agent de Meta', o: { endormi: 'evenement' as const, detenteur: 'mba' as const }, canal: 'whatsapp' as const, entrant: texte },
+      { nom: 'ordinaire', o: { endormi: 'ordinaire' as const }, canal: 'whatsapp' as const, entrant: texte },
+    ];
+    for (const c of cas) {
+      for (const horsParcours of ['confie', 'ne_coexiste_pas'] as const) {
+        const m = bancReprise({ evenement: SIEN, horsParcours, ...c.o });
+        expect(await m.executor.advance(ESPACE, WA, 'm1', null, c.canal, c.entrant), `${c.nom}, ${horsParcours}`).toBeUndefined();
+        expect([m.horsParcours, m.arrets, m.envois], `${c.nom}, ${horsParcours}`).toEqual([[], [], []]);
+      }
     }
   });
 

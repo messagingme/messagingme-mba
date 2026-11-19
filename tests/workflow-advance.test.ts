@@ -63,6 +63,14 @@ describe('processWorkflowAdvance', () => {
     expect(vus).toEqual([{ m: 'f1', formulaire: true }, { m: 't1', formulaire: false }]);
   });
 
+  it('🔴 décisions 34 et 35 : l’entrée réelle de chaque message (il a rouvert la conversation, Meta l’a redélivré) arrive à advance', async () => {
+    const vus: Array<{ m: string; rouverte: boolean; redelivre: boolean }> = [];
+    await processWorkflowAdvance(await entrantsDe(payload), {
+      advance: async (_t, _w, m, _bp, entrant) => { vus.push({ m, rouverte: entrant.rouverte === true, redelivre: entrant.redelivre === true }); },
+    }, undefined, { rouvertes: new Set(['m1']), dejaVus: new Set(['m2']) });
+    expect(vus).toEqual([{ m: 'm1', rouverte: true, redelivre: false }, { m: 'm2', rouverte: false, redelivre: true }]);
+  });
+
   it('🔴 le bloc Question qui range sa réponse reçoit le type, le texte d’un message écrit seulement, et le MIME d’un fichier', async () => {
     // Spec du 2026-11-02 : une photo envoyée « en fichier » se reconnaît à son MIME ; sa légende n'est pas un texte écrit.
     const vus: unknown[] = [];

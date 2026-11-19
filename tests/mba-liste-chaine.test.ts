@@ -99,6 +99,25 @@ describe('un message reçu par un parcours reste au parcours', () => {
     // L'équipe tient la conversation, le délai n'est pas écoulé : elle reste à l'équipe, et une demande s'ouvre.
     expect(j.b.demandes.map((d) => d.waId)).toEqual([WA]);
   });
+
+  /**
+   * 🔴 DÉCISIONS 34 ET 35 : le message qu'un parcours d'événement rend à une voie qui coexiste emporte son entrée réelle,
+   * que seul le job connaît (la conversation rouverte à l'enregistrement, la redélivrance à l'insertion de l'événement).
+   * Vérifié dans les deux sens : le quatrième argument de `processWorkflowAdvance` retiré du handler, ce cas échoue.
+   */
+  it('🔴 l’avance reçoit l’entrée réelle de chaque message : rouverte à l’enregistrement, redélivré par Meta', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const o = { rouverte: true };
+    const j = monterLeJob(o);
+    const vus: Array<{ m: string; rouverte: boolean; redelivre: boolean }> = [];
+    j.deps.workflowAdvance = { advance: async (_t, _w, m, _bp, entrant) => { vus.push({ m, rouverte: entrant.rouverte === true, redelivre: entrant.redelivre === true }); } };
+    await handleWebhookJob(lot('messages', [texte('wamid.E', 'Merci')]), j.deps);
+    // Meta redélivre le même message : son événement est déjà connu.
+    o.rouverte = false;
+    j.deps.store = { insertEvent: async () => false };
+    await handleWebhookJob(lot('messages', [texte('wamid.E', 'Merci')]), j.deps);
+    expect(vus).toEqual([{ m: 'wamid.E', rouverte: true, redelivre: false }, { m: 'wamid.E', rouverte: false, redelivre: true }]);
+  });
 });
 
 describe('invariant 3 : un contact absent de la liste parle à la plateforme', () => {

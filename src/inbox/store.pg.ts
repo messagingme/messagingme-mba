@@ -545,6 +545,15 @@ export class PgInboxStore implements InboxStore {
     return res.rows[0]?.tient === true;
   }
 
+  /** La même règle sans les parcours d'événement : la réponse de l'application coexiste avec eux (décisions 34 et 35). */
+  async parcoursOrdinaireTientLeFil(tenantId: string, waId: string): Promise<boolean> {
+    const res = await this.pool.query<{ tient: boolean }>(
+      `select ${parcoursTientLeFilSql({ tenant: '$1::uuid', waId: '$2::text', delaiMs: String(DELAI_PARCOURS_TIENT_LE_FIL_MS), ordinaires: true })} as tient`,
+      [tenantId, waId],
+    );
+    return res.rows[0]?.tient === true;
+  }
+
   /**
    * Les contacts dont notre colonne dit le fil tenu par l'agent de Meta, par `wa_id` croissant, strictement après
    * `apres` (`ControleDuFil.reprendreLesFilsDeMeta`, quand l'espace quitte le mode `mba`, RC6).

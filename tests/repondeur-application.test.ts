@@ -72,6 +72,16 @@ describe('le mode `application` dans la remise d’un entrant', () => {
     expect(await equipe.fil.tenuParLApplication(T, W)).toBe(false);
   });
 
+  it('🔴 décisions 34 et 35 : un fil que seul un parcours d’ÉVÉNEMENT tient reste à lui : la réponse de l’application ne le prend pas', async () => {
+    // L'application coexiste avec le parcours d'événement (confirmé par Julien le 2026-11-19) : prendre le fil le ferait
+    // s'arrêter à son réveil ou au clic suivant (`app_human`, un opérateur pour lui), au lieu de reprendre.
+    const evenement = bancDuFil({ ...libre, mode: 'application', repondeurAdresseId: AD, enAttente: true, evenementSeul: true });
+    expect(await evenement.fil.tenuParLApplication(T, W)).toBe(true);
+    // Hors du mode « Application », rien ne change : la réponse d'une machine prend le fil.
+    const agent = bancDuFil({ ...libre, mode: 'agent', repondeurAgentId: 'ag-1', enAttente: true, evenementSeul: true });
+    expect(await agent.fil.tenuParLApplication(T, W)).toBe(false);
+  });
+
   it('l’adresse supprimée (clé étrangère en `set null`) : le mode se lit « équipe »', () => {
     expect(modeEffectif({ mbaEnabled: false, repondeurMode: 'application', repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null })).toBe('equipe');
     expect(modeEffectif({ mbaEnabled: false, repondeurMode: 'application', repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: AD })).toBe('application');

@@ -134,6 +134,11 @@ export interface DepsControleDuFil {
     getControlOwner(tenantId: string, waId: string): Promise<ControlOwner>;
     /** Un parcours tient-il le fil de ce contact ? La règle unique (`./parcours-tient-le-fil.ts`). */
     parcoursTientLeFil(tenantId: string, waId: string): Promise<boolean>;
+    /**
+     * La même règle, sans les parcours d'ÉVÉNEMENT : la seule que lit la réponse de l'application (décisions 34 et 35,
+     * l'application coexiste avec eux).
+     */
+    parcoursOrdinaireTientLeFil(tenantId: string, waId: string): Promise<boolean>;
     /** `true` si la bascule a eu lieu ; jamais d'erreur sur une garde refusée. */
     setControlOwner(tenantId: string, waId: string, owner: ControlOwner, opts: EcritureDuFil): Promise<boolean>;
     /** Marque le fil « à rendre dès l'accusé de notre dernier envoi » et rend ce message, ou `null` : rien en vol. */
@@ -270,16 +275,18 @@ export interface EntreeDuContact {
   redelivre?: boolean;
   reactionsSeules?: boolean;
   /**
-   * Décision 34 : un parcours d'ÉVÉNEMENT tient le fil et vient de rendre ce message (un clic sur un message qui n'est
-   * pas le sien). La garde « un parcours tient le fil » est levée pour lui seul, et seulement vers un robot qui coexiste
-   * avec le parcours (`VOIES_QUI_COEXISTENT`). Posée par `remettreLeClicHorsParcours`, jamais par un webhook.
+   * Décisions 34 et 35 : un parcours d'ÉVÉNEMENT tient le fil et vient de rendre ce message (un clic sur un message qui
+   * n'est pas le sien, ou un message reçu pendant son Attente). La garde « un parcours tient le fil » est levée pour lui
+   * seul, et seulement vers un robot qui coexiste avec le parcours (`VOIES_QUI_COEXISTENT`). Posée par
+   * `remettreLeClicHorsParcours`, jamais par un webhook.
    */
   horsDuParcoursDEvenement?: true;
 }
 
 /**
- * 🔴 LES VOIES QUI COEXISTENT AVEC UN PARCOURS D'ÉVÉNEMENT (décision 34) : l'agent IA et le scénario répondeur, dont le
- * lancement `repondeur` ne clôt que les parcours ordinaires, et l'application, qui répond par l'API sans prendre le fil.
+ * 🔴 LES VOIES QUI COEXISTENT AVEC UN PARCOURS D'ÉVÉNEMENT (décisions 34 et 35) : l'agent IA et le scénario répondeur,
+ * dont le lancement `repondeur` ne clôt que les parcours ordinaires, et l'application, qui répond par l'API sans prendre
+ * le fil (`tenuParLApplication` ne lit que les parcours ordinaires).
  * L'agent de Meta et l'équipe n'en font pas partie : ils prennent le fil, et deux maîtres du fil se disputeraient la
  * réponse suivante (le défaut MUTAC du 2026-11-19).
  */
@@ -398,12 +405,15 @@ export interface ControleDuFil {
   remettreSiPersonneNeSuit(tenantId: string, waId: string, contenu: string, entree: EntreeDuContact): Promise<void>;
   /**
    * 🔴 DÉCISION 34 (Julien, 2026-11-19) : le clic qu'un parcours d'événement rend, parce qu'il cite un message qui n'est
-   * pas le sien. La voie du message (le répondeur que désigne la campagne, sinon le mode de l'espace) COEXISTE avec le
-   * parcours : la remise le lui donne, garde du parcours levée pour ce seul message (`confie`), et le parcours continue
-   * d'attendre. Sinon (`ne_coexiste_pas` : l'agent de Meta ou l'équipe), rien n'est fait ici : l'exécuteur arrête d'abord
-   * le parcours, puis rend le clic à la remise ordinaire.
+   * pas le sien ; et, décision 35, tout message reçu pendant que ce parcours DORT dans une Attente. La voie du message (le
+   * répondeur que désigne la campagne, sinon le mode de l'espace) COEXISTE avec le parcours : la remise le lui donne,
+   * garde du parcours levée pour ce seul message (`confie`), et le parcours continue d'attendre ou de dormir. Sinon
+   * (`ne_coexiste_pas` : l'agent de Meta ou l'équipe), rien n'est fait ici : l'exécuteur arrête d'abord le parcours, puis
+   * rend le message à la remise ordinaire.
    */
-  remettreLeClicHorsParcours(tenantId: string, waId: string, messageDeclencheur: string): Promise<'confie' | 'ne_coexiste_pas'>;
+  remettreLeClicHorsParcours(
+    tenantId: string, waId: string, messageDeclencheur: string, entree: { rouverte: boolean; redelivre: boolean },
+  ): Promise<'confie' | 'ne_coexiste_pas'>;
   /**
    * Reprendre le fil pour un scénario qu'on démarre délibérément (campagne, lancement depuis l'Inbox, lien de
    * chaîne, `/v1/sends`, jeton de test, relais de l'agent de Meta) : le contact est retiré de la liste de l'agent,
@@ -648,8 +658,10 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
       if (modeEffectif(await reglagesDe(tenantId)) !== 'application') return false;
       if ((await depot.getControlOwner(tenantId, waId)) !== 'app_workflow') return false;
       // `app_workflow` désigne AUSSI un parcours qui attend la réponse du contact : celui-là, une réponse par l'API le
-      // coupe (elle prend le fil), comme avant ce mode ; sinon deux voix parleraient au client.
-      return !(await depot.parcoursTientLeFil(tenantId, waId));
+      // coupe (elle prend le fil), comme avant ce mode ; sinon deux voix parleraient au client. 🔴 Sauf un parcours
+      // d'ÉVÉNEMENT (décisions 34 et 35) : l'application coexiste avec lui, et prendre le fil le ferait s'arrêter à son
+      // réveil ou au clic suivant (`app_human` se lit « un opérateur »), au lieu de reprendre.
+      return !(await depot.parcoursOrdinaireTientLeFil(tenantId, waId));
     },
 
     async enModeApplication(tenantId) {
@@ -1059,12 +1071,16 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
       }
     },
 
-    async remettreLeClicHorsParcours(tenantId, waId, messageDeclencheur) {
+    async remettreLeClicHorsParcours(tenantId, waId, messageDeclencheur, entree) {
       // La voie que prendra la remise : le répondeur que désigne la campagne, sinon le mode de l'espace (sous l'offre).
       const designe = await deps.campagnes.repondeurDeLaReponse(tenantId, waId);
       const voie: ModeRepondeur = designe?.cible ?? modeEffectif(await reglagesDe(tenantId));
       if (!VOIES_QUI_COEXISTENT.has(voie)) return 'ne_coexiste_pas';
-      await controle.remettreSiPersonneNeSuit(tenantId, waId, '', { rouverte: false, messageDeclencheur, horsDuParcoursDEvenement: true });
+      // L'entrée réelle (relecture de 5b) : une réouverture rouvre la demande de l'équipe qui tient le fil, et une
+      // redélivrance de Meta ne relance pas le robot.
+      await controle.remettreSiPersonneNeSuit(tenantId, waId, '', {
+        rouverte: entree.rouverte, redelivre: entree.redelivre, messageDeclencheur, horsDuParcoursDEvenement: true,
+      });
       return 'confie';
     },
   };

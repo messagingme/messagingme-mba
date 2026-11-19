@@ -346,6 +346,22 @@ export class PgWorkflowRunStore {
   }
 
   /**
+   * Décision 35 : le parcours d'événement de ce contact s'il DORT dans une Attente, avec l'origine par laquelle on l'arrête.
+   * Le prédicat de l'index unique de 0298 écrit tel quel, plus le sommeil (`tests/run-store-claims.test.ts`). Sans origine,
+   * rien ne pourrait l'arrêter : il n'est pas rendu, et la remise ordinaire garde la main.
+   */
+  async parcoursDEvenementEndormi(tenantId: string, waId: string): Promise<{ id: string; origine: string } | null> {
+    const res = await this.pool.query<{ id: string; origine: string | null }>(
+      `select id, evenement->>'origine' as origine from workflow_runs
+        where tenant_id = $1 and wa_id = $2 and evenement is not null and status in ('waiting', 'sleeping') and status = 'sleeping'
+        limit 1`,
+      [tenantId, waId],
+    );
+    const r = res.rows[0];
+    return r && r.origine !== null ? { id: r.id, origine: r.origine } : null;
+  }
+
+  /**
    * 🔴 LOT 5 : LE PREMIER MESSAGE D'UN PARCOURS D'ÉVÉNEMENT N'A PAS ÉTÉ LIVRÉ (accusé `failed` de Meta, relecture de 4b).
    * Le parcours est né quand Meta a ACCEPTÉ le template ; resté sur son bloc de départ, il est clos (aucun envoi : rien
    * n'est parti de lui), ses variables effacées et la marque `premierNonLivre` posée, pour qu'une nouvelle tentative

@@ -62,6 +62,7 @@ export function depotEnMemoire(initial: Record<string, Partial<EtatDuFil>> = {})
     getControlOwner: async (_t, waId) => lignes.get(waId)?.owner ?? 'app_workflow',
     // Aucun parcours en mémoire par défaut ; `monterLeFil` le remplace par `enAttente` ou ses parcours.
     parcoursTientLeFil: async () => false,
+    parcoursOrdinaireTientLeFil: async () => false,
     setControlOwner: async (_t, waId, owner, opts) => {
       const l = lignes.get(waId);
       if (!l || l.owner === owner) return false;
@@ -284,6 +285,8 @@ export interface OptionsBanc {
   applicationReliee?: boolean;
   /** Un parcours attend-il la réponse du contact ? Défaut : non. */
   enAttente?: boolean;
+  /** Décision 35 : le parcours qui tient le fil (`enAttente`) est un parcours d'ÉVÉNEMENT, aucun ordinaire. Défaut : non. */
+  evenementSeul?: boolean;
   /** Les contacts qui ont dit STOP. Défaut : aucun. */
   desabonnes?: string[];
   /** Les contacts bloqués. Défaut : aucun. */
@@ -367,6 +370,15 @@ export function bancDuFil(o: OptionsBanc = {}): {
       ...memoire.depot,
       // La règle unique, lue en mémoire : un parcours qui attend (`enAttente`, ou de vrais parcours en mémoire).
       parcoursTientLeFil: async (t, waId) => (o.parcours ? (await o.parcours.findWaitingByWaId(t, waId)) !== null : o.enAttente === true),
+      // Décision 35 : seul un parcours ORDINAIRE retient la réponse de l'application (`evenementSeul` : celui qui tient le
+      // fil est un parcours d'événement ; de vrais parcours en mémoire disent le leur).
+      parcoursOrdinaireTientLeFil: async (t, waId) => {
+        if (o.parcours) {
+          const r = (await o.parcours.findWaitingByWaId(t, waId)) as { evenement?: unknown } | null;
+          return r !== null && (r.evenement ?? null) === null;
+        }
+        return o.enAttente === true && o.evenementSeul !== true;
+      },
       ...o.depot,
     },
     reglages: {

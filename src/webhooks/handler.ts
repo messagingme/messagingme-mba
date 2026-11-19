@@ -328,7 +328,8 @@ export async function handleWebhookJob(recu: unknown, deps: WebhookJobDeps): Pro
   if (workflowAdvance) {
     await tenter('handleWebhookJob: avance workflow ignorée:', async () => {
       // Un message qu'un parcours a reçu est à lui : la remise ne le rejoue pas (voir `WorkflowAdvanceDeps.advance`).
-      const parParcours = await processWorkflowAdvance(entrants, workflowAdvance, consumed);
+      // L'entrée réelle (réouverture, redélivrance) suit le message qu'un parcours d'événement rend (décisions 34 et 35).
+      const parParcours = await processWorkflowAdvance(entrants, workflowAdvance, consumed, { rouvertes, dejaVus: alreadySeen });
       if (parParcours.size > 0) consumed = new Set([...consumed, ...parParcours]);
     });
   }
