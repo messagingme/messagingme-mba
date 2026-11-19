@@ -1,6 +1,6 @@
 ---
 slug: give-tools-to-an-ai-agent
-traduit_de: 30a997
+traduit_de: 3c4658
 description: Give tools to an AI agent: the always-there moves, then a tag, a detail, a block, a scenario, an action or chained steps.
 ---
 # Give tools to an AI agent
@@ -97,7 +97,7 @@ and what the agent then tells the customer), then the details to collect, with �
 - When the customer makes the request, the agent answers what the instruction says and carries on. Your application
   receives the “AI agent action” event, once a day at most per contact and per action.
 - That event is unticked by default: tick it on an address in Developers > Outgoing webhooks, otherwise nothing goes
-  out, and the card reminds you. An automation can also start from the action (Automation menu).
+  out, and the card reminds you. An automation can also start from the action (Scenario > Automation > Other).
 - A field’s code is the key your application reads: it follows the label while the field is new, do not change it
   afterwards. Ten actions per agent at most.
 

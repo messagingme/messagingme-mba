@@ -2167,7 +2167,7 @@ function ScenarioSendPanel({
         {workflows.length === 0 ? (
           <p className="text-xs text-alerte-700" data-testid="scenario-none">
             {total === 0
-              ? t('Aucun scénario : créez-en un dans le menu « Scénario ».', 'No scenario yet: create one from the “Scenario” menu.')
+              ? t('Aucun scénario : créez-en un dans Scénario > Builder.', 'No scenario yet: create one in Scenario > Builder.')
               : t('Aucun de vos scénarios ne peut partir hors de la fenêtre de 24 h : il doit ouvrir par un template ou par un message RCS (une étiquette, une action ou une condition avant restent possibles).', 'None of your scenarios can run outside the 24h window: it must open with a template or an RCS message (a tag, an action or a condition before it is fine).')}
           </p>
         ) : (

@@ -357,7 +357,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
           <div className="mt-4 space-y-1 border-t border-ink-50 pt-3 text-sm text-ink-500">
             <p>
               {t('Le scénario lancé quand un deal atteint une étape se règle dans', 'The scenario launched when a deal reaches a stage is set up in')}{' '}
-              <Link href="/automations" className="text-brand-600 hover:underline">{t('Automations', 'Automations')}</Link>
+              <Link href="/automations/hubspot" className="text-brand-600 hover:underline">{t('Scénario > Automation > HubSpot', 'Scenario > Automation > HubSpot')}</Link>
               {t(', avec « Automations HubSpot » allumée.', ', with “HubSpot automations” on.')}
             </p>
             <p>

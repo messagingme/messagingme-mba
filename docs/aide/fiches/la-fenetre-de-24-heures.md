@@ -30,8 +30,8 @@ Ce que ça change, concrètement :
   modèle, ou placez-le après une réponse du client.
 - **La sortie « Pas de réponse »** d'un modèle ou d'une question part, elle aussi, sans réponse du client : la relance
   qui la suit doit être un modèle approuvé quand la conversation n'était pas ouverte.
-- **Sur l'écran Automation**, une automation qui ne naît pas d'un message du client, et dont le scénario enverrait un
-  message libre avant toute réponse, porte l'avertissement sous son nom.
+- **Sur l'écran Scénario > Automation > Autres**, une automation qui ne naît pas d'un message du client, et dont le
+  scénario enverrait un message libre avant toute réponse, porte l'avertissement sous son nom.
 
 **Bon à savoir.** Le réflexe à prendre : dès que le message s'adresse à quelqu'un qui ne vient pas de vous
 écrire, pensez modèle approuvé. Dès qu'il répond à quelqu'un qui vient de parler, écrivez librement.

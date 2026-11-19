@@ -1,6 +1,6 @@
 ---
 slug: the-24-hour-window
-traduit_de: 882460
+traduit_de: 3f5a77
 ---
 # Why my message does not go out: the 24-hour window
 
@@ -27,8 +27,8 @@ What it changes, in practice:
   customer.
 - **The "No reply" output** of a template or a question also goes out before the customer has replied: the follow-up
   after it must be an approved template when the conversation was not open.
-- **On the Automation screen**, an automation that does not come from a customer's message, and whose scenario would
-  send a free message before any reply, carries the warning under its name.
+- **On the Scenario > Automation > Other screen**, an automation that does not come from a customer's message, and whose
+  scenario would send a free message before any reply, carries the warning under its name.
 
 **Good to know.** The reflex to adopt: as soon as the message goes to someone who has not just written to you, think
 approved template. As soon as it answers someone who has just spoken, write freely.

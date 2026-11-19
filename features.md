@@ -254,13 +254,20 @@ Le reste de ses prérogatives n'est toujours pas décidé.
 
 **Le menu de gauche change avec l'onglet.**
 
-**Console** : **Accueil · mini-CRM · Campagnes · Chaîne · Scénario · Automation · AI Agent (MBA / Other AI
-agent) · Contenu (Templates WhatsApp / Formulaires WhatsApp / Modèles
+**Console** : **Accueil · mini-CRM · Campagnes · Chaîne · Publicités · Scénario (Builder / Automation : Shopify,
+HubSpot, Autres) · AI Agent (MBA / Other AI agent) · Contenu (Templates WhatsApp / Formulaires WhatsApp / Modèles
 d'email / Messages RCS / Blocs / Étiquettes / Champs, rangés par canal depuis le 2026-09-02 : WhatsApp /
 RCS / Email / Bibliothèque) · Tools (Intégrations / Webhooks / Connecteurs API / Connecteurs MCP / SMTP email / Widget WhatsApp)**, puis, collés **en bas** de la barre,
 **Paramètres (Général / Médiathèque / Offre) · Support · Developers (Documentation API / Clés d'API / Serveur MCP)**.
 ⚠️ **Paramètres et Support sont descendus en bas le 2026-09-08** : ils ne servent pas le travail quotidien,
 ils le règlent, comme Developers. Aucune adresse n'a changé.
+- ✅ **« Scénario » remplace « Automation »** (2026-11-19, menu « Scénario », lot 7) : **Builder**, où se construisent
+  les scénarios (l'ancien Contenu > Scénario), et **Automation**, rangée par source : **Shopify** (seulement avec une
+  boutique branchée), **HubSpot** (seulement avec un portail relié) et **Autres**, les automations qui lancent un
+  scénario du Builder. Les adresses ne changent pas (`/workflows`, `/automations`) ; Shopify a sa page
+  (`/automations/shopify`), HubSpot la sienne (`/automations/hubspot`). Une page de source ouverte par un lien garde son
+  entrée dans la barre, même sans sa source ; sans boutique, la page Shopify dit où la brancher. Réservé aux admins,
+  comme avant.
 - ✅ **« AI Agent » tient en deux liens directs** (2026-09-29, décision de Julien) : **MBA** mène droit aux
   paramètres de l'agent de Meta, **Other AI agent** droit à l'écran des agents IA. Le guide du MBA a été
   retiré (son adresse `/mba` mène aux paramètres), et ce qu'il disait de juste sur l'éligibilité est dit là où
@@ -299,9 +306,10 @@ de Meta.
 
 **Inbox** : **aucune barre de navigation**, ni sur ordinateur ni dans le tiroir mobile. L'écran portera son
 propre menu de dossiers, façon boîte mail.
-- ✅ **La barre a TROIS niveaux**, portés par Contenu (Contenu > WhatsApp > Templates). « AI Agent » en a eu un
+- ✅ **La barre a TROIS niveaux**, portés par Contenu (Contenu > WhatsApp > Templates) et par Scénario (Scénario >
+  Automation > Shopify). « AI Agent » en a eu un
   troisième (MBA > guide / paramètres) du 2026-09-01 au 2026-09-29 ; il est redevenu plat avec le retrait du guide.
-Les groupes **AI Agent**, **Contenu**, **Tools**, **Paramètres**, **Sécurité**, **Analytics** et **Developers** sont **repliables** (clic sur l'en-tête, chevron) : ouverts d'office quand on est sur une de leurs pages, sinon repliés.
+Les groupes **Scénario**, **AI Agent**, **Contenu**, **Tools**, **Paramètres**, **Sécurité**, **Analytics** et **Developers** sont **repliables** (clic sur l'en-tête, chevron) : ouverts d'office quand on est sur une de leurs pages, sinon repliés.
 Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/EN**, Compte & équipe, **Abonnement** avec l'offre de l'espace
 (Free, Pro ou Entreprise), qui mène à la page Offre, **Billing**, qui ouvre le portail de Stripe pour les factures
 (un espace qui n'a rien payé par carte le dit), Déconnexion ; depuis le 2026-10-13). RBAC = barrière serveur (preHandler), l'UI ne fait que masquer.
@@ -1409,8 +1417,11 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
   jamais une branche décalée.
 - Ni carousel ni en-tête image, vidéo ou document : ils se créent dans Contenu > Templates.
 
-## Automation (menu « Automation »)
+## Automation (menu « Scénario » > Automation > Autres)
 
+- ✅ **Rangée sous « Scénario »** (2026-11-19, menu « Scénario », lot 7) : l'écran s'appelle « Autres automations » et
+  vit dans Scénario > Automation > Autres, à la même adresse (`/automations`). Les automations d'une boutique Shopify
+  ont quitté sa tête pour leur page, Scénario > Automation > Shopify.
 - ✅ **Le déclencheur « étape de deal HubSpot » se grise quand aucun portail n'est relié** (2026-08-23), avec
   la mention « HubSpot non connecté ». L'enregistrement était déjà impossible (pas d'étape à choisir), mais
   l'option restait sélectionnable, et le message renvoyait vers **Paramètres** alors que la connexion se fait
@@ -2917,7 +2928,7 @@ scénario, comment importer des contacts.
 - 📖 **Le guide pas à pas**, avec les écrans réels de la fenêtre de Meta (données masquées) : la fiche publique
   « Garder mon application WhatsApp Business » du centre d'aide.
 
-## Rappels avant ou après une date (menu Automation)
+## Rappels avant ou après une date (menu « Scénario » > Automation > Autres)
 
 - ✅ **Lancer un scénario X minutes, heures ou jours AVANT OU APRÈS une date enregistrée** (2026-08-23,
   élargi au sens « après » le 2026-09-08). On choisit un champ de type « date et heure », un côté, un nombre
@@ -3046,9 +3057,11 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
     réglage, mais plus rien ne part, ni premier message ni suite ; les parcours en cours s'arrêtent, et un panier
     abandonné pendant la pause n'est jamais relancé après le rallumage. Puis l'import des clients abonnés, les chiffres
     des 30 jours et des paniers, et « Couper » (plus aucun message ; l'app se désinstalle depuis la boutique ; une
-    boutique coupée se rebranche depuis la carte). Les messages se règlent dans l'écran Automation (ci-dessous) : ils ont
-    quitté la carte le 2026-11-19, avec l'assistant qui les écrivait.
-- **Automation > Shopify** (offre Pro et au-delà, 2026-11-19) : avec une boutique branchée, une ligne par automation, son
+    boutique coupée se rebranche depuis la carte). Les messages se règlent dans Scénario > Automation > Shopify
+    (ci-dessous) : ils ont quitté la carte le 2026-11-19, avec l'assistant qui les écrivait.
+- **Scénario > Automation > Shopify** (offre Pro et au-delà, 2026-11-19 ; sa page, `/automations/shopify`, depuis le lot 7
+  du menu « Scénario ») : l'entrée n'apparaît dans la barre qu'avec une boutique branchée ; ouverte sans boutique, la
+  page dit de la brancher dans Tools > Intégrations. Une ligne par automation, son
   interrupteur, son état (pas encore créée, éteinte, à compléter, en validation chez Meta, refusée ou bloquée par Meta,
   active, active avec une nouvelle version en validation), le délai du panier et « Ouvrir le scénario ». Le premier
   allumage crée le scénario et l'ouvre dans le builder ; éteindre arrête ses parcours en cours. Le premier bloc, marqué

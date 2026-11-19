@@ -1,7 +1,7 @@
 ---
 description: Console, Inbox et Performance Lab : les trois onglets de la console Messaging Me, ce que chacun range, et où trouver le compte et les paramètres.
 source_section: Navigation (trois onglets en haut, barre latérale par onglet)
-source_empreinte: 66b436
+source_empreinte: e309a7
 publique: oui
 rubrique: demarrer-console
 rang: 6
@@ -16,10 +16,11 @@ résultats.
 **1. Console, pour tout ce qui se règle.** C'est l'onglet de la configuration : vos contacts, vos campagnes, vos
 scénarios, vos agents, vos contenus et vos outils.
 
-Son menu : Accueil, mini-CRM, Campagnes, Chaîne, Publicités, Automation, AI Agent (MBA, qui ouvre les paramètres de
-l'agent de Meta ; Other AI agent, qui ouvre vos agents IA), Contenu (rangé par canal : WhatsApp avec les Templates
-et les Formulaires, RCS avec les Messages, Email avec les Modèles, puis le Scénario et la Bibliothèque avec vos
-blocs, vos étiquettes et vos champs) et Tools (Intégrations pour Batch, HubSpot, Salesforce et Shopify, Webhooks,
+Son menu : Accueil, mini-CRM, Campagnes, Chaîne, Publicités, Scénario (le Builder, où se construisent vos scénarios,
+et Automation, rangée par source : Shopify avec une boutique branchée, HubSpot avec un portail relié, et Autres), AI
+Agent (MBA, qui ouvre les paramètres de l'agent de Meta ; Other AI agent, qui ouvre vos agents IA), Contenu (rangé par
+canal : WhatsApp avec les Templates et les Formulaires, RCS avec les Messages, Email avec les Modèles, puis la
+Bibliothèque avec vos blocs, vos étiquettes et vos champs) et Tools (Intégrations pour Batch, HubSpot, Salesforce et Shopify, Webhooks,
 Connecteurs API, Connecteurs MCP, SMTP email pour la boîte qui envoie vos e-mails, Widget WhatsApp). Collés en bas de
 la barre, parce qu'ils ne servent pas le travail quotidien mais le règlent : **Paramètres** (Général, Médiathèque,
 Offre, avec son onglet Crédit IA pour recharger le crédit de l'espace), **Support**, **Sécurité** (Consentement, IA, Audit trails, Journal des erreurs) et **Developers**

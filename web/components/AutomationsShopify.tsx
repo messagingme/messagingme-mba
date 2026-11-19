@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@/lib/i18n';
 import { cardCls, inputClsAuto } from '@/lib/ui';
 import { Toggle } from '@/components/Toggle';
+import { Squelette } from '@/components/Squelette';
 import { routeInconnue } from '@/lib/canaux-services';
 import { lireShopify, reglerLigneShopify, type EtatShopifyVue } from '@/lib/api-shopify';
 import {
@@ -14,12 +15,14 @@ import {
 import { delaiEnClair, etatDeLAutomation, type EtatAutomation } from '@/lib/shopify-lignes';
 
 /**
- * LES AUTOMATIONS SHOPIFY, EN TÊTE DE L'ÉCRAN AUTOMATION (menu « Scénario », lot 5, appel A8) : une ligne par événement,
- * son interrupteur, son état, le délai du panier, et son scénario, où se règle le message (le premier bloc, verrouillé).
- * Le premier allumage crée le scénario et l'ouvre dans le builder ; éteindre arrête ses parcours.
+ * LES AUTOMATIONS SHOPIFY, LE CORPS DE SCÉNARIO > AUTOMATION > SHOPIFY (menu « Scénario », lot 5, puis sa page au lot 7) :
+ * une ligne par événement, son interrupteur, son état, le délai du panier, et son scénario, où se règle le message (le
+ * premier bloc, verrouillé). Le premier allumage crée le scénario et l'ouvre dans le builder ; éteindre arrête ses
+ * parcours.
  *
- * Visible avec une boutique, et rien sinon : ni pour un rôle qui ne lit pas la carte (une route d'administrateur), ni
- * quand l'API ne connaît pas la route. La pause et la coupure se règlent dans Tools > Intégrations ; la section les dit.
+ * Sur sa propre page, elle dit chaque cas plutôt que de disparaître : on y arrive aussi par un lien ou par l'aide, sans
+ * boutique (le chemin pour la brancher), ou quand la lecture échoue. La pause et la coupure se règlent dans Tools >
+ * Intégrations ; la page les dit.
  */
 const ETATS: Record<EtatAutomation, readonly [string, string]> = {
   a_creer: ['pas encore créée', 'not created yet'],
@@ -36,17 +39,34 @@ const ETATS_EN_SERVICE: readonly EtatAutomation[] = ['active', 'active_nouvelle_
 export function AutomationsShopify({ tenantId }: { tenantId: string }) {
   const t = useT();
   const router = useRouter();
-  const [vue, setVue] = useState<EtatShopifyVue | null>(null);
+  /** `lecture` jusqu'à la première réponse ; `panne` si elle échoue ou ne se lit pas (une API sans la route comprise). */
+  const [vue, setVue] = useState<EtatShopifyVue | 'lecture' | 'panne'>('lecture');
   const [enCours, setEnCours] = useState<EvenementShopify | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  // Une panne de lecture (un manager, une API d'avant le connecteur, Meta) cache la section : la carte d'Intégrations,
-  // elle, dit l'erreur à l'administrateur.
-  const recharger = useCallback(() => lireShopify(tenantId).then(setVue).catch(() => setVue(null)), [tenantId]);
+  const recharger = useCallback(() => lireShopify(tenantId).then((v) => setVue(v ?? 'panne')).catch(() => setVue('panne')), [tenantId]);
   useEffect(() => { void recharger(); }, [recharger]);
 
-  const b = vue?.boutique ?? null;
-  if (vue === null || b === null) return null;
+  if (vue === 'lecture') return <Squelette forme="lignes" />;
+  if (vue === 'panne') {
+    return (
+      <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700" data-testid="automations-shopify-panne">
+        {t('Vos automations Shopify n’ont pas pu être lues. Réessayez dans un instant.', 'Your Shopify automations could not be read. Try again shortly.')}
+      </p>
+    );
+  }
+  const b = vue.boutique;
+  if (b === null) {
+    return (
+      <section className={cardCls} data-testid="automations-shopify-sans-boutique">
+        <p className="text-sm text-ink-900">
+          {t('Aucune boutique Shopify n’est branchée à votre espace. Branchez-la dans ', 'No Shopify store is connected to your workspace. Connect it in ')}
+          <Link href="/integrations#integration-shopify" className="text-brand-600 hover:underline">{t('Tools > Intégrations', 'Tools > Integrations')}</Link>
+          {t(' : ses trois automations s’allument ensuite ici.', ': its three automations are then switched on here.')}
+        </p>
+      </section>
+    );
+  }
 
   const regler = async (e: EvenementShopify, corps: { actif: boolean; delaiMinutes?: number }): Promise<void> => {
     setEnCours(e);
@@ -76,27 +96,20 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
 
   return (
     <section className={cardCls} data-testid="automations-shopify">
-      <h2 className="text-sm font-semibold text-ink-900">{t('Shopify', 'Shopify')}</h2>
-      <p className="mt-1 max-w-prose text-sm text-ink-500">
-        {t(
-          'Les messages de votre boutique. Chacun est un scénario : son premier bloc est le message envoyé, la suite répond au client.',
-          'Your store’s messages. Each one is a scenario: its first block is the message sent, the rest answers the customer.',
-        )}
-      </p>
       {b.etat === 'coupee' ? (
-        <p className="mt-2 text-sm text-ink-900" data-testid="automations-shopify-coupee">
+        <p className="text-sm text-ink-900" data-testid="automations-shopify-coupee">
           {t('Boutique coupée : rien ne part. Rebranchez-la dans ', 'Store cut: nothing goes out. Reconnect it in ')}
           <Link href="/integrations#integration-shopify" className="text-brand-600 hover:underline">{t('Tools > Intégrations', 'Tools > Integrations')}</Link>.
         </p>
       ) : (
-        <>
+        <div className="space-y-3">
           {b.pauseLe !== null && (
-            <p className="mt-2 text-sm text-ink-900" data-testid="automations-shopify-pause">
+            <p className="text-sm text-ink-900" data-testid="automations-shopify-pause">
               {t('Boutique en pause : rien ne part. Reprenez-la dans ', 'Store paused: nothing goes out. Resume it in ')}
               <Link href="/integrations#integration-shopify" className="text-brand-600 hover:underline">{t('Tools > Intégrations', 'Tools > Integrations')}</Link>.
             </p>
           )}
-          <ul className="mt-3 divide-y divide-ink-100 rounded-controle border border-ink-200">
+          <ul className="divide-y divide-ink-100 rounded-controle border border-ink-200">
             {EVENEMENTS_SHOPIFY.map((e) => {
               const l = vue.lignes.find((x) => x.evenement === e);
               const etat = etatDeLAutomation(l);
@@ -136,7 +149,7 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
               );
             })}
           </ul>
-        </>
+        </div>
       )}
       {erreur && <p className="mt-2 text-sm text-danger" data-testid="automations-shopify-erreur">{erreur}</p>}
     </section>

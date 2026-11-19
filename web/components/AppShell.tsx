@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getSession, clearSession, saveSession, type Session } from '@/lib/session';
-import { countUnreadConversations, getMe, SESSION_EXPIRED_EVENT } from '@/lib/api';
+import { countUnreadConversations, getMe, getSettings, SESSION_EXPIRED_EVENT } from '@/lib/api';
 import { Logo, LogoComplet } from './Logo';
 import { AccountMenu } from './AccountMenu';
 import { LienCommentFaire } from './LienCommentFaire';
@@ -19,12 +19,12 @@ import { Icone } from './Icone';
 import { UtiliserAvecIA } from './UtiliserAvecIA';
 import { useT } from '@/lib/i18n';
 import { repeterAvecGigue } from '@/lib/poll';
-import { arbresNav, groupesAOuvrir, ongletDeLaPage, accesAutorise, navPourRole, navPourOffre, navSansShopify, fonctionDeLaPage, premiereDestination, type NavEntree, type Onglet } from '@/lib/nav';
+import { arbresNav, groupesAOuvrir, ongletDeLaPage, accesAutorise, navPourRole, navPourOffre, navSansHubspot, navSansShopify, fonctionDeLaPage, premiereDestination, type NavEntree, type Onglet } from '@/lib/nav';
 import { lireShopify } from '@/lib/api-shopify';
 import { useOffre } from '@/lib/use-offre';
 import { ACCES_SUSPENDU_EVENT, OFFRE_REFUSEE_EVENT, phraseInclusDans, phraseSansAdresse, type FonctionOffre, type RefusOffre } from '@/lib/offre';
 
-type Tab = 'accueil' | 'perf-synthese' | 'quanti-messages' | 'quanti-couts' | 'quanti-funnel' | 'quanti-performance' | 'quanti-shopify' | 'dashboard-quali' | 'dashboard-tableaux' | 'contacts' | 'campagnes' | 'chaine' | 'publicites' | 'widgets' | 'workflows' | 'automations' | 'mba-settings' | 'agents' | 'templates' | 'flows' | 'tags' | 'fields' | 'nodes' | 'email-templates' | 'rcs-messages' | 'inbox' | 'admin' | 'email-accounts' | 'support' | 'api-docs' | 'api-keys' | 'mcp' | 'webhooks-sortants' | 'webhooks' | 'connecteurs' | 'connecteurs-mcp' | 'integrations' | 'parametres' | 'parametres-medias' | 'parametres-factures' | 'securite' | 'securite-consentement' | 'securite-ia' | 'securite-audit' | 'securite-erreurs' | 'compte' | 'offre';
+type Tab = 'accueil' | 'perf-synthese' | 'quanti-messages' | 'quanti-couts' | 'quanti-funnel' | 'quanti-performance' | 'quanti-shopify' | 'dashboard-quali' | 'dashboard-tableaux' | 'contacts' | 'campagnes' | 'chaine' | 'publicites' | 'widgets' | 'workflows' | 'automations' | 'automations-shopify' | 'automations-hubspot' | 'mba-settings' | 'agents' | 'templates' | 'flows' | 'tags' | 'fields' | 'nodes' | 'email-templates' | 'rcs-messages' | 'inbox' | 'admin' | 'email-accounts' | 'support' | 'api-docs' | 'api-keys' | 'mcp' | 'webhooks-sortants' | 'webhooks' | 'connecteurs' | 'connecteurs-mcp' | 'integrations' | 'parametres' | 'parametres-medias' | 'parametres-factures' | 'securite' | 'securite-consentement' | 'securite-ia' | 'securite-audit' | 'securite-erreurs' | 'compte' | 'offre';
 
 // Le modèle d'entrée, le calcul de la chaîne d'ancêtres ET LES QUATRE LISTES vivent dans `lib/nav.ts` : le
 // modèle est récursif depuis que la barre a trois niveaux, et les listes ont suivi le 2026-09-11 parce que
@@ -46,8 +46,13 @@ const UNREAD_POLL_MS = 30_000;
  */
 export const UNREAD_CHANGED_EVENT = 'mba:unread-changed';
 
-/** Une boutique Shopify par espace, lue une fois par chargement de la console (l'entrée Quantitatif > Shopify). */
+/**
+ * Une boutique Shopify par espace, lue une fois par chargement de la console (les entrées Quantitatif > Shopify et
+ * Scénario > Automation > Shopify).
+ */
 const BOUTIQUE_PAR_ESPACE = new Map<string, boolean>();
+/** Un portail HubSpot relié par espace, lu une fois par chargement de la console (l'entrée Scénario > Automation > HubSpot). */
+const PORTAIL_PAR_ESPACE = new Map<string, boolean>();
 
 /**
  * Coquille commune : garde d'auth + RBAC, SIDEBAR gauche (nav rôle-aware) + header (menu Compte à droite)
@@ -71,6 +76,8 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
   const [unread, setUnread] = useState(0);
   /** L'espace a-t-il une boutique Shopify (connectée ou coupée) ? `null` tant que ce n'est pas lu : l'entrée reste cachée. */
   const [boutique, setBoutique] = useState<boolean | null>(null);
+  /** Un portail HubSpot est-il relié à l'espace ? `null` tant que ce n'est pas lu : l'entrée reste cachée. */
+  const [portail, setPortail] = useState<boolean | null>(null);
   // Session tombée : on l'apprend par l'événement émis au premier 401 (cf. `lib/api.ts`).
   const [sessionExpiree, setSessionExpiree] = useState(false);
   // Le dernier refus de l'offre (402, lot 6) : la phrase du serveur, affichée en bandeau avec le lien vers `/offre`.
@@ -190,10 +197,12 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
     return () => { alive = false; arreter(); window.removeEventListener(UNREAD_CHANGED_EVENT, lire); };
   }, [session, inboxLisible]);
 
-  // Quantitatif > Shopify n'existe que pour un espace qui a une boutique (plan 2026-10-30, lot 2). Lue sur l'onglet
-  // Performance seulement, par un admin dont l'offre ouvre les statistiques : la carte Shopify est une route d'admin, et la
-  // lire ailleurs vaudrait un refus. Une fois par espace (`BOUTIQUE_PAR_ESPACE`) ; une panne cache l'entrée.
-  const lireLaBoutique = onglet === 'perf' && session?.role === 'admin' && vueOffre !== undefined && fonctionOuverte('statistiques');
+  // Quantitatif > Shopify (plan 2026-10-30, lot 2) et Scénario > Automation > Shopify (menu « Scénario », lot 7) n'existent
+  // que pour un espace qui a une boutique. Lue par un admin dont l'offre ouvre l'écran : sur l'onglet Performance, les
+  // statistiques ; sur la Console, la console (la Free n'a ni l'une ni l'autre : la carte Shopify, route d'admin, lui
+  // vaudrait un refus). Une fois par espace (`BOUTIQUE_PAR_ESPACE`) ; une panne cache les entrées.
+  const lireLaBoutique = session?.role === 'admin' && vueOffre !== undefined
+    && ((onglet === 'perf' && fonctionOuverte('statistiques')) || (onglet === 'console' && fonctionOuverte('console')));
   useEffect(() => {
     if (!session || !lireLaBoutique) return;
     const connue = BOUTIQUE_PAR_ESPACE.get(session.tenantId);
@@ -204,6 +213,26 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
       .catch(() => { if (alive) setBoutique(false); });
     return () => { alive = false; };
   }, [session, lireLaBoutique]);
+
+  // Scénario > Automation > HubSpot n'existe qu'avec un portail relié (menu « Scénario », lot 7). Lu sur la Console, par un
+  // admin dont l'offre l'ouvre, dans les réglages de l'espace (`hubspotPortalConnecte`, comme l'écran Automation) : la
+  // même lecture du connecteur que l'état du compte, sans ses deux appels chez Meta. Une fois par espace ; un connecteur
+  // qui se réveille (le drapeau absent) ou une panne cachent l'entrée sans rien retenir : la page suivante relit.
+  const lireLePortail = onglet === 'console' && session?.role === 'admin' && vueOffre !== undefined && fonctionOuverte('console');
+  useEffect(() => {
+    if (!session || !lireLePortail) return;
+    const connu = PORTAIL_PAR_ESPACE.get(session.tenantId);
+    if (connu !== undefined) { setPortail(connu); return; }
+    let alive = true;
+    getSettings(session.tenantId)
+      .then((s) => {
+        const relie = s?.hubspotPortalConnecte;
+        if (typeof relie === 'boolean') PORTAIL_PAR_ESPACE.set(session.tenantId, relie);
+        if (alive) setPortail(relie === true);
+      })
+      .catch(() => { if (alive) setPortail(false); });
+    return () => { alive = false; };
+  }, [session, lireLePortail]);
 
   useEffect(() => {
     const refuse = (e: Event): void => setRefusOffre((e as CustomEvent<RefusOffre>).detail);
@@ -288,7 +317,14 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
    * passer aussi au corps affichait « Developers » deux fois sur la Console. Attrapé par l'E2E, qui a refusé
    * un sélecteur résolvant à deux éléments.
    */
-  const NAV_DU_CORPS: Record<Onglet, NavEntree[]> = { console: NAV_CONSOLE, inbox: NAV_INBOX, perf: navSansShopify(NAV_PERF, boutique === true) };
+  // Les entrées d'une source (Shopify, HubSpot) suivent sa présence. ⚠️ Sauf celle de la PAGE OUVERTE : arrivée par un
+  // lien ou un favori sans la source, ou avec une source branchée depuis la dernière lecture (retenue par espace jusqu'au
+  // prochain chargement), la page reste située dans la barre, éclairée, au lieu d'un groupe ouvert sur rien.
+  const consoleDuCorps = navSansHubspot(
+    navSansShopify(NAV_CONSOLE, boutique === true || active === 'automations-shopify'),
+    portail === true || active === 'automations-hubspot',
+  );
+  const NAV_DU_CORPS: Record<Onglet, NavEntree[]> = { console: consoleDuCorps, inbox: NAV_INBOX, perf: navSansShopify(NAV_PERF, boutique === true) };
   // 🔴 FILTRÉ PAR RÔLE, PAR LA MÊME FONCTION QUE LA GARDE. Un manager ne doit pas voir une liste de dossiers
   // qui le renverraient tous à l'inbox : une porte annoncée et fermée est pire qu'une porte absente.
   // Puis MARQUÉ PAR L'OFFRE (lot 6) : un écran que l'offre n'ouvre pas reste dans la barre, grisé, et mène à `/offre`.

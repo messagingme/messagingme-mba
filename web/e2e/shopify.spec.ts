@@ -2,12 +2,13 @@ import { test, expect, type Page } from './aide/test';
 import { repondre } from './aide/confirmation';
 
 /**
- * SHOPIFY DANS LA CONSOLE, vu de l'écran (conception 2026-10-22 ; menu « Scénario », lot 5) : la carte de Tools >
- * Intégrations branche la boutique, la met en pause et la coupe ; la section Shopify de l'écran Automation allume chaque
- * automation, en dit l'état, règle le délai du panier et ouvre son scénario. Le serveur tient ses règles de son côté
- * (`tests/http-shopify.test.ts`, `tests/shopify-lignes-gestion.test.ts`) ; ici, on regarde ce que l'écran MONTRE et ce
- * qu'il ENVOIE, contre une API simulée.
+ * SHOPIFY DANS LA CONSOLE, vu de l'écran (conception 2026-10-22 ; menu « Scénario », lots 5 et 7) : la carte de Tools >
+ * Intégrations branche la boutique, la met en pause et la coupe ; la page Scénario > Automation > Shopify
+ * (`/automations/shopify`) allume chaque automation, en dit l'état, règle le délai du panier et ouvre son scénario. Le
+ * serveur tient ses règles de son côté (`tests/http-shopify.test.ts`, `tests/shopify-lignes-gestion.test.ts`) ; ici, on
+ * regarde ce que l'écran MONTRE et ce qu'il ENVOIE, contre une API simulée.
  */
+const PAGE = '/automations/shopify';
 const BOUTIQUE = {
   domaine: 'ma-boutique.myshopify.com', nom: 'Ma Boutique', etat: 'connectee', dernierEvenementLe: null,
   delaiPanierMinutes: 60, origine: 'claude_code', pauseLe: null,
@@ -88,9 +89,12 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await valider.click();
     await expect.poll(() => trace.branchements.length).toBe(1);
     expect(trace.branchements[0]).toEqual({ boutique: 'https://admin.shopify.com/store/ma-boutique', clientId: 'cid', secret: 'shpss_secret' });
-    // Plus d'assistant : les messages sont des automations, que la carte renvoie à l'écran Automation.
-    await expect(carte.getByTestId('integration-shopify-automations')).toContainText('Automation');
+    // Plus d'assistant : les messages sont des automations, que la carte renvoie à LEUR page (menu « Scénario », lot 7).
+    const versLesAutomations = carte.getByTestId('integration-shopify-automations').getByRole('link');
+    await expect(versLesAutomations).toHaveText('Scénario > Automation > Shopify');
+    await expect(versLesAutomations).toHaveAttribute('href', PAGE);
     await expect(carte.getByTestId('integration-shopify-message')).toContainText('Boutique branchée');
+    await expect(carte.getByTestId('integration-shopify-message')).toContainText('Scénario > Automation > Shopify');
   });
 
   test('🔴 la pause se confirme, puis part ; la reprise part sans question', async ({ page }) => {
@@ -140,12 +144,13 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
   });
 });
 
-test.describe('Automation > Shopify : les automations de la boutique (menu « Scénario », lot 5)', () => {
+test.describe('Scénario > Automation > Shopify : les automations de la boutique, sur leur page (menu « Scénario », lots 5 et 7)', () => {
   test('🔴 une ligne par événement : son état dit, sans ligne « pas encore créée », et son scénario s’ouvre', async ({ page }) => {
     await monter(page, {
-      ecran: '/automations',
+      ecran: PAGE,
       etat: { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned', { modele: null, langue: null, etatChezMeta: null })] },
     });
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Automations Shopify');
     const section = page.getByTestId('automations-shopify');
     await expect(section.getByTestId('automations-shopify-etat-order_paid')).toHaveText('active');
     await expect(section.getByTestId('automations-shopify-etat-order_fulfilled')).toHaveText('pas encore créée');
@@ -158,7 +163,7 @@ test.describe('Automation > Shopify : les automations de la boutique (menu « Sc
 
   test('🔴 l’interrupteur éteint ou rallume sa ligne sur place ; le délai du panier part avec elle', async ({ page }) => {
     const trace = await monter(page, {
-      ecran: '/automations', etat: { ...RELANCE_ACTIVE, lignes: [...RELANCE_ACTIVE.lignes, ligne('order_fulfilled', { actif: false })] },
+      ecran: PAGE, etat: { ...RELANCE_ACTIVE, lignes: [...RELANCE_ACTIVE.lignes, ligne('order_fulfilled', { actif: false })] },
     });
     const section = page.getByTestId('automations-shopify');
     await section.getByTestId('automations-shopify-interrupteur-order_paid').click();
@@ -170,34 +175,51 @@ test.describe('Automation > Shopify : les automations de la boutique (menu « Sc
     await section.getByTestId('automations-shopify-delai').selectOption('180');
     await expect.poll(() => trace.lignes.length).toBe(3);
     expect(trace.lignes[2]).toEqual({ evenement: 'checkout_abandoned', corps: { actif: true, delaiMinutes: 180 } });
-    await expect(page).toHaveURL(/\/automations$/);
+    await expect(page).toHaveURL(/\/automations\/shopify$/);
   });
 
   test('🔴 le premier allumage crée le scénario et l’ouvre dans le builder (spec § 2.1)', async ({ page }) => {
-    const trace = await monter(page, { ecran: '/automations', etat: BRANCHEE });
+    const trace = await monter(page, { ecran: PAGE, etat: BRANCHEE });
     await page.getByTestId('automations-shopify-interrupteur-order_fulfilled').click();
     await expect.poll(() => trace.lignes).toEqual([{ evenement: 'order_fulfilled', corps: { actif: true } }]);
     await expect(page).toHaveURL(/\/workflows\?open=wf-order_fulfilled$/);
   });
 
   test('la pause se dit, avec le chemin pour la reprendre, et les lignes restent', async ({ page }) => {
-    await monter(page, { ecran: '/automations', etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, pauseLe: '2026-11-19T10:00:00.000Z' } } });
+    await monter(page, { ecran: PAGE, etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, pauseLe: '2026-11-19T10:00:00.000Z' } } });
     await expect(page.getByTestId('automations-shopify-pause')).toContainText('Boutique en pause');
     await expect(page.getByTestId('automations-shopify-order_paid')).toBeVisible();
   });
 
   test('la coupure se dit, sans aucune ligne', async ({ page }) => {
-    await monter(page, { ecran: '/automations', etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, etat: 'coupee' } } });
+    await monter(page, { ecran: PAGE, etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, etat: 'coupee' } } });
     await expect(page.getByTestId('automations-shopify-coupee')).toContainText('Boutique coupée');
     await expect(page.getByTestId('automations-shopify-order_paid')).toHaveCount(0);
   });
 
-  test('🔴 sans boutique, ou l’API sans la route : aucune section', async ({ page }) => {
-    await monter(page, { ecran: '/automations', etat: VIDE });
-    await expect(page.getByTestId('automation-add')).toBeVisible();
+  test('🔴 sans boutique, la page le dit et mène à la carte qui la branche, sans aucune ligne', async ({ page }) => {
+    await monter(page, { ecran: PAGE, etat: VIDE });
+    const sans = page.getByTestId('automations-shopify-sans-boutique');
+    await expect(sans).toContainText('Aucune boutique Shopify n’est branchée');
+    await expect(sans.getByRole('link')).toHaveAttribute('href', '/integrations#integration-shopify');
     await expect(page.getByTestId('automations-shopify')).toHaveCount(0);
-    await monter(page, { ecran: '/automations', etat: 'absente' });
-    await expect(page.getByTestId('automation-add')).toBeVisible();
+  });
+
+  test('🔴 l’API sans la route (404 du routeur) : la page dit que la lecture a échoué, sans aucune ligne', async ({ page }) => {
+    await monter(page, { ecran: PAGE, etat: 'absente' });
+    await expect(page.getByTestId('automations-shopify-panne')).toContainText('n’ont pas pu être lues');
     await expect(page.getByTestId('automations-shopify')).toHaveCount(0);
+  });
+
+  test('🔴 l’écran des autres automations n’a plus de section Shopify, même avec une boutique', async ({ page }) => {
+    // La lecture de la boutique doit avoir RÉPONDU avant l'assertion d'absence : la barre la lit sur toute la Console, et
+    // c'est elle qui fait apparaître l'entrée Shopify, pas la page.
+    const lue = page.waitForResponse((r) => r.url().includes('/integrations/shopify'));
+    await monter(page, { ecran: '/automations', etat: BRANCHEE });
+    await lue;
+    await expect(page.getByTestId('automation-add')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autres automations');
+    await expect(page.getByTestId('automations-shopify')).toHaveCount(0);
+    await expect(page.locator('aside a[href="/automations/shopify"]')).toHaveCount(1);
   });
 });

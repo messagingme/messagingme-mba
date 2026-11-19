@@ -13,7 +13,7 @@ comment_faire: oui
 Un scénario enchaîne des blocs sur une toile : le contact avance de bloc en bloc. Vous le construisez en brouillon,
 vous l'essayez sur votre téléphone, puis vous le mettez en ligne.
 
-**1. Créer le scénario.** Dans le menu Scénario, donnez-lui un nom, puis « Créer un scénario ».
+**1. Créer le scénario.** Dans Scénario > Builder, donnez-lui un nom, puis « Créer un scénario ».
 
 **2. Poser un bloc.** « Créer un bloc : » propose chaque type de bloc : cliquez sur celui que vous voulez.
 

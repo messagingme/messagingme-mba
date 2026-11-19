@@ -17,9 +17,9 @@ import { ShopifyImport } from '@/components/ShopifyImport';
 /**
  * TOOLS > INTÉGRATIONS > SHOPIFY : brancher la boutique, la mettre en pause, importer ses clients abonnés, couper
  * (conception 2026-10-22, maquette validée par Julien). Sans boutique, le mode opératoire chez Shopify puis les clés
- * (`ShopifyBrancher`). Ses messages sont devenus des automations (menu « Scénario », lot 5) : ils se règlent dans l'écran
- * Automation, chacun dans son scénario, plus par un assistant. Claude Code fait la même chose par la skill `shopify` du
- * plugin : les deux passent par la même gestion côté serveur.
+ * (`ShopifyBrancher`). Ses messages sont devenus des automations (menu « Scénario », lot 5) : ils se règlent sur leur page,
+ * Scénario > Automation > Shopify (lot 7), chacun dans son scénario, plus par un assistant. Claude Code fait la même chose
+ * par la skill `shopify` du plugin : les deux passent par la même gestion côté serveur.
  *
  * 🔴 UNE INTÉGRATION NEUVE NE S'AFFICHE PAS AVANT SON API, comme Salesforce : tant que la route n'existe pas (404 du
  * routeur), la carte n'est pas rendue.
@@ -141,7 +141,7 @@ export function ReglageShopify({ tenantId }: { tenantId: string }) {
               'Your customers get on WhatsApp their order confirmation, its shipping, and a reminder if they abandon their checkout.',
             )}
           </p>
-          <ShopifyBrancher tenantId={tenantId} onBranche={() => branchee(t('Boutique branchée : allumez maintenant ses automations dans Automation.', 'Store connected: now turn its automations on in Automation.'))} />
+          <ShopifyBrancher tenantId={tenantId} onBranche={() => branchee(t('Boutique branchée : allumez maintenant ses automations dans Scénario > Automation > Shopify.', 'Store connected: now turn its automations on in Scenario > Automation > Shopify.'))} />
         </>
       )}
       {b !== null && (
@@ -172,7 +172,7 @@ export function ReglageShopify({ tenantId }: { tenantId: string }) {
                   'Ses messages (commande payée, commande expédiée, panier abandonné) sont des automations : allumez-les et réglez-les dans ',
                   'Its messages (order paid, order shipped, abandoned checkout) are automations: turn them on and set them up in ',
                 )}
-                <Link href="/automations" className="text-brand-600 hover:underline">{t('Automation', 'Automation')}</Link>.
+                <Link href="/automations/shopify" className="text-brand-600 hover:underline">{t('Scénario > Automation > Shopify', 'Scenario > Automation > Shopify')}</Link>.
               </p>
               <div className="flex flex-wrap items-center gap-3" data-testid="integration-shopify-pause">
                 <Toggle

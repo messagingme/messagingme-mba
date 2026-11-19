@@ -1,15 +1,15 @@
 ---
 ecran: automations
-source_section: Automation (menu « Automation ») | Rappels avant ou après une date (menu Automation) | Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: b8651e | 08adbf | a3025d
+source_section: Automation (menu « Scénario » > Automation > Autres) | Rappels avant ou après une date (menu « Scénario » > Automation > Autres) | Automatisations (menu « Scénario », ex-« Flow »)
+source_empreinte: c65a61 | 08adbf | a3025d
 ---
 # Lancer un scénario tout seul, sans campagne
 
 Une automation relie un **événement** à un **scénario** : quand l'événement se produit, le scénario part,
 pour la personne concernée, sans que vous ayez rien à lancer.
 
-L'écran Automation liste ce que vous avez monté : le nom que vous lui avez donné, le déclencheur écrit en
-clair, le scénario visé, et si c'est allumé ou non.
+L'écran Scénario > Automation > Autres liste ce que vous avez monté : le nom que vous lui avez donné, le déclencheur
+écrit en clair, le scénario visé, et si c'est allumé ou non.
 
 **Les déclencheurs que vous pouvez choisir :**
 

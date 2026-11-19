@@ -2111,8 +2111,8 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   une méthode ajoutée doit y être rangée, filtrée ou non.
 - 🔴 **LE RAYON D'UN SCÉNARIO ET D'UNE AUTOMATION, CLOISONNÉ DANS LES DEUX SENS** (`workflows.rayon`,
   `automations.rayon`, migration 0293, liste fermée `RAYONS` de `src/workflow/rayon.ts` : `general`, `shopify`,
-  `hubspot`, défaut `general`). `general` est le Builder et l'écran Automation ; `shopify` et `hubspot` sont les
-  scénarios que lance un événement de la boutique ou de HubSpot (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`).
+  `hubspot`, défaut `general`). `general` est le Builder et Scénario > Automation > Autres ; `shopify` et `hubspot` sont
+  les scénarios que lance un événement de la boutique ou de HubSpot (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`).
   Le rayon est fixé à la création et ne se modifie jamais. Un chemin qui liste, choisit ou lance un scénario ne voit
   que son rayon, et un scénario d'un autre rayon s'y refuse EXACTEMENT comme un inconnu (son existence ne fuit pas).
   Où c'est tenu : les listes du magasin prennent le rayon en paramètre REQUIS (le compilateur énumère les appelants) ;
@@ -2692,7 +2692,7 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
 | `repondeur_workflow_id` et `repondeur_delai_scenario_s` | le scénario du mode `scenario` et son délai (1 h à 30 jours, 24 h par défaut), même règle à sens unique (`tenant_settings_repondeur_scenario_chk`), clé étrangère en `on delete set null` vers `workflows` |
 | `repondeur_adresse_id` | l'adresse de webhooks sortants du mode `application` (0224), même règle à sens unique (`tenant_settings_repondeur_adresse_chk`), clé étrangère en `on delete set null` vers `adresses_evenements` : supprimer l'adresse laisse le mode lu `equipe` |
 | `hubspot_lists_enabled` | l'import de contacts HubSpot (pas les étapes de deal) |
-| `hubspot_actif` | l'interrupteur HubSpot de l'espace (0179, Tools > Intégrations) : allumé, le bloc HubSpot de l'Accueil s'affiche, numéro ou pas. `false` par défaut ; la reprise de 0179 l'a allumé pour les espaces reliés à un portail (`mmhs.tenant_portals` joint à `mmhs.portals`, la lecture de `getHubspotPortal`), gardée par `to_regclass` parce qu'une base sans connecteur n'a pas ce schéma. 🔴 **On ne l'éteint pas tant qu'un portail est relié** : `PATCH /settings/hubspot-actif` rend 409, sinon les analyses continueraient de partir vers HubSpot depuis un espace où il paraît éteint. 🔴 Et une lecture du portail en ÉCHEC refuse l'extinction (503, « réessayez »), elle ne vaut jamais « pas relié » ici : seul un schéma du connecteur absent (`42P01`) rend `false` dans le câblage (`src/index.ts`), toute autre erreur remonte, et seul l'affichage (`GET /settings`) la rattrape en « pas relié ». On délie d'abord (« Déconnexion complète »), et un espace SANS numéro le fait par `POST /hubspot/deconnexion`, la même fonction que la porte d'un numéro. ⚠️ Il ne gouverne PAS le masquage des fonctions HubSpot des campagnes et des automations, qui suit le portail relié (`hubspotPortalConnecte`). ⚠️ Côté console, `undefined` (API plus ancienne) n'est pas `false` : `affichageHubspotAccueil` (`web/lib/hubspot-actif.ts`) garde alors l'ancien comportement |
+| `hubspot_actif` | l'interrupteur HubSpot de l'espace (0179, Tools > Intégrations) : allumé, le bloc HubSpot de l'Accueil s'affiche, numéro ou pas. `false` par défaut ; la reprise de 0179 l'a allumé pour les espaces reliés à un portail (`mmhs.tenant_portals` joint à `mmhs.portals`, la lecture de `getHubspotPortal`), gardée par `to_regclass` parce qu'une base sans connecteur n'a pas ce schéma. 🔴 **On ne l'éteint pas tant qu'un portail est relié** : `PATCH /settings/hubspot-actif` rend 409, sinon les analyses continueraient de partir vers HubSpot depuis un espace où il paraît éteint. 🔴 Et une lecture du portail en ÉCHEC refuse l'extinction (503, « réessayez »), elle ne vaut jamais « pas relié » ici : seul un schéma du connecteur absent (`42P01`) rend `false` dans le câblage (`src/index.ts`), toute autre erreur remonte, et seul l'affichage (`GET /settings`) la rattrape en « pas relié ». On délie d'abord (« Déconnexion complète »), et un espace SANS numéro le fait par `POST /hubspot/deconnexion`, la même fonction que la porte d'un numéro. ⚠️ Il ne gouverne PAS le masquage des fonctions HubSpot des campagnes et des automations, qui suit le portail relié (`hubspotPortalConnecte`), ni l'entrée Scénario > Automation > HubSpot de la barre (`navSansHubspot`), que `AppShell` lit dans `GET /settings` une fois par espace, jamais dans `GET /account-status` (deux appels chez Meta et une écriture à chaque lecture). ⚠️ Côté console, `undefined` (API plus ancienne) n'est pas `false` : `affichageHubspotAccueil` (`web/lib/hubspot-actif.ts`) garde alors l'ancien comportement |
 | `campaigns_paused` | coupe-circuit d'envoi pour tout l'espace |
 | `auto_retry_enabled` | auto-relance des échecs des campagnes d'AVANT la migration 0165 ; ce réglage n'a plus d'écran et ne s'écrit plus. Une campagne créée depuis obéit à SA case `campaigns.reessayer` (`campaigns.reessai_par_campagne`) |
 | `timezone` et `business_hours` | le fuseau (une heure murale sans fuseau est interprétée là) et les horaires |
@@ -2887,9 +2887,12 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   les plugins d'avant) et par le ménage des modèles de l'assistant. L'assistant est retiré : `POST
   .../integrations/shopify/messages` répond 410 avec la phrase qui dit où les messages se règlent, et `PATCH
   .../messages/:evenement` règle encore le délai de la relance, pour l'écran d'avant. Ses e-mails et les méthodes du
-  magasin qui n'écrivaient que pour lui sont retirés. La console règle les automations dans la section Shopify de l'écran
-  Automation (`AutomationsShopify` : interrupteur, état, délai du panier, scénario ; le premier allumage ouvre le
-  builder) et la pause dans Tools > Intégrations (`ReglageShopify`) ;
+  magasin qui n'écrivaient que pour lui sont retirés. La console règle les automations sur leur page, Scénario >
+  Automation > Shopify (`/automations/shopify`, `AutomationsShopify` : interrupteur, état, délai du panier, scénario ; le
+  premier allumage ouvre le builder ; sans boutique, la page le dit et mène à la carte) et la pause dans Tools >
+  Intégrations (`ReglageShopify`). L'entrée de la barre suit la boutique (`navSansShopify`, `web/lib/nav.ts`), lue par
+  `AppShell` sur la Console comme sur le Performance Lab, une fois par espace et par chargement ; sur sa propre page, elle
+  reste ;
 - **le traitement se fait DANS la requête**, et Shopify tient lieu de file : l'envoi public n'existe que dans l'API, un
   503 fait réessayer Shopify, et chaque événement se réserve (`shopify_evenements`, bail de 2 minutes) ; aucun ordre
   n'est supposé entre sujets (mesuré : `orders/paid` arrive avant `orders/create`) ;

@@ -216,15 +216,28 @@ export function navPourOffre(items: NavEntree[], ouvertes: ReadonlySet<FonctionO
   });
 }
 
+/** L'arbre sans ces clés, à toute profondeur. */
+function sansCles(items: NavEntree[], cles: readonly string[]): NavEntree[] {
+  return items
+    .filter((item) => !cles.includes(item.key))
+    .map((item) => (item.children ? { ...item, children: sansCles(item.children, cles) } : item));
+}
+
 /**
- * Quantitatif > Shopify n'a de sens qu'avec une boutique (plan 2026-10-30, lot 2) : sans elle, l'entrée disparaît, à
- * toute profondeur. `boutique` vient de la lecture de la carte Shopify ; une panne de cette lecture la cache aussi.
+ * Ce qui n'a de sens qu'avec une boutique (plan 2026-10-30, lot 2 ; menu « Scénario », lot 7) : Quantitatif > Shopify et
+ * Scénario > Automation > Shopify. Sans elle, les deux entrées disparaissent, à toute profondeur. `boutique` vient de la
+ * lecture de la carte Shopify ; une panne de cette lecture les cache aussi.
  */
 export function navSansShopify(items: NavEntree[], boutique: boolean): NavEntree[] {
-  if (boutique) return items;
-  return items
-    .filter((item) => item.key !== 'quanti-shopify')
-    .map((item) => (item.children ? { ...item, children: navSansShopify(item.children, false) } : item));
+  return boutique ? items : sansCles(items, ['quanti-shopify', 'automations-shopify']);
+}
+
+/**
+ * Scénario > Automation > HubSpot n'a de sens qu'avec un portail HubSpot relié (menu « Scénario », lot 7) : sans lui,
+ * l'entrée disparaît. `portail` vient de la lecture des réglages ; une panne de cette lecture la cache aussi.
+ */
+export function navSansHubspot(items: NavEntree[], portail: boolean): NavEntree[] {
+  return portail ? items : sansCles(items, ['automations-hubspot']);
 }
 
 /** La première adresse ouverte d'un arbre, dans l'ordre de la barre : la destination d'un onglet. `null` si aucune. */
@@ -284,11 +297,9 @@ const icons = {
   pubs: 'publicites',
   content: 'contenu',
   analytics: 'analytics',
+  // Le groupe « Scénario » (menu « Scénario », lot 7). L'éclair d'« Automation » n'a plus de place ici : Automation est
+  // passée sous Scénario, et seul le premier niveau porte une icône.
   flow: 'scenario',
-  // Automation : un éclair, le DÉCLENCHEUR. Elle partageait l'icône de « Scénario », donc les deux entrées du
-  // menu étaient indiscernables alors qu'elles ne font pas la même chose : le scénario est le parcours,
-  // l'automation est ce qui le déclenche.
-  automation: 'automation',
   support: 'aide',
   developers: 'developpeurs',
   // Un bouclier : c'est le seul pictogramme que tout le monde lit « sécurité » sans légende.
@@ -339,7 +350,22 @@ export function arbresNav(t: Traducteur, badgeInbox = 0): ListesNav {
     // Juste apres Chaine : les trois entrees repondent a « comment j'atteins des gens ». La publicite est
     // la seule des trois qui va chercher quelqu'un qui ne nous connait pas encore.
     { key: 'publicites', href: '/publicites', label: t('Publicités', 'Ads'), icone: icons.pubs, fonction: 'publicites' },
-    { key: 'automations', href: '/automations', label: t('Automation', 'Automation'), icone: icons.automation },
+    /**
+     * 🔴 « SCÉNARIO » REMPLACE « AUTOMATION » (menu « Scénario », lot 7 ; spec du 2026-11-18, § 2, cadrée avec Julien) :
+     * le **Builder** (l'ancien Contenu > Scénario, déplacé) et l'**Automation**, rangée PAR SOURCE. Shopify n'apparaît
+     * qu'avec une boutique (`navSansShopify`), HubSpot qu'avec un portail relié (`navSansHubspot`) ; « Autres » (les
+     * automations du Builder) toujours, donc le groupe n'est jamais vide.
+     * ⚠️ AUCUNE ADRESSE NE BOUGE : `/workflows` et `/automations` gardent leur page et leur clé. Un favori ou un lien
+     * d'e-mail rouvre la même page, sous son nouveau chemin. Les rôles suivent `automations` : réservé aux admins.
+     */
+    { key: 'scenario', label: t('Scénario', 'Scenario'), icone: icons.flow, children: [
+      { key: 'workflows', href: '/workflows', label: t('Builder', 'Builder'), fonction: 'scenarios' },
+      { key: 'automation', label: t('Automation', 'Automation'), children: [
+        { key: 'automations-shopify', href: '/automations/shopify', label: t('Shopify', 'Shopify') },
+        { key: 'automations-hubspot', href: '/automations/hubspot', label: t('HubSpot', 'HubSpot') },
+        { key: 'automations', href: '/automations', label: t('Autres', 'Other') },
+      ] },
+    ] },
     /**
      * Les DEUX répondeurs que le client peut faire parler : l'agent de Meta (MBA) et le nôtre. Deux FEUILLES
      * depuis le 2026-09-29 (décision de Julien), plus de troisième niveau ici : « MBA » mène droit à ses
@@ -371,20 +397,9 @@ export function arbresNav(t: Traducteur, badgeInbox = 0): ListesNav {
       { key: 'contenu-email', label: t('Email', 'Email'), children: [
         { key: 'email-templates', href: '/email-templates', label: t('Modèles', 'Templates'), fonction: 'email' },
       ] },
-      /**
-       * 🔴 « SCÉNARIO » EST ICI DEPUIS LE 2026-09-13 (demande de Julien), ET IL EST LE SEUL ENFANT DE
-       * CONTENU QUI NE SOIT PAS UN GROUPE DE CANAL. Contenu est rangé par canal (WhatsApp / RCS /
-       * Email / Bibliothèque) ; un scénario, lui, les TRAVERSE : le même parcours peut ouvrir en
-       * WhatsApp, poursuivre en RCS et finir par un e-mail.
-       *
-       * ⚠️ LA TENSION A ÉTÉ POSÉE À JULIEN ET TRANCHÉE PAR LUI, plutôt que contournée en silence. Deux
-       * autres places se défendaient : dans « Bibliothèque », qui est précisément « ce qui se réutilise
-       * sans appartenir à un canal », ou en restant dans la liste du haut. Il a choisi « juste après
-       * Email », à plat. Ne pas le « ranger » ailleurs par cohérence de structure sans le lui demander.
-       */
-      // ⚠️ SANS ICÔNE, demandé par Julien le 2026-09-14 (« enlever la petite icône devant scénario dans la
-      // sidebar »). `d` est optionnel dans `NavEntree` : le rendu s'en passe sans réserver la place.
-      { key: 'workflows', href: '/workflows', label: t('Scénario', 'Scenario'), fonction: 'scenarios' },
+      // ⚠️ « Scénario » a vécu ici du 2026-09-13 au 2026-11-19, seul enfant de Contenu qui ne soit pas un canal (il les
+      // traverse). Il est parti dans le groupe « Scénario », sous le nom « Builder » (menu « Scénario », lot 7) : ne pas
+      // l'y remettre, il y serait en double.
       // « Bibliothèque » : ce qui se RÉUTILISE, sans appartenir à un canal.
       // ⚠️ Le groupe reste bancal, et le nom n'y peut rien : « Blocs » est du contenu, « Étiquettes » et
       // « Champs » sont de la donnée de CONTACT. Ils sont ici par héritage, leur place logique serait le

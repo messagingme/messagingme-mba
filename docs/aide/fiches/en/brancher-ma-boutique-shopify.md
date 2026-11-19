@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 1636b1
+traduit_de: b4b046
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -28,10 +28,10 @@ store: the message “This app hasn’t been reviewed” is expected, it is your
 its Client ID and its Client secret are in the Credentials box, on the right.
 
 **3. Connect the store.** Back in the card, paste the store name, the Client ID and the Client secret, then “Connect the
-store”. Your messages are then set in the Automation menu.
+store”. Your messages are then set in Scenario > Automation > Shopify.
 
-**4. Switch on an automation.** In the Automation menu, the Shopify section lists your three automations: Order paid,
-Order shipped and Abandoned checkout, each with its status. Switch one on: its scenario opens in the builder.
+**4. Switch on an automation.** Scenario > Automation > Shopify lists your three automations: Order paid, Order shipped
+and Abandoned checkout, each with its status. Switch one on: its scenario opens in the builder.
 
 For the checkout, also choose the delay after its last change: 15 min, 1 h (by default), 3 h or 24 h. “Open the
 scenario” takes you back to it at any time; switching an automation off stops its journeys under way.

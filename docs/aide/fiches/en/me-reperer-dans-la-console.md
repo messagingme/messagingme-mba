@@ -1,7 +1,7 @@
 ---
 description: Console, Inbox and Performance Lab: the three tabs of the Messaging Me console, what each one holds, and where the account and settings are.
 slug: find-your-way-around-the-console
-traduit_de: b90db3
+traduit_de: 1a407b
 ---
 # Find your way around the console
 
@@ -11,10 +11,11 @@ done at the same time nor by the same people: setting things up, handling conver
 **1. Console, for everything you set up.** This is the setup tab: your contacts, your campaigns, your scenarios,
 your agents, your content and your tools.
 
-Its menu: Home, mini-CRM, Campaigns, Channel, Ads, Automation, AI Agent (MBA, which opens the settings of Meta’s
-agent; Other AI agent, which opens your AI agents), Content (organised by channel: WhatsApp with Templates and Forms,
-RCS with Messages, Email with Templates, then Scenario and the Library with your blocks, your tags and your fields)
-and Tools (Integrations for Batch, HubSpot, Salesforce and Shopify, Webhooks, API connectors, MCP connectors, SMTP
+Its menu: Home, mini-CRM, Campaigns, Channel, Ads, Scenario (the Builder, where your scenarios are built, and
+Automation, sorted by source: Shopify with a connected store, HubSpot with a linked portal, and Other), AI Agent (MBA,
+which opens the settings of Meta’s agent; Other AI agent, which opens your AI agents), Content (organised by channel:
+WhatsApp with Templates and Forms, RCS with Messages, Email with Templates, then the Library with your blocks, your tags
+and your fields) and Tools (Integrations for Batch, HubSpot, Salesforce and Shopify, Webhooks, API connectors, MCP connectors, SMTP
 email for the mailbox that sends your emails, WhatsApp widget). Pinned to the bottom of the bar, because they do not
 serve daily work but configure it: **Settings** (General, Media library, Plan, with its AI credit tab to top up the
 workspace’s credit), **Support**, **Security** (Consent, AI,

@@ -63,9 +63,12 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await capturer(page, CLE, 4, locale, undefined, 'haut', etiquette);
       await page.getByRole('button', { name: 'Suivant' }).click();
 
-      // 5. Le récapitulatif : « Plus tard », demain à 10 h.
+      // 5. Le récapitulatif : « Plus tard », demain à 10 h. Calculé au jour de la capture : une date écrite en dur finit
+      // par passer, et l'écran la refuse alors (« La date du départ doit être dans le futur »), photo comprise.
       await page.getByTestId('quand-plus_tard').click();
-      await page.getByLabel('Date et heure du départ').fill('2026-10-22T10:00');
+      const demain = new Date(Date.now() + 86_400_000);
+      const jour = `${demain.getFullYear()}-${String(demain.getMonth() + 1).padStart(2, '0')}-${String(demain.getDate()).padStart(2, '0')}`;
+      await page.getByLabel('Date et heure du départ').fill(`${jour}T10:00`);
       await capturer(page, CLE, 5, locale, page.getByRole('heading', { name: 'Récapitulatif' }), 'haut', page.getByTestId('quand-plus_tard'));
     });
   });

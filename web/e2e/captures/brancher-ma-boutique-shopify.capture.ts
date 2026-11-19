@@ -135,9 +135,10 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await expect(valider).toBeEnabled();
       await capturer(page, CLE, 3, locale, valider, 'bas', valider);
 
-      // 4. Automation > Shopify : trois automations, leur état, l'interrupteur de celle qui n'existe pas encore.
+      // 4. Scénario > Automation > Shopify, sa page : trois automations, leur état, l'interrupteur de celle qui n'existe pas
+      // encore.
       etat = AUTOMATIONS;
-      await page.goto('/automations');
+      await page.goto('/automations/shopify');
       const section = page.getByTestId('automations-shopify');
       await expect(section.getByTestId('automations-shopify-etat-order_fulfilled')).toBeVisible();
       await capturer(page, CLE, 4, locale, section, 'haut', section.getByTestId('automations-shopify-interrupteur-order_fulfilled'));

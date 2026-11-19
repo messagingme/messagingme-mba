@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 664ed1
+source_empreinte: d2e353
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -34,10 +34,10 @@ sur votre boutique : le message « This app hasn't been reviewed » est normal, 
 l'app dans Apps : son Client ID et son Client secret sont dans le cadre Credentials, à droite.
 
 **3. Brancher la boutique.** Revenez dans la carte, collez le nom de la boutique, le Client ID et le Client secret,
-puis « Brancher la boutique ». Vos messages se règlent ensuite dans le menu Automation.
+puis « Brancher la boutique ». Vos messages se règlent ensuite dans Scénario > Automation > Shopify.
 
-**4. Allumer une automation.** Dans le menu Automation, la section Shopify liste vos trois automations : Commande payée,
-Commande expédiée et Panier abandonné, chacune avec son état. Allumez-en une : son scénario s'ouvre dans le builder.
+**4. Allumer une automation.** Scénario > Automation > Shopify liste vos trois automations : Commande payée, Commande
+expédiée et Panier abandonné, chacune avec son état. Allumez-en une : son scénario s'ouvre dans le builder.
 
 Pour le panier, choisissez aussi le délai après sa dernière modification : 15 min, 1 h (par défaut), 3 h ou 24 h.
 « Ouvrir le scénario » vous y ramène à tout moment ; éteindre une automation arrête ses parcours en cours.

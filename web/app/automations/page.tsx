@@ -23,9 +23,12 @@ import { EditeurFiltreAnalyse, type FiltreAnalyseValide } from '@/components/Edi
 import { champsPourOperateurs, decrireFiltreAnalyse, filtreAnalyseParDefaut } from '@/lib/champs-fiche';
 import { useChampsFiltrables } from '@/lib/use-champs-filtrables';
 import { OPERATEURS_CONVERSATION_ANALYSEE, OPERATEURS_DEVIENT } from '@/lib/api/integrations';
-import { AutomationsShopify } from '@/components/AutomationsShopify';
-import { AutomationsHubspot } from '@/components/AutomationsHubspot';
 
+/**
+ * SCÉNARIO > AUTOMATION > AUTRES (menu « Scénario », lot 7) : les automations qui lancent un scénario du Builder. Les
+ * automations de la boutique ont leur page (`/automations/shopify`), celles de HubSpot la leur (`/automations/hubspot`) ;
+ * l'adresse de celle-ci ne bouge pas.
+ */
 export default function AutomationsPage() {
   return <AppShell active="automations">{(session) => <AutomationsInner session={session} />}</AppShell>;
 }
@@ -384,7 +387,7 @@ function AutomationsInner({ session }: { session: Session }) {
   return (
     <div className="space-y-5 p-4">
       <div>
-        <TitrePage>{t('Automation', 'Automation')}</TitrePage>
+        <TitrePage>{t('Autres automations', 'Other automations')}</TitrePage>
         <IntroPage>
           {t(
             'Lancez un scénario sur un événement, sans campagne. Jamais sur une conversation qu’un opérateur a prise en main.',
@@ -400,12 +403,6 @@ function AutomationsInner({ session }: { session: Session }) {
           )}
         </p>
       </div>
-
-      {/* Les automations Shopify (menu « Scénario », lot 5) : en tête, et seulement avec une boutique. Leurs routes sont
-          réservées aux administrateurs, comme cet écran (`accesAutorise`, `web/lib/nav.ts`). */}
-      <AutomationsShopify tenantId={session.tenantId} />
-      {/* Les automations HubSpot (lot 6c) : sous celles de la boutique, et seulement avec un portail relié. */}
-      <AutomationsHubspot tenantId={session.tenantId} />
 
       {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
 
@@ -707,7 +704,7 @@ function AutomationsInner({ session }: { session: Session }) {
           <div>
             <label className="mb-1 block text-sm font-medium text-ink-900">{t('Alors lancer le scénario', 'Then start the scenario')}</label>
             {workflows.length === 0 ? (
-              <p className="text-xs text-alerte-700">{t('Aucun scénario : créez-en un dans le menu « Scénario ».', 'No scenario yet: create one from the “Scenario” menu.')}</p>
+              <p className="text-xs text-alerte-700">{t('Aucun scénario : créez-en un dans Scénario > Builder.', 'No scenario yet: create one in Scenario > Builder.')}</p>
             ) : (
               <select value={workflowId} onChange={(e) => setWorkflowId(e.target.value)} data-testid="automation-workflow" className={inputCls}>
                 <option value="">{t('Choisir un scénario…', 'Choose a scenario…')}</option>

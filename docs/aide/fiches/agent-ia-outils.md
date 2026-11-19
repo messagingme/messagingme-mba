@@ -105,7 +105,7 @@ déclencher, et ce que l'agent dit ensuite au client), puis les informations à 
 - Quand le client fait la demande, l'agent répond ce que prévoit la consigne et continue. Votre application reçoit
   l'événement « Action de l'agent IA », une fois par jour au plus par contact et par action.
 - Cet événement est décoché par défaut : cochez-le sur une adresse dans Developers > Webhooks sortants, sinon rien ne
-  part, et la carte vous le rappelle. Une automation peut aussi partir de l'action (menu Automation).
+  part, et la carte vous le rappelle. Une automation peut aussi partir de l'action (Scénario > Automation > Autres).
 - Le code d'un champ est la clé que lit votre application : il suit le libellé tant que le champ est neuf, ne le
   changez plus ensuite. Au plus dix actions par agent.
 

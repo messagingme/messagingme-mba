@@ -12,7 +12,9 @@ export const CARTE_CONSOLE: EcranAide[] = [
   {"cle":"agents","href":"/agents","fr":"Other AI agent","en":"Other AI agent","acces":"admin","chemin":["AI Agent"]},
   {"cle":"api-docs","href":"/developers/api","fr":"Documentation API","en":"API documentation","acces":"admin","chemin":["Developers"]},
   {"cle":"api-keys","href":"/developers/keys","fr":"Clés d'API","en":"API keys","acces":"admin","chemin":["Developers"]},
-  {"cle":"automations","href":"/automations","fr":"Automation","en":"Automation","acces":"admin","chemin":[]},
+  {"cle":"automations","href":"/automations","fr":"Autres","en":"Other","acces":"admin","chemin":["Scénario","Automation"]},
+  {"cle":"automations-hubspot","href":"/automations/hubspot","fr":"HubSpot","en":"HubSpot","acces":"admin","chemin":["Scénario","Automation"]},
+  {"cle":"automations-shopify","href":"/automations/shopify","fr":"Shopify","en":"Shopify","acces":"admin","chemin":["Scénario","Automation"]},
   {"cle":"campagnes","href":"/campaigns","fr":"Campagnes","en":"Campaigns","acces":"admin","chemin":[]},
   {"cle":"chaine","href":"/chaine","fr":"Chaîne","en":"Channel","acces":"admin","chemin":[]},
   {"cle":"connecteurs","href":"/connecteurs","fr":"Connecteurs API","en":"API connectors","acces":"admin","chemin":["Tools"]},
@@ -51,5 +53,5 @@ export const CARTE_CONSOLE: EcranAide[] = [
   {"cle":"webhooks","href":"/webhooks","fr":"Webhooks","en":"Webhooks","acces":"admin","chemin":["Tools"]},
   {"cle":"webhooks-sortants","href":"/developers/evenements","fr":"Webhooks sortants","en":"Outgoing webhooks","acces":"admin","chemin":["Developers"]},
   {"cle":"widgets","href":"/widgets","fr":"Widget WhatsApp","en":"WhatsApp widget","acces":"admin","chemin":["Tools"]},
-  {"cle":"workflows","href":"/workflows","fr":"Scénario","en":"Scenario","acces":"admin","chemin":["Contenu"]},
+  {"cle":"workflows","href":"/workflows","fr":"Builder","en":"Builder","acces":"admin","chemin":["Scénario"]},
 ];

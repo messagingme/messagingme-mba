@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFile } from 'node:fs/promises';
-import { accesAutorise, arbresNav, cheminDeNav, contientLaCle, fonctionDeLaPage, groupesAOuvrir, navPourOffre, navPourRole, navSansShopify, ongletDeLaPage, premiereDestination, ECRANS_FREE, ONGLETS, type NavEntree, type Onglet } from './nav';
+import { accesAutorise, arbresNav, cheminDeNav, contientLaCle, fonctionDeLaPage, groupesAOuvrir, navPourOffre, navPourRole, navSansHubspot, navSansShopify, ongletDeLaPage, premiereDestination, ECRANS_FREE, ONGLETS, type NavEntree, type Onglet } from './nav';
 
 /**
  * La chaîne d'ancêtres d'une page dans la barre de navigation.
@@ -312,39 +312,128 @@ describe('ongletDeLaPage', () => {
 });
 
 /**
- * 🔴 « SCÉNARIO » VIT DANS CONTENU DEPUIS LE 2026-09-13 (demande de Julien : « deplacer le menu
- * scenario dans Contenu > juste apres Email »).
+ * 🔴 « SCÉNARIO » REMPLACE « AUTOMATION » DANS LA BARRE (menu « Scénario », lot 7 ; spec du 2026-11-18, § 2) : le
+ * **Builder** (l'ancien Contenu > Scénario, déplacé) et l'**Automation**, rangée PAR SOURCE : Shopify, HubSpot, Autres.
+ * Lu sur la VRAIE barre.
  *
- * ⚠️ IL Y A UNE TENSION, ET ELLE A ÉTÉ TRANCHÉE PAR JULIEN plutôt que contournée en silence. Contenu
- * est rangé PAR CANAL (WhatsApp / RCS / Email / Bibliothèque) et un scénario n'est pas un canal : il
- * les traverse. Mis à plat après Email, il est donc le seul enfant de Contenu qui ne soit pas un
- * groupe de canal. C'est ce que la demande disait, et c'est assumé.
+ * ⚠️ Il remplace le cas « Scénario vit dans Contenu, juste après Email » (demande de Julien du 2026-09-13) : la spec du
+ * menu « Scénario », cadrée avec lui, l'en sort. Le risque gardé reste le même : copier sans couper (deux entrées vers
+ * `/workflows`), et une adresse qui bougerait sous un favori ou un lien d'e-mail.
  */
-describe('la place du menu « Scénario »', () => {
+describe('le menu « Scénario »', () => {
   const t = (fr: string) => fr;
+  const feuille = (e: NavEntree) => ({ key: e.key, href: e.href, label: e.label, enfants: e.children?.length ?? 0 });
+  const scenario = () => arbresNav(t).console.find((e) => e.key === 'scenario');
+  const NOUVELLES = ['automations-shopify', 'automations-hubspot', 'automations'] as const;
 
-  it('🔴 vit dans Contenu, JUSTE APRÈS le groupe Email', () => {
+  it('🔴 il prend la place d’« Automation » dans la liste du haut : après Publicités, avant AI Agent, un groupe à icône', () => {
+    const cles = arbresNav(t).console.map((e) => e.key);
+    expect(cles).not.toContain('automations');
+    expect(cles.indexOf('scenario')).toBe(cles.indexOf('publicites') + 1);
+    expect(cles.indexOf('ia')).toBe(cles.indexOf('scenario') + 1);
+    expect(scenario()?.href).toBeUndefined();
+    expect(scenario()?.icone).toBe('scenario');
+  });
+
+  it('🔴 son arbre : Builder, puis Automation rangée par source (Shopify, HubSpot, Autres), à leurs adresses', () => {
+    expect((scenario()?.children ?? []).map(feuille)).toEqual([
+      { key: 'workflows', href: '/workflows', label: 'Builder', enfants: 0 },
+      { key: 'automation', href: undefined, label: 'Automation', enfants: 3 },
+    ]);
+    const automation = scenario()?.children?.find((e) => e.key === 'automation');
+    expect((automation?.children ?? []).map(feuille)).toEqual([
+      { key: 'automations-shopify', href: '/automations/shopify', label: 'Shopify', enfants: 0 },
+      { key: 'automations-hubspot', href: '/automations/hubspot', label: 'HubSpot', enfants: 0 },
+      { key: 'automations', href: '/automations', label: 'Autres', enfants: 0 },
+    ]);
+  });
+
+  it('les libellés anglais : Scenario, Builder, Automation, Other', () => {
+    const en = arbresNav((_fr, anglais) => anglais).console.find((e) => e.key === 'scenario');
+    expect(en?.label).toBe('Scenario');
+    expect(en?.children?.map((e) => e.label)).toEqual(['Builder', 'Automation']);
+    expect(en?.children?.[1]?.children?.map((e) => e.label)).toEqual(['Shopify', 'HubSpot', 'Other']);
+  });
+
+  it('🔴 le Builder a QUITTÉ Contenu : une seule entrée vers /workflows dans toute la barre, et les adresses ne bougent pas', () => {
+    // ⚠️ La faute la plus probable d'un déplacement : copier sans couper. « Chaque page est dans exactement un onglet »
+    // ne l'attraperait pas, les deux copies étant dans `console`.
     const contenu = arbresNav(t).console.find((e) => e.key === 'contenu');
-    const cles = (contenu?.children ?? []).map((c) => c.key);
-    expect(cles).toContain('workflows');
-    // La POSITION est la demande, pas seulement la présence.
-    expect(cles.indexOf('workflows')).toBe(cles.indexOf('contenu-email') + 1);
+    expect((contenu?.children ?? []).map((c) => c.key)).not.toContain('workflows');
+    const { console: haut, adminBas, perf, inbox } = arbresNav(t);
+    const hrefs = (entrees: NavEntree[]): string[] => entrees.flatMap((e) => [...(e.href ? [e.href] : []), ...(e.children ? hrefs(e.children) : [])]);
+    const tous = hrefs([...haut, ...adminBas, ...perf, ...inbox]);
+    expect(tous.filter((h) => h === '/workflows')).toHaveLength(1);
+    expect(tous.filter((h) => h === '/automations')).toHaveLength(1);
   });
 
-  it('🔴 et il n’est PLUS dans la liste du haut : sinon il y aurait DEUX entrées « Scénario »', () => {
-    // ⚠️ C'est la faute la plus probable d'un déplacement : copier sans couper. Le cas générique
-    // « chaque page est dans exactement un onglet » ne l'attraperait pas, les deux étant dans `console`.
-    expect(arbresNav(t).console.map((e) => e.key)).not.toContain('workflows');
+  it('🔴 chaque page ouvre sa chaîne : le groupe Scénario, puis Automation pour les trois sources', () => {
+    const haut = arbresNav(t).console;
+    expect(cheminDeNav(haut, 'workflows')).toEqual(['scenario']);
+    expect(groupesAOuvrir(haut, 'workflows')).toEqual(['scenario']);
+    for (const cle of NOUVELLES) {
+      expect(cheminDeNav(haut, cle), cle).toEqual(['scenario', 'automation']);
+      expect(groupesAOuvrir(haut, cle), cle).toEqual(['scenario', 'automation']);
+    }
+    // Les groupes eux-mêmes : ouverts sur eux, sans se prendre pour leur propre ancêtre.
+    expect(groupesAOuvrir(haut, 'scenario')).toEqual(['scenario']);
+    expect(groupesAOuvrir(haut, 'automation')).toEqual(['scenario', 'automation']);
   });
 
-  it('son adresse ne change pas : /workflows reste /workflows', () => {
-    const contenu = arbresNav(t).console.find((e) => e.key === 'contenu');
-    const entree = (contenu?.children ?? []).find((c) => c.key === 'workflows');
-    expect(entree?.href).toBe('/workflows');
+  it('🔴 toutes dans l’onglet Console, donc atteignables', () => {
+    const a = arbresNav(t);
+    const arbres = { console: [...a.console, ...a.adminBas], inbox: a.inbox, perf: a.perf };
+    for (const cle of ['scenario', 'workflows', 'automation', ...NOUVELLES]) {
+      // ⚠️ Présente pour de vrai : une clé inconnue retombe AUSSI sur « console », le repli de `ongletDeLaPage`.
+      expect(contientLaCle(a.console, cle), cle).toBe(true);
+      expect(ongletDeLaPage(arbres, cle), cle).toBe('console');
+    }
   });
 
-  it('et il reste dans l’onglet Console, donc atteignable', () => {
-    expect(ongletDeLaPage(arbresNav(t), 'workflows')).toBe('console');
+  it('🔴 réservées aux administrateurs, comme Automation : un manager ne voit pas le groupe, un agent non plus', () => {
+    for (const cle of ['workflows', ...NOUVELLES]) {
+      expect(accesAutorise(cle, 'admin'), cle).toBe(true);
+      expect(accesAutorise(cle, 'manager'), cle).toBe(false);
+      expect(accesAutorise(cle, 'agent'), cle).toBe(false);
+    }
+    expect(navPourRole(arbresNav(t).console, 'manager').map((e) => e.key)).not.toContain('scenario');
+  });
+
+  it('la fonction de l’offre : `scenarios` pour le Builder, la console pour les automations, comme avant', () => {
+    const haut = arbresNav(t).console;
+    expect(fonctionDeLaPage(haut, 'workflows')).toBe('scenarios');
+    for (const cle of NOUVELLES) expect(fonctionDeLaPage(haut, cle), cle).toBe('console');
+  });
+});
+
+/**
+ * 🔴 UNE ENTRÉE PAR SOURCE, ET SEULEMENT AVEC SA SOURCE (spec du menu « Scénario », § 2) : Shopify avec une boutique,
+ * HubSpot avec un portail relié. « Autres » reste toujours : le groupe Automation n'est jamais vide.
+ */
+describe('navSansShopify et navSansHubspot', () => {
+  const t = (fr: string) => fr;
+  const cles = (items: NavEntree[]): string[] => items.flatMap((e) => [e.key, ...cles(e.children ?? [])]);
+  const tout = () => {
+    const a = arbresNav(t);
+    return [...a.console, ...a.adminBas, ...a.perf];
+  };
+
+  it('🔴 sans boutique, les DEUX entrées Shopify disparaissent, Quantitatif et Automation, à toute profondeur', () => {
+    // Présentes d'abord : sans elles, le filtre passerait sur une barre qui ne les a jamais eues.
+    expect(cles(tout())).toEqual(expect.arrayContaining(['quanti-shopify', 'automations-shopify', 'automations-hubspot']));
+    expect(cles(navSansShopify(tout(), false))).toEqual(cles(tout()).filter((k) => k !== 'quanti-shopify' && k !== 'automations-shopify'));
+    expect(cles(navSansShopify(tout(), true))).toEqual(cles(tout()));
+  });
+
+  it('🔴 sans portail HubSpot, son entrée disparaît, et rien d’autre ; avec, tout reste', () => {
+    expect(cles(navSansHubspot(tout(), false))).toEqual(cles(tout()).filter((k) => k !== 'automations-hubspot'));
+    expect(cles(navSansHubspot(tout(), true))).toEqual(cles(tout()));
+  });
+
+  it('les deux à la fois : Automation garde « Autres », à son adresse', () => {
+    const haut = navSansHubspot(navSansShopify(arbresNav(t).console, false), false);
+    const automation = haut.find((e) => e.key === 'scenario')?.children?.find((e) => e.key === 'automation');
+    expect(automation?.children?.map((e) => [e.key, e.href])).toEqual([['automations', '/automations']]);
   });
 });
 
@@ -412,7 +501,7 @@ describe('la barre selon l’offre', () => {
     // Les écrans d'une Free (spec offres v2) sont ouverts à toutes les offres, et eux seuls.
     for (const cle of ECRANS_FREE) expect(fonctionDeLaPage(toutes(), cle), cle).toBeNull();
     // Le reste exige la console : un écran sans fonction propre, une page hors de la barre, une clé inconnue.
-    for (const cle of ['contacts', 'campagnes', 'automations', 'agents', 'templates', 'widgets', 'webhooks-sortants', 'admin', 'inconnue']) {
+    for (const cle of ['contacts', 'campagnes', 'automations', 'automations-shopify', 'automations-hubspot', 'agents', 'templates', 'widgets', 'webhooks-sortants', 'admin', 'inconnue']) {
       expect(fonctionDeLaPage(toutes(), cle), cle).toBe('console');
     }
   });

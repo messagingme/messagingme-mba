@@ -1,14 +1,14 @@
 ---
 description: Create a WhatsApp scenario: place and connect the blocks, try it on your phone, put it live, file it, then the guide of each block.
 slug: create-a-scenario
-traduit_de: 06b60e
+traduit_de: 5040e2
 ---
 # Create a scenario
 
 A scenario chains blocks on a canvas: the contact moves from block to block. You build it as a draft, try it on your
 phone, then put it live.
 
-**1. Create the scenario.** In the Scenario menu, give it a name, then "Create a scenario".
+**1. Create the scenario.** In Scenario > Builder, give it a name, then "Create a scenario".
 
 **2. Place a block.** "Create a block:" offers each type of block: click the one you want.
 
