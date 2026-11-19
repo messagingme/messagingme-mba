@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { enTransaction } from '../db/transaction';
 import { ficheComptee } from '../crm/contact-store.pg';
 import { contactsToutesOrigines, droitsDe, type Droits, type Offre } from './offres';
+import { automationComptee } from './automations';
 import { SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
 
 /**
@@ -71,16 +72,17 @@ export class PgOffresStore implements SourceOffres {
   /**
    * Ce que l'espace a consommé de ses limites, en une requête : les fiches que la limite de contacts compte (toutes les
    * fiches actives en Free, les créées ailleurs : `contactsToutesOrigines`, sur l'offre lue par la seule définition), les
-   * automations allumées du client (aucun propriétaire), les membres actifs (invitations en attente comprises). Les mêmes
-   * comptes que les gardes (`PgContactStore.verifierPlaceContacts`, dont le prédicat est importé, `src/offres/automations.ts`,
-   * `src/offres/membres.ts`) ; ce que voient la console et `get_plan`, et ce que lisent les courriels de franchissement.
+   * automations allumées du client (aucun propriétaire, rayon général), les membres actifs (invitations en attente comprises).
+   * Les mêmes comptes que les gardes (`PgContactStore.verifierPlaceContacts` et `src/offres/automations.ts`, dont les
+   * prédicats sont importés, `src/offres/membres.ts`) ; ce que voient la console et `get_plan`, et ce que lisent les courriels
+   * de franchissement.
    */
   async usage(tenantId: string): Promise<{ contacts: number; automations: number; membres: number }> {
     const r = await this.pool.query<{ offre: string; toutes_origines: number; creees: number; automations: number; membres: number }>(
       `select offre_de_l_espace($1::uuid) as offre,
               (select count(*) from contacts c where c.tenant_id = $1::uuid and ${ficheComptee('c', true)})::int as toutes_origines,
               (select count(*) from contacts c where c.tenant_id = $1::uuid and ${ficheComptee('c', false)})::int as creees,
-              (select count(*) from automations a where a.tenant_id = $1::uuid and a.enabled and a.possede_par is null)::int as automations,
+              (select count(*) from automations a where a.tenant_id = $1::uuid and ${automationComptee('a')})::int as automations,
               (select count(*) from users u where u.tenant_id = $1::uuid and u.disabled_at is null)::int as membres`,
       [tenantId],
     );

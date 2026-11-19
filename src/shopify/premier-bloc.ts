@@ -3,6 +3,7 @@ import type { ParamHint } from '../crm/template-hints.pg';
 import { actionOf, type WorkflowButton } from '../workflow/engine';
 import type { WorkflowGraph, WorkflowNode } from '../workflow/graph';
 import type { WorkflowRow } from '../workflow/store.pg';
+import type { Rayon } from '../workflow/rayon';
 import { sourcesDuBloc } from '../workflow/template-send';
 import { DONNEES_PAR_EVENEMENT, type DonneeShopify, type EvenementShopify } from './donnees';
 import { MARQUE_PREMIER_BLOC, estPremierBlocVerrouille } from '../../web/lib/partage/premier-bloc';
@@ -10,7 +11,7 @@ import { MARQUE_PREMIER_BLOC, estPremierBlocVerrouille } from '../../web/lib/par
 /**
  * LE PREMIER BLOC D'UNE LIGNE SHOPIFY (menu « Scénario », lot 5, décisions 13 et 23) : le template que le circuit envoie
  * quand l'événement arrive, et sur lequel le parcours d'événement naît. Partagé par la réception des commandes, la relance
- * des paniers et l'état de la boutique.
+ * des paniers et l'état de la boutique ; depuis le lot 6, par les lignes HubSpot (le même premier bloc, sur leur rayon).
  *
  * 🔴 LE GRAPHE PUBLIÉ, JAMAIS LE BROUILLON : un client réel ne tombe jamais dans un brouillon. Le bloc est celui que le
  * serveur a MARQUÉ en créant le scénario (`MARQUE_PREMIER_BLOC`), pas « le premier sans flèche entrante » : un bloc orphelin
@@ -33,10 +34,11 @@ export function blocVerrouille(graphe: WorkflowGraph): WorkflowNode | null {
 }
 
 /**
- * LE VERROU DU PREMIER BLOC (décisions 13 et 23, lot 5 tâche 9) : dans un scénario du rayon Shopify, le bloc marqué reste
- * le MÊME (`attendu`, l'identifiant du bloc marqué du graphe en place), reste un template, et rien n'y mène (ni flèche, ni
- * « Aller à » du scénario). La marque n'est posée que par le serveur : en poser une, l'ôter ou la déplacer par un corps
- * reçu est refusé, comme un graphe en place qui n'en a plus (`attendu` null). Rend la phrase du refus, ou null.
+ * LE VERROU DU PREMIER BLOC (décisions 13 et 23, lot 5 tâche 9) : dans un scénario d'un rayon d'automation (Shopify, et
+ * HubSpot depuis le lot 6), le bloc marqué reste le MÊME (`attendu`, l'identifiant du bloc marqué du graphe en place), reste
+ * un template, et rien n'y mène (ni flèche, ni « Aller à » du scénario). La marque n'est posée que par le serveur : en poser
+ * une, l'ôter ou la déplacer par un corps reçu est refusé, comme un graphe en place qui n'en a plus (`attendu` null). Rend
+ * la phrase du refus, ou null.
  */
 export function refusDuVerrou(graphe: WorkflowGraph, attendu: string | null): string | null {
   const bloc = blocVerrouille(graphe);
@@ -81,15 +83,21 @@ export type PremierBloc =
     aUneSuite: boolean;
   }
   /**
-   * `scenario_absent` : aucun scénario du rayon `shopify` sous cet identifiant dans l'espace ; `bloc_absent` : pas
+   * `scenario_absent` : aucun scénario du rayon demandé sous cet identifiant dans l'espace ; `bloc_absent` : pas
    * exactement un bloc marqué, ou ce n'est pas un template ; `sans_modele` : le template n'est pas encore écrit.
    */
   | { etat: 'illisible'; raison: 'scenario_absent' | 'bloc_absent' | 'sans_modele' };
 
-export async function premierBloc(l: LecturesPremierBloc, tenantId: string, workflowId: string): Promise<PremierBloc> {
+/**
+ * `rayon` : celui de la ligne qui lit (`shopify`, ou `hubspot` au lot 6), REQUIS : une ligne ne lit jamais le scénario d'un
+ * autre rayon, et un rayon oublié ne compilerait pas plutôt que de retomber sur Shopify en silence.
+ */
+export async function premierBloc(
+  l: LecturesPremierBloc, tenantId: string, workflowId: string, rayon: Exclude<Rayon, 'general'>,
+): Promise<PremierBloc> {
   const wf = await l.workflows.getById(workflowId, tenantId);
   // `getById` ignore le rayon : un scénario d'un autre rayon sous cet identifiant n'est pas celui d'une ligne.
-  if (wf === null || wf.rayon !== 'shopify') return { etat: 'illisible', raison: 'scenario_absent' };
+  if (wf === null || wf.rayon !== rayon) return { etat: 'illisible', raison: 'scenario_absent' };
   const bloc = blocVerrouille(wf.graph);
   if (bloc === null || bloc.type !== 'template') return { etat: 'illisible', raison: 'bloc_absent' };
   const action = actionOf(bloc);

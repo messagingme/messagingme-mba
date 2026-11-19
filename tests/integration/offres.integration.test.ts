@@ -313,6 +313,8 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     await automations.create(t, entree(true));
     await automations.create(t, entree(false));
     await automations.create(t, entree(true, 'channelsme_link'));
+    // Menu « Scénario », lot 6 : une ligne HubSpot allumée ne compte pas (son plafond est par ligne, décision 36).
+    await automations.create(t, { ...entree(true), rayon: 'hubspot' });
 
     const users = new PgUserStore(pool);
     await users.createPending(t, 'itest-usage-1@offre.test', 'admin');

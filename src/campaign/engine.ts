@@ -189,8 +189,9 @@ export interface EngineDeps {
    * `true` = né ; une chaîne = aucun parcours, le destinataire reste `sent` avec la raison à côté.
    */
   mesurerEnvoiDuBloc?: (tenantId: string, e: { workflowId: string; nodeId: string; waId: string; messageId: string }) => Promise<void>;
+  /** `type` : celui que porte le pont (Shopify ou HubSpot, lot 6), qui décide du rayon de scénario admis. */
   naitreParcoursEvenement?: (tenantId: string, d: {
-    workflowId: string; noeudId: string; waId: string; contactId: string | null;
+    type: ParcoursEvenementDeCampagne['type']; workflowId: string; noeudId: string; waId: string; contactId: string | null;
     modele: { nom: string; langue: string }; evenement: EvenementDuParcours;
   }) => Promise<true | string>;
   /**
@@ -1016,7 +1017,7 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
         if (!deps.naitreParcoursEvenement) parcoursNonNe = 'Parcours non né : pont non câblé.';
         else {
           const issue = await deps.naitreParcoursEvenement(campaign.tenantId, {
-            workflowId: pe.workflowId, noeudId: pe.noeudId, waId, contactId: r.contactId,
+            type: pe.type, workflowId: pe.workflowId, noeudId: pe.noeudId, waId, contactId: r.contactId,
             modele: { nom: contenu.templateName, langue: contenu.templateLanguage },
             // Lot 5 : l'identifiant Meta du premier message, que le parcours garde (seul un clic sur CE message le touche,
             // et l'échec de sa livraison le clôt).

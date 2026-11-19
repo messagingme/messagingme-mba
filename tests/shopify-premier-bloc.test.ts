@@ -50,9 +50,17 @@ const BLOC = { templateName: 'commande_payee', language: 'fr', templateButtons: 
 
 describe('le premier bloc d’une ligne Shopify', () => {
   it('🔴 un scénario absent, ou d’un autre rayon, est illisible', async () => {
-    expect(await premierBloc(lectures(null).l, T, W)).toEqual({ etat: 'illisible', raison: 'scenario_absent' });
+    expect(await premierBloc(lectures(null).l, T, W, 'shopify')).toEqual({ etat: 'illisible', raison: 'scenario_absent' });
     const general = scenario({ nodes: [verrouille(BLOC)], edges: [] }, { rayon: 'general' });
-    expect(await premierBloc(lectures(general).l, T, W)).toEqual({ etat: 'illisible', raison: 'scenario_absent' });
+    expect(await premierBloc(lectures(general).l, T, W, 'shopify')).toEqual({ etat: 'illisible', raison: 'scenario_absent' });
+  });
+
+  it('🔴 lot 6 : le rayon DEMANDÉ, et lui seul (une ligne HubSpot lit un scénario HubSpot, jamais un scénario Shopify)', async () => {
+    const hubspot = scenario({ nodes: [verrouille(BLOC)], edges: [] }, { rayon: 'hubspot', name: 'Devis envoyé' });
+    expect(await premierBloc(lectures(hubspot).l, T, W, 'hubspot')).toMatchObject({ etat: 'pret', noeudId: 'depart', modele: 'commande_payee' });
+    expect(await premierBloc(lectures(hubspot).l, T, W, 'shopify')).toEqual({ etat: 'illisible', raison: 'scenario_absent' });
+    const shopify = scenario({ nodes: [verrouille(BLOC)], edges: [] });
+    expect(await premierBloc(lectures(shopify).l, T, W, 'hubspot')).toEqual({ etat: 'illisible', raison: 'scenario_absent' });
   });
 
   it('aucun bloc marqué, deux blocs marqués ou un bloc marqué qui n’est pas un template : pas de premier bloc', async () => {
@@ -61,13 +69,13 @@ describe('le premier bloc d’une ligne Shopify', () => {
     const message: WorkflowNode = { id: 'm', type: 'quick_message', position: { x: 0, y: 0 }, data: { body: 'x', [MARQUE_PREMIER_BLOC]: true } };
     const pasTemplate = scenario({ nodes: [message], edges: [] });
     for (const wf of [sansMarque, deux, pasTemplate]) {
-      expect(await premierBloc(lectures(wf).l, T, W)).toEqual({ etat: 'illisible', raison: 'bloc_absent' });
+      expect(await premierBloc(lectures(wf).l, T, W, 'shopify')).toEqual({ etat: 'illisible', raison: 'bloc_absent' });
     }
   });
 
   it('un bloc verrouillé sans template écrit : sans modèle', async () => {
     const vide = scenario({ nodes: [verrouille({ templateName: '   ' })], edges: [] });
-    expect(await premierBloc(lectures(vide).l, T, W)).toEqual({ etat: 'illisible', raison: 'sans_modele' });
+    expect(await premierBloc(lectures(vide).l, T, W, 'shopify')).toEqual({ etat: 'illisible', raison: 'sans_modele' });
   });
 
   it('🔴 lit le graphe PUBLIÉ, jamais le brouillon', async () => {
@@ -75,7 +83,7 @@ describe('le premier bloc d’une ligne Shopify', () => {
       { nodes: [verrouille(BLOC)], edges: [] },
       { draftGraph: { nodes: [verrouille({ ...BLOC, templateName: 'brouillon' })], edges: [] } },
     );
-    const r = await premierBloc(lectures(wf).l, T, W);
+    const r = await premierBloc(lectures(wf).l, T, W, 'shopify');
     expect(r).toMatchObject({ etat: 'pret', modele: 'commande_payee' });
   });
 
@@ -83,7 +91,7 @@ describe('le premier bloc d’une ligne Shopify', () => {
     const boutons = [{ type: 'QUICK_REPLY', text: 'Oui' }, { type: 'URL', text: 'Suivre' }, { type: 'QUICK_REPLY', text: 'Non' }];
     const wf = scenario({ nodes: [verrouille({ templateName: ' panier_relance ', templateButtons: boutons })], edges: [] });
     const { l, idx } = lectures(wf);
-    expect(await premierBloc(l, T, W)).toEqual({
+    expect(await premierBloc(l, T, W, 'shopify')).toEqual({
       etat: 'pret', workflowId: W, noeudId: 'depart', modele: 'panier_relance', langue: 'fr', boutons, params: [], aUneSuite: false,
     });
     expect(idx.lus).toEqual([[T, 'panier_relance', 'fr']]);
@@ -98,7 +106,7 @@ describe('le premier bloc d’une ligne Shopify', () => {
       nodes: [verrouille({ ...BLOC, variables: [{ position: 2, source: { type: 'variable', key: 'order_number' } }] })],
       edges: [],
     });
-    const r = await premierBloc(lectures(wf, indices).l, T, W);
+    const r = await premierBloc(lectures(wf, indices).l, T, W, 'shopify');
     expect(r.etat === 'pret' && r.params).toEqual([
       { position: 1, source: { type: 'field', key: 'prenom' } },
       { position: 2, source: { type: 'variable', key: 'order_number' } },
@@ -108,11 +116,11 @@ describe('le premier bloc d’une ligne Shopify', () => {
   it('« a une suite » quand une flèche part du bloc, et seulement de lui', async () => {
     const suite = template('suite', { templateName: 'merci', language: 'fr' });
     const avec = scenario({ nodes: [verrouille(BLOC), suite], edges: [{ id: 'e1', source: 'depart', target: 'suite', sourceHandle: 'btn:0' }] });
-    const r1 = await premierBloc(lectures(avec).l, T, W);
+    const r1 = await premierBloc(lectures(avec).l, T, W, 'shopify');
     expect(r1.etat === 'pret' && r1.aUneSuite).toBe(true);
     // Une flèche qui part d'un AUTRE bloc ne fait pas une suite du premier.
     const ailleurs = scenario({ nodes: [verrouille(BLOC), suite, template('x', BLOC)], edges: [{ id: 'e1', source: 'suite', target: 'x' }] });
-    const r2 = await premierBloc(lectures(ailleurs).l, T, W);
+    const r2 = await premierBloc(lectures(ailleurs).l, T, W, 'shopify');
     expect(r2.etat === 'pret' && r2.aUneSuite).toBe(false);
   });
 });

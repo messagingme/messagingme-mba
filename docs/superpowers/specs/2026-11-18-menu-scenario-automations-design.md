@@ -192,6 +192,29 @@ Appels du rédacteur pris sur la cartographie (2026-11-18), à relire :
     l'agent de Meta ou « À traiter » prend le client, au lieu du silence jusqu'à son réveil. Le mode « Application »
     coexiste (confirmé le même jour).
 
+### 3.4 Décisions après la cartographie du lot 6 (Julien, 2026-11-19)
+
+36. **Une étape changée en masse est un envoi à UN client** (précise la décision 30 pour HubSpot) : les étiquettes du
+    parcours publient leurs événements, et un plafond par ligne borne une étape changée sur beaucoup de deals d'un coup.
+    L'action des workflows HubSpot reste un envoi de masse (décision 24) : deux types de lancement.
+37. **Le même événement deux fois** : une naissance par deal et par étape (par rendez-vous et par date) en 24 h ; un deal
+    revenu à son étape après 24 h, ou un rendez-vous déplacé, repart. L'origine du parcours porte cette fenêtre (une
+    naissance par origine, 0300).
+38. **Les données du deal se lisent sur la fiche du contact** (lot 3a, champs `hs_*`), pas dans le parcours comme Shopify
+    **(appel du rédacteur)** : un second deal qui réécrit la fiche pendant l'attente du premier change ce que la suite lit ;
+    le cas est écrit dans la documentation.
+39. **L'action « Lancer un scénario » d'un workflow HubSpot garde sa liste d'issues** : un scénario du Builder choisi dans
+    un ancien workflow ressort en `scenario_refuse`, avec un message qui dit pourquoi ; rien à republier chez HubSpot.
+40. **Le rappel de rendez-vous de MUTAC reste dans Autres** jusqu'à l'essai réel de la famille « rendez-vous » ; il se
+    recrée ensuite à la main sous HubSpot (décision 8).
+41. **Les scénarios déjà lancés par un workflow HubSpot passent eux-mêmes au rayon HubSpot** (Julien, 2026-11-19, après
+    la sonde avant la bascule : « devis_avec_pdf » de MUTAC doit marcher le lendemain matin sans être recréé). La bascule
+    déplace au rayon `hubspot`, avec leur ligne « lancés par un workflow », les scénarios qu'une action de workflow HubSpot
+    a lancés dans les 90 derniers jours, sauf ceux qu'une automation du Builder général vise encore (signalés) : une
+    exception à la décision 8 pour ces seuls scénarios. Leur envoi reste celui d'aujourd'hui (le scénario, le devis PDF),
+    et l'action refuse encore quand un conseiller tient le fil : la décision 2 pour cette famille, qui demande l'envoi par
+    le pont, devis PDF compris, passe à un lot 6e.
+
 ## 4. Objectifs, non-objectifs, anti-objectifs
 
 **Objectifs** : une séquence Shopify ou HubSpot se construit dans le builder classique ; le premier message reste aussi

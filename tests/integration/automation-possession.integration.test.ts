@@ -65,10 +65,10 @@ describe.skipIf(!url)('automations possedees par un lien de chaine : hors de por
   });
 
   it('🔴 `getById` ne la trouve pas, `update` ne la modifie pas, `remove` ne la supprime pas', async () => {
-    expect(await store.getById(idPossedee, tenantId)).toBeNull();
+    expect(await store.getById(idPossedee, tenantId, 'general')).toBeNull();
     // Eteindre le compagnon d'un post publie depuis l'ecran Automation tuerait son bouton en silence.
-    expect(await store.update(idPossedee, tenantId, { enabled: false })).toBe(false);
-    expect(await store.remove(idPossedee, tenantId)).toBe(false);
+    expect(await store.update(idPossedee, tenantId, 'general', { enabled: false })).toBe(false);
+    expect(await store.remove(idPossedee, tenantId, 'general')).toBe(false);
     const relu = await pool.query<{ enabled: boolean }>('select enabled from automations where id = $1', [idPossedee]);
     expect(relu.rows[0]?.enabled).toBe(true);
   });
@@ -88,8 +88,8 @@ describe.skipIf(!url)('automations possedees par un lien de chaine : hors de por
   });
 
   it('l automation ordinaire reste pilotable (le second terme n a pas tout verrouille)', async () => {
-    expect(await store.update(idNormale, tenantId, { name: 'Mot-cle rdv (modifie)' })).toBe(true);
-    expect((await store.getById(idNormale, tenantId))?.name).toBe('Mot-cle rdv (modifie)');
+    expect(await store.update(idNormale, tenantId, 'general', { name: 'Mot-cle rdv (modifie)' })).toBe(true);
+    expect((await store.getById(idNormale, tenantId, 'general'))?.name).toBe('Mot-cle rdv (modifie)');
   });
 
   it('les webhooks restent exclus comme avant : le `and` n a rien desserre', async () => {
@@ -99,7 +99,7 @@ describe.skipIf(!url)('automations possedees par un lien de chaine : hors de por
       [tenantId, workflowId],
     )).rows[0]!.id;
     // `possede_par` y vaut null : c'est le PREMIER terme qui doit continuer a l'exclure, tout seul.
-    expect(await store.getById(idWebhook, tenantId)).toBeNull();
+    expect(await store.getById(idWebhook, tenantId, 'general')).toBeNull();
     expect((await store.list(tenantId, 'general')).map((a) => a.id)).not.toContain(idWebhook);
   });
 });

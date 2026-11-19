@@ -98,5 +98,8 @@ export const prenomDeSecours = (langue: string): string => PRENOM_DE_SECOURS[lan
 export const DELAI_PANIER_MIN = 15;
 export const DELAI_PANIER_MAX = 4320;
 export const DELAI_PANIER_DEFAUT = 60;
-/** Les délais que l'assistant propose d'un clic (maquette validée) ; « autre » ouvre un champ jusqu'à 72 h. */
+/**
+ * Les délais que la section Shopify de l'écran Automation propose (`AutomationsShopify.tsx`). Jusqu'à 72 h
+ * (`DELAI_PANIER_MAX`) seulement par Claude Code (`set_shopify_message`) : l'écran garde alors cette valeur à sa place.
+ */
 export const DELAIS_PROPOSES: readonly number[] = [15, 60, 180, 1440];

@@ -2,7 +2,7 @@ import type { Pool } from 'pg';
 import { coerceConditionGroup } from '../workflow/conditions';
 import { isAutomationTriggerKind } from './match';
 import type { AutomationRow, AutomationTriggerKind } from './match';
-import { verifierPlaceAutomation } from '../offres/automations';
+import { automationComptee, verifierPlaceAutomation } from '../offres/automations';
 import { estRayon, type Rayon } from '../workflow/rayon';
 
 /** Ce qu'une route peut créer ou modifier. `enabled` par défaut false : une automation ne part jamais sans un
@@ -148,46 +148,54 @@ export class PgAutomationStore {
   }
 
   /**
-   * Chemin chaud (chaque message entrant) : les automations actives du tenant pour ces types. Sert l'index
-   * partiel `automations_tenant_kind_enabled_idx`. Liste de types vide : aucune requête.
+   * Chemin chaud (chaque message entrant, et le balayage des dates du worker) : les automations actives du tenant pour ces
+   * types. Sert l'index partiel `automations_tenant_kind_enabled_idx`. Liste de types vide : aucune requête.
+   *
+   * 🔴 Le rayon GÉNÉRAL seulement (menu « Scénario », lot 6) : le runner ne lance que des scénarios du Builder, et les
+   * lignes HubSpot ont leur propre circuit. Relue ici, une ligne HubSpot serait refusée par `lancer`, et son tir effacé
+   * (`clearFired`), le marqueur d'un rendez-vous avec.
    */
   async listEnabled(tenantId: string, kinds: readonly AutomationTriggerKind[]): Promise<AutomationRow[]> {
     if (kinds.length === 0) return [];
     const res = await this.pool.query<Raw>(
       `select ${COLS} from automations
-       where tenant_id = $1 and enabled and trigger_kind = any($2::text[])`,
+       where tenant_id = $1 and enabled and trigger_kind = any($2::text[]) and rayon = 'general'`,
       [tenantId, [...kinds]],
     );
     return res.rows.map(toRow).filter((a): a is AutomationRow => a !== null);
   }
 
   /**
-   * Les `n` automations du client les plus anciennes (lot 6, B2a) : la population que compte la limite de l'offre
-   * (`verifierPlaceAutomation` : allumées, sans propriétaire, webhooks entrants compris), par date de création puis
-   * identifiant. Sous une limite, seules elles tirent encore (le gel au retour en Base, `runAutomations`).
+   * Les `n` automations du client les plus anciennes (lot 6 des offres, B2a) : la population que compte la limite de l'offre
+   * (`automationComptee` : allumées, sans propriétaire, du rayon général, webhooks entrants compris), par date de création
+   * puis identifiant. Sous une limite, seules elles tirent encore (le gel au retour en Base, `runAutomations`).
    */
   async plusAnciennes(tenantId: string, n: number): Promise<ReadonlySet<string>> {
     const res = await this.pool.query<{ id: string }>(
-      `select id from automations where tenant_id = $1 and enabled and possede_par is null
+      `select id from automations where tenant_id = $1 and ${automationComptee()}
         order by created_at, id limit $2`,
       [tenantId, n],
     );
     return new Set(res.rows.map((r) => r.id));
   }
 
-  /** Une automation par id, scopée tenant. */
-  async getById(id: string, tenantId: string): Promise<AutomationRow | null> {
+  /**
+   * Une automation par id, scopée tenant, du rayon demandé (lot 6) : l'écran « Autres » ne relit jamais une ligne HubSpot
+   * par son identifiant.
+   */
+  async getById(id: string, tenantId: string, rayon: Rayon): Promise<AutomationRow | null> {
     const res = await this.pool.query<Raw>(
-      `select ${COLS} from automations where id = $1 and tenant_id = $2 ${HORS_WEBHOOK}`,
-      [id, tenantId],
+      `select ${COLS} from automations where id = $1 and tenant_id = $2 and rayon = $3 ${HORS_WEBHOOK}`,
+      [id, tenantId, rayon],
     );
     const r = res.rows[0];
     return r ? toRow(r) : null;
   }
 
   async create(tenantId: string, input: AutomationInput): Promise<{ id: string }> {
-    // Une automation possédée (lien, publicité, widget) ne compte pas dans la limite de l'offre ; une éteinte non plus.
-    if (input.enabled && !input.possedePar && this.limiteAutomations) {
+    // Une automation possédée (lien, publicité, widget) ne compte pas dans la limite de l'offre ; une éteinte non plus ; une
+    // ligne HubSpot non plus (lot 6, décision 36 : son plafond est par ligne).
+    if (input.enabled && !input.possedePar && input.rayon === 'general' && this.limiteAutomations) {
       await verifierPlaceAutomation(this.pool, tenantId, await this.limiteAutomations(tenantId), null);
     }
     const accord = input.accordMarketing ?? null;
@@ -208,14 +216,18 @@ export class PgAutomationStore {
     return { id: res.rows[0]!.id };
   }
 
-  /** Mise à jour partielle (l'écran ne bascule souvent que `enabled`). false si l'id n'est pas au tenant. */
-  async update(id: string, tenantId: string, patch: Partial<Omit<AutomationInput, 'rayon'>>): Promise<boolean> {
-    // Rallumer compte dans la limite de l'offre (l'écran ne touche que les automations du client : `HORS_WEBHOOK`).
-    if (patch.enabled === true && this.limiteAutomations) {
+  /**
+   * Mise à jour partielle (l'écran ne bascule souvent que `enabled`). false si l'id n'est pas au tenant, ou pas du rayon
+   * demandé (lot 6). Le rayon choisit la ligne, il ne s'écrit jamais.
+   */
+  async update(id: string, tenantId: string, rayon: Rayon, patch: Partial<Omit<AutomationInput, 'rayon'>>): Promise<boolean> {
+    // Rallumer compte dans la limite de l'offre (l'écran ne touche que les automations du client : `HORS_WEBHOOK`), sauf une
+    // ligne HubSpot (lot 6, décision 36).
+    if (patch.enabled === true && rayon === 'general' && this.limiteAutomations) {
       await verifierPlaceAutomation(this.pool, tenantId, await this.limiteAutomations(tenantId), id);
     }
     const sets: string[] = [];
-    const vals: unknown[] = [id, tenantId];
+    const vals: unknown[] = [id, tenantId, rayon];
     const push = (sql: string, v: unknown) => { vals.push(v); sets.push(`${sql} = $${vals.length}`); };
     if (patch.name !== undefined) push('name', patch.name);
     if (patch.enabled !== undefined) push('enabled', patch.enabled);
@@ -241,14 +253,18 @@ export class PgAutomationStore {
     if (sets.length === 0) return false;
     const res = await this.pool.query(
       `update automations set ${sets.join(', ')}, updated_at = now()
-        where id = $1 and tenant_id = $2 ${HORS_WEBHOOK}`,
+        where id = $1 and tenant_id = $2 and rayon = $3 ${HORS_WEBHOOK}`,
       vals,
     );
     return (res.rowCount ?? 0) > 0;
   }
 
-  async remove(id: string, tenantId: string): Promise<boolean> {
-    const res = await this.pool.query(`delete from automations where id = $1 and tenant_id = $2 ${HORS_WEBHOOK}`, [id, tenantId]);
+  /** false si l'id n'est pas au tenant, ou pas du rayon demandé (lot 6). */
+  async remove(id: string, tenantId: string, rayon: Rayon): Promise<boolean> {
+    const res = await this.pool.query(
+      `delete from automations where id = $1 and tenant_id = $2 and rayon = $3 ${HORS_WEBHOOK}`,
+      [id, tenantId, rayon],
+    );
     return (res.rowCount ?? 0) > 0;
   }
 
@@ -315,10 +331,13 @@ export class PgAutomationStore {
       .map((r) => ({ waId: r.wa_id, valeur: r.valeur, dejaTirePour: r.fired_for }));
   }
 
-  /** Espaces ayant au moins une automation `avant_date` active, pour ne pas balayer tout le monde. */
+  /**
+   * Espaces ayant au moins une automation `avant_date` active du rayon général, pour ne pas balayer tout le monde : le
+   * balayage du worker ne sert que lui (`listEnabled`), un rendez-vous HubSpot a son circuit (lot 6).
+   */
   async tenantsAvecDeclencheurDate(): Promise<string[]> {
     const res = await this.pool.query<{ tenant_id: string }>(
-      `select distinct tenant_id from automations where enabled and trigger_kind = 'avant_date'`,
+      `select distinct tenant_id from automations where enabled and trigger_kind = 'avant_date' and rayon = 'general'`,
     );
     return res.rows.map((r) => r.tenant_id);
   }

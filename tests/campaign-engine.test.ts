@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { etageServable, MOTIF_ECART_A_L_ENVOI, type EcartALEnvoi } from '../src/campaign/engine';
+import { lireParcoursEvenement } from '../src/campaign/parcours-evenement';
+import { TYPES_DE_LANCEMENT } from '../src/workflow/lancements';
 import { lancerCampagne, type DepsMoteurDeTest } from './campagne-canaux';
 import type {
   MessageSender, RecipientStore, CampaignStore, QualityProvider, TentativeEnvoi,
@@ -1725,5 +1727,47 @@ describe('runCampaign : le pont du parcours d’événement (lot 4)', () => {
     const recipients = new FakeRecipients([destinataire('r1', '+33611')]);
     await lancerCampagne(avecPont, deps({ recipients, sender: new CapturingSender() }));
     expect(recipients.results.get('r1')).toMatchObject({ status: 'sent', error: 'Parcours non né : pont non câblé.' });
+  });
+
+  /**
+   * 🔴 LOT 6 : LA DEMANDE PORTE LE TYPE DU PONT. Le pont d'un événement HubSpot doit faire naître un `evenement_hubspot`, celui
+   * d'un événement Shopify un `evenement_shopify` : un type écrit en dur au câblage ferait refuser chaque scénario de l'autre
+   * rayon comme inconnu, et aucune suite HubSpot ne partirait.
+   */
+  it('🔴 lot 6 : la demande de parcours porte le type du pont (Shopify ou HubSpot)', async () => {
+    const vus: string[] = [];
+    const capacites = {
+      mesurerEnvoiDuBloc: async () => {},
+      naitreParcoursEvenement: async (_t: string, d: { type: string }) => { vus.push(d.type); return true as const; },
+    };
+    const hubspot = { ...PONT, type: 'evenement_hubspot' as const, origine: 'hubspot:4242:etape:ligne-1:deal-7:etape-9:2026-11-19' };
+    for (const pe of [PONT, hubspot]) {
+      await lancerCampagne({ ...campaign, parcoursEvenement: pe }, deps({ recipients: new FakeRecipients([destinataire('r1', '+33611')]), sender: new CapturingSender(), ...capacites }));
+    }
+    expect(vus).toEqual(['evenement_shopify', 'evenement_hubspot']);
+  });
+});
+
+/**
+ * LE PONT RELU EN BASE (`campaigns.parcours_evenement`, un jsonb : une entrée non fiable). Lot 6 : il porte un type
+ * d'événement, Shopify ou HubSpot ; tout autre type (le workflow HubSpot, un lancement ordinaire) le rend illisible, et la
+ * campagne envoie alors comme une campagne template ordinaire.
+ */
+describe('lireParcoursEvenement : les types d’événement, et eux seuls', () => {
+  const brut = (type: string) => ({ workflowId: 'wf-1', noeudId: 'tpl', type, origine: 'hubspot:4242:rdv:ligne-2:33611:hs_rdv:2026-11-20T14:30:00Z', boutons: [] });
+
+  it('🔴 chaque type d’événement de la table des lancements se relit, HubSpot compris', () => {
+    const evenements = TYPES_DE_LANCEMENT.filter((t) => t.startsWith('evenement_'));
+    expect(evenements).toContain('evenement_hubspot');
+    for (const type of evenements) expect(lireParcoursEvenement(brut(type), 'c1')?.type, type).toBe(type);
+  });
+
+  it('🔴 un autre type de lancement est illisible : aucun parcours ne naîtra, et le refus se journalise', () => {
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const type of ['workflow_hubspot', 'automatisme_ordinaire', 'evenement_brevo']) {
+      expect(lireParcoursEvenement(brut(type), 'c1'), type).toBeNull();
+    }
+    expect(erreurs).toHaveBeenCalledTimes(3);
+    erreurs.mockRestore();
   });
 });

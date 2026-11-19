@@ -29,14 +29,31 @@ function avertir(...args: Parameters<typeof avertissementDeLAutomation>): string
   }
 }
 
+/**
+ * Les automations, pour l'écran « Autres ». Chaque méthode nomme son rayon (menu « Scénario », lot 6) : cet écran ne lit,
+ * ne modifie et ne supprime que le sien (`RAYON_DE_L_ECRAN`), même par identifiant.
+ */
 export interface AutomationsDep {
   list(tenantId: string, rayon: Rayon): Promise<AutomationRow[]>;
   /** Une automation par id (scopée tenant). Lecture ciblée : `list` est capée, donc aveugle au-delà du plafond. */
-  getById(id: string, tenantId: string): Promise<AutomationRow | null>;
+  getById(id: string, tenantId: string, rayon: Rayon): Promise<AutomationRow | null>;
   create(tenantId: string, input: AutomationInput): Promise<{ id: string }>;
-  update(id: string, tenantId: string, patch: Partial<Omit<AutomationInput, 'rayon'>>): Promise<boolean>;
-  remove(id: string, tenantId: string): Promise<boolean>;
+  update(id: string, tenantId: string, rayon: Rayon, patch: Partial<Omit<AutomationInput, 'rayon'>>): Promise<boolean>;
+  remove(id: string, tenantId: string, rayon: Rayon): Promise<boolean>;
 }
+
+/**
+ * Le rayon de l'écran Automation (« Autres ») : celui du Builder. Il ne liste, ne crée, ne relit, ne modifie et ne supprime
+ * que lui (décision 1 ; lot 6 pour les écritures par identifiant) : une ligne HubSpot ne s'y touche jamais, même par son
+ * identifiant.
+ */
+const RAYON_DE_L_ECRAN = 'general' satisfies Rayon;
+
+/**
+ * Lot 6 du menu « Scénario » (décision 8, spec § 2.3) : le changement d'étape d'un deal devient une ligne d'Automation >
+ * HubSpot. Il ne se crée plus ici ; une automation qui l'a déjà reste modifiable sous lui jusqu'à la bascule (6b).
+ */
+export const REFUS_ETAPE_DE_DEAL = 'Le changement d’étape d’un deal HubSpot se règle désormais dans Automation > HubSpot.';
 
 export interface AutomationRouteDeps {
   automations: AutomationsDep;
@@ -69,10 +86,11 @@ export interface AutomationRouteDeps {
 const DECLENCHEURS_D_ANALYSE: ReadonlySet<AutomationTriggerKind> = new Set(['conversation_analyzed', 'analyse_devient']);
 
 /**
- * Les types qu'on crée depuis cet écran : ceux du chemin chaud moins `webhook`, que son propre écran possède.
- * Dérivé de `AUTOMATION_TRIGGER_KINDS`, pour que le message d'erreur cite tous les types.
+ * Les types qu'on crée depuis cet écran : ceux du chemin chaud moins `webhook`, que son propre écran possède, et moins le
+ * changement d'étape d'un deal, parti sous Automation > HubSpot (lot 6). Dérivé de `AUTOMATION_TRIGGER_KINDS`, pour que le
+ * message d'erreur cite tous les types.
  */
-const TYPES_CREABLES_ICI = AUTOMATION_TRIGGER_KINDS.filter((k) => k !== 'webhook');
+const TYPES_CREABLES_ICI = AUTOMATION_TRIGGER_KINDS.filter((k) => k !== 'webhook' && k !== 'hubspot_deal_stage');
 
 /**
  * Borne haute de l'anti-rebond réglé : 7 jours, comme le gel de contrôle. Les défauts propres à un déclencheur
@@ -307,7 +325,7 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
 
   app.get('/tenants/:tenantId/automations', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const lues = await deps.automations.list(tenant, 'general');
+    const lues = await deps.automations.list(tenant, RAYON_DE_L_ECRAN);
     const graphes = await deps.graphesPublies(tenant, [...new Set(lues.map((a) => a.workflowId))]);
     const automations = lues.map((a) => {
       const graphe = graphes.get(a.workflowId);
@@ -334,7 +352,9 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     const parsed = parseBody(req.body, false);
     if ('error' in parsed) return reply.code(400).send({ error: parsed.error });
     // L'écran Automation (« Autres ») ne crée que des automations du Builder ; un `rayon` du corps n'est jamais lu.
-    const input = { ...parsed.input, rayon: 'general' } as AutomationInput;
+    const input = { ...parsed.input, rayon: RAYON_DE_L_ECRAN } as AutomationInput;
+    // Lot 6 : le changement d'étape d'un deal se crée sous Automation > HubSpot, plus ici.
+    if (input.triggerKind === 'hubspot_deal_stage') return reply.code(400).send({ error: REFUS_ETAPE_DE_DEAL });
     if (DECLENCHEURS_D_ANALYSE.has(input.triggerKind) && !(await deps.analyseOuverte(tenant))) {
       return reply.code(STATUT_REFUS_OFFRE).send(corpsRefusFonction('analyse'));
     }
@@ -362,7 +382,7 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     if (Object.keys(parsed.input).length === 0 && parsed.accord === undefined) return reply.code(400).send({ error: 'rien à modifier' });
     if (parsed.input.workflowId !== undefined) {
       // Le scénario visé doit être du rayon de l'AUTOMATION, relu en base : le rayon ne se modifie pas.
-      const visee = await deps.automations.getById(id, tenant);
+      const visee = await deps.automations.getById(id, tenant, RAYON_DE_L_ECRAN);
       if (!visee) return reply.code(404).send({ error: 'automation inconnue' });
       if (!(await deps.scenarioDuRayon(parsed.input.workflowId, tenant, visee.rayon))) {
         return reply.code(400).send({ error: 'workflowId inconnu pour ce tenant' });
@@ -373,15 +393,20 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     const verifieBoucle = parsed.input.triggerKind !== undefined || parsed.input.cooldownSeconds !== undefined;
     const besoinRelecture = (verifieBoucle && (parsed.input.triggerKind === undefined || parsed.input.cooldownSeconds === undefined))
       || (parsed.input.enabled === true && parsed.input.triggerKind === undefined);
-    const courant = besoinRelecture ? await deps.automations.getById(id, tenant) : null;
+    const courant = besoinRelecture ? await deps.automations.getById(id, tenant, RAYON_DE_L_ECRAN) : null;
     if (besoinRelecture && !courant) return reply.code(404).send({ error: 'automation inconnue' });
     // Passer à un déclencheur d'analyse est une création ; une automation qui l'a déjà (un espace descendu de
-    // l'Entreprise) reste modifiable sous lui.
+    // l'Entreprise) reste modifiable sous lui. Le changement d'étape d'un deal de même (lot 6) : il ne se crée plus ici.
     const kindDemande = parsed.input.triggerKind;
-    if (kindDemande !== undefined && DECLENCHEURS_D_ANALYSE.has(kindDemande) && !(await deps.analyseOuverte(tenant))) {
-      const avant = courant ?? await deps.automations.getById(id, tenant);
+    const versAnalyseFermee = kindDemande !== undefined && DECLENCHEURS_D_ANALYSE.has(kindDemande) && !(await deps.analyseOuverte(tenant));
+    if (versAnalyseFermee || kindDemande === 'hubspot_deal_stage') {
+      const avant = courant ?? await deps.automations.getById(id, tenant, RAYON_DE_L_ECRAN);
       if (!avant) return reply.code(404).send({ error: 'automation inconnue' });
-      if (avant.triggerKind !== kindDemande) return reply.code(STATUT_REFUS_OFFRE).send(corpsRefusFonction('analyse'));
+      if (avant.triggerKind !== kindDemande) {
+        return versAnalyseFermee
+          ? reply.code(STATUT_REFUS_OFFRE).send(corpsRefusFonction('analyse'))
+          : reply.code(400).send({ error: REFUS_ETAPE_DE_DEAL });
+      }
     }
     if (parsed.input.triggerKind !== undefined || parsed.input.enabled === true) {
       const reference = await validateTriggerReferences(
@@ -398,7 +423,7 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
       const boucle = refuseIfLoopy(kindEffectif, cooldownEffectif);
       if (boucle) return reply.code(400).send({ error: boucle });
     }
-    const ok = await deps.automations.update(id, tenant, { ...parsed.input, ...tamponAccord(parsed.accord, req.auth?.userId) });
+    const ok = await deps.automations.update(id, tenant, RAYON_DE_L_ECRAN, { ...parsed.input, ...tamponAccord(parsed.accord, req.auth?.userId) });
     if (!ok) return reply.code(404).send({ error: 'automation inconnue' });
     return reply.code(200).send({ id, ...parsed.input, ...(parsed.accord === undefined ? {} : { accordMarketing: parsed.accord }) });
   });
@@ -407,7 +432,7 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     const tenant = espaceVerifie(req);
     if (forbidNonAdmin(req, reply)) return;
     const { id } = req.params as { id: string };
-    const ok = await deps.automations.remove(id, tenant);
+    const ok = await deps.automations.remove(id, tenant, RAYON_DE_L_ECRAN);
     if (!ok) return reply.code(404).send({ error: 'automation inconnue' });
     return reply.code(204).send();
   });

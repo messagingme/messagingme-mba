@@ -14,6 +14,7 @@ import type { RunState, WorkflowRunRow } from '../src/workflow/run-store.pg';
 import { ORIGINE_MAX, PLAFOND_ATTENTE_EVENEMENT_MS, variablesDuTexte, type EvenementDuParcours } from '../src/workflow/evenement';
 import { walk } from '../src/workflow/engine';
 import { DROITS, type Offre } from '../src/offres/offres';
+import { origineHubspot } from '../src/hubspot/origine';
 
 /**
  * LE PARCOURS D'UN ÉVÉNEMENT SHOPIFY (menu « Scénario », lot 4, décisions 2, 3, 20, 21, 28 à 31), sur le VRAI exécuteur,
@@ -263,6 +264,52 @@ describe('la naissance d’un parcours d’événement, sur le bloc déjà envoy
     const m = banc({ offre: 'base' });
     expect(await m.lancements.lancer(naissance())).toBe(REFUS_SCENARIOS_HORS_OFFRE);
     expect(m.crees).toEqual([]);
+  });
+});
+
+/**
+ * LOT 6 : LE PARCOURS D'UN ÉVÉNEMENT HUBSPOT, PAR LE MÊME PONT (décisions 2, 3 et 36). Sur le premier bloc d'un scénario du
+ * rayon `hubspot`, avec l'origine de la décision 37 ; les mêmes priorités que Shopify : il ne prend jamais le fil à un
+ * opérateur, il cède devant un parcours d'événement en cours, et ne ferme que les parcours ordinaires.
+ */
+describe('lot 6 : la naissance d’un parcours d’événement HubSpot', () => {
+  const HUBSPOT = { graph: PANIER, draftGraph: null, rayon: 'hubspot' as const };
+  const EVENEMENT_HUBSPOT: EvenementDuParcours = {
+    origine: origineHubspot({ famille: 'etape', portail: '4242', ligne: 'ligne-1', deal: '9001', etape: 'closedwon', le: new Date('2026-11-19T09:30:00Z') })!,
+    variables: {},
+  };
+  const naissanceHubspot = (): DemandeDeLancement => ({
+    type: 'evenement_hubspot', tenantId: ESPACE, workflowId: 'wf-panier', waId: WA, contactId: 'c1',
+    noeudId: 'tpl', modele: { nom: 'panier_relance', langue: 'fr' }, evenement: EVENEMENT_HUBSPOT,
+  });
+
+  it('🔴 il naît sur le premier bloc d’un scénario HubSpot, sans le renvoyer, et ne ferme que les parcours ordinaires', async () => {
+    silence();
+    const m = banc({ scenario: HUBSPOT });
+    expect(await m.lancements.lancer(naissanceHubspot())).toBe(true);
+    expect(m.envois).toEqual([]);
+    expect(m.crees[0]!.evenement).toEqual({ ...EVENEMENT_HUBSPOT, noeudDepart: 'tpl' });
+    expect(m.clotures).toEqual(['ordinaires']);
+  });
+
+  it('🔴 un scénario Shopify est inconnu pour lui, comme un scénario HubSpot pour un événement Shopify', async () => {
+    expect(await banc().lancements.lancer(naissanceHubspot())).toBeNull();
+    expect(await banc({ scenario: HUBSPOT }).lancements.lancer(naissance())).toBeNull();
+  });
+
+  it('🔴 un parcours d’événement occupe déjà la place : il cède, sans rien écrire (décision 3)', async () => {
+    silence();
+    const m = banc({ scenario: HUBSPOT, dejaActif: true });
+    expect(await m.lancements.lancer(naissanceHubspot())).toBe(REFUS_EVENEMENT_EN_COURS);
+    expect([m.crees, m.clotures, m.envois, m.b.appels]).toEqual([[], [], [], []]);
+  });
+
+  it('🔴 un opérateur tient le fil : aucun parcours, et rien n’est demandé à Meta (décision 2)', async () => {
+    silence();
+    const m = banc({ scenario: HUBSPOT, detenteur: 'app_human' });
+    expect(await m.lancements.lancer(naissanceHubspot())).toContain('tenue par un opérateur');
+    expect([m.crees, m.b.appels]).toEqual([[], []]);
+    expect(m.b.etat(WA)?.owner).toBe('app_human');
   });
 });
 

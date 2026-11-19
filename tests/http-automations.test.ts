@@ -5,6 +5,7 @@ import { signSession } from '../src/auth/token';
 import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { AutomationRouteDeps, AutomationsDep } from '../src/http/automations';
 import type { AutomationInput } from '../src/automation/store.pg';
+import type { Rayon } from '../src/workflow/rayon';
 import { AUTOMATION_TRIGGER_KINDS } from '../src/automation/match';
 import type { WorkflowGraph } from '../src/workflow/graph';
 
@@ -39,17 +40,18 @@ function app(
 ) {
   const cap = {
     created: [] as Array<{ tenant: string; input: AutomationInput }>,
-    updated: [] as Array<{ id: string; tenant: string; patch: Partial<AutomationInput> }>,
-    removed: [] as Array<{ id: string; tenant: string }>,
+    updated: [] as Array<{ id: string; tenant: string; rayon: Rayon; patch: Partial<AutomationInput> }>,
+    removed: [] as Array<{ id: string; tenant: string; rayon: Rayon }>,
   };
   const deps: AutomationRouteDeps = {
     automations: {
       list: async () => [],
-      // État courant d'UNE automation : c'est lui que la garde anti-boucle relit sur un PATCH partiel.
-      getById: async (id) => (id === 'a1' ? { id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'conversation_analyzed', triggerConfig: {}, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 3600, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const } : null),
+      // État courant d'UNE automation : c'est lui que la garde anti-boucle relit sur un PATCH partiel. Comme le vrai magasin
+      // (lot 6), une lecture d'un autre rayon que celui de la ligne ne la trouve pas.
+      getById: async (id, _tenant, rayon) => (id === 'a1' && rayon === 'general' ? { id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'conversation_analyzed', triggerConfig: {}, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 3600, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const } : null),
       create: async (tenant, input) => { cap.created.push({ tenant, input }); return { id: 'a1' }; },
-      update: async (id, tenant, patch) => { cap.updated.push({ id, tenant, patch }); return id === 'a1'; },
-      remove: async (id, tenant) => { cap.removed.push({ id, tenant }); return id === 'a1'; },
+      update: async (id, tenant, rayon, patch) => { cap.updated.push({ id, tenant, rayon, patch }); return id === 'a1' && rayon === 'general'; },
+      remove: async (id, tenant, rayon) => { cap.removed.push({ id, tenant, rayon }); return id === 'a1' && rayon === 'general'; },
       ...over,
     },
     // wf1 est un scénario du Builder de t1, wf-shopify un scénario Shopify de t1 ; tout le reste est refusé (scénario
@@ -83,13 +85,15 @@ describe('routes automations', () => {
     await server.close();
   });
 
-  it('un type inconnu : le refus CITE les types qu’on crée ici, « risque élevé » compris, et pas `webhook`', async () => {
+  it('un type inconnu : le refus CITE les types qu’on crée ici, « risque élevé » compris, ni `webhook` ni le changement d’étape', async () => {
+    // Lot 6 : le changement d'étape d'un deal ne se crée plus ici (il passe sous Automation > HubSpot) ; ce cas le citait.
     const { server, cap } = app();
     const res = await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: { ...VALID, triggerKind: 'nope' } });
     expect(res.statusCode).toBe(400);
     const { error } = res.json<{ error: string }>();
-    for (const k of AUTOMATION_TRIGGER_KINDS.filter((x) => x !== 'webhook')) expect(error, k).toContain(`'${k}'`);
+    for (const k of AUTOMATION_TRIGGER_KINDS.filter((x) => x !== 'webhook' && x !== 'hubspot_deal_stage')) expect(error, k).toContain(`'${k}'`);
     expect(error).not.toContain(`'webhook'`);
+    expect(error).not.toContain(`'hubspot_deal_stage'`);
     expect(cap.created).toEqual([]);
     await server.close();
   });
@@ -149,9 +153,7 @@ describe('routes automations', () => {
       { ...VALID, triggerKind: 'tag_added', triggerConfig: { tag: 'rappeler' } },
       { ...VALID, triggerKind: 'conversation_analyzed', triggerConfig: { sentiment: 'negatif', unresolvedOnly: true } },
       { ...VALID, triggerKind: 'conversation_analyzed', triggerConfig: {} }, // sans filtre : choix explicite
-      // Étape de deal HubSpot : les deux identifiants, plus un libellé purement décoratif.
-      { ...VALID, triggerKind: 'hubspot_deal_stage', triggerConfig: { pipelineId: 'p1', stageId: 's-devis', stageLabel: 'Devis envoyé' } },
-      { ...VALID, triggerKind: 'hubspot_deal_stage', triggerConfig: { pipelineId: 'p1', stageId: 's-devis' } },
+      // L'étape de deal HubSpot n'est plus ici depuis le lot 6 du menu « Scénario » : son refus a son cas, plus bas.
       // Lot 3 de « Tout sur la fiche ».
       { ...VALID, triggerKind: 'analyse_devient', triggerConfig: { cle: 'analyse_sentiment', op: 'in', valeur: 'negatif' } },
       { ...VALID, triggerKind: 'analyse_devient', triggerConfig: { cle: 'analyse_urgence', op: 'gte', valeur: '7' } },
@@ -441,7 +443,7 @@ describe('les déclencheurs nés d’une analyse demandent l’offre qui l’ouv
 
   it('🔴 changer le déclencheur d’une automation existante en un déclencheur d’analyse est une création : refusé', async () => {
     const motCle = { id: 'a2', tenantId: 't1', name: 'B', enabled: false, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const };
-    const { server, cap } = app({ getById: async (id) => (id === 'a2' ? motCle : null), update: async (id, tenant, patch) => { cap.updated.push({ id, tenant, patch }); return true; } }, sansAnalyse);
+    const { server, cap } = app({ getById: async (id) => (id === 'a2' ? motCle : null), update: async (id, tenant, rayon, patch) => { cap.updated.push({ id, tenant, rayon, patch }); return true; } }, sansAnalyse);
     const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a2', ...h(adminTok), payload: { triggerKind: 'analyse_devient', triggerConfig: { cle: 'analyse_sentiment', op: 'in', valeur: 'negatif' } } });
     expect(res.statusCode).toBe(402);
     expect(cap.updated).toEqual([]);
@@ -553,14 +555,36 @@ describe('🔴 le rayon : l’écran Automation ne mène qu’au Builder (menu �
     await server.close();
   });
 
-  it('PATCH : le scénario visé doit être du rayon de l’AUTOMATION ; le rayon ne se modifie pas', async () => {
-    const shopify = { id: 'a-shop', tenantId: 't1', name: 'Panier', enabled: true, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['x'] }, conditionGroup: null, workflowId: 'wf-shopify', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'shopify' as const };
-    const { server, cap } = app({ getById: async (id) => (id === 'a-shop' ? shopify : null), update: async (id, tenant, patch) => { cap.updated.push({ id, tenant, patch }); return true; } });
-    const versBuilder = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-shop', ...h(adminTok), payload: { workflowId: 'wf1' } });
-    expect(versBuilder.statusCode).toBe(400);
-    const memeRayon = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-shop', ...h(adminTok), payload: { workflowId: 'wf-shopify', rayon: 'general' } });
-    expect(memeRayon.statusCode).toBe(200);
+  /**
+   * ⚠️ CE CAS DISAIT LE CONTRAIRE JUSQU'AU LOT 6 : une automation d'un autre rayon se modifiait ici, vers un scénario de SON
+   * rayon. Les écritures par identifiant ne touchent désormais que le rayon de l'écran (le général) : une ligne HubSpot ne
+   * se relit, ne se modifie ni ne se supprime depuis « Autres », pas même par son identifiant. Le faux répond comme le vrai
+   * magasin : seule une lecture du rayon de la ligne la trouve.
+   */
+  it('🔴 lot 6 : une automation d’un autre rayon est INCONNUE de cet écran (404), même par son identifiant', async () => {
+    const hubspot = { id: 'a-hub', tenantId: 't1', name: 'Devis envoyé', enabled: true, triggerKind: 'hubspot_deal_stage' as const, triggerConfig: { pipelineId: 'p1', stageId: 's1' }, conditionGroup: null, workflowId: 'wf-hubspot', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'hubspot' as const };
+    const demandes: string[] = [];
+    const { server } = app({
+      getById: async (id, _t, rayon) => { demandes.push(`lire:${rayon}`); return id === hubspot.id && rayon === hubspot.rayon ? hubspot : null; },
+      update: async (id, _t, rayon) => { demandes.push(`modifier:${rayon}`); return id === hubspot.id && rayon === hubspot.rayon; },
+      remove: async (id, _t, rayon) => { demandes.push(`supprimer:${rayon}`); return id === hubspot.id && rayon === hubspot.rayon; },
+    });
+    for (const payload of [{ workflowId: 'wf1' }, { name: 'Renommée' }, { enabled: false }, { enabled: true }]) {
+      const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-hub', ...h(adminTok), payload });
+      expect(res.statusCode, JSON.stringify(payload)).toBe(404);
+    }
+    expect((await server.inject({ method: 'DELETE', url: '/tenants/t1/automations/a-hub', ...h(adminTok) })).statusCode).toBe(404);
+    expect(demandes.length).toBeGreaterThan(0);
+    expect(demandes.filter((d) => !d.endsWith(':general')), 'chaque lecture et écriture par identifiant demande le rayon général').toEqual([]);
+    await server.close();
+  });
+
+  it('PATCH : le rayon ne se modifie pas, même glissé dans le corps', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { name: 'B', rayon: 'hubspot' } });
+    expect(res.statusCode).toBe(200);
     expect(cap.updated).toHaveLength(1);
+    expect(cap.updated[0]).toMatchObject({ id: 'a1', rayon: 'general' });
     expect(cap.updated[0]?.patch).not.toHaveProperty('rayon');
     await server.close();
   });
@@ -578,6 +602,58 @@ describe('🔴 le rayon : l’écran Automation ne mène qu’au Builder (menu �
     const { server } = app({ list: async (_t, rayon) => { demandes.push(rayon); return []; } });
     await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(adminTok) });
     expect(demandes).toEqual(['general']);
+    await server.close();
+  });
+
+  it('DELETE : la suppression demandée au magasin est celle du rayon général', async () => {
+    const { server, cap } = app();
+    expect((await server.inject({ method: 'DELETE', url: '/tenants/t1/automations/a1', ...h(adminTok) })).statusCode).toBe(204);
+    expect(cap.removed).toEqual([{ id: 'a1', tenant: 't1', rayon: 'general' }]);
+    await server.close();
+  });
+});
+
+/**
+ * 🔴 LOT 6 DU MENU « SCÉNARIO » : LE CHANGEMENT D'ÉTAPE D'UN DEAL NE SE CRÉE PLUS DANS « AUTRES ». Il devient une ligne
+ * d'Automation > HubSpot (décision 8, spec § 2.3) : le créer ici, ou y faire passer une automation existante, est refusé
+ * proprement, avec un message qui dit où aller. Une automation « changement d'étape » qui existe déjà reste modifiable sous
+ * son déclencheur jusqu'à la bascule (6b), comme une automation d'analyse d'un espace descendu de l'Entreprise.
+ */
+describe('🔴 lot 6 : le changement d’étape d’un deal ne se crée plus dans « Autres »', () => {
+  const ETAPE = { triggerKind: 'hubspot_deal_stage', triggerConfig: { pipelineId: 'p1', stageId: 's-devis', stageLabel: 'Devis envoyé' } };
+  const existante = { id: 'a-etape', tenantId: 't1', name: 'Devis', enabled: true, triggerKind: 'hubspot_deal_stage' as const, triggerConfig: { pipelineId: 'p1', stageId: 's1' }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, rayon: 'general' as const };
+
+  it('POST : refusé (400), le message renvoie à Automation > HubSpot ; rien n’est écrit', async () => {
+    const { server, cap } = app();
+    for (const config of [ETAPE.triggerConfig, { pipelineId: 'p1', stageId: 's-devis' }]) {
+      const res = await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: { ...VALID, ...ETAPE, triggerConfig: config } });
+      expect(res.statusCode).toBe(400);
+      expect(res.json<{ error: string }>().error).toMatch(/Automation > HubSpot/);
+    }
+    expect(cap.created).toEqual([]);
+    await server.close();
+  });
+
+  it('PATCH : faire passer une automation au changement d’étape est une création : refusé, rien n’est écrit', async () => {
+    const motCle = { ...existante, id: 'a-mot', triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] } };
+    const { server, cap } = app({ getById: async (id, _t, rayon) => (id === 'a-mot' && rayon === 'general' ? motCle : null) });
+    const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-mot', ...h(adminTok), payload: ETAPE });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<{ error: string }>().error).toMatch(/Automation > HubSpot/);
+    expect(cap.updated).toEqual([]);
+    await server.close();
+  });
+
+  it('une automation « changement d’étape » qui existe déjà reste modifiable sous son déclencheur, éteinte ou rallumée', async () => {
+    const { server, cap } = app({
+      getById: async (id, _t, rayon) => (id === 'a-etape' && rayon === 'general' ? existante : null),
+      update: async (id, tenant, rayon, patch) => { cap.updated.push({ id, tenant, rayon, patch }); return id === 'a-etape' && rayon === 'general'; },
+    });
+    for (const payload of [ETAPE, { name: 'Devis envoyé' }, { enabled: false }, { enabled: true }]) {
+      const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a-etape', ...h(adminTok), payload });
+      expect(res.statusCode, JSON.stringify(payload)).toBe(200);
+    }
+    expect(cap.updated).toHaveLength(4);
     await server.close();
   });
 });

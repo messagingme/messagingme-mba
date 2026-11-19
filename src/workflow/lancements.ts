@@ -84,6 +84,14 @@ export const TYPES_DE_LANCEMENT = [
    * appelant avant le lot 5.
    */
   'evenement_shopify',
+  /**
+   * Le parcours d'un changement d'étape d'un deal ou d'un rendez-vous HubSpot (menu « Scénario », lot 6, décision 36) : il
+   * naît comme celui d'un événement Shopify, par le même pont, sur le premier bloc d'un scénario du rayon `hubspot`. Un
+   * envoi à UN client, même quand une étape change sur beaucoup de deals d'un coup (le plafond par ligne borne ce cas) :
+   * ses étiquettes publient. Les données du deal se lisent sur la fiche (décision 38), pas dans le parcours. Aucun appelant
+   * avant le lot 6b : le pont ne le pose pas encore.
+   */
+  'evenement_hubspot',
 ] as const;
 export type TypeDeLancement = (typeof TYPES_DE_LANCEMENT)[number];
 
@@ -92,6 +100,13 @@ export type TypeDeLancement = (typeof TYPES_DE_LANCEMENT)[number];
  * la liste fermée : un type d'automatisme ajouté plus haut entre ici sans seconde liste à tenir.
  */
 export type TypeDeLancementAutomatisme = Extract<TypeDeLancement, `automatisme_${string}`>;
+
+/**
+ * Les types d'un parcours d'ÉVÉNEMENT (lots 4 et 6) : ils naissent sur le premier bloc que le moteur de campagne a déjà
+ * envoyé (départ `deja_envoye`), et ce sont eux que le pont porte (`ParcoursEvenementDeCampagne`). Dérivés de la liste
+ * fermée, comme les automatismes.
+ */
+export type TypeDeLancementEvenement = Extract<TypeDeLancement, `evenement_${string}`>;
 
 /** Ce type de lancement peut-il démarrer un scénario de ce rayon ? */
 export function rayonAdmis(type: TypeDeLancement, rayon: Rayon): boolean {
@@ -194,10 +209,10 @@ export interface PolitiqueDeLancement {
    * 🔴 Les rayons de scénario que ce type peut lancer (menu « Scénario », décision 1 : cloisonnés dans les deux sens).
    * Un scénario d'un autre rayon y est un INCONNU, son existence ne fuit pas : `lancer` rend `null` comme pour un
    * scénario supprimé, et `REFUS_SCENARIO_INCONNU` pour `agent_meta_bloc`, qui reçoit son graphe mais relit la ligne pour
-   * son rayon. Le lien de test teste un scénario de n'importe quel rayon depuis son builder ; tout le reste ne lance que le
-   * Builder (le workflow HubSpot passera au rayon HubSpot au lot 6). `'sans_objet'` : le type ne lit aucune ligne de
-   * scénario (`repondeur`, graphe fourni ; le saut, dont la cible se résout dans le rayon d'origine), et `rayonAdmis`
-   * refuse s'il est consulté quand même.
+   * son rayon. Le lien de test teste un scénario de n'importe quel rayon depuis son builder ; un type d'événement ne lance
+   * que le sien (Shopify, HubSpot) ; tout le reste ne lance que le Builder (le workflow HubSpot passera au rayon HubSpot au
+   * lot 6b). `'sans_objet'` : le type ne lit aucune ligne de scénario (`repondeur`, graphe fourni ; le saut, dont la cible
+   * se résout dans le rayon d'origine), et `rayonAdmis` refuse s'il est consulté quand même.
    */
   rayons: readonly Rayon[] | 'sans_objet';
   /**
@@ -310,6 +325,14 @@ export const POLITIQUE_DE_LANCEMENT = {
    * d'événement (décision 3).
    */
   evenement_shopify: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'accord_fiche', rayons: ['shopify'], devantUnEvenement: 'cede' },
+  /**
+   * Le parcours d'un événement HubSpot (lot 6, décisions 2, 3, 24 et 36) : la ligne de Shopify, sur le rayon `hubspot`.
+   * Jamais à un opérateur (décision 2) ; ses étiquettes publient et il naît unitaire (décision 36 : une étape changée en
+   * masse reste un envoi à UN client, contrairement à l'action d'un workflow, `workflow_hubspot`) ; Free : gelé, seul le
+   * premier message part ; un Marketing plus loin exige l'accord de la fiche ; il cède devant un autre parcours
+   * d'événement (décision 3).
+   */
+  evenement_hubspot: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'accord_fiche', rayons: ['hubspot'], devantUnEvenement: 'cede' },
 } as const satisfies Record<TypeDeLancement, PolitiqueDeLancement>;
 
 /**
@@ -346,9 +369,9 @@ export type DepartDuParcours =
       evenement: EvenementDuParcours | null }
   /**
    * Sur le bloc template que le moteur de campagne VIENT D'ENVOYER, accepté par Meta (lot 4, décision 28), le seul départ
-   * de `evenement_shopify`. Le bloc n'est pas rejoué : le parcours part de sa suite. `modele` : le template parti, que le
-   * bloc doit encore envoyer (sinon ses boutons ne seraient plus ceux du message reçu, et un clic prendrait la mauvaise
-   * branche). `evenement` : l'origine et les variables du destinataire.
+   * des types d'événement (`TypeDeLancementEvenement`). Le bloc n'est pas rejoué : le parcours part de sa suite. `modele` :
+   * le template parti, que le bloc doit encore envoyer (sinon ses boutons ne seraient plus ceux du message reçu, et un clic
+   * prendrait la mauvaise branche). `evenement` : l'origine et les variables du destinataire.
    */
   | { depuis: 'deja_envoye'; noeudId: string; modele: { nom: string; langue: string }; evenement: EvenementDuParcours };
 
@@ -448,8 +471,11 @@ export type DemandeDeLancement =
   /** La fiche est connue : la campagne l'a lue en construisant ses destinataires, on ne la recherche pas. */
   | (DemandeDeBase & { type: 'campagne_scenario' | 'workflow_hubspot'; waId: string; contactId: string | null; firstTemplateParams?: string[] })
   | (DemandeDeBase & { type: 'campagne_bloc'; waId: string; contactId: string | null; noeudId: string })
-  /** Le pont du moteur de campagne (lot 4), après l'acceptation du premier template par Meta : la fiche est connue. */
-  | (DemandeDeBase & { type: 'evenement_shopify'; waId: string; contactId: string | null; noeudId: string; modele: { nom: string; langue: string }; evenement: EvenementDuParcours })
+  /**
+   * Le pont du moteur de campagne (lot 4), après l'acceptation du premier template par Meta : la fiche est connue. Le type
+   * est celui que porte le pont (Shopify ou HubSpot, lot 6), et il décide du rayon admis.
+   */
+  | (DemandeDeBase & { type: TypeDeLancementEvenement; waId: string; contactId: string | null; noeudId: string; modele: { nom: string; langue: string }; evenement: EvenementDuParcours })
   | DemandeRepondeur;
 
 export interface DepsLancements {
@@ -511,6 +537,7 @@ function departDe(demande: Exclude<DemandeDeLancement, DemandeEnvoiDeBloc | Dema
     case 'campagne_bloc':
       return { depuis: 'bloc', noeudId: demande.noeudId };
     case 'evenement_shopify':
+    case 'evenement_hubspot':
       return { depuis: 'deja_envoye', noeudId: demande.noeudId, modele: demande.modele, evenement: demande.evenement };
   }
 }
@@ -553,7 +580,7 @@ export function creerLancements(deps: DepsLancements): Lancements {
     // La campagne connaît la fiche ; ailleurs, le contact existe déjà (l'entrant l'a créé juste avant, ou
     // l'opérateur le regarde) et on relie le parcours à elle.
     const contactId = demande.type === 'campagne_scenario' || demande.type === 'workflow_hubspot' || demande.type === 'campagne_bloc'
-      || demande.type === 'evenement_shopify'
+      || demande.type === 'evenement_shopify' || demande.type === 'evenement_hubspot'
       ? demande.contactId
       : await deps.contacts.findIdByWaId(demande.tenantId, demande.waId);
     return deps.executor.demarrer(demande.type, demande.tenantId, demande.workflowId, graphe,

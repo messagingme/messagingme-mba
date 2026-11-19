@@ -38,9 +38,9 @@ describe('PgAutomationStore : une automation POSSEDEE est hors de portee de l ec
     const { pool, queries } = fakePool();
     const store = new PgAutomationStore(pool);
     await store.list(TENANT, 'general');
-    await store.getById('a1', TENANT);
-    await store.update('a1', TENANT, { name: 'x' });
-    await store.remove('a1', TENANT);
+    await store.getById('a1', TENANT, 'general');
+    await store.update('a1', TENANT, 'general', { name: 'x' });
+    await store.remove('a1', TENANT, 'general');
 
     expect(queries).toHaveLength(4);
     for (const q of queries) {

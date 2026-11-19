@@ -18,8 +18,8 @@ export interface RefusDeControle {
  * passer ce que l'autre refuse.
  * - Une Question qui attend un fichier relie « Fichier reçu » (décision de Julien du 2026-11-02).
  * - « Puis, sans attendre » ne mène qu'à des blocs qui n'attendent rien (décision du 2026-11-10).
- * - Le premier bloc d'une automation (rayon Shopify, lot 5) reste celui de la version en ligne, un template où rien ne
- *   mène (`refusDuVerrou`).
+ * - Le premier bloc d'une automation (rayons d'automation : Shopify au lot 5, HubSpot au lot 6) reste celui de la version
+ *   en ligne, un template où rien ne mène (`refusDuVerrou`).
  * - Un « Aller à » vise un scénario existant du même rayon (RC5), jamais le premier bloc d'une autre automation. La liste
  *   du rayon ne se lit que s'il y a un saut ou un verrou, et une seule fois.
  */
@@ -32,7 +32,7 @@ export async function controlesDePublication(
   if (suiteQuiAttend !== null) return { code: 'suite_qui_attend', message: suiteQuiAttend };
   let lue: WorkflowRow[] | null = null;
   const liste = async (): Promise<WorkflowRow[]> => (lue ??= await scenariosDuRayon());
-  if (rayon === 'shopify') {
+  if (rayon !== 'general') {
     // La référence : le bloc marqué de la version en ligne ; un scénario jamais publié (une copie) n'a que son brouillon,
     // écrit par le serveur et gardé par l'enregistrement.
     const enPlace = (await liste()).find((w) => w.id === id) ?? null;

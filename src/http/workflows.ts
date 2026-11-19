@@ -234,12 +234,12 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
       patch.graph = mintNodeCodes(graph, await deps.tenantCode(tenant));
     }
     if (Object.keys(patch).length === 0) return reply.code(400).send({ error: 'rien à modifier (name/graph)' });
-    // 🔴 Le verrou du premier bloc (rayon Shopify, lot 5, décisions 13 et 23) : le graphe enregistré garde le bloc marqué du
-    // graphe en place, un template où rien ne mène. La marque n'est posée que par le serveur.
+    // 🔴 Le verrou du premier bloc (rayons d'automation : Shopify au lot 5, HubSpot au lot 6 ; décisions 13 et 23) : le graphe
+    // enregistré garde le bloc marqué du graphe en place, un template où rien ne mène. La marque n'est posée que par le serveur.
     if (patch.graph) {
       const enPlace = await deps.scenarios.getById(id, tenant);
       if (!enPlace) return reply.code(404).send({ error: 'workflow inconnu' });
-      if (enPlace.rayon === 'shopify') {
+      if (enPlace.rayon !== 'general') {
         const refus = refusDuVerrou(patch.graph, blocVerrouille(grapheEditable(enPlace))?.id ?? null);
         if (refus !== null) return reply.code(422).send({ error: `Enregistrement refusé : ${refus}.`, code: 'premier_bloc_verrouille' });
       }

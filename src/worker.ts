@@ -959,16 +959,17 @@ export async function demarrerWorker(): Promise<void> {
       ...(dryRun ? {} : ({
         // Le pont du parcours d'événement (menu « Scénario », lot 4, décision 28), allumé par le circuit Shopify (lot 5). La
         // mesure « envoyé » du premier bloc porte l'identifiant de Meta : c'est elle que lit la protection du clic tardif.
-        // Le parcours naît sur ce bloc déjà envoyé (`deja_envoye`) ; un scénario introuvable ou d'un autre rayon rend une
-        // raison, jamais un échec de campagne. Dans le bloc non-DRY_RUN (lot 5, relecture de 4b) : le faux sender réussit
-        // toujours, et une mesure « envoyé » inventée ferait naître un parcours sur un message jamais parti.
+        // Le parcours naît sur ce bloc déjà envoyé (`deja_envoye`), du type que porte le pont (Shopify ou HubSpot, lot 6) ; un
+        // scénario introuvable ou d'un autre rayon rend une raison, jamais un échec de campagne. Dans le bloc non-DRY_RUN (lot
+        // 5, relecture de 4b) : le faux sender réussit toujours, et une mesure « envoyé » inventée ferait naître un parcours
+        // sur un message jamais parti.
         mesurerEnvoiDuBloc: (tenant: string, e: { workflowId: string; nodeId: string; waId: string; messageId: string }) =>
           nodeEventStore.record({ tenantId: tenant, workflowId: e.workflowId, nodeId: e.nodeId, waId: e.waId, kind: 'sent', metaMessageId: e.messageId }),
         naitreParcoursEvenement: async (tenant: string, d: Parameters<NonNullable<CapacitesMoteur['naitreParcoursEvenement']>>[1]) =>
           (await lancements.lancer({
-            type: 'evenement_shopify', tenantId: tenant, workflowId: d.workflowId, waId: d.waId, contactId: d.contactId,
+            type: d.type, tenantId: tenant, workflowId: d.workflowId, waId: d.waId, contactId: d.contactId,
             noeudId: d.noeudId, modele: d.modele, evenement: d.evenement,
-          })) ?? 'ce scénario n’existe pas, ou n’est pas un scénario Shopify',
+          })) ?? 'ce scénario n’existe pas, ou n’est pas un scénario de cette automation',
         getTemplateCarousel: async (tenant: string, name: string, language: string) => {
           const lu = (await templateVarInfo(tenant, name, language))?.carousel;
           // Visuels préparés une fois par run : identiques pour tous les destinataires.

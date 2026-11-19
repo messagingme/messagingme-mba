@@ -47,6 +47,14 @@ describe.skipIf(!url)('campaigns.parcours_evenement : écrite à la création, r
     expect((await repo.getCampaign(id))?.parcoursEvenement).toEqual(PONT);
   });
 
+  it('🔴 lot 6 : le pont d’un événement HubSpot (son type et son origine) se relit tel quel', async () => {
+    const hubspot: ParcoursEvenementDeCampagne = {
+      ...PONT, type: 'evenement_hubspot', origine: 'hubspot:4242:etape:11111111-1111-4111-8111-111111111111:9001:closedwon:2026-11-19',
+    };
+    const id = await repo.insertCampaign({ ...base(), parcoursEvenement: hubspot });
+    expect((await repo.getCampaign(id))?.parcoursEvenement).toEqual(hubspot);
+  });
+
   it('une campagne template ordinaire : null, elle envoie comme avant', async () => {
     const id = await repo.insertCampaign(base());
     expect((await repo.getCampaign(id))?.parcoursEvenement).toBeNull();

@@ -8,7 +8,7 @@ import type { StartOutcome, WorkflowExecutorDeps } from '../src/workflow/executo
 import { buildWorkflowRuntime } from '../src/workflow/wiring';
 import {
   POLITIQUE_DE_LANCEMENT, REFUS_SCENARIOS_HORS_OFFRE, TYPES_DE_LANCEMENT, creerLancements, rayonAdmis, REFUS_SCENARIO_INCONNU,
-  type DemandeDeLancement, type PolitiqueDeLancement, type TypeDeLancement,
+  type DemandeDeLancement, type PolitiqueDeLancement, type TypeDeLancement, type TypeDeLancementEvenement,
 } from '../src/workflow/lancements';
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
 import type { WorkflowRow } from '../src/workflow/store.pg';
@@ -44,12 +44,32 @@ const modele = (version: string): WorkflowGraph => ({
 /** Ouvre par un MESSAGE RAPIDE à bouton, impossible hors de la fenêtre de 24 h : la garde de fenêtre s'y lit. */
 const session: WorkflowGraph = { nodes: [n('qm', 'quick_message', { body: 'Bonjour', quickReplies: ['Oui'] })], edges: [] };
 
+/**
+ * Le premier bloc d'une automation d'événement (lots 5 et 6) : le template que le moteur de campagne a déjà envoyé, suivi
+ * d'une étiquette. Avec un bouton, le parcours y attend le clic (sa création se lit) ; sans bouton ni délai, il ne retient
+ * pas (décision 29) et l'étiquette se pose dans la naissance même (sa publication se lit).
+ */
+function premierBloc(aBouton: boolean): WorkflowGraph {
+  return {
+    nodes: [
+      n('tpl', 'template', { templateName: 'publie', language: 'fr', ...(aBouton ? { templateButtons: [{ type: 'QUICK_REPLY', text: 'Oui' }] } : {}) }),
+      n('t', 'tag', { tag: 'vip' }),
+    ],
+    edges: [{ id: 'e1', source: 'tpl', target: 't', ...(aBouton ? { sourceHandle: 'btn:0' } : {}) }],
+  };
+}
+
 /** Les scénarios de l'espace : le publié et le brouillon diffèrent par le nom du modèle, c'est ce qui dit lequel a joué. */
 const SCENARIOS: Record<string, Pick<WorkflowRow, 'graph' | 'draftGraph' | 'rayon'>> = {
   'wf-modele': { graph: modele('publie'), draftGraph: modele('brouillon'), rayon: 'general' },
   'wf-session': { graph: session, draftGraph: session, rayon: 'general' },
   /** Le même scénario, rangé sous Automation > Shopify (menu « Scénario », lot 1). */
   'wf-shopify': { graph: modele('publie'), draftGraph: modele('brouillon'), rayon: 'shopify' },
+  // Le premier bloc d'une automation d'événement, de chaque rayon (lots 5 et 6) : ses parcours y naissent déjà envoyés.
+  'evt-shopify': { graph: premierBloc(true), draftGraph: null, rayon: 'shopify' },
+  'evt-hubspot': { graph: premierBloc(true), draftGraph: null, rayon: 'hubspot' },
+  'evt-shopify-sans-retenue': { graph: premierBloc(false), draftGraph: null, rayon: 'shopify' },
+  'evt-hubspot-sans-retenue': { graph: premierBloc(false), draftGraph: null, rayon: 'hubspot' },
 };
 /** Le graphe que FOURNIT l'appelant d'un envoi de bloc (le publié réduit au bloc), par scénario. */
 const FOURNI: Record<string, WorkflowGraph> = { 'wf-modele': modele('fourni'), 'wf-session': session };
@@ -92,6 +112,10 @@ const ATTENDU: Record<TypeDeLancement, { reprise: Reprise; publie: boolean; grap
   // Lot 4 du menu « Scénario » : le parcours d'un événement Shopify. Jamais à un opérateur (décision 20), ses étiquettes
   // publient (décision 30), le publié, la fenêtre gardée (il écrit à froid).
   evenement_shopify: { reprise: 'reprend_sauf_operateur', publie: true, graphe: 'publie', fenetre: 'gardee' },
+  // Lot 6 (décision 36) : le parcours d'un changement d'étape ou d'un rendez-vous HubSpot. Calqué sur Shopify : jamais à un
+  // opérateur (décision 2), ses étiquettes publient (un envoi à UN client, même quand l'étape change en masse), le publié,
+  // la fenêtre gardée.
+  evenement_hubspot: { reprise: 'reprend_sauf_operateur', publie: true, graphe: 'publie', fenetre: 'gardee' },
 };
 
 /** Les deux types du saut : l'exécuteur les lance lui-même (`sauter`), sans demande à l'entrée de lancement. */
@@ -99,11 +123,14 @@ type TypeDuSaut = 'aller_a' | 'aller_a_masse';
 const estUnSaut = (type: TypeDeLancement): type is TypeDuSaut => type === 'aller_a' || type === 'aller_a_masse';
 
 /**
- * Les types que jouent les boucles génériques, qui partent de l'entrée ou d'un bloc. `evenement_shopify` naît sur un bloc
- * DÉJÀ envoyé par le moteur de campagne (départ `deja_envoye`, lot 4) : ses cas vivent dans
- * `tests/workflow-parcours-evenement.test.ts`. Il reste dans le tableau attendu, le gel en Base et le scénario inconnu.
+ * Les types que jouent les boucles génériques, qui partent de l'entrée ou d'un bloc. Les types d'événement naissent sur un
+ * bloc DÉJÀ envoyé par le moteur de campagne (départ `deja_envoye`, lots 4 et 6) : leurs cas vivent plus bas (« les types
+ * d'événement ») et dans `tests/workflow-parcours-evenement.test.ts`. Ils restent dans le tableau attendu, le gel en Base et
+ * le scénario inconnu.
  */
-const TYPES_GENERIQUES = TYPES_DE_LANCEMENT.filter((t): t is Exclude<TypeDeLancement, 'evenement_shopify'> => t !== 'evenement_shopify');
+const estUnEvenement = (t: TypeDeLancement): t is TypeDeLancementEvenement => t.startsWith('evenement_');
+const TYPES_GENERIQUES = TYPES_DE_LANCEMENT.filter((t): t is Exclude<TypeDeLancement, TypeDeLancementEvenement> => !estUnEvenement(t));
+const TYPES_D_EVENEMENT = TYPES_DE_LANCEMENT.filter(estUnEvenement);
 
 /**
  * Où commence le parcours, pour les types qui en laissent le choix. Un type qui n'a pas ce choix l'ignore. `auSaut` :
@@ -140,9 +167,13 @@ function demandeDe(type: Exclude<TypeDeLancement, TypeDuSaut>, v: Variante): Dem
     case 'repondeur_scenario':
       return { ...base, type, waId: WA, fenetreOuverte: true, messageDeclencheur: null };
     case 'evenement_shopify':
+    case 'evenement_hubspot':
       return {
         ...base, type, waId: WA, contactId: 'c-campagne', noeudId: 'tpl', modele: { nom: 'publie', langue: 'fr' },
-        evenement: { origine: 'shopify:boutique:checkouts/create:1', variables: {} },
+        evenement: {
+          origine: type === 'evenement_shopify' ? 'shopify:boutique:checkouts/create:1' : 'hubspot:4242:etape:ligne-1:deal-7:etape-9:2026-11-19',
+          variables: {},
+        },
       };
   }
 }
@@ -394,8 +425,9 @@ describe('la garde de fenêtre de 24 h', () => {
     // RC5 : la preuve voyage avec le saut, au bloc visé (le départ `saut`, distinct de `bloc`, qui n'en porte aucune).
     aller_a: [{ workflowId: 'wf-session', auSaut: true, fenetreOuverte: false }, { workflowId: 'wf-session', auSaut: true, fenetreOuverte: true }],
     aller_a_masse: [{ workflowId: 'wf-session', auSaut: true, fenetreOuverte: false }, { workflowId: 'wf-session', auSaut: true, fenetreOuverte: true }],
-    // Né sur un bloc déjà envoyé (départ deja_envoye) : sa garde de fenêtre se joue dans tests/workflow-parcours-evenement.test.ts.
+    // Nés sur un bloc déjà envoyé (départ deja_envoye) : leur garde de fenêtre se joue dans tests/workflow-parcours-evenement.test.ts.
     evenement_shopify: [],
+    evenement_hubspot: [],
   };
   /** La règle du plan, écrite à part de `fenetreLevee` : la comparer à elle-même ne prouverait rien. */
   const levee = (regle: Fenetre, v: Variante): boolean =>
@@ -466,7 +498,11 @@ describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
     for (const type of TYPES_DE_LANCEMENT) {
       const r = POLITIQUE_DE_LANCEMENT[type].rayons;
       if (sansObjet.has(type)) expect(r, type).toBe('sans_objet');
-      else expect([...r].sort(), type).toEqual(type === 'lien_de_test' ? [...RAYONS].sort() : type === 'evenement_shopify' ? ['shopify'] : ['general']);
+      else {
+        const attendus = type === 'lien_de_test' ? [...RAYONS].sort()
+          : type === 'evenement_shopify' ? ['shopify'] : type === 'evenement_hubspot' ? ['hubspot'] : ['general'];
+        expect([...r].sort(), type).toEqual(attendus);
+      }
     }
     // Un type « sans objet » consulté quand même refuse (échouer fermé).
     expect(rayonAdmis('repondeur', 'general')).toBe(false);
@@ -640,7 +676,7 @@ const GELE_EN_BASE: Record<Exclude<TypeDeLancement, TypeDuSaut>, boolean> = {
   inbox: true, agent_meta_scenario: true, agent_ia_scenario: true, agent_meta_bloc: true,
   automatisme_ordinaire: false, automatisme_chaine: false, automatisme_publicite_ou_widget: false,
   lien_de_test: true, campagne_scenario: true, campagne_bloc: true, workflow_hubspot: true,
-  repondeur: false, repondeur_scenario: true, evenement_shopify: true,
+  repondeur: false, repondeur_scenario: true, evenement_shopify: true, evenement_hubspot: true,
 };
 
 describe('le gel au retour en Base (lot 6, B2a)', () => {
@@ -690,6 +726,7 @@ const MARKETING_ATTENDU: Record<TypeDeLancement, PolitiqueDeLancement['marketing
   automatisme_ordinaire: 'accord_fiche', automatisme_chaine: 'accord_fiche', automatisme_publicite_ou_widget: 'accord_fiche',
   lien_de_test: 'libre', campagne_scenario: 'accord_fiche_sauf_ouverture', campagne_bloc: 'libre', workflow_hubspot: 'libre',
   repondeur: 'libre', repondeur_scenario: 'libre', aller_a: 'libre', aller_a_masse: 'libre', evenement_shopify: 'accord_fiche',
+  evenement_hubspot: 'accord_fiche',
 };
 
 /** La catégorie que Meta rend pour le modèle du scénario : c'est elle que la garde lit, sur le cache de l'envoi. */
@@ -788,7 +825,7 @@ describe('la garde marketing, type par type (décision A)', () => {
 const DEVANT_UN_EVENEMENT_ATTENDU: Record<TypeDeLancement, PolitiqueDeLancement['devantUnEvenement']> = {
   inbox: 'remplace', lien_de_test: 'remplace', campagne_scenario: 'remplace', campagne_bloc: 'remplace', workflow_hubspot: 'remplace',
   automatisme_chaine: 'remplace', automatisme_publicite_ou_widget: 'remplace',
-  automatisme_ordinaire: 'cede', evenement_shopify: 'cede',
+  automatisme_ordinaire: 'cede', evenement_shopify: 'cede', evenement_hubspot: 'cede',
   repondeur: 'coexiste', repondeur_scenario: 'coexiste', agent_meta_scenario: 'coexiste', agent_meta_bloc: 'coexiste',
   agent_ia_scenario: 'coexiste', aller_a: 'coexiste', aller_a_masse: 'coexiste',
 };
@@ -797,4 +834,47 @@ describe('devant un parcours d’événement : la colonne, type par type (décis
   it('🔴 chaque type a sa ligne, et la table de la politique est celle-ci', () => {
     for (const type of TYPES_DE_LANCEMENT) expect(POLITIQUE_DE_LANCEMENT[type].devantUnEvenement, type).toBe(DEVANT_UN_EVENEMENT_ATTENDU[type]);
   });
+});
+
+/**
+ * LOT 6 : LES TYPES D'ÉVÉNEMENT, EXÉCUTÉS SUR LEUR PROPRE DÉPART. Ils naissent sur le premier bloc que le moteur de campagne
+ * a DÉJÀ envoyé (départ `deja_envoye`), donc hors des boucles génériques : leurs colonnes « rayon », « publie » et le drapeau
+ * de masse (décision 24) se jouent ici. Un parcours Shopify (décision 30) comme un parcours HubSpot (décision 36) est un envoi
+ * à UN client : il publie ses étiquettes et naît unitaire, même quand une étape change sur beaucoup de deals d'un coup.
+ */
+describe('les types d’événement, nés sur le premier bloc déjà envoyé (lots 4 à 6)', () => {
+  const RAYON_DU_TYPE: Record<TypeDeLancementEvenement, 'shopify' | 'hubspot'> = { evenement_shopify: 'shopify', evenement_hubspot: 'hubspot' };
+
+  it('chaque type d’événement a son rayon ici (un type ajouté sans ligne ferait tomber ce cas)', () => {
+    expect([...TYPES_D_EVENEMENT].sort()).toEqual(Object.keys(RAYON_DU_TYPE).sort());
+  });
+
+  for (const type of TYPES_D_EVENEMENT) {
+    const rayon = RAYON_DU_TYPE[type];
+    const autre = rayon === 'shopify' ? 'hubspot' : 'shopify';
+
+    it(`🔴 ${type} : il naît sur le premier bloc d’un scénario ${rayon}, sans le renvoyer, et UNITAIRE (né_en_masse faux)`, async () => {
+      silence();
+      const m = banc();
+      expect(await m.lancements.lancer(demandeDe(type, { workflowId: `evt-${rayon}` }))).toBe(true);
+      expect(m.envois, 'le premier template est déjà parti par le moteur de campagne').toEqual([]);
+      expect(m.crees.map((c) => c.masse)).toEqual([false]);
+    });
+
+    it(`🔴 ${type} : un scénario ${autre}, ou du Builder, lui est inconnu (null) ; rien n’est créé ni envoyé`, async () => {
+      silence();
+      for (const workflowId of [`evt-${autre}`, 'wf-modele']) {
+        const m = banc();
+        expect(await m.lancements.lancer(demandeDe(type, { workflowId })), workflowId).toBeNull();
+        expect([m.crees, m.envois], workflowId).toEqual([[], []]);
+      }
+    });
+
+    it(`🔴 ${type} : l’étiquette de la suite publie « tag ajouté » (un client, ici et maintenant)`, async () => {
+      silence();
+      const m = banc();
+      expect(await m.lancements.lancer(demandeDe(type, { workflowId: `evt-${rayon}-sans-retenue` }))).toBe(true);
+      expect(m.emis).toEqual(['vip']);
+    });
+  }
 });

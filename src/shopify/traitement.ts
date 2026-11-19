@@ -350,7 +350,7 @@ async function servir(deps: DepsTraitementShopify, b: BoutiqueRecue, s: Service)
   if (resa === 'en_cours') return REESSAYER;
   try {
     let issue: IssueEvenement | 'en_cours';
-    const bloc = await premierBloc(deps.lectures, b.tenantId, ligne.workflowId);
+    const bloc = await premierBloc(deps.lectures, b.tenantId, ligne.workflowId, 'shopify');
     if (bloc.etat !== 'pret') issue = 'premier_message_absent';
     else if (s.telephone === null) issue = 'sans_telephone';
     else {

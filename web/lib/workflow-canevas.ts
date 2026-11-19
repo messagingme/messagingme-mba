@@ -1,6 +1,7 @@
 import { MarkerType, type Node, type Edge } from '@xyflow/react';
 import type { WorkflowGraph, WorkflowNodeType } from '@/lib/api';
 import { poigneeCanevas, poigneeGraphe, uneAreteParSortie } from '@/lib/workflow-sorties';
+import { estPremierBlocVerrouille } from './partage/premier-bloc';
 import { ink } from './couleurs';
 
 /**
@@ -35,7 +36,13 @@ export function sortiesDuBloc(data: Record<string, unknown>): Array<{ code: stri
 
 export function toRF(graph: WorkflowGraph): { nodes: RFNode[]; edges: RFEdge[] } {
   return {
-    nodes: graph.nodes.map((n) => ({ id: n.id, type: 'wf', position: n.position, data: { wfType: n.type, ...n.data } })),
+    // 🔴 Le premier bloc verrouillé d'une automation n'est pas supprimable au CLAVIER non plus (relecture de 5c) : sans
+    // `deletable: false`, React Flow 12 retirait ses flèches avant que le filtre de `onNodesChange` ne garde le bloc, et
+    // sa suite se détachait. Une flèche sélectionnée seule reste supprimable.
+    nodes: graph.nodes.map((n) => ({
+      id: n.id, type: 'wf', position: n.position, data: { wfType: n.type, ...n.data },
+      ...(estPremierBlocVerrouille(n.data) ? { deletable: false } : {}),
+    })),
     // 🔴 La sortie libre est NOMMÉE dans le canevas (`libre`) alors qu'elle ne l'est pas en base : sans nom,
     // React Flow ancre la flèche sur la PREMIÈRE poignée du bloc, donc sur la ligne de la première réponse
     // rapide, où une autre flèche part déjà. Voir `lib/workflow-sorties.ts`.

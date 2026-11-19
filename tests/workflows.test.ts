@@ -906,6 +906,25 @@ describe('le verrou du premier bloc (rayon Shopify)', () => {
     await server.close();
   });
 
+  /** Lot 6 : le scénario d'une automation HubSpot a le même premier bloc verrouillé (décisions 13 et 23), que son circuit envoie. */
+  it('🔴 lot 6 : rayon HubSpot, le même verrou à l’enregistrement et à la publication ; sa suite passe', async () => {
+    const hubspot = (over: Partial<WorkflowRow> = {}) => ligne({ rayon: 'hubspot', name: 'Devis envoyé', ...over });
+    const enregistrement = app({ scenarios: { getById: async (id) => (id === W1 ? hubspot() : null) } });
+    const perdu = await enregistrement.server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: { nodes: [merci], edges: [] } } });
+    expect(perdu.statusCode).toBe(422);
+    expect(perdu.json()).toMatchObject({ code: 'premier_bloc_verrouille' });
+    expect(enregistrement.cap.updated).toEqual([]);
+    expect((await enregistrement.server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: suite } })).statusCode).toBe(200);
+    await enregistrement.server.close();
+    const enCours = hubspot({ draftGraph: { nodes: [merci], edges: [] } });
+    const publication = app({ scenarios: { getById: async (id) => (id === W1 ? enCours : null), list: async () => [enCours] } });
+    const r = await publication.server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok) });
+    expect(r.statusCode).toBe(422);
+    expect(r.json()).toMatchObject({ code: 'premier_bloc_verrouille' });
+    expect(publication.cap.publies).toEqual([]);
+    await publication.server.close();
+  });
+
   it('une copie jamais publiée d’une automation se publie : son brouillon, écrit par le serveur, fait référence', async () => {
     const copie = ligne({ name: 'Commande payée (copie)', graph: { nodes: [], edges: [] }, draftGraph: suite });
     const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? copie : null), list: async () => [copie] } });

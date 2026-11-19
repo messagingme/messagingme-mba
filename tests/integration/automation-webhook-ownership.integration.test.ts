@@ -65,8 +65,8 @@ describe.skipIf(!url)('automations possédées par un webhook : hors de portée 
   });
 
   it('🔴 `getById` ne la trouve pas', async () => {
-    expect(await store.getById(idWebhook, tenantId)).toBeNull();
-    expect(await store.getById(idNormale, tenantId)).not.toBeNull();
+    expect(await store.getById(idWebhook, tenantId, 'general')).toBeNull();
+    expect(await store.getById(idNormale, tenantId, 'general')).not.toBeNull();
   });
 
   it('le chemin CHAUD, lui, la voit : c’est elle qui déclenche le scénario', async () => {
@@ -80,21 +80,21 @@ describe.skipIf(!url)('automations possédées par un webhook : hors de portée 
   it('🔴 `update` ne peut pas la RÉAFFECTER à un autre déclencheur', async () => {
     // Sans le prédicat, ce PATCH transformait une ligne de webhook en automation par mot-clé : le webhook
     // croyait encore déclencher son scénario, et plus rien ne partait.
-    expect(await store.update(idWebhook, tenantId, { triggerKind: 'keyword', triggerConfig: { keywords: ['x'] } })).toBe(false);
+    expect(await store.update(idWebhook, tenantId, 'general', { triggerKind: 'keyword', triggerConfig: { keywords: ['x'] } })).toBe(false);
     const relu = await pool.query<{ trigger_kind: string }>('select trigger_kind from automations where id = $1', [idWebhook]);
     expect(relu.rows[0]?.trigger_kind).toBe('webhook');
   });
 
   it('🔴 `remove` ne peut pas la supprimer', async () => {
-    expect(await store.remove(idWebhook, tenantId)).toBe(false);
+    expect(await store.remove(idWebhook, tenantId, 'general')).toBe(false);
     const reste = await pool.query('select 1 from automations where id = $1', [idWebhook]);
     expect(reste.rowCount).toBe(1);
   });
 
   it('l’automation ordinaire reste pilotable (le prédicat n’a pas tout verrouillé)', async () => {
-    expect(await store.update(idNormale, tenantId, { name: 'Mot-clé rdv (modifié)' })).toBe(true);
-    expect((await store.getById(idNormale, tenantId))?.name).toBe('Mot-clé rdv (modifié)');
-    expect(await store.remove(idNormale, tenantId)).toBe(true);
+    expect(await store.update(idNormale, tenantId, 'general', { name: 'Mot-clé rdv (modifié)' })).toBe(true);
+    expect((await store.getById(idNormale, tenantId, 'general'))?.name).toBe('Mot-clé rdv (modifié)');
+    expect(await store.remove(idNormale, tenantId, 'general')).toBe(true);
   });
   /**
    * 🔴 R10 : LE CLAIM D'OCCURRENCE, EN SQL.

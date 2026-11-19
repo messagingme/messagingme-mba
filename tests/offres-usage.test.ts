@@ -40,4 +40,10 @@ describe('🔴 l’usage des contacts suit l’offre (`contactsToutesOrigines`)'
     expect(appels[0]).toContain(ficheComptee('c', true));
     expect(appels[0]).toContain(ficheComptee('c', false));
   });
+
+  it('🔴 lot 6 : les automations comptées sont celles de la limite, du rayon général (une ligne HubSpot a son plafond)', async () => {
+    const { p, appels } = pool('base');
+    await new PgOffresStore(p).usage('t1');
+    expect(appels[0]).toMatch(/a\.enabled and a\.possede_par is null and a\.rayon = 'general'/);
+  });
 });

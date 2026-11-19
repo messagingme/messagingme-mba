@@ -66,7 +66,7 @@ export async function relancerPaniers(deps: DepsRelance, limite = PANIERS_PAR_PA
     const cle = `${tenantId}:${workflowId}`;
     let lecture = blocs.get(cle);
     if (lecture === undefined) {
-      lecture = premierBloc(deps.lectures, tenantId, workflowId);
+      lecture = premierBloc(deps.lectures, tenantId, workflowId, 'shopify');
       blocs.set(cle, lecture);
     }
     return lecture;

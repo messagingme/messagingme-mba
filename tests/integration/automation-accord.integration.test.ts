@@ -63,7 +63,7 @@ describe.skipIf(!url)('automations : l attestation de l accord marketing', () =>
     const chaud = (await store.listEnabled(tenantId, ['keyword'])).find((a) => a.id === id);
     expect(chaud?.accordMarketing).toMatchObject({ par: marie, email: 'itest-accord-marie@example.test' });
     expect(chaud?.accordMarketing?.le).toBeInstanceOf(Date);
-    expect((await store.getById(id, tenantId))?.accordMarketing?.par).toBe(marie);
+    expect((await store.getById(id, tenantId, 'general'))?.accordMarketing?.par).toBe(marie);
     expect((await store.list(tenantId, 'general')).find((a) => a.id === id)?.accordMarketing?.par).toBe(marie);
   });
 
@@ -76,14 +76,14 @@ describe.skipIf(!url)('automations : l attestation de l accord marketing', () =>
   it('🔴 recochée par un autre compte : le tampon D ORIGINE est gardé ; décochée : effacé ; absente : rien ne bouge', async () => {
     const { id } = await store.create(tenantId, { ...base(), accordMarketing: { par: marie } });
     const origine = await colonnes(id);
-    expect(await store.update(id, tenantId, { name: 'Renommee', accordMarketing: { par: paul } })).toBe(true);
+    expect(await store.update(id, tenantId, 'general', { name: 'Renommee', accordMarketing: { par: paul } })).toBe(true);
     expect(await colonnes(id)).toEqual(origine);
-    expect(await store.update(id, tenantId, { name: 'Renommee encore' })).toBe(true);
+    expect(await store.update(id, tenantId, 'general', { name: 'Renommee encore' })).toBe(true);
     expect(await colonnes(id)).toEqual(origine);
-    expect(await store.update(id, tenantId, { accordMarketing: null })).toBe(true);
+    expect(await store.update(id, tenantId, 'general', { accordMarketing: null })).toBe(true);
     expect(await colonnes(id)).toEqual({ par: null, email: null, le: null });
     // Recochée après l'effacement : c'est une nouvelle attestation, au nom de qui la coche.
-    expect(await store.update(id, tenantId, { accordMarketing: { par: paul } })).toBe(true);
+    expect(await store.update(id, tenantId, 'general', { accordMarketing: { par: paul } })).toBe(true);
     expect(await colonnes(id)).toMatchObject({ par: paul, email: 'itest-accord-paul@example.test' });
   });
 

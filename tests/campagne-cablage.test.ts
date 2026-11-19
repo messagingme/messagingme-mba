@@ -79,10 +79,13 @@ describe('câblage des capacités du moteur de campagne', () => {
     );
   });
 
-  it('🔴 le pont du parcours d’événement (lot 4) : la mesure « envoyé » du bloc et la naissance en evenement_shopify', () => {
+  it('🔴 le pont du parcours d’événement (lot 4) : la mesure « envoyé » du bloc et la naissance du type que porte le pont', () => {
     // Sans elles, le moteur dit « pont non câblé » à chaque destinataire d’une campagne porteuse d’un parcours (lot 5).
     expect(workerSansCommentaires).toMatch(/mesurerEnvoiDuBloc: \(tenant[^)]*\) =>\s*nodeEventStore\.record\(\{[^}]*kind: 'sent', metaMessageId: e\.messageId \}\)/);
-    expect(workerSansCommentaires).toMatch(/naitreParcoursEvenement: async \(tenant[^)]*\) =>\s*\(await lancements\.lancer\(\{\s*type: 'evenement_shopify',/);
+    // Lot 6 : le type vient du pont (Shopify ou HubSpot), jamais d'un littéral. `evenement_shopify` écrit en dur ici, comme
+    // jusqu'au lot 5, ferait refuser chaque scénario HubSpot comme inconnu (`rayonAdmis`) : aucune suite ne partirait.
+    expect(workerSansCommentaires).toMatch(/naitreParcoursEvenement: async \(tenant[^)]*\) =>\s*\(await lancements\.lancer\(\{\s*type: d\.type,/);
+    expect(workerSansCommentaires).not.toMatch(/type: 'evenement_(shopify|hubspot)'/);
   });
 
   it('les deux capacités de la panne du 2026-09-02 sont bien DANS le bloc ainsi gardé', () => {

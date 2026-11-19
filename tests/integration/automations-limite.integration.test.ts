@@ -53,9 +53,9 @@ describe.skipIf(!url)('la limite d’automations de l’offre', () => {
   it('🔴 rallumer compte, et une automation déjà allumée ne se compte pas elle-même', async () => {
     const a = await automations.create(t, entree(true));
     const eteinte = await automations.create(t, entree(false));
-    expect(await automations.update(a.id, t, { enabled: true })).toBe(true);
+    expect(await automations.update(a.id, t, 'general', { enabled: true })).toBe(true);
     await automations.create(t, entree(true));
-    await expect(automations.update(eteinte.id, t, { enabled: true })).rejects.toBeInstanceOf(LimiteOffreError);
+    await expect(automations.update(eteinte.id, t, 'general', { enabled: true })).rejects.toBeInstanceOf(LimiteOffreError);
   });
 
   it('🔴 les plus anciennes (le gel, lot 6, B2a) : la même population que la limite, par date de création, dans la limite', async () => {
@@ -78,5 +78,19 @@ describe.skipIf(!url)('la limite d’automations de l’offre', () => {
     await automations.create(t, entree(true));
     const base: WebhookInput = { name: 'Formulaire', enabled: true, mapping: [], createContact: false, optIn: false, workflowId: wf, startNodeId: null, cooldownSeconds: null };
     await expect(webhooks.create(t, base)).rejects.toBeInstanceOf(LimiteOffreError);
+  });
+
+  it('🔴 menu « Scénario », lot 6 : une ligne HubSpot allumée ne compte pas, ni dans la limite ni dans le gel (son plafond est par ligne)', async () => {
+    const hubspot = (): AutomationInput => ({ ...entree(true), rayon: 'hubspot', triggerKind: 'hubspot_deal_stage', triggerConfig: { pipelineId: 'p1', stageId: 's1' } });
+    // Trois lignes HubSpot allumées, au-delà de la limite de deux : aucune n'est refusée, et un rallumage non plus.
+    const h1 = await automations.create(t, hubspot());
+    await automations.create(t, hubspot());
+    await automations.create(t, hubspot());
+    expect(await automations.update(h1.id, t, 'hubspot', { enabled: true })).toBe(true);
+    // Les deux places du rayon général restent libres, et le gel ne voit qu'elles.
+    const a1 = await automations.create(t, entree(true));
+    const a2 = await automations.create(t, entree(true));
+    await expect(automations.create(t, entree(true))).rejects.toBeInstanceOf(LimiteOffreError);
+    expect([...await automations.plusAnciennes(t, 10)].sort()).toEqual([a1.id, a2.id].sort());
   });
 });
