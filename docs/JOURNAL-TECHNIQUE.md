@@ -4,6 +4,61 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-18 : le menu « Scénario », lot 4 : le moteur des parcours d'événement, posé éteint (en production)
+
+**La demande** : la suite du menu « Scénario » (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`,
+plan `2026-11-18-menu-scenario-lot-4-moteur.md`) : un parcours d'événement (Shopify d'abord) naît quand Meta a ACCEPTÉ le
+premier template, posé sur ce bloc déjà envoyé avec les données de l'événement (décision 28) ; il est seul de son espèce
+pour un contact, garanti par la base (décision 21) ; les automations « Autres » lui cèdent, les répondeurs, les outils
+d'agent et les sauts coexistent, l'Inbox, le lien de test, les campagnes, la chaîne, la publicité et le widget le
+remplacent ; il ne garde jamais la place sans échéance (décision 29). Trois livraisons, toutes ÉTEINTES pour les espaces :
+rien ne fait naître de parcours d'événement avant le lot 5 (Shopify).
+
+- **4-0, les migrations 0297 et 0298** (`6ec8e21a3`, poussées SEULES, `migration=avant`) : `workflow_runs.evenement`
+  (`{ origine, variables }`, nulle) et `campaigns.parcours_evenement` (nulle), puis l'index unique partiel
+  `workflow_runs_evenement_actif_uniq (tenant_id, wa_id) where evenement is not null and status in ('waiting','sleeping')`,
+  construit `CONCURRENTLY` hors transaction (0298). L'ancien code ignore les deux colonnes.
+- **4a, le moteur** (`c6b3b01e9`) : le magasin des parcours (`start` à deux surcharges, refus `evenement_actif` sur la
+  violation de l'index unique ; les variables effacées à TOUT statut terminal, l'origine gardée, par un fragment SQL
+  commun ; `closeOrdinairesByWaId`, `cloreAutresActifs`, `parcoursDEvenementActif` au prédicat exact de l'index,
+  `cloreParOrigine`, `cloreParScenarios`, `findWaitingSurBloc`) ; le type de lancement `evenement_shopify` et son départ
+  `deja_envoye`, qui pose le parcours sur le bloc envoyé sans le rejouer ; la colonne `devantUnEvenement` de la table des
+  lancements (remplace, cède, coexiste) ; l'avance et le réveil (un clic va au parcours qui attend sur le bloc cité,
+  « plus voulu » se lit avant toute reprise du fil, un opérateur qui tient le fil arrête le parcours, décision 20) ; la
+  marche `evenement` (un template sans choix continue ; toute autre attente sans échéance propre est plafonnée à 72 h,
+  `PLAFOND_ATTENTE_EVENEMENT_MS`, et se clôt sans suivre de flèche) ; les variables lues par les templates et, préfixées
+  (`{{shopify.lien_panier}}`), par le texte ; l'arrêt commandé (`arreterParcours`, par origine ou par scénarios).
+  `parcoursEncoreVoulu` est câblée INERTE (« toujours voulu ») : la vraie arrive au lot 5.
+- **4b, le pont éteint dans le moteur de campagne** : une campagne template peut porter `campaigns.parcours_evenement`,
+  posé par une option INTERNE de l'envoi public (un corps HTTP qui la porte est refusé en 400) ; ses réponses rapides
+  partent avec leur payload `btn:<i>` ; quand Meta a accepté le template, le moteur pose d'abord la mesure « envoyé » du
+  bloc (la protection du clic tardif la lit), puis demande UNE fois le parcours ; un refus ou une panne laisse le
+  destinataire `sent` avec la raison, un échec d'envoi n'appelle rien. Avec lui, le point 2 de la relecture de 4a (le
+  modèle lu comme le moteur l'envoie : nom sans ses espaces, langue absente lue « fr »), et le test « le plus récent » du
+  banc rendu déterministe (deux parcours insérés dans la même milliseconde avaient la même date : un échec sur trois).
+
+**Mesures** :
+- **4-0** : `tests/migration-0297.test.ts` vu rouge sous mutation, les 80 fichiers de test des migrations verts, banc
+  PGlite vert ; CI 44370640464 verte ; déploiement 44372180114 (`migration=avant`, approuvé par Julien) : « 0297 … ok »,
+  « 0298 (hors transaction) … ok ». La relecture point par point en base, un script en lecture seule lancé par Julien
+  sur la machine des workers (`relecture-0297.mjs`), d'abord avant l'approbation du déploiement (« colonne absente »),
+  puis le 2026-11-19 : TOUT EST CONFORME (deux colonnes `jsonb` nullables sans défaut ; l'index présent, VALIDE, unique,
+  au prédicat exact ; aucun parcours d'événement ni campagne à pont).
+- **4a** : chaque tâche vue rouge sous mutation avant d'être verte (A à E, M1 à M9, R1 à R11, P1 à P5, V1 à V6, A1 et A2) ;
+  relecture indépendante unique, aucun rouge, 14 mutations rejouées par le relecteur ; ses jaunes au `todo.md`, à régler
+  avant ou avec le lot 5, dont la colonne `devantUnEvenement` qu'aucun test ne tient type par type (sept mutations
+  restent vertes). Avant le push : typecheck, lint et auto-attaque à 0, suite racine 1 026 fichiers et 17 938 tests
+  verts, banc PGlite 9 fichiers et 157 tests. Push `c6b3b01e9` ; CI 44388622067 verte job par job (unit, intégration,
+  sécurité, CodeQL) ; déploiement 44389908159 (`migration=aucune`, approuvé par Julien), `/health` à 200.
+- **4b** : la relecture indépendante unique n'a trouvé aucun rouge (15 mutations unitaires et 3 sur le banc, rejouées
+  dans une extraction à part) ; ses jaunes au `todo.md`, dont deux à trancher dans le plan du lot 5 avant d'allumer le
+  pont (le clic sur le message d'un second événement, la relance automatique qui redemande la naissance). Avant le push :
+  typecheck, lint et auto-attaque à 0 ; suite racine 1 025 fichiers verts, le 1 026e (`lib-hors-boucle`, processus de
+  test tombé sous la charge) rejoué seul, 17 sur 17 ; banc PGlite 99 sur 100, le centième étant le test « le plus
+  récent », instable (1 échec sur 3 mesuré sur une copie propre), rendu déterministe (`a879c951a` : 10 passages verts,
+  rouge sous la mutation qui renverse l'ordre). Push `9a4689ec9` ; CI 44394680722 verte job par job (unit, intégration,
+  sécurité, CodeQL) ; déploiement 44396169700 (`migration=aucune`, approuvé par Julien), `/health` à 200.
+
 ## 2026-11-18 : le menu « Scénario », lot 3 : écrire ou modifier un template depuis son bloc, la mise en ligne programmée (en production)
 
 **La demande** : la suite du menu « Scénario » (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`,
