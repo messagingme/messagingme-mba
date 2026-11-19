@@ -50,6 +50,21 @@ const schemaEvenement = z.object({
 });
 
 /**
+ * L'événement passe-t-il le schéma qui le relira (lot 5, jaune de 4a) ? Une origine trop longue ou une variable hors du
+ * schéma se relirait « ordinaire » (`lireEvenement`) tout en tenant la place unique en base : un tel événement n'est
+ * jamais écrit.
+ */
+export function evenementValide(evenement: EvenementDuParcours): boolean {
+  return schemaEvenement.safeParse(evenement).success;
+}
+
+/** L'événement sans ses variables : ce qu'écrit un parcours qui se termine, ou qui naît déjà terminé (décision 28). */
+export function sansVariables(evenement: EvenementDuParcours): Omit<EvenementDuParcours, 'variables'> {
+  const { variables: _effacees, ...reste } = evenement;
+  return reste;
+}
+
+/**
  * Les variables d'un parcours d'événement telles que le TEXTE d'un message les lit (lot 4, décision 28) : sous le préfixe de
  * leur origine, `{{shopify.checkout_url}}`, pour ne jamais se confondre avec un champ de la fiche du même nom (la console
  * nomme les champs sans point). Rien pour un parcours ordinaire.

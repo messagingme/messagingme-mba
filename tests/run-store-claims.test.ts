@@ -168,6 +168,21 @@ describe('PgWorkflowRunStore : start et la place unique d’un parcours d’év�
     }
   });
 
+  it('🔴 lot 5 (jaune de 4a) : un parcours qui NAÎT terminé n’écrit pas les variables (des liens à clé d’accès)', async () => {
+    for (const status of ['done', 'inbox'] as const) {
+      const { pool, appels } = fauxPool([{ id: 'r9' }]);
+      await new PgWorkflowRunStore(pool).start('t1', 'w1', '336', null, { currentNode: null, status }, null, false, false, evenement);
+      expect(JSON.parse(appels[0]!.params[12] as string)).toEqual({ origine: evenement.origine });
+    }
+  });
+
+  it('🔴 lot 5 (jaune de 4a) : un événement illisible n’est jamais écrit (refus nommé, aucune requête)', async () => {
+    const { pool, appels } = fauxPool([{ id: 'r9' }]);
+    const illisible = { origine: 'x'.repeat(201), variables: {} };
+    expect(await new PgWorkflowRunStore(pool).start('t1', 'w1', '336', null, etat, null, false, false, illisible)).toEqual({ refus: 'evenement_invalide' });
+    expect(appels).toEqual([]);
+  });
+
   it('🔴 lot 5 : la naissance idempotente, dans la même instruction, au prédicat de l’index 0300 écrit tel quel', async () => {
     const { pool, appels } = fauxPool([]);
     expect(await new PgWorkflowRunStore(pool).start('t1', 'w1', '336', null, etat, null, false, false, evenement)).toEqual({ refus: 'deja_ne' });

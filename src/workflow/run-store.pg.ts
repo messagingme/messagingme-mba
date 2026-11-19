@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import type { WorkflowGraph } from './graph';
 import { parseGraph } from './graph';
-import { lireEvenement, type EvenementDuParcours } from './evenement';
+import { evenementValide, lireEvenement, sansVariables, type EvenementDuParcours } from './evenement';
 
 /** Le nom de l'index unique de 0298 : une seule place d'événement active par contact. */
 const INDEX_EVENEMENT_ACTIF = 'workflow_runs_evenement_actif_uniq';
@@ -168,18 +168,23 @@ export class PgWorkflowRunStore {
   start(
     tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null,
     exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null,
-  ): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' }>;
+  ): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' | 'evenement_invalide' }>;
   async start(
     tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null,
     exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null,
-  ): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' }> {
+  ): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' | 'evenement_invalide' }> {
     // `resume_at` est écrit dès la création : un scénario dont le premier passage tombe sur un bloc Attente
     // naît en sommeil, et sans échéance le balayage (`resume_at <= now()`) ne le réveillerait jamais.
     // `last_message_id` aussi : le message qui démarre un parcours (le répondeur) y naît déjà reçu, et sa redélivrance
     // par Meta n'est pas prise pour une réponse par `advance`. Absent, `null` : le cas de tous les autres démarrages.
+    // Lot 5 (jaunes de 4a) : un événement illisible n'est jamais écrit (il se relirait ordinaire en tenant la place unique) ;
+    // un parcours qui NAÎT terminé (la suite mène tout de suite à « Passer à un humain ») n'écrit pas ses variables.
+    if (evenement !== null && !evenementValide(evenement)) return { refus: 'evenement_invalide' };
+    const evenementEcrit = evenement === null ? null
+      : state.status === 'done' || state.status === 'inbox' ? sansVariables(evenement) : evenement;
     const valeurs = [workflowId, tenantId, contactId, waId, state.currentNode, state.status, state.resumeAt ?? null, state.channel ?? 'whatsapp',
       grapheFige === null ? null : JSON.stringify(grapheFige), state.lastMessageId ?? null, exigeAccordMarketing, neEnMasse,
-      evenement === null ? null : JSON.stringify(evenement)];
+      evenementEcrit === null ? null : JSON.stringify(evenementEcrit)];
     try {
       if (evenement === null) {
         const res = await this.pool.query<{ id: string }>(

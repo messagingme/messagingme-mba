@@ -79,10 +79,13 @@ function banc(o: Options = {}) {
   const envois: string[] = [];
   const crees: Array<{ state: RunState; evenement: EvenementDuParcours | null }> = [];
   const clotures: string[] = [];
+  /** Les escalades vers l’équipe, avec leur marque collante (`escalade`). */
+  const escalades: boolean[] = [];
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
     aAccordMarketing: toujoursDAccord,
+    escalateToHuman: async (_t, _w, _a, escalade) => { escalades.push(escalade); },
     runs: avecGardesDEtatInertes({
       // Les deux surcharges du contrat : seul un parcours d'événement peut être refusé par l'index unique.
       start: (async (_t: string, _w: string, _wa: string, _c: string | null, state: RunState, _g: unknown, _e: boolean, _m: boolean, evenement: EvenementDuParcours | null) => {
@@ -118,7 +121,7 @@ function banc(o: Options = {}) {
     contacts: { findIdByWaId: async () => 'c-fiche' },
     offres: { offreDe: async () => ({ offre, droits: DROITS[offre], retourEnBaseLe: null }) },
   });
-  return { b, lancements, envois, crees, clotures };
+  return { b, lancements, envois, crees, clotures, escalades };
 }
 
 function silence(): void {
@@ -143,6 +146,17 @@ describe('la naissance d’un parcours d’événement, sur le bloc déjà envoy
     const m = banc({ dejaNe: true });
     expect(await m.lancements.lancer(naissance())).toBe(REFUS_DEJA_NE);
     expect(m.crees).toEqual([]);
+  });
+
+  it('🔴 lot 5 (jaune de 4a) : une suite qui mène tout de suite à « Passer à un humain » escalade en COLLANT : le premier template est parti', async () => {
+    silence();
+    const HUMAIN: WorkflowGraph = {
+      nodes: [n('tpl', 'template', { templateName: 'panier_relance', language: 'fr' }), n('h', 'inbox', {})],
+      edges: [{ id: 'e1', source: 'tpl', target: 'h' }],
+    };
+    const m = banc({ scenario: { graph: HUMAIN, draftGraph: null, rayon: 'shopify' } });
+    expect(await m.lancements.lancer(naissance())).toBe(true);
+    expect(m.escalades).toEqual([true]);
   });
 
   it('🔴 la naissance garde l’identifiant Meta du premier message et son bloc de départ (lot 5)', async () => {
@@ -572,6 +586,22 @@ describe('l’attente bornée d’un parcours d’événement (décision 29)', (
     expect(await m.executor.resume({ ...runEvenement(), status: 'waiting' })).toBe(false);
     expect(m.envois).toEqual([]);
     expect(m.ecritures).toEqual(['r-evt:done']);
+  });
+
+  it('🔴 lot 5 (jaune de 4a) : clos au plafond SANS reprendre le fil à l’agent de Meta (le contact reste sur sa liste)', async () => {
+    silence();
+    const m = bancReprise({ detenteur: 'mba', graphe: PANIER });
+    expect(await m.executor.resume({ ...runEvenement(), status: 'waiting' })).toBe(false);
+    expect(m.ecritures).toEqual(['r-evt:done']);
+    expect(m.b.appels, 'aucun appel à Meta pour un parcours qui se clôt').toEqual([]);
+    expect(m.b.etat(WA)?.owner).toBe('mba');
+  });
+
+  it('🔴 lot 5 (jaune de 4a) : un graphe absent clôt aussi SANS reprendre le fil à l’agent de Meta', async () => {
+    silence();
+    const m = bancReprise({ detenteur: 'mba', graphe: { nodes: [], edges: [] } });
+    expect(await m.executor.resume({ ...runEvenement(), status: 'waiting' })).toBe(false);
+    expect(m.b.appels).toEqual([]);
   });
 });
 

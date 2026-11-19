@@ -25,7 +25,7 @@ import { MOTIF_DESABONNE, MOTIF_SANS_ACCORD_MARKETING } from '../campaign/guardr
 import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
 import { messageDe, texteDe } from '../lib/erreur';
 import {
-  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, REFUS_DEJA_NE, REFUS_EVENEMENT_EN_COURS, accordMarketingExige, fenetreLevee, grapheAFiger, ouvertureExemptee,
+  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, REFUS_DEJA_NE, REFUS_EVENEMENT_EN_COURS, REFUS_EVENEMENT_INVALIDE, accordMarketingExige, fenetreLevee, grapheAFiger, ouvertureExemptee,
   type DepartDuParcours, type PolitiqueDeLancement, type TypeDeLancement,
 } from './lancements';
 import { MAX_SAUTS_SANS_PAUSE, nomDuBloc } from './aller-a';
@@ -139,7 +139,7 @@ export interface WorkflowExecutorDeps {
      * ordinaire (`null`) ne peut pas l'être, d'où les deux surcharges.
      */
     start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: null): Promise<{ id: string }>;
-    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' }>;
+    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean, neEnMasse: boolean, evenement: EvenementDuParcours | null): Promise<{ id: string } | { refus: 'evenement_actif' | 'deja_ne' | 'evenement_invalide' }>;
     findWaitingByWaId(tenantId: string, waId: string): Promise<WorkflowRunRow | null>;
     setState(id: string, state: RunState): Promise<void>;
     /**
@@ -1267,6 +1267,24 @@ export class WorkflowExecutor {
       await clore({ currentNode: null, status: 'done' });
       return false;
     }
+    // Lot 5 (jaune de 4a) : les gardes qui CLÔTURENT sans rien envoyer (graphe absent, plafond d'un parcours d'événement)
+    // passent avant la reprise du fil : se clore ne demande pas de retirer le contact de la liste de l'agent de Meta.
+    const graph = await grapheDuRun(run, () => this.deps.getGraph(run.workflowId, tenantId));
+    if (!graph || !run.currentNode) {
+      await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
+      await clore({ currentNode: null, status: 'done' });
+      return false;
+    }
+    // 🔴 L'ATTENTE BORNÉE D'UN PARCOURS D'ÉVÉNEMENT (décision 29). Un bloc sans échéance propre ne peut s'être réveillé que
+    // par le plafond : le parcours se clôt sans rien envoyer, et ne suit JAMAIS une flèche `timeout` (même laissée sur un
+    // template sans délai, ce que `parseGraph` tolère).
+    if (parEcheance && run.evenement !== null && !aUneEcheancePropre(graph.nodes.find((n) => n.id === run.currentNode))) {
+      // eslint-disable-next-line no-console
+      console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} clos au plafond d’attente pour ${waId}`);
+      await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
+      await clore({ currentNode: null, status: 'done' });
+      return false;
+    }
     // Un parcours d'événement reprend le fil à l'agent de Meta (jamais à un opérateur, décision 20) ; un ordinaire est clos.
     const repris = !(await this.deps.mayAct(tenantId, waId))
       ? (run.evenement !== null ? await this.deps.reclaimControl(tenantId, waId, { saufOperateur: true }) : false)
@@ -1278,27 +1296,11 @@ export class WorkflowExecutor {
       await clore({ currentNode: null, status: 'done' });
       return false;
     }
-    const graph = await grapheDuRun(run, () => this.deps.getGraph(run.workflowId, tenantId));
-    if (!graph || !run.currentNode) {
-      await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
-      await clore({ currentNode: null, status: 'done' });
-      return false;
-    }
     // D'où repartir dépend de ce qui a expiré. Bloc Attente : le successeur (repasser sur l'attente la
     // rendormirait). Bloc Question, bloc template à délai ou agent : la sortie `timeout` et elle seule, car c'est la
     // réponse qui décide de la suite : `nextNode` enverrait un contact silencieux dans la branche du premier câblage venu.
     // Une échéance consommée sur un bloc agent est une inactivité. Les autres sorties de `resume` closent la
     // session en `erreur`, parce qu'elles tuent le parcours pour une autre raison que le silence du contact.
-    // 🔴 L'ATTENTE BORNÉE D'UN PARCOURS D'ÉVÉNEMENT (décision 29). Un bloc sans échéance propre ne peut s'être réveillé que
-    // par le plafond : le parcours se clôt sans rien envoyer, et ne suit JAMAIS une flèche `timeout` (même laissée sur un
-    // template sans délai, ce que `parseGraph` tolère).
-    if (parEcheance && run.evenement !== null && !aUneEcheancePropre(graph.nodes.find((n) => n.id === run.currentNode))) {
-      // eslint-disable-next-line no-console
-      console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} clos au plafond d’attente pour ${waId}`);
-      await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
-      await clore({ currentNode: null, status: 'done' });
-      return false;
-    }
     if (parEcheance) await this.cloreSessionDuRun(tenantId, run.id, 'inactivite', SORTIE_TIMEOUT);
     const suite = parEcheance
       ? nextNodeByHandle(graph, run.currentNode, SORTIE_TIMEOUT)
@@ -2121,19 +2123,23 @@ export class WorkflowExecutor {
     // pas de parcours, et ce n'est pas un échec (seul son premier message est parti, décision 3). Lot 5 : la même origine
     // déjà née (la relance automatique d'un envoi) ne renaît pas, et le dit autrement.
     if (cree !== null && 'refus' in cree) {
+      const refus = {
+        deja_ne: { journal: 'le parcours de cet événement est déjà né pour ce contact, aucun second', raison: REFUS_DEJA_NE },
+        evenement_invalide: { journal: 'l’événement est illisible, aucun parcours', raison: REFUS_EVENEMENT_INVALIDE },
+        evenement_actif: { journal: 'un autre parcours d’événement a pris la place de ce contact, aucun parcours', raison: REFUS_EVENEMENT_EN_COURS },
+      }[cree.refus];
       // eslint-disable-next-line no-console
-      console.log(cree.refus === 'deja_ne'
-        ? `workflow ${workflowId}: le parcours de cet événement est déjà né pour ${contact.waId}, aucun second`
-        : `workflow ${workflowId}: un autre parcours d’événement a pris la place de ${contact.waId}, aucun parcours`);
-      return cree.refus === 'deja_ne' ? REFUS_DEJA_NE : REFUS_EVENEMENT_EN_COURS;
+      console.log(`workflow ${workflowId}: ${refus.journal} (${contact.waId})`);
+      return refus.raison;
     }
     if (cree) await this.apresSommeil(tenantId, cree.id, state, canal, opts.messageDeclencheur ?? null, graph);
     // Bloc `inbox` atteint -> la conversation passe explicitement à un humain. L'escalade (collante : le
     // balayage ne rend plus le fil à l'agent de Meta tant que personne n'a répondu) exige `partis > 0` : sur une
     // campagne, un scénario qui ouvre sur « passer à un humain » ferait sinon un fil collant par destinataire
-    // qui n'a rien reçu, donc n'attend rien. La conversation passe quand même à `app_human`.
+    // qui n'a rien reçu, donc n'attend rien. La conversation passe quand même à `app_human`. Lot 5 (jaune de 4a) : un
+    // parcours d'événement né sur un bloc DÉJÀ envoyé (`deja_envoye`) a son premier template parti, par le moteur de campagne.
     if (rest.status === 'inbox') {
-      await this.deps.escalateToHuman(tenantId, contact.waId, rest.assigneA ?? null, partis > 0, workflowId, politique.publieLesEtiquettes);
+      await this.deps.escalateToHuman(tenantId, contact.waId, rest.assigneA ?? null, partis > 0 || opts.dejaEnvoye !== undefined, workflowId, politique.publieLesEtiquettes);
     }
     if (rest.status === 'done') await this.rendreLaMainAMba(tenantId, contact.waId);
     // « Envoyer au MBA » dès le démarrage : aucun parcours n'est créé (`done`), le contact va à l'agent de Meta.

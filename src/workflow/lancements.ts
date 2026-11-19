@@ -224,6 +224,8 @@ export const REFUS_EVENEMENT_EN_COURS = 'un parcours d’événement est en cour
  * redemandait). Le parcours de cet événement existe déjà pour ce contact, en cours ou terminé : il ne renaît pas, et sa
  * suite ne repart pas. Écrit à côté du destinataire, dans Campagnes.
  */
+/** Lot 5 (jaune de 4a) : l'événement ne passe pas son schéma (origine trop longue, variables invalides) : aucun parcours. */
+export const REFUS_EVENEMENT_INVALIDE = 'l’événement de ce parcours est illisible (origine trop longue ou variables invalides) : aucun parcours';
 export const REFUS_DEJA_NE = 'le parcours de cet événement est déjà né pour ce contact : une nouvelle tentative d’envoi ne le rejoue pas';
 
 /**
