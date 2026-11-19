@@ -44,6 +44,24 @@ l'image `54af105e0` ; fumée publique verte. Le comptage des espaces sans code, 
 garde-fou du mode auto : le remplissage (`docs/prive/code-espace/remplir-codes.sh`, non versionné) et l'essai réel
 restent à Julien (`todo.md`).
 
+## 2026-11-19 : menu « Scénario », lot 5b, les automations Shopify par leur ligne et la bascule 0302 (en production)
+
+**Ce qui est livré** (plan `docs/superpowers/plans/2026-11-18-menu-scenario-lot-5-shopify.md`, tâches 6 à 10) : une ligne
+par événement Shopify (`shopify_lignes`, 0299) et son scénario du rayon `shopify`, dont le premier bloc, verrouillé, est le
+message que le circuit envoie ; `set_shopify_message` sur ce premier bloc ; la pause de la boutique ; le ménage des
+templates remplacés ; une ligne de retour sur investissement par automation (décision 32) ; la décision 34 ; la bascule
+0302, qui éteint les anciens messages et vide les attentes de l'ancien assistant.
+
+**Déploiement** : commit `b7bdc9826`, CI verte job par job ; déploiement 44561639004 (`migration=avant`, approuvé par
+Julien), `-> 0302_bascule_shopify.sql ... ok` à 16:09:53 UTC ; `/health` à 200 trois fois.
+
+**0302 relue en base par Julien** le même soir (script en lecture seule, transaction `read only` annulée) : appliquée ;
+aucun ancien message Shopify allumé (3 gardés éteints, dans 1 espace) ; aucune attente de l'ancien assistant ; aucune ligne
+Shopify encore (aucune automation allumée) ; 1 boutique connectée, aucune en pause.
+
+**Reste** : l'essai réel 280 (`docs/prive/ESSAIS-REELS.md`). La relecture indépendante de 5b (aucun rouge) a laissé des
+jaunes, réglés par 5c ou rangés au `todo.md`.
+
 ## 2026-11-19 : « Copier le lien » d'une invitation, avec la garde de l'identité partagée (en production)
 
 **Le besoin**, de Julien : un invité dont la messagerie bloque l'e-mail d'invitation restait bloqué. Le lien n'existe qu'en
