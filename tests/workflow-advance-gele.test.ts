@@ -53,6 +53,15 @@ describe('l’avance du parcours en attente', () => {
     expect(await avance('t1', '33612345678', 'M1', 'btn:0', ENTRANT)).toBe(false);
   });
 
+  it('🔴 lot 5 (jaune de 4a) : un parcours qui a PRIS le message le garde, même si le fil est revenu à l’agent de Meta pendant l’avance', async () => {
+    const avance = avanceDuParcours({
+      trouverEnAttente: async () => ({ id: 'run-evt' }),
+      peutAgir: async () => false,
+      avancer: async () => true,
+    });
+    expect(await avance('t1', '33612345678', 'M1', 'btn:0', ENTRANT)).toBe(true);
+  });
+
   it('sans parcours en attente : faux, et le détenteur du fil n’est pas lu', async () => {
     const b = banc({ enAttente: false, aNous: true });
     expect(await b.avance('t1', '33612345678', 'M1', null, ENTRANT)).toBe(false);

@@ -464,6 +464,27 @@ describe('la réponse du contact à un parcours d’événement (advance)', () =
     expect(m.auRepondeur).toEqual([]);
   });
 
+  it('🔴 lot 5 (jaune de 4a) : un parcours repris à l’agent de Meta qui se TERMINE pendant l’avance dit qu’il a pris le message (pas deux voix)', async () => {
+    silence();
+    const m = bancReprise({ detenteur: 'mba' });
+    expect(await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'))).toBe(true);
+    expect(m.envois).toEqual(['qm:Voici votre panier']);
+  });
+
+  it('🔴 lot 5 (jaune de 4a) : un opérateur tient le fil : le parcours se clôt et le message va à la remise (false)', async () => {
+    silence();
+    const m = bancReprise({ detenteur: 'app_human' });
+    expect(await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'))).toBe(false);
+  });
+
+  it('🔴 lot 5 (jaune de 4a) : plus voulu, un CLIC va à la remise (false) ; un texte, transmis à l’agent, est pris (true)', async () => {
+    silence();
+    const clicMort = bancReprise({ voulu: false });
+    expect(await clicMort.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'))).toBe(false);
+    const texte = bancReprise({ voulu: false });
+    expect(await texte.executor.advance(ESPACE, WA, 'm2', null, 'whatsapp', { reaction: false, type: 'text', texte: 'bonjour' })).toBe(true);
+  });
+
   it('le clic sur SON premier message (l’identifiant gardé) prend sa branche', async () => {
     silence();
     const m = bancReprise({ evenement: SIEN });

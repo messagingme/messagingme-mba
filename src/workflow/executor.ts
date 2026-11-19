@@ -2358,7 +2358,7 @@ export class WorkflowExecutor {
   async advance(
     tenantId: string, waId: string, messageId: string, boutonRecu: string | null = null, canalRetour: RunChannel = 'whatsapp',
     entrant: EntrantAvance = { reaction: false },
-  ): Promise<false | void> {
+  ): Promise<boolean | void> {
     const leDernier = await this.deps.runs.findWaitingByWaId(tenantId, waId);
     if (!leDernier) return;
     // Lot 4 : deux parcours peuvent attendre ce contact (un parcours d'événement et un ordinaire qui coexiste, décision 21) ;
@@ -2436,8 +2436,11 @@ export class WorkflowExecutor {
         await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
         await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId });
         const unMessage = boutonRecu === null && canalRetour === 'whatsapp' && !entrant.reaction;
-        if (await this.deps.mayAct(tenantId, waId)) await this.rendreLaMainAMba(tenantId, waId, unMessage ? { transmettre: messageId } : {});
-        return;
+        // Lot 5 (jaune de 4a) : un texte transmis à l'agent est pris (true) ; un clic, jamais transmis, va à la remise
+        // (false), qui le donne au répondeur ou à l'agent au lieu de le laisser sans réponse.
+        const aNous = await this.deps.mayAct(tenantId, waId);
+        if (aNous) await this.rendreLaMainAMba(tenantId, waId, unMessage ? { transmettre: messageId } : {});
+        return aNous && unMessage;
       }
       if (!(await this.deps.mayAct(tenantId, waId))) {
         const reprise = await this.deps.reclaimControl(tenantId, waId, { saufOperateur: true });
@@ -2446,14 +2449,14 @@ export class WorkflowExecutor {
           console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} arrêté, le fil de ${waId} est tenu par un opérateur`);
           await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
           await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId });
-          return;
+          return false;
         }
       }
     }
     if (!(await this.deps.mayAct(tenantId, waId))) {
       // eslint-disable-next-line no-console
       console.warn(`workflow ${run.workflowId}: avance GELEE pour ${waId} (run ${run.id}), le fil ne nous appartient pas (opérateur ou Meta Business Agent) sur le bloc ${run.currentNode ?? 'null'} (message ${messageId}) ; le run reste waiting et ne repartira qu'au prochain message du contact`);
-      return;
+      return false;
     }
     const graph = run.currentNode ? await grapheDuRun(run, () => this.deps.getGraph(run.workflowId, tenantId)) : null;
     // Bloc RCS en attente : la réponse du contact reprend par la sortie « envoyé », pas par un payload de
@@ -2704,6 +2707,9 @@ export class WorkflowExecutor {
     if (rest.status === 'agent_turn') {
       await this.demarrerTourAgent(tenantId, waId, { id: run.id, workflowId: run.workflowId }, graph, rest.nodeId);
     }
+    // Lot 5 (jaune de 4a) : le parcours a traité ce message, même s'il vient de rendre le fil à l'agent de Meta en se
+    // terminant : la remise ne doit pas le lui donner une seconde fois (deux voix).
+    return true;
     } catch (err) {
       /**
        * L'erreur emporte son contexte : le journal des échecs d'avance a des colonnes `workflow_id`, `run_id` et
