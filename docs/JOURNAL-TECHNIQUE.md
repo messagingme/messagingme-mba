@@ -4,7 +4,7 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
-## 2026-11-19 : « Copier le lien » d'une invitation, avec la garde de l'identité partagée
+## 2026-11-19 : « Copier le lien » d'une invitation, avec la garde de l'identité partagée (en production)
 
 **Le besoin**, de Julien : un invité dont la messagerie bloque l'e-mail d'invitation restait bloqué. Le lien n'existe qu'en
 empreinte (`auth_tokens.token_hash`) et réinviter la même adresse rend 409 tant que la ligne « Invité » existe.
@@ -33,6 +33,11 @@ parallèle, verts rejoués à froid).
 interbloquer), et la portée du risque accepté, plus large qu'écrit (le mot de passe choisi par l'admin ouvrirait aussi un
 compte que la personne ouvrirait plus tard avec la même adresse). Un jaune laissé : un retour arrière d'image d'avant le
 lot accepterait un jeton `partage` sans la garde.
+
+**En production** : `181eea992`, CI 44519671599 verte job par job (unit, integration, securite), CI front et CodeQL
+verts ; déploiement 44521065351 (`migration=avant`, commit épinglé, approuvé par Julien), 0301 appliquée seule à 12:10:22
+UTC avant la bascule. Relue en base en lecture seule : `auth_tokens.partage` booléen, non nul, défaut `false`, les 12
+jetons existants à `false`. `/health` à 200, la route neuve rend 401 sans session. Reste l'essai réel (`todo.md`).
 
 ## 2026-11-19 : « un parcours tient le fil » devient une seule règle (en production)
 

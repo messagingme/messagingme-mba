@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 « Copier le lien » d'une invitation, en production (2026-11-19)
+
+- **L'essai réel** (plan `docs/superpowers/plans/2026-11-19-lien-invitation-copie.md`) : inviter une adresse de test,
+  « Copier le lien », l'ouvrir en fenêtre privée et accepter ; puis une adresse qui a déjà un compte Google ailleurs :
+  le mot de passe choisi est refusé, Google accepte.
+- Jaune de la relecture : une image d'avant le lot, remise en retour arrière, accepterait un jeton `partage` sans la
+  garde. Aucun lien tiré, aucun risque ; sinon, annuler les jetons `partage` vivants avant de revenir en arrière.
+- Le risque accepté par Julien (une adresse sans autre compte : l'admin peut choisir son mot de passe, qui ouvrirait
+  aussi un compte futur de la même adresse) se ferme en interdisant tout mot de passe choisi par un lien copié.
+
 ## 🟡 Numéro fourni, après les lots 3 à 5 (2026-11-17)
 
 Les jaunes des trois relectures sont au plan `docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md`
