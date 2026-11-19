@@ -4,6 +4,39 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-19 : le balayage rendait à l’agent de Meta un fil qu’un parcours tenait (MUTAC, en production)
+
+**Le défaut**, mesuré en lecture seule chez MUTAC par la session de l'essai réel du PDF : le 2026-11-19 à 07:24:44 UTC, le
+scénario `devis_avec_pdf` envoie le template `relance_pdf` à un prospect ; à 07:24:46.997, le balayage du contrôle rend le
+fil à l'agent de Meta (« délai de reprise écoulé ») ; à 07:25:36, le clic sur « Prendre RDV » va à l'agent au lieu de la
+branche du scénario. Cause : le lot du balayage (`listHeldControl`) prenait un fil `app_workflow` sur sa seule date de prise
+(`control_changed_at`). Rien ne la rafraîchit quand un scénario démarre sur un fil déjà à lui (ici, une prise du 13), et
+elle est NULLE pour une conversation née d'un envoi : les quatre premiers envois MUTAC du 2026-11-10 avaient été rendus 201
+à 225 s après leur template. En mode agent de Meta, le fil partait donc au passage suivant du balayage (toutes les 5 min).
+
+**Le correctif** (`71981d5f6`) : un fil de scénario dont un parcours du contact attend ou dort et a écrit son état
+(`workflow_runs.updated_at`) dans le délai (`CONTROL_WORKFLOW_TIMEOUT_MS`, 24 h) n'entre plus dans le lot. La soupape compte
+depuis la dernière activité du parcours ; un parcours abandonné rend le fil comme avant. Prédicat de l'index partiel 0115
+repris tel quel ; le nouveau lot est un sous-ensemble strict de l'ancien.
+
+**Mesures** :
+- Test d'intégration neuf (`balayage-parcours-actif`) vu rouge sur 3 cas sur 7 avant le correctif, vert après ; quatre
+  mutations rouges sur le banc (le code d'avant, l'espace oublié, la soupape retirée, l'endormi exclu). Avant le push :
+  typecheck, lint et auto-attaque à 0, suite racine verte (un délai dépassé sous la charge, rejoué seul vert), banc 29/29.
+- Relecture indépendante unique : aucun rouge ; plans PGlite de 2 à 18 ms jusqu'à 180 000 parcours. Poussé avant la fin de
+  sa relecture, à la demande de Julien, la relecture gardant son veto jusqu'à l'approbation du déploiement.
+- CI 44492452589 verte job par job, CodeQL vert ; déploiement 44493356208 (`migration=aucune`, approuvé par Julien), fini à
+  09:11:12 UTC, `/health` à 200.
+- Vérifié en production, en lecture seule, par la session de l'essai réel du PDF : `71981d5f6` servi (image du worker et
+  empreinte du fichier) ; le cas de 07:24 couvert (le parcours écrit 13 ms après le template, la remise 2,8 s plus tard :
+  seule une lecture du balayage dans ces 13 ms y échappait, la fenêtre du démarrage) ; aucune remise « délai de reprise
+  écoulé » depuis 09:11:12, contre 2 sur les 24 h d'avant (MUTAC) ; le balayage rejoué protège 5 fils de scénario à
+  fenêtre ouverte, dont 4 à date nulle, tous hors MUTAC : d'autres espaces étaient touchés.
+
+**Ce qui reste**, au `todo.md` : trois fenêtres étroites (au démarrage, l'avance d'un parcours resté 24 h sans écrire, entre
+la lecture et l'écriture du balayage), à fermer au lot 5a ; et un défaut voisin à instruire à part, la campagne de
+templates SANS parcours rendue à l'agent de Meta alors que la fenêtre est fermée.
+
 ## 2026-11-18 : le menu « Scénario », lot 4 : le moteur des parcours d'événement, posé éteint (en production)
 
 **La demande** : la suite du menu « Scénario » (spec `docs/superpowers/specs/2026-11-18-menu-scenario-automations-design.md`,
