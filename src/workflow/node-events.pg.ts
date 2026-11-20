@@ -63,6 +63,22 @@ export class PgWorkflowNodeEventStore {
   }
 
   /**
+   * L'envoi de bloc qui porte ce message, TOUS espaces confondus (les statuts Meta ne connaissent que l'identifiant, qui
+   * est unique chez Meta) : l'espace, le contact, le scénario et le bloc. Sert la sortie « En cas d'échec » d'un template
+   * (`creerLivraisonTemplates`). Même index que `blocDuMessage`.
+   */
+  async envoiDuMessage(metaMessageId: string): Promise<{ tenantId: string; waId: string; workflowId: string; nodeId: string } | null> {
+    const res = await this.pool.query<{ tenant_id: string; wa_id: string; workflow_id: string; node_id: string }>(
+      `select tenant_id, wa_id, workflow_id, node_id from workflow_node_events
+        where meta_message_id = $1 and kind = 'sent'
+        limit 1`,
+      [metaMessageId],
+    );
+    const l = res.rows[0];
+    return l ? { tenantId: l.tenant_id, waId: l.wa_id, workflowId: l.workflow_id, nodeId: l.node_id } : null;
+  }
+
+  /**
    * Rattache un accusé Meta (délivré / lu / échec) au bloc qui a envoyé ce message, en recopiant l'espace, le
    * scénario, le bloc et le destinataire depuis la ligne d'envoi (les statuts Meta ne connaissent que l'id).
    *

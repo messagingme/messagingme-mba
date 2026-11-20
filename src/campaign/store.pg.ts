@@ -1158,6 +1158,23 @@ export class PgCampaignRepo {
     return (res.rowCount ?? 0) === 1;
   }
 
+  /**
+   * Le scénario a pris la sortie « En cas d'échec » du template que ce destinataire a reçu (un parcours d'événement né sur
+   * le message de la campagne) : il sort de toutes les relances, qui feraient un second rattrapage du même échec (Julien,
+   * 2026-11-20, décision 3). `retry_count = 2` ferme les relances de la politique de réessai : chacune exige 0 ou 1, et
+   * `decider` lit `retry_count > 0` comme un réessai consommé. Une chaîne de repli n'est pas concernée : seules les
+   * campagnes d'événement font naître un parcours sur leur propre message, et elles n'ont qu'un étage. Sans condition
+   * d'échec : il est appelé AVANT que l'accusé ne l'écrive.
+   */
+  async cederAuScenario(messageId: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `update campaign_recipients set retry_count = 2, retried_at = now()
+       where message_id = $1 and retry_count = 0`,
+      [messageId],
+    );
+    return (res.rowCount ?? 0) === 1;
+  }
+
   /** Marque un destinataire injoignable traité (second 131026) : retry_count=2, terminal. À appeler après le
    *  flag HubSpot et la note de joignabilité, tous deux réussis. Atomique sur l'état attendu (131026, retry_count=1). */
   async markUnreachableDone(id: string): Promise<boolean> {

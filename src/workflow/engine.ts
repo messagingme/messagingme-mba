@@ -17,6 +17,7 @@ import { MAX_DESTINATAIRES_EMAIL } from '../../web/lib/partage/blocs';
 import { blocDuCode as blocDuCodePartage, cibleDuSaut as cibleDuSautPartage, entreeDuGraphe, scannerOuverture } from '../../web/lib/partage/ouverture-scenario';
 import type { AnalyseOuverture } from '../../web/lib/partage/ouverture-scenario';
 import { SORTIE_ENSUITE } from '../../web/lib/partage/sortie-ensuite';
+import { SORTIE_NON_LIVRE } from '../../web/lib/partage/sortie-non-livre';
 import { champsAVider, etiquettesARetirer, sousActions, type SousAction } from '../../web/lib/partage/actions-bloc';
 import { extraireDuJson, lignesDuBloc, type LigneExtraction } from '../../web/lib/partage/extraire-json';
 import { canonicalizeFieldValue, validateFieldValue } from '../crm/fields';
@@ -653,9 +654,18 @@ export function entryNode(graph: WorkflowGraph): string | null {
   return entreeDuGraphe(graph)?.id ?? null;
 }
 
-/** Le bloc suivant (cible de la 1re arête sortante). null s'il n'y en a pas. */
+/**
+ * Le bloc suivant (cible de la 1re arête sortante). null s'il n'y en a pas. 🔴 Jamais la sortie « En cas d'échec » d'un
+ * template (`SORTIE_NON_LIVRE`) : seul l'accusé `failed` de Meta y mène (`WorkflowExecutor.templateNonLivre`), et la
+ * prendre pour une suite enverrait un contact bien servi dans la branche d'échec.
+ */
 export function nextNode(graph: WorkflowGraph, nodeId: string): string | null {
-  return graph.edges.find((e) => e.source === nodeId)?.target ?? null;
+  return graph.edges.find((e) => e.source === nodeId && e.sourceHandle !== SORTIE_NON_LIVRE)?.target ?? null;
+}
+
+/** Le template a-t-il sa sortie « En cas d'échec » branchée ? Elle fait attendre le parcours sur lui jusqu'à l'accusé de Meta. */
+export function aSortieNonLivre(graph: WorkflowGraph, nodeId: string): boolean {
+  return graph.edges.some((e) => e.source === nodeId && e.sourceHandle === SORTIE_NON_LIVRE);
 }
 
 /** Le bloc suivant pour un handle de sortie donné (branche par bouton : sourceHandle = `btn:<index>`).
@@ -681,7 +691,7 @@ export function nextNodeSansHandle(graph: WorkflowGraph, nodeId: string): string
  * relance « pas de réponse » tout de suite.
  */
 export function nextNodeHorsTimeout(graph: WorkflowGraph, nodeId: string): string | null {
-  return graph.edges.find((e) => e.source === nodeId && e.sourceHandle !== 'timeout')?.target ?? null;
+  return graph.edges.find((e) => e.source === nodeId && e.sourceHandle !== 'timeout' && e.sourceHandle !== SORTIE_NON_LIVRE)?.target ?? null;
 }
 
 /** Destinataire valide : littéral non vide, ou champ non vide à résoudre à l'envoi (executor). Toute autre
@@ -1107,6 +1117,9 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
       // ou sans template parti (`a` nul), rien ne change.
       const delai = node.type === 'template' && a ? delaiSansReponseMs(node) : 0;
       if (delai > 0) return { actions, rest: { status: 'waiting', nodeId: current, timeoutInMs: delai } };
+      // Sortie « En cas d'échec » branchée (Julien, 2026-11-20) : le parcours attend sur le template l'accusé de Meta.
+      // `failed` le fait partir par cette sortie, `delivered` (ou `read`) par la suite libre (`WorkflowExecutor.templateLivre`).
+      if (node.type === 'template' && a && aSortieNonLivre(graph, current)) return { actions, rest: { status: 'waiting', nodeId: current } };
       // Sans MBA : seul un message rapide sans bouton continue. Avec MBA : toute étape qui n'offre pas de choix
       // continue, l'agent de Meta répondant à sa place.
       const continuer = !etapeOffreUnChoix(a) && (opts?.mbaActif === true || opts?.evenement === true || a?.kind === 'sendQuickMessage');

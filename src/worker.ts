@@ -38,6 +38,7 @@ import { runCampaignRepriseSweep } from './campaign/reprise-sweep';
 import { runWorkflowWakeSweep } from './workflow/wake-sweep';
 import { ATTENTE_REVEIL_COURT_A_L_ARRET_MS } from './workflow/reveil-court';
 import { creerSeTaitApresEscalade } from './workflow/branche-humain';
+import { creerLivraisonTemplates } from './workflow/livraison-template';
 import { runTourBloqueSweep } from './agent/tour-bloque-sweep';
 import { SORTIE_ECHEC } from '../web/lib/partage/sorties-agent';
 import { runRetrySweep } from './campaign/retry-sweep';
@@ -392,6 +393,16 @@ export async function demarrerWorker(): Promise<void> {
     executor: workflowExecutor, reveilCourt, lancements, runStore, templateVarInfo, prepareCarouselMedia, prepareHeaderMedia, buildEvalContext, rcsStack, ecrituresDeFiche,
     agentSessions, envoyerTexteAgent, poserTagDepuisAgent, etiquettes,
   } = workflowRuntime;
+
+  /**
+   * La sortie « En cas d'échec » des templates de scénario (2026-11-20), servie aux deux files qui traitent des accusés
+   * (`webhook` et `webhook-status`). Le magasin et l'exécuteur ENTIERS : leurs méthodes lisent `this`.
+   */
+  const livraisonTemplates = creerLivraisonTemplates({
+    envoiDuMessage: (wamid) => nodeEventStore.envoiDuMessage(wamid),
+    parcours: workflowExecutor,
+    cederAuScenario: (wamid) => repo.cederAuScenario(wamid),
+  });
 
   /**
    * La mémoire de joignabilité WhatsApp d'un contact, écrite par ses deux sources avec un seul noteur : le
@@ -753,6 +764,8 @@ export async function demarrerWorker(): Promise<void> {
       nodeEvents: nodeEventStore,
       // Lot 5 : un accusé d’échec du premier message d’un parcours d’événement clôt ce parcours (le magasin entier).
       parcoursSurEchec: runStore,
+      // La sortie « En cas d'échec » des templates de scénario : l'accusé fait repartir le parcours qui l'attend.
+      livraisonTemplates,
       // 🔴 Opt-out par mot-clé sur WhatsApp (STOP, désabonner...) : sans lui, un contact qui répond STOP
       // resterait `opted_in` et recevrait la campagne suivante. La source `whatsapp_stop` le distingue d'un refus
       // posé à la main. Le wamid du STOP suit jusqu'au signal : un STOP redélivré garde le même `em_event_id`.
@@ -866,7 +879,7 @@ export async function demarrerWorker(): Promise<void> {
   await queue.work('webhook-status', async (data) => {
     // Trois dépendances nommées : ce qui est absent l'est volontairement (aucune conversation, aucune
     // automation, aucun scénario ne se déclenche sur un accusé).
-    await handleWebhookJob(data, { store: eventStore, delivery: recipientStore, nodeEvents: nodeEventStore, parcoursSurEchec: runStore, remiseMba: fil.remettreSurAccuse, tarifsMeta: tarifsMetaStore, echecsLibres: echecsMessages, signauxAccuse: puitsSignaux.accuse, ajustementCredit: ajustementCreditWhatsapp });
+    await handleWebhookJob(data, { store: eventStore, delivery: recipientStore, nodeEvents: nodeEventStore, parcoursSurEchec: runStore, livraisonTemplates, remiseMba: fil.remettreSurAccuse, tarifsMeta: tarifsMetaStore, echecsLibres: echecsMessages, signauxAccuse: puitsSignaux.accuse, ajustementCredit: ajustementCreditWhatsapp });
   }, { concurrency: config.WEBHOOK_STATUS_CONCURRENCY, groupConcurrency: 1 });
 
   // File campaign-run. DRY_RUN=true : sender de démo (aucun appel Meta). Sinon : token résolu par tenant,

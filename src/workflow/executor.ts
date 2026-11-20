@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, lienPourLeContact, pauseEnSecondes, questionRows, valeurPourCible, delaiSansReponseMs } from './engine';
+import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, aSortieNonLivre, etapeOffreUnChoix, actionOf, waitMode, problemeLienBouton, lienPourLeContact, pauseEnSecondes, questionRows, valeurPourCible, delaiSansReponseMs } from './engine';
 import type { WalkStep } from './engine';
 import type { WorkflowAction, WalkRest, WorkflowButton, SendEmailAction, QuestionRow, LienBouton } from './engine';
 import type { WorkflowGraph, WorkflowNode, WorkflowNodeType } from './graph';
@@ -20,6 +20,7 @@ import { BAIL_AVANCE_S, renouvelerLeBail, type GardeDuTour } from './bail-avance
 import { REVEIL_COURT_MAX_MS, type ReveilCourt } from './reveil-court';
 import { SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
 import { SORTIE_FORMULAIRE_REMPLI } from '../../web/lib/partage/sorties-formulaire';
+import { SORTIE_NON_LIVRE } from '../../web/lib/partage/sortie-non-livre';
 import type { AgentTurnJob } from '../agent/turn-job';
 import { MOTIF_DESABONNE, MOTIF_SANS_ACCORD_MARKETING } from '../campaign/guardrails';
 import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
@@ -620,6 +621,13 @@ export interface EntrantAvance {
   rouverte?: boolean;
   redelivre?: boolean;
   media?: { mime: string | null };
+  /**
+   * L'accusé de Meta d'un template dont la sortie « En cas d'échec » est branchée (Julien, 2026-11-20) : `livre` reprend
+   * par la suite libre, `non_livre` par `SORTIE_NON_LIVRE`. Ce n'est PAS un message du contact : ni mesuré comme une
+   * réponse, ni transmis à l'agent de Meta, ni remis hors parcours. `bloc` est celui qui a envoyé le message, déjà lu
+   * par l'appelant : il désigne le parcours visé comme le message cité d'un clic.
+   */
+  livraison?: { issue: 'livre' | 'non_livre'; bloc: BlocDuMessage };
 }
 
 /** L'entrée réelle d'un message, telle que la remise hors parcours la reçoit (décisions 34 et 35). */
@@ -1810,7 +1818,10 @@ export class WorkflowExecutor {
    * blocs. `null` hors d'un clic, pour un message inconnu (envoyé avant que la mesure ne porte l'identifiant, ou par un
    * autre chemin) ou une lecture en panne : le comportement d'avant.
    */
-  private async blocDuClic(tenantId: string, bouton: string | null, messageCite: string | undefined): Promise<BlocDuMessage | null> {
+  private async blocDuClic(
+    tenantId: string, bouton: string | null, messageCite: string | undefined, livraison?: EntrantAvance['livraison'],
+  ): Promise<BlocDuMessage | null> {
+    if (livraison) return livraison.bloc;
     if (bouton === null || messageCite === undefined || !/^(btn:|card:|row:)/.test(bouton)) return null;
     return this.deps.blocDuMessage(tenantId, messageCite).catch(() => null);
   }
@@ -2293,6 +2304,53 @@ export class WorkflowExecutor {
   }
 
   /**
+   * Meta n'a pas livré le template `wamid` (statut `failed`), envoyé par `bloc` à `waId` (Julien, 2026-11-20) : le parcours
+   * qui attend sur ce bloc repart par sa sortie « En cas d'échec ». `false` quand rien n'est fait : aucun parcours n'attend
+   * sur ce bloc (il a avancé, il est clos), ou la sortie n'est pas branchée (le comportement d'avant). `true` dit que
+   * l'avance a été demandée, pas qu'elle a écrit (le bail, le fil d'un opérateur la retiennent). Rejeu sans effet :
+   * l'identifiant synthétique `<wamid>:non_livre` est dédupliqué par `lastMessageId`.
+   */
+  async templateNonLivre(
+    tenantId: string, waId: string, wamid: string, bloc: BlocDuMessage, avantDAvancer?: () => Promise<unknown>,
+  ): Promise<boolean> {
+    const attente = await this.templateQuiAttend(tenantId, waId, bloc);
+    if (!attente) return false;
+    // Ce qui doit précéder la branche d'échec (la sortie des relances de campagne) : elle envoie, et une relance partie
+    // pendant ce temps ferait deux rattrapages.
+    if (avantDAvancer) await avantDAvancer();
+    // eslint-disable-next-line no-console
+    console.log(`workflow ${bloc.workflowId}: template du bloc ${bloc.nodeId} non livré à ${waId} (${wamid}), le parcours prend « En cas d'échec »`);
+    await this.advance(tenantId, waId, `${wamid}:${SORTIE_NON_LIVRE}`, SORTIE_NON_LIVRE, 'whatsapp',
+      { reaction: false, messageCite: wamid, livraison: { issue: 'non_livre', bloc } });
+    return true;
+  }
+
+  /**
+   * Meta a livré (ou fait lire) le template `wamid` : le parcours qui n'attendait QUE cet accusé repart par sa suite libre.
+   * Seulement là où `walk` aurait continué sans attendre (agent de Meta actif ou parcours d'événement, template sans bouton
+   * ni délai « pas de réponse ») : ailleurs le parcours attend la RÉPONSE du contact, comme sans la sortie, et avancer sur
+   * l'accusé ferait qu'une réponse plus tard ne trouverait plus de parcours (même règle que `rcsDelivered`).
+   */
+  async templateLivre(tenantId: string, waId: string, wamid: string, bloc: BlocDuMessage): Promise<boolean> {
+    const attente = await this.templateQuiAttend(tenantId, waId, bloc);
+    if (!attente) return false;
+    if (etapeOffreUnChoix(actionOf(attente.node)) || delaiSansReponseMs(attente.node) > 0) return false;
+    if (attente.run.evenement === null && !(await this.mbaActif(tenantId))) return false;
+    await this.advance(tenantId, waId, `${wamid}:livre`, null, 'whatsapp',
+      { reaction: false, messageCite: wamid, livraison: { issue: 'livre', bloc } });
+    return true;
+  }
+
+  /** Le template `bloc` sur lequel un parcours de ce contact attend, quand sa sortie « En cas d'échec » est branchée. */
+  private async templateQuiAttend(tenantId: string, waId: string, bloc: BlocDuMessage): Promise<{ run: WorkflowRunRow; node: WorkflowNode } | null> {
+    const run = await this.deps.runs.findWaitingSurBloc(tenantId, waId, bloc.workflowId, bloc.nodeId);
+    if (!run) return null;
+    const graph = await grapheDuRun(run, () => this.deps.getGraph(run.workflowId, tenantId));
+    const node = graph?.nodes.find((n) => n.id === bloc.nodeId);
+    return graph && node?.type === 'template' && aSortieNonLivre(graph, node.id) ? { run, node } : null;
+  }
+
+  /**
    * Le tour d'agent a décidé de sortir : le parcours reprend par la branche `sortie:<code>` du bloc, via
    * `advance` avec un handle synthétique (comme `rcsDelivered`), pour ne pas dupliquer le chemin de reprise.
    * L'identifiant de message synthétique porte la session : rejouée, la sortie est écartée par la
@@ -2442,19 +2500,23 @@ export class WorkflowExecutor {
     entrant: EntrantAvance = { reaction: false },
   ): Promise<boolean | void> {
     const leDernier = await this.deps.runs.findWaitingByWaId(tenantId, waId);
+    // Un accusé n'est pas un message du contact : sans parcours qui attend, il n'a rien à remettre.
+    if (!leDernier && entrant.livraison) return false;
     if (!leDernier) return this.pendantUneAttente(tenantId, waId, messageId, canalRetour, entrant);
     // Lot 4 : deux parcours peuvent attendre ce contact (un parcours d'événement et un ordinaire qui coexiste, décision 21) ;
     // un clic va au parcours qui attend sur le bloc du message qu'il cite, sinon au plus récent. Le bloc cité est lu UNE fois.
-    const blocCite = await this.blocDuClic(tenantId, boutonRecu, entrant.messageCite);
+    const blocCite = await this.blocDuClic(tenantId, boutonRecu, entrant.messageCite, entrant.livraison);
     const run = await this.parcoursDuClic(tenantId, waId, leDernier, blocCite);
     if (run.lastMessageId === messageId) return; // dédup at-least-once
+    // Un accusé ne fait avancer que le parcours qui attend sur le bloc qui a envoyé le message, jamais le plus récent à défaut.
+    if (entrant.livraison && (run.workflowId !== entrant.livraison.bloc.workflowId || run.currentNode !== entrant.livraison.bloc.nodeId)) return false;
     /**
      * 🔴 DÉCISION 34 (Julien, 2026-11-19) : le clic qui n'est pas pour ce parcours d'événement ne prend aucune de ses
      * branches. Un robot qui coexiste avec lui (agent IA, scénario répondeur, application) y répond, et le parcours continue
      * d'attendre ; l'agent de Meta ou l'équipe ne partagent pas le fil : le parcours s'arrête d'abord, par son origine,
      * puis le clic revient à la remise (`false`), qui le leur donne. Jamais avalé sans réponse.
      */
-    if (run.evenement !== null && this.clicPasPourLeParcours(run, blocCite, entrant.messageCite)) {
+    if (run.evenement !== null && !entrant.livraison && this.clicPasPourLeParcours(run, blocCite, entrant.messageCite)) {
       if ((await this.deps.remettreLeClicHorsParcours(tenantId, waId, messageId, entreeReelle(entrant))) === 'confie') {
         // eslint-disable-next-line no-console
         console.log(`workflow ${run.workflowId}: clic « ${boutonRecu ?? 'null'} » hors du parcours d’événement ${run.id} (bloc ${blocCite?.nodeId ?? '?'}) : confié au répondeur, le parcours attend`);
@@ -2528,7 +2590,7 @@ export class WorkflowExecutor {
         console.log(`workflow ${run.workflowId}: parcours d’événement ${run.id} plus voulu pour ${waId}, clos`);
         await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
         await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId });
-        const unMessage = boutonRecu === null && canalRetour === 'whatsapp' && !entrant.reaction;
+        const unMessage = boutonRecu === null && canalRetour === 'whatsapp' && !entrant.reaction && !entrant.livraison;
         // Lot 5 (jaune de 4a) : un texte transmis à l'agent est pris (true) ; un clic, jamais transmis, va à la remise
         // (false), qui le donne au répondeur ou à l'agent au lieu de le laisser sans réponse.
         const aNous = await this.deps.mayAct(tenantId, waId);
@@ -2589,7 +2651,7 @@ export class WorkflowExecutor {
     // La pièce attendue par un bloc Question (spec du 2026-11-02), reconnue par son type réel : acceptée, elle prend
     // la sortie « Fichier reçu », se mesure sous elle, et ne retombe JAMAIS sur la branche prévue pour le texte.
     const pieceAcceptee = courant?.type === 'question' && !sortieAgent ? pieceAttendue(courant, entrant) : null;
-    if (run.currentNode && courant?.type !== 'rcs_message' && !sortieAgent) {
+    if (run.currentNode && courant?.type !== 'rcs_message' && !sortieAgent && !entrant.livraison) {
       const aClique = typeof buttonPayload === 'string' && buttonPayload !== '';
       await this.mesurer(
         tenantId, run.workflowId, run.currentNode, waId,
@@ -2678,9 +2740,10 @@ export class WorkflowExecutor {
       : courant?.type === 'flow'
         ? (entrant.formulaire === true ? SORTIE_FORMULAIRE_REMPLI : null)
         : pieceAcceptee !== null ? SORTIE_FICHIER : buttonPayload;
-    const sortieTypee = graph && run.currentNode
+    // L'échec de livraison d'un template ne retombe JAMAIS sur la suite libre : sans sa sortie, le parcours s'arrête.
+    const sortieTypee = entrant.livraison?.issue === 'non_livre' || (graph && run.currentNode
       ? graph.edges.some((e) => e.source === run.currentNode && (e.sourceHandle === 'sent' || e.sourceHandle === 'unreachable'))
-      : false;
+      : false);
     const next = graph && run.currentNode
       ? ((handle ? nextNodeByHandle(graph, run.currentNode, handle) : null)
         ?? (sortieTypee || pieceAcceptee !== null ? null : nextNodeSansHandle(graph, run.currentNode)))
@@ -2708,7 +2771,7 @@ export class WorkflowExecutor {
         // (a) : son message part aussi chez l'agent de Meta, qui y répond. Seulement un vrai message WhatsApp :
         // cette branche reçoit aussi des réactions et des rapports RCS, qui ne sont pas des messages du client. Une
         // réaction se reconnaît à son type : une réaction sans identifiant de message visé n'a pas de `buttonPayload`.
-        const unMessage = buttonPayload === null && canalRetour === 'whatsapp' && !entrant.reaction;
+        const unMessage = buttonPayload === null && canalRetour === 'whatsapp' && !entrant.reaction && !entrant.livraison;
         await this.rendreLaMainAMba(tenantId, waId, unMessage ? { transmettre: messageId } : {});
       }
       return;
@@ -2736,7 +2799,7 @@ export class WorkflowExecutor {
         // conditions que plus bas, saisie recueillie comprise).
         if (!(await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId }))) return;
         const aLuLaSaisie = aRecueilliLaSaisie(graph, actions);
-        const unMessage = buttonPayload === null && canalRetour === 'whatsapp' && !entrant.reaction && !aLuLaSaisie;
+        const unMessage = buttonPayload === null && canalRetour === 'whatsapp' && !entrant.reaction && !aLuLaSaisie && !entrant.livraison;
         await this.rendreLaMainAMba(tenantId, waId, unMessage ? { transmettre: messageId } : {});
         return;
       }

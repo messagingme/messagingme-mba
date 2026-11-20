@@ -1,6 +1,6 @@
 import { parseWebhook } from './parse';
 import { processStatuses } from './delivery';
-import type { EchecsLibresSink, NodeStatusSink, ParcoursSurEchecSink, RemiseMbaSurAccuse } from './delivery';
+import type { EchecsLibresSink, LivraisonTemplatesSink, NodeStatusSink, ParcoursSurEchecSink, RemiseMbaSurAccuse } from './delivery';
 import { extractInbound, processInbound } from './inbound';
 import { processFlowCompletions } from './flow-mapping';
 import { rangerParLesParcours, type RangementParLesParcours } from './rangement-par-le-parcours';
@@ -82,6 +82,11 @@ interface WebhookJobDepsCommunes {
    */
   parcoursSurEchec?: ParcoursSurEchecSink;
   /**
+   * La sortie « En cas d'échec » des templates de scénario (2026-11-20) : l'accusé de Meta fait repartir le parcours qui
+   * l'attend. Absente : un tel parcours attend sur son template jusqu'au message suivant du contact.
+   */
+  livraisonTemplates?: LivraisonTemplatesSink;
+  /**
    * Le statut d'un modèle tranché par Meta (lot 13, domaine 3, livraison C) : l'événement sortant
    * `template.status_changed`. Câblé sur la file `webhook` seulement : un statut de modèle n'est pas un accusé.
    */
@@ -156,7 +161,7 @@ export type WebhookJobDeps = WebhookJobDepsCommunes
 export async function handleWebhookJob(recu: unknown, deps: WebhookJobDeps): Promise<void> {
   const {
     store, delivery, flowMapping, workflowAdvance, remiseMbaEntrant, inboundContactUpsert,
-    handover, triggers, testTokens, nodeEvents, inboundAssignation, inboundWidget, remiseMba, parcoursSurEchec,
+    handover, triggers, testTokens, nodeEvents, inboundAssignation, inboundWidget, remiseMba, parcoursSurEchec, livraisonTemplates,
     tarifsMeta, echecsLibres, ajustementCredit, arriveesPub, routagePub, signauxAccuse, signalReponse, numerosDelies,
   } = deps;
   /**
@@ -191,7 +196,7 @@ export async function handleWebhookJob(recu: unknown, deps: WebhookJobDeps): Pro
     const isNew = await store.insertEvent(ev);
     if (!isNew && ev.dedupKey.startsWith('msg:')) alreadySeen.add(ev.dedupKey.slice(4));
   }
-  if (delivery) await processStatuses(events, delivery, { tarifs: tarifsMeta, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux: signauxAccuse, parcours: parcoursSurEchec });
+  if (delivery) await processStatuses(events, delivery, { tarifs: tarifsMeta, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux: signauxAccuse, parcours: parcoursSurEchec, livraisonTemplates });
   /**
    * Un payload qui ne porte QUE des statuts de modèles : une panne lève et fait rejouer le job par pg-boss, sans risque
    * (rien d'autre à rejouer, identifiant d'événement stable, ligne d'envoi unique par adresse). Mêlé à des messages :

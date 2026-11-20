@@ -97,6 +97,15 @@ export interface ParcoursSurEchecSink {
 }
 
 /**
+ * L'accusé d'un template de scénario dont la sortie « En cas d'échec » est branchée (Julien, 2026-11-20) : le parcours qui
+ * l'attend repart, par cette sortie sur `failed`, par sa suite sur `delivered` ou `read`. Implémenté par
+ * `creerLivraisonTemplates` (`src/workflow/livraison-template.ts`) ; un message hors scénario ne coûte qu'une lecture.
+ */
+export interface LivraisonTemplatesSink {
+  surAccuse(metaMessageId: string, status: 'delivered' | 'read' | 'failed'): Promise<void>;
+}
+
+/**
  * La remise du fil à l'agent de Meta, déclenchée par l'accusé de notre dernier envoi. Envoyer un message prend
  * le fil implicitement : relâcher dans la foulée d'un envoi relâcherait un fil que cet envoi reprend. Seul
  * l'accusé dit que Meta a fini de traiter l'envoi (il arrive en une seconde ; un retard vient de notre file).
@@ -139,6 +148,8 @@ export interface PuitsAccuses {
    * la mesure des blocs.
    */
   parcours?: ParcoursSurEchecSink;
+  /** La sortie « En cas d'échec » des templates de scénario. Best-effort, comme la mesure des blocs. */
+  livraisonTemplates?: LivraisonTemplatesSink;
   /** Les signaux ; requis au niveau du handler, seul appelant de production. */
   signaux?: SignalAccuse;
 }
@@ -154,7 +165,7 @@ export async function processStatuses(
   delivery: DeliveryStore,
   puits: PuitsAccuses,
 ): Promise<void> {
-  const { tarifs, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux, parcours } = puits;
+  const { tarifs, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux, parcours, livraisonTemplates } = puits;
   for (const ev of events) {
     if (ev.source !== 'statuses') continue;
     const d = extractDelivery(ev.data);
@@ -186,6 +197,16 @@ export async function processStatuses(
       }
     }
     if (!d) continue;
+    /**
+     * La sortie « En cas d'échec » d'un template de scénario, EN PREMIER : avant la livraison, pour que le destinataire de
+     * campagne qui porte le même message sorte des relances avant que son échec ne soit écrit (un balayage pourrait le
+     * relancer entre les deux) ; avant la remise du fil à l'agent de Meta, qui gèlerait la suite du parcours ; avant la
+     * clôture du parcours d'événement non livré, que cette sortie reprend au lieu de le clore.
+     */
+    if (livraisonTemplates && d.status !== 'sent') {
+      const statut = d.status;
+      await tenter('accusé de template de scénario ignoré:', () => livraisonTemplates.surAccuse(d.messageId, statut));
+    }
     // `le` : l'instant de l'accusé selon Meta, que le statut du message garde (`statut_le`, migration 0225).
     const touches = await delivery.updateDeliveryByMessageId(d.messageId, d.status, d.error, d.errorCode, instantDuStatut(ev.data));
     /**
