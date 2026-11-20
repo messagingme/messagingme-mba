@@ -101,14 +101,18 @@ export async function reglerLigne(
   const b = await boutiqueConnectee(deps, tenantId);
   if (!b.ok) return b;
   // Une ligne déjà allumée (la console renvoie `actif: true` avec un nouveau délai du panier) : ni refus ni proposition.
-  if (r.actif && (await deps.store.ligne(tenantId, evenement))?.actif !== true) {
-    // Sur un numéro relié par QR code, chaque événement finirait `filiere_differente` : refusé ici, comme `set_shopify_message`.
-    if ((await deps.filiere(tenantId)) === 'application') return refus(409, PHRASE_SHOPIFY_QR_CODE);
-    await assurerLigne(deps, tenantId, evenement, par);
-    // Un cas encore vide (création sautée au branchement, boutique branchée avant le 2026-11-20) reçoit son message
-    // standard ; un cas qui a son message n'est pas touché. Jamais levé : l'allumage passe.
-    await proposerMessageStandard(deps, tenantId, evenement, par);
-    await deps.store.allumerLigne(tenantId, evenement, par);
+  if (r.actif) {
+    // 🔴 Une ligne DÉJÀ allumée (la console renvoie `actif: true` avec un nouveau délai du panier ; `set_shopify_message`
+    // active true) reste allumée, sans refus ni proposition : jamais la branche « éteindre » (elle l'éteignait, 2026-11-20).
+    if ((await deps.store.ligne(tenantId, evenement))?.actif !== true) {
+      // Sur un numéro relié par QR code, chaque événement finirait `filiere_differente` : refusé ici, comme `set_shopify_message`.
+      if ((await deps.filiere(tenantId)) === 'application') return refus(409, PHRASE_SHOPIFY_QR_CODE);
+      await assurerLigne(deps, tenantId, evenement, par);
+      // Un cas encore vide (création sautée au branchement, boutique branchée avant le 2026-11-20) reçoit son message
+      // standard ; un cas qui a son message n'est pas touché. Jamais levé : l'allumage passe.
+      await proposerMessageStandard(deps, tenantId, evenement, par);
+      await deps.store.allumerLigne(tenantId, evenement, par);
+    }
   } else if (await deps.store.eteindreLigne(tenantId, evenement, par)) {
     await arreterLesParcours(deps, tenantId, prefixeShopify(b.valeur.domaine, evenement), 'ligne éteinte');
   }

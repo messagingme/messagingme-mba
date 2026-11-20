@@ -281,6 +281,16 @@ describe('le message standard d’une ligne (2026-11-20)', () => {
     expect(await reglerLigne(qr, T, 'checkout_abandoned', { actif: true, delaiMinutes: 180 }, 'u1')).toMatchObject({ ok: true });
     expect(m.store.gestes.at(-1)).toBe('delai:180');
     expect(m.creation.appels).toHaveLength(appels);
+    expect((await m.store.ligne(T, 'checkout_abandoned'))?.actif).toBe(true);
+  });
+
+  it('🔴 « allumée » renvoyée sur une ligne DÉJÀ allumée (nouveau délai, set_shopify_message active true) la LAISSE allumée, sans arrêter ses parcours', async () => {
+    const m = monter();
+    await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true }, 'u1');
+    expect(await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true, delaiMinutes: 180 }, 'u1')).toMatchObject({ ok: true, valeur: { actif: true } });
+    expect(await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true }, 'u1')).toMatchObject({ ok: true, valeur: { actif: true } });
+    expect(m.store.gestes).toEqual(['allumer:checkout_abandoned', 'delai:180']);
+    expect(m.parcours.arrets).toEqual([]);
   });
 
   it('🔴 allumer un cas encore vide le propose ; allumer sur un numéro relié par QR code est refusé, éteindre reste permis', async () => {
