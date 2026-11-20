@@ -1,7 +1,7 @@
 ---
 description: Free, Pro, Business or Enterprise: what each Messaging Me plan opens, its limits, and how to change plan or manage the subscription.
 slug: choose-my-plan
-traduit_de: 0c6f92
+traduit_de: 947702
 ---
 # Choose my plan
 
@@ -47,10 +47,10 @@ templates sent each month, a single user. Claude and the API read your conversat
 customers within 24 hours, send your templates and build your AI agent. In the console, Free keeps the Home screen
 (your number), the API keys, the documentation, the plan, your account and support.
 
-**What Pro, Business and Enterprise add.** Pro opens the console: the Inbox, scenarios, statistics and email, with
-more contacts. It includes three users, all administrators: beyond that, each extra user is paid for, and its price is
+**What Pro, Business and Enterprise add.** Pro opens the console: the Inbox, scenarios, statistics, email and the
+assistant that builds your AI agent, with more contacts. It includes three users, all administrators: beyond that, each extra user is paid for, and its price is
 shown when you invite the member, before anything is billed. The Plan page removes one, without a refund, once the
-extra member is deactivated. Business adds the Meta Business Agent, the setup assistants, the help assistant, the
+extra member is deactivated. Business adds the Meta Business Agent, the help assistant, the
 customisable widgets with no limit on their number, and team roles (administrator, manager, agent), with five users,
 onboarding and priority support;
 an extra user is requested through Support. Ads, channels, RCS, Salesforce and Batch, and the full Performance Lab

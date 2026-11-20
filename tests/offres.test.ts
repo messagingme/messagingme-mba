@@ -34,10 +34,10 @@ const GRILLE: Record<Offre, Limites> = {
 };
 
 // Le Pro resserré (spec offres v2, livraison 5) : l'analyse, les publicités et les chaînes passent à l'Entreprise.
-// Spec Business (sous-lot B) : le Pro perd encore l'agent de Meta, les assistants et l'assistant d'aide, qui passent au
-// Business avec le widget personnalisable.
-const PRO: Fonction[] = ['inbox', 'scenarios', 'statistiques', 'email', 'console'];
-const BUSINESS_EN_PLUS: Fonction[] = ['agent_meta', 'aide', 'assistants', 'widget_personnalise'];
+// Spec Business (sous-lot B) : le Pro perd encore l'agent de Meta et l'assistant d'aide, qui passent au Business avec le
+// widget personnalisable. Les assistants de configuration sont revenus au Pro le 2026-11-20 (décision de Julien).
+const PRO: Fonction[] = ['inbox', 'scenarios', 'statistiques', 'email', 'console', 'assistants'];
+const BUSINESS_EN_PLUS: Fonction[] = ['agent_meta', 'aide', 'widget_personnalise'];
 const ENTREPRISE_SEULE: Fonction[] = ['analyse', 'publicites', 'chaines', 'crm', 'rcs', 'performance_lab'];
 
 describe('la grille des offres', () => {
@@ -45,7 +45,7 @@ describe('la grille des offres', () => {
     expect(DROITS[offre].limites).toEqual(GRILLE[offre]);
   });
 
-  it('🔴 le Business ouvre ce qu’ouvre le Pro, plus l’agent de Meta, les assistants, l’aide et le widget personnalisable, et rien de ce qui reste à l’Entreprise', () => {
+  it('🔴 le Business ouvre ce qu’ouvre le Pro, plus l’agent de Meta, l’aide et le widget personnalisable, et rien de ce qui reste à l’Entreprise', () => {
     expect([...DROITS.pro.fonctions].sort()).toEqual([...PRO].sort());
     expect([...DROITS.business.fonctions].sort()).toEqual([...PRO, ...BUSINESS_EN_PLUS].sort());
     for (const f of ENTREPRISE_SEULE) expect(DROITS.business.fonctions.has(f)).toBe(false);
@@ -137,7 +137,7 @@ describe('les refus nomment l’offre qui lève la limite ou ouvre la fonction (
     expect(phraseLimite('utilisateurs', 3, { offre: 'pro' })).toMatch(/Passez en Business/);
   });
 
-  it('🔴 spec Business : l’agent de Meta, les assistants, l’assistant d’aide et le widget personnalisable renvoient au Business', () => {
+  it('🔴 spec Business : l’agent de Meta, l’assistant d’aide et le widget personnalisable renvoient au Business', () => {
     for (const f of BUSINESS_EN_PLUS) {
       expect(corpsRefusFonction(f).error, f).toMatch(/Passez en Business/);
     }

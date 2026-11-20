@@ -876,7 +876,9 @@ export function modulesDeRoutes(
     entree('pubs', 'tenant', deps.pubs, (app, d, g) => registerPubs(app, d, g.auth, g.limiteCouteuse ?? SANS_PLAFOND), toutes('publicites')),
     // `g.admin` comme les écritures MBA : la conversation ne doit pas être un chemin plus permissif que le
     // formulaire. La route repose aussi `forbidNonAdmin` : celle-ci monte, celle-là explique.
-    entree('mbaAssistant', 'tenant', deps.mbaAssistant, (app, d, g) => registerMbaAssistant(app, d, g.admin), toutes('assistants')),
+    // 🔴 Gardée par `agent_meta`, pas par `assistants` : ceux-ci s'ouvrent au Pro depuis le 2026-11-20, l'agent de Meta
+    // reste au Business, et son assistant ne doit pas se joindre par l'API quand son écran est fermé (notre clé).
+    entree('mbaAssistant', 'tenant', deps.mbaAssistant, (app, d, g) => registerMbaAssistant(app, d, g.admin), toutes('agent_meta')),
     // Admin comme ce qu'il journalise : ce journal porte le contenu des éléments supprimés.
     entree('historique', 'tenant', deps.historique, (app, d, g) => registerHistorique(app, d, g.admin)),
     entree('agentSources', 'tenant', deps.agentSources, (app, d, g) => registerAgentSources(app, d, g.admin)),

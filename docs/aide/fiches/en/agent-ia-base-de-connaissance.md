@@ -1,6 +1,6 @@
 ---
 slug: fill-an-ai-agent-knowledge-base
-traduit_de: 02adaf
+traduit_de: 00ebab
 description: Fill an AI agent’s knowledge base: your website, a document, an entry written by hand or an attachment, then reread it.
 ---
 # Fill an AI agent’s knowledge base
@@ -48,7 +48,7 @@ would want to read it, then “Add entry”.
 **5. Attach a file to the assistant.** “Build by talking” tab, “Attach a file” paperclip: a document or an image. Its
 text is extracted, split into entries, and the assistant tells you how many it added.
 
-- The assistant is part of the Business plan.
+- The assistant is included from the Pro plan.
 - Accepted: text, CSV, Markdown, PDF, Word, and JPEG, PNG, GIF and WebP images. 8 MB per document, 5 MB per image.
 - An image is read by the AI, which picks out its text: the photo of a price grid becomes entries.
 - A file with no readable text, a scanned PDF for example, is reported as such, and the 40-entry cap, if it bites, is

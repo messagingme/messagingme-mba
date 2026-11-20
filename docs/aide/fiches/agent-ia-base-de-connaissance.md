@@ -55,7 +55,7 @@ réponse telle que vous voudriez la lire, puis « Ajouter la fiche ».
 **5. Joindre un fichier à l'assistant.** Onglet « Construire en parlant », trombone « Joindre un fichier » : un
 document ou une image. Son texte est extrait, découpé en fiches, et l'assistant vous dit combien il en a ajouté.
 
-- L'assistant fait partie de l'offre Business.
+- L'assistant est inclus dès la formule Pro.
 - Sont acceptés : texte, CSV, Markdown, PDF, Word, et les images JPEG, PNG, GIF et WebP. 8 Mo par document, 5 Mo par
   image.
 - Une image est lue par l'IA, qui en relève le texte : la photo d'une grille de tarifs devient des fiches.

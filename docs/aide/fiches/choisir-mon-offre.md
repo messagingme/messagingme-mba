@@ -2,7 +2,7 @@
 description: Free, Pro, Business ou Entreprise : ce que chaque offre de Messaging Me ouvre, ses limites, et comment changer d'offre ou gérer l'abonnement.
 ecran: offre
 source_section: Offres (menu « Paramètres » > Offre)
-source_empreinte: 164b3f
+source_empreinte: 1b7ee7
 publique: oui
 rubrique: demarrer-console
 rang: 1
@@ -54,10 +54,10 @@ répondent à vos clients dans les 24 heures, envoient vos modèles et construis
 Free garde l'accueil (votre numéro), les clés d'API, la documentation, l'offre, votre compte et le support.
 
 **Ce que Pro, Business et Entreprise ajoutent.** Pro ouvre la console : l'Inbox, les scénarios, les
-statistiques et l'e-mail, avec plus de contacts. Il compte trois utilisateurs, tous administrateurs : au-delà, chaque
+statistiques, l'e-mail et l'assistant qui construit votre agent IA, avec plus de contacts. Il compte trois utilisateurs, tous administrateurs : au-delà, chaque
 utilisateur en plus se paie, et son prix s'affiche quand vous invitez le membre, avant que rien ne soit facturé. La
 page Offre en retire un, sans remboursement, une fois le membre en trop désactivé. Le Business ajoute le Meta Business
-Agent, les assistants de configuration, l'assistant d'aide, des widgets personnalisables et sans limite de nombre, et les rôles de l'équipe
+Agent, l'assistant d'aide, des widgets personnalisables et sans limite de nombre, et les rôles de l'équipe
 (administrateur, manager, agent), avec cinq utilisateurs, l'accompagnement de la mise en route et le support
 prioritaire ; un utilisateur de plus s'y demande au Support. Les publicités, les chaînes, le RCS, Salesforce et Batch,
 et le Performance Lab complet demandent l'Entreprise.

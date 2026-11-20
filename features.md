@@ -5040,13 +5040,14 @@ du 2026-10-27.
 - ✅ **L'offre Free** se pilote par l'API et Claude (le serveur MCP) : le numéro, les contacts, les envois de modèles et
   l'agent IA, avec des plafonds (contacts de toutes origines, modèles envoyés par mois civil, un seul utilisateur). Dans la console,
   elle ne garde que l'accueil, les clés d'API, la documentation, l'offre, le compte et le support (spec offres v2).
-- ✅ **Le Pro** ouvre la console (l'Inbox, les scénarios, les statistiques, l'e-mail), porte la limite de contacts
+- ✅ **Le Pro** ouvre la console (l'Inbox, les scénarios, les statistiques, l'e-mail, l'assistant qui construit l'agent
+  IA), porte la limite de contacts
   plus haut, lève celles des envois et des automations, et donne trois utilisateurs, plus un par utilisateur payé en
-  plus, tous administrateurs. **Le Business** ajoute l'agent de Meta, les assistants de configuration, l'assistant d'aide,
+  plus, tous administrateurs. **Le Business** ajoute l'agent de Meta (et son assistant de configuration), l'assistant d'aide,
   le widget personnalisable (couleur, position, libellé, avatar ; ailleurs la bulle garde l'apparence standard, le
   réglage enregistré restant en base) et les rôles de l'équipe, avec cinq utilisateurs, dix euros de crédit IA offerts et
   un support prioritaire. Un écran fermé en Pro propose la fiche d'aide qui fait la même chose pas à pas quand il en
-  existe une (les assistants, l'aide). **L'Entreprise** ajoute l'analyse des conversations, les publicités Click-to-WhatsApp, les chaînes
+  existe une (l'aide). **L'Entreprise** ajoute l'analyse des conversations, les publicités Click-to-WhatsApp, les chaînes
   WhatsApp (le Pro resserré, spec offres v2, livraison 5), le RCS, les connecteurs CRM (Batch, HubSpot, Salesforce) et
   le Performance Lab complet, avec une équipe à sa mesure. Un espace descendu de l'Entreprise au Pro garde ses publicités et ses chaînes,
   mais leurs automations se taisent, comme en Free. Côté statistiques : l'accueil, les coûts de chaque campagne et le

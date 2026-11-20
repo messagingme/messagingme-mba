@@ -13,9 +13,9 @@ export const PRIX_DEMO = {
 
 const MO = 1024 * 1024;
 /** Le Pro : la console, comme la voit un client qui lit l'aide (les pages disent l'offre demandée). */
-const PRO = ['inbox', 'scenarios', 'statistiques', 'email', 'console'];
-/** Le Business : le Pro, plus l'agent de Meta, les assistants, l'aide et le widget personnalisable (spec Business). */
-const BUSINESS = [...PRO, 'agent_meta', 'aide', 'assistants', 'widget_personnalise'];
+const PRO = ['inbox', 'scenarios', 'statistiques', 'email', 'console', 'assistants'];
+/** Le Business : le Pro, plus l'agent de Meta, l'aide et le widget personnalisable (spec Business). */
+const BUSINESS = [...PRO, 'agent_meta', 'aide', 'widget_personnalise'];
 export const LIMITES_DEMO = {
   free: {
     utilisateurs: 1, admins: 1, contacts: 100, widgets: 1, envoisModelesMois: 1000, automations: 10, suppressionsJour: 10,

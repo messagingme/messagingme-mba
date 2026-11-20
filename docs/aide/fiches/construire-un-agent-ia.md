@@ -31,8 +31,7 @@ les garde-fous d'un agent IA ».
 parlant ». Ses neuf onglets sont dans la colonne de gauche : les deux voies mènent au même agent.
 
 - Prenez l'assistant quand vous partez de zéro : il pose toutes les questions qu'il faut, une à la fois, et ne laisse
-  aucun réglage de côté. C'est le chemin le plus sûr pour un premier agent. Il fait partie de l'offre Business : en
-  formule Pro, l'onglet le dit, et les autres onglets restent ouverts.
+  aucun réglage de côté. C'est le chemin le plus sûr pour un premier agent, inclus dès la formule Pro.
 - Prenez les onglets quand vous savez déjà quoi écrire, ou pour retoucher un seul réglage : Identité et ton, Objectif et
   transferts.
 - Tout ce que l'assistant écrit reste modifiable dans les onglets, champ par champ. Chaque champ s'enregistre quand

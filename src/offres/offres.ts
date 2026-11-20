@@ -105,12 +105,14 @@ export interface SurchargeEntreprise {
 const MO = 1024 * 1024;
 
 /**
- * Le Pro resserré (spec offres v2, livraison 5, puis spec Business) : la console, l'Inbox, les scénarios, les statistiques
- * et l'e-mail. L'agent de Meta, les assistants de configuration, l'assistant d'aide et le widget personnalisable font le
- * Business ; l'analyse, les publicités, les chaînes, le CRM, le RCS et le Performance Lab, l'Entreprise.
+ * Le Pro resserré (spec offres v2, livraison 5, puis spec Business) : la console, l'Inbox, les scénarios, les statistiques,
+ * l'e-mail et les assistants de configuration (décision de Julien du 2026-11-20 : un Pro arrivait sur l'écran de son agent
+ * IA devant un cadenas, l'assistant de construction en étant l'onglet d'entrée ; celui du MBA reste derrière l'écran du
+ * MBA, fermé en Pro). L'agent de Meta, l'assistant d'aide et le widget personnalisable font le Business ; l'analyse, les
+ * publicités, les chaînes, le CRM, le RCS et le Performance Lab, l'Entreprise.
  */
-const FONCTIONS_PRO: readonly Fonction[] = ['inbox', 'scenarios', 'statistiques', 'email', 'console'];
-const FONCTIONS_BUSINESS: readonly Fonction[] = [...FONCTIONS_PRO, 'agent_meta', 'aide', 'assistants', 'widget_personnalise'];
+const FONCTIONS_PRO: readonly Fonction[] = ['inbox', 'scenarios', 'statistiques', 'email', 'console', 'assistants'];
+const FONCTIONS_BUSINESS: readonly Fonction[] = [...FONCTIONS_PRO, 'agent_meta', 'aide', 'widget_personnalise'];
 
 export const DROITS: Readonly<Record<Offre, Droits>> = {
   base: {

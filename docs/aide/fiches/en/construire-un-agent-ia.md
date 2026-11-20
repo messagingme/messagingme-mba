@@ -1,6 +1,6 @@
 ---
 slug: build-an-ai-agent
-traduit_de: 6df49b
+traduit_de: da8b12
 description: Create a WhatsApp AI agent, set it up by talking to the assistant or tab by tab, activate it, then have it answer your customers.
 ---
 # Build an AI agent
@@ -25,8 +25,7 @@ tools to an AI agent”, “Test an AI agent and read its history”, and “An 
 tabs are in the left column: both paths lead to the same agent.
 
 - Take the assistant when you start from scratch: it asks every question needed, one at a time, and leaves no setting
-  aside. It is the safest path for a first agent. It is part of the Business plan: on the Pro plan, the tab says so,
-  and the other tabs stay open.
+  aside. It is the safest path for a first agent, included from the Pro plan.
 - Take the tabs when you already know what to write, or to adjust a single setting: Identity and tone, Objective and
   handovers.
 - Everything the assistant writes stays editable in the tabs, field by field. Each field saves when you leave it, with

@@ -31,7 +31,8 @@ const ATTENDU: Record<string, string> = {
   hubspotLignes: 'crm',
   inbox: 'inbox', stats: 'partagé', flows: 'scenarios (écritures)', workflows: 'scenarios (écritures)',
   mbaPublication: 'agent_meta', mbaOutils: 'agent_meta', mba: 'agent_meta',
-  mbaAssistant: 'assistants', agentSetup: 'assistants', aide: 'aide',
+  // L'assistant du MBA suit l'agent de Meta (Business), celui de l'agent IA suit les assistants (Pro, 2026-11-20).
+  mbaAssistant: 'agent_meta', agentSetup: 'assistants', aide: 'aide',
   pubs: 'publicites', workflowReports: 'performance_lab', channelsMe: 'chaines', email: 'email',
 };
 
