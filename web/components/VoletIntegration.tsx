@@ -17,8 +17,8 @@ import { Icone } from '@/components/Icone';
  */
 export function VoletIntegration({ cle, logo, logoLarge = false, nom, resume, children }: {
   cle: string;
-  /** Chemin d'un fichier de `web/public/logos/`. */
-  logo: string;
+  /** Chemin d'un fichier de `web/public/logos/`, ou plusieurs pictogrammes côte à côte (Make, n8n, Zapier). */
+  logo: string | readonly string[];
   /** Un logo-mot (Shopify, Batch) plutôt qu'un pictogramme : affiché en largeur. Shopify exige 80 px au moins. */
   logoLarge?: boolean;
   nom: string;
@@ -41,9 +41,11 @@ export function VoletIntegration({ cle, logo, logoLarge = false, nom, resume, ch
   return (
     <details ref={ref} id={`volet-${cle}`} data-testid={`volet-${cle}`} className="group/volet rounded-carte border border-ink-200 bg-white">
       <summary className="flex cursor-pointer list-none items-center gap-4 p-5 [&::-webkit-details-marker]:hidden">
-        <span className="flex h-10 w-24 shrink-0 items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element -- un logo SVG de quelques Ko, sans optimisation à attendre */}
-          <img src={logo} alt="" className={logoLarge ? 'h-auto w-20' : 'h-8 w-8'} />
+        <span className="flex h-10 w-24 shrink-0 items-center gap-2">
+          {(typeof logo === 'string' ? [logo] : logo).map((src) => (
+            // eslint-disable-next-line @next/next/no-img-element -- un logo SVG de quelques Ko, sans optimisation à attendre
+            <img key={src} src={src} alt="" className={logoLarge ? 'h-auto w-20' : typeof logo === 'string' ? 'h-8 w-8' : 'h-6 w-6'} />
+          ))}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-ink-900">{nom}</span>

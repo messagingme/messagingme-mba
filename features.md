@@ -286,7 +286,10 @@ ils le règlent, comme Developers. Aucune adresse n'a changé.
   (`#integration-hubspot`…) ouvre son volet. **HubSpot, Salesforce et Dynamics 365 sont réservés à l'offre Entreprise** :
   en Free, Pro et Business, leur volet dit « Inclus dans l'offre Entreprise » ; en Entreprise, HubSpot a sa carte, et
   Salesforce (tant que son app n'est pas sur l'instance) comme Dynamics 365 un bouton « Nous contacter », qui ouvre le
-  Support avec l'objet prérempli.
+  Support avec l'objet prérempli. Un dernier volet, **Make, n8n, Zapier**, n'ajoute aucune mécanique : il oriente, sens par
+  sens, vers ce qui existe. Recevoir : un webhook entrant (Tools > Webhooks) ou notre API avec une clé. Envoyer : tous les
+  événements en continu (Developers > Webhooks sortants), ou à un moment précis d'un scénario (un connecteur API joué par
+  le bloc Appel API). Il renvoie au guide « Brancher Make, n8n ou Zapier » du centre d'aide.
 - ✅ **En Free, la console se réduit à l'essentiel** (spec offres v2, 2026-10-17) : **Accueil** (le numéro, et les
   trois gestes pour piloter l'espace depuis Claude Code, Cursor ou l'API), **Clés d'API**, **Documentation API**,
   **Serveur MCP**, **Offre**, le **Compte** et le **Support**. Les autres écrans restent dans la barre, grisés, et

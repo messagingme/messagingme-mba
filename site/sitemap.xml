@@ -99,6 +99,9 @@
   <url><loc>https://app.messagingme.fr/aide/agent-ia-outils/</loc></url>
   <url><loc>https://app.messagingme.fr/aide/agent-ia-tester/</loc></url>
   <url><loc>https://app.messagingme.fr/aide/agent-ia-modele-credit-garde-fous/</loc></url>
+  <url><loc>https://app.messagingme.fr/aide/brancher-make-n8n-ou-zapier/</loc></url>
+  <url><loc>https://app.messagingme.fr/aide/recevoir-des-donnees-par-webhook/</loc></url>
+  <url><loc>https://app.messagingme.fr/aide/envoyer-les-evenements-a-votre-outil/</loc></url>
   <url><loc>https://app.messagingme.fr/aide/creer-un-scenario/</loc></url>
   <url><loc>https://app.messagingme.fr/aide/bloc-envoi-template/</loc></url>
   <url><loc>https://app.messagingme.fr/aide/bloc-message-rapide/</loc></url>
@@ -152,6 +155,9 @@
   <url><loc>https://app.messagingme.fr/en/help/give-tools-to-an-ai-agent/</loc></url>
   <url><loc>https://app.messagingme.fr/en/help/test-an-ai-agent/</loc></url>
   <url><loc>https://app.messagingme.fr/en/help/ai-agent-model-credit-and-guardrails/</loc></url>
+  <url><loc>https://app.messagingme.fr/en/help/connect-make-n8n-or-zapier/</loc></url>
+  <url><loc>https://app.messagingme.fr/en/help/receive-data-by-webhook/</loc></url>
+  <url><loc>https://app.messagingme.fr/en/help/send-events-to-your-tool/</loc></url>
   <url><loc>https://app.messagingme.fr/en/help/create-a-scenario/</loc></url>
   <url><loc>https://app.messagingme.fr/en/help/send-template-block/</loc></url>
   <url><loc>https://app.messagingme.fr/en/help/quick-message-block/</loc></url>

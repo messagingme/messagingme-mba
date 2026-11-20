@@ -5,6 +5,7 @@ import { useT } from '@/lib/i18n';
 import { IntroPage, TitrePage } from '@/components/TitrePage';
 import { VoletIntegration } from '@/components/VoletIntegration';
 import { ConnecteurSurDemande } from '@/components/ConnecteurSurDemande';
+import { IntegrationAutomatisation } from '@/components/IntegrationAutomatisation';
 import { ReglageIntegrationBatch } from '@/components/ReglageIntegrationBatch';
 import { ReglageHubspot } from '@/components/ReglageHubspot';
 import { ReglageSalesforce } from '@/components/ReglageSalesforce';
@@ -80,6 +81,11 @@ function Integrations({ tenantId }: { tenantId: string }) {
         <VoletIntegration cle="dynamics" logo="/logos/dynamics-365.svg" nom="Dynamics 365"
           resume={t('Les conversations WhatsApp dans Microsoft Dynamics 365.', 'WhatsApp conversations in Microsoft Dynamics 365.')}>
           <ConnecteurSurDemande tenantId={tenantId} nom="Dynamics 365" sujet="dynamics" />
+        </VoletIntegration>
+        {/* Les outils d'automatisation sans code (2026-11-20) : ce volet oriente vers les écrans existants, sens par sens. */}
+        <VoletIntegration cle="automatisation" logo={['/logos/make.svg', '/logos/n8n.svg', '/logos/zapier.svg']} nom="Make, n8n, Zapier"
+          resume={t('Recevoir leurs données, et leur envoyer les vôtres.', 'Receive their data, and send them yours.')}>
+          <IntegrationAutomatisation />
         </VoletIntegration>
       </div>
     </div>

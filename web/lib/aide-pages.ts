@@ -10,5 +10,7 @@ export const PAGES_COMMENT_FAIRE: Readonly<Record<string, { fr: string; en: stri
   "templates": { fr: "https://app.messagingme.fr/aide/faire-approuver-un-modele/", en: "https://app.messagingme.fr/en/help/get-a-template-approved/" },
   "contacts": { fr: "https://app.messagingme.fr/aide/importer-mes-contacts/", en: "https://app.messagingme.fr/en/help/import-my-contacts/" },
   "campagnes": { fr: "https://app.messagingme.fr/aide/lancer-une-campagne/", en: "https://app.messagingme.fr/en/help/launch-a-campaign/" },
+  "webhooks": { fr: "https://app.messagingme.fr/aide/recevoir-des-donnees-par-webhook/", en: "https://app.messagingme.fr/en/help/receive-data-by-webhook/" },
+  "webhooks-sortants": { fr: "https://app.messagingme.fr/aide/envoyer-les-evenements-a-votre-outil/", en: "https://app.messagingme.fr/en/help/send-events-to-your-tool/" },
   "workflows": { fr: "https://app.messagingme.fr/aide/creer-un-scenario/", en: "https://app.messagingme.fr/en/help/create-a-scenario/" },
 };

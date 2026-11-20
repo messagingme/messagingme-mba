@@ -208,6 +208,10 @@ describe('les fiches publiques', () => {
     'agent-ia-outils': ['parler-aux-clients', 15],
     'agent-ia-tester': ['parler-aux-clients', 16],
     'agent-ia-modele-credit-garde-fous': ['parler-aux-clients', 17],
+    // Make, n8n, Zapier (Julien, 2026-11-20) : la fiche-chapeau, puis les deux sens du webhook.
+    'brancher-make-n8n-ou-zapier': ['parler-aux-clients', 18],
+    'recevoir-des-donnees-par-webhook': ['parler-aux-clients', 19],
+    'envoyer-les-evenements-a-votre-outil': ['parler-aux-clients', 20],
     // Le Crédit WhatsApp, à la vente le 2026-11-11 (aide à la connexion, lot 3v-2d), après la connexion du numéro.
     'payer-ses-messages-sans-carte-chez-meta': ['demarrer-console', 4],
     // Le mode op D, un numéro fourni par la fenêtre de Meta, avec sa vidéo (lot 6, 2026-11-13) : à côté du mode op A.
@@ -236,7 +240,7 @@ describe('les fiches publiques', () => {
     'bloc-appel-api': ['construire-un-scenario', 16],
     'bloc-extraire-du-json': ['construire-un-scenario', 17],
   };
-  /** Les sept écrans qui portent « Comment faire », et leur page. */
+  /** Les neuf écrans qui portent « Comment faire », et leur page. */
   const COMMENT_FAIRE: Record<string, string> = {
     accueil: 'connecter-mon-numero-whatsapp',
     offre: 'choisir-mon-offre',
@@ -245,6 +249,8 @@ describe('les fiches publiques', () => {
     contacts: 'importer-mes-contacts',
     campagnes: 'lancer-une-campagne',
     workflows: 'creer-un-scenario',
+    webhooks: 'recevoir-des-donnees-par-webhook',
+    'webhooks-sortants': 'envoyer-les-evenements-a-votre-outil',
   };
   const texteDe = (nom: string) => readFileSync(new URL(nom, DOSSIER), 'utf8');
   const publiques = fichiers
@@ -274,7 +280,7 @@ describe('les fiches publiques', () => {
 
   it('les pages sans capture et sans mention d’offre sont celles prévues', () => {
     expect(publiques.filter((f) => !f.publication.captures).map((f) => f.cle).sort())
-      .toEqual(['ce-qu-il-faut-chez-meta', 'creer-une-publicite', 'envoyer-un-message-rcs',
+      .toEqual(['brancher-make-n8n-ou-zapier', 'ce-qu-il-faut-chez-meta', 'creer-une-publicite', 'envoyer-un-message-rcs',
         'integrer-whatsapp-a-hubspot', 'la-fenetre-de-24-heures', 'poser-une-bulle-whatsapp-sur-mon-site',
         'publier-sur-ma-chaine-whatsapp']);
     // Connecter son numéro et garder son application se font depuis Claude Code (Free) ou l'Accueil, ouvert à la

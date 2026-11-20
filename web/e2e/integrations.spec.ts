@@ -44,7 +44,7 @@ test('🔴 « Intégrations » est la première entrée de Tools, et la page por
   await expect(page.getByRole('heading', { name: 'Intégrations', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Intégrations', exact: true })).toHaveAttribute('href', '/integrations');
   // Un volet par outil, replié : on déplie celui qu'on règle.
-  for (const cle of ['shopify', 'batch', 'hubspot', 'salesforce', 'dynamics']) {
+  for (const cle of ['shopify', 'batch', 'hubspot', 'salesforce', 'dynamics', 'automatisation']) {
     await expect(page.getByTestId(`volet-${cle}`)).not.toHaveAttribute('open', /.*/);
   }
   await expect(page.getByTestId('integration-hubspot')).toBeHidden();
@@ -96,4 +96,17 @@ test('🔴 un manager n’entre pas dans Intégrations', async ({ page }) => {
   await monter(page, 'manager');
   await page.goto('/integrations');
   await expect(page).toHaveURL(/\/inbox/);
+});
+
+test('Make, n8n, Zapier : le volet oriente, sens par sens, vers les écrans qui existent et vers le guide', async ({ page }) => {
+  await monter(page);
+  await page.goto('/integrations#integration-automatisation');
+  const volet = page.getByTestId('volet-automatisation');
+  await expect(volet).toHaveAttribute('open', '');
+  const lien = (testid: string) => volet.getByTestId(testid).getByRole('link');
+  await expect(lien('automatisation-webhook-entrant')).toHaveAttribute('href', '/webhooks');
+  await expect(lien('automatisation-cle-api')).toHaveAttribute('href', '/developers/keys');
+  await expect(lien('automatisation-webhook-sortant')).toHaveAttribute('href', '/developers/evenements');
+  await expect(lien('automatisation-connecteur')).toHaveAttribute('href', '/connecteurs');
+  await expect(volet.getByTestId('automatisation-guide')).toHaveAttribute('href', 'https://app.messagingme.fr/aide/brancher-make-n8n-ou-zapier/');
 });

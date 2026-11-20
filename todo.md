@@ -1,5 +1,13 @@
 # todo.md : backlog
 
+## 🟡 Make, n8n, Zapier : ce qui reste (2026-11-20)
+
+- L'essai réel de Julien sur la SANDBOX, dans les deux sens : Make poste sur un webhook entrant (le contact apparaît,
+  ses champs attachés), et un scénario pousse vers Make par le bloc Appel API (la donnée arrive dans Make). Numéro dans
+  `docs/prive/ESSAIS-REELS.md`.
+- `aide:charger` en production après le push, pour que le bot d'aide connaisse les trois fiches.
+- La page `/integrations/` de la vitrine ne parle pas encore de Make, n8n ni Zapier (nouveauté vitrine : la demander).
+
 ## 🟡 Les clics de lien du funnel de campagne : la même règle que les tableaux (2026-11-20)
 
 - `clicsParCampagne` (`src/stats/store.pg.ts`) compte encore, après le premier envoi, les clics SANS contact d'un

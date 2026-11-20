@@ -5,6 +5,20 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 : Make, n8n, Zapier dans Tools > Intégrations, et leurs fiches d'aide
+
+Plan `docs/superpowers/plans/2026-11-20-make-n8n-zapier.md`, en direct. Demande de Julien : une section pour ces outils,
+qui sépare recevoir et envoyer et leurs options, en réutilisant les fiches d'aide. Rien de neuf côté serveur : un volet
+« Make, n8n, Zapier » (`IntegrationAutomatisation`, logos simple-icons 13.21.0 colorés aux teintes des marques) oriente
+vers Tools > Webhooks, Developers > Clés d'API, Developers > Webhooks sortants et Tools > Connecteurs API. Trois fiches
+publiques, FR et EN : la fiche-chapeau `brancher-make-n8n-ou-zapier` (sans capture : elle oriente), et les deux sens du
+webhook, `recevoir-des-donnees-par-webhook` (6 étapes) et `envoyer-les-evenements-a-votre-outil` (4), avec leurs
+captures et leur « Comment faire » (écrans `webhooks` et `webhooks-sortants`). La fiche des webhooks sortants cite la
+section « API publique `/v1` » de `features.md` : le découpage des empreintes ne lit que les titres de niveau 2. La
+réflexion qui a fixé les deux voies d'envoi : un webhook sortant part pour TOUT l'espace à chaque événement coché ; pour
+pousser à un moment précis, c'est un connecteur API (adresse de base et chemin tirés de l'adresse de l'outil, sans
+authentification) que joue le bloc Appel API. Essai réel à faire (todo.md).
+
 ## 2026-11-20 : trois clics sur un tableau dont le template n'était jamais parti
 
 Signalé par Julien sur sw4mka (Mes tableaux, scénario J-3, template `j3_v2`) : « A cliqué sur le lien « Je
