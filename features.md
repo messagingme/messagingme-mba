@@ -2398,6 +2398,10 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
   une couleur par nature de mesure.
   ⚠️ **Les mesures démarrent à la mise en service du suivi** (2026-08-19, ~15 h 30) : une période antérieure
   reste à zéro, l'écran le dit. Rien ne reliait auparavant un message envoyé au bloc qui l'avait envoyé.
+  ⚠️ **« A cliqué sur le lien » ne compte que les destinataires** (2026-11-20) : sur un lien qui porte le jeton
+  du destinataire (tout template validé depuis le 2026-09-02), un clic qui ne vient d'aucun message envoyé (la
+  revue du template par Meta, un antivirus qui scanne l'adresse) n'est plus compté. Vu sur un tableau qui
+  affichait trois clics sur un template jamais envoyé.
 - ✅ **Créer un template sans quitter la campagne, et être prévenu quand Meta l'approuve** (2026-08-21) :
   après la soumission, l'écran **vérifie tout seul** l'avancement de la revue Meta (toutes les 15 s, et
   seulement quand l'onglet est au premier plan). Dès que le template est approuvé, il est **sélectionné

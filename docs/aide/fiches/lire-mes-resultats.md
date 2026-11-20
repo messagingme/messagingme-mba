@@ -1,7 +1,7 @@
 ---
 ecran: perf-synthese
 source_section: Analytics (menu Analytics)
-source_empreinte: 030b48
+source_empreinte: 5b72d5
 ---
 # Lire mes résultats dans le Performance Lab
 

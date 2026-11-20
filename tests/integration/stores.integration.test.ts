@@ -294,7 +294,9 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     expect(await store.countClicks(tenantId, [code], plage)).toEqual({});
     await store.recordClick(code, tenantId);
     await store.recordClick(code, tenantId);
-    expect(await store.countClicks(tenantId, [code], plage)).toEqual({ [code]: 2 });
+    // 🔴 Un lien à jeton ne compte pas un clic sans contact : c'est la revue de Meta ou un scanner, jamais un
+    // destinataire (trois clics sur un template jamais envoyé, 2026-11-20).
+    expect(await store.countClicks(tenantId, [code], plage)).toEqual({});
 
     /**
      * 🔴 QUI a cliqué (migration 0106). Trois propriétés, et chacune répond à une façon de se tromper.
@@ -329,6 +331,14 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
       [code],
     );
     expect(clics.rows.map((r) => r.contact_id)).toEqual([null, null, contactId]);
+    // Le clic attribué, lui, compte, et lui seul.
+    expect(await store.countClicks(tenantId, [code], plage)).toEqual({ [code]: 1 });
+
+    // Un lien SANS jeton (URL figée chez Meta avant 0106) n'a que des clics anonymes : ils comptent.
+    const sansJeton = await store.allocate(tenantId, newTrackingCode(), { ...cible, templateName: `${nom}_ancien` }, 'https://client.fr/ancien', false);
+    await store.confirm(tenantId, [sansJeton]);
+    await store.recordClick(sansJeton, tenantId);
+    expect(await store.countClicks(tenantId, [code, sansJeton], plage)).toEqual({ [code]: 1, [sansJeton]: 1 });
 
     // Une plage ANTÉRIEURE ne voit rien : le compteur suit la période de l'écran.
     const hier = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);

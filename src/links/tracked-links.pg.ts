@@ -369,15 +369,23 @@ export class PgTrackedLinkStore {
   /**
    * Clics par code sur la plage (bornes Europe/Paris, `to` inclus), pour les codes demandés. Ne rend que les
    * codes qui ont au moins un clic : c'est l'appelant qui sait quels codes existent et affiche zéro.
+   *
+   * 🔴 Sur un lien qui porte le jeton du destinataire (`avec_jeton`), seul un clic ATTRIBUÉ compte. Un clic sans
+   * contact y vient forcément d'ailleurs que d'un message envoyé : la revue du template par Meta (valeur d'exemple
+   * à la place du jeton, navigateur ordinaire, que `estClicAutomatique` ne peut pas reconnaître), un scanner, une
+   * adresse recopiée. Vécu le 2026-11-20 : trois clics sur un tableau dont le template n'était jamais parti.
+   * Un lien sans jeton (URL figée chez Meta avant 0106) n'a que des clics anonymes : ils comptent, faute de mieux.
    */
   async countClicks(tenantId: string, codes: readonly string[], range: DateRange): Promise<Record<string, number>> {
     if (codes.length === 0) return {};
     const res = await this.pool.query<{ code: string; n: string }>(
       `with ${BOUNDS_CTE}
        select c.code, count(*)::int as n
-         from tracked_link_clicks c, bounds b
+         from tracked_link_clicks c
+         join tracked_links l on l.code = c.code and l.tenant_id = $1, bounds b
         where c.tenant_id = $1 and c.code = any($5::text[])
           and c.at >= b.start_ts and c.at < b.end_ts
+          and (c.contact_id is not null or not l.avec_jeton)
         group by c.code`,
       [tenantId, range.from, range.to, STATS_TZ, [...new Set(codes)]],
     );
