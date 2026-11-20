@@ -1,6 +1,6 @@
 ---
 slug: meta-business-agent
-traduit_de: 7f6a0f
+traduit_de: aee875
 description: The Meta Business Agent, WhatsApp’s responder: when it answers, how to set it up, its cap, and how to take back control.
 ---
 # Meta’s responder: what it is for, and how to set it up
@@ -14,12 +14,14 @@ on your team is working on the conversation in the Inbox, they are not overridde
 when the message arrives, not before: Meta can only be given a conversation if one is open, and it opens exactly
 when the person writes.
 
-**The agent only talks in the conversations Messaging Me hands to it.** It only answers the contacts on its list,
-and Messaging Me keeps that list: you have no audience to choose and no numbers to add. When a customer writes and
-nobody is answering them, the conversation is handed to it and it answers right away; when a customer replies off
-a scenario, too. Before each template (scenario, campaign, Inbox), the contact leaves the list, so that their reply
-goes back to the scenario: during a scenario, the agent stays quiet. “Hand back” gives it the conversation, and it
-answers the customer’s next message; “Take back control” takes the contact off the list. A conversation the agent
+**Who the agent answers.** When you chose it to answer the customer, it answers **anyone** who writes to the
+number, even a stranger. When your team, an AI agent, a scenario or your application answers, it only talks in the
+conversations Messaging Me hands to it, for example through a “Send to MBA” block. This setting takes care of
+itself: you have no audience to choose and no numbers to add. When a customer writes and nobody is answering them,
+the conversation is handed to it and it answers right away; when a customer replies off a scenario, too. During a
+scenario, the agent stays quiet, provided the replies to your templates come back to Messaging Me (the setting is
+further down, “Choose at Meta who receives the replies to your templates”). “Hand back” gives it the conversation,
+and it answers the customer’s next message. A conversation the agent
 could not take (a customer who did not share their number, for example) goes to your team, in “To handle”.
 
 **Turned on, it is available; it only answers if you chose it.** Who answers the customer is set on the Home
@@ -121,9 +123,10 @@ Putting it back **recreates** it, it does not bring it back to life: you copy th
 Nothing in it is purged.
 
 **Take back control.** In the Inbox, on a conversation that Meta’s agent holds, the “Take back control” button
-really takes it from the agent, without any message going to the contact: the contact leaves the agent’s list,
-and the agent stays quiet for them until a conversation is handed to it again. Meta can refuse, and the screen
-then says so instead of letting you believe it is done.
+takes it from the agent, without any message going to the contact. When the agent only talks in the conversations
+handed to it, it stays quiet for this contact until a conversation is handed to it again. When it answers everyone,
+it keeps going until your first message to the contact. Meta can refuse, and the screen then says so instead of
+letting you believe it is done.
 In any case, **writing to the contact takes the thread for sure**.
 
 **To spot these conversations in the Inbox list**: a blue to purple gradient and a sparkle wand in front of the

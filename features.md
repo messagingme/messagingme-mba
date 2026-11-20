@@ -5187,8 +5187,14 @@ du 2026-10-27.
     parce que le produit croyait avoir confié le fil à Meta sans que Meta l'ait accepté, soit parce que la
     conversation n'apparaissait dans aucun dossier. Les deux sont corrigés.
 
-- ✅ **Pendant un scénario, l'agent se tait ; il ne parle qu'aux conversations que Messaging Me lui confie**
-  (2026-09-29). L'agent de Meta ne répond qu'aux contacts de sa **liste**, et c'est Messaging Me qui la tient :
+- ✅ **À qui l'agent de Meta répond : tout le monde s'il est le répondeur, les conversations confiées sinon**
+  (2026-09-29, revu le 2026-11-20).
+  - **Il est le répondeur** (« Qui répond au client » vaut l'agent de Meta) : il répond à **toute personne** qui écrit
+    au numéro, même un inconnu, sans rien attendre de Messaging Me. ⚠️ Pour que les réponses à vos modèles reviennent
+    aux scénarios, le routage des conversations de Meta Business Suite doit les adresser à Messaging Me (la fiche
+    d'aide du répondeur de Meta le montre) : pendant un scénario, l'agent se tait alors.
+  - **Il ne l'est pas** (l'équipe, un agent IA, un scénario, votre application) : il ne répond qu'aux contacts de sa
+    **liste**, que Messaging Me tient ; seul un bloc « Envoyer au MBA » lui en confie un.
   - **un client écrit et personne ne lui répond** (aucun scénario n'attend sa réponse, personne de l'équipe ne
     tient la conversation, ou son délai de reprise est écoulé) : la conversation est confiée à l'agent, qui répond
     **tout de suite** à ce message, même après plus de 24 heures de silence. Plusieurs messages envoyés d'affilée
@@ -5200,12 +5206,13 @@ du 2026-10-27.
     modèle ne part pas, et l'Inbox le dit (« réessayez dans un instant ») ;
   - **« Rendre la main », la fin d'un scénario et la reprise automatique** confient la conversation sans faire
     parler l'agent : il répond au prochain message du client ;
-  - **« Reprendre la main »** fait sortir le contact de la liste : l'agent se tait pour lui.
-  🔴 **Le choix « tout le monde » n'existe plus**, ni la liste de numéros de test à remplir à la main : l'agent
-  est toujours réglé sur sa liste, à chaque écriture de ses réglages, et l'allumage suit l'ordre que Meta
-  prescrit (la liste d'abord, une vérification, puis l'allumage). Un agent qui répond à tout le monde répondait
-  par-dessus nos scénarios dès qu'un modèle lui rendait la conversation (vécu le 2026-09-29 : le bouton d'un
-  scénario commencé par un modèle obtenait la réponse de l'agent à la place de la suite).
+  - **« Reprendre la main »** fait sortir le contact de la liste. Sur sa liste seule, l'agent se tait pour lui ;
+    répondeur ouvert à tout le monde, il continue jusqu'à la première réponse de l'opérateur, qui prend le fil
+    (accepté par Julien le 2026-11-20).
+  🔴 **L'audience se règle seule, jamais à la main** : elle suit le répondeur, s'aligne chez Meta après chaque
+  changement de répondeur ou d'allumage, et se vérifie toutes les 15 minutes. L'allumage passe toujours par la liste
+  (l'ordre que Meta prescrit), et une écriture des réglages ne l'efface plus (vécu le 2026-11-20 chez MUTAC : le
+  passage de main aux heures ouvrées remettait la liste chaque jour, et un inconnu restait sans réponse).
   ⚠️ Un contact effacé (suppression RGPD) sort aussi de la liste chez Meta. Un client qui n'a pas partagé son
   numéro (identifiant WhatsApp seul) ne peut pas y entrer : l'agent ne lui parle pas, et sa conversation passe à
   l'équipe, dans « À traiter », comme toute conversation que l'agent n'a pas pu prendre.

@@ -2,7 +2,7 @@
 description: Le Meta Business Agent, le répondeur de WhatsApp : quand il répond, comment le régler, son plafond, et comment reprendre la main.
 ecran: mba-settings
 source_section: MBA, le répondeur de Meta (menu « AI Agent » > MBA)
-source_empreinte: db3482
+source_empreinte: f6be1e
 publique: oui
 rubrique: parler-aux-clients
 rang: 11
@@ -20,13 +20,14 @@ qui l'obtient. Si quelqu'un de votre équipe travaille sur la conversation dans 
 Et le fil lui repasse au moment où le message arrive, pas avant : Meta ne peut se voir confier une
 conversation que s'il en existe une d'ouverte, et elle s'ouvre exactement quand la personne écrit.
 
-**L'agent ne parle qu'aux conversations que Messaging Me lui confie.** Il ne répond qu'aux contacts de sa liste,
-et c'est Messaging Me qui la tient : vous n'avez ni audience à choisir, ni numéros à y ajouter. Quand un client
-écrit et que personne ne lui répond, la conversation lui est confiée et il répond tout de suite ; quand un
-client répond à côté d'un scénario, aussi. Avant chaque modèle (scénario, campagne, Inbox), le contact sort de
-la liste, pour que sa réponse revienne au scénario : pendant un scénario, l'agent se tait. « Rendre la main »
-lui confie la conversation, et il répond au message suivant du client ; « Reprendre la main » fait sortir le
-contact de la liste. Une conversation que l'agent n'a pas pu prendre (un client qui n'a pas partagé son numéro,
+**À qui l'agent répond.** Quand vous l'avez choisi pour répondre au client, il répond à **toute personne** qui
+écrit au numéro, même un inconnu. Quand c'est votre équipe, un agent IA, un scénario ou votre application qui
+répond, il ne parle qu'aux conversations que Messaging Me lui confie, par exemple par un bloc « Envoyer au MBA ».
+Ce réglage se fait tout seul : vous n'avez ni audience à choisir, ni numéros à ajouter. Quand un client écrit et
+que personne ne lui répond, la conversation lui est confiée et il répond tout de suite ; quand un client répond à
+côté d'un scénario, aussi. Pendant un scénario, l'agent se tait, à condition que les réponses à vos modèles
+reviennent à Messaging Me (le réglage est plus bas, « Choisir chez Meta qui reçoit les réponses à vos modèles »).
+« Rendre la main » lui confie la conversation, et il répond au message suivant du client. Une conversation que l'agent n'a pas pu prendre (un client qui n'a pas partagé son numéro,
 par exemple) passe à votre équipe, dans « À traiter ».
 
 **Allumé, il est disponible ; il ne répond que si vous l'avez choisi.** Qui répond au client se règle sur
@@ -135,9 +136,10 @@ effacé » vous le rouvre. Le remettre le **recrée**, cela ne le ressuscite pas
 obtenez un élément neuf. Rien n'y est purgé.
 
 **Reprendre la main.** Dans l'Inbox, sur une conversation que l'agent de Meta tient, le bouton « Reprendre
-la main » la lui prend réellement, sans qu'aucun message ne parte chez le contact : le contact sort de la liste
-de l'agent, qui se tait pour lui jusqu'à ce qu'une conversation lui soit de nouveau confiée. Meta peut refuser,
-et l'écran le dit alors au lieu de laisser croire que c'est fait.
+la main » la lui prend, sans qu'aucun message ne parte chez le contact. Quand l'agent ne parle qu'aux
+conversations confiées, il se tait pour ce contact jusqu'à ce qu'une conversation lui soit de nouveau confiée.
+Quand il répond à tout le monde, il continue jusqu'à votre premier message au contact. Meta peut refuser, et
+l'écran le dit alors au lieu de laisser croire que c'est fait.
 Dans tous les cas, **écrire au contact prend le fil à coup sûr**.
 
 **Pour repérer ces conversations dans la liste de l'Inbox** : un dégradé bleu vers violet et une baguette à
