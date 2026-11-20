@@ -50,9 +50,9 @@ test.describe('Le lien « Comment faire »', () => {
       .toHaveAttribute('href', 'https://app.messagingme.fr/en/help/launch-a-campaign/');
   });
 
-  test('🔴 sur Webhooks, qui n’a pas de page, il n’existe pas', async ({ page }) => {
+  test('🔴 sur Connecteurs API, qui n’a pas de page, il n’existe pas', async ({ page }) => {
     await mock(page);
-    await page.goto('/webhooks');
+    await page.goto('/connecteurs');
     // La barre du haut est rendue (son menu de compte est là) : l'absence du lien n'est pas celle de la barre.
     await expect(page.getByRole('button', { name: /admin@e2e\.test/ })).toBeVisible();
     await expect(page.getByRole('link', { name: /^Comment faire/ })).toHaveCount(0);
