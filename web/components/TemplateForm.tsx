@@ -7,7 +7,7 @@ import { WhatsAppPreview } from '@/components/WhatsAppPreview';
 import { FlowBuilder } from '@/components/FlowBuilder';
 import {
   useTemplateBody, TemplateBodyField, TemplateVariableExamples, labelForSource, unmappedVariablesMessage,
-  FieldPicker, type FieldOption,
+  FieldPicker, type DonneeDuSelecteur, type FieldOption,
 } from '@/components/TemplateBodyField';
 import { exempleUrl } from '@/lib/champs-url';
 import { analyserChampsUrl, type AnalyseChampsUrl } from '@/lib/partage/champs-url';
@@ -50,6 +50,8 @@ export interface FormulairePourUnBloc {
   soumettre(input: Omit<CreateTemplateInput, 'name'>, variablesDuBloc: TemplateParamHint[]): Promise<void>;
   /** Les sources choisies dans le bloc (`node.data.variables`), qui recouvrent celles du template, position par position. */
   sourcesDuBloc?: TemplateParamHint[];
+  /** Un bloc d'un scénario Shopify : les données de son événement, en tête du sélecteur de variable. */
+  donneesEvenement?: readonly DonneeDuSelecteur[];
 }
 
 export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEtroite = false, pourUnBloc }: {
@@ -588,6 +590,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
           <div className="mt-3">
             <TemplateBodyField
               state={bodyState}
+              {...(pourUnBloc?.donneesEvenement ? { donneesEvenement: pourUnBloc.donneesEvenement } : {})}
               max={LIMITES_TEMPLATE.corps}
               label={t('Corps du message', 'Message body')}
               placeholder={t('Bonjour [Prénom], voici notre offre 🎉', 'Hello [First name], here is our offer 🎉')}

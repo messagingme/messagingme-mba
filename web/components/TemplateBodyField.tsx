@@ -11,6 +11,9 @@ import { SYSTEM_FIELDS, customFieldsOnly, systemFieldExample } from '@/lib/field
 import { inputCls } from '@/lib/ui';
 import { Icone } from '@/components/Icone';
 import { VoileMenu } from '@/components/Flottant';
+import { DONNEES_SHOPIFY, EXEMPLES_DONNEES, LIBELLES_DONNEES, type DonneeShopify } from '@/lib/partage/shopify-messages';
+
+const estDonneeShopify = (k: unknown): k is DonneeShopify => typeof k === 'string' && (DONNEES_SHOPIFY as readonly string[]).includes(k);
 
 /**
  * Le corps d'un template avec ses VARIABLES : éditeur à chips, sélecteur de champ, emojis, exemples exigés
@@ -28,6 +31,8 @@ export interface VarSource { source: ParamSource; label: string }
  *  clé connue, sinon par type de champ. */
 export function deterministicExample(source: ParamSource, fieldType?: string): string {
   if (source.type === 'now') return '31/12/2026'; // date du jour (JJ/MM/AAAA), exemple Meta déterministe
+  // Une donnée de l'événement Shopify : son exemple partagé avec le serveur (« Camille », « #1002 »...).
+  if (source.type === 'variable') return estDonneeShopify(source.key) ? EXEMPLES_DONNEES[source.key] : 'exemple';
   // Champ de base (attribut) : exemple propre par clé (Nom, Téléphone, BSUID, WhatsApp ID) via la source commune.
   if (source.type === 'attribute') return systemFieldExample(source.key ?? '');
   if (source.type === 'literal') return source.value?.trim() || 'exemple';
@@ -53,39 +58,72 @@ export function deterministicExample(source: ParamSource, fieldType?: string): s
 export function labelForSource(source: ParamSource, fields: UserFieldDef[], t: (fr: string, en?: string) => string): string {
   if (source.type === 'now') return t('Date du jour (auto)', "Today's date (auto)");
   if (source.type === 'literal') return t('Texte fixe', 'Fixed text');
+  // Une donnée de l'événement : son libellé, marqué Shopify pour la distinguer d'un champ de la fiche du même nom.
+  if (source.type === 'variable') return libelleDonneeShopify(source.key, t);
   const sys = SYSTEM_FIELDS.find((f) => f.source.type === source.type && f.source.key === source.key);
   if (sys) return t(...sys.label);
   return fields.find((f) => f.key === source.key)?.label ?? source.key ?? t('Champ', 'Field');
 }
 
-/** Une option du sélecteur de variable : champ de BASE (group 'base') ou champ perso (group 'custom'). */
-export interface FieldOption { source: ParamSource; label: string; fieldType?: string; group: 'base' | 'custom' }
+/** Le libellé d'une donnée de l'événement Shopify (« prénom (Shopify) ») ; une clé inconnue reste telle quelle. */
+export function libelleDonneeShopify(cle: string | undefined, t: (fr: string, en?: string) => string): string {
+  if (!estDonneeShopify(cle)) return cle ?? t('Donnée', 'Data');
+  const [fr, en] = LIBELLES_DONNEES[cle];
+  return t(`${fr} (Shopify)`, `${en} (Shopify)`);
+}
 
-/** Sélecteur de champ : insère une variable rattachée au champ choisi. Deux groupes (Champs de base / Mes champs)
- *  pour rester COHÉRENT avec le sélecteur de la campagne (VarsEditor). Le champ « Lien » d'un bouton s'en sert aussi
- *  (`TemplateForm`). */
+/**
+ * Une option du sélecteur de variable : donnée de l'ÉVÉNEMENT d'une automation Shopify (group 'evenement', lue dans la
+ * commande ou le panier, jamais sur la fiche), champ de BASE (group 'base') ou champ perso (group 'custom').
+ */
+export interface FieldOption { source: ParamSource; label: string; fieldType?: string; group: 'evenement' | 'base' | 'custom' }
+
+/** Une donnée de l'événement que le scénario lit (`donneesDuScenario`) : sa clé et son libellé dans les deux langues. */
+export interface DonneeDuSelecteur { cle: string; libelle: readonly [string, string] }
+
+/** Les options du sélecteur : les données de l'événement EN TÊTE, puis tous les champs, comme ailleurs. */
+export function optionsDuSelecteur(
+  userFields: UserFieldDef[], t: (fr: string, en?: string) => string, donnees: readonly DonneeDuSelecteur[] = [],
+): FieldOption[] {
+  return [
+    ...donnees.map((d) => ({ source: { type: 'variable', key: d.cle } as ParamSource, label: t(...d.libelle), group: 'evenement' as const })),
+    { source: { type: 'now' } as ParamSource, label: t('Date du jour (auto)', "Today's date (auto)"), group: 'base' as const },
+    ...SYSTEM_FIELDS.map((f) => ({ source: f.source, label: t(...f.label), group: 'base' as const })),
+    ...customFieldsOnly(userFields).map((f) => ({ source: { type: 'field', key: f.key } as ParamSource, label: f.label, fieldType: f.type, group: 'custom' as const })),
+  ];
+}
+
+/** Sélecteur de champ : insère une variable rattachée au champ choisi. Les groupes Champs de base et Mes champs restent
+ *  COHÉRENTS avec le sélecteur de la campagne (VarsEditor) ; dans le premier bloc d'une automation Shopify, les données
+ *  de la commande ou du panier viennent en tête, dans un groupe à part (Julien, 2026-11-20 : « toutes les variables, mais
+ *  qu'elle voie particulièrement les valeurs Shopify »). Le champ « Lien » d'un bouton s'en sert aussi (`TemplateForm`). */
 export function FieldPicker({ options, onPick, onClose }: {
   options: FieldOption[];
   onPick: (o: FieldOption) => void;
   onClose: () => void;
 }) {
   const t = useT();
-  const groups: Array<{ id: 'base' | 'custom'; label: string }> = [
+  const groups: Array<{ id: FieldOption['group']; label: string }> = [
+    { id: 'evenement', label: t('Données Shopify de l’événement', 'Shopify event data') },
     { id: 'base', label: t('Champs de base', 'Base fields') },
     { id: 'custom', label: t('Mes champs', 'My fields') },
   ];
   return (
     <>
       <VoileMenu onClose={onClose} />
-      <div className="absolute bottom-11 right-0 z-50 max-h-56 w-56 overflow-y-auto rounded-carte border border-ink-200 bg-white p-1 shadow-mm-md">
+      <div className="absolute bottom-11 right-0 z-50 max-h-72 w-64 overflow-y-auto rounded-carte border border-ink-200 bg-white p-1 shadow-mm-md" data-testid="selecteur-variable">
         {groups.map((g) => {
           const items = options.filter((o) => o.group === g.id);
           if (items.length === 0) return null;
+          const evenement = g.id === 'evenement';
           return (
-            <div key={g.id}>
-              <div className="px-2 py-1 text-xs font-medium text-ink-500">{g.label}</div>
+            <div key={g.id} className={evenement ? 'mb-1 rounded-controle bg-brand-50 pb-1' : undefined} data-testid={`selecteur-variable-${g.id}`}>
+              <div className={evenement ? 'px-2 py-1 text-xs font-semibold text-brand-700' : 'px-2 py-1 text-xs font-medium text-ink-500'}>{g.label}</div>
               {items.map((o, i) => (
-                <button type="button" key={`${g.id}-${i}`} onClick={() => onPick(o)} className="block w-full truncate rounded-controle px-2 py-1.5 text-left text-sm text-ink-900 hover:bg-brand-50">{o.label}</button>
+                <button
+                  type="button" key={`${g.id}-${i}`} onClick={() => onPick(o)}
+                  className={`block w-full truncate rounded-controle px-2 py-1.5 text-left text-sm ${evenement ? 'font-medium text-brand-700 hover:bg-white' : 'text-ink-900 hover:bg-brand-50'}`}
+                >{o.label}</button>
               ))}
             </div>
           );
@@ -192,12 +230,14 @@ export function unmappedVariablesMessage(unmapped: number[], t: (fr: string, en?
 }
 
 /** Éditeur du corps : chips de variables, « Variable » (rattache un champ + remplit l'exemple), emojis. */
-export function TemplateBodyField({ state, label, placeholder, hint, max }: {
+export function TemplateBodyField({ state, label, placeholder, hint, max, donneesEvenement }: {
   state: TemplateBodyState;
   label: string;
   placeholder: string;
   /** Ligne d'aide sous l'éditeur. Absente -> la phrase standard sur « Variable ». */
   hint?: string;
+  /** Un bloc d'un scénario Shopify : les données de son événement, proposées en tête du sélecteur. */
+  donneesEvenement?: readonly DonneeDuSelecteur[];
   /**
    * La longueur que Meta accepte pour ce corps (`LIMITES_TEMPLATE`) : le compteur la montre en permanence. Elle ne
    * bride pas la frappe, l'éditeur portant des jetons de variable ; le formulaire refuse l'envoi au-delà.
@@ -209,19 +249,18 @@ export function TemplateBodyField({ state, label, placeholder, hint, max }: {
   const [fieldPickerOpen, setFieldPickerOpen] = useState(false);
 
   // Source de vérité COMMUNE (web/lib/fields.ts) : les 6 champs de base + les champs perso (hors clés système).
-  // Exactement la même liste que le sélecteur de la campagne (VarsEditor) -> cohérence de bout en bout.
-  const fieldOptions: FieldOption[] = [
-    { source: { type: 'now' } as ParamSource, label: t('Date du jour (auto)', "Today's date (auto)"), group: 'base' as const },
-    ...SYSTEM_FIELDS.map((f) => ({ source: f.source, label: t(...f.label), group: 'base' as const })),
-    ...customFieldsOnly(state.userFields).map((f) => ({ source: { type: 'field', key: f.key } as ParamSource, label: f.label, fieldType: f.type, group: 'custom' as const })),
-  ];
+  // Exactement la même liste que le sélecteur de la campagne (VarsEditor) -> cohérence de bout en bout ; les données de
+  // l'événement d'une automation Shopify en tête.
+  const fieldOptions = optionsDuSelecteur(state.userFields, t, donneesEvenement);
 
   // Numéro = MAX des positions présentes + 1 (jamais le simple compte : après suppression d'un {{1}}, réutiliser
   // 2 créerait une collision {{2}}/{{2}}). La canonicalisation au submit compacte ensuite les trous.
   function insertVariable(opt: FieldOption) {
     const next = (state.positions.length ? Math.max(...state.positions) : 0) + 1;
-    state.editorRef.current?.insertToken(`{{${next}}}`, opt.label);
-    state.setVarSources((vs) => { const c = [...vs]; c[next - 1] = { source: opt.source, label: opt.label }; return c; });
+    // Une donnée de l'événement porte la marque « (Shopify) » dans sa puce : elle ne se confond pas avec un champ.
+    const libelle = opt.group === 'evenement' ? labelForSource(opt.source, state.userFields, t) : opt.label;
+    state.editorRef.current?.insertToken(`{{${next}}}`, libelle);
+    state.setVarSources((vs) => { const c = [...vs]; c[next - 1] = { source: opt.source, label: libelle }; return c; });
     state.setExamples((ex) => { const c = [...ex]; c[next - 1] = deterministicExample(opt.source, opt.fieldType); return c; });
     setFieldPickerOpen(false);
   }
@@ -246,7 +285,7 @@ export function TemplateBodyField({ state, label, placeholder, hint, max }: {
             type="button"
             onClick={() => { setFieldPickerOpen((o) => !o); setEmojiOpen(false); }}
             className="inline-flex items-center gap-1 rounded-controle border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
-            title={t('Insérer une variable (champ du contact)', 'Insert a variable (contact field)')}
+            title={donneesEvenement && donneesEvenement.length > 0 ? t('Insérer une variable (donnée Shopify ou champ du contact)', 'Insert a variable (Shopify data or contact field)') : t('Insérer une variable (champ du contact)', 'Insert a variable (contact field)')}
           >
             <Icone nom="ajouter" taille="petite" />Variable
           </button>
@@ -264,7 +303,9 @@ export function TemplateBodyField({ state, label, placeholder, hint, max }: {
       </div>
       {max !== undefined && <CompteurCaracteres reste={caracteresRestants(state.body, max)} testId="template-corps-reste" />}
       <p className="mt-1 text-xs text-ink-500">
-        {hint ?? t('« Variable » insère un champ du contact (nom, prénom, email…) : l’exemple exigé par Meta se remplit tout seul.', '“Variable” inserts a contact field (name, first name, email…): the example required by Meta fills in automatically.')}
+        {hint ?? (donneesEvenement && donneesEvenement.length > 0
+          ? t('« Variable » insère une donnée Shopify de l’événement (en tête de la liste : prénom, commande, liens…) ou un champ du contact : l’exemple exigé par Meta se remplit tout seul.', '“Variable” inserts Shopify event data (top of the list: first name, order, links…) or a contact field: the example required by Meta fills in automatically.')
+          : t('« Variable » insère un champ du contact (nom, prénom, email…) : l’exemple exigé par Meta se remplit tout seul.', '“Variable” inserts a contact field (name, first name, email…): the example required by Meta fills in automatically.'))}
       </p>
     </div>
   );

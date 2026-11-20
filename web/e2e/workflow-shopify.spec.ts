@@ -133,6 +133,31 @@ test.describe('Éditeur : un scénario Shopify (lot 5)', () => {
     ]);
   });
 
+  test('« Variable » dans le premier bloc : les données Shopify de l’événement EN TÊTE, à part, et tous les autres champs ; leurs puces disent « (Shopify) »', async ({ page }) => {
+    const recus = await monter(page);
+    await bloc(page, 'n1').click();
+    await page.getByTestId('template-modifier').click();
+    const modale = page.getByTestId('modele-du-bloc');
+    // Les variables du bloc se lisent comme des données Shopify, jamais par leur clé brute.
+    await expect(modale.getByText('prénom (Shopify)').first()).toBeVisible();
+    await expect(modale.getByText('first_name', { exact: true })).toHaveCount(0);
+    await modale.getByRole('button', { name: 'Variable', exact: true }).click();
+    const selecteur = modale.getByTestId('selecteur-variable');
+    const groupes = selecteur.locator('[data-testid^="selecteur-variable-"]');
+    await expect(groupes.first()).toHaveAttribute('data-testid', 'selecteur-variable-evenement');
+    await expect(modale.getByTestId('selecteur-variable-evenement')).toContainText('Données Shopify de l’événement');
+    await expect(modale.getByTestId('selecteur-variable-evenement').getByRole('button')).toHaveText(['prénom', 'numéro de commande', 'montant', 'lien de la commande']);
+    await expect(modale.getByTestId('selecteur-variable-base')).toBeVisible();
+    // Une donnée choisie : sa puce porte la marque, son exemple est celui de Shopify, et elle reste sur le bloc.
+    await modale.getByTestId('selecteur-variable-evenement').getByRole('button', { name: 'montant' }).click();
+    await expect(modale.getByText('montant (Shopify)').first()).toBeVisible();
+    await modale.getByTestId('template-soumettre').click();
+    await expect(modale).toHaveCount(0);
+    expect(((recus.creations[0]!.paramHints ?? []) as Array<{ source: { type: string } }>).filter((h) => h.source.type === 'variable')).toEqual([]);
+    await expect.poll(() => JSON.stringify((recus.graphes.at(-1)?.nodes.find((n) => n.id === 'n1')?.data as { variables?: unknown } | undefined)?.variables ?? []), { timeout: 10_000 })
+      .toContain('order_total');
+  });
+
   test('🔴 le retour mène à Automation > Shopify, pas à la liste des scénarios (spec 2026-11-20 § 4.4)', async ({ page }) => {
     await monter(page);
     const retour = page.getByTestId('workflow-retour');

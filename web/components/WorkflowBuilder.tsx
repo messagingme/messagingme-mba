@@ -1032,6 +1032,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             nodeId={bloc.id}
             {...(initial ? { initial } : {})}
             {...(sourcesDuBloc.length > 0 ? { sourcesDuBloc } : {})}
+            {...(donneesEvenement ? { donneesEvenement } : {})}
             enregistrerMaintenant={enregistrerMaintenant}
             onCree={(cree, v) => surModeleCree(bloc.id, cree, v)}
             onClose={() => setFormulaireDuBloc(null)}

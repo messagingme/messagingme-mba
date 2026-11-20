@@ -2,6 +2,7 @@
 
 import { Modale } from '@/components/Modale';
 import { TemplateForm } from '@/components/TemplateForm';
+import type { DonneeDuSelecteur } from '@/components/TemplateBodyField';
 import { creerModeleDuBloc, type ModeleCreeDepuisUnBloc, type TemplateParamHint, type TemplateSummary } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
@@ -11,7 +12,7 @@ import { useT } from '@/lib/i18n';
  * donne. 🔴 L'enregistrement automatique se vide AVANT l'appel : le serveur cherche le bloc dans le brouillon qu'il
  * connaît, et un bloc posé à l'instant n'y est pas encore (l'enregistrement attend 1,2 s).
  */
-export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuBloc, enregistrerMaintenant, onCree, onClose }: {
+export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuBloc, donneesEvenement, enregistrerMaintenant, onCree, onClose }: {
   tenantId: string;
   workflowId: string;
   nodeId: string;
@@ -19,6 +20,8 @@ export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuB
   initial?: TemplateSummary;
   /** Les choix de variables du bloc, qui recouvrent ceux du template. */
   sourcesDuBloc?: TemplateParamHint[];
+  /** Un scénario Shopify : les données de l'événement de sa ligne, en tête du sélecteur de variable. */
+  donneesEvenement?: readonly DonneeDuSelecteur[];
   /** Vide l'enregistrement automatique ; false : le bloc n'est pas encore enregistré, rien n'est envoyé à Meta. */
   enregistrerMaintenant: () => Promise<boolean>;
   /**
@@ -43,7 +46,10 @@ export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuB
       fermeture="boutons"
       onClose={onClose}
     >
-      <TemplateForm tenantId={tenantId} initial={initial} onCreated={() => {}} pourUnBloc={{ soumettre, ...(sourcesDuBloc ? { sourcesDuBloc } : {}) }} />
+      <TemplateForm
+        tenantId={tenantId} initial={initial} onCreated={() => {}}
+        pourUnBloc={{ soumettre, ...(sourcesDuBloc ? { sourcesDuBloc } : {}), ...(donneesEvenement ? { donneesEvenement } : {}) }}
+      />
     </Modale>
   );
 }
