@@ -225,6 +225,18 @@ describe('runTurn : les gardes du tour (tâche 13a)', () => {
     spy.mockRestore();
   });
 
+  it('🔴 agent désactivé ou en brouillon : sortie par la branche d échec, sans appeler le cerveau (décision 7 du 2026-11-20)', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const status of ['disabled', 'draft'] as const) {
+      const { deps, brain, envois, sorties } = make({ agents: { byId: async () => ({ ...FICHE, status }) } });
+      expect(await runTurn(JOB, deps), status).toEqual({ fait: 'erreur', sortie: 'echec' });
+      expect(brain.appels).toEqual([]);
+      expect(envois).toEqual([]);
+      expect(sorties).toEqual(['echec']);
+    }
+    spy.mockRestore();
+  });
+
   it('plafond de tours à la FRONTIÈRE : le dernier tour autorisé passe encore', async () => {
     // `max_tours` peut valoir 1 (CHECK de la migration 0086). Avec `>=`, un tel agent ne pourrait JAMAIS
     // parler. La borne est donc `>`, et ce test l'ancre : tours == maxTours doit encore passer.

@@ -6,7 +6,7 @@ import { espaceVerifie } from './scope';
 import {
   apercuImportClients, connecterShopify, couperShopify, etatShopify, importerClients, type DepsGestionShopify,
 } from '../shopify/gestion';
-import { EVENEMENTS_DISPONIBLES, estEvenementShopify } from '../shopify/donnees';
+import { AUTOMATIONS_DISPONIBLES, estAutomationShopify } from '../shopify/donnees';
 import { reglerAttestation, reglerLigne, reglerPause } from '../shopify/lignes-gestion';
 import { reglerMessage } from '../shopify/preparation';
 
@@ -44,7 +44,8 @@ const corpsBranchement = z.object({ boutique: z.string().max(200), clientId: z.s
 const corpsReglage = z.object({ delaiMinutes: z.number().int().optional(), ...consentementIgnore }).strict();
 const corpsImport = z.object({ maximum: z.number().int() }).strict();
 const corpsPause = z.object({ pause: z.boolean() }).strict();
-const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int().optional() }).strict();
+// `agentId` : la relance de panier avec agent IA seulement (2026-11-20), l'agent qui répond au bouton « Vous avez une question ? ».
+const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int().optional(), agentId: z.string().uuid().optional() }).strict();
 // La langue choisit la phrase attestée côté serveur (`TEXTE_ATTESTATION_SHOPIFY`) : jamais un texte reçu.
 const corpsAttestation = z.object({ coche: z.boolean(), langue: z.enum(['fr', 'en']).optional() }).strict();
 
@@ -111,8 +112,8 @@ export function registerShopify(app: FastifyInstance, deps: ShopifyRouteDeps, ga
   app.put('/tenants/:tenantId/integrations/shopify/lignes/:evenement', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const { evenement } = req.params as { evenement: string };
-    if (!estEvenementShopify(evenement) || !EVENEMENTS_DISPONIBLES.includes(evenement)) {
-      return reply.code(400).send({ error: `evenement : un de ${EVENEMENTS_DISPONIBLES.join(', ')}.` });
+    if (!estAutomationShopify(evenement) || !AUTOMATIONS_DISPONIBLES.includes(evenement)) {
+      return reply.code(400).send({ error: `evenement : un de ${AUTOMATIONS_DISPONIBLES.join(', ')}.` });
     }
     const corps = corpsLigne.safeParse(req.body ?? {});
     if (!corps.success) return reply.code(400).send({ error: raisonCorps(corps.error) });

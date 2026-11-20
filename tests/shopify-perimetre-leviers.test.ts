@@ -34,7 +34,9 @@ describe('le périmètre des leviers, une seule définition', () => {
     expect(TOUCHES).toContain(sourceDeLaLigne('lg'));
     expect(LEVIERS_ENVOIS).toContain(ligneDuMessage('m', 'cv.tenant_id', 'lg'));
     expect(LEVIERS_ENVOIS).toContain(sourceDeLaLigne('lg'));
-    expect(sourceDeLaLigne('lg')).toBe("case lg.evenement when 'checkout_abandoned' then 'relance_panier' when 'order_paid' then 'commande_payee' "
+    // Les deux relances du panier (la normale, celle avec agent IA, 2026-11-20) : une seule automation, la relance.
+    expect(sourceDeLaLigne('lg')).toBe("case lg.evenement when 'checkout_abandoned' then 'relance_panier' when 'checkout_abandoned_agent' then 'relance_panier' "
+      + "when 'order_paid' then 'commande_payee' "
       + "when 'order_fulfilled' then 'commande_expediee' end");
   });
 

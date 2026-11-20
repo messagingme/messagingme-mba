@@ -405,6 +405,8 @@ interface OptionsReprise {
   horsParcours?: 'confie' | 'ne_coexiste_pas';
   /** Décision 35 : aucun parcours n'attend le contact ; celui de l'événement DORT dans une Attente, ou un ordinaire. */
   endormi?: 'evenement' | 'ordinaire';
+  /** Les tours d'agent enfilés (bloc Agent IA d'une branche) : présent, le banc câble les sessions et la file des tours. */
+  toursAgent?: string[];
 }
 
 /** Le premier message d'un parcours d'événement, tel que la naissance du lot 5 le garde. */
@@ -472,12 +474,66 @@ function bancReprise(o: OptionsReprise = {}) {
     mayAct: b.fil.peutAgir,
     reclaimControl: b.fil.reprendrePourLApp,
     varsFor: async () => o.varsFiche ?? {},
+    ...(o.toursAgent !== undefined ? {
+      agentSessions: {
+        byRun: async () => null,
+        open: async () => ({ id: 's-1', tours: 0 }),
+      } as unknown as WorkflowExecutorDeps['agentSessions'],
+      enqueueAgentTurn: async (job: { nodeId: string }) => { o.toursAgent!.push(job.nodeId); },
+    } : {}),
   };
   deps.setField = async (_t, _w, cle, valeur) => { champs.push(`${cle}=${String(valeur)}`); };
   return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur, horsParcours, entrees, arrets, modeles, champs, escalades };
 }
 
 const clic = (bouton: string) => ({ reaction: false, messageCite: 'wamid.tpl', type: 'button' as const, bouton });
+
+/**
+ * LA RELANCE DE PANIER AVEC AGENT IA (plan 2026-11-20, tâche 6) : le lien du panier, puis la réponse rapide « Vous avez une
+ * question ? » qui mène au bloc Agent IA, comme le pose `avecLAgent` (`src/shopify/lignes-gestion.ts`).
+ */
+const PANIER_AGENT: WorkflowGraph = {
+  nodes: [
+    n('tpl', 'template', { templateName: 'panier_agent', language: 'fr', templateButtons: [{ type: 'URL', text: 'Reprendre mon panier' }, { type: 'QUICK_REPLY', text: 'Vous avez une question ?' }] }),
+    n('agent_ia', 'agent', { agentId: 'ag1' }),
+    n('fin_agent_ia', 'action', {}),
+  ],
+  edges: [
+    { id: 'e1', source: 'tpl', target: 'agent_ia', sourceHandle: 'btn:1' },
+    { id: 'e2', source: 'agent_ia', target: 'fin_agent_ia', sourceHandle: 'sortie:humain' },
+  ],
+};
+
+describe('la relance de panier avec agent IA, au clic (plan 2026-11-20, tâche 6)', () => {
+  it('🔴 « Vous avez une question ? » : le parcours reprend la main et enfile le tour de l’agent du bloc', async () => {
+    silence();
+    const tours: string[] = [];
+    const m = bancReprise({ graphe: PANIER_AGENT, toursAgent: tours });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:1', 'whatsapp', clic('btn:1'));
+    expect(tours).toEqual(['agent_ia']);
+    expect(m.priseDeMain).toEqual(['r-evt']);
+    expect(m.ecritures).toContain('r-evt:waiting');
+  });
+
+  it('🔴 le contact suivi par l’agent de Meta : repris pour l’app, puis l’agent IA (décision 6)', async () => {
+    silence();
+    const tours: string[] = [];
+    const m = bancReprise({ graphe: PANIER_AGENT, toursAgent: tours, detenteur: 'mba' });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:1', 'whatsapp', clic('btn:1'));
+    expect(m.b.etat(WA)?.owner).toBe('app_workflow');
+    expect(tours).toEqual(['agent_ia']);
+  });
+
+  it('🔴 un opérateur tient le fil : aucun tour d’agent, le parcours se clôt (décision 2)', async () => {
+    silence();
+    const tours: string[] = [];
+    const m = bancReprise({ graphe: PANIER_AGENT, toursAgent: tours, detenteur: 'app_human' });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:1', 'whatsapp', clic('btn:1'));
+    expect(tours).toEqual([]);
+    expect(m.envois).toEqual([]);
+    expect(m.ecritures).toEqual(['r-evt:done']);
+  });
+});
 
 describe('la réponse du contact à un parcours d’événement (advance)', () => {
   it('🔴 un clic sur un bouton du premier template prend SA branche, et le parcours reprend la main', async () => {

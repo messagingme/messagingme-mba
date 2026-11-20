@@ -3,6 +3,7 @@ import { decryptSecret, encryptSecret } from '../crypto/secretbox';
 import { enTransaction } from '../db/transaction';
 import { estDonneeShopify, type DonneeShopify, type EvenementShopify } from './donnees';
 import type { LigneShopify } from './lignes';
+import { LIGNES_DU_PANIER, autreRelanceDuPanier, lignesDe, type AutomationShopify } from '../../web/lib/partage/shopify-messages';
 
 /**
  * LE STORE DU CONNECTEUR SHOPIFY (plan 2026-10-21, lot 1), seul à écrire les tables `shopify_*` (migration 0246) ;
@@ -139,14 +140,15 @@ export const BAIL_EVENEMENT_S = 120;
 
 /**
  * Ce qui rend un panier DÛ : ouvert, jamais relancé, avec un téléphone et un lien, dont la dernière modification a dépassé
- * le délai de SA boutique, connectée et hors pause, et dont la ligne `checkout_abandoned` est allumée (lot 5, migration
- * 0299). 🔴 Et modifié depuis la dernière reprise de la boutique ou le dernier rallumage de la ligne (`paniers_depuis`,
+ * le délai de SA boutique, connectée et hors pause, et dont une ligne du panier est allumée (lot 5, migration 0299 ; la
+ * relance normale OU celle avec agent IA, 0306, exclusives : `LIGNES_DU_PANIER`, que `tests/shopify-ligne-agent.test.ts`
+ * compare à ce texte). 🔴 Et modifié depuis la dernière reprise de la boutique ou le dernier rallumage de la ligne (`paniers_depuis`,
  * décision 15) : un panier noté avant ne part jamais après coup. Aucune affirmation du marchand n'est exigée (décision de
  * Julien du 2026-10-26 : le consentement de ses clients est sa responsabilité).
  */
 const PANIERS_DUS = `from shopify_paniers p
            join shopify_boutiques b on b.tenant_id = p.tenant_id
-           join shopify_lignes l on l.tenant_id = p.tenant_id and l.evenement = 'checkout_abandoned'
+           join shopify_lignes l on l.tenant_id = p.tenant_id and l.evenement in ('checkout_abandoned', 'checkout_abandoned_agent')
           where p.ferme_le is null and p.relance_le is null and p.telephone is not null and p.lien is not null
             and b.etat = 'connectee' and b.pause_le is null and l.actif
             and (b.paniers_depuis is null or p.maj_le >= b.paniers_depuis)
@@ -160,7 +162,7 @@ interface LigneBoutique {
   delai_panier_minutes: number; origine: OrigineBoutique; pause_le: Date | null;
 }
 
-interface LigneLue { evenement: EvenementShopify; workflow_id: string; actif: boolean; modifie_le: Date }
+interface LigneLue { evenement: AutomationShopify; workflow_id: string; actif: boolean; modifie_le: Date }
 
 const versLigne = (r: LigneLue): LigneShopify => ({
   evenement: r.evenement, workflowId: r.workflow_id, actif: r.actif, modifieLe: r.modifie_le.toISOString(),
@@ -332,7 +334,7 @@ export class PgShopifyStore {
     return res.rows.map(versLigne);
   }
 
-  async ligne(tenantId: string, evenement: EvenementShopify): Promise<LigneShopify | null> {
+  async ligne(tenantId: string, evenement: AutomationShopify): Promise<LigneShopify | null> {
     const r = (await this.pool.query<LigneLue>(
       `select evenement, workflow_id, actif, modifie_le from shopify_lignes where tenant_id = $1 and evenement = $2`,
       [tenantId, evenement],
@@ -344,7 +346,7 @@ export class PgShopifyStore {
    * Pose la ligne d'un événement, ÉTEINTE, sur son scénario. Une ligne existe déjà : elle est rendue telle quelle, son
    * scénario n'est jamais remplacé (deux créations simultanées gardent la première).
    */
-  async poserLigne(tenantId: string, l: { evenement: EvenementShopify; workflowId: string; par: string | null }): Promise<LigneShopify> {
+  async poserLigne(tenantId: string, l: { evenement: AutomationShopify; workflowId: string; par: string | null }): Promise<LigneShopify> {
     await this.pool.query(
       `insert into shopify_lignes (tenant_id, evenement, workflow_id, actif, modifie_par, modifie_le)
        values ($1, $2, $3, false, $4, now())
@@ -357,18 +359,32 @@ export class PgShopifyStore {
   }
 
   /**
-   * Allume la ligne ; `false` si elle l'était déjà ou n'existe pas. 🔴 Rallumer la ligne du panier pose `paniers_depuis`
+   * Allume la ligne ; `false` si elle l'était déjà ou n'existe pas. 🔴 Rallumer une ligne du panier pose `paniers_depuis`
    * dans la même transaction : un panier noté avant ne part jamais après coup (appel A2 du plan du lot 5).
+   * 🔴 LES DEUX RELANCES DU PANIER SONT EXCLUSIVES (plan 2026-11-20) : allumer l'une ÉTEINT l'autre dans la même
+   * transaction. Les deux lignes se verrouillent d'abord, dans un ordre fixe : deux allumages croisés se suivent au lieu de
+   * s'interbloquer, et le second éteint le premier. L'arrêt des parcours de celle qu'on éteint revient à l'appelant.
    */
-  async allumerLigne(tenantId: string, evenement: EvenementShopify, par: string | null): Promise<boolean> {
+  async allumerLigne(tenantId: string, evenement: AutomationShopify, par: string | null): Promise<boolean> {
+    const autre = autreRelanceDuPanier(evenement);
     return enTransaction(this.pool, async (client) => {
+      if (autre !== null) {
+        await client.query(
+          `select 1 from shopify_lignes where tenant_id = $1 and evenement = any($2::text[]) order by evenement for update`,
+          [tenantId, LIGNES_DU_PANIER],
+        );
+      }
       const res = await client.query(
         `update shopify_lignes set actif = true, modifie_par = $3, modifie_le = now()
           where tenant_id = $1 and evenement = $2 and not actif`,
         [tenantId, evenement, par],
       );
       const allumee = (res.rowCount ?? 0) > 0;
-      if (allumee && evenement === 'checkout_abandoned') {
+      if (allumee && autre !== null) {
+        await client.query(
+          `update shopify_lignes set actif = false, modifie_par = $3, modifie_le = now() where tenant_id = $1 and evenement = $2 and actif`,
+          [tenantId, autre, par],
+        );
         await client.query(`update shopify_boutiques set paniers_depuis = now(), maj_le = now() where tenant_id = $1`, [tenantId]);
       }
       return allumee;
@@ -399,7 +415,7 @@ export class PgShopifyStore {
   }
 
   /** Éteint la ligne ; `false` si elle l'était déjà ou n'existe pas. L'arrêt de ses parcours revient à l'appelant. */
-  async eteindreLigne(tenantId: string, evenement: EvenementShopify, par: string | null): Promise<boolean> {
+  async eteindreLigne(tenantId: string, evenement: AutomationShopify, par: string | null): Promise<boolean> {
     const res = await this.pool.query(
       `update shopify_lignes set actif = false, modifie_par = $3, modifie_le = now()
         where tenant_id = $1 and evenement = $2 and actif`,
@@ -554,12 +570,13 @@ export class PgShopifyStore {
     boutique: 'absente' | 'coupee' | 'pause' | 'active';
     ligneActive: boolean;
   }> {
-    const r = (await this.pool.query<{ etat: EtatBoutique; en_pause: boolean; actif: boolean | null }>(
-      `select b.etat, b.pause_le is not null as en_pause, l.actif
+    // Une des lignes de l'événement allumée suffit : pour le panier, la relance normale OU celle avec agent IA (0306).
+    const r = (await this.pool.query<{ etat: EtatBoutique; en_pause: boolean; actif: boolean }>(
+      `select b.etat, b.pause_le is not null as en_pause,
+              exists (select 1 from shopify_lignes l where l.tenant_id = b.tenant_id and l.evenement = any($3::text[]) and l.actif) as actif
          from shopify_boutiques b
-         left join shopify_lignes l on l.tenant_id = b.tenant_id and l.evenement = $3
         where b.tenant_id = $1 and b.domaine = $2`,
-      [tenantId, domaine, evenement],
+      [tenantId, domaine, lignesDe(evenement)],
     )).rows[0];
     if (r === undefined) return { boutique: 'absente', ligneActive: false };
     return { boutique: r.etat === 'coupee' ? 'coupee' : r.en_pause ? 'pause' : 'active', ligneActive: r.actif === true };
@@ -583,7 +600,7 @@ export class PgShopifyStore {
        update shopify_paniers p set relance_le = now()
          from dus, shopify_boutiques b, shopify_lignes l
         where p.tenant_id = dus.tenant_id and p.jeton = dus.jeton and p.relance_le is null
-          and b.tenant_id = p.tenant_id and l.tenant_id = p.tenant_id and l.evenement = 'checkout_abandoned'
+          and b.tenant_id = p.tenant_id and l.tenant_id = p.tenant_id and l.evenement in ('checkout_abandoned', 'checkout_abandoned_agent') and l.actif
        returning p.tenant_id, p.jeton, p.telephone, p.nom, p.lien, b.domaine, l.workflow_id`,
       [limite],
     );

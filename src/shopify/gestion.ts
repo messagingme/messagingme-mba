@@ -7,8 +7,8 @@ import type { ImportInput } from '../crm/import';
 import type { ImportReport } from '../crm/types';
 import { LimiteOffreError } from '../offres/refus';
 import {
-  CATEGORIES_ADMISES, DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_PAR_EVENEMENT, EVENEMENTS_DISPONIBLES, estDonneeShopify,
-  estEvenementShopify,
+  AUTOMATIONS_DISPONIBLES, CATEGORIES_ADMISES, DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_PAR_EVENEMENT, LIGNE_PANIER_AGENT, estAutomationShopify,
+  estDonneeShopify, evenementDe, type AutomationShopify,
   type DonneeShopify, type EvenementShopify,
 } from './donnees';
 import type { AttenteMessage, AttestationShopify, MessageBranche, OrigineBoutique, PgShopifyStore, VueBoutique } from './store.pg';
@@ -191,6 +191,8 @@ export interface Branchement {
   actif: unknown;
   /** La relance de panier seulement : le délai après la dernière modification du panier, en minutes. */
   delaiMinutes?: unknown;
+  /** La relance de panier avec agent IA seulement : l'agent qui répond au bouton « Vous avez une question ? ». */
+  agentId?: unknown;
 }
 
 /** Ce que rend `set_shopify_message` : les lignes après le geste, et la version programmée que la publication a annulée. */
@@ -208,10 +210,16 @@ export interface IssueBranchement {
 export async function brancherMessage(
   deps: DepsGestionShopify, tenantId: string, b: Branchement, par: string | null,
 ): Promise<Issue<IssueBranchement>> {
-  if (!estEvenementShopify(b.evenement) || !EVENEMENTS_DISPONIBLES.includes(b.evenement)) {
-    return refus(400, `event : ${EVENEMENTS_DISPONIBLES.join(', ')}.`);
+  if (!estAutomationShopify(b.evenement) || !AUTOMATIONS_DISPONIBLES.includes(b.evenement)) {
+    return refus(400, `event : ${AUTOMATIONS_DISPONIBLES.join(', ')}.`);
   }
-  const evenement: EvenementShopify = b.evenement;
+  const automation: AutomationShopify = b.evenement;
+  // L'événement de Shopify qui la porte : ses données, ses catégories admises. La relance avec agent IA est celle du panier.
+  const evenement = evenementDe(automation);
+  const agentLigne = automation === LIGNE_PANIER_AGENT;
+  if (present(b.agentId) && (!agentLigne || typeof b.agentId !== 'string')) {
+    return refus(400, `agent_id : pour ${LIGNE_PANIER_AGENT} seulement, l’identifiant d’un agent IA actif (list_agents).`);
+  }
   const actif = b.actif === undefined ? true : b.actif;
   if (typeof actif !== 'boolean') return refus(400, 'active : vrai ou faux.');
   // 🔴 Sur un numéro relié par QR code, AUCUN message Shopify ne s'allume (2026-10-24) : ce numéro ne fait que répondre, la
@@ -222,9 +230,10 @@ export async function brancherMessage(
   if (qrCode && present(b.modele)) {
     return refus(400, 'template : sur un numéro relié par QR code, les messages Shopify ne peuvent pas partir ; seul active false, qui éteint l’automation, est permis.');
   }
-  // Le template : requis pour allumer ; pour éteindre, il se pose s'il est donné, et la ligne éteinte le garde.
+  // Le template : requis pour allumer ; pour éteindre, il se pose s'il est donné, et la ligne éteinte le garde. La relance
+  // avec agent IA s'allume sans lui : son message standard (le bouton « Vous avez une question ? » relié à l'agent) se crée.
   let modele: string | null = null;
-  if (present(b.modele) || actif) {
+  if (present(b.modele) || (actif && !agentLigne)) {
     if (typeof b.modele !== 'string' || b.modele.trim() === '' || b.modele.length > 512) return refus(400, 'template : le nom du modèle WhatsApp.');
     modele = b.modele.trim();
   }
@@ -254,7 +263,7 @@ export async function brancherMessage(
   // 🔴 L'attestation AVANT toute écriture (relecture du 2026-11-20) : sans elle, rien ne s'allume, et le premier bloc ne doit
   // pas être réécrit (ni une version en attente de Meta annulée) pour un allumage qui sera refusé. Une ligne déjà allumée
   // reste allumée sans elle.
-  if (actif && (await deps.lignes.store.ligne(tenantId, evenement))?.actif !== true
+  if (actif && (await deps.lignes.store.ligne(tenantId, automation))?.actif !== true
     && (await attestationEnVigueur(deps.lignes, tenantId, boutique.domaine)) === null) {
     return refus(409, PHRASE_ATTESTATION_REQUISE);
   }
@@ -275,11 +284,13 @@ export async function brancherMessage(
   }
   let programmationAnnulee = false;
   if (modele !== null) {
-    const pose = await brancherLePremierBloc(deps.lignes, tenantId, { evenement, modele, langue, variables }, par);
+    const pose = await brancherLePremierBloc(deps.lignes, tenantId, { evenement: automation, modele, langue, variables }, par);
     if (!pose.ok) return pose;
     programmationAnnulee = pose.valeur.programmationAnnulee;
   }
-  const r = await reglerLigne(deps.lignes, tenantId, evenement, { actif, ...(typeof b.delaiMinutes === 'number' ? { delaiMinutes: b.delaiMinutes } : {}) }, par);
+  const r = await reglerLigne(deps.lignes, tenantId, automation, {
+    actif, ...(typeof b.delaiMinutes === 'number' ? { delaiMinutes: b.delaiMinutes } : {}), ...(typeof b.agentId === 'string' ? { agentId: b.agentId } : {}),
+  }, par);
   if (!r.ok) return r;
   return { ok: true, valeur: { lignes: await etatDesLignes(deps.lignes, tenantId), programmationAnnulee } };
 }

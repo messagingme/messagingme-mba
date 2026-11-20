@@ -13,6 +13,7 @@ import {
 import { envoyerPremierBloc, pontSelonLOffre, type DepsEnvoiShopify, type IssueShopify } from './envoi';
 import { PREFIXE_LIGNE_SHOPIFY, attribuerCommande, detailsDeCommande } from './attribution';
 import { origineShopify, prefixeShopify } from './lignes';
+import { LIGNES_DU_PANIER } from '../../web/lib/partage/shopify-messages';
 import { donneeManquante, premierBloc, type LecturesPremierBloc } from './premier-bloc';
 import type { DetailsCommande, EtatBoutique, OrigineBoutique, PgShopifyStore } from './store.pg';
 import type { SourceOffres } from '../offres/offre.pg';
@@ -210,7 +211,10 @@ async function attribuerSansFreiner(deps: DepsTraitementShopify, b: BoutiqueRecu
  * un téléphone sans raison.
  */
 async function relanceActive(deps: DepsTraitementShopify, b: BoutiqueRecue): Promise<boolean> {
-  return !b.pause && (await deps.store.ligne(b.tenantId, 'checkout_abandoned'))?.actif === true;
+  if (b.pause) return false;
+  // L'une des deux relances du panier (la normale, ou celle avec agent IA : exclusives, 2026-11-20).
+  for (const l of LIGNES_DU_PANIER) if ((await deps.store.ligne(b.tenantId, l))?.actif === true) return true;
+  return false;
 }
 
 /**

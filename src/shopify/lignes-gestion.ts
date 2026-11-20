@@ -7,7 +7,12 @@ import type { WorkflowGraph, WorkflowNode } from '../workflow/graph';
 import type { PgWorkflowStore } from '../workflow/store.pg';
 import type { WorkflowExecutor } from '../workflow/executor';
 import { programmerMenage, type DepsMenage, type IssueCreationDeBloc } from '../workflow/modeles-de-bloc';
-import { EXEMPLES_DONNEES, TEXTE_ATTESTATION_SHOPIFY } from '../../web/lib/partage/shopify-messages';
+import {
+  AUTOMATIONS_SHOPIFY, EXEMPLES_DONNEES, LIGNE_PANIER_AGENT, LIGNES_DU_PANIER, TEXTE_ATTESTATION_SHOPIFY, autreRelanceDuPanier, evenementDe,
+  type AutomationShopify,
+} from '../../web/lib/partage/shopify-messages';
+import type { AgentResume } from '../agent/agent-store';
+import { SORTIE_HUMAIN, SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
 import { DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_SHOPIFY, EVENEMENTS_SHOPIFY, type DonneeShopify, type EvenementShopify } from './donnees';
 import { NOM_DU_SCENARIO, prefixeShopify, type LigneShopify } from './lignes';
 import { corpsStandard } from './messages-standard';
@@ -41,6 +46,11 @@ export interface DepsLignesShopify {
   creerModele(tenantId: string, e: { workflowId: string; nodeId: string; corps: Record<string, unknown>; par: string | null }): Promise<IssueCreationDeBloc>;
   /** La filière de l'espace (`filiereDe`) : sur un numéro relié par QR code, aucun template ne part. */
   filiere(tenantId: string): Promise<Filiere | null>;
+  /**
+   * Les agents IA de l'espace (`AgentStore.listToutes`, le magasin ENTIER) : la relance avec agent IA (plan 2026-11-20)
+   * vérifie l'agent choisi et en lit les règles d'arrêt, et son état dit quand il n'est plus actif.
+   */
+  agents: { listToutes(tenantId: string): Promise<AgentResume[]> };
 }
 
 export type Refus = { ok: false; statut: 400 | 409 | 422 | 503; message: string };
@@ -87,7 +97,7 @@ export async function reglerAttestation(
   if (!a.coche) {
     for (const l of await deps.store.lignes(tenantId)) {
       if (l.actif && (await deps.store.eteindreLigne(tenantId, l.evenement, par))) {
-        await arreterLesParcours(deps, tenantId, prefixeShopify(b.valeur.domaine, l.evenement), 'attestation retirée');
+        await arreterLesParcours(deps, tenantId, prefixeShopify(b.valeur.domaine, evenementDe(l.evenement)), 'attestation retirée');
       }
     }
   }
@@ -102,7 +112,7 @@ export function grapheDUneLigne(): WorkflowGraph {
 }
 
 /** La ligne de l'événement ; créée ÉTEINTE avec son scénario publié si elle manque. */
-export async function assurerLigne(deps: DepsLignesShopify, tenantId: string, evenement: EvenementShopify, par: string | null): Promise<LigneShopify> {
+export async function assurerLigne(deps: DepsLignesShopify, tenantId: string, evenement: AutomationShopify, par: string | null): Promise<LigneShopify> {
   const existante = await deps.store.ligne(tenantId, evenement);
   if (existante !== null) return existante;
   const { id } = await deps.workflows.insert(tenantId, NOM_DU_SCENARIO[evenement], grapheDUneLigne(), 'shopify');
@@ -127,23 +137,110 @@ async function boutiqueConnectee(deps: DepsLignesShopify, tenantId: string): Pro
   return { ok: true, valeur: { domaine: b.domaine } };
 }
 
+/** Le refus d'allumer la relance avec agent IA sans agent actif : la console grise l'interrupteur, le MCP le dit. */
+export const PHRASE_AGENT_REQUIS = 'La relance de panier avec agent IA demande un agent IA actif de cet espace (agentId), celui qui répond '
+  + 'quand le client tape « Vous avez une question ? ».';
+
+/** L'agent choisi, actif et de CET espace (lu dans sa liste, jamais par son seul identifiant). */
+async function agentChoisi(deps: DepsLignesShopify, tenantId: string, agentId: string | undefined): Promise<Issue<AgentResume>> {
+  if (typeof agentId !== 'string' || agentId.trim() === '') return refus(422, PHRASE_AGENT_REQUIS);
+  const agent = (await deps.agents.listToutes(tenantId)).find((a) => a.id === agentId);
+  if (agent === undefined || agent.status !== 'active') return refus(422, PHRASE_AGENT_REQUIS);
+  return { ok: true, valeur: agent };
+}
+
+/** Les blocs que la relance avec agent IA ajoute au scénario : des identifiants fixes, pour retrouver l'agent à changer. */
+export const BLOC_AGENT_PANIER = 'agent_ia';
+export const BLOC_FIN_AGENT_PANIER = 'fin_agent_ia';
+
+/** Les données du bloc Agent IA, comme le builder les pose au choix d'un agent (son nom et ses sorties copiés). */
+const donneesDuBlocAgent = (agent: AgentResume): Record<string, unknown> => ({
+  agentId: agent.id, agentLabel: agent.label, sorties: agent.sorties.map((x) => ({ code: x.code, label: x.label })),
+});
+
+/**
+ * LE SCÉNARIO DE LA RELANCE AVEC AGENT IA (plan 2026-11-20, tâche 3) : la réponse rapide d'index `indexBouton` du premier
+ * bloc mène au bloc Agent IA ; chaque règle d'arrêt, l'escalade et l'inactivité mènent à une fin silencieuse, comme le
+ * répondeur (`grapheDuRepondeur`). 🔴 `echec`, `plafond` et `sans_source` restent SANS arête : une sortie non câblée
+ * remonte la conversation à l'équipe (décision 7 : un crédit épuisé ou un agent introuvable finit dans « À traiter »).
+ * Un graphe qui a déjà ses deux blocs ne reçoit que l'agent (ses données) : la flèche du marchand n'est jamais refaite.
+ */
+export function avecLAgent(graphe: WorkflowGraph, agent: AgentResume, indexBouton: number): WorkflowGraph {
+  const premier = blocVerrouille(graphe);
+  if (premier === null) return graphe;
+  if (graphe.nodes.some((n) => n.id === BLOC_AGENT_PANIER)) {
+    return { ...graphe, nodes: graphe.nodes.map((n) => (n.id === BLOC_AGENT_PANIER ? { ...n, data: { ...n.data, ...donneesDuBlocAgent(agent) } } : n)) };
+  }
+  const handles = new Set<string>([...agent.sorties.map((x) => `sortie:${x.code}`), `sortie:${SORTIE_HUMAIN}`, SORTIE_TIMEOUT]);
+  return {
+    nodes: [
+      ...graphe.nodes,
+      { id: BLOC_AGENT_PANIER, type: 'agent', position: { x: premier.position.x + 360, y: premier.position.y }, data: donneesDuBlocAgent(agent) },
+      { id: BLOC_FIN_AGENT_PANIER, type: 'action', position: { x: premier.position.x + 720, y: premier.position.y }, data: {} },
+    ],
+    edges: [
+      ...graphe.edges.filter((e) => !(e.source === premier.id && e.sourceHandle === `btn:${indexBouton}`)),
+      { id: `${premier.id}-btn:${indexBouton}`, source: premier.id, target: BLOC_AGENT_PANIER, sourceHandle: `btn:${indexBouton}` },
+      ...[...handles].map((h) => ({ id: `${BLOC_FIN_AGENT_PANIER}-${h}`, source: BLOC_AGENT_PANIER, target: BLOC_FIN_AGENT_PANIER, sourceHandle: h })),
+    ],
+  };
+}
+
+/** Le graphe dont le bloc Agent IA reçoit cet agent ; `null` quand il n'a pas (ou plus) ce bloc. */
+function avecCetAgent(g: WorkflowGraph | null | undefined, agent: AgentResume): WorkflowGraph | null {
+  if (!g || !g.nodes.some((n) => n.id === BLOC_AGENT_PANIER && n.type === 'agent')) return null;
+  return { ...g, nodes: g.nodes.map((n) => (n.id === BLOC_AGENT_PANIER ? { ...n, data: { ...n.data, ...donneesDuBlocAgent(agent) } } : n)) };
+}
+
+/**
+ * Change l'agent du bloc Agent IA de la ligne, dans le publié, la version programmée (le template attend Meta) et le
+ * brouillon. Un scénario dont le marchand a retiré le bloc n'est pas touché : la ligne l'avertit (`bouton_absent`).
+ */
+async function poserLAgent(deps: DepsLignesShopify, tenantId: string, evenement: AutomationShopify, agent: AgentResume): Promise<void> {
+  const ligne = await deps.store.ligne(tenantId, evenement);
+  if (ligne === null) return;
+  const wf = await deps.workflows.getById(ligne.workflowId, tenantId);
+  if (wf === null || wf.rayon !== 'shopify') return;
+  const publie = avecCetAgent(wf.graph, agent);
+  if (publie !== null) await deps.workflows.publish(wf.id, tenantId, publie);
+  const programmee = await deps.workflows.publicationProgrammee(wf.id, tenantId);
+  const version = avecCetAgent(programmee?.graphe, agent);
+  if (programmee !== null && version !== null) await deps.workflows.programmer(wf.id, tenantId, null, version);
+  const brouillon = avecCetAgent(wf.draftGraph, agent);
+  if (brouillon !== null) await deps.workflows.update(wf.id, tenantId, { graph: brouillon });
+}
+
 /**
  * L'interrupteur d'une ligne (et le délai du panier). Allumer crée la ligne si elle manque ; éteindre arrête ses parcours.
  * Éteindre une automation qui n'a pas de ligne ne crée rien et rend `null` : elle est déjà éteinte.
  */
 export async function reglerLigne(
-  deps: DepsLignesShopify, tenantId: string, evenement: EvenementShopify, r: { actif: boolean; delaiMinutes?: number }, par: string | null,
+  deps: DepsLignesShopify, tenantId: string, evenement: AutomationShopify, r: { actif: boolean; delaiMinutes?: number; agentId?: string },
+  par: string | null,
 ): Promise<Issue<LigneShopify | null>> {
-  if (r.delaiMinutes !== undefined && (evenement !== 'checkout_abandoned' || !Number.isInteger(r.delaiMinutes)
+  if (r.agentId !== undefined && evenement !== LIGNE_PANIER_AGENT) {
+    return refus(400, 'agentId : pour la relance de panier avec agent IA seulement.');
+  }
+  if (r.delaiMinutes !== undefined && (!LIGNES_DU_PANIER.includes(evenement) || !Number.isInteger(r.delaiMinutes)
     || r.delaiMinutes < DELAI_PANIER_MIN || r.delaiMinutes > DELAI_PANIER_MAX)) {
     return refus(400, `delaiMinutes : pour le panier abandonné seulement, un nombre entier de ${DELAI_PANIER_MIN} à ${DELAI_PANIER_MAX} minutes.`);
   }
   const b = await boutiqueConnectee(deps, tenantId);
   if (!b.ok) return b;
   if (r.actif) {
+    const dejaAllumee = (await deps.store.ligne(tenantId, evenement))?.actif === true;
+    // La relance avec agent IA : l'agent est DEMANDÉ à l'allumage (Julien, 2026-11-20), puis peut changer ligne allumée.
+    let agent: AgentResume | null = null;
+    if (evenement === LIGNE_PANIER_AGENT && (r.agentId !== undefined || !dejaAllumee)) {
+      const choisi = await agentChoisi(deps, tenantId, r.agentId);
+      if (!choisi.ok) return choisi;
+      agent = choisi.valeur;
+    }
     // 🔴 Une ligne DÉJÀ allumée (la console renvoie `actif: true` avec un nouveau délai du panier ; `set_shopify_message`
     // active true) reste allumée, sans refus ni proposition : jamais la branche « éteindre » (elle l'éteignait, 2026-11-20).
-    if ((await deps.store.ligne(tenantId, evenement))?.actif !== true) {
+    if (dejaAllumee) {
+      if (agent !== null) await poserLAgent(deps, tenantId, evenement, agent);
+    } else {
       // Sur un numéro relié par QR code, chaque événement finirait `filiere_differente` : refusé ici, comme `set_shopify_message`.
       if ((await deps.filiere(tenantId)) === 'application') return refus(409, PHRASE_SHOPIFY_QR_CODE);
       // Sans l'attestation du consentement des clients en vigueur, rien ne s'allume (Julien, 2026-11-20).
@@ -151,11 +248,19 @@ export async function reglerLigne(
       await assurerLigne(deps, tenantId, evenement, par);
       // Un cas encore vide (création sautée au branchement, boutique branchée avant le 2026-11-20) reçoit son message
       // standard ; un cas qui a son message n'est pas touché. Jamais levé : l'allumage passe.
-      await proposerMessageStandard(deps, tenantId, evenement, par);
-      await deps.store.allumerLigne(tenantId, evenement, par);
+      await proposerMessageStandard(deps, tenantId, evenement, par, agent);
+      // Le scénario avait déjà son message (rallumage) : seul l'agent de son bloc change, s'il en a un.
+      if (agent !== null) await poserLAgent(deps, tenantId, evenement, agent);
+      // 🔴 Les deux relances du panier sont EXCLUSIVES (Julien, 2026-11-20) : l'allumage éteint l'autre dans sa transaction,
+      // et ses parcours s'arrêtent tout de suite (même origine : ceux du panier), avant que la nouvelle n'en ait un.
+      const autre = autreRelanceDuPanier(evenement);
+      const autreAllumee = autre !== null && (await deps.store.ligne(tenantId, autre))?.actif === true;
+      if (await deps.store.allumerLigne(tenantId, evenement, par) && autreAllumee) {
+        await arreterLesParcours(deps, tenantId, prefixeShopify(b.valeur.domaine, evenementDe(evenement)), 'relance de panier remplacée');
+      }
     }
   } else if (await deps.store.eteindreLigne(tenantId, evenement, par)) {
-    await arreterLesParcours(deps, tenantId, prefixeShopify(b.valeur.domaine, evenement), 'ligne éteinte');
+    await arreterLesParcours(deps, tenantId, prefixeShopify(b.valeur.domaine, evenementDe(evenement)), 'ligne éteinte');
   }
   if (r.delaiMinutes !== undefined) await deps.store.reglerDelaiPanier(tenantId, r.delaiMinutes);
   return { ok: true, valeur: await deps.store.ligne(tenantId, evenement) };
@@ -212,7 +317,7 @@ export interface PremierBlocPose {
 
 export async function brancherLePremierBloc(
   deps: DepsLignesShopify, tenantId: string,
-  b: { evenement: EvenementShopify; modele: string; langue: string; variables: readonly DonneeShopify[] }, par: string | null,
+  b: { evenement: AutomationShopify; modele: string; langue: string; variables: readonly DonneeShopify[] }, par: string | null,
 ): Promise<Issue<PremierBlocPose>> {
   const boutique = await boutiqueConnectee(deps, tenantId);
   if (!boutique.ok) return boutique;
@@ -277,7 +382,7 @@ export type IssueProposition = 'propose' | 'deja' | 'filiere_application' | 'non
  * tout. Jamais levée : le branchement et l'allumage passent quoi qu'il arrive ici.
  */
 export async function proposerMessageStandard(
-  deps: DepsLignesShopify, tenantId: string, evenement: EvenementShopify, par: string | null,
+  deps: DepsLignesShopify, tenantId: string, evenement: AutomationShopify, par: string | null, agent: AgentResume | null = null,
 ): Promise<IssueProposition> {
   try {
     if ((await deps.filiere(tenantId)) === 'application') return 'filiere_application';
@@ -302,7 +407,12 @@ export async function proposerMessageStandard(
       templateName: cree.modele, language: cree.langue, templateButtons: cree.boutons.map((b) => ({ type: b.type, text: b.text })), templateCards: [],
       variables: variables.map((key, i) => ({ position: i + 1, source: { type: 'variable', key } })),
     };
-    const version = avecLePremierBloc(wf.graph, data);
+    // La relance avec agent IA : la réponse rapide du template mène au bloc Agent IA, à son index parmi TOUS les boutons
+    // (celui du payload `btn:<i>` à l'envoi et de la poignée du builder), lu dans les boutons que la création rend.
+    const question = cree.boutons.findIndex((x) => x.type === 'QUICK_REPLY');
+    const avecAgent = (g: WorkflowGraph | null): WorkflowGraph | null =>
+      (g === null || agent === null || evenement !== LIGNE_PANIER_AGENT || question < 0 ? g : avecLAgent(g, agent, question));
+    const version = avecAgent(avecLePremierBloc(wf.graph, data));
     if (version === null) return 'echec';
     if (cree.etat === 'approuve') {
       await deps.workflows.publish(wf.id, tenantId, version);
@@ -310,7 +420,7 @@ export async function proposerMessageStandard(
     } else {
       await deps.workflows.programmer(wf.id, tenantId, null, version);
     }
-    const brouillon = avecLePremierBloc(wf.draftGraph ?? wf.graph, data);
+    const brouillon = avecAgent(avecLePremierBloc(wf.draftGraph ?? wf.graph, data));
     if (brouillon !== null) await deps.workflows.update(wf.id, tenantId, { graph: brouillon });
     journaliser('info', 'shopify_message_standard_propose', { tenantId, evenement, etat: cree.etat });
     return 'propose';
@@ -361,7 +471,7 @@ function apercuDe(g: WorkflowGraph | null, modeles: readonly TemplateSummary[], 
 
 /** Une ligne, telle que la console et `get_shopify_state` la montrent. */
 export interface EtatLigne {
-  evenement: EvenementShopify;
+  evenement: AutomationShopify;
   actif: boolean;
   workflowId: string;
   /** Le nom du scénario. */
@@ -377,6 +487,47 @@ export interface EtatLigne {
   versionProgrammee: boolean;
   /** Le message en vigueur (celui de la version programmée s'il y en a une, sinon du publié), pour la bulle de la console. */
   apercu: ApercuLigne | null;
+  /** La relance avec agent IA : l'agent de son bloc (`null` sans bloc Agent IA, ou pour une autre automation). */
+  agent: { id: string; label: string; actif: boolean } | null;
+  /** La relance avec agent IA : ce qui l'empêche de servir comme prévu, sans rien bloquer (spec § 5.3). Vide sinon. */
+  avertissements: AvertissementLigne[];
+}
+
+/**
+ * LES AVERTISSEMENTS DE LA RELANCE AVEC AGENT IA (Julien, 2026-11-20, décisions 5, 7 et 8) : rien n'est bloqué, la ligne le
+ * dit. `bouton_absent` : aucune réponse rapide du premier bloc ne mène plus à un bloc Agent IA (le marchand l'a retirée,
+ * déplacée, ou a changé de template) ; `agent_inactif` : l'agent du bloc est désactivé ou supprimé, le clic finira à
+ * l'équipe ; `modele_en_attente` et `modele_refuse` : le template attend Meta ou a été refusé, et la relance normale est
+ * éteinte, donc aucun panier n'est relancé.
+ */
+export type AvertissementLigne = 'bouton_absent' | 'agent_inactif' | 'modele_en_attente' | 'modele_refuse';
+
+export function avertissementsDeLaLigneAgent(
+  graphe: WorkflowGraph | null, agents: readonly AgentResume[], meta: { enValidation: boolean; etatChezMeta: string | null },
+): AvertissementLigne[] {
+  const avertissements: AvertissementLigne[] = [];
+  const bloc = graphe === null ? null : blocVerrouille(graphe);
+  const boutons = Array.isArray(bloc?.data.templateButtons) ? bloc.data.templateButtons as Array<{ type?: unknown }> : [];
+  const agentsDuBouton = graphe === null || bloc === null ? [] : graphe.edges
+    .filter((e) => e.source === bloc.id && typeof e.sourceHandle === 'string' && e.sourceHandle.startsWith('btn:')
+      && boutons[Number(e.sourceHandle.slice(4))]?.type === 'QUICK_REPLY')
+    .map((e) => graphe.nodes.find((n) => n.id === e.target))
+    .filter((n): n is WorkflowNode => n?.type === 'agent');
+  if (agentsDuBouton.length === 0) avertissements.push('bouton_absent');
+  const actifs = new Set(agents.filter((a) => a.status === 'active').map((a) => a.id));
+  if (agentsDuBouton.some((n) => !actifs.has(String(n.data.agentId ?? '')))) avertissements.push('agent_inactif');
+  if (meta.enValidation) avertissements.push('modele_en_attente');
+  else if (String(meta.etatChezMeta ?? '').toUpperCase() === 'REJECTED') avertissements.push('modele_refuse');
+  return avertissements;
+}
+
+/** L'agent du bloc Agent IA de la relance avec agent, tel que la console le nomme. */
+function agentDuBloc(graphe: WorkflowGraph | null, agents: readonly AgentResume[]): EtatLigne['agent'] {
+  const n = graphe?.nodes.find((x) => x.id === BLOC_AGENT_PANIER && x.type === 'agent');
+  if (!n) return null;
+  const id = String(n.data.agentId ?? '');
+  const a = agents.find((x) => x.id === id);
+  return { id, label: a?.label ?? String(n.data.agentLabel ?? ''), actif: a?.status === 'active' };
 }
 
 /** Les lignes de l'espace, dans l'ordre des événements, chacune lue avec son scénario publié et son template chez Meta. */
@@ -386,8 +537,10 @@ export async function etatDesLignes(deps: DepsLignesShopify, tenantId: string): 
   // Illisible chez Meta : l'état se lit quand même, sans l'état de chaque template (la carte et get_shopify_state ne
   // tombent pas avec Meta ; relecture de 5b).
   const modeles = (await lireModeles(deps, tenantId)) ?? [];
+  // Les agents ne se lisent que pour la relance avec agent IA.
+  const agents = lignes.some((l) => l.evenement === LIGNE_PANIER_AGENT) ? await deps.agents.listToutes(tenantId) : [];
   const etats: EtatLigne[] = [];
-  for (const l of [...lignes].sort((a, c) => EVENEMENTS_SHOPIFY.indexOf(a.evenement) - EVENEMENTS_SHOPIFY.indexOf(c.evenement))) {
+  for (const l of [...lignes].sort((a, c) => AUTOMATIONS_SHOPIFY.indexOf(a.evenement) - AUTOMATIONS_SHOPIFY.indexOf(c.evenement))) {
     const wf = await deps.workflows.getById(l.workflowId, tenantId);
     const graphe = wf !== null && wf.rayon === 'shopify' ? wf.graph : null;
     const bloc = graphe === null ? null : blocVerrouille(graphe);
@@ -401,6 +554,18 @@ export async function etatDesLignes(deps: DepsLignesShopify, tenantId: string): 
       evenement: l.evenement, actif: l.actif, workflowId: l.workflowId, scenario: wf?.name ?? null,
       modele: nom, langue, etatChezMeta: tpl?.status ?? null, blocs: graphe?.nodes.length ?? 0,
       versionProgrammee: programmee !== null, apercu,
+      ...(l.evenement === LIGNE_PANIER_AGENT
+        ? (() => {
+          // Le graphe en vigueur : la version programmée (le message standard en validation) d'abord, sinon le publié.
+          const enVigueur = programmee?.graphe ?? graphe;
+          return {
+            agent: agentDuBloc(enVigueur, agents),
+            avertissements: avertissementsDeLaLigneAgent(enVigueur, agents, {
+              enValidation: programmee !== null || apercu?.enValidation === true, etatChezMeta: tpl?.status ?? null,
+            }),
+          };
+        })()
+        : { agent: null, avertissements: [] }),
     });
   }
   return etats;

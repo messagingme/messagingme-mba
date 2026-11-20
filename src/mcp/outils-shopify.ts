@@ -4,7 +4,9 @@ import { RefusOutil } from './saisie';
 import { signataire } from './outils-agent';
 import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
 import { journaliser } from '../lib/journal';
-import { DELAI_PANIER_DEFAUT, DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_PAR_EVENEMENT, EVENEMENTS_DISPONIBLES } from '../shopify/donnees';
+import {
+  AUTOMATIONS_DISPONIBLES, DELAI_PANIER_DEFAUT, DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_PAR_EVENEMENT, EVENEMENTS_DISPONIBLES, LIGNE_PANIER_AGENT,
+} from '../shopify/donnees';
 import {
   apercuImportClients, brancherMessage, connecterShopify, couperShopify, etatShopify, importerClients, IMPORT_MAX, type Issue,
 } from '../shopify/gestion';
@@ -65,6 +67,11 @@ function versAutomation(l: EtatLigne, scenarios: boolean) {
       ...(l.apercu.enValidation ? { message_under_review: true } : {}),
     } : {}),
     ...(note !== null ? { note } : {}),
+    // La relance avec agent IA (2026-11-20) : l'agent du bouton « Vous avez une question ? », et ce qui l'empêche de servir.
+    ...(l.evenement === LIGNE_PANIER_AGENT ? {
+      agent: l.agent === null ? null : { id: l.agent.id, name: l.agent.label, active: l.agent.actif },
+      ...(l.avertissements.length > 0 ? { warnings: l.avertissements } : {}),
+    } : {}),
   };
 }
 
@@ -145,12 +152,19 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'STOP stays opted out and receives nothing. Turning an automation on requires, once, an attestation from the merchant that '
       + 'their customers agreed (customers_consent_attested: ask the merchant, never answer for them). '
       + 'Every message goes through the sends rules (STOP, monthly templates, '
-      + 'contact limit) and appears in Campaigns.',
+      + 'contact limit) and appears in Campaigns. '
+      + `${LIGNE_PANIER_AGENT} is the checkout reminder with an AI agent: the same reminder plus a quick reply button asking `
+      + 'whether the customer has a question, which hands the conversation to an AI agent of the workspace (agent_id, an active agent: list_agents), '
+      + `required to turn it on. Turning it on turns checkout_abandoned off (and the reverse): a checkout gets one reminder. `
+      + 'Without template, its standard message is created and submitted to Meta (no checkout is reminded until Meta approves '
+      + 'it). An operator who holds the conversation keeps it; if the agent cannot answer (no AI credit, inactive), the '
+      + 'conversation goes to the team.',
     annotations: { title: 'Set a Shopify message', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     entree: {
       type: 'object',
       properties: {
-        event: { type: 'string', enum: [...EVENEMENTS_DISPONIBLES], description: 'The Shopify event.' },
+        event: { type: 'string', enum: [...AUTOMATIONS_DISPONIBLES], description: 'The Shopify event, or checkout_abandoned_agent (the checkout reminder with an AI agent).' },
+        agent_id: { type: 'string', format: 'uuid', description: 'checkout_abandoned_agent only: the active AI agent that answers when the customer taps the question button (list_agents). Required to turn it on; given on an automation already on, it changes the agent.' },
         template: { type: 'string', minLength: 1, maxLength: 512, description: 'The template of the first step (required to turn the automation on).' },
         language: { type: 'string', minLength: 1, maxLength: 20, description: 'The template language (fr, en_US...).' },
         variables: {
@@ -180,7 +194,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       if (args.customers_consent_attested === true) await attester(deps, tenantId, personne?.userId ?? null);
       const r = valeur(await brancherMessage(deps.shopify, tenantId, {
         evenement: args.event, modele: args.template, langue: args.language, variables: args.variables, actif: args.active,
-        delaiMinutes: args.delay_minutes,
+        delaiMinutes: args.delay_minutes, agentId: args.agent_id,
       }, personne?.userId ?? null));
       journaliser('info', 'mcp_shopify_message', { tenantId, userId: personne?.userId ?? null, evenement: args.event });
       return {
@@ -197,7 +211,8 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     description:
       'The Shopify store connected to the workspace: its state (connected or cut), whether it is paused, its automations (one '
       + 'per event: on or off, its scenario, the first template and its status at Meta, the number of steps, the text of the '
-      + 'first message with its Shopify data in order, and whether it is under review at Meta), the last event '
+      + 'first message with its Shopify data in order, and whether it is under review at Meta; for checkout_abandoned_agent, '
+      + 'its AI agent and its warnings: bouton_absent, agent_inactif, modele_en_attente, modele_refuse), the last event '
       + 'received, and the last 30 days of events by outcome (sent, '
       + 'opted out, without consent, contact limit, monthly templates limit, without phone...; on a number linked by QR code '
       + 'also premier_contact: such a number never writes first, so its Shopify messages cannot go out; and for a message '

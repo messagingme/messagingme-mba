@@ -252,10 +252,13 @@ export async function runTurn(job: AgentTurnJob, deps: RunTurnDeps): Promise<Res
   // 3. Les plafonds, avant d'appeler le cerveau : on ne paie pas un appel dont on jettera la réponse, et une
   // injection qui fait boucler l'agent brûlerait le compte prépayé.
   const fiche = await deps.agents.byId(job.tenantId, session.agentId);
-  if (!fiche) {
+  // 🔴 Un agent désactivé (ou en brouillon) ne répond plus, comme le promet le bloc du builder (« ce bloc ne répondra pas
+  // tant qu'il ne l'est pas de nouveau ») : même sortie qu'une fiche introuvable, par la branche d'échec, qui remonte la
+  // conversation à l'équipe quand elle n'est pas câblée (relance de panier avec agent IA, décision 7 du 2026-11-20).
+  if (!fiche || fiche.status !== 'active') {
     // Même traitement que les autres échecs : sortir par la branche d'échec plutôt que laisser le run en attente.
     // eslint-disable-next-line no-console
-    console.error(`agent: fiche introuvable pour l'agent ${session.agentId}, session ${session.id} close`);
+    console.error(`agent: fiche introuvable ou agent inactif pour l'agent ${session.agentId}, session ${session.id} close`);
     await cloreEtSortir(job, session.id, 'erreur', SORTIE_ECHEC, deps);
     return { fait: 'erreur', sortie: SORTIE_ECHEC };
   }

@@ -1,6 +1,6 @@
 import {
-  adresseDuBoutonPanier, BOUTON_PANIER, DONNEES_PAR_EVENEMENT, EXEMPLES_DONNEES, PIED_STOP, TEXTES_PROPOSES,
-  type DonneeShopify, type EvenementShopify,
+  adresseDuBoutonPanier, BOUTON_PANIER, BOUTON_QUESTION, DONNEES_PAR_EVENEMENT, EXEMPLES_DONNEES, LIGNE_PANIER_AGENT, PIED_STOP, TEXTES_PROPOSES,
+  evenementDe, type AutomationShopify, type DonneeShopify, type EvenementShopify,
 } from '../../web/lib/partage/shopify-messages';
 
 /**
@@ -49,7 +49,7 @@ export function versCorps(evenement: EvenementShopify, texte: string): CorpsDeMo
 export interface MessageStandard {
   corps: {
     category: 'UTILITY' | 'MARKETING'; language: 'fr'; body: string; example: string[]; footer?: string;
-    buttons?: Array<{ type: 'URL'; text: string; url: string }>;
+    buttons?: Array<{ type: 'URL'; text: string; url: string } | { type: 'QUICK_REPLY'; text: string }>;
   };
   variables: DonneeShopify[];
 }
@@ -57,17 +57,21 @@ export interface MessageStandard {
 /**
  * Commandes en UTILITY ; le panier en MARKETING (une relance après une attente), avec la consigne STOP en pied (spec
  * § 2.4), et son lien derrière le bouton « Reprendre mon panier » (2026-11-20) : `https://<boutique>/{panier_shopify}`,
- * que la création change en lien tracé et que notre redirection mène au panier de celui qui clique. Un texte standard
+ * que la création change en lien tracé et que notre redirection mène au panier de celui qui clique. La relance avec agent
+ * IA (2026-11-20) : le MÊME message, plus la réponse rapide « Vous avez une question ? » après le lien, que son scénario
+ * relie au bloc Agent IA (`avecLAgent`, `./lignes-gestion.ts`). Un texte standard
  * invalide est une faute de ce dépôt, que `tests/shopify-messages-standard.test.ts` attrape : elle lève.
  */
-export function corpsStandard(evenement: EvenementShopify, domaine: string): MessageStandard {
+export function corpsStandard(automation: AutomationShopify, domaine: string): MessageStandard {
+  const evenement = evenementDe(automation);
   const lu = versCorps(evenement, TEXTES_PROPOSES[evenement].fr);
-  if (!lu.ok) throw new Error(`message standard ${evenement} invalide : ${lu.message}`);
+  if (!lu.ok) throw new Error(`message standard ${automation} invalide : ${lu.message}`);
   const panier = evenement === 'checkout_abandoned';
+  const question = automation === LIGNE_PANIER_AGENT ? [{ type: 'QUICK_REPLY' as const, text: BOUTON_QUESTION.fr }] : [];
   return {
     corps: {
       category: panier ? 'MARKETING' : 'UTILITY', language: 'fr', body: lu.corps, example: lu.exemples,
-      ...(panier ? { footer: PIED_STOP.fr, buttons: [{ type: 'URL' as const, text: BOUTON_PANIER.fr, url: adresseDuBoutonPanier(domaine) }] } : {}),
+      ...(panier ? { footer: PIED_STOP.fr, buttons: [{ type: 'URL' as const, text: BOUTON_PANIER.fr, url: adresseDuBoutonPanier(domaine) }, ...question] } : {}),
     },
     variables: lu.variables,
   };

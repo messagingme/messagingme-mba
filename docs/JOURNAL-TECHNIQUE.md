@@ -5,6 +5,26 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 : Shopify, la relance de panier avec agent IA (lots 1 à 4)
+
+Spec `docs/superpowers/specs/2026-11-20-shopify-relance-agent-ia-design.md`, plan du même jour. Demande de Julien : la
+relance du panier, avec un bouton « Vous avez une question ? » qui mène à un agent IA choisi à l'allumage. La première
+conception (aiguillage du clic dans la réception des messages) avait été écrite depuis un arbre en retard de 465
+commits, où la relance partait encore par l'envoi public ; sur origin, une automation Shopify est un scénario, et la
+relance avec agent est devenue une quatrième ligne (`checkout_abandoned_agent`), son bloc Agent IA sur la réponse rapide.
+
+Migration 0306 : le CHECK de `shopify_lignes.evenement` élargi à `checkout_abandoned_agent`, nom
+`shopify_lignes_evenement_check` lu en production avant (sonde de Julien), retiré SANS `if exists`, recréé sous le même
+nom ; poussée seule (f9d239c7b), `migration=avant` (run 44759749404), l'ancien code n'écrivant aucune valeur neuve.
+
+Livré ensuite : la réclamation des paniers, la règle « encore voulu » et le traitement des webhooks lisent l'UNE des deux
+relances du panier ; l'allumage de l'une éteint l'autre dans sa transaction (les deux lignes verrouillées dans un ordre
+fixe) et arrête ses parcours ; le scénario standard (template du panier avec la réponse rapide, bloc Agent IA, sorties
+d'échec sans arête vers l'équipe) ; les avertissements de la ligne ; `set_shopify_message` (`agent_id`) et
+`get_shopify_state` ; la console (choix de l'agent avant l'allumage, interrupteur grisé sans agent actif). En passant :
+un agent désactivé ou en brouillon répondait encore dans un bloc de scénario, contrairement à ce que promettait le
+builder ; `runTurn` le fait désormais sortir par la branche d'échec, comme une fiche introuvable.
+
 ## 2026-11-20 : l'assistant qui construit l'agent IA s'ouvre au Pro
 
 Capture de Julien : en formule Pro, l'écran de l'agent IA s'ouvrait sur « Construire en parlant », réservé au Business

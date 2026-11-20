@@ -12,6 +12,38 @@ import { CLE_PANIER_SHOPIFY } from './champs-url';
 export const EVENEMENTS_SHOPIFY = ['order_paid', 'order_fulfilled', 'checkout_abandoned'] as const;
 export type EvenementShopify = (typeof EVENEMENTS_SHOPIFY)[number];
 
+/**
+ * LES AUTOMATIONS SHOPIFY, une par ligne de `shopify_lignes` (relance avec agent IA, plan 2026-11-20, migration 0306) :
+ * les trois événements, plus la relance de panier avec agent IA. Celle-ci n'est PAS un événement de Shopify : elle part sur
+ * le webhook et la réclamation du panier abandonné (`evenementDe`), et les deux relances du panier sont EXCLUSIVES (une
+ * seule allumée par espace, tenu par `PgShopifyStore.allumerLigne`) : un panier ne reçoit jamais deux relances.
+ */
+export const LIGNE_PANIER_AGENT = 'checkout_abandoned_agent' as const;
+export const AUTOMATIONS_SHOPIFY = [...EVENEMENTS_SHOPIFY, LIGNE_PANIER_AGENT] as const;
+export type AutomationShopify = (typeof AUTOMATIONS_SHOPIFY)[number];
+
+/** L'événement de Shopify sur lequel une automation part. */
+export const evenementDe = (a: AutomationShopify): EvenementShopify => (a === LIGNE_PANIER_AGENT ? 'checkout_abandoned' : a);
+
+/** Les deux relances du panier, exclusives. */
+export const LIGNES_DU_PANIER: readonly AutomationShopify[] = ['checkout_abandoned', LIGNE_PANIER_AGENT];
+
+/** Les lignes qui partent sur un événement : les deux relances pour le panier, la sienne pour une commande. */
+export const lignesDe = (e: EvenementShopify): readonly AutomationShopify[] => (e === 'checkout_abandoned' ? LIGNES_DU_PANIER : [e]);
+
+/** L'autre relance du panier, celle qu'allumer `a` éteint ; `null` pour une ligne de commande. */
+export const autreRelanceDuPanier = (a: AutomationShopify): AutomationShopify | null =>
+  (a === 'checkout_abandoned' ? LIGNE_PANIER_AGENT : a === LIGNE_PANIER_AGENT ? 'checkout_abandoned' : null);
+
+export const estAutomationShopify = (v: unknown): v is AutomationShopify =>
+  typeof v === 'string' && (AUTOMATIONS_SHOPIFY as readonly string[]).includes(v);
+
+/**
+ * Le bouton qui mène à l'agent IA (relance avec agent IA) : une réponse rapide, 25 caractères au plus chez Meta. Le marchand
+ * peut le renommer ; c'est l'arête du bouton vers le bloc Agent IA qui compte, pas son texte.
+ */
+export const BOUTON_QUESTION: Readonly<Record<'fr' | 'en', string>> = { fr: 'Vous avez une question ?', en: 'Have a question?' };
+
 export const DONNEES_SHOPIFY = [
   'first_name', 'order_number', 'order_total', 'order_status_url', 'carrier', 'tracking_number', 'tracking_url', 'checkout_url',
 ] as const;
@@ -29,6 +61,12 @@ export const LIBELLES_EVENEMENTS: Readonly<Record<EvenementShopify, readonly [st
   order_paid: ['Commande payée', 'Order paid'],
   order_fulfilled: ['Commande expédiée', 'Order shipped'],
   checkout_abandoned: ['Panier abandonné', 'Abandoned checkout'],
+};
+
+/** Les libellés des automations, sur l'écran Scénario > Automation > Shopify : les événements, plus la relance avec agent IA. */
+export const LIBELLES_AUTOMATIONS: Readonly<Record<AutomationShopify, readonly [string, string]>> = {
+  ...LIBELLES_EVENEMENTS,
+  checkout_abandoned_agent: ['Panier abandonné avec agent IA', 'Abandoned checkout with AI agent'],
 };
 
 /** Les libellés des données, sur les pastilles bleues de l'assistant. */

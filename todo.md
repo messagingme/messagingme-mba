@@ -1,5 +1,26 @@
 # todo.md : backlog
 
+## 🟡 La relance de panier avec agent IA : la relecture des lots 2 et 3 (2026-11-20, aucun rouge)
+
+- `poserLAgent` (`src/shopify/lignes-gestion.ts`) publie AVANT de relire la version programmée : « Changer d'agent »
+  pendant qu'un nouveau template attend Meta annule sa mise en ligne. Lire la programmation avant `publish`.
+- Changer d'agent ne refait pas les arêtes `sortie:<code>` du bloc (anciennes règles gardées, celles du nouvel agent
+  sans arête, donc à l'équipe) : les recalculer comme le builder.
+- Un allumage dont le message standard n'a pas pu être créé (`non_cree`, `echec`) allume quand même la ligne avec agent
+  et éteint la relance normale : plus aucun panier relancé, et l'écran ne dit que `bouton_absent`. Refuser l'allumage
+  dans ce cas, ou ne pas éteindre l'autre.
+- `set_shopify_message` avec `checkout_abandoned_agent` ET un `template` : le premier bloc s'écrit avant le contrôle de
+  l'agent, et le template du marchand n'est relié à aucun bloc Agent IA. Valider l'agent avant, et appliquer `avecLAgent`.
+- En Free (sans la fonction `scenarios`), aucun pont : le bouton part mais ne mène jamais à l'agent. Refuser la ligne
+  avec agent en Free, ou le dire.
+- Une commande passée pendant l'échange avec l'agent arrête le parcours : l'agent se tait (décision produit à prendre).
+- `ReglageShopify.tsx` (carte Intégrations) ne lit que `checkout_abandoned` : les chiffres des paniers disparaissent quand
+  seule la relance avec agent est allumée. Lire `LIGNES_DU_PANIER`.
+- L'arrêt des parcours de l'autre relance lit `autreAllumee` hors de la transaction : `allumerLigne` devrait dire si elle
+  a éteint l'autre ligne.
+- `agent_id` ignoré en silence avec `active: false`.
+- La fiche d'aide n'a pas encore de capture de la ligne avec agent et de son choix d'agent (`npm run aide:captures`).
+
 ## 🟡 L'assistant de construction ouvert au Pro : ce qui reste (2026-11-20)
 
 - Refaire la capture de la grille de « Choisir mon offre » (`npm run aide:captures`) : elle montre encore l'assistant

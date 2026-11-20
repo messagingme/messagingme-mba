@@ -51,7 +51,8 @@ describe('corpsStandard', () => {
     const { corps } = corpsStandard('checkout_abandoned', DOMAINE);
     expect(corps.body).not.toMatch(/https?:|checkout/);
     expect(corps.buttons).toEqual([{ type: 'URL', text: 'Reprendre mon panier', url: `https://${DOMAINE}/{panier_shopify}` }]);
-    expect(refusChampsUrl(corps.buttons![0]!.url!, [], 'bouton 1')).toBeNull();
+    const lien = corps.buttons![0]!;
+    expect(refusChampsUrl(lien.type === 'URL' ? lien.url : '', [], 'bouton 1')).toBeNull();
     expect(corpsStandard('order_paid', DOMAINE).corps.buttons).toBeUndefined();
   });
 });

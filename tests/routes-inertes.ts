@@ -1019,6 +1019,7 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
         programmer: neDevraitPasEtreAppelee('shopify.workflows.programmer'),
       },
       parcours: { arreterParcours: neDevraitPasEtreAppelee('shopify.arreterParcours') },
+      agents: { listToutes: async () => [] },
       modeles: async () => [],
       menage: { lignes: { desModelesDAutomation: async () => [] }, programmerOubli: neDevraitPasEtreAppelee('shopify.menage.programmerOubli') },
       creerModele: neDevraitPasEtreAppelee('shopify.creerModele'),

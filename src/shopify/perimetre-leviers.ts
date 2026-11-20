@@ -60,7 +60,9 @@ export function ligneDuMessage(m: string, tenant: string, alias: string): string
 
 /** La source de l'automation d'une ligne : le panier en relance de panier, les commandes sous leur nom (décision 32). */
 export function sourceDeLaLigne(alias: string): string {
-  return `case ${alias}.evenement when 'checkout_abandoned' then 'relance_panier' when 'order_paid' then 'commande_payee' `
+  // Les deux relances du panier (la normale, celle avec agent IA) comptent pour la même automation : un panier n'a qu'une relance.
+  return `case ${alias}.evenement when 'checkout_abandoned' then 'relance_panier' when 'checkout_abandoned_agent' then 'relance_panier' `
+    + `when 'order_paid' then 'commande_payee' `
     + `when 'order_fulfilled' then 'commande_expediee' end`;
 }
 

@@ -1,6 +1,7 @@
 import type { DepsLignesShopify } from '../src/shopify/lignes-gestion';
 import type { LigneShopify } from '../src/shopify/lignes';
-import type { EvenementShopify } from '../src/shopify/donnees';
+import { autreRelanceDuPanier, type AutomationShopify } from '../web/lib/partage/shopify-messages';
+import type { AgentResume } from '../src/agent/agent-store';
 import type { AttestationShopify, VueBoutique } from '../src/shopify/store.pg';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import type { Programmation, WorkflowRow } from '../src/workflow/store.pg';
@@ -25,7 +26,7 @@ export const VUE_LIGNES: VueBoutique = {
 export const ATTESTEE: AttestationShopify = { coche: true, texte: 'J’atteste…', email: 'a@b.fr', le: '2026-11-20T08:00:00.000Z', domaine: 'b.myshopify.com' };
 
 export class FauxBoutique {
-  lignesEnBase = new Map<EvenementShopify, LigneShopify>();
+  lignesEnBase = new Map<AutomationShopify, LigneShopify>();
   pause = false;
   gestes: string[] = [];
   /** L'historique des attestations (en ajout seul, comme la table) ; la dernière vaut. */
@@ -43,17 +44,22 @@ export class FauxBoutique {
   constructor(public vue: VueBoutique | null = VUE_LIGNES) {}
   async lire(): Promise<VueBoutique | null> { return this.vue === null ? null : { ...this.vue, pauseLe: this.pause ? '2026-11-19T10:00:00.000Z' : null }; }
   async lignes(): Promise<LigneShopify[]> { return [...this.lignesEnBase.values()]; }
-  async ligne(_t: string, e: EvenementShopify): Promise<LigneShopify | null> { return this.lignesEnBase.get(e) ?? null; }
-  async poserLigne(_t: string, l: { evenement: EvenementShopify; workflowId: string }): Promise<LigneShopify> {
+  async ligne(_t: string, e: AutomationShopify): Promise<LigneShopify | null> { return this.lignesEnBase.get(e) ?? null; }
+  async poserLigne(_t: string, l: { evenement: AutomationShopify; workflowId: string }): Promise<LigneShopify> {
     if (!this.lignesEnBase.has(l.evenement)) this.lignesEnBase.set(l.evenement, { evenement: l.evenement, workflowId: l.workflowId, actif: false, modifieLe: 'x' });
     return this.lignesEnBase.get(l.evenement)!;
   }
-  async allumerLigne(_t: string, e: EvenementShopify): Promise<boolean> {
+  async allumerLigne(_t: string, e: AutomationShopify): Promise<boolean> {
     const l = this.lignesEnBase.get(e);
     if (!l || l.actif) return false;
-    l.actif = true; this.gestes.push(`allumer:${e}`); return true;
+    l.actif = true; this.gestes.push(`allumer:${e}`);
+    // Les deux relances du panier sont exclusives, comme le vrai magasin (même transaction).
+    const autre = autreRelanceDuPanier(e);
+    const a = autre === null ? undefined : this.lignesEnBase.get(autre);
+    if (a?.actif) { a.actif = false; this.gestes.push(`eteindre:${autre}`); }
+    return true;
   }
-  async eteindreLigne(_t: string, e: EvenementShopify): Promise<boolean> {
+  async eteindreLigne(_t: string, e: AutomationShopify): Promise<boolean> {
     const l = this.lignesEnBase.get(e);
     if (!l || !l.actif) return false;
     l.actif = false; this.gestes.push(`eteindre:${e}`); return true;
@@ -151,7 +157,7 @@ export const modeleMeta = (o: Partial<TemplateSummary> = {}): TemplateSummary =>
 /** Les dépendances des lignes, montées sur ces faux. */
 export function monterLignes(o: {
   vue?: VueBoutique | null; modeles?: TemplateSummary[] | 'panne'; arretLeve?: boolean; store?: FauxBoutique; marques?: string[];
-  creation?: IssueCreationDeBloc | 'leve'; filiere?: Filiere | null;
+  creation?: IssueCreationDeBloc | 'leve'; filiere?: Filiere | null; agents?: AgentResume[];
 } = {}) {
   const store = o.store ?? new FauxBoutique(o.vue === undefined ? VUE_LIGNES : o.vue);
   const workflows = new FauxScenarios();
@@ -163,6 +169,8 @@ export function monterLignes(o: {
     return o.modeles ?? [modeleMeta()];
   };
   const filiere = async (): Promise<Filiere | null> => (o.filiere === undefined ? 'api' : o.filiere);
-  const deps: DepsLignesShopify = { store, workflows, parcours, modeles, menage, creerModele: creation.creer, filiere };
+  const agentsDeLEspace = o.agents ?? [];
+  const agents = { async listToutes(): Promise<AgentResume[]> { return agentsDeLEspace; } };
+  const deps: DepsLignesShopify = { store, workflows, parcours, modeles, menage, creerModele: creation.creer, filiere, agents };
   return { deps, store, workflows, parcours, menage, creation };
 }

@@ -18,8 +18,11 @@ import { VALEUR_VARIABLE_MAX } from '../api/variables';
 
 // La liste des événements, des données et de ce que chacun sait remplir vit dans le module que la console partage
 // (l'assistant propose ses textes et ses repères depuis la même source) : un seul endroit à changer.
-import { DONNEES_PAR_EVENEMENT, DONNEES_SHOPIFY, EVENEMENTS_SHOPIFY, prenomDeSecours, type DonneeShopify, type EvenementShopify } from '../../web/lib/partage/shopify-messages';
-export { DONNEES_PAR_EVENEMENT, DONNEES_SHOPIFY, EVENEMENTS_SHOPIFY, type DonneeShopify, type EvenementShopify };
+import {
+  DONNEES_PAR_EVENEMENT, DONNEES_SHOPIFY, EVENEMENTS_SHOPIFY, LIGNE_PANIER_AGENT, estAutomationShopify, evenementDe, prenomDeSecours,
+  type AutomationShopify, type DonneeShopify, type EvenementShopify,
+} from '../../web/lib/partage/shopify-messages';
+export { DONNEES_PAR_EVENEMENT, DONNEES_SHOPIFY, EVENEMENTS_SHOPIFY, LIGNE_PANIER_AGENT, estAutomationShopify, evenementDe, type AutomationShopify, type DonneeShopify, type EvenementShopify };
 
 /**
  * La catégorie de modèle admise par événement : une confirmation et une expédition sont des messages de service
@@ -33,6 +36,9 @@ export const CATEGORIES_ADMISES: Readonly<Record<EvenementShopify, ReadonlyArray
 
 /** Les événements qu'un marchand peut brancher (la relance de panier depuis le lot 2). */
 export const EVENEMENTS_DISPONIBLES: readonly EvenementShopify[] = ['order_paid', 'order_fulfilled', 'checkout_abandoned'];
+
+/** Les automations qu'un marchand peut régler : les événements, plus la relance de panier avec agent IA (2026-11-20). */
+export const AUTOMATIONS_DISPONIBLES: readonly AutomationShopify[] = [...EVENEMENTS_DISPONIBLES, LIGNE_PANIER_AGENT];
 
 export { DELAI_PANIER_DEFAUT, DELAI_PANIER_MAX, DELAI_PANIER_MIN } from '../../web/lib/partage/shopify-messages';
 

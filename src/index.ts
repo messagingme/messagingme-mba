@@ -1751,6 +1751,8 @@ async function main(): Promise<void> {
       // Le message standard (2026-11-20) : la porte du builder, `creerModeleDuBloc` avec ses magasins ENTIERS.
       creerModele: (tenant, e) => creerModeleDuBloc({ gestion: depsModeles, scenarios: workflowStore, lignes: modelesDeBlocStore, maintenant: () => new Date() }, tenant, e),
       filiere: (tenant) => comptesApplication.filiereDe(tenant),
+      // La relance avec agent IA (2026-11-20) : l'agent choisi, lu dans la liste de l'espace (le magasin ENTIER).
+      agents: agentStore,
     },
   };
   const traitementShopify: DepsTraitementShopify = {

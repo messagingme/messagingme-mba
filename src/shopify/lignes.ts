@@ -1,4 +1,5 @@
 import type { EvenementShopify } from './donnees';
+import type { AutomationShopify } from '../../web/lib/partage/shopify-messages';
 
 /**
  * LES LIGNES SHOPIFY (menu « Scénario », lot 5, migration 0299) : une ligne par événement et par espace, son scénario du
@@ -7,7 +8,8 @@ import type { EvenementShopify } from './donnees';
  * d'événement naît dessus.
  */
 export interface LigneShopify {
-  evenement: EvenementShopify;
+  /** L'automation de la ligne (colonne `evenement`) : un événement, ou la relance avec agent IA (0306). */
+  evenement: AutomationShopify;
   workflowId: string;
   actif: boolean;
   modifieLe: string;
@@ -17,10 +19,11 @@ export interface LigneShopify {
  * Le nom de l'automation d'un événement, et du scénario de sa ligne (unique dans le rayon `shopify` de l'espace) : la
  * console, `get_shopify_state` et le refus de supprimer un scénario tenu par une ligne le disent.
  */
-export const NOM_DU_SCENARIO: Readonly<Record<EvenementShopify, string>> = {
+export const NOM_DU_SCENARIO: Readonly<Record<AutomationShopify, string>> = {
   order_paid: 'Commande payée',
   order_fulfilled: 'Commande expédiée',
   checkout_abandoned: 'Panier abandonné',
+  checkout_abandoned_agent: 'Panier abandonné avec agent IA',
 };
 
 /**

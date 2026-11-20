@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { AgentResume } from '../src/agent/agent-store';
 import type { IssueCreationDeBloc } from '../src/workflow/modeles-de-bloc';
 import { corpsStandard } from '../src/shopify/messages-standard';
 import { EVENEMENTS_SHOPIFY } from '../src/shopify/donnees';
@@ -54,12 +55,12 @@ function monter(o: {
   jeton?: Awaited<ReturnType<DepsGestionShopify['jeton']>>; abonnement?: Awaited<ReturnType<DepsGestionShopify['abonner']>>;
   acces?: Awaited<ReturnType<DepsGestionShopify['store']['acces']>>;
   anciens?: MessageBranche[]; filiere?: Filiere | null; modeles?: TemplateSummary[]; arretLeve?: boolean;
-  creation?: IssueCreationDeBloc | 'leve';
+  creation?: IssueCreationDeBloc | 'leve'; agents?: AgentResume[];
 } = {}) {
   // La boutique vit dans le faux des lignes : la gestion et les lignes lisent la MÊME (une coupure se voit des deux côtés).
   const lignes = monterLignes({
     vue: o.boutique === undefined ? VUE : o.boutique, modeles: o.modeles ?? [modeleMeta({ buttons: [] }), modeleMeta({ id: 'm2', name: 'relance', category: 'MARKETING', buttons: [] })],
-    arretLeve: o.arretLeve, creation: o.creation, filiere: o.filiere,
+    arretLeve: o.arretLeve, creation: o.creation, filiere: o.filiere, agents: o.agents,
   });
   const journal = { connexions: [] as unknown[], coupes: 0, verifs: 0, abonnements: [] as unknown[], lecturesModele: 0, chiffres: [] as DateRange[] };
   const deps: DepsGestionShopify = {
@@ -420,7 +421,8 @@ describe('les outils MCP du connecteur', () => {
 
   it('le schéma annoncé porte les bornes que la gestion applique (événements du lot, données permises), sans le texte d’avant', () => {
     const o = regler();
-    expect(o.entree.properties.event!.enum).toEqual(['order_paid', 'order_fulfilled', 'checkout_abandoned']);
+    // La relance de panier avec agent IA (2026-11-20) : une automation de plus, sur le panier abandonné.
+    expect(o.entree.properties.event!.enum).toEqual(['order_paid', 'order_fulfilled', 'checkout_abandoned', 'checkout_abandoned_agent']);
     expect(o.entree.properties.variables!.maxItems).toBe(10);
     expect(o.entree.properties.variables!.items!.enum).toContain('checkout_url');
     expect([o.entree.properties.delay_minutes!.minimum, o.entree.properties.delay_minutes!.maximum]).toEqual([15, 4320]);
@@ -451,6 +453,21 @@ describe('les outils MCP du connecteur', () => {
     expect(r.automations[0]!.steps).toBe(3);
     expect(r.automations[0]!.note).toMatch(/2 more steps.*console/);
     expect(r.scheduled_version_cancelled).toMatch(/cancelled/);
+  });
+
+  it('🔴 la relance avec agent IA (2026-11-20) : sans agent_id, refus ; avec, le message standard se crée, l’automation s’allume et dit son agent', async () => {
+    const AG = { id: '11111111-1111-4111-8111-111111111111', label: 'Conseiller', status: 'active' as const, sorties: [], modele: 'm' };
+    const { deps, lignes } = monter({
+      agents: [AG],
+      creation: { ok: true, modele: 'panier_agent', langue: 'fr', etat: 'en_validation', categorie: 'MARKETING', boutons: [{ type: 'URL', text: 'Reprendre mon panier' }, { type: 'QUICK_REPLY', text: 'Vous avez une question ?' }] },
+    });
+    const args = { event: 'checkout_abandoned_agent', language: 'fr' };
+    await expect(regler().executer(mcpDe(deps), T, args, PERSONNE)).rejects.toThrow(/agent IA actif/);
+    const r = await regler().executer(mcpDe(deps), T, { ...args, agent_id: AG.id }, PERSONNE) as { automations: Array<Record<string, unknown>> };
+    expect(r.automations).toEqual([expect.objectContaining({
+      event: 'checkout_abandoned_agent', active: true, agent: { id: AG.id, name: 'Conseiller', active: true }, warnings: ['modele_en_attente'],
+    })]);
+    expect(lignes.creation.appels).toHaveLength(1);
   });
 
   it('🔴 en Free, un scénario de plusieurs étapes n’envoie que la première : les deux outils le disent', async () => {
