@@ -92,7 +92,9 @@ test.describe('Builder : aperçu et sorties d’un bloc carousel', () => {
 
     // Hauteur RÉELLE du bloc (offsetHeight : la boundingBox est multipliée par le zoom du canevas).
     const h = await page.locator('.react-flow__node').first().evaluate((el) => (el as HTMLElement).offsetHeight);
-    expect(h).toBeLessThan(380);
+    // 410 et non plus 380 (2026-11-20) : la ligne « En cas d'échec » de tout bloc template ajoute une hauteur FIXE
+    // (389 mesuré) ; la borne garde ce qu'elle protège, des cartes qui défilent au lieu d'étirer le bloc.
+    expect(h).toBeLessThan(410);
   });
 
   test('les points de liaison sont HORS de la zone qui défile (sinon les flèches partent dans le vide)', async ({ page }) => {
