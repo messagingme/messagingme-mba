@@ -12,6 +12,7 @@ import type { AgentComplet, PatchAgent } from '../src/agent/agent-store';
 import { ficheVide } from '../src/agent/fiche';
 import type { LigneHistorique } from '../src/reglages/historique';
 import { modeEffectif, type ModeRepondeur } from '../src/repondeur/mode';
+import { audienceVoulue } from '../src/mba/audience';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { agentsInertes } from './routes-inertes';
 import { bancDuFil, listeEnMemoire, metaFactice } from './banc-du-fil';
@@ -59,6 +60,8 @@ function monter(o: {
   };
   const journal: string[] = [];
   const lignes: LigneHistorique[] = [];
+  /** L'audience voulue à chaque alignement, lue sur l'état AU MOMENT de l'appel (`src/mba/audience.ts`). */
+  const alignements: string[] = [];
   const deps: DepsReglageRepondeur = {
     agents: {
       complet: async (_t, id) => (o.statut === null || id !== AG ? null : { id: AG, label: 'Léa', status: o.statut ?? 'active' }),
@@ -105,6 +108,7 @@ function monter(o: {
         etat.mbaEnabled = enabled;
         if (enabled && modeEffectif(etat) === 'equipe') etat.repondeurMode = 'mba';
       },
+      alignerAudience: async () => { alignements.push(audienceVoulue(etat)); },
     },
     liste: { toutRetirer: async () => { journal.push('liste:videe'); return { retires: 3, refuses: 1 }; } },
     historique: { ecrire: async (_t, l) => { lignes.push(l); } },
@@ -116,7 +120,7 @@ function monter(o: {
       },
     },
   };
-  return { deps, etat, journal, lignes };
+  return { deps, etat, journal, lignes, alignements };
 }
 
 const choisir = (m: ReturnType<typeof monter>, c: ChoixRepondeur) => choisirRepondeur(m.deps, T, c, AUTEUR);
@@ -222,6 +226,8 @@ describe('choisirRepondeur : chaque passage de mode, dans les deux sens', () => 
     // Deux lectures d'éligibilité : celle de la carte (configurable ?), puis celle de l'allumage lui-même.
     expect(m.journal).toEqual(['meta:eligible', 'meta:eligible', 'meta:allume', 'drapeau:true', 'reglage:mba']);
     expect(m.etat).toMatchObject({ mbaEnabled: true, repondeurMode: 'mba', repondeurAgentId: null });
+    // 🔴 L'audience (2026-11-20) : la liste après l'allumage (l'agent IA répond encore), tout le monde après le réglage.
+    expect(m.alignements).toEqual(['ALLOWLISTED_ONLY', 'EVERYONE']);
     // La ligne d'historique va sur l'agent qu'on quitte : c'est sa page qui la montre.
     expect(m.lignes).toMatchObject([{ surface: 'agent', surfaceId: AG, libelle: 'Qui répond au client : l’agent de Meta' }]);
   });
@@ -230,6 +236,8 @@ describe('choisirRepondeur : chaque passage de mode, dans les deux sens', () => 
     const m = monter({ etat: { mbaEnabled: true, repondeurMode: 'agent', repondeurAgentId: AG } });
     expect(await choisir(m, { mode: 'mba' })).toMatchObject({ ok: true, valeur: { mode: 'mba', agentDeMetaAllume: false } });
     expect(m.journal).toEqual(['reglage:mba']);
+    // 🔴 Aucun allumage, mais l'agent devient le répondeur : il s'ouvre à tout le monde (un inconnu lui arrive).
+    expect(m.alignements).toEqual(['EVERYONE']);
   });
 
   it('MBA → équipe : réglage, liste vidée, fils repris ; ligne d’historique sur l’agent de Meta', async () => {
@@ -237,6 +245,17 @@ describe('choisirRepondeur : chaque passage de mode, dans les deux sens', () => 
     expect((await choisir(m, { mode: 'equipe' })).ok).toBe(true);
     expect(m.journal).toEqual(['reglage:equipe', 'liste:videe', 'fils:repris']);
     expect(m.lignes).toMatchObject([{ surface: 'mba', surfaceId: null, libelle: 'Qui répond au client : l’équipe' }]);
+    // 🔴 Il n'est plus le répondeur : refermé sur sa liste, sans quoi il répondrait encore aux inconnus par-dessus l'équipe.
+    expect(m.alignements).toEqual(['ALLOWLISTED_ONLY']);
+  });
+
+  it('🔴 MBA → équipe, la liste en panne : l’agent est QUAND MÊME refermé sur sa liste (relecture du 2026-11-20)', async () => {
+    // Le vidage de la liste lève sur une panne de `mba_liste`, et une reprise du geste s'arrête sur `memeReglage` : un
+    // alignement placé après lui ne partait jamais, et l'agent restait ouvert à tous par-dessus l'équipe.
+    const m = monter({ etat: { mbaEnabled: true, repondeurMode: 'mba' } });
+    m.deps.liste = { toutRetirer: async () => { throw new Error('mba_liste indisponible'); } };
+    await expect(choisir(m, { mode: 'equipe' })).rejects.toThrow('mba_liste indisponible');
+    expect(m.alignements).toEqual(['ALLOWLISTED_ONLY']);
   });
 
   it('équipe → scénario publié, avec son délai ; scénario → équipe : jamais la liste de l’agent de Meta', async () => {

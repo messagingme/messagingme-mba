@@ -5,8 +5,10 @@ import { messageDe } from '../lib/erreur';
 /**
  * La liste de l'agent de Meta, tenue par la plateforme (migration 0195).
  *
- * L'agent est toujours réglé en mode liste (`ai_audience = ALLOWLISTED_ONLY`, `modifierSettings`) : un contact
- * absent de sa liste ne l'entend jamais, même quand Meta lui a rendu le fil (mesuré le 2026-09-29). C'est le seul
+ * Quand l'agent n'est PAS le répondeur de l'espace, il est réglé en mode liste (`ai_audience = ALLOWLISTED_ONLY`,
+ * `src/mba/audience.ts`) : un contact absent de sa liste ne l'entend jamais, même quand Meta lui a rendu le fil (mesuré
+ * le 2026-09-29). Quand il l'est, il répond à tout le monde (`EVERYONE`, décision de Julien du 2026-11-20), et la liste
+ * ne décide plus de qui il entend : ses gestes restent sans danger, et elle reprend son rôle dès qu'il ne l'est plus. C'est le seul
  * interrupteur par contact que Meta nous donne, et `thread_control` n'en est pas un : son action `take` ne nous rend
  * rien. Deux gestes s'en servent, dans `src/inbox/fil.ts` : **confier** une conversation à l'agent (`ajouter`, puis
  * `release`) et la **reprendre** (`retirer`). La fabrique Meta retire aussi le destinataire avant tout modèle

@@ -58,7 +58,7 @@ function monter(sur: Partial<ClientMbaEcriture> = {}, opts: { numero?: string | 
     },
     acteur: { id: 'u1', email: 'julien@messagingme.fr' },
     // Notre drapeau, dans le même journal que Meta : la mise en service l'écrit APRÈS Meta.
-    drapeau: { setMbaEnabled: async (_t, enabled) => { faits.push(`drapeau:${enabled}`); } },
+    drapeau: { setMbaEnabled: async (_t, enabled) => { faits.push(`drapeau:${enabled}`); }, get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }) },
     attendre: async () => {},
     formulaires: { estPublie: async (t, f) => { questionsFormulaire.push([t, f]); return f === '111'; } },
   };
@@ -174,6 +174,18 @@ describe('les pièges de l’API Meta', () => {
     expect(m.faits.at(-1)).toBe('drapeau:true');
   });
 
+  it('🔴 après la mise en service, l’agent s’ouvre à tout le monde s’il est le répondeur (2026-11-20)', async () => {
+    // L'allumage pose la liste ; l'alignement qui suit le drapeau lit le répondeur et pose EVERYONE en mode `mba`.
+    const m = monter();
+    m.deps.drapeau = {
+      ...m.deps.drapeau,
+      get: async () => ({ mbaEnabled: true, repondeurMode: 'mba', repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }),
+    };
+    await appliquer(m.deps, 't1', [{ type: 'activation.mettreEnService' }]);
+    expect(m.faits.filter((f) => f.startsWith('settings:') || f.startsWith('drapeau:')).map((f) => f.split(':')[0])).toEqual(['settings', 'settings', 'drapeau', 'settings']);
+    expect(JSON.parse(m.faits.at(-1)!.slice('settings:'.length))).toMatchObject({ ai_audience: 'EVERYONE', rollout: { enabled: true } });
+  });
+
   it('⚠️ Meta refuse la mise en service : notre drapeau ne bouge pas', async () => {
     const m = monter({ putSettings: async () => { throw new Error('refusé par Meta'); } });
     const r = await appliquer(m.deps, 't1', [{ type: 'activation.mettreEnService' }]);
@@ -225,7 +237,7 @@ describe('quand le journal est indisponible', () => {
       ecrire: async () => { throw new Error('base indisponible'); },
     },
     acteur: { id: 'u1', email: null },
-    drapeau: { setMbaEnabled: async () => {} },
+    drapeau: { setMbaEnabled: async () => {}, get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }) },
     attendre: async () => {},
   });
 

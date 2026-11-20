@@ -393,6 +393,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
         eligible: async () => true,
         ecrireChezMeta: async (t) => { cap.allumages.push(t); },
         ecrireDrapeau: async (_t, enabled) => { reglagesRepondeur.mbaEnabled = enabled; },
+        alignerAudience: async () => {},
       },
       liste: { toutRetirer: async (t) => { cap.vidages.push(t); return { retires: 2, refuses: 0 }; } },
       adresses: { lire: async () => null, lister: async () => [] },

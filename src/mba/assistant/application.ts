@@ -2,6 +2,8 @@ import { estSuppression, type Operation } from './proposition';
 import type { LigneHistorique } from '../../reglages/historique';
 import { messageDe, texteDe } from '../../lib/erreur';
 import { ecrireRolloutPuisDrapeau, type AgentSettings, type BusinessInfo, type Skill } from '../client';
+import { creerAlignerAudience } from '../audience';
+import type { ReglageDuRepondeur } from '../../repondeur/mode';
 import {
   appliquerMutationConnaissance, RefusConnaissanceMba,
   type ClientConnaissanceMba, type MutationConnaissanceMba,
@@ -32,7 +34,11 @@ export interface ApplicationDeps {
    * interrupteurs de la console : toute la mécanique de la liste le lit. Requis : oublié, l'agent serait allumé chez
    * Meta et éteint pour nous, et les réponses rangées en `standby` n'arriveraient à personne.
    */
-  drapeau: { setMbaEnabled(tenantId: string, enabled: boolean): Promise<void> };
+  drapeau: {
+    setMbaEnabled(tenantId: string, enabled: boolean): Promise<void>;
+    /** Le répondeur de l'espace, relu après la mise en service pour aligner l'audience (`src/mba/audience.ts`). */
+    get(tenantId: string): Promise<ReglageDuRepondeur>;
+  };
   /** Attendre avant la seconde relecture de l'audience à l'allumage (`ecrireRollout`). Injectée : les tests ne dorment pas. */
   attendre(ms: number): Promise<void>;
   /**
@@ -299,6 +305,8 @@ async function executer(
         { attendre: (ms) => deps.attendre(ms) },
         (enabled) => deps.drapeau.setMbaEnabled(tenantId, enabled),
       );
+      // Allumé sur la liste, puis ouvert à tout le monde s'il est le répondeur ; ne lève jamais.
+      await creerAlignerAudience({ reglages: deps.drapeau, numero: async () => numero, client: async () => client })(tenantId);
       return;
     }
     default: throw new Error('mutation de connaissance non déléguée');

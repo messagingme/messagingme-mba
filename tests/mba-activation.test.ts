@@ -21,6 +21,7 @@ function deps(over: Partial<ActivationDeps> = {}): { d: ActivationDeps; ecrits: 
     eligible: async () => true,
     ecrireChezMeta: async (_t, _pn, enabled) => { metaEcrits.push(enabled); },
     ecrireDrapeau: async (_t, enabled) => { ecrits.push(enabled); },
+    alignerAudience: async () => {},
     ...over,
   };
   return { d, ecrits, metaEcrits };
@@ -33,6 +34,26 @@ describe('appliquerActivation', () => {
     expect(r).toEqual({ enabled: true, chezMeta: 'applique', phoneNumberId: '1234840649713976' });
     expect(metaEcrits).toEqual([true]);
     expect(ecrits).toEqual([true]);
+  });
+
+  it('🔴 l’audience s’aligne APRÈS le drapeau, et seulement quand Meta a appliqué l’allumage (2026-11-20)', async () => {
+    // L'allumage pose la liste ; l'agent ne s'ouvre à tout le monde qu'ensuite, sur le répondeur que le drapeau vient
+    // d'écrire (\`setMbaEnabled\` peut faire passer l'espace en mode \`mba\`).
+    const ordre: string[] = [];
+    const { d } = deps({
+      ecrireChezMeta: async () => { ordre.push('meta'); },
+      ecrireDrapeau: async () => { ordre.push('drapeau'); },
+      alignerAudience: async () => { ordre.push('audience'); },
+    });
+    await appliquerActivation(d, 'tenant-1', true);
+    expect(ordre).toEqual(['meta', 'drapeau', 'audience']);
+    // Sans numéro, ou non éligible : aucun agent à régler, aucun alignement.
+    const sans: string[] = [];
+    const sansNumero = deps({ numeroDuTenant: async () => null, alignerAudience: async () => { sans.push('audience'); } });
+    await appliquerActivation(sansNumero.d, 'tenant-1', true);
+    const nonEligible = deps({ eligible: async () => false, alignerAudience: async () => { sans.push('audience'); } });
+    await appliquerActivation(nonEligible.d, 'tenant-1', true);
+    expect(sans).toEqual([]);
   });
 
   it('🔴 état Meta ILLISIBLE : rien n’est écrit, ni chez Meta ni chez nous', async () => {

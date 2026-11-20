@@ -67,7 +67,7 @@ function monter(sur: Partial<MbaAssistantDeps> = {}, opts: { role?: string; depe
         ecrire: async () => {},
       },
       acteur: { id: 'u1', email: null },
-      drapeau: { setMbaEnabled: async () => {} },
+      drapeau: { setMbaEnabled: async () => {}, get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }) },
       attendre: async () => {},
     }),
     completer: async () => {
@@ -237,7 +237,7 @@ describe('appliquer', () => {
           formulaires: { estPublie: async () => false },
           historique: { ecrire: async () => { throw new Error('base indisponible'); } },
           acteur: { id: 'u1', email: null },
-          drapeau: { setMbaEnabled: async () => {} },
+          drapeau: { setMbaEnabled: async () => {}, get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }) },
           attendre: async () => {},
         }),
       });

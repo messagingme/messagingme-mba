@@ -311,6 +311,12 @@ export async function choisirRepondeur(
     throw err;
   }
 
+  // L'audience de l'agent de Meta suit le répondeur (décision de Julien du 2026-11-20) : tout le monde s'il l'est devenu,
+  // sa liste seule s'il ne l'est plus, sans quoi il répondrait encore aux inconnus par-dessus le répondeur choisi. JUSTE
+  // après le réglage (relecture) : le vidage de la liste qui suit peut lever, et une reprise du geste s'arrêterait sur
+  // `memeReglage` sans jamais aligner. Ne lève jamais ; le réalignement périodique est le filet.
+  await deps.activation.alignerAudience(tenantId);
+
   // L'espace QUITTE le mode `mba` (écrit, même agent de Meta éteint : sa liste peut encore porter des contacts).
   let liste = { retires: 0, refuses: 0 };
   let fils: number | null = 0;

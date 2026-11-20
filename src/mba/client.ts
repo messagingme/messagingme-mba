@@ -654,12 +654,22 @@ function erreurMba(status: number, json: unknown): MetaApiError {
   return new MetaAgentApiError(status, { message, type: 'MbaError', error_user_msg: o.detail ?? message, error_user_title: o.title });
 }
 
+/** Les deux audiences de l'agent de Meta : tout le monde, ou les seuls contacts de sa liste (`src/mba/liste.ts`). */
+export type AudienceDeLAgent = 'EVERYONE' | 'ALLOWLISTED_ONLY';
+
 /**
- * L'audience de l'agent de Meta, toujours : il ne répond qu'aux contacts de sa liste, et c'est la plateforme qui la
- * tient (`src/mba/liste.ts`). Le choix « tout le monde » n'existe plus : un agent qui répond à tous répond aussi
- * par-dessus nos scénarios, dès qu'un modèle lui rend le fil (mesuré le 2026-09-29).
+ * L'audience à l'ALLUMAGE (`ecrireRollout`) : la liste, toujours. Meta évalue l'audience stockée au moment d'allumer, et
+ * un agent allumé pour tout le monde répondait par-dessus nos scénarios dès qu'un modèle lui rendait le fil (mesuré le
+ * 2026-09-29). L'audience VOULUE, elle, dépend du répondeur de l'espace (`audienceVoulue`, `./audience.ts`) : elle
+ * s'aligne APRÈS l'allumage et après chaque changement de répondeur (décision de Julien du 2026-11-20).
  */
-export const AUDIENCE_DE_L_AGENT = 'ALLOWLISTED_ONLY';
+export const AUDIENCE_DE_L_AGENT: AudienceDeLAgent = 'ALLOWLISTED_ONLY';
+
+/** L'audience lue chez Meta, si c'est l'une des deux connues ; `null` sinon (absente, ou une valeur nouvelle). */
+export function audienceLue(reglages: unknown): AudienceDeLAgent | null {
+  const a = (reglages as { ai_audience?: unknown } | null)?.ai_audience;
+  return a === 'EVERYONE' || a === 'ALLOWLISTED_ONLY' ? a : null;
+}
 
 /** Ce que l'écriture des réglages lit et écrit : le vrai client, comme le sous-ensemble de l'assistant. */
 export interface ClientReglages {
@@ -671,10 +681,12 @@ export interface ClientReglages {
 const objetLu = z.record(z.string(), z.unknown()).catch({});
 
 /**
- * Écrit les réglages relus `actuel`, modifiés par `patch`, avec l'audience de l'agent posée en dernier : aucun
- * appelant ne peut écrire une autre audience, ni la laisser à ce que Meta avait. Les sous-objets sont fusionnés
- * avec l'existant, sinon patcher `handoff.enabled` seul effacerait `message` et `message_selection`, donc le texte
- * lu par le client au transfert.
+ * Écrit les réglages relus `actuel`, modifiés par `patch`, avec l'audience posée en dernier (aucun patch ne la choisit) :
+ * `audience` quand l'appelant la fixe (l'allumage, l'alignement), sinon celle que Meta avait, et la liste si elle est
+ * illisible. 🔴 Garder l'audience en place est ce qui la fait survivre au passage de main que le balayage réécrit à
+ * chaque ouverture et fermeture des heures ouvrées : imposer la liste effaçait EVERYONE chez MUTAC chaque jour (mesuré
+ * le 2026-11-20, un inconnu resté sans réponse). Les sous-objets sont fusionnés avec l'existant, sinon patcher
+ * `handoff.enabled` seul effacerait `message` et `message_selection`, donc le texte lu par le client au transfert.
  */
 function ecrireReglages(
   client: ClientReglages,
@@ -682,13 +694,15 @@ function ecrireReglages(
   actuel: Record<string, unknown>,
   patch: Partial<AgentSettings>,
   agentId: string | undefined,
+  audience?: AudienceDeLAgent,
 ): Promise<unknown> {
   const fusion = (cle: 'rollout' | 'followup' | 'handoff'): Record<string, unknown> => {
     const valeur = patch[cle];
     return valeur ? { [cle]: { ...objetLu.parse(actuel[cle]), ...valeur } } : {};
   };
   const corps: AgentSettings = {
-    ...actuel, ...patch, ...fusion('rollout'), ...fusion('followup'), ...fusion('handoff'), ai_audience: AUDIENCE_DE_L_AGENT,
+    ...actuel, ...patch, ...fusion('rollout'), ...fusion('followup'), ...fusion('handoff'),
+    ai_audience: audience ?? audienceLue(actuel) ?? AUDIENCE_DE_L_AGENT,
   };
   // Relu à l'instant : c'est la configuration qu'on vient de lire qu'on réécrit, pas « la plus récente ».
   const lu = actuel.agent_id;
@@ -697,9 +711,8 @@ function ecrireReglages(
 
 /**
  * Lecture puis modification ciblée des réglages. Les clés absentes du patch sont repassées telles quelles, y
- * compris celles que ce code ne connaît pas : seule façon de survivre à un champ ajouté par Meta. 🔴 Toute écriture
- * porte `ai_audience: ALLOWLISTED_ONLY` (`AUDIENCE_DE_L_AGENT`), quel que soit le patch : l'activation, le passage
- * de main et le PATCH des réglages en héritent.
+ * compris celles que ce code ne connaît pas : seule façon de survivre à un champ ajouté par Meta. 🔴 L'audience reste
+ * celle que Meta avait (`ecrireReglages`) : le passage de main et le PATCH des réglages n'y touchent pas.
  */
 export async function modifierSettings(
   client: ClientReglages,
@@ -707,6 +720,19 @@ export async function modifierSettings(
   patch: Partial<AgentSettings>,
 ): Promise<unknown> {
   return ecrireReglages(client, phoneNumberId, objetLu.parse(await client.getSettings(phoneNumberId)), patch, undefined);
+}
+
+/**
+ * Pose `audience` chez Meta si elle n'y est pas déjà, en gardant le reste des réglages ; rend `true` si elle a écrit.
+ * Aucune écriture quand Meta n'a aucun réglage pour ce numéro (`null`) : un agent jamais configuré n'a pas d'audience à
+ * aligner, et écrire un objet presque vide le créerait.
+ */
+export async function ecrireAudience(client: ClientReglages, phoneNumberId: string, audience: AudienceDeLAgent): Promise<boolean> {
+  const lu = await client.getSettings(phoneNumberId);
+  if (lu === null || lu === undefined) return false;
+  if (audienceLue(lu) === audience) return false;
+  await ecrireReglages(client, phoneNumberId, objetLu.parse(lu), {}, undefined, audience);
+  return true;
 }
 
 /**
@@ -742,14 +768,15 @@ export async function ecrireRollout(
   const { agentId } = o;
   const actuel = objetLu.parse(await client.getSettings(phoneNumberId));
   if (!enabled) return ecrireReglages(client, phoneNumberId, actuel, { rollout: { enabled: false } }, agentId);
-  await ecrireReglages(client, phoneNumberId, actuel, {}, agentId);
+  // La liste, imposée ici et ici seulement : Meta évalue l'audience stockée au moment d'allumer.
+  await ecrireReglages(client, phoneNumberId, actuel, {}, agentId, AUDIENCE_DE_L_AGENT);
   let relu = objetLu.parse(await client.getSettings(phoneNumberId));
   if (relu.ai_audience !== AUDIENCE_DE_L_AGENT) {
     await o.attendre(RELECTURE_AUDIENCE_ATTENTE_MS);
     relu = objetLu.parse(await client.getSettings(phoneNumberId));
   }
   if (relu.ai_audience !== AUDIENCE_DE_L_AGENT) throw new AudienceNonConfirmee(relu.ai_audience);
-  return ecrireReglages(client, phoneNumberId, relu, { rollout: { enabled: true } }, agentId);
+  return ecrireReglages(client, phoneNumberId, relu, { rollout: { enabled: true } }, agentId, AUDIENCE_DE_L_AGENT);
 }
 
 /**

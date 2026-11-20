@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MbaClient, RELECTURE_AUDIENCE_ATTENTE_MS, ecrireRollout, ecrireRolloutPuisDrapeau, modifierSettings, nomLisibleOutil } from '../src/mba/client';
+import { MbaClient, RELECTURE_AUDIENCE_ATTENTE_MS, ecrireAudience, ecrireRollout, ecrireRolloutPuisDrapeau, modifierSettings, nomLisibleOutil } from '../src/mba/client';
 import { MetaApiError } from '../src/meta/errors';
 
 /** Faux fetch : enregistre les appels et rend des réponses scriptées. Aucun réseau. */
@@ -200,28 +200,52 @@ describe('MbaClient : agent_event', () => {
 });
 
 /**
- * 🔴 L'AGENT DE META EST TOUJOURS EN MODE LISTE (2026-09-29) : il ne répond qu'aux contacts de sa liste, que la
- * plateforme tient. Une écriture des réglages qui laisserait `EVERYONE` rendrait la parole à l'agent sur tous les
- * contacts, y compris au milieu d'un scénario. Vérifié dans les deux sens : l'audience retirée de
- * `ecrireReglages`, les deux premiers cas échouent (`EVERYONE` repasse tel quel).
+ * 🔴 UNE ÉCRITURE DES RÉGLAGES GARDE L'AUDIENCE QUE META AVAIT (2026-11-20). Elle imposait la liste à chaque écriture :
+ * le passage de main, que le balayage réécrit à chaque ouverture et fermeture des heures ouvrées, effaçait donc chaque
+ * jour l'`EVERYONE` de MUTAC, et un inconnu qui écrivait au numéro restait sans réponse de l'agent. L'audience voulue se
+ * pose désormais par `ecrireAudience` (`src/mba/audience.ts`), jamais par un patch.
  */
-describe('toute écriture des réglages porte ALLOWLISTED_ONLY', () => {
-  it('🔴 quel que soit le patch, et quelle que soit l’audience que Meta avait', async () => {
+describe('une écriture des réglages garde l’audience en place', () => {
+  it('🔴 EVERYONE survit à une écriture (le passage de main du balayage)', async () => {
     const { impl, appels } = faux([{ body: [{ agent_id: 'a1', ai_audience: 'EVERYONE', rollout: { enabled: true } }] }, { body: {} }]);
-    await modifierSettings(new MbaClient('tok', impl), 'PN1', { followup: { enabled: false } });
-    expect((appels[1]!.body as Record<string, unknown>).ai_audience).toBe('ALLOWLISTED_ONLY');
+    await modifierSettings(new MbaClient('tok', impl), 'PN1', { handoff: { enabled: false } });
+    expect((appels[1]!.body as Record<string, unknown>).ai_audience).toBe('EVERYONE');
   });
 
-  it('🔴 même un patch qui demanderait EVERYONE ne passe pas', async () => {
-    const { impl, appels } = faux([{ body: [{ agent_id: 'a1' }] }, { body: {} }]);
-    await modifierSettings(new MbaClient('tok', impl), 'PN1', { ai_audience: 'EVERYONE' });
-    expect((appels[1]!.body as Record<string, unknown>).ai_audience).toBe('ALLOWLISTED_ONLY');
+  it('la liste survit aussi, et un patch ne choisit jamais l’audience', async () => {
+    const liste = faux([{ body: [{ agent_id: 'a1', ai_audience: 'ALLOWLISTED_ONLY' }] }, { body: {} }]);
+    await modifierSettings(new MbaClient('tok', liste.impl), 'PN1', { ai_audience: 'EVERYONE' });
+    expect((liste.appels[1]!.body as Record<string, unknown>).ai_audience).toBe('ALLOWLISTED_ONLY');
   });
 
-  it('⚠️ un numéro sans réglages (pas encore onboardé) reçoit aussi l’audience', async () => {
+  it('⚠️ une audience absente ou inconnue (numéro pas encore onboardé) reçoit la liste', async () => {
     const { impl, appels } = faux([{ body: [] }, { body: {} }]);
     await modifierSettings(new MbaClient('tok', impl), 'PN1', { never_say_phrases: [] });
     expect((appels[1]!.body as Record<string, unknown>).ai_audience).toBe('ALLOWLISTED_ONLY');
+  });
+
+  it('🔴 ecrireAudience pose l’audience voulue, et n’écrit rien quand Meta l’a déjà ou n’a aucun réglage', async () => {
+    const change = faux([{ body: [{ agent_id: 'a1', ai_audience: 'ALLOWLISTED_ONLY', handoff: { message: 'm' } }] }, { body: {} }]);
+    expect(await ecrireAudience(new MbaClient('tok', change.impl), 'PN1', 'EVERYONE')).toBe(true);
+    expect(change.appels[1]!.body).toMatchObject({ ai_audience: 'EVERYONE', handoff: { message: 'm' } });
+    const deja = faux([{ body: [{ agent_id: 'a1', ai_audience: 'EVERYONE' }] }]);
+    expect(await ecrireAudience(new MbaClient('tok', deja.impl), 'PN1', 'EVERYONE')).toBe(false);
+    expect(deja.appels).toHaveLength(1);
+    const rien = faux([{ body: [] }]);
+    expect(await ecrireAudience(new MbaClient('tok', rien.impl), 'PN1', 'EVERYONE')).toBe(false);
+    expect(rien.appels).toHaveLength(1);
+  });
+
+  it('🔴 l’allumage impose toujours la liste avant d’allumer, même sur un agent qui était en EVERYONE', async () => {
+    const { impl, appels } = faux([
+      { body: [{ agent_id: 'a1', ai_audience: 'EVERYONE', rollout: { enabled: false } }] },
+      { body: {} },
+      { body: [{ agent_id: 'a1', ai_audience: 'ALLOWLISTED_ONLY', rollout: { enabled: false } }] },
+      { body: {} },
+    ]);
+    await ecrireRollout(new MbaClient('tok', impl), 'PN1', true, { attendre: async () => {} });
+    expect((appels[1]!.body as Record<string, unknown>).ai_audience).toBe('ALLOWLISTED_ONLY');
+    expect(appels[3]!.body).toMatchObject({ ai_audience: 'ALLOWLISTED_ONLY', rollout: { enabled: true } });
   });
 });
 

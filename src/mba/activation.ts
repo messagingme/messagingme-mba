@@ -51,6 +51,12 @@ export interface ActivationDeps {
   ecrireChezMeta(tenantId: string, phoneNumberId: string, enabled: boolean): Promise<void>;
   /** Écrit notre drapeau (`tenant_settings.mba_enabled`). */
   ecrireDrapeau(tenantId: string, enabled: boolean): Promise<void>;
+  /**
+   * Aligne l'audience de l'agent chez Meta sur le répondeur de l'espace (`creerAlignerAudience`, `./audience.ts`), APRÈS
+   * le drapeau : l'allumage pose la liste, et l'agent ne s'ouvre à tout le monde qu'ensuite, s'il est le répondeur.
+   * Ne lève jamais.
+   */
+  alignerAudience(tenantId: string): Promise<void>;
 }
 
 /**
@@ -111,5 +117,6 @@ export async function appliquerActivation(
   }
 
   await deps.ecrireDrapeau(tenantId, enabled);
+  await deps.alignerAudience(tenantId);
   return { enabled, chezMeta: 'applique', phoneNumberId };
 }

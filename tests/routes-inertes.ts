@@ -146,6 +146,7 @@ export const repondeurInerte: DepsReglageRepondeur = {
     eligible: neDevraitPasEtreAppelee('eligible'),
     ecrireChezMeta: neDevraitPasEtreAppelee('ecrireChezMeta'),
     ecrireDrapeau: neDevraitPasEtreAppelee('ecrireDrapeau'),
+    alignerAudience: neDevraitPasEtreAppelee('alignerAudience'),
   },
   liste: { toutRetirer: neDevraitPasEtreAppelee('toutRetirer') },
   historique: { ecrire: neDevraitPasEtreAppelee('historique.ecrire') },
@@ -370,7 +371,7 @@ export const relaisMbaInerte: Pick<MbaRelaisDeps, 'journaliserForme' | 'resolveu
 export const mbaInerte: Pick<MbaRouteDeps, 'journaliserSuppression' | 'reglages' | 'stats' | 'attendre' | 'formulaires'> = {
   journaliserSuppression: async () => {},
   formulaires: { estPublie: neDevraitPasEtreAppelee('formulaires.estPublie') },
-  reglages: { setMbaEnabled: neDevraitPasEtreAppelee('setMbaEnabled') },
+  reglages: { setMbaEnabled: neDevraitPasEtreAppelee('setMbaEnabled'), get: neDevraitPasEtreAppelee('reglages.get') },
   stats: { messagesEcritsParMba: async () => 0 },
   // Sans attente : la seconde relecture de l'audience à l'allumage part tout de suite.
   attendre: async () => {},

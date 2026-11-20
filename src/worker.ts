@@ -152,6 +152,7 @@ import { balayerLimites, creerAlerteEspacePlein, limitesAlertables } from './ema
 import type { EspacesPleins } from './webhooks/espace-plein';
 import { balayerAccompagnement, balayerRecap } from './emails-produit/accompagnement';
 import { PgOffresStore } from './offres/offre.pg';
+import { realignerLesAudiences } from './mba/audience';
 import { moisDeParis } from './offres/compteurs';
 import { FILE_EMAILS_PRODUIT } from './emails-produit/emission';
 import { FILE_CONVERSIONS_META } from './pub/conversions-meta';
@@ -1749,6 +1750,20 @@ export async function demarrerWorker(): Promise<void> {
     if (bascules > 0) console.log(`handoff-sweep: ${bascules} tenant(s) basculé(s) sur les heures d'ouverture`);
   };
   taches.programmer('handoff-mba', config.CONTROL_SWEEP_INTERVAL_MS, handoffSweep, { immediat: true, enEchec: echecDeBalayage('handoff-sweep', 'sweeper:handoff') });
+
+  // L'audience de l'agent de Meta suit le répondeur de chaque espace (`src/mba/audience.ts`, 2026-11-20) : le filet de
+  // l'alignement au geste, au démarrage puis toutes les 15 min. Une lecture des réglages chez Meta par espace relié.
+  const audienceSweep = async (): Promise<void> => {
+    const ecrites = await realignerLesAudiences({
+      reglages: settingsStore,
+      offres: usageDesOffres,
+      numero: (t) => repo.getTenantPhoneNumberId(t),
+      client: (t) => metaFactory.mbaClientForTenant(t),
+    });
+    // eslint-disable-next-line no-console
+    if (ecrites > 0) console.log(`audience-sweep: ${ecrites} audience(s) réalignée(s)`);
+  };
+  taches.programmer('audience-mba', 15 * 60 * 1000, audienceSweep, { immediat: true, enEchec: echecDeBalayage('audience-sweep', 'sweeper:audience') });
 
   // Purge des clés d'idempotence API plus vieilles que leur durée de vie (`DUREE_CLE_IDEMPOTENCE_MS`), la
   // même que celle du claim : une purge plus courte ferait envoyer deux fois.

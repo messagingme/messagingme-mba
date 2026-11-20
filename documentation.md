@@ -957,8 +957,10 @@ webhooks sortants, `repondeur_adresse_id`, 0224). Les invariants :
 - 🔴 **ALLUMÉ N'EST PLUS RÉPONDEUR.** `mba_enabled` dit l'agent de Meta DISPONIBLE ; il n'est le répondeur qu'en mode
   `mba` (`leMbaRepond`). Hors de ce mode il est en VEILLE : ni la remise « personne ne suit », ni « Rendre la main »,
   ni la fin de parcours (`mbaActifPour` de l'exécuteur, câblé sur `leMbaRepond`), ni le balayage
-  (`modesParTenant`) ne lui confient un contact. Seul le bloc « Envoyer au MBA » le fait. Meta ne répond jamais de
-  lui-même : son agent est en `ALLOWLISTED_ONLY` et ne parle qu'aux contacts de `mba_liste`, ce qui rend la veille sûre.
+  (`modesParTenant`) ne lui confient un contact. Seul le bloc « Envoyer au MBA » le fait. En veille, Meta ne le fait
+  jamais répondre de lui-même : son agent est en `ALLOWLISTED_ONLY` et ne parle qu'aux contacts de `mba_liste`, ce qui
+  rend la veille sûre. 🔴 Répondeur (mode `mba`), il est en `EVERYONE` (`audienceVoulue`, `src/mba/audience.ts`,
+  décision de Julien du 2026-11-20) : un inconnu qui écrit au numéro lui arrive directement chez Meta.
   La contrainte « une seule voix » de 0209 est supprimée (0217).
 - **Le mode qui s'applique** (`modeEffectif`) : un mode dont la cible a disparu (agent supprimé ou désactivé,
   scénario supprimé, agent de Meta éteint, adresse supprimée) se lit `equipe`, et la carte de l'Accueil le dit. 🔴 Les CHECK de 0217 sont
@@ -2588,8 +2590,20 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
     comportement de refus (409 dans l'Inbox, démarrage de scénario annulé avec le motif « le contact n'a pas pu
     être retiré de la liste de l'agent de Meta », lead `reprise_refusee`). Une panne de `mba_liste` LÈVE, elle
     n'est jamais rendue comme un refus : le job ou la requête échoue et se rejoue.
-  Toute écriture des réglages porte `ai_audience: ALLOWLISTED_ONLY` (`modifierSettings`, `src/mba/client.ts`),
-  et l'allumage suit l'ordre de Meta : l'audience, une relecture, puis `rollout.enabled` (`ecrireRollout`). Une
+  🔴 **L'audience suit le répondeur** (2026-11-20) : `EVERYONE` quand l'agent de Meta est le répondeur de l'espace,
+  `ALLOWLISTED_ONLY` sinon (`audienceVoulue`). Elle s'aligne chez Meta (`creerAlignerAudience`, au mieux, jamais
+  bloquante) après chaque geste qui change le répondeur ou l'allumage : « Qui répond au client » (juste après le réglage,
+  avant le vidage de la liste qui peut lever), l'interrupteur de l'Accueil, l'onglet Aperçu, la mise en service de
+  l'assistant. 🔴 Le filet : `realignerLesAudiences` (tâche `audience-mba` du worker, au démarrage puis toutes les
+  15 min) réaligne chaque espace qui a un numéro relié, sous son offre (`sousLOffre`) ; il rattrape un alignement en
+  échec et les chemins qui changent le répondeur sans geste (une offre retirée, `PUT /settings` qui éteint le drapeau,
+  une course avec le passage de main). Une écriture des réglages (`modifierSettings`, dont le
+  passage de main que le balayage réécrit à chaque ouverture et fermeture des heures ouvrées) GARDE l'audience que Meta
+  avait : l'imposer effaçait chaque jour l'`EVERYONE` de MUTAC, et un inconnu restait sans réponse. ⚠️ En `EVERYONE`,
+  l'agent répond aussi aux réponses à nos modèles, sauf si le routage des conversations de Meta Business Suite les
+  adresse à Messaging Me (réglé à la main ; la fiche d'aide du répondeur de Meta le décrit). L'allumage, lui, impose la
+  liste et suit l'ordre de Meta : l'audience, une relecture, puis `rollout.enabled` (`ecrireRollout`) ; l'agent ne
+  s'ouvre à tout le monde qu'à l'alignement qui suit. Une
   relecture qui ne rend pas encore la liste est refaite UNE fois après `RELECTURE_AUDIENCE_ATTENTE_MS` (Meta
   peut propager avec retard) ; toujours pas, on n'allume pas. 🔴 Les trois chemins d'allumage écrivent ensuite
   notre drapeau `tenant_settings.mba_enabled`, que toute la mécanique de la liste lit : `mba-activation`

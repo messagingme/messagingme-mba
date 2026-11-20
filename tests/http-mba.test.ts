@@ -123,8 +123,8 @@ describe('routes MBA : état et réglages', () => {
     const res = await server.inject({ method: 'PATCH', url: url('/settings'), ...h(adminTok), payload: { neverSay: ['c’est garanti'] } });
     expect(res.statusCode).toBe(200);
     const put = appels.find((a) => a.m === 'putSettings');
-    // Et l'audience de la liste, posée à CHAQUE écriture, quelle que soit celle que Meta avait (`EVERYONE` ici).
-    expect(put?.args[1]).toMatchObject({ never_say_phrases: ['c’est garanti'], ai_audience: 'ALLOWLISTED_ONLY', rollout: { enabled: false } });
+    // Et l'audience que Meta avait (`EVERYONE` ici), gardée : un PATCH des réglages ne la choisit pas (2026-11-20).
+    expect(put?.args[1]).toMatchObject({ never_say_phrases: ['c’est garanti'], ai_audience: 'EVERYONE', rollout: { enabled: false } });
     // agent_id repart en QUERY (3e argument), pas dans le corps : il n'est pas au schéma de requête.
     expect(put?.args[2]).toBe('AG1');
     await server.close();
@@ -180,7 +180,11 @@ describe('routes MBA : état et réglages', () => {
 
   /** Notre drapeau `mba_enabled`, dans le même journal que les appels à Meta. */
   const drapeauNote = (appels: Array<{ m: string; args: unknown[] }>): Partial<MbaRouteDeps> => ({
-    reglages: { setMbaEnabled: async (t, enabled) => { appels.push({ m: 'drapeau', args: [t, enabled] }); } },
+    reglages: {
+      setMbaEnabled: async (t, enabled) => { appels.push({ m: 'drapeau', args: [t, enabled] }); },
+      // Un espace dont l'agent n'est pas le répondeur : l'alignement garde la liste, aucune écriture de plus.
+      get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }),
+    },
   });
 
   it('🔴 l’allumage a sa PROPRE route, et suit l’ordre de Meta : audience, relecture, puis rollout', async () => {
@@ -219,7 +223,10 @@ describe('routes MBA : état et réglages', () => {
     const drapeaux: Array<[string, boolean, number]> = [];
     let meta: Array<{ m: string }> = [];
     const { server, appels } = app({}, {
-      reglages: { setMbaEnabled: async (t, enabled) => { drapeaux.push([t, enabled, meta.filter((a) => a.m === 'putSettings').length]); } },
+      reglages: {
+        setMbaEnabled: async (t, enabled) => { drapeaux.push([t, enabled, meta.filter((a) => a.m === 'putSettings').length]); },
+        get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }),
+      },
     });
     meta = appels;
     expect((await server.inject({ method: 'PUT', url: url('/rollout'), ...h(adminTok), payload: { enabled: true } })).statusCode).toBe(200);

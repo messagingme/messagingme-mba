@@ -15,6 +15,8 @@ import { espaceVerifie, nonEmpty } from './scope';
 import { MetaApiError } from '../meta/errors';
 import { calculerCompletion } from '../mba/completion';
 import { appliquerActivation, EtatMetaIllisible, MetaARefuse, type ActivationDeps } from '../mba/activation';
+import { creerAlignerAudience } from '../mba/audience';
+import type { ReglageDuRepondeur } from '../repondeur/mode';
 import {
   appliquerMutationConnaissance,
   type MutationConnaissanceMba, type ResultatMutationConnaissance,
@@ -69,6 +71,8 @@ export interface MbaRouteDeps {
      * interrupteurs l'écrivent après Meta : `mba-activation` (l'Accueil) et `rollout` (l'onglet Aperçu).
      */
     setMbaEnabled(tenantId: string, enabled: boolean): Promise<void>;
+    /** Le répondeur de l'espace, relu APRÈS un allumage pour aligner l'audience de l'agent (`src/mba/audience.ts`). */
+    get(tenantId: string): Promise<ReglageDuRepondeur>;
   };
   /**
    * Attendre, en millisecondes, avant la seconde relecture de l'audience à l'allumage (`ecrireRollout`). Injectée et
@@ -288,7 +292,18 @@ export function activationPour(deps: Pick<MbaRouteDeps, 'repo' | 'meta' | 'regla
       await ecrireRollout(await deps.meta.mbaClientForTenant(t), pn, enabled, { attendre: (ms) => deps.attendre(ms) });
     },
     ecrireDrapeau: (t, enabled) => deps.reglages.setMbaEnabled(t, enabled),
+    alignerAudience: alignerAudiencePour(deps),
   };
+}
+
+/** L'alignement de l'audience de l'agent sur le répondeur (`src/mba/audience.ts`), avec les dépendances des routes. */
+export function alignerAudiencePour(deps: Pick<MbaRouteDeps, 'repo' | 'meta' | 'reglages'>): (tenantId: string) => Promise<void> {
+  return creerAlignerAudience({
+    // Par l'objet, jamais la méthode détachée : une méthode de classe y perdrait son `this`.
+    reglages: { get: (t) => deps.reglages.get(t) },
+    numero: (t) => deps.repo.getTenantPhoneNumberId(t),
+    client: (t) => deps.meta.mbaClientForTenant(t),
+  });
 }
 
 export function registerMba(app: FastifyInstance, deps: MbaRouteDeps, garde: Guard): void {
@@ -510,6 +525,8 @@ export function registerMba(app: FastifyInstance, deps: MbaRouteDeps, garde: Gua
     if (typeof enabled !== 'boolean') return reply.code(400).send({ error: 'enabled requis (booléen)' });
     try {
       await ecrireRolloutPuisDrapeau(ctx.client, ctx.pn, enabled, { attendre: (ms) => deps.attendre(ms) }, (e) => deps.reglages.setMbaEnabled(ctx.tenant, e));
+      // Allumé sur la liste, puis ouvert à tout le monde s'il est le répondeur (`src/mba/audience.ts`) ; ne lève jamais.
+      await alignerAudiencePour(deps)(ctx.tenant);
     } catch (err) {
       // 4xx, jamais 5xx : Cloudflare remplacerait le corps, et l'écran ne dirait plus pourquoi rien n'a changé.
       if (!(err instanceof AudienceNonConfirmee)) throw err;

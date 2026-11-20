@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-20 : l'agent de Meta répond à tout le monde quand il est le répondeur (préparé)
+
+**Le défaut**, mesuré chez MUTAC en lecture seule : un inconnu écrit « Hello » à 09:36 UTC, l'agent ne répond pas. Son
+audience était revenue à `ALLOWLISTED_ONLY` alors que Julien l'avait passée en `EVERYONE` le 12/11 : toute écriture des
+réglages imposait la liste, y compris le passage de main que le balayage réécrit à chaque ouverture et fermeture des heures
+ouvrées (MUTAC est en `business_hours`). Hors liste, le message nous est arrivé ; la remise l'a confié à l'agent, et un
+`control_passed` 0,27 s plus tard l'a passé à l'équipe avant que l'agent ne parle (signal non expliqué, chemin que
+`EVERYONE` rend inutile).
+
+**Le lot** : décision de Julien, l'audience suit le répondeur (`EVERYONE` en mode `mba`, la liste sinon), dans
+`src/mba/audience.ts`. Une écriture des réglages garde l'audience que Meta avait ; l'allumage impose toujours la liste
+avant d'allumer ; l'alignement suit « Qui répond au client », l'Accueil, l'Aperçu et l'assistant. Cinq mutations rouges.
+La relecture indépendante a trouvé un rouge : plus rien ne ramenait la liste si l'alignement échouait ou si un chemin
+changeait le répondeur sans geste (avant, chaque écriture le faisait). Corrigé par un réalignement périodique sous l'offre
+(tâche `audience-mba`, au démarrage puis toutes les 15 min) et par l'alignement placé juste après le réglage ; quatre
+mutations de plus, rouges.
+MUTAC repassé en `EVERYONE` à la main le même jour en attendant le déploiement.
+
 ## 2026-11-20 : Automation Shopify, les messages standard, l'aperçu au survol et le retour depuis le scénario
 
 Spec `docs/superpowers/specs/2026-11-20-shopify-messages-standard-design.md`, plan du même jour. Au branchement d'une

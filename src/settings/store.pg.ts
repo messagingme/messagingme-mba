@@ -600,6 +600,15 @@ export class PgTenantSettingsStore {
     return res.rows.map((r) => ({ tenantId: r.tenant_id, ...horairesEffectifsDe(r) }));
   }
 
+  /**
+   * Les espaces qui ont un numéro relié : ceux dont l'agent de Meta a une audience à aligner (`realignerLesAudiences`,
+   * `src/mba/audience.ts`). Un numéro délié n'a plus d'agent à régler.
+   */
+  async tenantsAvecNumeroRelie(): Promise<string[]> {
+    const res = await this.pool.query<{ tenant_id: string }>(`select distinct tenant_id from phone_numbers where delie_le is null`);
+    return res.rows.map((r) => r.tenant_id);
+  }
+
   /** Active ou désactive l'import de listes HubSpot. */
   async setHubspotListsEnabled(tenantId: string, enabled: boolean): Promise<void> {
     await this.poser(tenantId, 'hubspot_lists_enabled', enabled);
