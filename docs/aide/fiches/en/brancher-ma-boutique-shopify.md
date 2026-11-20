@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 068dea
+traduit_de: 39ca89
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -61,7 +61,7 @@ a new template” and link its variables. Finally, “Publish”.
 
 The new text goes out as soon as Meta approves it; until then, the old one carries on. A template written from an
 automation belongs to it: do not reuse it elsewhere, it is deleted at Meta shortly after it is replaced. The first
-block itself cannot be deleted. “← Back to Shopify automations” takes you back to the list.
+block itself cannot be deleted. The scenario opens under the list of your automations; “Close” folds it.
 
 **6. Build the follow-up, if you want one.** After the first message, add blocks as in any scenario: a Wait block then a
 reminder, a template button that leads to an answer, a message that quotes a piece of the order’s data (“Shopify

@@ -3,19 +3,16 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { WorkflowBuilder } from '@/components/WorkflowBuilder';
+import { ScenarioOuvert } from '@/components/ScenarioOuvert';
+import { useTestDeScenario } from '@/components/TestDeScenario';
 import type { Session } from '@/lib/session';
-import { listWorkflows, createWorkflow, getWorkflow, deleteWorkflow, updateWorkflow, duplicateWorkflow, getSettings, createWorkflowTestLink, listEmailAccounts, grapheEditable, type WorkflowSummary, type WorkflowTestLink } from '@/lib/api';
-import { listAgents, type AgentResume } from '@/lib/api-agent';
-import { listUsers, type AdminUser } from '@/lib/api/compte';
-import { listRequetes, type RequeteApi } from '@/lib/api-agent-requetes';
-import { listSources } from '@/lib/api-agent-sources';
+import { listWorkflows, createWorkflow, getWorkflow, deleteWorkflow, updateWorkflow, duplicateWorkflow, grapheEditable, type WorkflowSummary } from '@/lib/api';
+import { Modale } from '@/components/Modale';
 import { useT, useLocale } from '@/lib/i18n';
 import { formatDate, hourMin } from '@/lib/day';
 import { Bouton } from '@/components/Bouton';
 import { IntroPage, TitrePage } from '@/components/TitrePage';
 import { useConfirmation } from '@/components/Confirmation';
-import { Modale } from '@/components/Modale';
 import { VoileMenu } from '@/components/Flottant';
 import { Squelette } from '@/components/Squelette';
 import { erreurDeChargement } from '@/lib/http';
@@ -41,27 +38,6 @@ function WorkflowsInner({ session }: { session: Session }) {
   const confirmer = useConfirmation();
   const { locale } = useLocale();
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
-  // MBA actif chez le tenant ? Gouverne l'activation des blocs MBA (grisés sinon) dans le builder. Défaut prudent : false.
-  const [mbaEnabled, setMbaEnabled] = useState(false);
-  const [rcsEnabled, setRcsEnabled] = useState(false);
-  // Au moins une boîte SMTP connectée ? Gouverne le bloc « Envoi de mail » (grisé sinon), même doctrine que RCS.
-  // Dérivé de `listEmailAccounts` (pas de `getSettings`, contrairement à rcsEnabled) : contrairement à l'agent
-  // RCS, une boîte email n'a pas de réglage tenant dédié, sa seule preuve d'existence est la liste elle-même.
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  // Agents IA ACTIFS : gouverne la brique « Agent IA » (grisée tant que la liste est vide) et alimente son
-  // sélecteur. `null` tant que la lecture n'a pas abouti, pour ne pas affirmer qu'un agent a disparu.
-  const [agents, setAgents] = useState<AgentResume[] | null>(null);
-  /**
-   * Les MEMBRES de l'équipe, pour le sélecteur du bloc « passer à un humain ».
-   *
-   * ⚠️ Les comptes RÉVOQUÉS et les invitations EN ATTENTE sont retirés : affecter une conversation à
-   * quelqu'un qui ne peut pas se connecter la rendrait invisible de tous les autres, ce qui est exactement
-   * la conversation qu'on ne veut pas perdre. Le serveur refuse de toute façon, mais proposer un nom qu'il
-   * refusera est une invitation à l'échec.
-   */
-  const [membres, setMembres] = useState<AdminUser[] | null>(null);
-  /** Les appels de Tools > Connecteurs API : ils GATENT le bloc « Appel API » et alimentent son sélecteur. */
-  const [requetes, setRequetes] = useState<Array<RequeteApi & { systeme?: string }> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
@@ -95,23 +71,14 @@ function WorkflowsInner({ session }: { session: Session }) {
   /** Les scénarios à déplacer, quand la fenêtre « Déplacer vers… » est ouverte. */
   const [aDeplacer, setADeplacer] = useState<string[] | null>(null);
   const rangeable = admin && dossiers.disponible;
-  // Lien de test (Lot F) : jeton stable + lien wa.me + QR (rendu en data-URL par la lib, aucun appel réseau).
-  const [testing, setTesting] = useState<{
-    wf: WorkflowSummary;
-    /** Le MOT à envoyer : le jeton seul, ou `jeton.<identifiant du bloc>` quand on teste à partir d'un bloc. */
-    mot: string;
-    /** Le lien wa.me pré-rempli avec ce mot. `null` = aucun numéro WhatsApp connecté. */
-    lien: string | null;
-    qr: string | null;
-  } | null>(null);
-  const [copied, setCopied] = useState(false);
-
   // Date + heure de création (fuseau Paris). Vide/invalide (objet transitoire juste après création) -> '-'.
   const createdLabel = (iso: string): string =>
     iso && !Number.isNaN(Date.parse(iso)) ? `${formatDate(iso, locale)} ${hourMin(iso, locale)}` : '-';
   const searchParams = useSearchParams();
   const deepLinkId = searchParams.get('open');
   const deepLinkApplied = useRef(false);
+  /** Le lien de test d'un scénario de la liste (son menu « Tester le scénario »). */
+  const test = useTestDeScenario(session.tenantId);
 
   const load = useCallback(async () => {
     setError(null);
@@ -123,33 +90,6 @@ function WorkflowsInner({ session }: { session: Session }) {
       setLoading(false);
     }
   }, [session.tenantId, t]);
-
-  // MBA actif ? Best-effort, non bloquant : un échec laisse les blocs MBA grisés (défaut prudent).
-  useEffect(() => {
-    void getSettings(session.tenantId).then((s) => { setMbaEnabled(s.mbaEnabled); setRcsEnabled(s.rcsEnabled === true); }).catch(() => {});
-  }, [session.tenantId]);
-
-  // Une boîte email existe-t-elle ? Best-effort, non bloquant : un échec laisse le bloc Email grisé (défaut prudent).
-  useEffect(() => {
-    void listEmailAccounts(session.tenantId).then((r) => setEmailEnabled(r.accounts.length > 0)).catch(() => {});
-  }, [session.tenantId]);
-
-  // Best-effort, non bloquant : un échec laisse la brique grisée, défaut prudent, comme pour le bloc Email.
-  useEffect(() => {
-    void listAgents(session.tenantId).then(setAgents).catch(() => {});
-    // Échec silencieux comme pour les agents : le sélecteur s'affiche vide, l'éditeur reste utilisable.
-    void listUsers(session.tenantId)
-      .then((r) => setMembres(r.users.filter((u) => !u.disabled && !u.pending)))
-      .catch(() => {});
-    /**
-     * Chaque appel porte le NOM DE SON SYSTÈME (2026-11-11) : deux appels de même nom et de même chemin, l'un vers
-     * l'essai et l'autre vers la production, étaient indiscernables dans le bloc « Appel API ». Systèmes illisibles :
-     * la liste reste, sans le nom.
-     */
-    void Promise.all([listRequetes(session.tenantId), listSources(session.tenantId).catch(() => [])])
-      .then(([r, sources]) => setRequetes(r.requetes.map((q) => ({ ...q, systeme: sources.find((s) => s.id === q.sourceId)?.label }))))
-      .catch(() => {});
-  }, [session.tenantId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -235,49 +175,11 @@ function WorkflowsInner({ session }: { session: Session }) {
       setBusy(false);
     }
   }
-  /**
-   * Ouvre le panneau « Tester le scénario » : demande (ou récupère) le jeton stable du scénario, puis rend le
-   * QR du lien wa.me. Le QR est calculé DANS le navigateur (data-URL), aucun service externe n'est appelé :
-   * un lien de test ne doit pas transiter par un tiers.
-   */
-  async function openTest(w: WorkflowSummary, nodeId?: string) {
+  /** « Tester le scénario » (menu de la ligne) : le lien de test du module partagé (`useTestDeScenario`). */
+  async function openTest(w: WorkflowSummary) {
     setMenuFor(null);
     setError(null);
-    setBusy(true);
-    setCopied(false);
-    try {
-      const link = await createWorkflowTestLink(session.tenantId, w.id);
-      // 🔴 L'IDENTIFIANT DU BLOC EST COLLÉ TEL QUEL, sans aucune transformation. Le serveur compare par
-      // ÉGALITÉ (`lireJetonDeTest`, côté `src/`). Normaliser ici (retirer les tirets, tronquer) créerait un
-      // invariant partagé de part et d'autre d'une frontière que ce dépôt interdit de franchir (aucun fichier
-      // de `web/` n'importe `src/`), donc recopié à la main des deux côtés, donc voué à diverger en silence.
-      const mot = nodeId ? `${link.token}.${nodeId}` : link.token;
-      // ⚠️ ON RÉÉCRIT LE PARAMÈTRE `text` DU LIEN RENDU PAR LE SERVEUR, on ne refabrique pas l'adresse : le
-      // format de `wa.me` (le numéro sans `+` ni espaces) vit dans `src/lib/wa-me.ts` et doit y rester.
-      //
-      // ⚠️ MAIS L'ENCODAGE DU TEXTE, LUI, EST CELUI DU NAVIGATEUR, PAS LE NÔTRE (précisé en revue finale) :
-      // `searchParams.set` puis `toString()` RE-SÉRIALISENT toute la requête, donc `encodeTexteWaMe`
-      // (`src/lib/wa-me.ts`) est contourné, pas réutilisé. Les deux diffèrent sur `!'()*` et sur l'espace.
-      // Sans conséquence ici, et c'est mesurable : le mot vaut `test-` + 8 caractères Crockford, plus un
-      // identifiant de bloc dont les espaces ont déjà été retirés. Si un jour ce mot pouvait porter autre
-      // chose, c'est cette ligne qu'il faudrait reprendre, pas le module serveur.
-      let lien = link.link;
-      if (lien !== null && nodeId) {
-        const u = new URL(lien);
-        u.searchParams.set('text', mot);
-        lien = u.toString();
-      }
-      let qr: string | null = null;
-      if (lien) {
-        const QRCode = (await import('qrcode')).default;
-        qr = await QRCode.toDataURL(lien, { width: 220, margin: 1 });
-      }
-      setTesting({ wf: w, mot, lien, qr });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('Lien de test indisponible', 'Test link unavailable'));
-    } finally {
-      setBusy(false);
-    }
+    await test.tester(w);
   }
 
   async function duplicate(w: WorkflowSummary) {
@@ -335,112 +237,33 @@ function WorkflowsInner({ session }: { session: Session }) {
     }
   }
 
-  /**
-   * LE PANNEAU DE TEST, calculé AVANT la sortie anticipée du constructeur et rendu dans les DEUX vues.
-   *
-   * 🔴 IL NE VIVAIT QUE DANS LA LISTE, et c'est ce qui a cassé le bouton lecture des blocs : `if (editing)`
-   * rend le constructeur et sort, donc le panneau n'était jamais monté depuis là. Le recopier dans les deux
-   * branches aurait créé deux vérités à tenir alignées à la main, sur un écran qui porte un lien envoyé à de
-   * vrais téléphones.
-   */
-  const panneauDeTest = testing && (
-        <Modale
-          titre={`${t('Tester « ', 'Test "')}${testing.wf.name}${t(' »', '"')}`}
-          taille="petite"
-          testId="workflow-test-panel"
-          onClose={() => setTesting(null)}
-        >
-          <p className="mt-1 text-sm text-ink-500">
-            {t(
-              'Scannez ce QR code avec votre téléphone, ou ouvrez le lien : WhatsApp s’ouvre avec le mot déjà écrit, appuyez sur Envoyer et le scénario démarre sur votre numéro.',
-              'Scan this QR code with your phone, or open the link: WhatsApp opens with the word already typed, press Send and the scenario starts on your number.',
-            )}
-          </p>
-          {/* ⚠️ AUCUN AVERTISSEMENT SUR LES ÉTAPES SAUTÉES, et c'est une DÉCISION, pas un oubli. Julien, le
-              2026-09-16 : « si on saute des étapes parce que la personne a décidé de tester qu'un bout du
-              scénario, et bien tant pis ! il ne se passe rien ». Un bandeau a été ajouté ici puis RETIRÉ le
-              jour même, quand la revue finale a montré qu'il inversait cette décision en silence. */}
-
-          {testing.lien ? (
-            <>
-              {testing.qr && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={testing.qr} alt={t('QR code du lien de test', 'Test link QR code')} className="mx-auto my-4 h-[220px] w-[220px] rounded-controle border border-ink-200" />
-              )}
-              <div className="flex items-center gap-2">
-                <input readOnly value={testing.lien} data-testid="workflow-test-lien" className="w-full rounded-controle border border-ink-300 bg-ink-50 px-3 py-1.5 text-xs text-ink-500" />
-                <Bouton variante="secondaire" taille="petite"
-                  onClick={() => { void navigator.clipboard.writeText(testing.lien ?? '').then(() => setCopied(true)); }}
-                  className="shrink-0"
-                >
-                  {copied ? t('Copié', 'Copied') : t('Copier', 'Copy')}
-                </Bouton>
-              </div>
-            </>
-          ) : (
-            <p className="my-4 rounded-controle border border-alerte-300 bg-alerte-50 px-3 py-2 text-xs text-alerte-800">
-              {t(
-                'Aucun numéro WhatsApp connecté : envoyez le mot ci-dessous à votre numéro professionnel pour lancer le test.',
-                'No WhatsApp number connected: send the word below to your business number to start the test.',
-              )}
-            </p>
-          )}
-
-          <p className="mt-3 text-xs text-ink-500">
-            {t('Mot à envoyer : ', 'Word to send: ')}
-            <code data-testid="workflow-test-mot" className="rounded-controle bg-ink-100 px-1.5 py-0.5 font-mono text-ink-900">{testing.mot}</code>
-          </p>
-          <p className="mt-2 text-xs text-ink-500">
-            {t(
-              'Ce lien est permanent pour ce scénario. Un essai se comporte comme une vraie conversation : il compte dans les statistiques et l’analyse, et l’agent de Meta peut reprendre la main à la fin. Le numéro qui teste apparaît comme un contact du mini-CRM, comme n’importe quel numéro qui écrit.',
-              'This link is permanent for this scenario. A test behaves like a real conversation: it counts in statistics and analysis, and the Meta agent may take over at the end. The testing number appears as a mini-CRM contact, like any number that writes in.',
-            )}
-          </p>
-          <div className="mt-5 flex justify-end">
-            <Bouton onClick={() => setTesting(null)}>{t('Fermer', 'Close')}</Bouton>
-          </div>
-        </Modale>
-  );
-
-  /**
-   * ⚠️ STABLE, ET C'EST LA MOITIÉ QUI VIT ICI (seconde passe de revue finale, 2026-09-16). Le constructeur
-   * mémoïse la valeur du contexte que TOUS ses blocs consomment ; une flèche écrite en ligne dans le JSX
-   * ci-dessous changeait d'identité à chaque rendu de cette page, ce qui rendait cette mémoïsation inerte
-   * et faisait re-rendre le canevas entier. Les deux moitiés doivent tenir.
-   */
-  const ouvrirTestDepuisBloc = useCallback((nodeId: string) => {
-    if (editing) void openTest(editing, nodeId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing]);
-
   if (editing) {
     return (
-      <div className="flex flex-col gap-3 p-3 lg:h-full">
-        <div className="flex items-center justify-between">
-          {/* Un scénario d'automation revient à sa page (spec 2026-11-20 § 4.4) : le rayon se lit sur le scénario, jamais dans
-              l'adresse, que les e2e figent à `/workflows?open=<id>`. */}
-          {editing.rayon === 'shopify' || editing.rayon === 'hubspot' ? (
-            <button
-              onClick={() => router.push(editing.rayon === 'shopify' ? '/automations/shopify' : '/automations/hubspot')}
-              className="text-sm text-brand-600 hover:underline" data-testid="workflow-retour"
-            >
-              ← {editing.rayon === 'shopify'
-                ? t('Retour aux automations Shopify', 'Back to Shopify automations')
-                : t('Retour aux automations HubSpot', 'Back to HubSpot automations')}
-            </button>
-          ) : (
-            <button onClick={() => { setEditing(null); void load(); }} className="text-sm text-brand-600 hover:underline" data-testid="workflow-retour">← {t('Retour aux scénarios', 'Back to scenarios')}</button>
-          )}
-          <TitrePage>{editing.name}</TitrePage>
-        </div>
-        {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
-        <div className="min-h-0 flex-1">
-          {/* L'éditeur ouvre le BROUILLON s'il y en a un (lot 7) : c'est le travail en cours de l'auteur, pas
-              forcément ce qui tourne. `brouillonInitial` allume le bouton « Publier » dès l'ouverture. */}
-          <WorkflowBuilder key={editing.id} tenantId={session.tenantId} workflowId={editing.id} initialGraph={grapheEditable(editing)} brouillonInitial={Boolean(editing.draftGraph)} publieLe={editing.publishedAt ?? null} mbaEnabled={mbaEnabled} rcsEnabled={rcsEnabled} emailEnabled={emailEnabled} agents={agents} membres={membres} requetes={requetes} onTesterBloc={ouvrirTestDepuisBloc} departs={departs ?? undefined} {...(editing.rayon ? { rayon: editing.rayon } : {})} />
-        </div>
-        {panneauDeTest}
-      </div>
+      <ScenarioOuvert
+        plein tenantId={session.tenantId} workflow={editing} departs={departs}
+        entete={(
+          <>
+            <div className="flex items-center justify-between">
+              {/* Un scénario d'automation revient à sa page (spec 2026-11-20 § 4.4) : le rayon se lit sur le scénario, jamais dans
+                  l'adresse, que les e2e figent à `/workflows?open=<id>`. */}
+              {editing.rayon === 'shopify' || editing.rayon === 'hubspot' ? (
+                <button
+                  onClick={() => router.push(editing.rayon === 'shopify' ? '/automations/shopify' : '/automations/hubspot')}
+                  className="text-sm text-brand-600 hover:underline" data-testid="workflow-retour"
+                >
+                  ← {editing.rayon === 'shopify'
+                    ? t('Retour aux automations Shopify', 'Back to Shopify automations')
+                    : t('Retour aux automations HubSpot', 'Back to HubSpot automations')}
+                </button>
+              ) : (
+                <button onClick={() => { setEditing(null); void load(); }} className="text-sm text-brand-600 hover:underline" data-testid="workflow-retour">← {t('Retour aux scénarios', 'Back to scenarios')}</button>
+              )}
+              <TitrePage>{editing.name}</TitrePage>
+            </div>
+            {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
+          </>
+        )}
+      />
     );
   }
 
@@ -628,7 +451,8 @@ function WorkflowsInner({ session }: { session: Session }) {
         )}
       </div>
 
-      {panneauDeTest}
+      {test.erreur && <p className="mx-auto mt-3 w-full max-w-liste rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{test.erreur}</p>}
+      {test.panneau}
 
       {aDeplacer && (
         <DeplacerVers

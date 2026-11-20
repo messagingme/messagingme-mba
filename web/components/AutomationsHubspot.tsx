@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '@/lib/i18n';
 import { cardCls, inputCls, inputClsAuto } from '@/lib/ui';
@@ -10,6 +9,8 @@ import { Icone } from '@/components/Icone';
 import { Toggle } from '@/components/Toggle';
 import { Squelette } from '@/components/Squelette';
 import { useConfirmation } from '@/components/Confirmation';
+import { ScenarioDeLAutomation } from '@/components/ScenarioOuvert';
+import { clicSurPlace } from '@/lib/ouvrir-sur-place';
 import { routeInconnue } from '@/lib/canaux-services';
 import { listHubspotDealStages, listUserFields, updateWorkflow, type HubspotDealPipeline, type UserFieldDef } from '@/lib/api';
 import {
@@ -88,7 +89,6 @@ type ChampsLus = 'lecture' | 'panne' | UserFieldDef[];
 
 export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
   const t = useT();
-  const router = useRouter();
   const confirmer = useConfirmation();
   /** `lecture` jusqu'à la première réponse ; `panne` si elle échoue ou ne se lit pas (une API sans la route comprise). */
   const [vue, setVue] = useState<EtatLignesHubspot | 'lecture' | 'panne' | 'absente'>('lecture');
@@ -96,6 +96,8 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
   const [erreur, setErreur] = useState<string | null>(null);
   /** La famille dont le formulaire « Ajouter » est ouvert. */
   const [ajout, setAjout] = useState<FamilleHubspot | null>(null);
+  /** Le scénario déplié sous la liste (2026-11-20) : un seul à la fois ; `null` replié. */
+  const [ouvert, setOuvert] = useState<string | null>(null);
 
   // Sa page (menu « Scénario », lot 7) dit chaque état, comme celle de Shopify : la lecture, la panne, le portail absent.
   const recharger = useCallback(() => lireLignesHubspot(tenantId).then((v) => setVue(v ?? 'panne')).catch((err: unknown) => setVue(routeInconnue(err) ? 'absente' : 'panne')), [tenantId]);
@@ -186,6 +188,8 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
     if (!(await confirmer({ titre: t('Supprimer cette automation HubSpot', 'Delete this HubSpot automation'), message, confirmer: t('Supprimer', 'Delete') }))) return;
     await geste(async () => {
       await supprimerLigneHubspot(tenantId, l.id);
+      // Son scénario déplié se replie : il n'est plus proposé nulle part, une modification partirait dans le vide.
+      if (ouvert === l.workflowId) setOuvert(null);
       await recharger();
     }, t('Suppression impossible', 'Unable to delete'));
   };
@@ -212,7 +216,10 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
         return;
       }
     }
-    router.push(`/workflows?open=${encodeURIComponent(workflowId)}`);
+    // Le scénario créé se DÉPLIE sous la liste (2026-11-20) : son premier bloc attend son message.
+    setAjout(null);
+    await recharger();
+    setOuvert(workflowId);
   }, t('Création impossible', 'Unable to create'));
 
   const lus = { pipelines: Array.isArray(etapes) ? etapes : null, champs: Array.isArray(champs) ? champs : null };
@@ -252,6 +259,7 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
                       </span>
                       <Link
                         href={`/workflows?open=${encodeURIComponent(l.workflowId)}`} className="ml-auto text-brand-600 hover:underline"
+                        onClick={(ev) => { if (clicSurPlace(ev)) setOuvert(l.workflowId); }}
                         data-testid={`automations-hubspot-ouvrir-${l.id}`}
                       >
                         {t('Ouvrir le scénario', 'Open the scenario')}
@@ -285,6 +293,9 @@ export function AutomationsHubspot({ tenantId }: { tenantId: string }) {
         );
       })}
       {erreur && <p className="mt-3 text-sm text-danger" data-testid="automations-hubspot-erreur">{erreur}</p>}
+      {ouvert !== null && (
+        <ScenarioDeLAutomation key={ouvert} tenantId={tenantId} workflowId={ouvert} onFermer={() => { setOuvert(null); void recharger(); }} />
+      )}
     </section>
   );
 }

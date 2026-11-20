@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocale, useT } from '@/lib/i18n';
 import { cardCls, inputClsAuto } from '@/lib/ui';
@@ -13,6 +12,8 @@ import { Squelette } from '@/components/Squelette';
 import { TemplateBodyText } from '@/components/WhatsAppPreview';
 import { routeInconnue } from '@/lib/canaux-services';
 import { listAgents, type AgentResume } from '@/lib/api-agent';
+import { ScenarioDeLAutomation } from '@/components/ScenarioOuvert';
+import { clicSurPlace } from '@/lib/ouvrir-sur-place';
 import {
   attesterShopify, lireShopify, reglerLigneShopify, type ApercuLigneShopify, type AttestationShopify, type AvertissementLigneShopify,
   type EtatShopifyVue, type LigneShopifyVue,
@@ -192,7 +193,6 @@ function BandeauAttestation({ tenantId, attestation, onChange }: {
 
 export function AutomationsShopify({ tenantId }: { tenantId: string }) {
   const t = useT();
-  const router = useRouter();
   /** `lecture` jusqu'à la première réponse ; `panne` si elle échoue ou ne se lit pas (une API sans la route comprise). */
   const [vue, setVue] = useState<EtatShopifyVue | 'lecture' | 'panne'>('lecture');
   const [enCours, setEnCours] = useState<AutomationShopify | null>(null);
@@ -204,6 +204,8 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
   const [agents, setAgents] = useState<AgentResume[] | null>(null);
   /** Le choix de l'agent ouvert par l'interrupteur de la relance avec agent, avant d'allumer. */
   const [choixOuvert, setChoixOuvert] = useState(false);
+  /** Le scénario déplié sous la liste (2026-11-20) : un seul à la fois ; `null` replié. */
+  const [ouvert, setOuvert] = useState<string | null>(null);
 
   const recharger = useCallback(() => lireShopify(tenantId).then((v) => setVue(v ?? 'panne')).catch(() => setVue('panne')), [tenantId]);
   useEffect(() => { void recharger(); }, [recharger]);
@@ -244,13 +246,10 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
       const r = await reglerLigneShopify(tenantId, e, corps);
       setChoixOuvert(false);
       if (autreAllumee && autre !== null) setRemplacee({ evenement: e, eteinte: autre });
-      // Le premier allumage crée le scénario et l'OUVRE dans le builder (spec § 2.1) : son premier bloc attend son message.
-      // Pas celui de la relance avec agent : son scénario naît complet (message standard, bloc de l'agent), l'écran reste.
+      // Le premier allumage crée le scénario et le DÉPLIE sous la liste (spec § 2.1, sur place depuis le 2026-11-20) : son
+      // premier bloc attend son message. Pas celui de la relance avec agent : son scénario naît complet.
       const workflowId = (r?.ligne as { workflowId?: unknown } | null | undefined)?.workflowId;
-      if (premierAllumage && e !== LIGNE_PANIER_AGENT && !autreAllumee && typeof workflowId === 'string') {
-        router.push(`/workflows?open=${encodeURIComponent(workflowId)}`);
-        return;
-      }
+      if (premierAllumage && e !== LIGNE_PANIER_AGENT && !autreAllumee && typeof workflowId === 'string') setOuvert(workflowId);
       await recharger();
     } catch (err: unknown) {
       setErreur({
@@ -314,6 +313,7 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
                     <span className="group relative flex flex-wrap items-center">
                       <Link
                         href={`/workflows?open=${encodeURIComponent(l.workflowId)}`} className="flex flex-wrap items-center gap-3 rounded-controle"
+                        onClick={(ev) => { if (clicSurPlace(ev)) setOuvert(l.workflowId); }}
                         data-testid={`automations-shopify-ligne-${e}`}
                         {...(l.apercu ? { 'aria-describedby': `automations-shopify-apercu-${e}` } : {})}
                       >
@@ -340,6 +340,7 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
                   {l !== undefined && (
                     <Link
                       href={`/workflows?open=${encodeURIComponent(l.workflowId)}`} className="ml-auto text-brand-600 hover:underline"
+                      onClick={(ev) => { if (clicSurPlace(ev)) setOuvert(l.workflowId); }}
                       data-testid={`automations-shopify-ouvrir-${e}`}
                     >
                       {t('Ouvrir le scénario', 'Open the scenario')}
@@ -384,6 +385,9 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
               );
             })}
           </ul>
+          {ouvert !== null && (
+            <ScenarioDeLAutomation key={ouvert} tenantId={tenantId} workflowId={ouvert} onFermer={() => { setOuvert(null); void recharger(); }} />
+          )}
         </div>
       )}
     </section>

@@ -1,5 +1,19 @@
 # todo.md : backlog
 
+## 🟡 Le scénario déplié sous les automations et « Modifier » sur le canevas : la relecture (2026-11-20, aucun rouge)
+
+- L'état des lignes Shopify reste celui de l'ouverture pendant l'édition du scénario déplié (« à compléter » après le
+  choix du message) : `recharger` ne part qu'à « Fermer ». Relire après chaque enregistrement réussi.
+- « Modifier » n'apparaît que sur un message DÉPLIÉ : un template court (sans « Voir tout ») n'en a pas, sauf avec
+  « Messages en entier ». L'afficher dès que le texte est entier.
+- Le bloc cherche son template par nom seul (`WorkflowNode.tsx`, `live`), le panneau par nom ET langue : deux langues
+  d'un même nom aux droits différents feraient diverger les deux boutons.
+- `useTestDeScenario().occupe` n'est branché nulle part : un double clic sur « Tester le scénario » lance deux demandes
+  (bénin, le jeton est stable).
+- `ScenarioOuvert` relit ses cinq listes (réglages, boîtes mail, agents, membres, appels API) à chaque ouverture.
+- Fermer puis rouvrir aussitôt le même scénario peut relire l'état d'avant l'enregistrement de fermeture (course déjà
+  présente avec « ← Retour »).
+
 ## 🟡 Make, n8n, Zapier : ce qui reste (2026-11-20)
 
 - L'essai réel de Julien sur la SANDBOX, dans les deux sens : Make poste sur un webhook entrant (le contact apparaît,

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { reponseDuBuilder } from './aide/routes-builder';
 import { repondre, repondreSurPlace } from './aide/confirmation';
 
 /**
@@ -90,6 +91,16 @@ async function monter(page: Page, o: {
       if (etat === 'absente') return json({ message: 'Route GET not found', error: 'Not Found', statusCode: 404 }, 404);
       return json(etat);
     }
+    const lectureScenario = /\/workflows\/([^/]+)$/.exec(chemin);
+    if (lectureScenario && req.method() === 'GET') {
+      const id = decodeURIComponent(lectureScenario[1]!);
+      return json({ workflow: {
+        id, name: `Scénario ${id}`, rayon: 'shopify', createdAt: '', updatedAt: '',
+        graph: { nodes: [{ id: 'depart', type: 'template', position: { x: 0, y: 0 }, data: {} }], edges: [] },
+      } });
+    }
+    const duBuilder = req.method() === 'GET' ? reponseDuBuilder(chemin) : undefined;
+    if (duBuilder !== undefined) return json(duBuilder);
     if (chemin.endsWith('/agents')) return json({ agents: o.agents ?? [], repondeurAgentId: null });
     if (chemin.endsWith('/automations')) return json({ automations: [] });
     if (chemin.endsWith('/workflows')) return json({ workflows: [] });
@@ -259,11 +270,27 @@ test.describe('Scénario > Automation > Shopify : les automations de la boutique
     await expect(page).toHaveURL(/\/automations\/shopify$/);
   });
 
-  test('🔴 le premier allumage crée le scénario et l’ouvre dans le builder (spec § 2.1)', async ({ page }) => {
+  test('🔴 le premier allumage crée le scénario et le DÉPLIE sous la liste, sans quitter la page (2026-11-20)', async ({ page }) => {
     const trace = await monter(page, { ecran: PAGE, etat: BRANCHEE });
     await page.getByTestId('automations-shopify-interrupteur-order_fulfilled').click();
     await expect.poll(() => trace.lignes).toEqual([{ evenement: 'order_fulfilled', corps: { actif: true } }]);
-    await expect(page).toHaveURL(/\/workflows\?open=wf-order_fulfilled$/);
+    await expect(page.getByTestId('scenario-ouvert-nom')).toHaveText('Scénario wf-order_fulfilled');
+    await expect(page).toHaveURL(/\/automations\/shopify$/);
+  });
+
+  test('🔴 « Ouvrir le scénario » le déplie sous la liste, un seul à la fois ; « Fermer » le replie ; l’adresse reste pour un nouvel onglet', async ({ page }) => {
+    await monter(page, { ecran: PAGE, etat: { ...RELANCE_ACTIVE, attestation: ATTESTEE } });
+    const section = page.getByTestId('automations-shopify');
+    await expect(section.getByTestId('automations-shopify-ouvrir-order_paid')).toHaveAttribute('href', '/workflows?open=wf-order_paid');
+    await section.getByTestId('automations-shopify-ouvrir-order_paid').click();
+    await expect(page.getByTestId('scenario-ouvert-nom')).toHaveText('Scénario wf-order_paid');
+    await expect(page.getByTestId('scenario-ouvert').locator('.react-flow__node')).toHaveCount(1);
+    await section.getByTestId('automations-shopify-ouvrir-checkout_abandoned').click();
+    await expect(page.getByTestId('scenario-ouvert-nom')).toHaveText('Scénario wf-checkout_abandoned');
+    await expect(page.getByTestId('scenario-ouvert')).toHaveCount(1);
+    await page.getByTestId('scenario-ouvert-fermer').click();
+    await expect(page.getByTestId('scenario-ouvert')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/automations\/shopify$/);
   });
 
   test('🔴 le message au focus et au survol d’une ligne, ses données remplacées par leurs exemples ; un clic ouvre son scénario (spec 2026-11-20)', async ({ page }) => {
@@ -290,7 +317,8 @@ test.describe('Scénario > Automation > Shopify : les automations de la boutique
     await expect(section.getByTestId('automations-shopify-apercu-order_fulfilled')).toHaveCount(0);
     await expect(section.getByTestId('automations-shopify-ligne-checkout_abandoned')).toHaveCount(0);
     await section.getByTestId('automations-shopify-ligne-order_paid').click();
-    await expect(page).toHaveURL(/\/workflows\?open=wf-order_paid$/);
+    await expect(page.getByTestId('scenario-ouvert-nom')).toHaveText('Scénario wf-order_paid');
+    await expect(page).toHaveURL(/\/automations\/shopify$/);
   });
 
   test('🔴 jamais attestée : la case en tête, décochée ; la cocher envoie l’attestation et dit qui et quand (2026-11-20)', async ({ page }) => {

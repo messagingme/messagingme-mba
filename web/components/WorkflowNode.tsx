@@ -191,15 +191,25 @@ export const TestDepuisBlocCtx = createContext<((nodeId: string) => void) | null
 export const ApercuBlocCtx = createContext<{ enEntier: boolean; champs: UserFieldDef[] }>({ enEntier: false, champs: [] });
 
 /**
+ * « MODIFIER » SUR LE MESSAGE DÉPLIÉ D'UN BLOC TEMPLATE (Julien, 2026-11-20) : le même geste que « Modifier ce template »
+ * du panneau de droite (`ouvrirFormulaireDuBloc(bloc, 'modifier')`), là où l'œil lit le message. `null` : le builder
+ * ne sait pas écrire de template (aucun scénario enregistré), aucun bouton. Un contexte pour la même raison que
+ * `TestDepuisBlocCtx` : une fonction n'a rien à faire dans le graphe.
+ */
+export const ModifierModeleCtx = createContext<((nodeId: string) => void) | null>(null);
+
+/**
  * Le texte d'un message dans son bloc : coupé à `lignes` lignes, avec « Voir tout » quand il dépasse ; entier si
  * l'interrupteur de la barre est mis. Chaque `{{n}}` d'un template se lit par le nom de ce que le bloc y envoie
  * (`libelles`), sinon il reste `{{n}}`. Le bouton ne déplace ni ne sélectionne le bloc (`nodrag`, propagation arrêtée).
  */
-function TexteDuBloc({ texte, lignes, libelles, testid }: {
+function TexteDuBloc({ texte, lignes, libelles, testid, onModifier }: {
   texte: string;
   lignes: 1 | 2 | 3;
   libelles?: ReadonlyMap<number, string>;
   testid: string;
+  /** Le message déplié d'un template modifiable : « Modifier » ouvre son formulaire (`ModifierModeleCtx`). */
+  onModifier?: () => void;
 }) {
   const t = useT();
   const { enEntier } = useContext(ApercuBlocCtx);
@@ -223,16 +233,31 @@ function TexteDuBloc({ texte, lignes, libelles, testid }: {
             ? <span key={i} className="rounded-full bg-brand-50 px-1 font-medium text-brand-700">{libelles.get(m.position)}</span>
             : <span key={i}>{`{{${m.position}}}`}</span>))}
       </span>
-      {!enEntier && (coupe || deplie) && (
-        <button
-          type="button"
-          data-testid={`${testid}-deplier`}
-          className="nodrag mt-0.5 block text-[9px] font-medium text-brand-600 hover:underline"
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); setDeplie((d) => !d); }}
-        >
-          {deplie ? t('Réduire', 'Show less') : t('Voir tout', 'Show all')}
-        </button>
+      {((!enEntier && (coupe || deplie)) || (entier && onModifier)) && (
+        <span className="mt-0.5 flex items-center gap-3">
+          {!enEntier && (coupe || deplie) && (
+            <button
+              type="button"
+              data-testid={`${testid}-deplier`}
+              className="nodrag block text-[9px] font-medium text-brand-600 hover:underline"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setDeplie((d) => !d); }}
+            >
+              {deplie ? t('Réduire', 'Show less') : t('Voir tout', 'Show all')}
+            </button>
+          )}
+          {entier && onModifier && (
+            <button
+              type="button"
+              data-testid={`${testid}-modifier`}
+              className="nodrag block text-[9px] font-medium text-brand-600 hover:underline"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onModifier(); }}
+            >
+              {t('Modifier', 'Edit')}
+            </button>
+          )}
+        </span>
       )}
     </>
   );
@@ -314,6 +339,7 @@ function WFNode({ id, data, selected }: NodeProps) {
   const { locale } = useLocale();
   const templates = useContext(TemplatesCtx);
   const testDepuisBloc = useContext(TestDepuisBlocCtx);
+  const modifierModele = useContext(ModifierModeleCtx);
   const updateNodeInternals = useUpdateNodeInternals();
   const wfType = (data.wfType as WorkflowNodeType) ?? 'template';
   const meta = nodeMetaOf(wfType); // tolérant : un type pas encore connu du front (ex. condition) -> repli neutre
@@ -591,7 +617,16 @@ function WFNode({ id, data, selected }: NodeProps) {
             {(apercuTitre !== '' || apercuTexte !== '') && (
               <div className="px-1.5 py-1 text-[9px] leading-snug text-ink-900">
                 {apercuTitre !== '' && <div className="truncate font-semibold">{apercuTitre}</div>}
-                {apercuTexte !== '' && <TexteDuBloc texte={apercuTexte} lignes={3} libelles={libellesDuBloc} testid="node-apercu-texte" />}
+                {apercuTexte !== '' && (
+                  <TexteDuBloc
+                    texte={apercuTexte} lignes={3} libelles={libellesDuBloc} testid="node-apercu-texte"
+                    // La règle de « Modifier ce template » du panneau (`WorkflowConfigPanel`) : ni carrousel, ni en-tête média,
+                    // ni template que Meta ne laisse pas modifier.
+                    {...(modifierModele && live && live.editable !== false && !live.isCarousel
+                      && !(live.headerFormat === 'IMAGE' || live.headerFormat === 'VIDEO' || live.headerFormat === 'DOCUMENT')
+                      ? { onModifier: () => modifierModele(id) } : {})}
+                  />
+                )}
               </div>
             )}
           </div>

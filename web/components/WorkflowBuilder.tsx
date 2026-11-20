@@ -24,7 +24,7 @@ import { EDGE_OPTS, toRF, fromRF, type RFNode, type RFEdge } from '@/lib/workflo
 import { flechesSuivantLesBoutons, sansSortieEnsuite, sansSortieFichier, sansSortiePasDeReponse, sortiesDeBoutons } from '@/lib/workflow-sorties';
 import { estPoigneeDeFamille } from '@/lib/condition-familles';
 import { useEnregistrementScenario } from '@/lib/use-enregistrement-scenario';
-import { ApercuBlocCtx, ModelesDeBlocCtx, TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
+import { ApercuBlocCtx, ModelesDeBlocCtx, ModifierModeleCtx, TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
 import { ConfigPanel } from '@/components/WorkflowConfigPanel';
 import { lireShopify } from '@/lib/api-shopify';
 import { donneesDuScenario, type DonneeEvenement } from '@/lib/shopify-lignes';
@@ -661,6 +661,18 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
     [onTesterBloc, testerDepuisBloc],
   );
 
+  /**
+   * « Modifier » sur le message déplié d'un bloc template : le même formulaire que « Modifier ce template ». 🔴 STABLE (la
+   * valeur d'un contexte re-rend tous les blocs) : la fonction du moment est lue dans une référence, l'identité ne change
+   * qu'avec `workflowId` (sans scénario enregistré, aucun template ne s'écrit depuis un bloc).
+   */
+  const ouvrirModification = useRef<(nodeId: string) => void>(() => {});
+  ouvrirModification.current = (nodeId: string) => {
+    const bloc = nodes.find((n) => n.id === nodeId);
+    if (bloc) { setSelectedId(nodeId); ouvrirFormulaireDuBloc(bloc, 'modifier'); }
+  };
+  const rappelModifier = useMemo(() => (workflowId ? (nodeId: string) => ouvrirModification.current(nodeId) : null), [workflowId]);
+
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
 
   // Bloc RACINE (sans arête entrante) + éligibilité CAMPAGNE, calculée avec le MÊME helper que le sélecteur de
@@ -968,6 +980,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
           <ModelesDeBlocCtx.Provider value={etatParModele}>
           <TestDepuisBlocCtx.Provider value={rappelTest}>
           <ApercuBlocCtx.Provider value={apercuBloc}>
+          <ModifierModeleCtx.Provider value={rappelModifier}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -991,6 +1004,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             <Background color={ink[200]} gap={18} />
             <Controls showInteractive={false} />
           </ReactFlow>
+          </ModifierModeleCtx.Provider>
           </ApercuBlocCtx.Provider>
           </TestDepuisBlocCtx.Provider>
           </ModelesDeBlocCtx.Provider>

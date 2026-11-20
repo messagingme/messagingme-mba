@@ -126,6 +126,20 @@ test.describe('Éditeur : écrire ou modifier le template d’un bloc (lot 3)', 
     await expect.poll(() => flechesDeN1(recus.graphes), { timeout: 10_000 }).toEqual(['btn:0>n2', 'btn:1>n3']);
   });
 
+  test('🔴 « Modifier » sur le message déplié du bloc : le même formulaire que « Modifier ce template » (2026-11-20)', async ({ page }) => {
+    await monter(page, etatDeDepart());
+    await page.goto('/workflows?open=wf1');
+    const bloc = page.locator('.react-flow__node').first();
+    // Replié, pas de « Modifier » ; déplié (l'interrupteur de la barre), il est là.
+    await expect(bloc.getByTestId('node-apercu-texte-modifier')).toHaveCount(0);
+    await page.getByTestId('workflow-messages-en-entier').check();
+    await bloc.getByTestId('node-apercu-texte-modifier').click();
+    const modale = page.getByTestId('modele-du-bloc');
+    await expect(modale).toBeVisible();
+    await expect(modale.getByTestId('template-nom')).toHaveCount(0);
+    await expect(modale.getByTestId('template-bloc-bandeau')).toContainText('relance');
+  });
+
   test('🔴 un autre template choisi dans la liste : chaque flèche suit le texte de son bouton', async ({ page }) => {
     const recus = await monter(page, etatDeDepart());
     await page.goto('/workflows?open=wf1');

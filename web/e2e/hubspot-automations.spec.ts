@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { reponseDuBuilder } from './aide/routes-builder';
 import { repondre } from './aide/confirmation';
 
 /**
@@ -81,6 +82,16 @@ async function monter(page: Page, o: {
     }
     if (chemin.endsWith('/user-fields')) return json({ fields: o.champs ?? CHAMPS });
     if (chemin.endsWith('/automations')) return json({ automations: o.automations ?? [] });
+    const lectureScenario = /\/workflows\/([^/]+)$/.exec(chemin);
+    if (lectureScenario && req.method() === 'GET') {
+      const id = decodeURIComponent(lectureScenario[1]!);
+      return json({ workflow: {
+        id, name: `Scénario ${id}`, rayon: 'hubspot', createdAt: '', updatedAt: '',
+        graph: { nodes: [{ id: 'depart', type: 'template', position: { x: 0, y: 0 }, data: {} }], edges: [] },
+      } });
+    }
+    const duBuilder = req.method() === 'GET' ? reponseDuBuilder(chemin) : undefined;
+    if (duBuilder !== undefined) return json(duBuilder);
     if (chemin.endsWith('/workflows')) return json({ workflows: [{ id: 'wf1', name: 'Prise de RDV', graph: { nodes: [], edges: [] } }] });
     if (chemin.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     return json({});
@@ -149,7 +160,9 @@ test.describe('Automation > HubSpot : les automations que HubSpot lance (menu «
     await menu.selectOption('renew::relance');
     await creer.click();
     await expect.poll(() => trace.creations).toEqual([{ famille: 'etape', config: { pipelineId: 'renew', stageId: 'relance', stageLabel: 'À relancer' } }]);
-    await expect(page).toHaveURL(/\/workflows\?open=wf-nouveau$/);
+    // Le scénario créé se déplie sous la liste (2026-11-20), sans quitter la page.
+    await expect(page.getByTestId('scenario-ouvert-nom')).toHaveText('Scénario wf-nouveau');
+    await expect(page).toHaveURL(/\/automations\/hubspot$/);
     expect(trace.appelsEtapes).toBe(1);
   });
 
@@ -167,7 +180,9 @@ test.describe('Automation > HubSpot : les automations que HubSpot lance (menu «
     await champ.selectOption('hs_contact_date_rdv');
     await creer.click();
     await expect.poll(() => trace.creations).toEqual([{ famille: 'rdv', config: { fieldKey: 'hs_contact_date_rdv', sens: 'apres', delaiMinutes: 2880 } }]);
-    await expect(page).toHaveURL(/\/workflows\?open=wf-nouveau$/);
+    // Le scénario créé se déplie sous la liste (2026-11-20), sans quitter la page.
+    await expect(page.getByTestId('scenario-ouvert-nom')).toHaveText('Scénario wf-nouveau');
+    await expect(page).toHaveURL(/\/automations\/hubspot$/);
   });
 
   test('sans champ « date et heure » importé de HubSpot, le formulaire dit où le choisir, et rien ne part', async ({ page }) => {
@@ -186,7 +201,9 @@ test.describe('Automation > HubSpot : les automations que HubSpot lance (menu «
     await creer.click();
     await expect.poll(() => trace.creations).toEqual([{ famille: 'workflow', config: {} }]);
     await expect.poll(() => trace.noms).toEqual([{ id: 'wf-nouveau', corps: { name: 'Relance après devis' } }]);
-    await expect(page).toHaveURL(/\/workflows\?open=wf-nouveau$/);
+    // Le scénario créé se déplie sous la liste (2026-11-20), sans quitter la page.
+    await expect(page.getByTestId('scenario-ouvert-nom')).toHaveText('Scénario wf-nouveau');
+    await expect(page).toHaveURL(/\/automations\/hubspot$/);
   });
 
   test('🔴 l’interrupteur envoie { actif } et l’écran reste ; allumer sans premier message : la raison de l’API s’affiche', async ({ page }) => {

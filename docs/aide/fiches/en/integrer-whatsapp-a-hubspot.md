@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: fdd8c3
+traduit_de: b13b07
 description: WhatsApp in HubSpot: every analyzed conversation becomes an action, your lists become campaigns, you reply without leaving HubSpot.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -158,7 +158,7 @@ scenarios.
 launch a scenario when a deal reaches a stage”. Then, in Scenario > Automation > HubSpot, “Add a stage” under “Deal stage change”:
 choose the pipeline and the stage.
 
-The scenario opens in the builder; its first block, marked “first message”, is the
+The scenario opens under the list; its first block, marked “first message”, is the
 Utility template sent to the deal's contact when the deal reaches that stage. Choose that template, link its variables
 to the record's fields, publish, then switch the line on. Under “Appointment”, “Add an appointment” on a “date and time”
 field imported from HubSpot, with the delay before or after: an appointment reminder.

@@ -18,7 +18,9 @@ import { lireJetonDeTest } from '../src/workflow/test-token';
  * elle n'existe pas.
  */
 
-const PAGE = readFileSync(join(process.cwd(), 'web', 'app', 'workflows', 'page.tsx'), 'utf8');
+// Le mot se compose dans le module partagé du lien de test (2026-11-20 : la page des scénarios et le scénario déplié sous
+// les automations s'en servent tous deux), plus dans la page.
+const PAGE = readFileSync(join(process.cwd(), 'web', 'components', 'TestDeScenario.tsx'), 'utf8');
 
 describe('le mot composé par le navigateur est lisible par le serveur', () => {
   it('🔴 le navigateur colle l’identifiant du bloc TEL QUEL, sans transformation', () => {

@@ -3126,12 +3126,13 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   interrupteur, son état (pas encore créée, éteinte, éteinte avec son message en validation chez Meta, prête à
   allumer, à compléter, en validation chez Meta, refusée ou bloquée par Meta, active, active avec une nouvelle version
   en validation), le délai du panier et « Ouvrir le scénario ». Au survol ou au focus d'une ligne, une bulle WhatsApp
-  montre son message, les données remplacées par des exemples (Camille, #1002…) ; un clic sur la ligne ouvre son
-  scénario, dont l'éditeur ramène ici (« ← Retour aux automations Shopify » ; « … HubSpot » pour un scénario
-  HubSpot). Une automation qui n'a pas encore de ligne la reçoit à son premier allumage, qui ouvre son scénario dans le
-  builder ; éteindre arrête ses parcours en cours. Le premier bloc, marqué « premier message », ne se supprime pas et
-  rien ne mène à lui ; il porte le message standard, que « Modifier ce template » retouche en gardant ses données
-  Shopify, ou un autre template choisi ou écrit sur place (« Écrire un nouveau template »), et chaque variable se relie
+  montre son message, les données remplacées par des exemples (Camille, #1002…) ; un clic sur la ligne ou sur
+  « Ouvrir le scénario » DÉPLIE son scénario sous la liste, sur la même page (2026-11-20 ; un seul à la fois, « Fermer »
+  le replie, Ctrl ou Cmd + clic l'ouvre dans un autre onglet, d'où l'éditeur ramène ici par « ← Retour aux
+  automations Shopify » ; de même sur la page HubSpot). Une automation qui n'a pas encore de ligne la reçoit à son
+  premier allumage, qui déplie son scénario sous la liste ; éteindre arrête ses parcours en cours. Le premier bloc, marqué « premier message », ne se supprime pas et
+  rien ne mène à lui ; il porte le message standard, que « Modifier ce template » (ou « Modifier » sous le message déplié du
+  bloc, sur le canevas) retouche en gardant ses données Shopify, ou un autre template choisi ou écrit sur place (« Écrire un nouveau template »), et chaque variable se relie
   à une donnée Shopify dans le panneau du bloc. Un nouveau
   template publié prend la place de l'ancien à l'approbation de Meta, et l'ancien part jusque-là. Le template remplacé,
   s'il a été écrit depuis un bloc d'une automation, est supprimé chez Meta un quart d'heure après (plus tard si une

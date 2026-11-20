@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 3cd3bc
+source_empreinte: 413f06
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -70,7 +70,7 @@ aussi en choisir un autre, ou « Écrire un nouveau template » et relier ses va
 
 Le nouveau texte part dès que Meta l'approuve ; jusque-là, l'ancien continue. Un template écrit depuis une automation
 lui appartient : ne le réutilisez pas ailleurs, il est supprimé chez Meta peu après son remplacement. Le premier bloc,
-lui, ne se supprime pas. « ← Retour aux automations Shopify » vous ramène à la liste.
+lui, ne se supprime pas. Le scénario s'ouvre sous la liste de vos automations ; « Fermer » le replie.
 
 **6. Construire la suite, si vous le voulez.** Après le premier message, ajoutez des blocs comme dans tout scénario : un
 bloc Attente puis un rappel, un bouton du template qui mène à une réponse, un message qui cite une donnée de la

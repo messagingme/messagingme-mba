@@ -171,7 +171,7 @@ recevrait deux scénarios.
 HubSpot : lancer un scénario quand un deal atteint une étape ». Puis, dans Scénario > Automation > HubSpot, « Ajouter
 une étape » sous « Changement d'étape d'un deal » : choisissez le pipeline et l'étape.
 
-Le scénario s'ouvre dans le builder ; son premier
+Le scénario s'ouvre sous la liste ; son premier
 bloc, marqué « premier message », est le modèle Service envoyé au contact de la transaction quand elle arrive sur cette
 étape. Choisissez ce modèle, reliez ses variables aux champs de la fiche, publiez, puis allumez la ligne. Sous
 « Rendez-vous », « Ajouter un rendez-vous » sur un champ « date et heure » importé de HubSpot, avec le délai avant ou après : le
