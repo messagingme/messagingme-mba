@@ -97,146 +97,128 @@ export function ReglageIntegrationBatch({ tenantId }: { tenantId: string }) {
   const perdus = etat?.sansIdentifiant ?? 0;
   const dernier = etat?.sansIdentifiantLe ? date(etat.sansIdentifiantLe) : null;
 
-  const entete = (
-    <header className="space-y-1">
-      <span className="text-xs font-medium text-ink-500">{t('Intégrations', 'Integrations')}</span>
-      <p className="text-sm text-ink-500">
-        {t(
-          'L’outil qui reçoit les signaux de la console (livraisons, réponses, clics, désabonnements, conversations analysées) sur les profils qu’il connaît.',
-          'The tool that receives the console’s signals (deliveries, replies, clicks, unsubscribes, analysed conversations) on the profiles it knows.',
-        )}
-      </p>
-    </header>
-  );
-
+  // Ce que fait l'outil est dit par le volet de Tools > Intégrations (`VoletIntegration`), pas ici.
   if (ferme) {
     return (
-      <section className="space-y-3" data-testid="integrations">
-        {entete}
-        <div className={cardCls} data-testid="integration-batch">
-          <h3 className="text-sm font-semibold text-ink-900">Batch</h3>
-          <HorsOffre fonction="crm" vue={ferme} className="mt-1" />
-        </div>
+      <section className={cardCls} data-testid="integration-batch">
+        <h3 className="text-sm font-semibold text-ink-900">Batch</h3>
+        <HorsOffre fonction="crm" vue={ferme} className="mt-1" />
       </section>
     );
   }
 
   return (
-    <section className="space-y-3" data-testid="integrations">
-      {entete}
-
-      <div className={cardCls} data-testid="integration-batch">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-ink-900">Batch</h3>
-            <p className="mt-1 text-sm text-ink-500" data-testid="integration-batch-etat">
-              {etat === null
-                ? erreur === null
-                  ? t('Lecture…', 'Loading…')
-                  : t('État inconnu : la lecture a échoué.', 'Unknown state: the read failed.')
-                : branche
-                  ? t('Branché : les signaux partent vers vos profils Batch.', 'Connected: signals go to your Batch profiles.')
-                  : t('Non branché : aucun signal ne part.', 'Not connected: no signal is sent.')}
-            </p>
-          </div>
-          <span className="text-xs text-ink-500">{libelle}</span>
-        </div>
-
-        {branche && etat?.refusClesLe && (
-          <p className="mt-3 rounded-controle border border-danger-500 px-3 py-2 text-sm text-danger" data-testid="integration-batch-refus">
-            {t(
-              `Batch a refusé vos clés le ${date(etat.refusClesLe)} : la remontée est suspendue jusqu’à ce que vous enregistriez des clés valides.`,
-              `Batch rejected your keys on ${date(etat.refusClesLe)}: signals are paused until you save valid keys.`,
-            )}
+    <section className={cardCls} data-testid="integration-batch">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-ink-900">Batch</h3>
+          <p className="mt-1 text-sm text-ink-500" data-testid="integration-batch-etat">
+            {etat === null
+              ? erreur === null
+                ? t('Lecture…', 'Loading…')
+                : t('État inconnu : la lecture a échoué.', 'Unknown state: the read failed.')
+              : branche
+                ? t('Branché : les signaux partent vers vos profils Batch.', 'Connected: signals go to your Batch profiles.')
+                : t('Non branché : aucun signal ne part.', 'Not connected: no signal is sent.')}
           </p>
-        )}
-
-        {branche && (
-          <p className="mt-3 text-sm text-ink-500" data-testid="integration-batch-sans-identifiant">
-            {perdus === 0
-              ? t('Toutes les fiches concernées portaient un identifiant externe.', 'Every contact involved had an external id.')
-              : perdus === 1
-                ? t(
-                  `1 signal non poussé : sa fiche n’a pas d’identifiant externe (externalId), qui se transmet par l’API.${dernier ? ` Le ${dernier}.` : ''}`,
-                  `1 signal not sent: its contact has no external id (externalId), which is passed through the API.${dernier ? ` On ${dernier}.` : ''}`,
-                )
-                : t(
-                  `${perdus} signaux non poussés : ces fiches n’ont pas d’identifiant externe (externalId), qui se transmet par l’API.${dernier ? ` Dernier le ${dernier}.` : ''}`,
-                  `${perdus} signals not sent: those contacts have no external id (externalId), which is passed through the API.${dernier ? ` Last on ${dernier}.` : ''}`,
-                )}
-          </p>
-        )}
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="block text-sm text-ink-900">
-            {t('Clé d’API REST', 'REST API key')}
-            <input
-              type="password"
-              autoComplete="new-password"
-              data-testid="integration-batch-cle-rest"
-              value={cleRest}
-              onChange={(e) => setCleRest(e.target.value)}
-              placeholder={branche ? t('enregistrée : laisser vide pour la garder', 'saved: leave empty to keep it') : ''}
-              className={`${inputCls} mt-1`}
-            />
-          </label>
-          <label className="block text-sm text-ink-900">
-            {t('Clé de projet', 'Project key')}
-            <input
-              type="password"
-              autoComplete="new-password"
-              data-testid="integration-batch-cle-projet"
-              value={cleProjet}
-              onChange={(e) => setCleProjet(e.target.value)}
-              placeholder={branche ? t('enregistrée : laisser vide pour la garder', 'saved: leave empty to keep it') : ''}
-              className={`${inputCls} mt-1`}
-            />
-          </label>
         </div>
-
-        <label className="mt-3 flex items-start gap-2 text-sm text-ink-900">
-          <input
-            type="checkbox"
-            data-testid="integration-batch-resume"
-            checked={resume}
-            onChange={(e) => setResume(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded-controle border-ink-300"
-          />
-          <span>
-            {t('Envoyer le résumé des conversations', 'Send conversation summaries')}
-            <span className="block text-xs text-ink-500">
-              {t(
-                'Il contient des propos de vos clients : ne le cochez que si votre outil a le droit de les garder.',
-                'It contains your customers’ words: tick it only if your tool is allowed to keep them.',
-              )}
-            </span>
-          </span>
-        </label>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Bouton
-            data-testid="integration-batch-enregistrer"
-            onClick={enregistrer}
-            disabled={!peutEnregistrer}
-          >
-            {branche ? t('Enregistrer', 'Save') : t('Brancher', 'Connect')}
-          </Bouton>
-          {branche && (
-            <Bouton variante="secondaire"
-              data-testid="integration-batch-debrancher"
-              onClick={debrancher}
-              disabled={statut === 'saving'}
-            >
-              {t('Débrancher', 'Disconnect')}
-            </Bouton>
-          )}
-          {etat !== null && !branche && !clesSaisies && (
-            <span className="text-xs text-ink-500">{t('Les deux clés sont requises pour brancher.', 'Both keys are required to connect.')}</span>
-          )}
-        </div>
-
-        {erreur !== null && <p className="mt-3 text-sm text-danger" data-testid="integration-batch-erreur">{erreur}</p>}
+        <span className="text-xs text-ink-500">{libelle}</span>
       </div>
+
+      {branche && etat?.refusClesLe && (
+        <p className="mt-3 rounded-controle border border-danger-500 px-3 py-2 text-sm text-danger" data-testid="integration-batch-refus">
+          {t(
+            `Batch a refusé vos clés le ${date(etat.refusClesLe)} : la remontée est suspendue jusqu’à ce que vous enregistriez des clés valides.`,
+            `Batch rejected your keys on ${date(etat.refusClesLe)}: signals are paused until you save valid keys.`,
+          )}
+        </p>
+      )}
+
+      {branche && (
+        <p className="mt-3 text-sm text-ink-500" data-testid="integration-batch-sans-identifiant">
+          {perdus === 0
+            ? t('Toutes les fiches concernées portaient un identifiant externe.', 'Every contact involved had an external id.')
+            : perdus === 1
+              ? t(
+                `1 signal non poussé : sa fiche n’a pas d’identifiant externe (externalId), qui se transmet par l’API.${dernier ? ` Le ${dernier}.` : ''}`,
+                `1 signal not sent: its contact has no external id (externalId), which is passed through the API.${dernier ? ` On ${dernier}.` : ''}`,
+              )
+              : t(
+                `${perdus} signaux non poussés : ces fiches n’ont pas d’identifiant externe (externalId), qui se transmet par l’API.${dernier ? ` Dernier le ${dernier}.` : ''}`,
+                `${perdus} signals not sent: those contacts have no external id (externalId), which is passed through the API.${dernier ? ` Last on ${dernier}.` : ''}`,
+              )}
+        </p>
+      )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm text-ink-900">
+          {t('Clé d’API REST', 'REST API key')}
+          <input
+            type="password"
+            autoComplete="new-password"
+            data-testid="integration-batch-cle-rest"
+            value={cleRest}
+            onChange={(e) => setCleRest(e.target.value)}
+            placeholder={branche ? t('enregistrée : laisser vide pour la garder', 'saved: leave empty to keep it') : ''}
+            className={`${inputCls} mt-1`}
+          />
+        </label>
+        <label className="block text-sm text-ink-900">
+          {t('Clé de projet', 'Project key')}
+          <input
+            type="password"
+            autoComplete="new-password"
+            data-testid="integration-batch-cle-projet"
+            value={cleProjet}
+            onChange={(e) => setCleProjet(e.target.value)}
+            placeholder={branche ? t('enregistrée : laisser vide pour la garder', 'saved: leave empty to keep it') : ''}
+            className={`${inputCls} mt-1`}
+          />
+        </label>
+      </div>
+
+      <label className="mt-3 flex items-start gap-2 text-sm text-ink-900">
+        <input
+          type="checkbox"
+          data-testid="integration-batch-resume"
+          checked={resume}
+          onChange={(e) => setResume(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded-controle border-ink-300"
+        />
+        <span>
+          {t('Envoyer le résumé des conversations', 'Send conversation summaries')}
+          <span className="block text-xs text-ink-500">
+            {t(
+              'Il contient des propos de vos clients : ne le cochez que si votre outil a le droit de les garder.',
+              'It contains your customers’ words: tick it only if your tool is allowed to keep them.',
+            )}
+          </span>
+        </span>
+      </label>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Bouton
+          data-testid="integration-batch-enregistrer"
+          onClick={enregistrer}
+          disabled={!peutEnregistrer}
+        >
+          {branche ? t('Enregistrer', 'Save') : t('Brancher', 'Connect')}
+        </Bouton>
+        {branche && (
+          <Bouton variante="secondaire"
+            data-testid="integration-batch-debrancher"
+            onClick={debrancher}
+            disabled={statut === 'saving'}
+          >
+            {t('Débrancher', 'Disconnect')}
+          </Bouton>
+        )}
+        {etat !== null && !branche && !clesSaisies && (
+          <span className="text-xs text-ink-500">{t('Les deux clés sont requises pour brancher.', 'Both keys are required to connect.')}</span>
+        )}
+      </div>
+
+      {erreur !== null && <p className="mt-3 text-sm text-danger" data-testid="integration-batch-erreur">{erreur}</p>}
     </section>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useT } from '@/lib/i18n';
 import { cardCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
@@ -47,7 +47,8 @@ const ISSUES: Record<string, [string, string]> = {
   refuse: ['refusés', 'refused'],
 };
 
-export function ReglageShopify({ tenantId }: { tenantId: string }) {
+/** `siAbsente` : ce que montre le volet de Tools > Intégrations quand l'instance n'a pas Shopify (route absente). */
+export function ReglageShopify({ tenantId, siAbsente = null }: { tenantId: string; siAbsente?: ReactNode }) {
   const t = useT();
   const confirmer = useConfirmation();
   const [vue, setVue] = useState<EtatShopifyVue | null>(null);
@@ -124,7 +125,8 @@ export function ReglageShopify({ tenantId }: { tenantId: string }) {
     await recharger();
   };
 
-  if (lecture === 'en_cours' || lecture === 'absente') return null;
+  if (lecture === 'en_cours') return null;
+  if (lecture === 'absente') return siAbsente;
   const b = vue?.boutique ?? null;
   const compteurs = Object.entries(vue?.compteurs ?? {}).filter(([, n]) => n > 0);
   const etatPanier = etatDeLAutomation(vue?.lignes.find((l) => l.evenement === 'checkout_abandoned'));

@@ -41,7 +41,7 @@ async function monter(page: Page, initial: Record<string, unknown>, lectureEnPan
     if (chemin.endsWith('/me')) return json({ email: 'moi@e2e.test', name: 'Moi', role: 'admin' });
     return json({});
   });
-  await page.goto('/integrations');
+  await page.goto('/integrations#integration-batch');
   return trace;
 }
 
@@ -90,7 +90,7 @@ test.describe('Tools > Intégrations > Batch', () => {
     await monter(page, {});
     await expect(page.getByTestId('integration-batch-etat')).toContainText(/Non branché|Not connected/);
     // La page est toujours là : les autres cartes de Tools > Intégrations aussi.
-    await expect(page.getByTestId('integration-hubspot')).toBeVisible();
+    await expect(page.getByTestId('volet-hubspot')).toBeVisible();
   });
 
   test('🔴 une lecture en ÉCHEC ne dit pas « non branché », et rien ne s’enregistre sur un état non lu', async ({ page }) => {

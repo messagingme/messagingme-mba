@@ -132,12 +132,12 @@ for (const locale of ['fr', 'en'] as Locale[]) {
         return json({});
       });
       await communs(page);
-      await page.goto('/integrations');
+      await page.goto('/integrations#integration-shopify');
       const carte = page.getByTestId('integration-shopify');
       await expect(carte.getByTestId('shopify-mode-operatoire')).toBeVisible();
 
-      // 1. Les intégrations de Tools > Intégrations, et la carte Shopify sans boutique.
-      await capturer(page, CLE, 1, locale, page.getByTestId('integrations'), 'haut', carte.getByRole('heading', { name: 'Shopify' }));
+      // 1. Le volet Shopify de Tools > Intégrations, déplié, sans boutique.
+      await capturer(page, CLE, 1, locale, page.getByTestId('volet-shopify'), 'haut', page.getByTestId('volet-shopify').locator('summary'));
 
       // 2. Le mode opératoire chez Shopify, l'adresse et les droits copiables d'un clic.
       await capturer(page, CLE, 2, locale, carte.getByTestId('shopify-mode-operatoire'), 'haut', carte.getByTestId('shopify-copier-adresse'));
@@ -165,14 +165,14 @@ for (const locale of ['fr', 'en'] as Locale[]) {
 
       // 7. L'import des clients abonnés : le compte d'abord, puis combien en importer. Rien n'est importé.
       etat = EN_SERVICE;
-      await page.goto('/integrations');
+      await page.goto('/integrations#integration-shopify');
       await page.getByTestId('integration-shopify-importer').click();
       const apercu = page.getByTestId('shopify-import-apercu');
       await expect(apercu).toBeVisible();
       await capturer(page, CLE, 7, locale, apercu, 'haut', page.getByTestId('shopify-import-nombre'));
 
       // 8. La boutique branchée : ses chiffres, la pause, et « Couper ».
-      await page.goto('/integrations');
+      await page.goto('/integrations#integration-shopify');
       await expect(carte.getByTestId('integration-shopify-compteurs')).toBeVisible();
       await capturer(page, CLE, 8, locale, carte, 'haut', carte.getByTestId('integration-shopify-pause-interrupteur'));
 

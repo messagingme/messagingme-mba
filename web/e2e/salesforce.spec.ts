@@ -55,7 +55,7 @@ async function monter(page: Page, o: {
     if (chemin.endsWith('/me')) return json({ email: 'moi@e2e.test', name: 'Moi', role: o.role ?? 'admin' });
     return json({});
   });
-  await page.goto(o.chemin ?? '/integrations');
+  await page.goto(o.chemin ?? '/integrations#integration-salesforce');
   return trace;
 }
 
@@ -74,7 +74,8 @@ test.describe('Tools > Intégrations > Salesforce : la carte', () => {
 
   test('🔴 API pas encore déployée (404 du routeur) : AUCUNE carte, plutôt qu’un bouton vers une route absente', async ({ page }) => {
     await monter(page, { vue: 'absente' });
-    await expect(page.getByTestId('integration-hubspot')).toBeVisible();
+    await expect(page.getByTestId('volet-hubspot')).toBeVisible();
+    await expect(page.getByTestId('volet-salesforce').getByTestId('integration-en-travaux')).toBeVisible();
     await expect(page.getByTestId('integration-salesforce')).toHaveCount(0);
   });
 

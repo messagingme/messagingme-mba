@@ -130,7 +130,7 @@ async function parametres(page: Page, o: { reglages: Record<string, unknown>; co
     if (chemin.endsWith('/me')) return json({ email: 'moi@e2e.test', name: 'Moi', role: 'admin' });
     return json({});
   });
-  await page.goto('/integrations');
+  await page.goto('/integrations#integration-hubspot');
   return trace;
 }
 

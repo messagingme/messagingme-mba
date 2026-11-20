@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useT } from '@/lib/i18n';
 import { cardCls } from '@/lib/ui';
@@ -23,7 +23,8 @@ import { useFermeture } from '@/lib/use-offre';
  *
  * ⚠️ ADMIN SEULEMENT : la carte ne vit que dans la page des administrateurs, et ses routes sont sous `g.admin`.
  */
-export function ReglageSalesforce({ tenantId }: { tenantId: string }) {
+/** `siAbsente` : ce que montre le volet de Tools > Intégrations quand la carte ne s'affiche pas (offre fermée, instance sans Salesforce). */
+export function ReglageSalesforce({ tenantId, siAbsente = null }: { tenantId: string; siAbsente?: ReactNode }) {
   const t = useT();
   const [vue, setVue] = useState<IntegrationSalesforceVue | null>(null);
   const [lecture, setLecture] = useState<'en_cours' | 'ok' | 'illisible' | 'absente' | 'echec'>('en_cours');
@@ -66,10 +67,11 @@ export function ReglageSalesforce({ tenantId }: { tenantId: string }) {
 
   // ⚠️ CACHÉE, ET NON « INCLUS DANS L'OFFRE ENTREPRISE », quand l'offre ferme le CRM : cette carte se cache déjà quand
   // l'instance n'a pas Salesforce (route 404), et l'annoncer à une Base promettrait peut-être un connecteur absent.
-  if (ferme) return null;
+  if (ferme) return siAbsente;
 
   // Route absente (API pas encore déployée) ou réponse illisible : une intégration neuve ne s'affiche pas.
-  if (lecture === 'absente' || lecture === 'en_cours' || lecture === 'illisible') return null;
+  if (lecture === 'en_cours') return null;
+  if (lecture === 'absente' || lecture === 'illisible') return siAbsente;
 
   const etat = vue ? etatCarteSalesforce(vue) : null;
   const raison = t(

@@ -99,7 +99,7 @@ async function monter(page: Page, o: {
     if (chemin.endsWith('/me')) return json({ email: 'moi@e2e.test', name: 'Moi', role: o.role ?? 'admin' });
     return json({});
   });
-  await page.goto(o.ecran ?? '/integrations');
+  await page.goto(o.ecran ?? '/integrations#integration-shopify');
   return trace;
 }
 
@@ -204,7 +204,8 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
 
   test('🔴 API pas encore déployée (404 du routeur) : AUCUNE carte', async ({ page }) => {
     await monter(page, { etat: 'absente' });
-    await expect(page.getByTestId('integration-hubspot')).toBeVisible();
+    await expect(page.getByTestId('volet-hubspot')).toBeVisible();
+    await expect(page.getByTestId('volet-shopify').getByTestId('integration-en-travaux')).toBeVisible();
     await expect(page.getByTestId('integration-shopify')).toHaveCount(0);
   });
 });

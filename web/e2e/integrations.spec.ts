@@ -27,8 +27,23 @@ test('🔴 « Intégrations » est la première entrée de Tools, et la page por
   await page.goto('/integrations');
   await expect(page.getByRole('heading', { name: 'Intégrations', level: 1 })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Intégrations', exact: true })).toHaveAttribute('href', '/integrations');
+  // Un volet par outil, replié : on déplie celui qu'on règle.
+  for (const cle of ['shopify', 'batch', 'hubspot', 'salesforce', 'dynamics']) {
+    await expect(page.getByTestId(`volet-${cle}`)).not.toHaveAttribute('open', /.*/);
+  }
+  await expect(page.getByTestId('integration-hubspot')).toBeHidden();
+  await page.getByTestId('volet-hubspot').locator('summary').click();
   await expect(page.getByTestId('integration-hubspot')).toBeVisible();
-  await expect(page.getByTestId('integration-shopify')).toBeVisible();
+});
+
+test('Salesforce sans route et Dynamics 365 disent « En cours de développement »', async ({ page }) => {
+  await monter(page);
+  await page.goto('/integrations');
+  for (const cle of ['salesforce', 'dynamics']) {
+    const volet = page.getByTestId(`volet-${cle}`);
+    await volet.locator('summary').click();
+    await expect(volet.getByTestId('integration-en-travaux')).toHaveText('En cours de développement.');
+  }
 });
 
 test('🔴 une ancienne ancre de Paramètres mène à la même carte dans Intégrations', async ({ page }) => {
