@@ -30,7 +30,7 @@ const GRAPHE: Graph = {
 };
 const TEMPLATE = {
   id: 'id-commande', name: 'commande', status: 'APPROVED', category: 'UTILITY', language: 'fr',
-  body: 'Bonjour {{1}}, votre commande {{2}} est payée. Merci !', headerFormat: null, isCarousel: false, editable: true, buttons: [],
+  body: 'Bonjour {{1}}, votre commande {{2}} est payée.\nNous la préparons avec soin et vous écrirons dès son départ.\nSuivez-la depuis votre espace client.\nMerci et à très vite !', headerFormat: null, isCarousel: false, editable: true, buttons: [],
 };
 
 async function monter(page: import('@playwright/test').Page, evenement = 'order_paid'): Promise<{ graphes: Graph[]; creations: Array<Record<string, unknown>> }> {
@@ -177,6 +177,31 @@ test.describe('Éditeur : un scénario Shopify (lot 5)', () => {
     await modale.getByTestId('template-ajouter-lien').click();
     await modale.getByTestId('template-bouton-url-variable-0').click();
     await expect(modale.getByRole('button', { name: 'Lien du panier (Shopify)' })).toHaveCount(0);
+  });
+
+  test('le message d’un bloc se déplie (« Voir tout », puis « Messages en entier » pour tous) et ses variables se lisent par leur nom', async ({ page }) => {
+    // Chaque test part d'un navigateur neuf : la préférence n'y est pas.
+    await monter(page);
+    const texte = bloc(page, 'n1').getByTestId('node-apercu-texte');
+    await expect(texte).toHaveAttribute('data-entier', 'non');
+    // Les variables par leur nom, jamais {{1}}.
+    await expect(texte).toContainText('prénom (Shopify)');
+    await expect(texte).toContainText('numéro de commande (Shopify)');
+    await expect(texte).not.toContainText('{{1}}');
+    // Le bloc reste non sélectionné : « Voir tout » ne l'ouvre pas.
+    await bloc(page, 'n1').getByTestId('node-apercu-texte-deplier').click();
+    await expect(texte).toHaveAttribute('data-entier', 'oui');
+    await expect(texte).toContainText('Merci et à très vite !');
+    await expect(bloc(page, 'n1').getByTestId('node-apercu-texte-deplier')).toHaveText('Réduire');
+    await bloc(page, 'n1').getByTestId('node-apercu-texte-deplier').click();
+    await expect(texte).toHaveAttribute('data-entier', 'non');
+    // L'interrupteur de la barre déplie tout, et se retient d'une visite à l'autre.
+    await page.getByTestId('workflow-messages-en-entier').check();
+    await expect(texte).toHaveAttribute('data-entier', 'oui');
+    await expect(bloc(page, 'n1').getByTestId('node-apercu-texte-deplier')).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByTestId('workflow-messages-en-entier')).toBeChecked();
+    await expect(bloc(page, 'n1').getByTestId('node-apercu-texte')).toHaveAttribute('data-entier', 'oui');
   });
 
   test('🔴 le retour mène à Automation > Shopify, pas à la liste des scénarios (spec 2026-11-20 § 4.4)', async ({ page }) => {

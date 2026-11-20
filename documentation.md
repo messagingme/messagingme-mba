@@ -2261,6 +2261,13 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   scénario et non dans l'adresse. Le scénario d'une ligne
   ne se supprime pas : ses utilisations nomment l'automation (`UTILISATIONS`), la clé étrangère de `shopify_lignes` étant
   en cascade.
+- **Le texte entier d'un message sur le canevas** (Julien, 2026-11-20 ; `TexteDuBloc`, `web/components/WorkflowNode.tsx`).
+  L'aperçu d'un template (3 lignes), l'introduction d'un carrousel (2) et le résumé d'un message rapide, d'une question ou
+  d'un message RCS (1) sont coupés par `line-clamp` ; « Voir tout » / « Réduire » apparaît quand le texte dépasse (mesuré
+  après rendu, `nodrag` : le clic ne déplace ni ne sélectionne le bloc). L'interrupteur « Messages en entier » de la barre
+  déplie tous les blocs (`ApercuBlocCtx`, retenu sur le poste dans `localStorage`, clé `mba.builder.messagesEnEntier`).
+  Les `{{n}}` d'un template se lisent par le nom de ce que le BLOC y envoie (`lireSourcesDuBloc`, `labelForSource`) ;
+  une position que le bloc ne règle pas reste `{{n}}`, ses indices vivant dans le template.
 - 🔴 **LE MÉNAGE DES TEMPLATES REMPLACÉS DANS UNE AUTOMATION** (spec § 5.1, lot 5). À chaque mise en ligne d'un scénario
   d'automation (la route, `set_shopify_message`, une version programmée), chaque template que la version d'avant
   envoyait, que la nouvelle ne nomme plus ET qui a été écrit depuis un bloc d'un scénario d'AUTOMATION (une ligne de

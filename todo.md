@@ -1,10 +1,13 @@
 # todo.md : backlog
 
-## 🟡 Le dépliage des messages du canevas (mis de côté le 2026-11-20)
+## 🟡 Le dépliage des messages du canevas : la relecture (2026-11-20, aucun rouge)
 
-- **Le dépliage des messages du canevas**, mis de côté le 2026-11-20 à la demande de Julien, pendant le lot du bouton
-  « Reprendre mon panier » : le patch est dans `docs/prive/2026-11-20-depliage-messages-canevas.patch` (non versionné).
-  Fait et testé : « Voir tout » par bloc, « Messages en entier » dans la barre (retenu sur le poste), variables par leur nom.
+- **Les variables d'un template qui suivent ses indices restent `{{n}}` sur le canevas** : le bloc ne porte que les
+  positions qu'il a changées (`data.variables`), et le résumé des templates (`TemplatesCtx`) n'a pas leurs indices. Les
+  lire demanderait une requête par template du canevas, ou les indices dans la liste des templates.
+- **Un texte fixe se lit « Texte fixe »** (`labelForSource`) et non par sa valeur.
+- La mesure « coupé ou pas » ne se refait pas quand la largeur change ou qu'une police arrive en retard (bloc de largeur
+  fixe : risque faible) ; l'e2e ne vérifie pas que « Voir tout » laisse le bloc non sélectionné.
 
 ## 🟡 Le bouton « Reprendre mon panier » : la relecture (2026-11-20, aucun rouge)
 

@@ -1,11 +1,14 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Handle, Position, BaseEdge, EdgeLabelRenderer, getBezierPath, useEdges, useUpdateNodeInternals,
   type NodeProps, type EdgeProps, type NodeTypes, type EdgeTypes,
 } from '@xyflow/react';
-import type { TemplateSummary, WorkflowNodeType } from '@/lib/api';
+import type { TemplateSummary, UserFieldDef, WorkflowNodeType } from '@/lib/api';
+import { morceauxDuMessage } from '@/lib/apercu-bloc';
+import { lireSourcesDuBloc } from '@/lib/variables-bloc-template';
+import { labelForSource } from '@/components/TemplateBodyField';
 import { useLocale, useT } from '@/lib/i18n';
 import { AGENT_SORTIES_RESERVEES, nodeMetaOf } from '@/lib/nodeMeta';
 import { famillesDeCondition, nomDeFamille, poigneeDeFamille, SORTIE_SINON } from '@/lib/condition-familles';
@@ -179,6 +182,61 @@ export const ModelesDeBlocCtx = createContext<ReadonlyMap<string, { etat: string
  */
 export const TestDepuisBlocCtx = createContext<((nodeId: string) => void) | null>(null);
 
+/**
+ * L'APERÇU DES MESSAGES SUR LE CANEVAS (Julien, 2026-11-20) : « Messages en entier », l'interrupteur de la barre du
+ * builder qui déplie tous les blocs, et les champs de l'espace, pour nommer les variables d'un template par ce qu'elles
+ * envoient. Un contexte pour la même raison que `TemplatesCtx` : rien de cela n'a à voyager dans le graphe.
+ */
+export const ApercuBlocCtx = createContext<{ enEntier: boolean; champs: UserFieldDef[] }>({ enEntier: false, champs: [] });
+
+/**
+ * Le texte d'un message dans son bloc : coupé à `lignes` lignes, avec « Voir tout » quand il dépasse ; entier si
+ * l'interrupteur de la barre est mis. Chaque `{{n}}` d'un template se lit par le nom de ce que le bloc y envoie
+ * (`libelles`), sinon il reste `{{n}}`. Le bouton ne déplace ni ne sélectionne le bloc (`nodrag`, propagation arrêtée).
+ */
+function TexteDuBloc({ texte, lignes, libelles, testid }: {
+  texte: string;
+  lignes: 1 | 2 | 3;
+  libelles?: ReadonlyMap<number, string>;
+  testid: string;
+}) {
+  const t = useT();
+  const { enEntier } = useContext(ApercuBlocCtx);
+  const [deplie, setDeplie] = useState(false);
+  const [coupe, setCoupe] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const entier = enEntier || deplie;
+  useLayoutEffect(() => {
+    // Mesuré seulement coupé : déplié, le texte tient toujours, et la mesure dirait « rien à déplier ».
+    const el = ref.current;
+    if (el && !entier) setCoupe(el.scrollHeight > el.clientHeight + 1);
+  }, [texte, entier, lignes]);
+  // Classes ÉCRITES EN ENTIER : Tailwind ne voit pas une classe assemblée.
+  const coupure = lignes === 1 ? 'line-clamp-1' : lignes === 2 ? 'line-clamp-2' : 'line-clamp-3';
+  return (
+    <>
+      <span ref={ref} data-testid={testid} data-entier={entier ? 'oui' : 'non'} className={`${entier ? 'block' : coupure} whitespace-pre-line break-words`}>
+        {morceauxDuMessage(texte).map((m, i) => ('texte' in m
+          ? <span key={i}>{m.texte}</span>
+          : libelles?.get(m.position)
+            ? <span key={i} className="rounded-full bg-brand-50 px-1 font-medium text-brand-700">{libelles.get(m.position)}</span>
+            : <span key={i}>{`{{${m.position}}}`}</span>))}
+      </span>
+      {!enEntier && (coupe || deplie) && (
+        <button
+          type="button"
+          data-testid={`${testid}-deplier`}
+          className="nodrag mt-0.5 block text-[9px] font-medium text-brand-600 hover:underline"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); setDeplie((d) => !d); }}
+        >
+          {deplie ? t('Réduire', 'Show less') : t('Voir tout', 'Show all')}
+        </button>
+      )}
+    </>
+  );
+}
+
 /** Le code public d'un bloc (`nod_<client>_<ULID>`), posé par le serveur au premier enregistrement. Miroir de
  *  `CODE_BLOC_RE` (`src/workflow/node-list.ts`). */
 const CODE_BLOC_RE = /^nod_[0-9a-z]+_[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -284,6 +342,13 @@ function WFNode({ id, data, selected }: NodeProps) {
   const apercuTitre = !showCarousel && live?.headerFormat === 'TEXT' ? String(live.headerText ?? '').trim() : '';
   const apercuTexte = !showCarousel && live ? String(live.body ?? '').trim() : '';
   const apercuModele = apercuEntete !== null || apercuTitre !== '' || apercuTexte !== '';
+  // Les variables du template par le nom de ce que le bloc y envoie (« prénom (Shopify) », un champ de la fiche...) ; une
+  // position que le bloc ne règle pas reste {{n}} (ses indices vivent dans le template, que le canevas ne lit pas).
+  const { champs } = useContext(ApercuBlocCtx);
+  const libellesDuBloc = new Map(lireSourcesDuBloc(data.variables).map((v) => [v.position, labelForSource(v.source, champs, t)] as const));
+  // Le texte d'un message rapide, d'une question ou d'un message RCS se déplie lui aussi ; les autres résumés restent d'une ligne.
+  const resumeDepliable = (wfType === 'quick_message' || wfType === 'question' || wfType === 'rcs_message')
+    && String((wfType === 'rcs_message' ? data.text : data.body) ?? '').trim() !== '';
   // Le visuel du bloc, montré dans la miniature. MÊME champ pour le message rapide et le message RCS (un seul
   // téléversement, un seul champ d'écran), donc une seule lecture ici.
   const visuel = String(data.imageUrl ?? '').trim();
@@ -447,7 +512,9 @@ function WFNode({ id, data, selected }: NodeProps) {
         <Icone nom={meta.icone} taille="petite" />
         <span className="truncate text-[11px] font-semibold text-ink-900">{String(data.name ?? '').trim() || t(...meta.label)}</span>
       </div>
-      <div className="truncate px-2 py-1.5 text-[11px] text-ink-500">{summaryOf(data, t)}</div>
+      {resumeDepliable
+        ? <div className="px-2 py-1.5 text-[11px] text-ink-500"><TexteDuBloc texte={summaryOf(data, t)} lignes={1} testid="node-resume" /></div>
+        : <div className="truncate px-2 py-1.5 text-[11px] text-ink-500">{summaryOf(data, t)}</div>}
       {/* 🔴 LE VISUEL SE VOIT SUR LE BLOC, pas seulement dans le panneau de droite. Demandé par Julien le
           2026-08-28 : « je veux voir cette photo dans la miniature du node ». Un scénario se relit d'un coup
           d'œil sur le canevas, et un bloc qui porte une image sans le montrer oblige à ouvrir chaque bloc
@@ -508,7 +575,7 @@ function WFNode({ id, data, selected }: NodeProps) {
             {(apercuTitre !== '' || apercuTexte !== '') && (
               <div className="px-1.5 py-1 text-[9px] leading-snug text-ink-900">
                 {apercuTitre !== '' && <div className="truncate font-semibold">{apercuTitre}</div>}
-                {apercuTexte !== '' && <span className="line-clamp-3 whitespace-pre-line">{apercuTexte}</span>}
+                {apercuTexte !== '' && <TexteDuBloc texte={apercuTexte} lignes={3} libelles={libellesDuBloc} testid="node-apercu-texte" />}
               </div>
             )}
           </div>
@@ -520,7 +587,7 @@ function WFNode({ id, data, selected }: NodeProps) {
         <div className="border-t border-ink-200 p-1.5" style={{ backgroundColor: '#efeae2' }}>
           {String(live?.body ?? '').trim() && (
             <div className="mb-1 rounded-controle rounded-tl-none bg-white px-1.5 py-1 text-[9px] leading-snug text-ink-900 shadow-mm-sm">
-              <span className="line-clamp-2">{live?.body}</span>
+              <TexteDuBloc texte={String(live?.body ?? '')} lignes={2} libelles={libellesDuBloc} testid="node-apercu-carousel" />
             </div>
           )}
           {/* `nowheel` : la molette fait défiler les cartes au lieu de zoomer le canevas (classe React Flow). */}

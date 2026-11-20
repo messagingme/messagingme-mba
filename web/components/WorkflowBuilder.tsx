@@ -24,7 +24,7 @@ import { EDGE_OPTS, toRF, fromRF, type RFNode, type RFEdge } from '@/lib/workflo
 import { flechesSuivantLesBoutons, sansSortieEnsuite, sansSortieFichier, sansSortiePasDeReponse, sortiesDeBoutons } from '@/lib/workflow-sorties';
 import { estPoigneeDeFamille } from '@/lib/condition-familles';
 import { useEnregistrementScenario } from '@/lib/use-enregistrement-scenario';
-import { ModelesDeBlocCtx, TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
+import { ApercuBlocCtx, ModelesDeBlocCtx, TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
 import { ConfigPanel } from '@/components/WorkflowConfigPanel';
 import { lireShopify } from '@/lib/api-shopify';
 import { donneesDuScenario, type DonneeEvenement } from '@/lib/shopify-lignes';
@@ -35,6 +35,9 @@ import { Bouton } from '@/components/Bouton';
 import { ink } from '@/lib/couleurs';
 import { Icone } from '@/components/Icone';
 import { VoileMenu } from '@/components/Flottant';
+
+/** La clé locale de « Messages en entier » : une préférence de ce poste, jamais partagée. */
+const CLE_MESSAGES_EN_ENTIER = 'mba.builder.messagesEnEntier';
 
 function uid(): string {
   return (globalThis.crypto?.randomUUID?.() ?? `id-${Math.random().toString(36).slice(2)}-${Date.now()}`);
@@ -166,6 +169,19 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   const [flows, setFlows] = useState<FlowSummary[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
   const [fields, setFields] = useState<UserFieldDef[]>([]);
+  // « Messages en entier » (Julien, 2026-11-20) : déplie le texte de tous les blocs du canevas. Retenu sur ce poste, au
+  // mieux (une navigation privée ou un stockage bloqué le laissent simplement éteint).
+  const [messagesEnEntier, setMessagesEnEntier] = useState(false);
+  useEffect(() => {
+    try { setMessagesEnEntier(window.localStorage.getItem(CLE_MESSAGES_EN_ENTIER) === 'oui'); } catch { /* stockage indisponible */ }
+  }, []);
+  const basculerMessagesEnEntier = useCallback(() => {
+    setMessagesEnEntier((v) => {
+      try { window.localStorage.setItem(CLE_MESSAGES_EN_ENTIER, v ? 'non' : 'oui'); } catch { /* stockage indisponible */ }
+      return !v;
+    });
+  }, []);
+  const apercuBloc = useMemo(() => ({ enEntier: messagesEnEntier, champs: fields }), [messagesEnEntier, fields]);
   /** Combien de fiches ont chaque champ rempli, sur combien en tout. Vide = relévé indisponible. */
   const [usageChamps, setUsageChamps] = useState<{ total: number; parChamp: Record<string, number> } | null>(null);
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
@@ -853,6 +869,10 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
         {/* MISE EN LIGNE. Le bouton n'apparaît que s'il y a quelque chose à publier ; sinon on affiche depuis
             quand la version en cours est en ligne, parce que « rien à publier » et « jamais publié » ne sont
             pas la même situation et que la seconde mérite d'être vue. */}
+        <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-ink-700" title={t('Afficher le texte entier de chaque message sur le canevas', 'Show the full text of every message on the canvas')}>
+          <input type="checkbox" checked={messagesEnEntier} onChange={basculerMessagesEnEntier} data-testid="workflow-messages-en-entier" className="h-3.5 w-3.5 accent-brand-600" />
+          {t('Messages en entier', 'Full messages')}
+        </label>
         {enregistrement.aPublier ? (
           <Bouton taille="petite" enCours={publication.enCours}
             onClick={() => { void publier(); }}
@@ -947,6 +967,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
           <TemplatesCtx.Provider value={tousLesTemplates}>
           <ModelesDeBlocCtx.Provider value={etatParModele}>
           <TestDepuisBlocCtx.Provider value={rappelTest}>
+          <ApercuBlocCtx.Provider value={apercuBloc}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -970,6 +991,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             <Background color={ink[200]} gap={18} />
             <Controls showInteractive={false} />
           </ReactFlow>
+          </ApercuBlocCtx.Provider>
           </TestDepuisBlocCtx.Provider>
           </ModelesDeBlocCtx.Provider>
           </TemplatesCtx.Provider>
