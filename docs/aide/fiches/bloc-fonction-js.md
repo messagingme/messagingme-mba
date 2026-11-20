@@ -2,7 +2,7 @@
 description: Le bloc Fonction JS d'un scénario WhatsApp : transformer un champ par quelques lignes de JavaScript, l'essayer, et ranger le résultat.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 12

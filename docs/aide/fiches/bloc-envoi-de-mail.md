@@ -2,7 +2,7 @@
 description: Le bloc Envoi de mail d'un scénario : la boîte d'envoi, le modèle, les destinataires de la fiche ou fixes, et ce qui se passe en cas d'échec.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 14

@@ -2,7 +2,7 @@
 description: Le bloc Extraire du JSON d'un scénario WhatsApp : lire des valeurs dans la réponse d'un Appel API et les ranger dans des champs.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 17

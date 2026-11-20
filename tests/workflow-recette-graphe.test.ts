@@ -283,3 +283,28 @@ describe('🔴 un template à délai « pas de réponse » ne se décrit pas (me
     expect(decompilerGraphe(avecDelai({ timeoutValue: 3, timeoutUnit: 'siecles' })).ok).toBe(true);
   });
 });
+
+describe('la sortie « En cas d’échec » d’un template dans la recette (`si_echec`, 2026-11-20)', () => {
+  const avecEchec = (): Etape => ({
+    template: { nom: 'info', langue: 'fr' },
+    si_echec: { message: { texte: 'Repli' }, suite: humain },
+  });
+
+  it('se compile en une arête `non_livre`, que la lecture rend telle quelle', () => {
+    const g = compile(avecEchec());
+    const t = g.nodes[0]!;
+    expect(suivant(g, t.id, 'non_livre')?.data.body).toBe('Repli');
+    // Aucune arête libre : un template sans réponse rapide termine toujours le parcours.
+    expect(g.edges.some((e) => e.source === t.id && e.sourceHandle === undefined)).toBe(false);
+    const lu = decompilerGraphe(g);
+    expect(lu).toMatchObject({ ok: true, valeur: avecEchec() });
+  });
+
+  it('avec des réponses rapides, l’ordre des clés relues reste boutons, autre_reponse, si_echec', () => {
+    const e: Etape = { ...complete(), si_echec: humain };
+    const lu = decompilerGraphe(compile(e));
+    if (!lu.ok) throw new Error(lu.message);
+    expect(Object.keys(lu.valeur)).toEqual(['template', 'boutons', 'autre_reponse', 'si_echec']);
+    expect(empreinteRecette(lu.valeur)).toBe(empreinteRecette(e));
+  });
+});

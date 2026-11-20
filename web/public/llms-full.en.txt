@@ -2061,7 +2061,7 @@ A scenario is described as a tree of steps, with no id or position. Each step is
 
 | Step | Meaning |
 | --- | --- |
-| `template` | Sends an APPROVED template (name, language, variables). boutons: one next step per quick reply, named by its exact text; each one needs one. autre_reponse: the contact writes instead of tapping. Without quick replies, the template ends the scenario. |
+| `template` | Sends an APPROVED template (name, language, variables). boutons: one next step per quick reply, named by its exact text; each one needs one. autre_reponse: the contact writes instead of tapping. si_echec: WhatsApp could not deliver the template (no WhatsApp on the number, unreachable). Without quick replies, the template ends the scenario. |
 | `message` | A free message within the 24-hour window, with an optional file (JPEG, PNG or GIF image, MP4 video, PDF). reponses: 3 quick replies at most, 20 characters each. Without quick replies, it does not wait: suite is the next step. |
 | `agent` | Hands the conversation to an active AI agent of the workspace. It ends the scenario. |
 | `humain` | Hands the conversation to the team (To handle). It ends the scenario. |

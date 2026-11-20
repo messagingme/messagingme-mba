@@ -53,6 +53,8 @@ const FORME_ETAPE = 'A step is an object with EXACTLY ONE of these forms. '
   + `list of { "texte", "suite" }, one per QUICK_REPLY button of the template, "texte" being its exact text (${MAX_TEXTE_BOUTON_TEMPLATE} `
   + `characters, ${MAX_BOUTONS_TEMPLATE} buttons at most); EVERY quick reply needs one, if need be { "humain": {} }. A template without `
   + 'quick replies ends the scenario. "autre_reponse": the step when the contact writes instead of tapping. '
+  + '"si_echec": the step played when Meta cannot deliver the template (failed status: no WhatsApp on the number, '
+  + 'undeliverable), e.g. { "humain": {} } so the team takes over; never a contact who said STOP. '
   + '(2) { "message": { "texte", "fichier"? }, "reponses"?, "autre_reponse"?, "suite"? }: a free message within the 24-hour '
   + `window. "texte": ${TEXTE_MAX_SIMPLE} characters, ${TEXTE_MAX_AVEC_FICHIER_OU_BOUTON} with a file or quick replies. "fichier": `
   + `{ "url": a public https address (${LONGUEUR_URL_FICHIER_MAX} characters) of a JPEG, PNG or GIF image, an MP4 video or a PDF }, `

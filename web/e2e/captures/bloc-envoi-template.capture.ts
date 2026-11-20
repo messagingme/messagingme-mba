@@ -90,6 +90,15 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       const modifier = page.getByTestId('template-modifier');
       await centrer(modifier);
       await capturer(page, CLE, 7, locale, undefined, 'haut', modifier, true);
+
+      // 8. La sortie « En cas d'échec » (2026-11-20) : le rappel non livré passe à l'équipe.
+      const grapheEchec: Graphe = {
+        nodes: [envoi('n1', 0, 0, rappel), message('n2', 0, 260, l.apresRappel), bloc('n3', 'inbox', 360, 120, {})],
+        edges: [fleche('e1', 'n1', 'n2'), fleche('e2', 'n1', 'n3', 'non_livre')],
+      };
+      await simulerEditeur(page, grapheEchec, l.nom[1], templates, INDICATIONS);
+      await ouvrir(page, false);
+      await capturer(page, CLE, 8, locale, undefined, 'haut', poignee(page, 'non_livre'), true);
     });
   });
 }

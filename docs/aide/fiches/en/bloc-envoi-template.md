@@ -1,7 +1,7 @@
 ---
 description: The Send template block of a WhatsApp scenario: choose the approved template, connect its variables, its buttons and what follows.
 slug: send-template-block
-traduit_de: 4f7799
+traduit_de: 78e0d3
 ---
 # The Send template block
 
@@ -80,3 +80,13 @@ Content > Templates form; "Edit this template" fills it with the block's templat
 - Arrows follow the button text: a removed button loses its arrow, the others keep their branch. This is also true when
   you choose another template in the list.
 - A carousel or an image, video or document header is created in Content > Templates.
+
+**8. Plan for a failed delivery.** Every Send template block has a red "If delivery fails" output: connect it to the
+fallback, for example an RCS message, an e-mail or "Assign to an agent".
+
+- The journey takes it when WhatsApp could not deliver the template: a number without WhatsApp, a phone unreachable for
+  too long. A template delivered but never read does not take it.
+- A contact who replied STOP, or without consent for a Marketing template, does not take it either: they receive nothing.
+- Once connected, the block waits for WhatsApp to confirm the delivery where the next step would have left at once
+  (step 6): a few seconds usually, longer if the phone is off.
+- In a Shopify or HubSpot campaign, a contact caught by this output is not retried a second time.

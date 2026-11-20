@@ -2,7 +2,7 @@
 description: Le bloc Envoi template d'un scénario WhatsApp : choisir le template approuvé, relier ses variables, ses boutons et ce qui suit.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow ») | Écrire un template depuis un scénario
-source_empreinte: a3025d | 560aee
+source_empreinte: 6ea74e | 560aee
 publique: oui
 rubrique: construire-un-scenario
 rang: 2
@@ -85,3 +85,13 @@ en validation (quelques minutes à quelques heures), et le bloc le prend aussit�
 - Les flèches suivent le texte des boutons : un bouton retiré perd la sienne, les autres gardent leur branche. C'est
   vrai aussi quand vous choisissez un autre template dans la liste.
 - Un carousel ou un en-tête image, vidéo ou document se crée dans Contenu > Templates.
+
+**8. Prévoir l'échec de livraison.** Chaque bloc Envoi template a une sortie rouge « En cas d'échec » : reliez-la au
+repli, par exemple un message RCS, un e-mail ou « Assigner à un agent ».
+
+- Le parcours la prend quand WhatsApp n'a pas pu livrer le template : numéro sans WhatsApp, téléphone injoignable trop
+  longtemps. Un template livré mais jamais lu ne la prend pas.
+- Un contact qui a répondu STOP, ou sans accord pour un template Marketing, ne la prend pas non plus : il ne reçoit rien.
+- Reliée, elle fait attendre le bloc que WhatsApp confirme la livraison, là où la suite serait partie tout de suite
+  (étape 6) : quelques secondes d'habitude, plus si le téléphone est éteint.
+- Dans une campagne Shopify ou HubSpot, un contact rattrapé par cette sortie n'est pas relancé une seconde fois.

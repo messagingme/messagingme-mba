@@ -90,6 +90,17 @@ describe('walk : le template à délai attend, celui sans délai ne change pas',
     const r = blocSeul(g, 'nod_ab_0123456789ABCDEFGHJKMNPQRS');
     expect(r).toEqual({ ok: false, raison: expect.stringContaining('attend une réponse') });
   });
+
+  it('🔴 blocSeul refuse un template dont la sortie « En cas d’échec » est branchée, lue sur le graphe publié', () => {
+    const code = 'nod_ab_0123456789ABCDEFGHJKMNPQRT';
+    const g: WorkflowGraph = {
+      nodes: [n('t', 'template', { templateName: 'info', language: 'fr', code }), n('repli', 'tag', { tag: 'repli' })],
+      edges: [e('e0', 't', 'repli', 'non_livre')],
+    };
+    expect(blocSeul(g, code)).toEqual({ ok: false, raison: expect.stringContaining('En cas d’échec') });
+    // Sans la sortie, le même template part seul.
+    expect(blocSeul({ ...g, edges: [] }, code)).toMatchObject({ ok: true });
+  });
 });
 
 interface Capture { etats: RunState[]; tags: string[]; rapides: string[]; rendus: string[] }

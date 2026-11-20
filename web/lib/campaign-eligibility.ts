@@ -16,6 +16,7 @@
  * d'un bloc configuré et des sorties de condition donnent le même résultat.
  */
 import { sortiesDeCondition, SORTIE_SINON } from './condition-familles';
+import { SORTIE_NON_LIVRE } from './partage/sortie-non-livre';
 import { blocDuCode as blocDuCodePartage, cibleDuSaut, entreeDuGraphe, scannerOuverture } from './partage/ouverture-scenario';
 import type { AnalyseOuverture } from './partage/ouverture-scenario';
 
@@ -269,8 +270,9 @@ export function waitBeforeSessionMessage(graph: GraphLike): WaitThenSession | nu
     }
     if (node.type === 'template') {
       // Miroir du serveur (`explorerLesAttentes`) : la sortie de réponse remet le compteur à zéro ; la sortie « Pas de
-      // réponse » relève de l'analyse de fenêtre (`./fenetre-console.ts`), qui prévient sans refuser.
-      const reponse = graph.edges.find((x) => x.source === id && x.sourceHandle !== 'timeout')?.target ?? null;
+      // réponse » relève de l'analyse de fenêtre (`./fenetre-console.ts`), qui prévient sans refuser. « En cas d'échec »
+      // n'est pas une réponse non plus (le serveur l'exclut de `nextNodeHorsTimeout`).
+      const reponse = graph.edges.find((x) => x.source === id && x.sourceHandle !== 'timeout' && x.sourceHandle !== SORTIE_NON_LIVRE)?.target ?? null;
       if (reponse) pile.push({ id: reponse, cumul: 0, dernierWait: null });
       continue;
     }

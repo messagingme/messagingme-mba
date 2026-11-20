@@ -2,7 +2,7 @@
 description: Le bloc Condition d'un scénario WhatsApp : les conditions, leurs types, les familles et leurs sorties, et les pièges des valeurs vides.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 7

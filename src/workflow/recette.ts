@@ -24,6 +24,8 @@ export interface EtapeTemplate {
   template: { nom: string; langue: string; variables?: Record<string, SourceRecette> };
   boutons?: Branche[];
   autre_reponse?: Etape;
+  /** Meta n'a pas pu livrer le template : la sortie « En cas d'échec » (poignée `non_livre`, 2026-11-20). */
+  si_echec?: Etape;
 }
 export interface EtapeMessage {
   message: { texte: string; fichier?: { url: string } };
@@ -78,7 +80,7 @@ const HUMAIN = z.object({}).strict();
 const BRANCHE = z.object({ texte: z.string(), suite: z.unknown() }).strict();
 
 const CLES_ETAPE = {
-  template: ['template', 'boutons', 'autre_reponse'],
+  template: ['template', 'boutons', 'autre_reponse', 'si_echec'],
   message: ['message', 'reponses', 'autre_reponse', 'suite'],
   agent: ['agent'],
   humain: ['humain'],
@@ -171,6 +173,9 @@ function lireEtape(brut: unknown, chemin: string, profondeur: number, compte: Co
     const autre = lireSiPresente('autre_reponse');
     if (!autre.ok) return autre;
     if (autre.valeur) etape.autre_reponse = autre.valeur;
+    const echec = lireSiPresente('si_echec');
+    if (!echec.ok) return echec;
+    if (echec.valeur) etape.si_echec = echec.valeur;
     return { ok: true, valeur: etape };
   }
 
@@ -239,6 +244,7 @@ const etapeDoc = z.union([
     boutons: z.array(brancheDoc.extend({ texte: z.string().min(1).max(MAX_TEXTE_BOUTON_TEMPLATE) })).max(MAX_BOUTONS_TEMPLATE).optional()
       .describe('One branch per QUICK_REPLY button of the template, named by its exact text; every quick reply needs one.'),
     autre_reponse: suiteDoc.optional().describe('The contact writes instead of tapping a button. Only for a template with quick replies.'),
+    si_echec: suiteDoc.optional().describe('Meta could not deliver the template (failed status): the fallback step, e.g. a free message, an AI agent or { "humain": {} }.'),
   }),
   z.strictObject({
     message: z.strictObject({
@@ -265,7 +271,7 @@ export const schemaRemplacementDoc = schemaRecetteDoc.extend({
 
 /** Les sous-étapes d'une étape, dans l'ordre où le contact peut les rencontrer. */
 export function sousEtapes(e: Etape): Etape[] {
-  if ('template' in e) return [...(e.boutons ?? []).map((b) => b.suite), ...(e.autre_reponse ? [e.autre_reponse] : [])];
+  if ('template' in e) return [...(e.boutons ?? []).map((b) => b.suite), ...(e.autre_reponse ? [e.autre_reponse] : []), ...(e.si_echec ? [e.si_echec] : [])];
   if ('message' in e) {
     return [...(e.reponses ?? []).map((b) => b.suite), ...(e.autre_reponse ? [e.autre_reponse] : []), ...(e.suite ? [e.suite] : [])];
   }

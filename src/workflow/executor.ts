@@ -2315,6 +2315,10 @@ export class WorkflowExecutor {
   ): Promise<boolean> {
     const attente = await this.templateQuiAttend(tenantId, waId, bloc);
     if (!attente) return false;
+    // Un parcours ordinaire dont le fil est à un opérateur ou à l'agent de Meta serait gelé par `advance` : ne rien céder
+    // à la campagne pour une branche qui ne partirait pas (jaune 2 de la relecture du lot 1). Un parcours d'événement
+    // reprend le fil dans `advance`, il passe.
+    if (attente.run.evenement === null && !(await this.deps.mayAct(tenantId, waId))) return false;
     // Ce qui doit précéder la branche d'échec (la sortie des relances de campagne) : elle envoie, et une relance partie
     // pendant ce temps ferait deux rattrapages.
     if (avantDAvancer) await avantDAvancer();

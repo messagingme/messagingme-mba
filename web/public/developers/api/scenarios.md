@@ -21,7 +21,7 @@ Un scénario se décrit par une arborescence d’étapes, sans identifiant ni po
 
 | Étape | Sens |
 | --- | --- |
-| `template` | Envoie un template APPROUVÉ (nom, langue, variables). boutons : une suite par réponse rapide, nommée par son texte exact ; chacune en demande une. autre_reponse : le contact écrit au lieu de cliquer. Sans réponse rapide, le template termine le parcours. |
+| `template` | Envoie un template APPROUVÉ (nom, langue, variables). boutons : une suite par réponse rapide, nommée par son texte exact ; chacune en demande une. autre_reponse : le contact écrit au lieu de cliquer. si_echec : WhatsApp n’a pas pu livrer le template (numéro sans WhatsApp, injoignable). Sans réponse rapide, le template termine le parcours. |
 | `message` | Un message libre dans la fenêtre de 24 h, avec un fichier facultatif (image JPEG, PNG ou GIF, vidéo MP4, PDF). reponses : 3 réponses rapides au plus, 20 caractères chacune. Sans réponse rapide, il n’attend pas : suite est l’étape d’après. |
 | `agent` | Confie la conversation à un agent IA actif de l’espace. Il termine le parcours. |
 | `humain` | Passe la conversation à l’équipe (À traiter). Il termine le parcours. |

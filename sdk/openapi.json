@@ -5998,6 +5998,14 @@
                               "type": "string"
                             },
                             "additionalProperties": {}
+                          },
+                          "si_echec": {
+                            "description": "Meta could not deliver the template (failed status): the fallback step, e.g. a free message, an AI agent or { \"humain\": {} }.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
                           }
                         },
                         "required": [
@@ -6825,6 +6833,14 @@
                           },
                           "autre_reponse": {
                             "description": "The contact writes instead of tapping a button. Only for a template with quick replies.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "si_echec": {
+                            "description": "Meta could not deliver the template (failed status): the fallback step, e.g. a free message, an AI agent or { \"humain\": {} }.",
                             "type": "object",
                             "propertyNames": {
                               "type": "string"

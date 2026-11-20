@@ -2,7 +2,7 @@
 description: Le bloc Attente d'un scénario WhatsApp : un délai, une date précise ou les heures ouvrées, et ce qui peut encore partir au réveil.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 8

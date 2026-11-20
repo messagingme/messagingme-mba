@@ -39,12 +39,14 @@ function monter(graph: WorkflowGraph, opts: { mbaActif?: boolean; evenement?: bo
   const tags: string[] = [];
   const etats: RunState[] = [];
   let run: WorkflowRunRow | null = null;
+  const etat = { filANous: true };
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
     aAccordMarketing: toujoursDAccord,
     getGraph: async () => graph,
     mbaActifPour: async () => opts.mbaActif === true,
+    mayAct: async () => etat.filANous,
     applyTag: async (_t, _w, tag) => { tags.push(tag); },
     setField: async () => {},
     removeTag: async () => {},
@@ -75,7 +77,7 @@ function monter(graph: WorkflowGraph, opts: { mbaActif?: boolean; evenement?: bo
     }),
   };
   const executor = new WorkflowExecutor(deps);
-  return { executor, tags, etats, run: () => run };
+  return { executor, tags, etats, run: () => run, set filANous(v: boolean) { etat.filANous = v; } };
 }
 
 async function demarrer(m: ReturnType<typeof monter>, g: WorkflowGraph) {
@@ -139,6 +141,17 @@ describe('sortie « En cas d’échec » : l’accusé de Meta', () => {
     expect(await m.executor.templateLivre('t1', '33600000001', 'wamid.1', BLOC)).toBe(false);
     expect(m.tags).toEqual([]);
     expect(m.run()).toMatchObject({ currentNode: 't', status: 'waiting' });
+  });
+
+  it('fil tenu par un opérateur : ni branche, ni cession à la campagne', async () => {
+    const g = graphe();
+    const m = monter(g, { mbaActif: true });
+    await demarrer(m, g);
+    m.filANous = false;
+    let cede = false;
+    expect(await m.executor.templateNonLivre('t1', '33600000001', 'wamid.1', BLOC, async () => { cede = true; })).toBe(false);
+    expect(cede).toBe(false);
+    expect(m.tags).toEqual([]);
   });
 
   it('sortie non branchée : l’échec ne fait rien (le comportement d’avant)', async () => {

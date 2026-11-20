@@ -2,7 +2,7 @@
 description: Le bloc Action d'un scénario WhatsApp : poser ou retirer des étiquettes, remplir ou vider des champs, changer le consentement du contact.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 6

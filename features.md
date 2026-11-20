@@ -1391,6 +1391,16 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
     lancerait mille automations au même instant.
   - Une réponse qui arrive à l'instant même où la relance part n'avance pas le parcours : elle attend dans l'Inbox,
     au lieu d'un double envoi.
+- ✅ **« En cas d'échec » sur le bloc template** (2026-11-20, demande de Julien) : chaque bloc template porte une sortie
+  rouge que le parcours prend quand WhatsApp n'a pas pu livrer le message (statut d'échec de Meta : numéro sans
+  WhatsApp, téléphone injoignable trop longtemps). On y relie le repli : un RCS, un e-mail, l'équipe. Un template livré
+  mais jamais lu ne la prend pas, un contact désabonné (STOP) ou sans accord Marketing non plus.
+  - Reliée, elle fait attendre le bloc l'accusé de livraison là où la suite partait tout de suite (agent de Meta qui
+    répond, parcours Shopify ou HubSpot) : la suite part à « livré ».
+  - Un parcours Shopify ou HubSpot rattrapé par cette sortie n'est pas relancé une seconde fois par sa campagne.
+  - Depuis Claude, la recette d'un scénario l'écrit `si_echec` sur une étape template (`create_scenario`).
+  - Un refus immédiat de Meta à l'envoi (template en pause, variables refusées) ne la prend pas : c'est une erreur de
+    réglage, la conversation passe à l'équipe comme avant.
 - ✅ **La fenêtre au départ, dite à l'écran** (2026-11-18) : un scénario lancé par un événement (boutique Shopify,
   HubSpot, automation de date, d'étiquette ou de webhook, campagne) part conversation close. Le builder signale en
   jaune chaque message libre (message rapide, question, formulaire, agent IA) qu'il atteindrait avant toute réponse

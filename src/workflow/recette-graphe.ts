@@ -7,6 +7,7 @@ import { SORTIE_HUMAIN, SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-age
 import { sousActions } from '../../web/lib/partage/actions-bloc';
 import { ATTRIBUTS_RECETTE, type Branche, type Etape, type EtapeMessage, type EtapeTemplate, type Lu, type RefusRecette, type SourceRecette } from './recette';
 import { delaiSansReponseMs } from './engine';
+import { SORTIE_NON_LIVRE } from '../../web/lib/partage/sortie-non-livre';
 
 /**
  * COMPILER UNE RECETTE EN GRAPHE, ET L'INVERSE (spec `docs/superpowers/specs/2026-11-02-scenarios-api-design.md`).
@@ -182,6 +183,11 @@ function compilerTemplate(e: EtapeTemplate, chemin: string, cheminArbre: Chemin,
     if (!autre.ok) return autre;
     relier(chantier, id, autre.valeur);
   }
+  if (e.si_echec) {
+    const echec = compilerEtape(e.si_echec, `${chemin}.si_echec`, [...cheminArbre, 'e'], profondeur + 1, refs, chantier);
+    if (!echec.ok) return echec;
+    relier(chantier, id, echec.valeur, SORTIE_NON_LIVRE);
+  }
   return { ok: true, valeur: id };
 }
 
@@ -297,13 +303,20 @@ function lireGraphe(g: WorkflowGraph, chemins: Map<string, WorkflowNode>): Lu<Et
         if (!suite.ok) return suite;
         branches.push({ texte: r.texte, suite: suite.valeur });
       }
-      if (aretes.some((a) => a.sourceHandle !== undefined && !rapides.some((r) => a.sourceHandle === `btn:${r.i}`))) return indescriptible('une sortie de template inconnue');
+      if (aretes.some((a) => a.sourceHandle !== undefined && a.sourceHandle !== SORTIE_NON_LIVRE && !rapides.some((r) => a.sourceHandle === `btn:${r.i}`))) return indescriptible('une sortie de template inconnue');
       if (branches.length > 0) etape.boutons = branches;
       if (libre[0]) {
         if (rapides.length === 0) return indescriptible('un template sans réponse rapide suivi d’une étape');
         const autre = lire(libre[0].target, [...ici, 'a']);
         if (!autre.ok) return autre;
         etape.autre_reponse = autre.valeur;
+      }
+      // La sortie « En cas d'échec », lue en dernier : la recette rendue garde l'ordre de ses clés (boutons, autre_reponse, si_echec).
+      const echec = aretes.find((a) => a.sourceHandle === SORTIE_NON_LIVRE);
+      if (echec) {
+        const repli = lire(echec.target, [...ici, 'e']);
+        if (!repli.ok) return repli;
+        etape.si_echec = repli.valeur;
       }
       return { ok: true, valeur: etape };
     }

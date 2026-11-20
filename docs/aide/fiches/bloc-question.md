@@ -2,7 +2,7 @@
 description: Le bloc Question d'un scénario WhatsApp : la question, le menu de réponses, la réponse rangée, le fichier attendu, le délai et les sorties.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 4

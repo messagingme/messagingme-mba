@@ -25,6 +25,24 @@
   si `suivant` ne devenait jamais `null`) ; le test d'intégration ne couvre pas la borne du 1er du mois précédent de
   `envoisParJour` (un envoi la veille, un le jour même).
 
+## 🟡 La sortie « En cas d'échec » du bloc template : ce qui reste (2026-11-20, aucun rouge)
+
+Plan : `docs/superpowers/plans/2026-11-20-sortie-echec-template.md` (§ jaunes). Essai réel SANDBOX à faire.
+
+- Un accusé traité AVANT que le parcours n'écrive son attente (quelques centaines de ms après l'envoi) est perdu :
+  `failed` ne prend pas la branche, `delivered` laisse le parcours attendre. Rejouer l'accusé quand une mesure `sent`
+  existe sans parcours qui attend, depuis moins de quelques secondes.
+- La cession aux relances de campagne part avant l'avance : un bail perdu laisse le destinataire sans relance ni branche
+  (le fil d'un opérateur est désormais écarté avant).
+- Sortie débranchée entre l'envoi et l'accusé : le parcours qui attendait « livré » n'avance plus.
+- `findWaitingSurBloc` ne vérifie pas que le parcours trouvé est celui du wamid (relance du même scénario, très rare).
+- `cederAuScenario` exige `retry_count = 0` : un destinataire déjà relancé une fois n'est pas cédé.
+- `envoiDuMessage` lit par identifiant Meta seul ; vérifier que le numéro du statut appartient à l'espace trouvé.
+- Tests : SQL de `cederAuScenario` et `envoiDuMessage` en intégration, câblage sur les deux files du worker.
+- Relecture du lot 2 : les analyses de fenêtre du serveur (`explorerLesAttentes`) et de la campagne
+  (`campaign-eligibility.ts`) ne suivent pas la branche d'échec : un message libre branché après elle, fenêtre close,
+  n'est pas signalé (avertir en moins, aucun effet sur les envois).
+
 ## 🟡 La relance de panier avec agent IA : la relecture des lots 2 et 3 (2026-11-20, aucun rouge)
 
 - `poserLAgent` (`src/shopify/lignes-gestion.ts`) publie AVANT de relire la version programmée : « Changer d'agent »

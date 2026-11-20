@@ -67,7 +67,11 @@ Sur la SANDBOX, un scénario template → (Échec) e-mail, lancé vers un numér
 contact le montre. Le même scénario vers le numéro d'essai de Julien : la suite part à l'accusé « livré », la branche
 Échec ne part pas. Puis une campagne à chaîne de repli ouvrant ce scénario : un seul rattrapage, celui du scénario.
 
-## Jaunes de la relecture du lot 1 (2026-11-20, aucun rouge), à traiter avec le lot 2
+## Jaunes de la relecture du lot 1 (2026-11-20, aucun rouge)
+
+Traités au lot 2 : 3 (les deux miroirs console), 4 (l'outil d'un agent refuse ce template), et 2 en partie (un parcours
+ordinaire dont le fil est à un opérateur ne cède rien et ne part pas). Les autres sont au `todo.md`.
+
 
 1. Un accusé traité AVANT que le parcours n'écrive son attente sur le bloc (quelques centaines de ms après l'envoi) est
    perdu : `failed` ne prend pas la branche, `delivered` laisse le parcours attendre. Piste : rejouer l'accusé quand une

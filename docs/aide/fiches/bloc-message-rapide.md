@@ -2,7 +2,7 @@
 description: Le bloc Message rapide d'un scénario WhatsApp : le texte, le fichier, les réponses rapides ou le bouton de lien, et les sorties à relier.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 3

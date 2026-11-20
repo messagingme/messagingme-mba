@@ -2,7 +2,7 @@
 description: Le bloc Appel API d'un scénario WhatsApp : jouer un appel de Tools > Connecteurs API, ranger sa réponse dans un champ, traiter l'échec.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 16

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { VariableDeclaree } from '../agent/requetes';
 import type { RisqueOutil } from '../agent/catalog';
-import { walk } from '../workflow/engine';
+import { aSortieNonLivre, walk } from '../workflow/engine';
 import type { WorkflowGraph, WorkflowNode } from '../workflow/graph';
 import { CODE_BLOC_RE, summarize } from '../workflow/node-list';
 import { LONGUEUR_MAX_ETIQUETTE } from '../crm/poser-etiquette';
@@ -167,6 +167,11 @@ export function blocSeul(
   if (!CODE_BLOC_RE.test(code)) return { ok: false, raison: BLOC_DISPARU };
   const noeud = noeudDuCode(graph, code);
   if (!noeud) return { ok: false, raison: BLOC_DISPARU };
+  // Sa sortie « En cas d'échec » branchée : envoyé seul, aucun parcours n'attendrait son accusé, et l'échec ne ferait
+  // rien de ce que le scénario promet. Lu ICI, sur le graphe publié : le graphe réduit ci-dessous n'a plus d'arête.
+  if (noeud.type === 'template' && aSortieNonLivre(graph, noeud.id)) {
+    return { ok: false, raison: 'ce template a une sortie « En cas d’échec » : il part avec son scénario' };
+  }
   const graphe: WorkflowGraph = { nodes: [noeud], edges: [] };
   const { actions, rest } = walk(graphe, noeud.id, undefined, { mbaActif: true });
   if (rest.status !== 'done') return { ok: false, raison: RAISON_REPOS[rest.status] ?? 'ce bloc ne peut pas partir seul' };

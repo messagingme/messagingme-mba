@@ -33,7 +33,8 @@ const PAS_MIN_MS = 60_000;
 const compte = (ms: number): number => (ms > 0 ? Math.max(ms, PAS_MIN_MS) : 0);
 
 /** Les sorties qui ne sont PAS une réponse du contact : « pas de réponse » et « puis, sans attendre ». */
-const SORTIES_SANS_REPONSE: ReadonlySet<string> = new Set(['timeout', 'ensuite']);
+// `non_livre` : Meta n'a pas livré le template (sortie « En cas d'échec », 2026-11-20), le contact n'a rien dit.
+const SORTIES_SANS_REPONSE: ReadonlySet<string> = new Set(['timeout', 'ensuite', 'non_livre']);
 
 export type EtatFenetre = 'ouverte' | 'fermee';
 

@@ -4058,6 +4058,10 @@ export interface operations {
                         autre_reponse?: {
                             [key: string]: unknown;
                         };
+                        /** @description Meta could not deliver the template (failed status): the fallback step, e.g. a free message, an AI agent or { "humain": {} }. */
+                        si_echec?: {
+                            [key: string]: unknown;
+                        };
                     } | {
                         message: {
                             /** @description 4096 characters; 1024 with a file or quick replies. */
@@ -4365,6 +4369,10 @@ export interface operations {
                         }[];
                         /** @description The contact writes instead of tapping a button. Only for a template with quick replies. */
                         autre_reponse?: {
+                            [key: string]: unknown;
+                        };
+                        /** @description Meta could not deliver the template (failed status): the fallback step, e.g. a free message, an AI agent or { "humain": {} }. */
+                        si_echec?: {
                             [key: string]: unknown;
                         };
                     } | {

@@ -2,7 +2,7 @@
 description: Le bloc Agent IA d'un scénario WhatsApp : confier plusieurs échanges à un agent, relier ses règles d'arrêt et ses cinq sorties automatiques.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_empreinte: 6ea74e
 publique: oui
 rubrique: construire-un-scenario
 rang: 15

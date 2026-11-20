@@ -17,6 +17,7 @@ import { SORTIE_LIBRE, SORTIE_PAS_DE_REPONSE } from '@/lib/workflow-sorties';
 import { SORTIE_FICHIER } from '@/lib/partage/question-piece';
 import { SORTIE_FORMULAIRE_REMPLI } from '@/lib/partage/sorties-formulaire';
 import { SORTIE_ENSUITE } from '@/lib/partage/sortie-ensuite';
+import { SORTIE_NON_LIVRE } from '@/lib/partage/sortie-non-livre';
 import { champsAVider, etiquettesARetirer, sousActions } from '@/lib/partage/actions-bloc';
 import { ouvreUneSortie } from '@/lib/rcs-boutons';
 import { sortiesDuBloc, type EmailRecipientData } from '@/lib/workflow-canevas';
@@ -286,6 +287,21 @@ function RangeePasDeReponse() {
       <Icone nom="chrono" taille="mini" />
       <span className="truncate">{t('Pas de réponse', 'No reply')}</span>
       <Handle type="source" id={SORTIE_PAS_DE_REPONSE} position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-alerte-500" title={t('Le contact n’a pas répondu dans le délai', 'The contact did not reply within the delay')} />
+    </div>
+  );
+}
+
+/**
+ * La sortie « En cas d'échec » d'un bloc template (Julien, 2026-11-20) : le parcours la prend quand Meta n'a pas pu livrer
+ * le message. Même constante que le moteur (`templateNonLivre`), sinon la flèche tirée d'ici ne mènerait nulle part.
+ */
+function RangeeNonLivre() {
+  const t = useT();
+  return (
+    <div data-testid="sortie-non-livre" className="relative flex items-center gap-1 border-t border-ink-100 px-2 py-1 text-[10px] font-medium text-danger first:border-t-0">
+      <Icone nom="echec" taille="mini" />
+      <span className="truncate">{t('En cas d’échec', 'If delivery fails')}</span>
+      <Handle type="source" id={SORTIE_NON_LIVRE} position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-danger" title={t('Meta n’a pas pu livrer ce template : brancher un repli (RCS, e-mail, équipe)', 'Meta could not deliver this template: connect a fallback (RCS, email, team)')} />
     </div>
   );
 }
@@ -760,6 +776,7 @@ function WFNode({ id, data, selected }: NodeProps) {
           )}
           {/* Un template à délai : le silence est un cas à part, distinct d'un bouton et d'une réponse écrite. */}
           {delaiPose && <RangeePasDeReponse />}
+          {wfType === 'template' && <RangeeNonLivre />}
         </div>
       ) : isCondition ? (
         // Node condition : une sortie par FAMILLE, à son nom, puis « Sinon », à droite. Les poignées sont celles que
@@ -820,9 +837,10 @@ function WFNode({ id, data, selected }: NodeProps) {
           )}
           {/* Un template sans bouton, à délai : sa sortie « Pas de réponse » à droite. Celle du bas est alors la réponse du
               contact, puisque le bloc l'attend. */}
-          {delaiPose && (
+          {(delaiPose || wfType === 'template') && (
             <div className="border-t border-ink-200">
-              <RangeePasDeReponse />
+              {delaiPose && <RangeePasDeReponse />}
+              {wfType === 'template' && <RangeeNonLivre />}
             </div>
           )}
           {/* La sortie unique d'un bloc sans branche EST la sortie libre : même nom de poignée, donc une arête
