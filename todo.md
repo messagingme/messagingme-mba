@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 Les clics de lien du funnel de campagne : la même règle que les tableaux (2026-11-20)
+
+- `clicsParCampagne` (`src/stats/store.pg.ts`) compte encore, après le premier envoi, les clics SANS contact d'un
+  lien à jeton (antivirus qui scanne l'adresse). `countClicks` ne garde plus que les clics attribués sur ces liens
+  depuis 0e6c640a9 : aligner le funnel (Analytics > Quantitatif) sur la même condition
+  (`contact_id is not null or not avec_jeton`).
+
 ## 🟡 Tools > Intégrations en volets : les captures Shopify (2026-11-20)
 
 - Refaire les captures de la fiche « Brancher ma boutique Shopify » (`npm run aide:captures`) : elles montrent encore

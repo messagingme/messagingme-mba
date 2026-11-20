@@ -6224,7 +6224,10 @@ tracé à jeton (`/r/<code>/{{1}}`) et ne voit jamais le champ.
   formé ou absent (forme `/r/:code`), lecture en échec : le champ est retiré, et la redirection a lieu (302,
   `no-store`, jamais de 5xx) ; si la lecture complète échoue, une lecture légère tente encore de garder
   l'attribution. Un clic automatique (robot, revue de Meta) n'est pas compté, mais sa destination à champs se
-  remplit quand même.
+  remplit quand même. 🔴 Sur un lien à jeton (`avec_jeton`), « Mes tableaux » (`countClicks`) ne compte que les
+  clics ATTRIBUÉS : un clic sans contact y vient de la revue de Meta, qui ouvre le bouton depuis un navigateur
+  ordinaire avec une valeur d'exemple (le filtre par agent ne la voit pas), ou d'un antivirus qui scanne
+  l'adresse. Un lien sans jeton (antérieur à 0106) garde ses clics anonymes, seuls disponibles.
 - 🔴 **Un champ ne se trouve qu'après l'hôte** (chemin, requête, fragment). Une valeur de fiche peut être écrite
   par le contact : dans le schéma, l'utilisateur, l'hôte ou le port, elle ferait de notre domaine un redirecteur
   ouvert. La règle se lit sur le TEXTE (`analyserChampsUrl`), parce que `new URL` accepte `{x}` dans un nom d'hôte.

@@ -5,6 +5,19 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 : trois clics sur un tableau dont le template n'était jamais parti
+
+Signalé par Julien sur sw4mka (Mes tableaux, scénario J-3, template `j3_v2`) : « A cliqué sur le lien « Je
+m'enregistre » » affichait 3 alors que rien n'avait été envoyé. Cause : `countClicks`, le compteur des tableaux,
+prenait tous les clics de l'adresse, sans seuil (le funnel de campagne, lui, part du premier envoi). Pendant la revue
+du template, Meta ouvre le bouton depuis un navigateur ordinaire avec une valeur d'exemple à la place du jeton :
+`estClicAutomatique` ne la reconnaît pas, et le clic s'inscrit sans contact. Correctif 0e6c640a9 : sur un lien à
+jeton, seul un clic attribué compte. Le test d'intégration a été vu rouge sans le correctif (2 clics au lieu de 0)
+sur le banc PGlite, vert avec ; la CI de a76c0bcdc (qui le contient) verte job par job. Déployé par le run
+44768999916, épinglé sur `-f commit=0e6c640a9…`, construction lue (« HEAD is now at 0e6c640a9 »). Les trois clics
+n'ont pas été lus en base : si le lien de `j3_v2` était sans jeton, ils resteraient. Le funnel de campagne garde
+l'ancienne règle après le premier envoi (`todo.md`).
+
 ## 2026-11-20 : Tools > Intégrations en volets
 
 Demande de Julien (« un peu le bordel quand tu l'ouvres ») : la page empilait quatre cartes dépliées, dont celle de
