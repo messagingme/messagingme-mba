@@ -3,6 +3,7 @@ import { isSendableButtonUrl } from '../../web/lib/partage/button-url';
 import { estClicAutomatique } from '../links/clic-automatique';
 import { estJeton } from '../links/jeton-contact';
 import { porteDesChamps, remplirChampsUrl } from '../links/champs-url';
+import { CLE_PANIER_SHOPIFY } from '../../web/lib/partage/champs-url';
 import type { DestinationLien, ResolutionJetonLien } from '../links/tracked-links.pg';
 import { avecUtm } from '../links/utm';
 import { journaliser } from '../lib/journal';
@@ -31,6 +32,11 @@ export interface LiensDep {
    * Sans champ dans l'URL, la lecture ne charge pas la fiche complète.
    */
   resoudreJeton(tenantId: string, jeton: string, avecChamps: boolean): Promise<ResolutionJetonLien | null>;
+  /**
+   * Le lien de reprise du dernier panier Shopify noté pour le numéro de ce contact, dans CET espace (2026-11-20, le
+   * bouton « Reprendre mon panier », clé `{panier_shopify}`) ; null sans panier.
+   */
+  lienDuPanier(tenantId: string, contactId: string): Promise<string | null>;
 }
 
 export interface LinksRouteDeps {
@@ -62,6 +68,21 @@ function pageErreur(titre: string, message: string): string {
     + `<h1 style="font-size:1.1rem;margin:0 0 .5rem">${echappe(titre)}</h1>`
     + `<p style="margin:0;color:#6b7280;font-size:.9rem">${echappe(message)}</p>`
     + `</div></body></html>`;
+}
+
+/** La destination porte-t-elle la clé du panier Shopify (`{panier_shopify}`) ? */
+const aLaClePanier = (destination: string): boolean => destination.includes(`{${CLE_PANIER_SHOPIFY}}`);
+
+/**
+ * Le lien de reprise, s'il se suit : https, envoyable, et NORMALISÉ (`new URL().href` encode ce qu'un en-tête HTTP ne
+ * porte pas, un accent par exemple, qui ferait lever la réponse). La seule source est le webhook signé de la boutique de
+ * cet espace : le marchand, qui peut déjà mener un bouton où il veut.
+ */
+function repriseSuivable(lien: string | null): string | null {
+  if (lien === null) return null;
+  const brut = lien.trim();
+  if (!brut.startsWith('https://') || !isSendableButtonUrl(brut)) return null;
+  try { return new URL(brut).href; } catch { return null; }
 }
 
 export function registerLinks(app: FastifyInstance, deps: LinksRouteDeps): void {
@@ -141,7 +162,19 @@ export function registerLinks(app: FastifyInstance, deps: LinksRouteDeps): void 
     // clique, robot compris (le comptage seul dépend de `estClicAutomatique`). Sans champ : la destination telle
     // quelle, sans aucune lecture de plus. Jeton absent, `anon`, inconnu ou lecture en échec : les champs sont retirés.
     let location = lien.destination;
-    if (avecChamps) {
+    // 🔴 « Reprendre mon panier » (2026-11-20) : la clé `{panier_shopify}` mène au panier de CELUI qui clique, lu dans
+    // l'espace du lien. Seule une adresse https envoyable est suivie (le lien vient du webhook signé de la boutique, mais
+    // rien d'autre ne sort d'ici) ; sinon, la destination sans la clé (la boutique), comme tout champ absent.
+    const reprise = resolution !== null && aLaClePanier(lien.destination)
+      ? await deps.liens.lienDuPanier(lien.tenantId, resolution.contactId).catch((err: unknown) => {
+        journaliser('error', 'panier_lien_non_lu', { err, code: normalise, tenantId: lien.tenantId });
+        return null;
+      })
+      : null;
+    const suivable = repriseSuivable(reprise);
+    if (suivable !== null) {
+      location = suivable;
+    } else if (avecChamps) {
       try {
         location = remplirChampsUrl(lien.destination, resolution?.champs ?? null);
       } catch (err) {

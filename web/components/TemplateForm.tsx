@@ -10,7 +10,8 @@ import {
   FieldPicker, type DonneeDuSelecteur, type FieldOption,
 } from '@/components/TemplateBodyField';
 import { exempleUrl } from '@/lib/champs-url';
-import { analyserChampsUrl, type AnalyseChampsUrl } from '@/lib/partage/champs-url';
+import { analyserChampsUrl, CLE_PANIER_SHOPIFY, type AnalyseChampsUrl } from '@/lib/partage/champs-url';
+import { adresseDuBoutonPanier } from '@/lib/partage/shopify-messages';
 import { customFieldsOnly } from '@/lib/fields';
 import { listFlows, createTemplate, updateTemplate, uploadMedia, uploadMediaDepuisMediatheque, getTemplateHints, type TemplateSummary, type TemplateButtonInput, type TemplateHeaderInput, type FlowSummary, type TemplateParamHint, type CreateTemplateInput } from '@/lib/api';
 import { resizeToDataUrl, fileToDataUrl } from '@/lib/image';
@@ -52,6 +53,8 @@ export interface FormulairePourUnBloc {
   sourcesDuBloc?: TemplateParamHint[];
   /** Un bloc d'un scénario Shopify : les données de son événement, en tête du sélecteur de variable. */
   donneesEvenement?: readonly DonneeDuSelecteur[];
+  /** Le domaine de la boutique d'un scénario Shopify : « Lien du panier » y pose l'adresse entière du bouton. */
+  domaineBoutique?: string;
 }
 
 export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEtroite = false, pourUnBloc }: {
@@ -143,6 +146,11 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
    * fiche de celui qui clique (`web/lib/champs-url.ts`).
    */
   const urlFieldOptions: FieldOption[] = [
+    // Un bloc d'un scénario Shopify (2026-11-20) : le lien du panier de celui qui clique, retrouvé par notre redirection.
+    // Seulement dans le scénario du panier abandonné, le seul dont l'événement porte un lien de panier.
+    ...(pourUnBloc?.donneesEvenement?.some((d) => d.cle === 'checkout_url')
+      ? [{ source: { type: 'field', key: CLE_PANIER_SHOPIFY }, label: t('Lien du panier (Shopify)', 'Cart link (Shopify)'), group: 'evenement' } satisfies FieldOption]
+      : []),
     { source: { type: 'field', key: 'prenom' }, label: t('Prénom', 'First name'), group: 'base' },
     { source: { type: 'field', key: 'nom' }, label: t('Nom', 'Name'), group: 'base' },
     { source: { type: 'field', key: 'telephone' }, label: t('Téléphone', 'Phone'), group: 'base' },
@@ -157,13 +165,17 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
     const debut = el?.selectionStart ?? url.length;
     const fin = el?.selectionEnd ?? debut;
     const jeton = `{${cle}}`;
-    setButtons(buttons.map((x, j) => (j === i ? { ...x, url: url.slice(0, debut) + jeton + url.slice(fin) } : x)));
+    // Le lien du panier remplace l'adresse ENTIÈRE quand la boutique est connue : son hôte doit être celui de la boutique.
+    const domaine = pourUnBloc?.domaineBoutique;
+    const adresse = cle === CLE_PANIER_SHOPIFY && domaine ? adresseDuBoutonPanier(domaine) : url.slice(0, debut) + jeton + url.slice(fin);
+    setButtons(buttons.map((x, j) => (j === i ? { ...x, url: adresse } : x)));
     setUrlPicker(null);
     requestAnimationFrame(() => {
       const champ = urlRefs.current[i];
       if (!champ) return;
       champ.focus();
-      champ.setSelectionRange(debut + jeton.length, debut + jeton.length);
+      const fin = cle === CLE_PANIER_SHOPIFY && domaine ? adresse.length : debut + jeton.length;
+      champ.setSelectionRange(fin, fin);
     });
   }
 

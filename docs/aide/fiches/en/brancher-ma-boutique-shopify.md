@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 3b0b24
+traduit_de: c3d7fd
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -38,7 +38,8 @@ not connect. The sentence, the date and your address are kept.
 paid, Order shipped and Abandoned checkout. Hover over a line to read its message, with examples in place of the data;
 click it to open its scenario.
 
-The first name, the order number, the links to the order, the parcel or the checkout are already linked. Meta usually
+The first name, the order number, the links to the order or the parcel are already linked, and the checkout message
+has its “Reprendre mon panier” button (back to my cart). Meta usually
 approves within minutes: the line goes from “off, message under review at Meta” to “ready: turn it on to send it”.
 Nothing goes out to your customers until you turn its switch on; switched on during the review, it sends for the
 events that come after the approval.
@@ -89,10 +90,16 @@ on the strength of your confirmation; a customer who replied STOP stays opted ou
 ## The abandoned checkout reminder
 
 A customer who fills in the checkout with their phone number without ordering gets the first message of the Abandoned
-checkout automation, with the link that reopens their checkout, at the delay you chose after its last change, then the
+checkout automation, with the button that reopens their checkout, at the delay you chose after its last change, then the
 follow-up of its scenario. Nothing goes out if an order came of it in the meantime, even an unpaid one, and an order
 born from the checkout stops its journey, wherever it stands. A second checkout takes the place of the first: its
 reminder stops the journey of the previous one.
+
+The proposed message does not show the checkout address: its “Reprendre mon panier” button (back to my cart) leads
+there. On click, the customer lands on their own checkout, the last one recorded for their number, or on your store if
+they no longer have one; the click is counted like those of your other tracked links. To put this button in another
+template of the scenario, a second reminder for example: add a link button, open the menu of its field and choose
+“Cart link (Shopify)”. A checkout message created before 20 November 2026 keeps its link in the text.
 
 A customer who replies STOP gets nothing more: the proposed message says so at the bottom (“Répondez STOP pour ne plus
 recevoir ces messages”, reply STOP to stop these messages), keep that sentence if you rewrite it. The card counts the

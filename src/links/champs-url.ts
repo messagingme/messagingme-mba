@@ -1,5 +1,5 @@
 import { isSendableButtonUrl } from '../../web/lib/partage/button-url';
-import { analyserChampsUrl, CLES_DE_BASE_URL, MOTIF_CHAMP } from '../../web/lib/partage/champs-url';
+import { analyserChampsUrl, CLE_PANIER_SHOPIFY, CLES_DE_BASE_URL, MOTIF_CHAMP } from '../../web/lib/partage/champs-url';
 
 /**
  * Les champs du contact dans l'adresse d'un bouton « Lien » : `https://site.fr/commande/{numero_commande}`.
@@ -47,7 +47,7 @@ export function refusChampsUrl(url: string, clesConnues: readonly string[], quoi
         return `${quoi} : un champ du contact ne peut se trouver qu'après le nom du site (dans le chemin, après « / »)`;
     }
   }
-  const connues = new Set([...CLES_DE_BASE_URL, ...clesConnues]);
+  const connues = new Set([...CLES_DE_BASE_URL, CLE_PANIER_SHOPIFY, ...clesConnues]);
   const inconnue = a.cles.find((c) => !connues.has(c));
   return inconnue === undefined ? null : `${quoi} : le champ {${inconnue}} n'existe pas dans vos champs de contact`;
 }

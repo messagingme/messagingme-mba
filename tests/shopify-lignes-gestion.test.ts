@@ -223,10 +223,10 @@ describe('le message standard d’une ligne (2026-11-20)', () => {
   it('🔴 crée le template standard depuis le bloc verrouillé, le pose dans une version PROGRAMMÉE (sans auteur) et le brouillon, jamais dans le publié ; la ligne reste éteinte', async () => {
     const m = monter();
     expect(await proposerMessageStandard(m.deps, T, 'order_paid', 'u1')).toBe('propose');
-    expect(m.creation.appels).toEqual([expect.objectContaining({ tenantId: T, nodeId: 'depart', par: 'u1', corps: corpsStandard('order_paid').corps })]);
+    expect(m.creation.appels).toEqual([expect.objectContaining({ tenantId: T, nodeId: 'depart', par: 'u1', corps: corpsStandard('order_paid', DOMAINE).corps })]);
     const data = {
       [MARQUE_PREMIER_BLOC]: true, templateName: 'commande_payee_x', language: 'fr', templateButtons: [], templateCards: [],
-      variables: corpsStandard('order_paid').variables.map((key, i) => ({ position: i + 1, source: { type: 'variable', key } })),
+      variables: corpsStandard('order_paid', DOMAINE).variables.map((key, i) => ({ position: i + 1, source: { type: 'variable', key } })),
     };
     expect((await blocDe(m, 'programme'))?.data).toEqual(data);
     expect((await blocDe(m, 'brouillon'))?.data).toEqual(data);
@@ -297,7 +297,7 @@ describe('le message standard d’une ligne (2026-11-20)', () => {
   it('🔴 allumer un cas encore vide le propose ; allumer sur un numéro relié par QR code est refusé, éteindre reste permis', async () => {
     const m = monter();
     expect(await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true }, 'u1')).toMatchObject({ ok: true });
-    expect(m.creation.appels).toEqual([expect.objectContaining({ corps: corpsStandard('checkout_abandoned').corps })]);
+    expect(m.creation.appels).toEqual([expect.objectContaining({ corps: corpsStandard('checkout_abandoned', DOMAINE).corps })]);
     expect((await m.store.ligne(T, 'checkout_abandoned'))?.actif).toBe(true);
     const qr = monter({ filiere: 'application' });
     expect(await reglerLigne(qr.deps, T, 'order_paid', { actif: true }, 'u1')).toEqual({ ok: false, statut: 409, message: PHRASE_SHOPIFY_QR_CODE });
@@ -306,7 +306,7 @@ describe('le message standard d’une ligne (2026-11-20)', () => {
   });
 
   it('🔴 l’aperçu d’une ligne : le template de la version programmée (en validation), ses exemples par position et son pied', async () => {
-    const corps = corpsStandard('checkout_abandoned').corps;
+    const corps = corpsStandard('checkout_abandoned', DOMAINE).corps;
     const m = monter({
       creation: { ok: true, modele: 'panier_abandonne_x', langue: 'fr', etat: 'en_validation', categorie: 'MARKETING', boutons: [] },
       modeles: [modele({ name: 'panier_abandonne_x', status: 'PENDING', body: corps.body, footer: corps.footer, buttons: [] })],
@@ -314,7 +314,7 @@ describe('le message standard d’une ligne (2026-11-20)', () => {
     await proposerMessageStandard(m.deps, T, 'checkout_abandoned', 'u1');
     const [etat] = await etatDesLignes(m.deps, T);
     expect(etat).toMatchObject({ modele: null, versionProgrammee: true });
-    expect(etat!.apercu).toEqual({ corps: corps.body, pied: corps.footer, exemples: corps.example, donnees: ['first_name', 'checkout_url'], enValidation: true });
+    expect(etat!.apercu).toEqual({ corps: corps.body, pied: corps.footer, exemples: corps.example, donnees: ['first_name'], enValidation: true });
   });
 
   it('l’aperçu du publié, une source qui n’est pas une donnée Shopify laissée en repère ; sans template : null', async () => {

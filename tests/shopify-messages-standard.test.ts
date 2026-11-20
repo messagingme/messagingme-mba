@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { corpsStandard, versCorps } from '../src/shopify/messages-standard';
 import { parseTemplateFields } from '../src/templates/corps';
+import { refusChampsUrl } from '../src/links/champs-url';
+
 import { EVENEMENTS_SHOPIFY, EXEMPLES_DONNEES, PIED_STOP } from '../web/lib/partage/shopify-messages';
+
+const DOMAINE = 'b.myshopify.com';
 
 describe('versCorps', () => {
   it('chaque repère devient {{n}} dans l’ordre d’apparition, avec ses exemples', () => {
@@ -21,7 +25,7 @@ describe('versCorps', () => {
 
 describe('corpsStandard', () => {
   it.each(EVENEMENTS_SHOPIFY)('%s : un corps que l’écran Templates accepterait, en français', (evenement) => {
-    const { corps, variables } = corpsStandard(evenement);
+    const { corps, variables } = corpsStandard(evenement, DOMAINE);
     const lu = parseTemplateFields(corps);
     expect('fields' in lu).toBe(true);
     expect(corps.language).toBe('fr');
@@ -30,16 +34,24 @@ describe('corpsStandard', () => {
   });
 
   it('commandes en UTILITY sans pied ; panier en MARKETING avec la consigne STOP', () => {
-    expect(corpsStandard('order_paid').corps).toMatchObject({ category: 'UTILITY' });
-    expect(corpsStandard('order_paid').corps.footer).toBeUndefined();
-    expect(corpsStandard('order_fulfilled').corps).toMatchObject({ category: 'UTILITY' });
-    expect(corpsStandard('order_fulfilled').corps.footer).toBeUndefined();
-    expect(corpsStandard('checkout_abandoned').corps).toMatchObject({ category: 'MARKETING', footer: PIED_STOP.fr });
+    expect(corpsStandard('order_paid', DOMAINE).corps).toMatchObject({ category: 'UTILITY' });
+    expect(corpsStandard('order_paid', DOMAINE).corps.footer).toBeUndefined();
+    expect(corpsStandard('order_fulfilled', DOMAINE).corps).toMatchObject({ category: 'UTILITY' });
+    expect(corpsStandard('order_fulfilled', DOMAINE).corps.footer).toBeUndefined();
+    expect(corpsStandard('checkout_abandoned', DOMAINE).corps).toMatchObject({ category: 'MARKETING', footer: PIED_STOP.fr });
   });
 
   it('les données de la décision du 2026-11-20 : prénom dans le panier, pas de transporteur à l’expédition', () => {
-    expect(corpsStandard('checkout_abandoned').variables).toEqual(['first_name', 'checkout_url']);
-    expect(corpsStandard('order_fulfilled').variables).toEqual(['first_name', 'order_number', 'tracking_url']);
-    expect(corpsStandard('order_paid').variables).toEqual(['first_name', 'order_number', 'order_total', 'order_status_url']);
+    expect(corpsStandard('checkout_abandoned', DOMAINE).variables).toEqual(['first_name']);
+    expect(corpsStandard('order_fulfilled', DOMAINE).variables).toEqual(['first_name', 'order_number', 'tracking_url']);
+    expect(corpsStandard('order_paid', DOMAINE).variables).toEqual(['first_name', 'order_number', 'order_total', 'order_status_url']);
+  });
+
+  it('🔴 le panier : plus aucun lien dans le texte, un bouton « Reprendre mon panier » vers la boutique et la clé du panier (2026-11-20)', () => {
+    const { corps } = corpsStandard('checkout_abandoned', DOMAINE);
+    expect(corps.body).not.toMatch(/https?:|checkout/);
+    expect(corps.buttons).toEqual([{ type: 'URL', text: 'Reprendre mon panier', url: `https://${DOMAINE}/{panier_shopify}` }]);
+    expect(refusChampsUrl(corps.buttons![0]!.url!, [], 'bouton 1')).toBeNull();
+    expect(corpsStandard('order_paid', DOMAINE).corps.buttons).toBeUndefined();
   });
 });

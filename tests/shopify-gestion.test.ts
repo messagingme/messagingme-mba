@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { IssueCreationDeBloc } from '../src/workflow/modeles-de-bloc';
 import { corpsStandard } from '../src/shopify/messages-standard';
 import { EVENEMENTS_SHOPIFY } from '../src/shopify/donnees';
+
 import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 import {
   apercuImportClients, brancherMessage, CLIENTS_LUS_MAX, connecterShopify, couperShopify, etatShopify, IMPORT_MAX, importerClients,
@@ -24,6 +25,8 @@ import { DROITS, type Offre } from '../src/offres/offres';
 import type { TemplateSummary } from '../src/meta/templates';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { modeleMeta, monterLignes } from './shopify-lignes-faux';
+
+const DOMAINE = 'b.myshopify.com';
 
 /** Le chiffre que rend la lecture des ventes (plan 2026-10-30, lot 2) : seuls ses paniers entrent dans l'état. */
 const CHIFFRE: ChiffreVentes = {
@@ -110,7 +113,7 @@ describe('connecter une boutique', () => {
   it('🔴 le branchement propose les trois messages standard (2026-11-20), lignes ÉTEINTES ; Meta en panne ne fait pas échouer le branchement', async () => {
     const { deps, lignes } = monter({ boutique: null });
     expect((await connecterShopify(deps, T, { boutique: 'b.myshopify.com', clientId: 'cid', secret: 's' }, 'u1', 'claude_code')).ok).toBe(true);
-    expect(lignes.creation.appels.map((a) => a.corps)).toEqual(EVENEMENTS_SHOPIFY.map((e) => corpsStandard(e).corps));
+    expect(lignes.creation.appels.map((a) => a.corps)).toEqual(EVENEMENTS_SHOPIFY.map((e) => corpsStandard(e, DOMAINE).corps));
     expect([...lignes.store.lignesEnBase.values()].map((l) => l.actif)).toEqual([false, false, false]);
     vi.spyOn(console, 'log').mockImplementation(() => {});
     const panne = monter({ boutique: null, creation: 'leve' });

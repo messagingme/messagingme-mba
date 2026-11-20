@@ -12,7 +12,7 @@ import { useT } from '@/lib/i18n';
  * donne. 🔴 L'enregistrement automatique se vide AVANT l'appel : le serveur cherche le bloc dans le brouillon qu'il
  * connaît, et un bloc posé à l'instant n'y est pas encore (l'enregistrement attend 1,2 s).
  */
-export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuBloc, donneesEvenement, enregistrerMaintenant, onCree, onClose }: {
+export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuBloc, donneesEvenement, domaineBoutique, enregistrerMaintenant, onCree, onClose }: {
   tenantId: string;
   workflowId: string;
   nodeId: string;
@@ -22,6 +22,8 @@ export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuB
   sourcesDuBloc?: TemplateParamHint[];
   /** Un scénario Shopify : les données de l'événement de sa ligne, en tête du sélecteur de variable. */
   donneesEvenement?: readonly DonneeDuSelecteur[];
+  /** Un scénario Shopify : le domaine de la boutique, pour l'adresse du bouton « Reprendre mon panier ». */
+  domaineBoutique?: string;
   /** Vide l'enregistrement automatique ; false : le bloc n'est pas encore enregistré, rien n'est envoyé à Meta. */
   enregistrerMaintenant: () => Promise<boolean>;
   /**
@@ -48,7 +50,7 @@ export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuB
     >
       <TemplateForm
         tenantId={tenantId} initial={initial} onCreated={() => {}}
-        pourUnBloc={{ soumettre, ...(sourcesDuBloc ? { sourcesDuBloc } : {}), ...(donneesEvenement ? { donneesEvenement } : {}) }}
+        pourUnBloc={{ soumettre, ...(sourcesDuBloc ? { sourcesDuBloc } : {}), ...(donneesEvenement ? { donneesEvenement } : {}), ...(domaineBoutique ? { domaineBoutique } : {}) }}
       />
     </Modale>
   );

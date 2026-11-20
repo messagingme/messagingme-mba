@@ -143,7 +143,9 @@ console. On Free there is no console, and only the first message is sent.
    for Meta (`get_template_status`), then set it with `set_shopify_message`, `variables` naming the data of each
    {{n}} in order. The data each event can fill: `order_paid`: `first_name`, `order_number`, `order_total`,
    `order_status_url`; `order_fulfilled`: `first_name`, `order_number`, `carrier`, `tracking_number`, `tracking_url`;
-   `checkout_abandoned`: `first_name`, `checkout_url`.
+   `checkout_abandoned`: `first_name`, `checkout_url`. For the checkout, a URL button can carry the link instead: its
+   address is `https://<store>/{panier_shopify}` (`store` from `get_shopify_state`), and Messaging Me redirects the
+   click to the checkout of the customer who clicks, or to the store when they have none left.
 
 Each message records the customer as opted in, for campaigns too, and a customer who said STOP stays opted out and
 receives nothing. Every message
@@ -178,9 +180,10 @@ A third event, `checkout_abandoned`, sends a reminder when a customer filled the
 not order. It is a marketing message, proposed and turned on like the order messages (its own automation), under the
 same consent attestation.
 
-1. Its standard message ends with the opt-out line "Répondez STOP pour ne plus recevoir ces messages": a customer who
-   replies STOP gets nothing more. A reminder written instead keeps that line, in the template's language ("Reply STOP
-   to stop these messages" in English).
+1. Its standard message has no address in its text: a "Reprendre mon panier" button (back to my cart) opens the
+   customer's own checkout. It ends with the opt-out line "Répondez STOP pour ne plus recevoir ces messages": a
+   customer who replies STOP gets nothing more. A reminder written instead keeps that line, in the template's language
+   ("Reply STOP to stop these messages" in English).
 2. When turning it on, `set_shopify_message` also takes `delay_minutes`: how long after the checkout last changed the
    reminder leaves (60 by default, from 15 to 4320).
 3. The first message leaves once per checkout, then the rest of its scenario if it has one; nothing leaves if an order

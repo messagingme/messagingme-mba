@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 3ed868
+source_empreinte: 84ab9d
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -45,7 +45,8 @@ boutique ne se branche pas. La phrase, la date et votre adresse sont gardées.
 payée, Commande expédiée et Panier abandonné. Survolez une ligne pour lire son message, avec des exemples à la place
 des données ; cliquez-la pour ouvrir son scénario.
 
-Le prénom, le numéro de commande, les liens de la commande, du colis ou du panier sont déjà reliés. Meta valide en
+Le prénom, le numéro de commande, les liens de la commande ou du colis sont déjà reliés, et le message du panier a son
+bouton « Reprendre mon panier ». Meta valide en
 général en quelques minutes : la ligne passe de « éteinte, message en validation chez Meta » à « prête : allumez-la
 pour l'envoyer ». Rien ne part chez vos clients tant que vous n'avez pas allumé son interrupteur ; allumée pendant la
 validation, elle envoie pour les événements qui arrivent après l'approbation.
@@ -96,10 +97,16 @@ sur la foi de votre attestation ; un client qui a répondu STOP le reste et ne r
 ## La relance des paniers abandonnés
 
 Un client qui remplit le paiement avec son téléphone sans commander reçoit le premier message de l'automation Panier
-abandonné, avec le lien qui rouvre son panier, au délai que vous avez choisi après sa dernière modification, puis la
+abandonné, avec le bouton qui rouvre son panier, au délai que vous avez choisi après sa dernière modification, puis la
 suite de son scénario. Rien ne part si une commande en est née entre-temps, même non payée, et une commande née du
 panier arrête son parcours, où qu'il en soit. Un second panier prend la place du premier : sa relance arrête le
 parcours du précédent.
+
+Le message proposé ne montre pas l'adresse du panier : son bouton « Reprendre mon panier » y mène. Au clic, le client
+arrive sur son propre panier, le dernier noté pour son numéro, ou sur votre boutique s'il n'en a plus ; le clic est
+compté comme celui de vos autres liens tracés. Pour mettre ce bouton dans un autre template du scénario, une seconde
+relance par exemple : ajoutez un bouton lien, ouvrez le menu de son champ et choisissez « Lien du panier (Shopify) ».
+Un message du panier créé avant le 20 novembre 2026 garde son lien dans le texte.
 
 Un client qui répond STOP ne reçoit plus rien : le message proposé le dit en bas (« Répondez STOP pour ne plus
 recevoir ces messages »), gardez cette phrase si vous le réécrivez. La carte compte les relances parties, les paniers devenus une commande à temps,

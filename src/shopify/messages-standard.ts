@@ -1,5 +1,6 @@
 import {
-  DONNEES_PAR_EVENEMENT, EXEMPLES_DONNEES, PIED_STOP, TEXTES_PROPOSES, type DonneeShopify, type EvenementShopify,
+  adresseDuBoutonPanier, BOUTON_PANIER, DONNEES_PAR_EVENEMENT, EXEMPLES_DONNEES, PIED_STOP, TEXTES_PROPOSES,
+  type DonneeShopify, type EvenementShopify,
 } from '../../web/lib/partage/shopify-messages';
 
 /**
@@ -46,23 +47,27 @@ export function versCorps(evenement: EvenementShopify, texte: string): CorpsDeMo
 
 /** Le message standard d'un événement : le corps de création (français) et les données de ses variables, par position. */
 export interface MessageStandard {
-  corps: { category: 'UTILITY' | 'MARKETING'; language: 'fr'; body: string; example: string[]; footer?: string };
+  corps: {
+    category: 'UTILITY' | 'MARKETING'; language: 'fr'; body: string; example: string[]; footer?: string;
+    buttons?: Array<{ type: 'URL'; text: string; url: string }>;
+  };
   variables: DonneeShopify[];
 }
 
 /**
  * Commandes en UTILITY ; le panier en MARKETING (une relance après une attente), avec la consigne STOP en pied (spec
- * § 2.4). Un texte standard invalide est une faute de ce dépôt, que `tests/shopify-messages-standard.test.ts` attrape :
- * elle lève.
+ * § 2.4), et son lien derrière le bouton « Reprendre mon panier » (2026-11-20) : `https://<boutique>/{panier_shopify}`,
+ * que la création change en lien tracé et que notre redirection mène au panier de celui qui clique. Un texte standard
+ * invalide est une faute de ce dépôt, que `tests/shopify-messages-standard.test.ts` attrape : elle lève.
  */
-export function corpsStandard(evenement: EvenementShopify): MessageStandard {
+export function corpsStandard(evenement: EvenementShopify, domaine: string): MessageStandard {
   const lu = versCorps(evenement, TEXTES_PROPOSES[evenement].fr);
   if (!lu.ok) throw new Error(`message standard ${evenement} invalide : ${lu.message}`);
   const panier = evenement === 'checkout_abandoned';
   return {
     corps: {
       category: panier ? 'MARKETING' : 'UTILITY', language: 'fr', body: lu.corps, example: lu.exemples,
-      ...(panier ? { footer: PIED_STOP.fr } : {}),
+      ...(panier ? { footer: PIED_STOP.fr, buttons: [{ type: 'URL' as const, text: BOUTON_PANIER.fr, url: adresseDuBoutonPanier(domaine) }] } : {}),
     },
     variables: lu.variables,
   };

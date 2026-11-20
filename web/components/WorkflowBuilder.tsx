@@ -140,11 +140,17 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   // Les données de l'événement d'un scénario Shopify : celles de sa ligne, toutes pour une copie. Une lecture en échec
   // laisse le choix sans elles (les variables déjà posées restent affichées, `SourceDeVariable`).
   const [donneesEvenement, setDonneesEvenement] = useState<DonneeEvenement[] | undefined>(undefined);
+  // Le domaine de la boutique : l'adresse du bouton « Reprendre mon panier » d'un template écrit dans ce scénario.
+  const [domaineBoutique, setDomaineBoutique] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (rayon !== 'shopify') return;
     let vivant = true;
     lireShopify(tenantId)
-      .then((v) => { if (vivant) setDonneesEvenement(donneesDuScenario(v?.lignes ?? [], workflowId)); })
+      .then((v) => {
+        if (!vivant) return;
+        setDonneesEvenement(donneesDuScenario(v?.lignes ?? [], workflowId));
+        if (v?.boutique?.domaine) setDomaineBoutique(v.boutique.domaine);
+      })
       .catch(() => { if (vivant) setDonneesEvenement(donneesDuScenario([], workflowId)); });
     return () => { vivant = false; };
   }, [rayon, tenantId, workflowId]);
@@ -1033,6 +1039,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             {...(initial ? { initial } : {})}
             {...(sourcesDuBloc.length > 0 ? { sourcesDuBloc } : {})}
             {...(donneesEvenement ? { donneesEvenement } : {})}
+            {...(domaineBoutique ? { domaineBoutique } : {})}
             enregistrerMaintenant={enregistrerMaintenant}
             onCree={(cree, v) => surModeleCree(bloc.id, cree, v)}
             onClose={() => setFormulaireDuBloc(null)}

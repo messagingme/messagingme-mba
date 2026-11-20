@@ -182,6 +182,25 @@ export class PgTrackedLinkStore {
   }
 
   /**
+   * « Reprendre mon panier » (2026-11-20) : le lien de reprise du dernier panier Shopify noté pour le NUMÉRO de ce
+   * contact, dans CET espace (les deux jointures portent `tenant_id`), le plus récent des paniers encore OUVERTS : un
+   * panier payé ne se reprend pas, le bouton mène alors à la boutique. Une fiche masquée ne prête pas son panier (comme
+   * ses champs). null sans panier (purgé à sept jours, numéro inconnu). Servi par l'index `shopify_paniers_telephone`.
+   */
+  async lienDuPanier(tenantId: string, contactId: string): Promise<string | null> {
+    const res = await this.pool.query<{ lien: string }>(
+      `select p.lien from shopify_paniers p
+         join contacts c on c.tenant_id = p.tenant_id and c.phone_e164 = p.telephone
+        where p.tenant_id = $1 and c.id = $2 and c.deleted_at is null
+          and p.telephone is not null and p.lien is not null and p.ferme_le is null
+        order by p.maj_le desc
+        limit 1`,
+      [tenantId, contactId],
+    );
+    return res.rows[0]?.lien ?? null;
+  }
+
+  /**
    * Le jeton public de ces contacts, fabriqué pour ceux qui n'en ont pas encore.
    *
    * Posé à l'envoi, pas à la création du contact : pas d'identifiant pour qui ne reçoit jamais de lien tracé.

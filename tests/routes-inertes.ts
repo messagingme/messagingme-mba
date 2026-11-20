@@ -358,9 +358,11 @@ export const inboxDepInerte: Pick<InboxDep,
   detailConversation: async () => null,
 };
 
-export const liensInertes: Pick<LiensDep, 'resoudreJeton'> = {
+export const liensInertes: Pick<LiensDep, 'resoudreJeton' | 'lienDuPanier'> = {
   // Aucun contact : clic anonyme et champs d'une destination retirés.
   resoudreJeton: async () => null,
+  // Aucun panier : un bouton « Reprendre mon panier » mène à la boutique.
+  lienDuPanier: async () => null,
 };
 
 export const relaisMbaInerte: Pick<MbaRelaisDeps, 'journaliserForme' | 'resolveurMcp'> = {

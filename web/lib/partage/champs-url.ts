@@ -12,6 +12,13 @@
 /** Les champs de base qu'une adresse peut porter, en plus des champs déclarés de l'espace. */
 export const CLES_DE_BASE_URL: readonly string[] = ['prenom', 'nom', 'telephone'];
 
+/**
+ * LA CLÉ DU PANIER SHOPIFY (2026-11-20) : `https://<boutique>/{panier_shopify}`, l'adresse du bouton « Reprendre mon
+ * panier ». Ce n'est pas un champ de la fiche : la redirection la remplace par le lien de reprise du dernier panier
+ * noté pour le numéro de celui qui clique, ou la retire (la boutique). Admise à la création comme un champ connu.
+ */
+export const CLE_PANIER_SHOPIFY = 'panier_shopify';
+
 /** Un champ : une clé entre accolades SIMPLES. Les doubles (`{{1}}`) sont la variable de Meta, autre chose. */
 export const MOTIF_CHAMP = /\{([^{}]*)\}/g;
 /** La forme d'une clé de champ (celles de `slugify`, en plus large : l'appartenance aux champs connus tranche). */

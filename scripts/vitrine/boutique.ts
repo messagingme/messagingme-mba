@@ -31,7 +31,7 @@ const fleche = '<svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg>
 const deux = (l: readonly [string, string]) => `${l[0]} <span class="sec-accent">${l[1]}</span>`;
 
 function telephone(t: TexteBoutique['telephone']): string[] {
-  const bulle = (b: TexteBoutique['telephone']['bulles'][number]) => `            <li class="bulle ${b.envoye ? 'envoye' : 'recu'}"><p>${b.texte}${b.pied ? `<span class="bt-pied">${b.pied}</span>` : ''}<span class="heure">${b.heure}${b.envoye ? ' <svg class="ic" aria-hidden="true"><use href="#i-coches"/></svg>' : ''}</span></p></li>`;
+  const bulle = (b: TexteBoutique['telephone']['bulles'][number]) => `            <li class="bulle ${b.envoye ? 'envoye' : 'recu'}"><p>${b.texte}${b.pied ? `<span class="bt-pied">${b.pied}</span>` : ''}<span class="heure">${b.heure}${b.envoye ? ' <svg class="ic" aria-hidden="true"><use href="#i-coches"/></svg>' : ''}</span></p>${b.bouton ? `<span class="ia-wa-boutons"><span>${b.bouton}</span></span>` : ''}</li>`;
   return [
     `    <figure class="bt-tel" role="img" aria-label="${t.aria}">`,
     '      <div class="tel tel-wa">',

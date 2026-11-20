@@ -288,14 +288,18 @@ export async function proposerMessageStandard(
     if (nommeUnModele(wf.graph) || nommeUnModele(wf.draftGraph) || nommeUnModele(programmee?.graphe)) return 'deja';
     const bloc = blocVerrouille(wf.draftGraph ?? wf.graph);
     if (bloc === null) return 'echec';
-    const { corps, variables } = corpsStandard(evenement);
+    // La boutique branchée : l'adresse du bouton « Reprendre mon panier » est sur son domaine.
+    const boutique = await deps.store.lire(tenantId);
+    if (boutique === null) return 'echec';
+    const { corps, variables } = corpsStandard(evenement, boutique.domaine);
     const cree = await deps.creerModele(tenantId, { workflowId: wf.id, nodeId: bloc.id, corps, par });
     if (!cree.ok || cree.etat === 'refuse') {
       journaliser('warn', 'shopify_message_standard_non_cree', { tenantId, evenement, erreur: cree.ok ? 'refusé par Meta' : cree.erreur });
       return 'non_cree';
     }
     const data = {
-      templateName: cree.modele, language: cree.langue, templateButtons: [], templateCards: [],
+      // Les boutons tels que la création les rend (le bouton du panier, un lien : aucune sortie à relier).
+      templateName: cree.modele, language: cree.langue, templateButtons: cree.boutons.map((b) => ({ type: b.type, text: b.text })), templateCards: [],
       variables: variables.map((key, i) => ({ position: i + 1, source: { type: 'variable', key } })),
     };
     const version = avecLePremierBloc(wf.graph, data);

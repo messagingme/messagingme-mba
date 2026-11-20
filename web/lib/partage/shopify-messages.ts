@@ -1,3 +1,5 @@
+import { CLE_PANIER_SHOPIFY } from './champs-url';
+
 /**
  * LES MESSAGES SHOPIFY, CE QUE LA CONSOLE ET LE SERVEUR PARTAGENT (conception 2026-10-22) : les événements, les données
  * que chacun sait remplir, les textes que l'assistant propose, le pied de la relance, les valeurs d'exemple (l'aperçu
@@ -71,11 +73,20 @@ export const TEXTES_PROPOSES: Readonly<Record<EvenementShopify, Readonly<Record<
   },
   // Avec le prénom (Julien, 2026-11-20, qui revient sur sa décision du 2026-10-23) : il est FACULTATIF au paiement de
   // Shopify, et un panier qui ne l'a pas reçoit le mot de secours (`PRENOM_DE_SECOURS`) : « Bonjour à vous ».
+  // Le lien du panier n'est plus dans le texte (Julien, 2026-11-20) : il part derrière le bouton « Reprendre mon panier »
+  // (`BOUTON_PANIER`), dont notre redirection retrouve le panier de celui qui clique.
   checkout_abandoned: {
-    fr: 'Bonjour {{first_name}}, vous avez laissé des articles dans votre panier.\nIl vous attend ici : {{checkout_url}}\nÀ très vite !',
-    en: 'Hello {{first_name}}, you left items in your cart.\nIt is waiting for you here: {{checkout_url}}\nSee you soon!',
+    fr: 'Bonjour {{first_name}}, vous avez laissé des articles dans votre panier.\nIl vous attend : reprenez-le en un clic.\nÀ très vite !',
+    en: 'Hello {{first_name}}, you left items in your cart.\nIt is waiting for you: pick it up in one click.\nSee you soon!',
   },
 };
+
+/**
+ * LE BOUTON DU PANIER (2026-11-20) : son libellé (20 caractères au plus chez Meta), et son adresse sur la boutique, la clé
+ * `{panier_shopify}` que la redirection remplace par le panier de celui qui clique (`src/http/links.ts`).
+ */
+export const BOUTON_PANIER: Readonly<Record<'fr' | 'en', string>> = { fr: 'Reprendre mon panier', en: 'Back to my cart' };
+export const adresseDuBoutonPanier = (domaine: string): string => `https://${domaine}/{${CLE_PANIER_SHOPIFY}}`;
 
 /**
  * L'ATTESTATION DU CONSENTEMENT DES CLIENTS (Julien, 2026-11-20) : la phrase que le marchand coche, historisée MOT POUR MOT

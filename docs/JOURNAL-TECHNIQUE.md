@@ -5,6 +5,21 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 : Shopify, le lien du panier derrière un bouton « Reprendre mon panier » (préparé)
+
+Plan `docs/superpowers/plans/2026-11-20-shopify-bouton-panier.md`. Demande de Julien : le message du panier abandonné ne
+montre plus l'adresse brute du panier. Meta n'accepte qu'une base fixe et une variable en fin d'adresse, et cette
+variable porte déjà le jeton du lien tracé : c'est donc notre redirection `/r/` qui retrouve le panier au clic.
+
+Livré : la clé réservée `{panier_shopify}` (`https://<boutique>/{panier_shopify}`), résolue au clic par
+`lienDuPanier` (le dernier panier noté pour le numéro du contact, dans l'espace du lien ; https exigé ; sinon la
+boutique) ; le message standard du panier sans `{{checkout_url}}` dans son texte, avec le bouton « Reprendre mon
+panier » (boutiques branchées après le déploiement, et cas vide à son premier allumage ; les messages déjà créés gardent
+leur lien dans le texte) ; « Lien du panier (Shopify) » dans le menu du champ d'un bouton lien, au formulaire de
+template d'un bloc d'un scénario Shopify. Aucune migration ; l'API avant la console. L'essai réel qui clôt : une
+boutique de dev neuve, le message approuvé, le clic depuis un vrai téléphone qui ouvre le panier et compte dans les
+statistiques du lien.
+
 ## 2026-11-20 : Shopify, l'attestation du consentement des clients
 
 Plan `docs/superpowers/plans/2026-11-20-shopify-attestation-consentement.md`. Décision de Julien, qui remplace celle du

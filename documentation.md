@@ -2933,7 +2933,12 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   nomme de template le propose aussi. Le corps vient de `TEXTES_PROPOSES` (`web/lib/partage/shopify-messages.ts`, source
   unique console et serveur) par `corpsStandard` (`src/shopify/messages-standard.ts`) : repères nommés en `{{n}}`, les
   données en sources `variable` du bloc (jamais dans les indices du template), Utility pour les commandes, Marketing et
-  `PIED_STOP` pour le panier, en français. Le template naît par la porte du builder (`creerModeleDuBloc` : nom généré
+  `PIED_STOP` pour le panier, en français. Le texte du panier ne porte aucune adresse : son lien est le bouton
+  `BOUTON_PANIER` (« Reprendre mon panier ») vers `adresseDuBoutonPanier(domaine)`, `https://<boutique>/{panier_shopify}`
+  (le domaine lu par `deps.store.lire` ; sans boutique, l'issue est `echec`), que la création change en lien tracé
+  (§ « Les destinations à champs du contact ») ; les boutons que rend la création vont dans `templateButtons` du bloc
+  (un bouton lien n'a pas de sortie). Un message standard créé avant ce bouton garde `{{checkout_url}}` dans son texte,
+  et rien ne le réécrit. Le template naît par la porte du builder (`creerModeleDuBloc` : nom généré
   côté serveur, ligne `modeles_de_bloc`, donc ménagé le jour où le marchand le remplace). 🔴 En validation, il va dans
   une VERSION PROGRAMMÉE sans auteur (`programmer(…, null, …)`), JAMAIS dans le publié : une ligne allumée pendant
   l'attente n'envoie rien (`premier_message_absent`) au lieu de consommer chaque événement en `modele_refuse`, et la
@@ -6218,6 +6223,21 @@ tracé à jeton (`/r/<code>/{{1}}`) et ne voit jamais le champ.
   Elle refuse à la création (`refusDesChamps`, `src/http/templates.ts`), et l'adresse remplie est revalidée au clic
   (même origine que la destination sans ses champs, `isSendableButtonUrl`) ; sinon, 302 vers la destination sans
   ses champs. La règle (`analyserChampsUrl`) est partagée avec la console (`web/lib/partage/champs-url.ts`).
+- 🔴 **La clé réservée `{panier_shopify}`** (`CLE_PANIER_SHOPIFY`, `web/lib/partage/champs-url.ts`) n'est pas un champ
+  de la fiche : `refusChampsUrl` l'admet partout comme une clé connue, et la console la propose (« Lien du panier
+  (Shopify) », qui pose l'adresse entière `https://<boutique>/{panier_shopify}`) dans le formulaire de template d'un bloc
+  d'un scénario Shopify (`FormulairePourUnBloc.domaineBoutique`, lu par `WorkflowBuilder` dans l'état Shopify). Au clic,
+  si la destination la porte et que le jeton est résolu, `lienDuPanier` (`PgTrackedLinkStore`) lit dans
+  `shopify_paniers` le lien de reprise du dernier panier noté pour le NUMÉRO du contact (jointure sur `contacts` par
+  `tenant_id` et `phone_e164`, DANS L'ESPACE DU LIEN), le plus récent (`maj_le`) des paniers encore OUVERTS (`ferme_le`
+  nul : un panier payé ne se reprend pas) ; une fiche masquée ne prête pas son panier, comme ses champs. L'option de la
+  console n'apparaît que dans le scénario du panier abandonné. Ce lien vient du webhook signé de la boutique, jamais du
+  contact ; il est suivi s'il est en
+  `https://` et envoyable (`isSendableButtonUrl`), NORMALISÉ par `new URL().href` (un accent brut ferait lever l'en-tête
+  `Location`), sans exiger l'origine de la destination (le checkout de Shopify n'est pas forcément sur le domaine de la
+  boutique) : `repriseSuivable`, `src/http/links.ts`. Sans panier (purgé après sa semaine, numéro inconnu,
+  jeton `anon` ou inconnu), lien non https, ou lecture en échec (`panier_lien_non_lu`) : le chemin des champs, qui
+  retire la clé, donc la boutique. Le clic se compte comme celui de tout lien tracé.
 - Une destination sans champ, ou qui ne se laisse pas analyser (accolade dans l'hôte, orpheline, mêlée à `{{1}}`),
   suit exactement le chemin d'avant, sans lecture de fiche.
 - Un bouton de carte de carousel est tracé sans jeton : un champ y est refusé à la création. Si le traçage échoue,

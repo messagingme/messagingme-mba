@@ -423,3 +423,66 @@ describe('les UTM de la redirection', () => {
     await server.close();
   });
 });
+
+describe('le bouton « Reprendre mon panier » (2026-11-20) : {panier_shopify} mène au panier de celui qui clique', () => {
+  const JETON = 'abcdefghjkmnpqrs';
+  const DEST = 'https://b.myshopify.com/{panier_shopify}';
+  const REPRISE = 'https://b.myshopify.com/123/checkouts/ac/tok/recover?key=k1';
+  const humain = { 'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/151.0.0.0 Mobile Safari/537.36' };
+
+  function appPanier(lien: string | null) {
+    const demandes: Array<{ tenantId: string; contactId: string }> = [];
+    const { server, cap } = app({
+      getByCode: async (code) => (code === CODE ? { tenantId: 't1', destination: DEST, modele: null, boutique: false } : null),
+      resoudreJeton: async (tenantId, jeton) => (tenantId === 't1' && jeton === JETON ? { contactId: 'contact-1', champs: {} } : null),
+      lienDuPanier: async (tenantId, contactId) => { demandes.push({ tenantId, contactId }); return lien; },
+    });
+    return { server, cap, demandes };
+  }
+
+  it('🔴 le panier du contact qui clique, cherché dans l’espace du LIEN ; le clic compte', async () => {
+    const { server, cap, demandes } = appPanier(REPRISE);
+    const res = await server.inject({ method: 'GET', url: `/r/${CODE}/${JETON}`, headers: humain });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe(REPRISE);
+    expect(demandes).toEqual([{ tenantId: 't1', contactId: 'contact-1' }]);
+    expect(cap.clics).toEqual([{ code: CODE, tenantId: 't1' }]);
+    await server.close();
+  });
+
+  it('sans panier (purgé, jamais noté), ou sans jeton : la boutique, la clé retirée', async () => {
+    const sans = appPanier(null);
+    expect((await sans.server.inject({ method: 'GET', url: `/r/${CODE}/${JETON}`, headers: humain })).headers.location).toBe('https://b.myshopify.com/');
+    await sans.server.close();
+    const anonyme = appPanier(REPRISE);
+    expect((await anonyme.server.inject({ method: 'GET', url: `/r/${CODE}`, headers: humain })).headers.location).toBe('https://b.myshopify.com/');
+    expect(anonyme.demandes).toEqual([]);
+    await anonyme.server.close();
+  });
+
+  it('🔴 un lien de panier qui n’est pas une adresse https envoyable n’est jamais suivi : la boutique', async () => {
+    for (const mauvais of ['http://b.myshopify.com/x', 'javascript:alert(1)', 'pas une adresse']) {
+      const { server } = appPanier(mauvais);
+      expect((await server.inject({ method: 'GET', url: `/r/${CODE}/${JETON}`, headers: humain })).headers.location, mauvais).toBe('https://b.myshopify.com/');
+      await server.close();
+    }
+  });
+
+  it('🔴 un lien de reprise avec un accent est normalisé (sinon l’en-tête Location ferait échouer la réponse)', async () => {
+    const { server } = appPanier('https://boutique.fr/panier/réduction?code=été');
+    const res = await server.inject({ method: 'GET', url: `/r/${CODE}/${JETON}`, headers: humain });
+    expect([res.statusCode, res.headers.location]).toEqual([302, 'https://boutique.fr/panier/r%C3%A9duction?code=%C3%A9t%C3%A9']);
+    await server.close();
+  });
+
+  it('une lecture du panier en panne ne casse pas le lien : la boutique', async () => {
+    const { server } = app({
+      getByCode: async () => ({ tenantId: 't1', destination: DEST, modele: null, boutique: false }),
+      resoudreJeton: async () => ({ contactId: 'contact-1', champs: {} }),
+      lienDuPanier: async () => { throw new Error('base indisponible'); },
+    });
+    const res = await server.inject({ method: 'GET', url: `/r/${CODE}/${JETON}`, headers: humain });
+    expect([res.statusCode, res.headers.location]).toEqual([302, 'https://b.myshopify.com/']);
+    await server.close();
+  });
+});

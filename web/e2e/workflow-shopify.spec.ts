@@ -33,7 +33,7 @@ const TEMPLATE = {
   body: 'Bonjour {{1}}, votre commande {{2}} est payée. Merci !', headerFormat: null, isCarousel: false, editable: true, buttons: [],
 };
 
-async function monter(page: import('@playwright/test').Page): Promise<{ graphes: Graph[]; creations: Array<Record<string, unknown>> }> {
+async function monter(page: import('@playwright/test').Page, evenement = 'order_paid'): Promise<{ graphes: Graph[]; creations: Array<Record<string, unknown>> }> {
   const recus = { graphes: [] as Graph[], creations: [] as Array<Record<string, unknown>> };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   const wf = { id: 'wf-s', name: 'Commande payée', rayon: 'shopify', graph: GRAPHE, draftGraph: GRAPHE, createdAt: '', updatedAt: '' };
@@ -57,7 +57,7 @@ async function monter(page: import('@playwright/test').Page): Promise<{ graphes:
     if (url.includes('/integrations/shopify')) {
       return json({
         boutique: { domaine: 'b.myshopify.com', nom: 'B', etat: 'connectee', origine: 'console', delaiPanierMinutes: 60, pauseLe: null },
-        lignes: [{ evenement: 'order_paid', actif: true, workflowId: 'wf-s', scenario: 'Commande payée', modele: 'commande', langue: 'fr', etatChezMeta: 'APPROVED', blocs: 2, versionProgrammee: false }],
+        lignes: [{ evenement, actif: true, workflowId: 'wf-s', scenario: 'Commande payée', modele: 'commande', langue: 'fr', etatChezMeta: 'APPROVED', blocs: 2, versionProgrammee: false }],
       });
     }
     if (/\/nodes(\?|$)/.test(url)) return json({ nodes: [] });
@@ -156,6 +156,27 @@ test.describe('Éditeur : un scénario Shopify (lot 5)', () => {
     expect(((recus.creations[0]!.paramHints ?? []) as Array<{ source: { type: string } }>).filter((h) => h.source.type === 'variable')).toEqual([]);
     await expect.poll(() => JSON.stringify((recus.graphes.at(-1)?.nodes.find((n) => n.id === 'n1')?.data as { variables?: unknown } | undefined)?.variables ?? []), { timeout: 10_000 })
       .toContain('order_total');
+  });
+
+  test('un bouton lien du scénario du panier : « Lien du panier (Shopify) » pose l’adresse de reprise sur la boutique ; ailleurs, pas d’option', async ({ page }) => {
+    await monter(page, 'checkout_abandoned');
+    await bloc(page, 'n1').click();
+    await page.getByTestId('template-modifier').click();
+    const modale = page.getByTestId('modele-du-bloc');
+    await modale.getByTestId('template-ajouter-lien').click();
+    await modale.getByTestId('template-bouton-url-variable-0').click();
+    await modale.getByTestId('selecteur-variable-evenement').getByRole('button', { name: 'Lien du panier (Shopify)' }).click();
+    await expect(modale.getByTestId('template-bouton-url-0')).toHaveValue('https://b.myshopify.com/{panier_shopify}');
+  });
+
+  test('dans le scénario d’une commande, le menu du champ lien ne propose pas le lien du panier', async ({ page }) => {
+    await monter(page);
+    await bloc(page, 'n1').click();
+    await page.getByTestId('template-modifier').click();
+    const modale = page.getByTestId('modele-du-bloc');
+    await modale.getByTestId('template-ajouter-lien').click();
+    await modale.getByTestId('template-bouton-url-variable-0').click();
+    await expect(modale.getByRole('button', { name: 'Lien du panier (Shopify)' })).toHaveCount(0);
   });
 
   test('🔴 le retour mène à Automation > Shopify, pas à la liste des scénarios (spec 2026-11-20 § 4.4)', async ({ page }) => {

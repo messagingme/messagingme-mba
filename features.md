@@ -3043,7 +3043,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   depuis Claude Code (`connect_shopify`), les trois premiers messages sont créés et soumis à Meta, données Shopify déjà
   reliées (textes : `TEXTES_PROPOSES`, `web/lib/partage/shopify-messages.ts`) : commande payée et commande expédiée en
   Utility, panier abandonné en Marketing avec le pied « Répondez STOP pour ne plus recevoir ces messages ». Chacun
-  s'ouvre sur le prénom ; celui de l'expédition donne le lien de suivi, sans le transporteur. Les automations restent
+  s'ouvre sur le prénom ; celui de l'expédition donne le lien de suivi, sans le transporteur ; celui du panier n'a
+  aucune adresse dans son texte, il a le bouton « Reprendre mon panier » (2026-11-20, plus bas). Les automations restent
   **éteintes** : rien ne part chez les clients sans que le marchand les allume. Allumée pendant la validation, une
   automation envoie pour les événements arrivés après l'approbation ; l'approbation n'envoie aucun e-mail « votre
   scénario est en ligne ». Une boutique branchée avant le 2026-11-20 ne reçoit rien d'office : un cas encore sans
@@ -3114,13 +3115,23 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   CLI) : le marchand efface lui-même la fiche dans Contacts quand Shopify lui en transmet une, la carte le lui dit, et
   la désinstallation efface tout de suite le branchement.
 - **Le panier abandonné** (2026-10-22, automation depuis le 2026-11-19) : un client qui remplit le checkout avec son
-  téléphone sans commander reçoit le premier message de l'automation « Panier abandonné » (un modèle marketing, le lien
-  de son panier en variable), au délai choisi par le marchand après la dernière modification du panier (1 h par défaut,
+  téléphone sans commander reçoit le premier message de l'automation « Panier abandonné » (un modèle marketing, qui
+  mène à son panier), au délai choisi par le marchand après la dernière modification du panier (1 h par défaut,
   de 15 min à 72 h), puis la suite de son scénario s'il en a une. Rien ne part si une commande en est née entre-temps,
   même non payée, et une commande née du panier arrête son parcours, quel que soit le bloc où il en est. La relance d'un
   second panier arrête le parcours du précédent. Comme les messages de commande, elle ne s'allume qu'avec l'attestation
   du consentement des clients (2026-11-20). Les paniers en attente ne se gardent qu'une semaine, et seulement quand l'automation du
   panier est allumée.
+- **Le bouton « Reprendre mon panier »** (Julien, 2026-11-20) : le message standard du panier ne montre plus l'adresse
+  brute du panier (« Bonjour {{prénom}}, vous avez laissé des articles dans votre panier. Il vous attend : reprenez-le
+  en un clic. À très vite ! ») ; un bouton lien y mène, vers `https://<boutique>/{panier_shopify}`. C'est un lien tracé
+  de Messaging Me : au clic, il ouvre le dernier panier noté pour le numéro de celui qui clique, dans cet espace (un
+  panier encore ouvert d'abord), et sinon la boutique (panier effacé après sa semaine, numéro inconnu). Le clic se
+  compte comme celui de tout lien tracé. Seuls le reçoivent les boutiques branchées depuis le 2026-11-20 et un cas
+  encore sans message à son premier allumage : un message déjà créé garde son lien dans le texte. Dans « Écrire un
+  nouveau template » ou « Modifier ce template » d'un bloc d'un scénario Shopify, le menu du champ d'un bouton lien
+  propose « Lien du panier (Shopify) », qui pose l'adresse entière : une seconde relance de la suite porte le même
+  bouton. Depuis Claude Code, `create_template` accepte la même adresse sur un bouton lien.
 - **Le prénom absent** (2026-10-23) : il est facultatif au paiement de Shopify. Un message qui le demande sans l'avoir
   part quand même, le prénom remplacé par « à vous » (« there » en anglais) : « Bonjour à vous ». C'est ce que reçoit
   un panier sans prénom avec son message standard, qui le demande (Julien, 2026-11-20, à la place de la décision du

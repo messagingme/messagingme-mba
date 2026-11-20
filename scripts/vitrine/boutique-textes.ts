@@ -15,7 +15,8 @@ import type { NomOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { Langue } from './cas-textes';
 import { PRIX_NUMERO_AFFICHE_HT_CENTIMES, euros, limite, milliers } from './tunnel-textes';
 
-export interface BulleTel { readonly texte: string; readonly heure: string; readonly envoye?: boolean; readonly pied?: string }
+/** Une bulle du téléphone ; `bouton` : le bouton lien d'un template, sous le texte (« Reprendre mon panier », 2026-11-20). */
+export interface BulleTel { readonly texte: string; readonly heure: string; readonly envoye?: boolean; readonly pied?: string; readonly bouton?: string }
 export interface Carte { readonly titre: string; readonly texte: string; readonly icone?: string }
 /**
  * Une carte de « Tout ce que Claude fait » : les outils qui la font, cités sous elle, et la fonction de la console qui la
@@ -91,7 +92,7 @@ const fr = (): TexteBoutique => {
       aria: 'Exemple : la relance d’un panier sur WhatsApp, la question du client, la réponse de l’agent IA, puis la confirmation de la commande',
       boutique: 'Votre boutique', compte: 'Compte professionnel', jour: 'Aujourd’hui',
       bulles: [
-        { texte: 'Bonjour Camille, vous avez laissé des articles dans votre panier. Il vous attend ici : votre-boutique.fr/panier', heure: '18:04', pied: 'Répondez STOP pour ne plus recevoir ces messages' },
+        { texte: 'Bonjour Camille, vous avez laissé des articles dans votre panier. Il vous attend : reprenez-le en un clic. À très vite !', heure: '18:04', pied: 'Répondez STOP pour ne plus recevoir ces messages', bouton: 'Reprendre mon panier' },
         { texte: 'La livraison est offerte ?', heure: '18:11', envoye: true },
         { texte: 'Oui, dès 50&nbsp;€ d’achat, livrée en 48&nbsp;heures.', heure: '18:11' },
         { texte: 'Parfait, je commande !', heure: '18:12', envoye: true },
@@ -264,7 +265,7 @@ const en = (): TexteBoutique => {
       aria: 'Example: a checkout reminder on WhatsApp, the customer’s question, the AI agent’s answer, then the order confirmation',
       boutique: 'Your store', compte: 'Business account', jour: 'Today',
       bulles: [
-        { texte: 'Hello Camille, you left items in your cart. It is waiting for you here: your-store.com/cart', heure: '18:04', pied: 'Reply STOP to stop these messages' },
+        { texte: 'Hello Camille, you left items in your cart. It is waiting for you: pick it up in one click.', heure: '18:04', pied: 'Reply STOP to stop these messages', bouton: 'Back to my cart' },
         { texte: 'Is shipping free?', heure: '18:11', envoye: true },
         { texte: 'Yes, from €50, delivered within 48 hours.', heure: '18:11' },
         { texte: 'Great, I’m ordering!', heure: '18:12', envoye: true },

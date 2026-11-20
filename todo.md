@@ -1,5 +1,25 @@
 # todo.md : backlog
 
+## 🟡 Le dépliage des messages du canevas (mis de côté le 2026-11-20)
+
+- **Le dépliage des messages du canevas**, mis de côté le 2026-11-20 à la demande de Julien, pendant le lot du bouton
+  « Reprendre mon panier » : le patch est dans `docs/prive/2026-11-20-depliage-messages-canevas.patch` (non versionné).
+  Fait et testé : « Voir tout » par bloc, « Messages en entier » dans la barre (retenu sur le poste), variables par leur nom.
+
+## 🟡 Le bouton « Reprendre mon panier » : la relecture (2026-11-20, aucun rouge)
+
+- La redirection suit tout hôte https du lien de reprise : défense en profondeur possible (chemin `/checkouts/`), la
+  seule source restant le webhook signé de la boutique de l'espace.
+- Un client qui saisit le numéro d'un autre au paiement fait mener l'ancien bouton de la victime à SON panier (le
+  message partait déjà à ce numéro) ; un jeton transmis donne les paniers ouverts du destinataire pendant leur semaine.
+- `{panier_shopify}` est admise par `refusChampsUrl` dans tout espace et toute porte (sans danger : retirée hors
+  Shopify) ; un champ déclaré `panier_shopify` changerait de sens.
+- Tests absents : les boutons posés sur le bloc par `proposerMessageStandard` (le faux de création rend `boutons: []`),
+  la boutique absente (issue `echec`), la chaîne de création réelle (`lireCreationDeModele` puis `preparerLiens`) et
+  l'intégration SQL de `lienDuPanier`.
+- La console : l'aperçu de l'adresse (`exempleUrl`) affiche `https://<boutique>/A1234` pour cette clé ; la capture de la
+  fiche (`brancher-ma-boutique-shopify.capture.ts`) montre encore l'ancien texte de relance.
+
 ## 🟡 L'attestation du consentement Shopify (2026-11-20)
 
 - **Les captures de la fiche `brancher-ma-boutique-shopify` ne montrent pas la case d'attestation** : ni au branchement
