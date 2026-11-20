@@ -26,14 +26,16 @@ qu'elle fait et vous guide en deux étapes, la première chez Shopify, la second
 Elle n'apparaît qu'aux administrateurs de l'espace.
 
 **2. Créer votre app chez Shopify.** Sur le tableau de bord développeur de Shopify, connecté avec le compte qui gère
-votre boutique, créez l'app à la main (Create app manually) et collez l'adresse et les droits que la carte vous fait
+votre boutique, créez l'appli à la main (Applis > Créer une appli > Créer l'appli manuellement) et collez l'adresse et les droits que la carte vous fait
 copier d'un clic. Comptez cinq minutes.
 
-Décochez « Embed app in Shopify admin », laissez le reste tel quel, puis Create app et Release. Installez-la ensuite
-sur votre boutique : le message « This app hasn't been reviewed » est normal, c'est votre propre app. Ouvrez enfin
-l'app dans Apps : son Client ID et son Client secret sont dans le cadre Credentials, à droite.
+Décochez « Intégrer l'appli dans l'interface administrateur Shopify », laissez le reste tel quel, puis Créer une appli
+et publiez la version. Installez-la ensuite sur votre boutique : Shopify prévient que l'appli n'a pas été vérifiée,
+c'est normal, c'est la vôtre. Ouvrez enfin l'appli dans Applis : son ID client et son secret client sont dans le cadre
+Identifiants, à droite.
 
-**3. Brancher la boutique.** Revenez dans la carte, collez le nom de la boutique, le Client ID et le Client secret,
+**3. Brancher la boutique.** Revenez dans la carte, collez le nom interne de la boutique (celui en .myshopify.com, pas l'adresse publique de
+votre site : la bulle « ? » dit où le lire), l'ID client et le secret client,
 cochez l'attestation, puis « Brancher la boutique ». Vos trois messages sont aussitôt écrits et envoyés à Meta pour
 validation.
 

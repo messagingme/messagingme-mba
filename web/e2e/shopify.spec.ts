@@ -107,7 +107,7 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
   test('🔴 sans boutique : le mode opératoire, puis les clés branchent la boutique, nettoyées', async ({ page }) => {
     const trace = await monter(page, { etat: VIDE, apresBranchement: BRANCHEE });
     const carte = page.getByTestId('integration-shopify');
-    await expect(carte.getByTestId('shopify-mode-operatoire')).toContainText('Create app manually');
+    await expect(carte.getByTestId('shopify-mode-operatoire')).toContainText('Applis > Créer une appli > Créer l’appli manuellement');
     await expect(carte.getByTestId('shopify-mode-operatoire')).toContainText('https://app.messagingme.fr/shopify/console/');
     await expect(carte.getByTestId('shopify-mode-operatoire')).toContainText('read_customers,read_orders,read_checkouts,read_fulfillments');
     const valider = carte.getByTestId('shopify-brancher-valider');

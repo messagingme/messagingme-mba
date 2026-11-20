@@ -42,6 +42,36 @@ export function CaseAttestationShopify({ coche, onChange, disabled, testid }: {
   );
 }
 
+/**
+ * LA BULLE DU CHAMP « BOUTIQUE » (Julien, 2026-11-20) : le marchand ne sait pas s'il faut le nom interne ou l'adresse
+ * publique de son site. Le serveur n'accepte que le premier (`domaineShopify`). En CSS seul, comme `CaptureAuSurvol`.
+ */
+function BulleBoutique() {
+  const t = useT();
+  return (
+    <span className="group relative inline-flex" data-testid="shopify-boutique-bulle">
+      <button type="button" aria-label={t('Quel nom de boutique ?', 'Which store name?')} className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-ink-300 text-[10px] font-semibold text-ink-500">
+        ?
+      </button>
+      <span
+        id="shopify-boutique-aide" role="tooltip"
+        className="pointer-events-none invisible absolute left-0 top-full z-20 mt-1 w-80 max-w-[80vw] rounded-carte border border-ink-200 bg-white p-3 text-xs leading-snug text-ink-900 opacity-0 shadow-mm-md transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+      >
+        {t(
+          'Le nom interne de votre boutique chez Shopify, en .myshopify.com (par exemple votre-boutique.myshopify.com), et non l’adresse publique de votre site (comme www.votre-marque.fr).',
+          'Your store’s internal Shopify name, ending in .myshopify.com (for example your-store.myshopify.com), not your website’s public address (like www.your-brand.com).',
+        )}
+        <span className="mt-2 block text-ink-500">
+          {t(
+            'Vous le lisez dans l’adresse de l’admin Shopify : admin.shopify.com/store/votre-boutique (ce nom seul suffit, l’adresse entière aussi), ou dans Paramètres > Domaines.',
+            'You can read it in the Shopify admin address: admin.shopify.com/store/your-store (the name alone is enough, so is the full address), or in Settings > Domains.',
+          )}
+        </span>
+      </span>
+    </span>
+  );
+}
+
 export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
   tenantId: string;
   /** Une boutique déjà branchée ou coupée : seules les clés sont redemandées, repliées, le mode opératoire à portée. */
@@ -52,6 +82,8 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
   const t = useT();
   const { locale } = useLocale();
   const adresse = locale === 'en' ? 'https://app.messagingme.fr/en/shopify/console/' : 'https://app.messagingme.fr/shopify/console/';
+  // Les captures montrent l'écran de Shopify dans la langue de la console (Julien, 2026-11-20).
+  const captures = locale === 'en' ? '/aide/shopify' : '/aide/shopify/fr';
   const [boutique, setBoutique] = useState('');
   const [clientId, setClientId] = useState('');
   const [secret, setSecret] = useState('');
@@ -98,49 +130,49 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
     <ol className="list-decimal space-y-3 pl-5 text-ink-900" data-testid="shopify-mode-operatoire">
       <li>
         {t(
-          'Ouvrez le tableau de bord développeur de Shopify, connecté avec le compte qui gère votre boutique, puis Apps > Create app > Create app manually.',
+          'Ouvrez le tableau de bord développeur de Shopify, connecté avec le compte qui gère votre boutique, puis Applis > Créer une appli > Créer l’appli manuellement.',
           'Open the Shopify developer dashboard, signed in with the account that manages your store, then Apps > Create app > Create app manually.',
         )}{' '}
         <a href="https://dev.shopify.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">dev.shopify.com</a>
         {' · '}
         <CaptureAuSurvol
-          src="/aide/shopify/1-creer-l-app.webp" testid="shopify-capture-creer"
-          alt={t('Apps, puis Create app, puis Create app manually', 'Apps, then Create app, then Create app manually')}
+          src={`${captures}/1-creer-l-app.webp`} testid="shopify-capture-creer"
+          alt={t('Applis, puis Créer une appli, puis Créer l’appli manuellement', 'Apps, then Create app, then Create app manually')}
         />
       </li>
       <li>
         {t('Dans le formulaire', 'In the form')}{' · '}
         <CaptureAuSurvol
-          src="/aide/shopify/2-formulaire.webp" testid="shopify-capture-formulaire"
-          alt={t('Le formulaire de l’app, ses quatre champs numérotés', 'The app form, its four numbered fields')}
+          src={`${captures}/2-formulaire.webp`} testid="shopify-capture-formulaire"
+          alt={t('Le formulaire de l’appli, ses quatre champs numérotés', 'The app form, its four numbered fields')}
         />
-        <span className="mt-1 block">{t('1. App name : écrivez « Messaging Me ».', '1. App name: type “Messaging Me”.')}</span>
-        <span className="mt-1 block">{t('2. App URL : collez cette adresse.', '2. App URL: paste this address.')}</span>
-        {ligneCopiable(adresse, t('Adresse de l’app', 'App URL'), 'shopify-copier-adresse')}
-        <span className="mt-1 block">{t('3. Décochez « Embed app in Shopify admin ».', '3. Untick “Embed app in Shopify admin”.')}</span>
+        <span className="mt-1 block">{t('1. Nom de l’appli : écrivez « Messaging Me ».', '1. App name: type “Messaging Me”.')}</span>
+        <span className="mt-1 block">{t('2. URL de l’appli : collez cette adresse.', '2. App URL: paste this address.')}</span>
+        {ligneCopiable(adresse, t('Adresse de l’appli', 'App URL'), 'shopify-copier-adresse')}
+        <span className="mt-1 block">{t('3. Décochez « Intégrer l’appli dans l’interface administrateur Shopify ».', '3. Untick “Embed app in Shopify admin”.')}</span>
         <span className="mt-1 block">
           {t(
-            '4. Scopes : appuyez sur « Select from list » et cochez read_customers, read_orders, read_checkouts et read_fulfillments (ou collez la liste dans le champ).',
+            '4. Portées : appuyez sur « Sélectionner dans la liste » et cochez read_customers, read_orders, read_checkouts et read_fulfillments (ou collez la liste dans le champ).',
             '4. Scopes: click “Select from list” and tick read_customers, read_orders, read_checkouts and read_fulfillments (or paste the list in the field).',
           )}
         </span>
-        {ligneCopiable(DROITS_SHOPIFY, t('Droits de l’app', 'App scopes'), 'shopify-copier-droits')}
-        <span className="mt-1 block text-ink-500">{t('Laissez le reste tel quel, appuyez sur Create app en haut à droite, puis Release.', 'Leave the rest as it is, click Create app at the top right, then Release.')}</span>
+        {ligneCopiable(DROITS_SHOPIFY, t('Droits de l’appli', 'App scopes'), 'shopify-copier-droits')}
+        <span className="mt-1 block text-ink-500">{t('Laissez le reste tel quel, appuyez sur Créer une appli en haut à droite, puis publiez la version.', 'Leave the rest as it is, click Create app at the top right, then Release.')}</span>
       </li>
       <li>
         {t(
-          'Installez l’app : menu « ⋯ » de sa ligne > Install app, choisissez votre boutique, puis Install. « This app hasn’t been reviewed » est normal : c’est votre app.',
+          'Installez l’appli : menu « ⋯ » de sa ligne, installez-la, choisissez votre boutique, puis confirmez. Shopify prévient que l’appli n’a pas été vérifiée : c’est normal, c’est la vôtre.',
           'Install the app: its row’s “⋯” menu > Install app, pick your store, then Install. “This app hasn’t been reviewed” is expected: it is your own app.',
         )}
       </li>
       <li>
         {t(
-          'Dans Apps, cliquez sur l’app Messaging Me : le Client ID et le Client secret sont dans le cadre Credentials, à droite. Copiez-les, puis collez-les ci-dessous.',
+          'Dans Applis, cliquez sur l’appli Messaging Me : l’ID client et le secret client sont dans le cadre Identifiants, à droite. Copiez-les, puis collez-les ci-dessous.',
           'In Apps, click the Messaging Me app: the Client ID and the Client secret are in the Credentials box, on the right. Copy them, then paste them below.',
         )}{' '}
         <CaptureAuSurvol
-          src="/aide/shopify/3-cles-de-l-app.webp" testid="shopify-capture-cles"
-          alt={t('La page de l’app, cadre Credentials', 'The app page, Credentials box')}
+          src={`${captures}/3-cles-de-l-app.webp`} testid="shopify-capture-cles"
+          alt={t('La page de l’appli, cadre Identifiants', 'The app page, Credentials box')}
         />
       </li>
     </ol>
@@ -162,19 +194,22 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
       <div>
         <p className="font-medium text-ink-900">{rebrancher ? t('Rebrancher la boutique', 'Reconnect the store') : t('Étape 2, ici', 'Step 2, here')}</p>
         <div className="mt-2 grid gap-3 sm:grid-cols-3">
-          <label className="block text-sm text-ink-900">
-            {t('Boutique', 'Store')}
+          <div className="block text-sm text-ink-900">
+            <span className="flex items-center gap-1">
+              <label htmlFor="shopify-boutique">{t('Boutique', 'Store')}</label>
+              <BulleBoutique />
+            </span>
             <input
-              data-testid="shopify-boutique" value={boutique} onChange={(e) => setBoutique(e.target.value)}
-              placeholder="ma-boutique.myshopify.com" autoComplete="off" className={`${inputCls} mt-1`}
+              id="shopify-boutique" data-testid="shopify-boutique" value={boutique} onChange={(e) => setBoutique(e.target.value)}
+              placeholder="votre-boutique.myshopify.com" autoComplete="off" aria-describedby="shopify-boutique-aide" className={`${inputCls} mt-1`}
             />
-          </label>
+          </div>
           <label className="block text-sm text-ink-900">
-            Client ID
+            {t('ID client', 'Client ID')}
             <input data-testid="shopify-client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} autoComplete="off" className={`${inputCls} mt-1`} />
           </label>
           <label className="block text-sm text-ink-900">
-            Client secret
+            {t('Secret client', 'Client secret')}
             <input
               type="password" autoComplete="new-password" data-testid="shopify-secret"
               value={secret} onChange={(e) => setSecret(e.target.value)} className={`${inputCls} mt-1`}
