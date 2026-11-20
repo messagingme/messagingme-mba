@@ -82,6 +82,21 @@ export function emailResolvableFields(fields: UserFieldDef[]): UserFieldDef[] {
 }
 
 /**
+ * Champs proposés comme DESTINATAIRE « variable » du bloc « Envoi de mail » : le champ de base « Email » EN TÊTE, même
+ * jamais rempli, puis les autres champs résolubles.
+ *
+ * 🔴 Signalé par Julien le 2026-11-20 : « je n'accède même pas au champ de base qui est l'email ». La liste venait de
+ * `GET /user-fields`, où un champ SOCLE n'existe qu'après sa première écriture (`SOCLE_CLES`) : sur un espace où aucune
+ * fiche n'avait encore d'email, le seul champ qu'on veut ici était absent. Le moteur, lui, le lit sans condition
+ * (`adressesDestinataires` sur `contactVars`, qui verse `contacts.fields`). Même défaut que `champsEcrivables`.
+ */
+export function champsDestinataireEmail(fields: UserFieldDef[], t: (fr: string, en: string) => string): UserFieldDef[] {
+  const perso = emailResolvableFields(fields);
+  const email = perso.find((f) => f.key === 'email') ?? { key: 'email', label: t(...SYSTEM_FIELD_LABELS.email), type: 'text' as const };
+  return [email, ...perso.filter((f) => f.key !== 'email')];
+}
+
+/**
  * Variables de BASE réellement résolues dans un corps de message (mail ou RCS), avec leur clé SERVEUR.
  *
  * 🔴 Elles n'étaient proposées NULLE PART, et c'est le défaut signalé par Julien le 2026-08-25 (« je ne vois

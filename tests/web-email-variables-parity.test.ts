@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { emailVariableFields, emailResolvableFields } from '../web/lib/fields';
+import { champsDestinataireEmail, emailVariableFields, emailResolvableFields } from '../web/lib/fields';
 import { contactVars } from '../src/crm/render';
+import { adressesDestinataires } from '../src/workflow/engine';
 import type { UserFieldDef } from '../web/lib/api';
 
 const t = (fr: string) => fr;
@@ -58,5 +59,24 @@ describe('emailResolvableFields (choix d’un champ CONTENANT une adresse)', () 
     // Proposer « Téléphone » comme destinataire d'un mail serait un piège : ce n'est pas une adresse.
     const out = emailResolvableFields([champ('mail', 'Mail')]).map((f) => f.key);
     expect(out).toEqual(['mail']);
+  });
+});
+
+describe('champsDestinataireEmail (destinataire « variable » du bloc e-mail)', () => {
+  it('🔴 propose « Email » même quand aucune fiche ne l’a encore rempli (champ socle absent de user-fields)', () => {
+    const out = champsDestinataireEmail([champ('ref', 'Réf dossier')], t);
+    expect(out.map((f) => f.key)).toEqual(['email', 'ref']);
+    expect(out[0]?.label).toBe('Email');
+  });
+
+  it('un « email » déjà créé garde son libellé, passe en tête, sans doublon', () => {
+    const out = champsDestinataireEmail([champ('ref', 'Réf dossier'), champ('email', 'E-mail perso')], t);
+    expect(out.map((f) => f.key)).toEqual(['email', 'ref']);
+    expect(out[0]?.label).toBe('E-mail perso');
+  });
+
+  it('la clé `email` est bien celle que le moteur lit pour l’adresse', () => {
+    const vars = contactVars({ phone_e164: '+33600000001', bsuid: null, profile_name: null, fields: { email: 'a@b.fr' } });
+    expect(adressesDestinataires([{ kind: 'field', field: champsDestinataireEmail([], t)[0]!.key }], vars)).toEqual(['a@b.fr']);
   });
 });

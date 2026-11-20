@@ -6,7 +6,7 @@ import { useT } from '@/lib/i18n';
 import { nodeMetaOf } from '@/lib/nodeMeta';
 import { MAX_DESTINATAIRES_EMAIL } from '@/lib/partage/blocs';
 import { MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE } from '@/lib/partage/message-rapide';
-import { champsEcrivables, emailResolvableFields, emailVariableFields, varCountOf } from '@/lib/fields';
+import { champsDestinataireEmail, champsEcrivables, emailVariableFields, varCountOf } from '@/lib/fields';
 import { SelecteurVariable } from '@/components/SelecteurVariable';
 import { carouselOutputs } from '@/lib/carousel-outputs';
 import { versBrouillonRcs, maxTexteRcs, MAX_BOUTONS_CARTE, MAX_BOUTONS_RCS } from '@/lib/rcs';
@@ -1339,7 +1339,7 @@ export function ConfigPanel({
         const majLigne = (i: number, v: EmailRecipientData) => patchDest(destinataires.map((x, j) => (j === i ? v : x)));
         // Champs proposés comme destinataire « variable » : ceux qui résolvent réellement à l'envoi (le
         // node fait feu au premier échec silencieux si le champ choisi ne tient jamais d'adresse, ex. « Nom »).
-        const recipientFields = emailResolvableFields(fields);
+        const recipientFields = champsDestinataireEmail(fields, t);
         return (
           <div className="space-y-2">
             <div>
