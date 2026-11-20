@@ -12,7 +12,7 @@ describe('pageCommentFaire', () => {
   });
 
   it('un écran sans page n’a pas de lien, même un nom hérité d’Object', () => {
-    expect(pageCommentFaire('webhooks', 'fr')).toBeNull();
+    expect(pageCommentFaire('connecteurs', 'fr')).toBeNull();
     expect(pageCommentFaire('', 'en')).toBeNull();
     expect(pageCommentFaire('constructor', 'fr')).toBeNull();
     expect(pageCommentFaire('__proto__', 'en')).toBeNull();
