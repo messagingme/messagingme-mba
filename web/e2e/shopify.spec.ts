@@ -43,6 +43,8 @@ async function monter(page: Page, o: {
   attestation?: 'absente' | 'panne';
   /** Un allumage refusé (409) avec ce message, celui du serveur sans attestation. */
   refusAllumage?: string;
+  /** Les agents IA de l'espace (`GET /agents`), pour la relance avec agent IA ; absents, aucun. */
+  agents?: Array<Record<string, unknown>>;
 }): Promise<Trace> {
   const trace: Trace = { branchements: [], pauses: [], lignes: [], attestations: [], posts: [] };
   const session = { token: 'e2e-token', email: 'moi@e2e.test', role: o.role ?? 'admin', tenantId: 't-e2e' };
@@ -88,6 +90,7 @@ async function monter(page: Page, o: {
       if (etat === 'absente') return json({ message: 'Route GET not found', error: 'Not Found', statusCode: 404 }, 404);
       return json(etat);
     }
+    if (chemin.endsWith('/agents')) return json({ agents: o.agents ?? [], repondeurAgentId: null });
     if (chemin.endsWith('/automations')) return json({ automations: [] });
     if (chemin.endsWith('/workflows')) return json({ workflows: [] });
     if (chemin.endsWith('/settings')) return json({ mbaEnabled: false, timezone: 'Europe/Paris', businessHours: {} });
@@ -379,5 +382,52 @@ test.describe('Scénario > Automation > Shopify : les automations de la boutique
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autres automations');
     await expect(page.getByTestId('automations-shopify')).toHaveCount(0);
     await expect(page.locator('aside a[href="/automations/shopify"]')).toHaveCount(1);
+  });
+});
+
+test.describe('Scénario > Automation > Shopify : la relance de panier avec agent IA (2026-11-20)', () => {
+  const AGENT = { id: 'ag1', label: 'Conseiller', status: 'active', sorties: [], modele: 'm' };
+  const AUTRE = { id: 'ag2', label: 'Vendeur', status: 'active', sorties: [], modele: 'm' };
+
+  test('🔴 sans agent IA actif : l’interrupteur est grisé, et l’écran dit d’en créer un', async ({ page }) => {
+    await monter(page, { ecran: PAGE, etat: { ...BRANCHEE, attestation: ATTESTEE }, agents: [{ ...AGENT, status: 'disabled' }] });
+    const section = page.getByTestId('automations-shopify');
+    await expect(section.getByTestId('automations-shopify-interrupteur-checkout_abandoned_agent')).toBeDisabled();
+    await expect(section.getByTestId('automations-shopify-sans-agent').getByRole('link', { name: 'Créer un agent IA' })).toHaveAttribute('href', '/agents');
+  });
+
+  test('🔴 allumer demande l’agent, puis éteint la relance normale et le dit, sans quitter la page', async ({ page }) => {
+    const trace = await monter(page, { ecran: PAGE, etat: { ...RELANCE_ACTIVE, attestation: ATTESTEE }, agents: [AGENT, AUTRE] });
+    const section = page.getByTestId('automations-shopify');
+    await section.getByTestId('automations-shopify-interrupteur-checkout_abandoned_agent').click();
+    expect(trace.lignes, 'rien ne part avant le choix').toEqual([]);
+    await section.getByTestId('automations-shopify-choix-agent-liste').selectOption('ag2');
+    await section.getByTestId('automations-shopify-choix-agent-valider').click();
+    await expect.poll(() => trace.lignes).toEqual([{ evenement: 'checkout_abandoned_agent', corps: { actif: true, agentId: 'ag2' } }]);
+    await expect(section.getByTestId('automations-shopify-remplacee')).toHaveText('« Panier abandonné » a été éteinte : un panier ne reçoit qu’une relance.');
+    await expect(page).toHaveURL(/\/automations\/shopify$/);
+  });
+
+  test('annuler le choix n’allume rien', async ({ page }) => {
+    const trace = await monter(page, { ecran: PAGE, etat: { ...BRANCHEE, attestation: ATTESTEE }, agents: [AGENT] });
+    const section = page.getByTestId('automations-shopify');
+    await section.getByTestId('automations-shopify-interrupteur-checkout_abandoned_agent').click();
+    await section.getByTestId('automations-shopify-choix-agent-annuler').click();
+    await expect(section.getByTestId('automations-shopify-choix-agent')).toHaveCount(0);
+    expect(trace.lignes).toEqual([]);
+  });
+
+  test('🔴 allumée : son agent se change sur place, et ses avertissements se lisent', async ({ page }) => {
+    const ligneAgent = ligne('checkout_abandoned_agent', {
+      agent: { id: 'ag1', label: 'Conseiller', actif: true }, avertissements: ['bouton_absent', 'modele_en_attente'],
+    });
+    const trace = await monter(page, { ecran: PAGE, etat: { ...BRANCHEE, attestation: ATTESTEE, lignes: [ligne('order_paid'), ligneAgent] }, agents: [AGENT, AUTRE] });
+    const section = page.getByTestId('automations-shopify');
+    await expect(section.getByTestId('automations-shopify-avertissement-bouton_absent')).toContainText('ne mène plus à l’agent IA');
+    await expect(section.getByTestId('automations-shopify-avertissement-modele_en_attente')).toContainText('aucun panier n’est relancé');
+    await expect(section.getByTestId('automations-shopify-agent-liste')).toHaveValue('ag1');
+    await section.getByTestId('automations-shopify-agent-liste').selectOption('ag2');
+    await section.getByTestId('automations-shopify-agent-valider').click();
+    await expect.poll(() => trace.lignes).toEqual([{ evenement: 'checkout_abandoned_agent', corps: { actif: true, agentId: 'ag2' } }]);
   });
 });

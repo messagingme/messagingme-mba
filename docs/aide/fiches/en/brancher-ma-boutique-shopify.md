@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: f08872
+traduit_de: 068dea
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -35,8 +35,8 @@ With this box, you confirm that your store’s customers have agreed to receive 
 responsibility for it: Meta requires their agreement for any message you send them first. Without it, the store does
 not connect. The sentence, the date and your address are kept.
 
-**4. See your messages, then switch them on.** Scenario > Automation > Shopify lists your three automations: Order
-paid, Order shipped and Abandoned checkout. Hover over a line to read its message, with examples in place of the data;
+**4. See your messages, then switch them on.** Scenario > Automation > Shopify lists your automations: Order
+paid, Order shipped, Abandoned checkout and Abandoned checkout with AI agent (below). Hover over a line to read its message, with examples in place of the data;
 click it to open its scenario.
 
 The first name, the order number, the links to the order or the parcel are already linked, and the checkout message
@@ -105,6 +105,20 @@ template of the scenario, a second reminder for example: add a link button, open
 A customer who replies STOP gets nothing more: the proposed message says so at the bottom (“Répondez STOP pour ne plus
 recevoir ces messages”, reply STOP to stop these messages), keep that sentence if you rewrite it. The card counts the
 reminders sent, the checkouts that turned into an order in time, and those waiting; and, by reminder date, the checkouts recovered (reminded then paid) and their amount.
+
+## The reminder with an AI agent
+
+The **Abandoned checkout with AI agent** automation sends the same reminder, with one more button: “Vous avez une
+question ?” (“Have a question?”). The customer who taps it is taken care of right away by the AI agent you chose.
+
+You need an active AI agent: without one, the switch stays greyed out. When you switch it on, the console asks which
+one; you can change it later on the same line. Its message and its scenario are created for you, and Meta approves the
+message before the first send.
+
+The two checkout reminders do not run together: switching one on switches the other off, so that a checkout gets only
+one reminder. An advisor who already took the conversation keeps it. If the agent cannot answer (no AI credit left,
+agent disabled), the question reaches your team in “To handle”. The line warns you when the button no longer leads to
+the agent, when the agent is no longer active, or when Meta has not approved the message yet.
 
 **Good to know.** The first name is optional at Shopify: many customers do not give it, especially before abandoning
 their checkout. A message that contains the first name still goes out, with “there” in its place (“Hello there”; “à

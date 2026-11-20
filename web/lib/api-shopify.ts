@@ -1,7 +1,7 @@
 'use client';
 
 import { request } from './http';
-import { EVENEMENTS_SHOPIFY, type EvenementShopify } from './partage/shopify-messages';
+import { estAutomationShopify, type AutomationShopify } from './partage/shopify-messages';
 
 /**
  * LE CONNECTEUR SHOPIFY : la carte de Tools > Intégrations (plan 2026-10-21, lot 1 ; conception 2026-10-22) et la section
@@ -16,7 +16,8 @@ const base = (tenantId: string): string => `/tenants/${tenantId}/integrations/sh
 
 /** Une automation Shopify : sa ligne, son scénario et son premier template chez Meta (`etatDesLignes` côté serveur). */
 export interface LigneShopifyVue {
-  evenement: EvenementShopify;
+  /** Un événement, ou la relance de panier avec agent IA (2026-11-20). */
+  evenement: AutomationShopify;
   actif: boolean;
   workflowId: string;
   scenario: string | null;
@@ -31,7 +32,14 @@ export interface LigneShopifyVue {
   versionProgrammee: boolean;
   /** Le message en vigueur, pour la bulle au survol ; `null` sans message (ou une API qui ne le dit pas encore). */
   apercu: ApercuLigneShopify | null;
+  /** La relance avec agent IA : l'agent de son bloc ; `null` sans bloc Agent IA, ou une API qui ne le dit pas. */
+  agent: { id: string; label: string; actif: boolean } | null;
+  /** La relance avec agent IA : ce qui l'empêche de servir comme prévu (seuls les codes connus). */
+  avertissements: AvertissementLigneShopify[];
 }
+
+export const AVERTISSEMENTS_LIGNE = ['bouton_absent', 'agent_inactif', 'modele_en_attente', 'modele_refuse'] as const;
+export type AvertissementLigneShopify = (typeof AVERTISSEMENTS_LIGNE)[number];
 
 /**
  * Le texte du premier template : celui de la version programmée s'il y en a une, sinon du publié. `corps` porte ses
@@ -100,11 +108,16 @@ function lireApercu(x: unknown): ApercuLigneShopify | null {
 function lireLigne(x: unknown): LigneShopifyVue[] {
   const l = x as Record<string, unknown> | null;
   if (!l || typeof l !== 'object' || typeof l.actif !== 'boolean' || typeof l.workflowId !== 'string') return [];
-  if (!(EVENEMENTS_SHOPIFY as readonly unknown[]).includes(l.evenement)) return [];
+  if (!estAutomationShopify(l.evenement)) return [];
+  const ag = l.agent as Record<string, unknown> | null | undefined;
   return [{
-    evenement: l.evenement as EvenementShopify, actif: l.actif, workflowId: l.workflowId, scenario: texte(l.scenario),
+    evenement: l.evenement, actif: l.actif, workflowId: l.workflowId, scenario: texte(l.scenario),
     modele: texte(l.modele), langue: texte(l.langue), etatChezMeta: texte(l.etatChezMeta),
     blocs: typeof l.blocs === 'number' ? l.blocs : 1, versionProgrammee: l.versionProgrammee === true, apercu: lireApercu(l.apercu),
+    agent: ag && typeof ag === 'object' && typeof ag.id === 'string' && typeof ag.label === 'string'
+      ? { id: ag.id, label: ag.label, actif: ag.actif === true } : null,
+    avertissements: Array.isArray(l.avertissements)
+      ? l.avertissements.filter((a): a is AvertissementLigneShopify => (AVERTISSEMENTS_LIGNE as readonly unknown[]).includes(a)) : [],
   }];
 }
 
@@ -178,7 +191,7 @@ export function reglerPauseShopify(tenantId: string, pause: boolean): Promise<{ 
  * éteindre arrête ses parcours. Le délai du panier se règle avec sa ligne.
  */
 export function reglerLigneShopify(
-  tenantId: string, evenement: EvenementShopify, corps: { actif: boolean; delaiMinutes?: number },
+  tenantId: string, evenement: AutomationShopify, corps: { actif: boolean; delaiMinutes?: number; agentId?: string },
 ): Promise<{ ligne: unknown }> {
   return request(`${base(tenantId)}/lignes/${encodeURIComponent(evenement)}`, { method: 'PUT', body: JSON.stringify(corps) });
 }

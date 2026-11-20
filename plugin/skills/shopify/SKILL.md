@@ -189,6 +189,12 @@ same consent attestation.
 3. The first message leaves once per checkout, then the rest of its scenario if it has one; nothing leaves if an order
    came out of it in the meantime, even unpaid, and such an order stops the journey wherever it stands. A newer
    checkout from the same customer takes the place of the older one: its reminder stops the older journey.
+4. `checkout_abandoned_agent` is the same reminder with one more button, a quick reply "Vous avez une question ?" (have a
+   question?) that hands the conversation to an AI agent of the workspace. It needs an active agent: ask the user which
+   one (`list_agents`), or build one first. Turn it on with `set_shopify_message`, `event: checkout_abandoned_agent`,
+   `language: fr` and `agent_id`, without a template: its standard message is created and leaves once Meta approves
+   it. It turns `checkout_abandoned` off, and the reverse: a checkout gets one reminder. An operator who holds the
+   conversation keeps it; if the agent cannot answer (no AI credit, agent disabled), the team gets it.
 
 ## Import the store's customers
 

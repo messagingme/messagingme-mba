@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 84ab9d
+source_empreinte: 3cd3bc
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -44,8 +44,8 @@ Par cette case, vous attestez que les clients de votre boutique ont accepté de 
 en assumez la responsabilité : Meta exige leur accord pour tout message que vous leur envoyez en premier. Sans elle, la
 boutique ne se branche pas. La phrase, la date et votre adresse sont gardées.
 
-**4. Voir vos messages, puis les allumer.** Scénario > Automation > Shopify liste vos trois automations : Commande
-payée, Commande expédiée et Panier abandonné. Survolez une ligne pour lire son message, avec des exemples à la place
+**4. Voir vos messages, puis les allumer.** Scénario > Automation > Shopify liste vos automations : Commande
+payée, Commande expédiée, Panier abandonné et Panier abandonné avec agent IA (plus bas). Survolez une ligne pour lire son message, avec des exemples à la place
 des données ; cliquez-la pour ouvrir son scénario.
 
 Le prénom, le numéro de commande, les liens de la commande ou du colis sont déjà reliés, et le message du panier a son
@@ -114,6 +114,20 @@ Un message du panier créé avant le 20 novembre 2026 garde son lien dans le tex
 Un client qui répond STOP ne reçoit plus rien : le message proposé le dit en bas (« Répondez STOP pour ne plus
 recevoir ces messages »), gardez cette phrase si vous le réécrivez. La carte compte les relances parties, les paniers devenus une commande à temps,
 et ceux en attente ; et, selon la date de la relance, les paniers récupérés (relancés puis payés) et leur montant.
+
+## La relance avec un agent IA
+
+L'automation **Panier abandonné avec agent IA** envoie la même relance, avec un bouton de plus : « Vous avez une
+question ? ». Le client qui le tape est pris en charge tout de suite par l'agent IA que vous avez choisi.
+
+Il vous faut un agent IA actif : sans lui, l'interrupteur reste grisé. En l'allumant, la console vous demande lequel ;
+vous pouvez en changer ensuite sur la même ligne. Son message et son scénario se créent tout seuls, et Meta valide le
+message avant le premier envoi.
+
+Les deux relances du panier ne marchent pas ensemble : allumer l'une éteint l'autre, pour qu'un panier ne reçoive
+qu'une relance. Un conseiller qui a déjà pris la conversation la garde. Si l'agent ne peut pas répondre (plus de crédit
+IA, agent désactivé), la question arrive à votre équipe dans « À traiter ». La ligne vous prévient quand le bouton ne
+mène plus à l'agent, quand l'agent n'est plus actif ou quand Meta n'a pas encore validé le message.
 
 **Bon à savoir.** Le prénom est facultatif chez Shopify : beaucoup de clients ne le donnent pas, surtout avant
 d'abandonner leur panier. Un message qui contient le prénom part quand même, avec « à vous » à sa place (« Bonjour à

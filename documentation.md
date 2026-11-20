@@ -2892,6 +2892,15 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   (`shopify:<boutique>:orders/paid:<id>`), le compteur ne décompte pas le plafond de l'API publique, les valeurs partent
   en variables du destinataire (jamais écrites sur la fiche), et `sansCampagneVide` évite une ligne de Campagnes à zéro
   destinataire ;
+- 🔴 **LES DEUX RELANCES DU PANIER SONT EXCLUSIVES** (migration 0306) : `shopify_lignes.evenement` porte une quatrième
+  valeur, `checkout_abandoned_agent` (`AutomationShopify`, `web/lib/partage/shopify-messages.ts`), qui n'est PAS un
+  événement de Shopify : elle part sur le webhook et la réclamation du panier abandonné (`evenementDe`). Une seule des
+  deux relances est allumée par espace (`PgShopifyStore.allumerLigne` éteint l'autre dans sa transaction, les deux lignes
+  verrouillées dans un ordre fixe), et chaque lecture du panier (réclamation, « encore voulu », traitement, retour sur
+  investissement) passe par `LIGNES_DU_PANIER` ou `lignesDe`. Son scénario standard relie la réponse rapide du template
+  au bloc Agent IA (`avecLAgent`, `src/shopify/lignes-gestion.ts`), sorties d'échec sans arête, donc à l'équipe ;
+  l'agent vit dans ce bloc, choisi à l'allumage parmi les agents actifs. Un agent non actif sort d'un tour par la
+  branche d'échec (`runTurn`).
 - 🔴 **UNE LIGNE PAR ÉVÉNEMENT, ET SON SCÉNARIO** (menu « Scénario », lot 5, migration 0299) : `shopify_lignes` porte,
   par espace et par événement, le scénario du rayon `shopify` et son interrupteur. Le circuit (réception, relance)
   envoie le PREMIER BLOC PUBLIÉ de ce scénario (`premierBloc`, `src/shopify/premier-bloc.ts`) par l'envoi public, avec

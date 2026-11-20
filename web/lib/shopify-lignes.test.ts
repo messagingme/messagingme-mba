@@ -5,7 +5,7 @@ import { lireEtatShopify, type LigneShopifyVue } from './api-shopify';
 
 const ligne = (o: Partial<LigneShopifyVue> = {}): LigneShopifyVue => ({
   evenement: 'order_paid', actif: true, workflowId: 'wf-1', scenario: 'Commande payée', modele: 'confirmation', langue: 'fr',
-  etatChezMeta: 'APPROVED', blocs: 1, versionProgrammee: false, apercu: null, ...o,
+  etatChezMeta: 'APPROVED', blocs: 1, versionProgrammee: false, apercu: null, agent: null, avertissements: [], ...o,
 });
 
 describe('l’état d’une automation Shopify (menu « Scénario », lot 5)', () => {
@@ -154,5 +154,26 @@ describe('la lecture de l’attestation (2026-11-20)', () => {
   it('un e-mail absent se lit comme inconnu du serveur, l’attestation reste lue', () => {
     const { email: _sansEmail, ...sansEmail } = COCHEE;
     expect(avec(sansEmail)).toEqual({ ...COCHEE, email: null });
+  });
+});
+
+describe('la relance de panier avec agent IA, lue par la console (2026-11-20)', () => {
+  const brut = (l: Record<string, unknown>) => ({ boutique: null, compteurs: {}, paniers: {}, lignes: [l], attestation: null });
+  const base = { evenement: 'checkout_abandoned_agent', actif: true, workflowId: 'wf-a', blocs: 3 };
+
+  it('🔴 la ligne est lue, avec son agent et ses avertissements connus ; un code inconnu est écarté', () => {
+    const v = lireEtatShopify(brut({ ...base, agent: { id: 'ag1', label: 'Conseiller', actif: false }, avertissements: ['agent_inactif', 'futur_code'] }));
+    expect(v?.lignes).toEqual([expect.objectContaining({
+      evenement: 'checkout_abandoned_agent', agent: { id: 'ag1', label: 'Conseiller', actif: false }, avertissements: ['agent_inactif'],
+    })]);
+  });
+
+  it('une API d’avant (sans agent ni avertissements) : aucun agent, aucun avertissement, rien ne casse', () => {
+    expect(lireEtatShopify(brut(base))?.lignes).toEqual([expect.objectContaining({ agent: null, avertissements: [] })]);
+  });
+
+  it('les données du scénario de la relance avec agent sont celles du panier abandonné', () => {
+    const v = lireEtatShopify(brut(base))!;
+    expect(donneesDuScenario(v.lignes, 'wf-a').map((d) => d.cle)).toEqual(['first_name', 'checkout_url']);
   });
 });

@@ -12,11 +12,14 @@ import { CaseAttestationShopify } from '@/components/ShopifyBrancher';
 import { Squelette } from '@/components/Squelette';
 import { TemplateBodyText } from '@/components/WhatsAppPreview';
 import { routeInconnue } from '@/lib/canaux-services';
+import { listAgents, type AgentResume } from '@/lib/api-agent';
 import {
-  attesterShopify, lireShopify, reglerLigneShopify, type ApercuLigneShopify, type AttestationShopify, type EtatShopifyVue,
+  attesterShopify, lireShopify, reglerLigneShopify, type ApercuLigneShopify, type AttestationShopify, type AvertissementLigneShopify,
+  type EtatShopifyVue, type LigneShopifyVue,
 } from '@/lib/api-shopify';
 import {
-  DELAI_PANIER_DEFAUT, DELAIS_PROPOSES, EVENEMENTS_SHOPIFY, LIBELLES_EVENEMENTS, type EvenementShopify,
+  AUTOMATIONS_SHOPIFY, DELAI_PANIER_DEFAUT, DELAIS_PROPOSES, LIBELLES_AUTOMATIONS, LIGNE_PANIER_AGENT, LIGNES_DU_PANIER, autreRelanceDuPanier,
+  type AutomationShopify,
 } from '@/lib/partage/shopify-messages';
 import { delaiEnClair, etatDeLAutomation, type EtatAutomation } from '@/lib/shopify-lignes';
 
@@ -51,6 +54,57 @@ const ETATS: Record<EtatAutomation, readonly [string, string]> = {
   meta_non_lu: ['allumée, l’état de son message chez Meta n’a pas pu être lu', 'on, its message status at Meta could not be read'],
 };
 const ETATS_EN_SERVICE: readonly EtatAutomation[] = ['active', 'active_nouvelle_version'];
+
+/** Les avertissements de la relance avec agent IA (spec 2026-11-20, § 5.3) : rien n'est bloqué, la ligne le dit. */
+const AVERTISSEMENTS: Record<AvertissementLigneShopify, readonly [string, string]> = {
+  bouton_absent: [
+    'Le bouton « Vous avez une question ? » ne mène plus à l’agent IA : reliez-le dans le scénario.',
+    'The “Have a question?” button no longer leads to the AI agent: connect it in the scenario.',
+  ],
+  agent_inactif: [
+    'Son agent IA n’est plus actif : les questions iront à votre équipe. Choisissez un agent actif.',
+    'Its AI agent is no longer active: questions will go to your team. Choose an active agent.',
+  ],
+  modele_en_attente: [
+    'Son message attend la validation de Meta : aucun panier n’est relancé d’ici là.',
+    'Its message is awaiting Meta’s approval: no checkout is reminded until then.',
+  ],
+  modele_refuse: [
+    'Meta a refusé son message : aucun panier n’est relancé. Changez-le dans le scénario, ou rallumez la relance normale.',
+    'Meta refused its message: no checkout is reminded. Change it in the scenario, or turn the regular reminder back on.',
+  ],
+};
+
+/**
+ * LE CHOIX DE L'AGENT DE LA RELANCE AVEC AGENT IA (Julien, 2026-11-20) : demandé à l'allumage, parmi les agents ACTIFS, et
+ * modifiable une fois allumée. Sans agent actif, l'écran dit d'en créer un.
+ */
+function ChoixDeLAgent({ agents, actuel, libelle, disabled, onChoix, onAnnuler, testid }: {
+  agents: AgentResume[];
+  actuel: string | null;
+  libelle: string;
+  disabled: boolean;
+  onChoix: (agentId: string) => void;
+  onAnnuler?: () => void;
+  testid: string;
+}) {
+  const t = useT();
+  const [choisi, setChoisi] = useState<string>(actuel !== null && agents.some((a) => a.id === actuel) ? actuel : (agents[0]?.id ?? ''));
+  return (
+    <span className="flex flex-wrap items-center gap-2 text-ink-500" data-testid={testid}>
+      {t('Agent IA', 'AI agent')}
+      <select value={choisi} disabled={disabled} className={inputClsAuto} data-testid={`${testid}-liste`} onChange={(ev) => setChoisi(ev.target.value)}>
+        {agents.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+      </select>
+      <Bouton type="button" taille="petite" disabled={disabled || choisi === '' || choisi === actuel} data-testid={`${testid}-valider`} onClick={() => onChoix(choisi)}>
+        {libelle}
+      </Bouton>
+      {onAnnuler && (
+        <Bouton type="button" variante="secondaire" taille="petite" data-testid={`${testid}-annuler`} onClick={onAnnuler}>{t('Annuler', 'Cancel')}</Bouton>
+      )}
+    </span>
+  );
+}
 
 /**
  * La bulle du message, sous le libellé de sa ligne. En CSS seul, comme `CaptureAuSurvol` : le parent porte `group`, et
@@ -141,12 +195,21 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
   const router = useRouter();
   /** `lecture` jusqu'à la première réponse ; `panne` si elle échoue ou ne se lit pas (une API sans la route comprise). */
   const [vue, setVue] = useState<EtatShopifyVue | 'lecture' | 'panne'>('lecture');
-  const [enCours, setEnCours] = useState<EvenementShopify | null>(null);
+  const [enCours, setEnCours] = useState<AutomationShopify | null>(null);
   /** L'erreur d'un réglage, dite sur la ligne de son interrupteur (un allumage sans attestation : 409). */
-  const [erreur, setErreur] = useState<{ evenement: EvenementShopify; texte: string } | null>(null);
+  const [erreur, setErreur] = useState<{ evenement: AutomationShopify; texte: string } | null>(null);
+  /** La relance éteinte par l'allumage de l'autre (elles s'excluent), dite sur la ligne allumée. */
+  const [remplacee, setRemplacee] = useState<{ evenement: AutomationShopify; eteinte: AutomationShopify } | null>(null);
+  /** Les agents IA ACTIFS de l'espace, pour la relance avec agent ; `null` tant qu'ils ne sont pas lus. Illisibles : aucun. */
+  const [agents, setAgents] = useState<AgentResume[] | null>(null);
+  /** Le choix de l'agent ouvert par l'interrupteur de la relance avec agent, avant d'allumer. */
+  const [choixOuvert, setChoixOuvert] = useState(false);
 
   const recharger = useCallback(() => lireShopify(tenantId).then((v) => setVue(v ?? 'panne')).catch(() => setVue('panne')), [tenantId]);
   useEffect(() => { void recharger(); }, [recharger]);
+  useEffect(() => {
+    listAgents(tenantId).then((a) => setAgents(a.filter((x) => x.status === 'active'))).catch(() => setAgents([]));
+  }, [tenantId]);
 
   if (vue === 'lecture') return <Squelette forme="lignes" />;
   if (vue === 'panne') {
@@ -169,15 +232,22 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
     );
   }
 
-  const regler = async (e: EvenementShopify, corps: { actif: boolean; delaiMinutes?: number }): Promise<void> => {
+  const regler = async (e: AutomationShopify, corps: { actif: boolean; delaiMinutes?: number; agentId?: string }): Promise<void> => {
     setEnCours(e);
     setErreur(null);
+    setRemplacee(null);
     const premierAllumage = corps.actif && !vue.lignes.some((l) => l.evenement === e);
+    // Les deux relances du panier s'excluent : allumer l'une éteint l'autre (Julien, 2026-11-20), et l'écran le dit.
+    const autre = autreRelanceDuPanier(e);
+    const autreAllumee = corps.actif && autre !== null && vue.lignes.some((l) => l.evenement === autre && l.actif);
     try {
       const r = await reglerLigneShopify(tenantId, e, corps);
+      setChoixOuvert(false);
+      if (autreAllumee && autre !== null) setRemplacee({ evenement: e, eteinte: autre });
       // Le premier allumage crée le scénario et l'OUVRE dans le builder (spec § 2.1) : son premier bloc attend son message.
+      // Pas celui de la relance avec agent : son scénario naît complet (message standard, bloc de l'agent), l'écran reste.
       const workflowId = (r?.ligne as { workflowId?: unknown } | null | undefined)?.workflowId;
-      if (premierAllumage && typeof workflowId === 'string') {
+      if (premierAllumage && e !== LIGNE_PANIER_AGENT && !autreAllumee && typeof workflowId === 'string') {
         router.push(`/workflows?open=${encodeURIComponent(workflowId)}`);
         return;
       }
@@ -217,15 +287,22 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
             </p>
           )}
           <ul className="divide-y divide-ink-100 rounded-controle border border-ink-200">
-            {EVENEMENTS_SHOPIFY.map((e) => {
-              const l = vue.lignes.find((x) => x.evenement === e);
+            {AUTOMATIONS_SHOPIFY.map((e) => {
+              const l: LigneShopifyVue | undefined = vue.lignes.find((x) => x.evenement === e);
               const etat = etatDeLAutomation(l);
               const allumee = l?.actif === true;
-              const nom = t(...LIBELLES_EVENEMENTS[e]);
+              const nom = t(...LIBELLES_AUTOMATIONS[e]);
+              const avecAgent = e === LIGNE_PANIER_AGENT;
+              // Sans agent IA actif, la relance avec agent ne s'allume pas : l'interrupteur est grisé (l'éteindre reste permis).
+              const sansAgent = avecAgent && !allumee && agents !== null && agents.length === 0;
+              const basculer = (): void => {
+                if (avecAgent && !allumee) { setChoixOuvert(true); return; }
+                void regler(e, { actif: !allumee });
+              };
               return (
                 <li key={e} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm" data-testid={`automations-shopify-${e}`}>
                   <Toggle
-                    checked={allumee} onChange={() => void regler(e, { actif: !allumee })} disabled={enCours !== null}
+                    checked={allumee} onChange={basculer} disabled={enCours !== null || sansAgent || (avecAgent && !allumee && agents === null)}
                     libelle={nom} testid={`automations-shopify-interrupteur-${e}`}
                   />
                   {l === undefined ? (
@@ -248,7 +325,7 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
                       {l.apercu && <BulleDuMessage id={`automations-shopify-apercu-${e}`} apercu={l.apercu} testid={`automations-shopify-apercu-${e}`} />}
                     </span>
                   )}
-                  {e === 'checkout_abandoned' && l !== undefined && (
+                  {LIGNES_DU_PANIER.includes(e) && l !== undefined && (
                     <label className="flex items-center gap-2 text-ink-500">
                       {t('Relance', 'Reminder')}
                       <select
@@ -267,6 +344,38 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
                     >
                       {t('Ouvrir le scénario', 'Open the scenario')}
                     </Link>
+                  )}
+                  {avecAgent && sansAgent && (
+                    <p className="basis-full text-ink-500" data-testid="automations-shopify-sans-agent">
+                      {t('Elle demande un agent IA actif, celui qui répond au bouton « Vous avez une question ? ». ', 'It needs an active AI agent, the one that answers the “Have a question?” button. ')}
+                      <Link href="/agents" className="text-brand-600 hover:underline">{t('Créer un agent IA', 'Create an AI agent')}</Link>
+                    </p>
+                  )}
+                  {avecAgent && !allumee && choixOuvert && agents !== null && agents.length > 0 && (
+                    <span className="basis-full">
+                      <ChoixDeLAgent
+                        agents={agents} actuel={l?.agent?.id ?? null} libelle={t('Allumer', 'Turn on')} disabled={enCours !== null}
+                        onChoix={(agentId) => void regler(e, { actif: true, agentId })} onAnnuler={() => setChoixOuvert(false)}
+                        testid="automations-shopify-choix-agent"
+                      />
+                    </span>
+                  )}
+                  {avecAgent && allumee && agents !== null && agents.length > 0 && (
+                    <span className="basis-full">
+                      <ChoixDeLAgent
+                        agents={agents} actuel={l?.agent?.id ?? null} libelle={t('Changer d’agent', 'Change agent')} disabled={enCours !== null}
+                        onChoix={(agentId) => void regler(e, { actif: true, agentId })} testid="automations-shopify-agent"
+                      />
+                    </span>
+                  )}
+                  {avecAgent && (l?.avertissements ?? []).map((a) => (
+                    <p key={a} className="basis-full text-sm text-alerte-700" data-testid={`automations-shopify-avertissement-${a}`}>{t(...AVERTISSEMENTS[a])}</p>
+                  ))}
+                  {remplacee?.evenement === e && (
+                    <p className="basis-full text-sm text-ink-500" data-testid="automations-shopify-remplacee">
+                      {t(`« ${LIBELLES_AUTOMATIONS[remplacee.eteinte][0]} » a été éteinte : un panier ne reçoit qu’une relance.`,
+                        `“${LIBELLES_AUTOMATIONS[remplacee.eteinte][1]}” was turned off: a checkout gets only one reminder.`)}
+                    </p>
                   )}
                   {erreur?.evenement === e && (
                     <p className="basis-full text-sm text-danger" data-testid="automations-shopify-erreur">{erreur.texte}</p>

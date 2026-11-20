@@ -1,5 +1,5 @@
 import type { LigneShopifyVue } from './api-shopify';
-import { DONNEES_PAR_EVENEMENT, DONNEES_SHOPIFY, LIBELLES_DONNEES, type DonneeShopify } from './partage/shopify-messages';
+import { DONNEES_PAR_EVENEMENT, DONNEES_SHOPIFY, LIBELLES_DONNEES, type DonneeShopify, evenementDe } from './partage/shopify-messages';
 
 /**
  * LES AUTOMATIONS SHOPIFY DE LA CONSOLE, LEUR PARTIE SANS ÉCRAN (menu « Scénario », lot 5) : l'état d'une ligne tel que la
@@ -66,7 +66,8 @@ export interface DonneeEvenement {
  */
 export function donneesDuScenario(lignes: readonly LigneShopifyVue[], workflowId: string): DonneeEvenement[] {
   const ligne = lignes.find((l) => l.workflowId === workflowId);
-  const cles = ligne ? DONNEES_PAR_EVENEMENT[ligne.evenement] : DONNEES_SHOPIFY;
+  // La relance avec agent IA lit les données du panier abandonné, l’événement qui la porte.
+  const cles = ligne ? DONNEES_PAR_EVENEMENT[evenementDe(ligne.evenement)] : DONNEES_SHOPIFY;
   return cles.map((cle) => ({ cle, libelle: LIBELLES_DONNEES[cle] }));
 }
 

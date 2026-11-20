@@ -3039,8 +3039,14 @@ l'app dans SON organisation Shopify (aucune validation de Shopify n'est nécessa
 « Installer », et la boutique est branchée. Ouvert à toutes les offres, Free comprise. En Pro et Entreprise, il peut
 aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte ci-dessous).
 
-- **Trois automations** (menu « Scénario », lot 5, 2026-11-19) : « Commande payée », « Commande expédiée » (avec le
-  lien de suivi) et « Panier abandonné » (plus bas). Chacune a son scénario, dont le PREMIER message
+- **Quatre automations** (menu « Scénario », lot 5, 2026-11-19 ; la quatrième le 2026-11-20) : « Commande payée »,
+  « Commande expédiée » (avec le lien de suivi), « Panier abandonné » (plus bas) et « Panier abandonné avec agent IA ».
+  Cette dernière envoie la même relance avec une réponse rapide « Vous avez une question ? » qui mène à un bloc Agent IA,
+  l'agent étant choisi à l'allumage parmi les agents ACTIFS (sans agent actif, l'interrupteur est grisé) et modifiable
+  ensuite. Les deux relances du panier sont EXCLUSIVES : allumer l'une éteint l'autre et arrête ses parcours. Un
+  opérateur qui tient la conversation la garde ; un agent sans crédit IA ou désactivé sort par sa branche d'échec, qui
+  remonte la conversation à l'équipe. La ligne avertit, sans rien bloquer, quand le bouton ne mène plus à l'agent,
+  quand l'agent n'est plus actif, ou quand le template attend Meta ou a été refusé. Chacune a son scénario, dont le PREMIER message
   est le template que l'événement envoie, approuvé par Meta (Claude Code exige un template de service pour une commande
   et marketing pour le panier ; la console laisse le choix) ; ses variables lisent les données de la commande ou du panier (prénom, numéro, montant payé, lien de la commande,
   suivi, lien du panier). La suite, facultative, se construit dans la console (offre Pro et au-delà) : un bouton mène à un
