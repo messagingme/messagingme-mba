@@ -144,7 +144,7 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
         {t('Dans le formulaire', 'In the form')}{' · '}
         <CaptureAuSurvol
           src={`${captures}/2-formulaire.webp`} testid="shopify-capture-formulaire"
-          alt={t('Le formulaire de l’appli, ses quatre champs numérotés', 'The app form, its four numbered fields')}
+          alt={t('Le formulaire de l’appli, ses cinq repères numérotés', 'The app form, its four numbered fields')}
         />
         <span className="mt-1 block">{t('1. Nom de l’appli : écrivez « Messaging Me ».', '1. App name: type “Messaging Me”.')}</span>
         <span className="mt-1 block">{t('2. URL de l’appli : collez cette adresse.', '2. App URL: paste this address.')}</span>
@@ -157,12 +157,32 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
           )}
         </span>
         {ligneCopiable(DROITS_SHOPIFY, t('Droits de l’appli', 'App scopes'), 'shopify-copier-droits')}
-        <span className="mt-1 block text-ink-500">{t('Laissez le reste tel quel, appuyez sur Créer une appli en haut à droite, puis publiez la version.', 'Leave the rest as it is, click Create app at the top right, then Release.')}</span>
+        <span className="mt-1 block">
+          {t(
+            '5. Laissez le reste tel quel et appuyez sur Créer une appli, en haut à droite. La fenêtre « Publication de la version » s’ouvre : appuyez sur Publier.',
+            'Leave the rest as it is, click Create app at the top right, then Release.',
+          )}
+          {/* Les écrans de publication et d'installation n'existent qu'en français (Julien, 2026-11-20). */}
+          {locale !== 'en' && (
+            <>
+              {' '}
+              <CaptureAuSurvol src={`${captures}/4-publier.webp`} testid="shopify-capture-publier" alt="La fenêtre « Publication de la version », bouton Publier" />
+            </>
+          )}
+        </span>
       </li>
       <li>
         {t(
-          'Installez l’appli : menu « ⋯ » de sa ligne, installez-la, choisissez votre boutique, puis confirmez. Shopify prévient que l’appli n’a pas été vérifiée : c’est normal, c’est la vôtre.',
+          'Installez l’appli : dans Applis, menu « ⋮ » de sa ligne > Installer l’appli, choisissez votre boutique, puis Installer. « Cette appli n’a pas été examinée » est normal : c’est la vôtre.',
           'Install the app: its row’s “⋯” menu > Install app, pick your store, then Install. “This app hasn’t been reviewed” is expected: it is your own app.',
+        )}
+        {locale !== 'en' && (
+          <>
+            {' '}
+            <CaptureAuSurvol src={`${captures}/5-installer.webp`} testid="shopify-capture-installer" alt="Le menu « ⋮ » de la ligne de l’appli, Installer l’appli" />
+            {' · '}
+            <CaptureAuSurvol src={`${captures}/6-installer-confirmer.webp`} testid="shopify-capture-installer-confirmer" alt="L’écran « Installer l’application », l’avertissement et le bouton Installer" />
+          </>
         )}
       </li>
       <li>

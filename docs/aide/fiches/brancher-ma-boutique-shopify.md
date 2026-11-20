@@ -30,8 +30,9 @@ votre boutique, créez l'appli à la main (Applis > Créer une appli > Créer l'
 copier d'un clic. Comptez cinq minutes.
 
 Décochez « Intégrer l'appli dans l'interface administrateur Shopify », laissez le reste tel quel, puis Créer une appli
-et publiez la version. Installez-la ensuite sur votre boutique : Shopify prévient que l'appli n'a pas été vérifiée,
-c'est normal, c'est la vôtre. Ouvrez enfin l'appli dans Applis : son ID client et son secret client sont dans le cadre
+et, dans la fenêtre « Publication de la version », Publier. Installez-la ensuite sur votre boutique : dans Applis,
+menu « ⋮ » de sa ligne > Installer l'appli, puis Installer. « Cette appli n'a pas été examinée » est normal, c'est
+la vôtre. Ouvrez enfin l'appli dans Applis : son ID client et son secret client sont dans le cadre
 Identifiants, à droite.
 
 **3. Brancher la boutique.** Revenez dans la carte, collez le nom interne de la boutique (celui en .myshopify.com, pas l'adresse publique de

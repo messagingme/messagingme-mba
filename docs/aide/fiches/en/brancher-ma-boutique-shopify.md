@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: de6028
+traduit_de: f08872
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
