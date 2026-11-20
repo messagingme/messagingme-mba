@@ -5,6 +5,18 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 : Shopify, le mode opératoire de la console en français, et la bulle du champ Boutique
+
+Demande de Julien, captures à l'appui. En français, les gestes nomment les libellés que Shopify affiche en français
+(Applis > Créer une appli > Créer l'appli manuellement, Portées, Identifiants, « Publication de la version » puis
+Publier, menu « ⋮ » > Installer l'appli, « Cette appli n'a pas été examinée ») ; six captures françaises dans
+`web/public/aide/shopify/fr/` (ID client, nom de Julien et nom de boutique masqués), trois d'entre elles sans jumelle
+anglaise et donc affichées en français seulement. Le champ Boutique porte une bulle : le nom interne en
+`.myshopify.com`, pas l'adresse publique du site, lu dans l'adresse de l'admin ou Paramètres > Domaines. Commits
+807bc3efb et 5493a687f, console seule, fiche publique rechargée par montage sur l'image en service. Un écart : le second
+push est parti pendant la CI front d'un pair. Le premier `aide:charger` a rendu « not found » sur l'image du pair : son
+déploiement n'était pas fini (l'image n'entre au registre qu'après l'approbation).
+
 ## 2026-11-20 : Shopify, le lien du panier derrière un bouton « Reprendre mon panier » (préparé)
 
 Plan `docs/superpowers/plans/2026-11-20-shopify-bouton-panier.md`. Demande de Julien : le message du panier abandonné ne

@@ -253,6 +253,10 @@ sur le premier bloc et « Modifier ce template » en 400 sont réglés, le 2026-
   `carouselOutputs(tpl)` : les sorties des cartes ne sont pas dessinées, et le commentaire « comme au choix dans le
   constructeur » est faux pour un carrousel.
 
+- **Les captures du mode opératoire Shopify (2026-11-20)** : la capture de la carte dans la fiche « Brancher ma boutique
+  Shopify » montre encore « Apps > Create app » (la refaire par `npm run aide:captures`) ; les captures de la publication
+  et de l'installation (`web/public/aide/shopify/fr/4` à `6`) n'existent qu'en français, l'anglais n'en montre aucune.
+
 La relecture indépendante des messages standard Shopify (2026-11-20, aucun rouge) laisse ces jaunes :
 
 - **Deux propositions simultanées pour le même événement** (branchement et allumage, double clic) passent toutes deux le
