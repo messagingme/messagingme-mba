@@ -173,8 +173,6 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
   automations Shopify ; `GET /settings` réveille le connecteur HubSpot à chaque page tant qu'il dort ; la capture
   `payer-ses-messages-sans-carte-chez-meta` étape 2 ne correspond plus au texte de sa fiche (écran changé avant le lot).
 - **Les films d'aide** (`site/films/aide-*.mp4`) montrent l'ancienne barre.
-- **« Modifier ce template » sur un bloc à données Shopify** reste refusé en 400 (le correctif de 6a a été retiré : il
-  faisait perdre la donnée au bloc). Le refaire en rendant au bloc ses sources `variable` à leurs positions canonisées.
 - **Relecture de 6b (aucun rouge)** :
   - les `raise notice` d'une migration ne s'affichent nulle part (`db/migrate.ts` n'écoute pas l'événement `notice` de
     `pg`) : 0304 se vérifie par sa sonde avant, et sa relecture en base après ;
@@ -198,17 +196,9 @@ les cas de la relecture de `71981d5f6` et les commentaires inexacts sont traité
 le ménage qui épargne le Builder général, la décision 35, l'entrée réelle (rouverte, redélivrance) du message confié, les
 tests X1 et `rouverte`, et les e-mails et méthodes de l'ancien assistant. Restent :
 
-La relecture indépendante de 5c (2026-11-19, AUCUN ROUGE, déployé tel quel) laisse six jaunes, les deux premiers à prendre
-en tête du prochain lot qui touche le builder :
+La relecture indépendante de 5c (2026-11-19, AUCUN ROUGE, déployé tel quel) laisse ces jaunes (la touche Retour arrière
+sur le premier bloc et « Modifier ce template » en 400 sont réglés, le 2026-11-20) :
 
-- **La touche Retour arrière sur le premier bloc détache sa suite** (`web/components/WorkflowBuilder.tsx`) : le filtre
-  ne retire que le `remove` du bloc, et React Flow 12 supprime d'abord ses flèches par `onEdgesChange`. Le bloc reste,
-  ses flèches de sortie partent, le brouillon s'enregistre ainsi. Poser `deletable: false` sur le bloc marqué dans
-  `toRF` (`web/lib/workflow-canevas.ts`), ou passer par `onBeforeDelete`.
-- **« Modifier ce template » échoue sur un bloc dont les variables sont des données Shopify** : le formulaire reçoit les
-  sources `variable` du bloc et les envoie en `paramHints`, que le serveur lit sans `accepterVariables`
-  (`src/templates/corps.ts`) : 400 « paramHints invalides ». Contournement : « Écrire un nouveau template ». Écarter les
-  sources `variable` des `paramHints` envoyés (elles restent sur le bloc).
 - **Un parcours ordinaire qui dort perd son silence quand un parcours d'événement dort aussi** : la marque
   `horsDuParcoursDEvenement` lève toute la garde « un parcours tient le fil » (`src/inbox/fil.ts`) ; en mode agent IA, le
   lancement `repondeur` clôt alors l'ordinaire. Rare. Sous la marque, lire `parcoursOrdinaireTientLeFil`.
@@ -221,14 +211,34 @@ en tête du prochain lot qui touche le builder :
   `carouselOutputs(tpl)` : les sorties des cartes ne sont pas dessinées, et le commentaire « comme au choix dans le
   constructeur » est faux pour un carrousel.
 
-Et ce que 5c reporte :
+La relecture indépendante des messages standard Shopify (2026-11-20, aucun rouge) laisse ces jaunes :
 
-- **Le premier bloc n'est pas pré-rempli d'un texte proposé** (spec § 2.1) : le formulaire « Écrire un nouveau template »
-  part vide sur le bloc verrouillé ; le marchand écrit son texte, puis relie chaque variable aux données Shopify dans le
-  panneau du bloc. Le pré-remplir passe par `TemplateForm`, dont les sources de variables deviennent des indices du
-  template : les données Shopify doivent rester sur le BLOC (contrainte du plan), et la validation des indices refuse la
-  source `variable` (`src/crm/template.ts`, `accepterVariables`). Une prop `proposition` (corps à `{{1}}`, exemples
-  `EXEMPLES_DONNEES`, catégorie, pied STOP) dont les sources partent sur le bloc et jamais dans les indices.
+- **Deux propositions simultanées pour le même événement** (branchement et allumage, double clic) passent toutes deux le
+  contrôle « déjà là » : deux templates chez Meta, le second programmé, le premier orphelin. Un verrou consultatif par
+  (espace, événement) autour de `proposerMessageStandard`.
+- **La proposition remplace une programmation du marchand dont le premier bloc est vide** (`programmer`), ou l'annule
+  quand Meta approuve d'emblée (`publish`) : sa suite reste au brouillon, sans mise en ligne automatique.
+- **Le template standard reste orphelin** quand `set_shopify_message` en pose un autre pendant la validation : le ménage
+  ne compare que les versions publiées.
+- **L'e-mail « en ligne »** : il revient si le marchand clique « Publier » (programmation à son nom) pour une ligne
+  éteinte ; il manque quand la proposition est faite à l'allumage (ligne allumée, programmation sans auteur). Un texte
+  « message approuvé, à allumer » plutôt que le silence (spec § 5).
+- **Un template standard refusé par Meta** laisse son nom au brouillon : une nouvelle proposition rend « déjà là », et la
+  console dit « éteinte » sans dire le refus (une ligne éteinte au template REJECTED ou en pause non plus).
+- **Allumer rejoue la proposition** : quand Meta refuse la création, chaque allumage rappelle Meta, hors du plafond des
+  opérations coûteuses (route PUT en `opts`).
+- **La catégorie d'un template standard n'est pas revérifiée** à la mise en ligne programmée (un reclassement UTILITY vers
+  MARKETING par Meta passerait).
+- **L'aperçu** lit la liste de Meta en cache une minute (vide juste après la création) et dit « en validation » dès
+  qu'une version est programmée, même si son premier template est déjà approuvé.
+- **Les captures de la fiche `brancher-ma-boutique-shopify`** (étapes 4 et 5) montrent l'ancien écran : `npm run
+  aide:captures` (port libre), puis `aide:charger`.
+- **`tests/plugin.test.ts` ne connaît pas les clés que rend `get_shopify_state`** (`message_under_review`...) : la skill
+  les évite ; dériver les clés de `versAutomation`.
+
+Et ce que 5c reporte (le texte proposé du premier bloc est réglé autrement le 2026-11-20 : le message standard est créé
+et soumis au branchement, `proposerMessageStandard`) :
+
 - **Le lien de test d'un scénario Shopify n'a pas de données d'exemple** : le premier bloc lit ses variables dans
   l'événement, absent d'un lancement `lien_de_test`, donc l'envoi échoue sur une donnée manquante. Démarrer ce lancement
   avec un événement d'exemple (`EXEMPLES_DONNEES` de l'événement de la ligne) quand le scénario est au rayon `shopify`.
@@ -243,8 +253,7 @@ Et ce que 5c reporte :
   second (utility) est livré, la relance automatique du lendemain fait renaître le parcours et le second repart. Course
   voisine : un panier relancé juste avant la commande peut voir son parcours naître après l'arrêt (la naissance ne relit
   pas `panierOuvert`) et tenir la place unique de « Commande payée ».
-- **Petits écarts** : `noterRaison` sans `tenant_id` (identifiant interne) ; `PUT .../lignes/:evenement` allume une ligne
-  sur un numéro relié par QR code (chaque événement finit `filiere_differente`) ; `assurerLigne` non atomique (un scénario
+- **Petits écarts** : `noterRaison` sans `tenant_id` (identifiant interne) ; `assurerLigne` non atomique (un scénario
   orphelin possible) ; le filtre de longueur de `variablesDuDestinataire` est mort (`valeurDeVariable` coupe déjà à
   1 024) ; un bloc agent IA d'un scénario de ligne compte en `agent` ; un récupéré daté du bloc de suite peut faire plus de
   récupérés que de relances à la lisière d'une période ; `premier_message_absent` n'est pas décrit par

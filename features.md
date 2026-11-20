@@ -3030,7 +3030,7 @@ l'app dans SON organisation Shopify (aucune validation de Shopify n'est nécessa
 aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte ci-dessous).
 
 - **Trois automations** (menu « Scénario », lot 5, 2026-11-19) : « Commande payée », « Commande expédiée » (avec le
-  transporteur et le lien de suivi) et « Panier abandonné » (plus bas). Chacune a son scénario, dont le PREMIER message
+  lien de suivi) et « Panier abandonné » (plus bas). Chacune a son scénario, dont le PREMIER message
   est le template que l'événement envoie, approuvé par Meta (Claude Code exige un template de service pour une commande
   et marketing pour le panier ; la console laisse le choix) ; ses variables lisent les données de la commande ou du panier (prénom, numéro, montant payé, lien de la commande,
   suivi, lien du panier). La suite, facultative, se construit dans la console (offre Pro et au-delà) : un bouton mène à un
@@ -3039,6 +3039,18 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   client doit être un template, et le builder le signale. En Free, sans console, le scénario n'a qu'un bloc, réglé par Claude Code
   (`set_shopify_message`), qui ne change jamais que ce premier message et dit quand une suite existe, à modifier dans
   la console. Une seconde commande ne coupe pas le parcours de la première.
+- **Les messages standard** (décision de Julien du 2026-11-20) : au branchement de la boutique, depuis la console comme
+  depuis Claude Code (`connect_shopify`), les trois premiers messages sont créés et soumis à Meta, données Shopify déjà
+  reliées (textes : `TEXTES_PROPOSES`, `web/lib/partage/shopify-messages.ts`) : commande payée et commande expédiée en
+  Utility, panier abandonné en Marketing avec le pied « Répondez STOP pour ne plus recevoir ces messages ». Chacun
+  s'ouvre sur le prénom ; celui de l'expédition donne le lien de suivi, sans le transporteur. Les automations restent
+  **éteintes** : rien ne part chez les clients sans que le marchand les allume. Allumée pendant la validation, une
+  automation envoie pour les événements arrivés après l'approbation ; l'approbation n'envoie aucun e-mail « votre
+  scénario est en ligne ». Une boutique branchée avant le 2026-11-20 ne reçoit rien d'office : un cas encore sans
+  message reçoit le sien à son premier allumage. Rien n'est créé sans compte WhatsApp Business relié, ni sur un numéro
+  relié par QR code (où une automation ne s'allume pas, depuis la console comme depuis Claude Code) ; un refus de Meta
+  laisse le cas à compléter. Claude Code montre ces messages (`get_shopify_state`, champ `message`) et allume une
+  automation approuvée par `set_shopify_message`.
 - **Les règles des envois s'appliquent** : STOP, modèles du mois, limite de contacts de l'offre (la fiche d'un nouveau
   client compte). Chaque premier message fait une ligne dans Campagnes (« Shopify · commande payée · #1002 ») ; un client
   écarté (STOP, limite) n'en fait aucune. Le premier message part même quand l'agent ou un opérateur tient la
@@ -3067,11 +3079,16 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
 - **Scénario > Automation > Shopify** (offre Pro et au-delà, 2026-11-19 ; sa page, `/automations/shopify`, depuis le lot 7
   du menu « Scénario ») : l'entrée n'apparaît dans la barre qu'avec une boutique branchée ; ouverte sans boutique, la
   page dit de la brancher dans Tools > Intégrations. Une ligne par automation, son
-  interrupteur, son état (pas encore créée, éteinte, à compléter, en validation chez Meta, refusée ou bloquée par Meta,
-  active, active avec une nouvelle version en validation), le délai du panier et « Ouvrir le scénario ». Le premier
-  allumage crée le scénario et l'ouvre dans le builder ; éteindre arrête ses parcours en cours. Le premier bloc, marqué
-  « premier message », ne se supprime pas et rien ne mène à lui ; son template se choisit ou s'écrit sur place
-  (« Écrire un nouveau template »), et chaque variable se relie à une donnée Shopify dans le panneau du bloc. Un nouveau
+  interrupteur, son état (pas encore créée, éteinte, éteinte avec son message en validation chez Meta, prête à
+  allumer, à compléter, en validation chez Meta, refusée ou bloquée par Meta, active, active avec une nouvelle version
+  en validation), le délai du panier et « Ouvrir le scénario ». Au survol ou au focus d'une ligne, une bulle WhatsApp
+  montre son message, les données remplacées par des exemples (Camille, #1002…) ; un clic sur la ligne ouvre son
+  scénario, dont l'éditeur ramène ici (« ← Retour aux automations Shopify » ; « … HubSpot » pour un scénario
+  HubSpot). Une automation qui n'a pas encore de ligne la reçoit à son premier allumage, qui ouvre son scénario dans le
+  builder ; éteindre arrête ses parcours en cours. Le premier bloc, marqué « premier message », ne se supprime pas et
+  rien ne mène à lui ; il porte le message standard, que « Modifier ce template » retouche en gardant ses données
+  Shopify, ou un autre template choisi ou écrit sur place (« Écrire un nouveau template »), et chaque variable se relie
+  à une donnée Shopify dans le panneau du bloc. Un nouveau
   template publié prend la place de l'ancien à l'approbation de Meta, et l'ancien part jusque-là. Le template remplacé,
   s'il a été écrit depuis un bloc d'une automation, est supprimé chez Meta un quart d'heure après (plus tard si une
   campagne active s'en sert) ; jamais un template né au Builder général, qui peut servir ailleurs.
@@ -3091,8 +3108,9 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   consentement (2026-10-26). Les paniers en attente ne se gardent qu'une semaine, et seulement quand l'automation du
   panier est allumée.
 - **Le prénom absent** (2026-10-23) : il est facultatif au paiement de Shopify. Un message qui le demande sans l'avoir
-  part quand même, le prénom remplacé par « à vous » (« there » en anglais) : « Bonjour à vous ». Un message de panier
-  s'écrit donc mieux sans lui (« Bonjour, vous avez laissé des articles… »).
+  part quand même, le prénom remplacé par « à vous » (« there » en anglais) : « Bonjour à vous ». C'est ce que reçoit
+  un panier sans prénom avec son message standard, qui le demande (Julien, 2026-11-20, à la place de la décision du
+  2026-10-23 de l'écrire sans lui).
 - **L'import des clients abonnés** (2026-10-22) : depuis Claude Code ou la carte, le marchand importe les clients de sa boutique
   abonnés au marketing (e-mail ou SMS) qui ont un téléphone. Claude compte d'abord (abonnés, déjà présents, nouveaux,
   places libres de l'offre) avant que le marchand choisisse combien en importer, les plus récents d'abord ; au-delà des places

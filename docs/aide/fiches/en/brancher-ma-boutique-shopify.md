@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: b4b046
+traduit_de: ad6a80
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -28,21 +28,31 @@ store: the message “This app hasn’t been reviewed” is expected, it is your
 its Client ID and its Client secret are in the Credentials box, on the right.
 
 **3. Connect the store.** Back in the card, paste the store name, the Client ID and the Client secret, then “Connect the
-store”. Your messages are then set in Scenario > Automation > Shopify.
+store”. Your three messages are written at once and sent to Meta for approval.
 
-**4. Switch on an automation.** Scenario > Automation > Shopify lists your three automations: Order paid, Order shipped
-and Abandoned checkout, each with its status. Switch one on: its scenario opens in the builder.
+**4. See your messages, then switch them on.** Scenario > Automation > Shopify lists your three automations: Order
+paid, Order shipped and Abandoned checkout. Hover over a line to read its message, with examples in place of the data;
+click it to open its scenario.
 
-For the checkout, also choose the delay after its last change: 15 min, 1 h (by default), 3 h or 24 h. “Open the
-scenario” takes you back to it at any time; switching an automation off stops its journeys under way.
+The first name, the order number, the links to the order, the parcel or the checkout are already linked. Meta usually
+approves within minutes: the line goes from “off, message under review at Meta” to “ready: turn it on to send it”.
+Nothing goes out to your customers until you turn its switch on; switched on during the review, it sends for the
+events that come after the approval.
 
-**5. Choose the first message, then publish.** The first block, marked “first message”, is the template the event
-sends. Choose one, or “Write a new template”, then link each of its variables to a piece of Shopify data: the first
-name, the order number, the checkout link… Finally, “Publish”.
+For the checkout, also choose the delay after its last change: 15 min, 1 h (by default), 3 h or 24 h. Switching an
+automation off stops its journeys under way.
 
-The automation switches on when Meta approves the template, usually within minutes. Changing the template does not stop
-it: the old one goes out until the new one is approved. A template written from an automation belongs to it: do not
-reuse it elsewhere, it is deleted at Meta shortly after it is replaced. The first block itself cannot be deleted.
+**Good to know.** On a number linked by QR code, no message is proposed and an automation does not switch on: WhatsApp
+does not let it write first to a customer. An automation that still has no message gets the proposed one when you
+switch it on.
+
+**5. Improve the message, if you want to.** In the scenario, the first block, marked “first message”, is the template
+the event sends. “Edit this template” reworks it and keeps its Shopify data; you can also choose another one, or “Write
+a new template” and link its variables. Finally, “Publish”.
+
+The new text goes out as soon as Meta approves it; until then, the old one carries on. A template written from an
+automation belongs to it: do not reuse it elsewhere, it is deleted at Meta shortly after it is replaced. The first
+block itself cannot be deleted. “← Back to Shopify automations” takes you back to the list.
 
 **6. Build the follow-up, if you want one.** After the first message, add blocks as in any scenario: a Wait block then a
 reminder, a template button that leads to an answer, a message that quotes a piece of the order’s data (“Shopify
@@ -77,13 +87,13 @@ follow-up of its scenario. Nothing goes out if an order came of it in the meanti
 born from the checkout stops its journey, wherever it stands. A second checkout takes the place of the first: its
 reminder stops the journey of the previous one.
 
-A customer who replies STOP gets nothing more: say it at the bottom of the reminder template (“Reply STOP to stop
-these messages”). The card counts the reminders sent, the checkouts that turned into an order in
-time, and those waiting; and, by reminder date, the checkouts recovered (reminded then paid) and their amount.
+A customer who replies STOP gets nothing more: the proposed message says so at the bottom (“Répondez STOP pour ne plus
+recevoir ces messages”, reply STOP to stop these messages), keep that sentence if you rewrite it. The card counts the
+reminders sent, the checkouts that turned into an order in time, and those waiting; and, by reminder date, the checkouts recovered (reminded then paid) and their amount.
 
 **Good to know.** The first name is optional at Shopify: many customers do not give it, especially before abandoning
 their checkout. A message that contains the first name still goes out, with “there” in its place (“Hello there”; “à
-vous” for a template in French). A checkout message is therefore better off simply starting with “Hello,”.
+vous” for a template in French).
 
 ## A phone number required at checkout
 

@@ -51,7 +51,7 @@
   {
    "@type": "VideoObject",
    "name": "Film: a Shopify store and its WhatsApp connected from Claude Code, then a checkout reminder, the AI agent’s answer and the order",
-   "description": "You ask Claude Code: it connects your WhatsApp number, creates the app in your Shopify organization, writes the messages Meta approves and has your AI agent read your website. Then your customer gets the reminder, asks their question and orders.",
+   "description": "You ask Claude Code: it connects your WhatsApp number, creates the app in your Shopify organization, submits your three ready-written messages to Meta and has your AI agent read your website. Then your customer gets the reminder, asks their question and orders.",
    "thumbnailUrl": "https://app.messagingme.fr/films/cas-shopify-en.webp",
    "contentUrl": "https://app.messagingme.fr/films/cas-shopify-en.mp4",
    "uploadDate": "2026-10-28T23:00:00+01:00",
@@ -126,7 +126,7 @@
      "name": "What happens to a customer who replies STOP?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "They no longer receive anything from your store. Claude writes it at the bottom of the reminder: “Reply STOP to stop these messages”."
+      "text": "They no longer receive anything from your store. The proposed reminder tells them so at the bottom."
      }
     }
    ]
@@ -352,7 +352,7 @@
           <div class="wa-tete" aria-hidden="true"><svg class="ic"><use href="#i-caret-left"/></svg><span class="avatar">VB</span><span class="qui"><strong>Your store</strong><small>Business account</small></span></div>
           <ol class="wa-fil" aria-hidden="true">
             <li class="jour">Today</li>
-            <li class="bulle recu"><p>Hello, you left items in your cart. It is waiting for you here: your-store.com/cart<span class="bt-pied">Reply STOP to stop these messages</span><span class="heure">18:04</span></p></li>
+            <li class="bulle recu"><p>Hello Camille, you left items in your cart. It is waiting for you here: your-store.com/cart<span class="bt-pied">Reply STOP to stop these messages</span><span class="heure">18:04</span></p></li>
             <li class="bulle envoye"><p>Is shipping free?<span class="heure">18:11 <svg class="ic" aria-hidden="true"><use href="#i-coches"/></svg></span></p></li>
             <li class="bulle recu"><p>Yes, from €50, delivered within 48 hours.<span class="heure">18:11</span></p></li>
             <li class="bulle envoye"><p>Great, I’m ordering!<span class="heure">18:12 <svg class="ic" aria-hidden="true"><use href="#i-coches"/></svg></span></p></li>
@@ -391,7 +391,7 @@
     <div class="cadre">
       <p class="f-surtitre">The film</p>
       <h2 class="f-titre">Your store and your WhatsApp, <span class="sec-accent">connected from Claude Code.</span></h2>
-      <p class="f-texte">You ask Claude Code: it connects your WhatsApp number, creates the app in your Shopify organization, writes the messages Meta approves and has your AI agent read your website. Then your customer gets the reminder, asks their question and orders.</p>
+      <p class="f-texte">You ask Claude Code: it connects your WhatsApp number, creates the app in your Shopify organization, submits your three ready-written messages to Meta and has your AI agent read your website. Then your customer gets the reminder, asks their question and orders.</p>
       <video class="f-video" src="/films/cas-shopify-en.mp4?v=1" poster="/films/cas-shopify-en.webp?v=1" data-vertical="/films/cas-shopify-en-9x16.mp4?v=1" data-affiche-verticale="/films/cas-shopify-en-9x16.webp?v=1" width="1280" height="720" controls muted playsinline preload="none" aria-label="Film: a Shopify store and its WhatsApp connected from Claude Code, then a checkout reminder, the AI agent’s answer and the order"></video>
     </div>
   </section>
@@ -402,7 +402,7 @@
       <h2 class="f-titre">Three messages, <span class="sec-accent">and your subscribed customers.</span></h2>
       <ul class="bt-cartes">
         <li><span class="bt-ic"><svg class="ic" aria-hidden="true"><use href="#i-wallet"/></svg></span><h3>The paid order</h3><p>The confirmation, with the order number, its total and its link.</p></li>
-        <li><span class="bt-ic"><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg></span><h3>The shipment</h3><p>The shipping notice, with the carrier and the tracking link.</p></li>
+        <li><span class="bt-ic"><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg></span><h3>The shipment</h3><p>The shipping notice, with the tracking link.</p></li>
         <li><span class="bt-ic"><svg class="ic" aria-hidden="true"><use href="#i-cart"/></svg></span><h3>The abandoned checkout</h3><p>A reminder, with the link that reopens the checkout.</p></li>
         <li><span class="bt-ic"><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg></span><h3>Your subscribed customers</h3><p>The import of your customers subscribed to your marketing (email or SMS) who have a phone number. Their agreement to WhatsApp is your responsibility, and a STOP is always respected.</p></li>
       </ul>
@@ -1099,7 +1099,7 @@
         <li><span class="bt-num">1</span><div><h3>Install the plugin</h3><p>The Messaging Me plugin, in Claude Code: the plugin page gives you the command.</p></div></li>
         <li><span class="bt-num">2</span><div><h3>Authorize access</h3><p>Through Google or your email address: your workspace is created when you authorize, with the Free plan.</p></div></li>
         <li><span class="bt-num">3</span><div><h3>Connect your WhatsApp number</h3><p>The path of the guide above: Claude walks you through it.</p></div></li>
-        <li><span class="bt-num">4</span><div><h3>Ask “connect my Shopify store”</h3><p>Claude creates the app in your own Shopify organization, you click “Install”, then it suggests your messages and has them approved.</p></div></li>
+        <li><span class="bt-num">4</span><div><h3>Ask “connect my Shopify store”</h3><p>Claude creates the app in your own Shopify organization, you click “Install”: your three messages are written and sent to Meta. You switch them on once approved.</p></div></li>
       </ol>
       <div class="appels">
         <a class="bouton bouton-plein" href="/en/developers/install-the-plugin/">Install the plugin</a>
@@ -1131,7 +1131,7 @@
         <details id="faq-chiffre"><summary>How do I know what WhatsApp brings me?</summary><p>By asking Claude Code, from the Free plan: the revenue from orders paid within 5 days after a WhatsApp message, source by source (checkout reminder, campaign, AI agent), with its proven part (the reminded checkout itself paid, or a visit from a WhatsApp link), and your checkouts reminded and recovered. With Pro, the console sets the cost of your messages and your ROI against it.</p></details>
         <details id="faq-repondre"><summary>Can I reply to my customers myself?</summary><p>Yes, by asking Claude: it shows you who wrote to you, you reply within 24 hours of their message, and you take over from your AI agent whenever you want. With Pro, your team also replies from the console’s Inbox.</p></details>
         <details id="faq-numero"><summary>Which WhatsApp number should I use?</summary><p>The one the guide above gives you, in a few questions. Your store’s messages go out from an API number, connected through Meta: your available number, a provided number at €3.50 a month (included in Pro), or the number of your WhatsApp Business app, which you keep. No Meta Business account? Meta’s window creates it along the way.</p></details>
-        <details id="faq-stop"><summary>What happens to a customer who replies STOP?</summary><p>They no longer receive anything from your store. Claude writes it at the bottom of the reminder: “Reply STOP to stop these messages”.</p></details>
+        <details id="faq-stop"><summary>What happens to a customer who replies STOP?</summary><p>They no longer receive anything from your store. The proposed reminder tells them so at the bottom.</p></details>
       </div>
     </div>
   </section>

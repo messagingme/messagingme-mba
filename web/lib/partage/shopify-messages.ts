@@ -54,23 +54,26 @@ export const EXEMPLES_DONNEES: Readonly<Record<DonneeShopify, string>> = {
 };
 
 /**
- * Les textes proposés par l'assistant, un par message et par langue. Ils finissent par une phrase : Meta refuse un corps
- * qui commence ou finit par une variable.
+ * LES MESSAGES STANDARD (2026-11-20) : créés et soumis à Meta au branchement de la boutique, un par événement
+ * (`src/shopify/messages-standard.ts`). Ils finissent par une phrase : Meta refuse un corps qui commence ou finit par une
+ * variable.
  */
 export const TEXTES_PROPOSES: Readonly<Record<EvenementShopify, Readonly<Record<'fr' | 'en', string>>>> = {
   order_paid: {
     fr: 'Bonjour {{first_name}}, merci pour votre commande {{order_number}} de {{order_total}}.\nSuivez-la ici : {{order_status_url}}\nÀ très vite !',
     en: 'Hello {{first_name}}, thank you for your order {{order_number}} of {{order_total}}.\nTrack it here: {{order_status_url}}\nSee you soon!',
   },
+  // Sans le transporteur (Julien, 2026-11-20) : une donnée de moins qui peut manquer. Le lien de suivi reste, et une
+  // expédition sans suivi ne part pas (`donnee_manquante`).
   order_fulfilled: {
-    fr: 'Bonjour {{first_name}}, votre commande {{order_number}} est en route avec {{carrier}}.\nSuivez votre colis : {{tracking_url}}\nÀ très vite !',
-    en: 'Hello {{first_name}}, your order {{order_number}} is on its way with {{carrier}}.\nTrack your parcel: {{tracking_url}}\nSee you soon!',
+    fr: 'Bonjour {{first_name}}, votre commande {{order_number}} est en route.\nSuivez votre colis : {{tracking_url}}\nÀ très vite !',
+    en: 'Hello {{first_name}}, your order {{order_number}} is on its way.\nTrack your parcel: {{tracking_url}}\nSee you soon!',
   },
-  // Sans prénom (décision de Julien, 2026-10-23) : il est FACULTATIF au paiement de Shopify, et un panier abandonné ne
-  // l'a souvent pas encore. Un marchand qui l'ajoute reçoit le mot de secours (`PRENOM_DE_SECOURS`) quand il manque.
+  // Avec le prénom (Julien, 2026-11-20, qui revient sur sa décision du 2026-10-23) : il est FACULTATIF au paiement de
+  // Shopify, et un panier qui ne l'a pas reçoit le mot de secours (`PRENOM_DE_SECOURS`) : « Bonjour à vous ».
   checkout_abandoned: {
-    fr: 'Bonjour, vous avez laissé des articles dans votre panier.\nIl vous attend ici : {{checkout_url}}\nÀ très vite !',
-    en: 'Hello, you left items in your cart.\nIt is waiting for you here: {{checkout_url}}\nSee you soon!',
+    fr: 'Bonjour {{first_name}}, vous avez laissé des articles dans votre panier.\nIl vous attend ici : {{checkout_url}}\nÀ très vite !',
+    en: 'Hello {{first_name}}, you left items in your cart.\nIt is waiting for you here: {{checkout_url}}\nSee you soon!',
   },
 };
 

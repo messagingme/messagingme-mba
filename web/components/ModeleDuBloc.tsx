@@ -21,16 +21,19 @@ export function ModeleDuBloc({ tenantId, workflowId, nodeId, initial, sourcesDuB
   sourcesDuBloc?: TemplateParamHint[];
   /** Vide l'enregistrement automatique ; false : le bloc n'est pas encore enregistré, rien n'est envoyé à Meta. */
   enregistrerMaintenant: () => Promise<boolean>;
-  /** Le template créé : l'hôte le pose dans le bloc et réaligne ses flèches. */
-  onCree: (cree: ModeleCreeDepuisUnBloc) => void;
+  /**
+   * Le template créé : l'hôte le pose dans le bloc et réaligne ses flèches. `variablesDuBloc` : les données de l'événement
+   * (sources `variable`) que le template ne peut pas porter, à garder sur le bloc.
+   */
+  onCree: (cree: ModeleCreeDepuisUnBloc, variablesDuBloc: TemplateParamHint[]) => void;
   onClose: () => void;
 }) {
   const t = useT();
-  const soumettre = async (input: Parameters<typeof creerModeleDuBloc>[3]): Promise<void> => {
+  const soumettre = async (input: Parameters<typeof creerModeleDuBloc>[3], variablesDuBloc: TemplateParamHint[]): Promise<void> => {
     if (!(await enregistrerMaintenant())) {
       throw new Error(t('Modifications pas encore enregistrées : rien n’a été envoyé à Meta. Réessayez dans un instant.', 'Changes not saved yet: nothing was sent to Meta. Try again in a moment.'));
     }
-    onCree(await creerModeleDuBloc(tenantId, workflowId, nodeId, input));
+    onCree(await creerModeleDuBloc(tenantId, workflowId, nodeId, input), variablesDuBloc);
   };
   return (
     <Modale

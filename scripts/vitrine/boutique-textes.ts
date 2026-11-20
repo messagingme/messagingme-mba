@@ -91,7 +91,7 @@ const fr = (): TexteBoutique => {
       aria: 'Exemple : la relance d’un panier sur WhatsApp, la question du client, la réponse de l’agent IA, puis la confirmation de la commande',
       boutique: 'Votre boutique', compte: 'Compte professionnel', jour: 'Aujourd’hui',
       bulles: [
-        { texte: 'Bonjour, vous avez laissé des articles dans votre panier. Il vous attend ici : votre-boutique.fr/panier', heure: '18:04', pied: 'Répondez STOP pour ne plus recevoir ces messages' },
+        { texte: 'Bonjour Camille, vous avez laissé des articles dans votre panier. Il vous attend ici : votre-boutique.fr/panier', heure: '18:04', pied: 'Répondez STOP pour ne plus recevoir ces messages' },
         { texte: 'La livraison est offerte ?', heure: '18:11', envoye: true },
         { texte: 'Oui, dès 50&nbsp;€ d’achat, livrée en 48&nbsp;heures.', heure: '18:11' },
         { texte: 'Parfait, je commande !', heure: '18:12', envoye: true },
@@ -118,7 +118,7 @@ const fr = (): TexteBoutique => {
     film: {
       nom: 'cas-shopify', surtitre: 'Le film',
       titre: ['Votre boutique et votre WhatsApp,', 'branchés depuis Claude Code.'],
-      texte: 'Vous le demandez à Claude Code : il relie votre numéro WhatsApp, crée l’app dans votre organisation Shopify, rédige les messages que Meta approuve et fait lire votre site à votre agent IA. Puis votre client reçoit la relance, pose sa question et commande.',
+      texte: 'Vous le demandez à Claude Code : il relie votre numéro WhatsApp, crée l’app dans votre organisation Shopify, soumet à Meta vos trois messages déjà écrits et fait lire votre site à votre agent IA. Puis votre client reçoit la relance, pose sa question et commande.',
       aria: 'Film : une boutique Shopify et son WhatsApp branchés depuis Claude Code, puis la relance d’un panier, la réponse de l’agent IA et la commande',
       duree: 'PT41S', publie: '2026-10-28T23:00:00+01:00',
     },
@@ -127,7 +127,7 @@ const fr = (): TexteBoutique => {
       titre: ['Trois messages,', 'et vos clients déjà abonnés.'],
       cartes: [
         { titre: 'La commande payée', texte: 'La confirmation, avec le numéro de la commande, son montant et son lien.', icone: 'i-wallet' },
-        { titre: 'L’expédition', texte: 'L’avis d’expédition, avec le transporteur et le lien de suivi.', icone: 'i-package' },
+        { titre: 'L’expédition', texte: 'L’avis d’expédition, avec le lien de suivi.', icone: 'i-package' },
         { titre: 'Le panier abandonné', texte: 'Une relance, avec le lien qui rouvre le panier.', icone: 'i-cart' },
         { titre: 'Vos clients abonnés', texte: 'L’import de vos clients abonnés à votre marketing (e-mail ou SMS) qui ont un téléphone. Leur accord pour WhatsApp relève de vous, et un STOP est toujours respecté.', icone: 'i-user' },
       ],
@@ -195,7 +195,7 @@ const fr = (): TexteBoutique => {
         { titre: 'Installez le plugin', texte: 'Le plugin Messaging Me, dans Claude Code : la page du plugin vous donne la commande.' },
         { titre: 'Autorisez l’accès', texte: 'Par Google ou par votre adresse e-mail : votre espace se crée à l’autorisation, avec l’offre Free.' },
         { titre: 'Reliez votre numéro WhatsApp', texte: 'Le chemin du guide ci-dessus : Claude vous accompagne.' },
-        { titre: 'Demandez « branche ma boutique Shopify »', texte: 'Claude crée l’app dans votre propre organisation Shopify, vous cliquez « Installer », puis il vous propose vos messages et les fait approuver.' },
+        { titre: 'Demandez « branche ma boutique Shopify »', texte: 'Claude crée l’app dans votre propre organisation Shopify, vous cliquez « Installer » : vos trois messages sont écrits et partent chez Meta. Vous les allumez une fois approuvés.' },
       ],
       bouton: 'Installer le plugin',
       aide: 'Sans Claude Code : le pas à pas de la console',
@@ -236,7 +236,7 @@ const fr = (): TexteBoutique => {
         { id: 'faq-chiffre', q: 'Comment savoir ce que WhatsApp me rapporte ?', r: 'En le demandant à Claude Code, dès l’offre Free : le chiffre d’affaires des commandes payées dans les 5&nbsp;jours après un message WhatsApp, source par source (relance de panier, campagne, agent IA), dont la part prouvée (le panier relancé lui-même payé, ou une visite venue d’un lien WhatsApp), et vos paniers relancés et récupérés. En formule Pro, la console met en face le coût de vos messages et votre ROI.' },
         { id: 'faq-repondre', q: 'Puis-je répondre moi-même à mes clients ?', r: 'Oui, en le demandant à Claude : il vous montre qui vous a écrit, vous répondez dans les 24&nbsp;heures qui suivent leur message, et vous reprenez la main sur votre agent IA quand vous le voulez. En formule Pro, votre équipe répond aussi depuis l’Inbox de la console.' },
         { id: 'faq-numero', q: 'Quel numéro WhatsApp utiliser ?', r: `Celui que le guide ci-dessus vous donne, en quelques questions. Les messages de votre boutique partent d’un numéro API, relié par Meta : votre numéro libre, un numéro fourni à ${numero} par mois (inclus en formule Pro), ou le numéro de votre application WhatsApp Business, que vous gardez. Pas de compte Meta Business ? La fenêtre de Meta le crée en chemin.` },
-        { id: 'faq-stop', q: 'Que devient le client qui répond STOP ?', r: 'Il ne reçoit plus rien de votre boutique. Claude l’écrit en bas de la relance : « Répondez STOP pour ne plus recevoir ces messages ».' },
+        { id: 'faq-stop', q: 'Que devient le client qui répond STOP ?', r: 'Il ne reçoit plus rien de votre boutique. La relance proposée le dit en bas : « Répondez STOP pour ne plus recevoir ces messages ».' },
       ],
     },
     appel: {
@@ -264,7 +264,7 @@ const en = (): TexteBoutique => {
       aria: 'Example: a checkout reminder on WhatsApp, the customer’s question, the AI agent’s answer, then the order confirmation',
       boutique: 'Your store', compte: 'Business account', jour: 'Today',
       bulles: [
-        { texte: 'Hello, you left items in your cart. It is waiting for you here: your-store.com/cart', heure: '18:04', pied: 'Reply STOP to stop these messages' },
+        { texte: 'Hello Camille, you left items in your cart. It is waiting for you here: your-store.com/cart', heure: '18:04', pied: 'Reply STOP to stop these messages' },
         { texte: 'Is shipping free?', heure: '18:11', envoye: true },
         { texte: 'Yes, from €50, delivered within 48 hours.', heure: '18:11' },
         { texte: 'Great, I’m ordering!', heure: '18:12', envoye: true },
@@ -291,7 +291,7 @@ const en = (): TexteBoutique => {
     film: {
       nom: 'cas-shopify', surtitre: 'The film',
       titre: ['Your store and your WhatsApp,', 'connected from Claude Code.'],
-      texte: 'You ask Claude Code: it connects your WhatsApp number, creates the app in your Shopify organization, writes the messages Meta approves and has your AI agent read your website. Then your customer gets the reminder, asks their question and orders.',
+      texte: 'You ask Claude Code: it connects your WhatsApp number, creates the app in your Shopify organization, submits your three ready-written messages to Meta and has your AI agent read your website. Then your customer gets the reminder, asks their question and orders.',
       aria: 'Film: a Shopify store and its WhatsApp connected from Claude Code, then a checkout reminder, the AI agent’s answer and the order',
       duree: 'PT41S', publie: '2026-10-28T23:00:00+01:00',
     },
@@ -300,7 +300,7 @@ const en = (): TexteBoutique => {
       titre: ['Three messages,', 'and your subscribed customers.'],
       cartes: [
         { titre: 'The paid order', texte: 'The confirmation, with the order number, its total and its link.', icone: 'i-wallet' },
-        { titre: 'The shipment', texte: 'The shipping notice, with the carrier and the tracking link.', icone: 'i-package' },
+        { titre: 'The shipment', texte: 'The shipping notice, with the tracking link.', icone: 'i-package' },
         { titre: 'The abandoned checkout', texte: 'A reminder, with the link that reopens the checkout.', icone: 'i-cart' },
         { titre: 'Your subscribed customers', texte: 'The import of your customers subscribed to your marketing (email or SMS) who have a phone number. Their agreement to WhatsApp is your responsibility, and a STOP is always respected.', icone: 'i-user' },
       ],
@@ -368,7 +368,7 @@ const en = (): TexteBoutique => {
         { titre: 'Install the plugin', texte: 'The Messaging Me plugin, in Claude Code: the plugin page gives you the command.' },
         { titre: 'Authorize access', texte: 'Through Google or your email address: your workspace is created when you authorize, with the Free plan.' },
         { titre: 'Connect your WhatsApp number', texte: 'The path of the guide above: Claude walks you through it.' },
-        { titre: 'Ask “connect my Shopify store”', texte: 'Claude creates the app in your own Shopify organization, you click “Install”, then it suggests your messages and has them approved.' },
+        { titre: 'Ask “connect my Shopify store”', texte: 'Claude creates the app in your own Shopify organization, you click “Install”: your three messages are written and sent to Meta. You switch them on once approved.' },
       ],
       bouton: 'Install the plugin',
       aide: 'Without Claude Code: the console step by step',
@@ -409,7 +409,7 @@ const en = (): TexteBoutique => {
         { id: 'faq-chiffre', q: 'How do I know what WhatsApp brings me?', r: 'By asking Claude Code, from the Free plan: the revenue from orders paid within 5 days after a WhatsApp message, source by source (checkout reminder, campaign, AI agent), with its proven part (the reminded checkout itself paid, or a visit from a WhatsApp link), and your checkouts reminded and recovered. With Pro, the console sets the cost of your messages and your ROI against it.' },
         { id: 'faq-repondre', q: 'Can I reply to my customers myself?', r: 'Yes, by asking Claude: it shows you who wrote to you, you reply within 24 hours of their message, and you take over from your AI agent whenever you want. With Pro, your team also replies from the console’s Inbox.' },
         { id: 'faq-numero', q: 'Which WhatsApp number should I use?', r: `The one the guide above gives you, in a few questions. Your store’s messages go out from an API number, connected through Meta: your available number, a provided number at ${numero} a month (included in Pro), or the number of your WhatsApp Business app, which you keep. No Meta Business account? Meta’s window creates it along the way.` },
-        { id: 'faq-stop', q: 'What happens to a customer who replies STOP?', r: 'They no longer receive anything from your store. Claude writes it at the bottom of the reminder: “Reply STOP to stop these messages”.' },
+        { id: 'faq-stop', q: 'What happens to a customer who replies STOP?', r: 'They no longer receive anything from your store. The proposed reminder tells them so at the bottom.' },
       ],
     },
     appel: {

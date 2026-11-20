@@ -2223,7 +2223,9 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   conditionnée à `programmed_at`. Toute publication explicite (`publish`, `remplacerPublieParApi`) remet les trois
   colonnes à null : elle l'emporte. Un template refusé, ou un contrôle de publication qui ne passe plus (un « Aller à »
   sans cible), annule la programmation à sa date. Les e-mails `scenario_programme_en_ligne` et
-  `scenario_programme_refuse` vont aux administrateurs, une fois par programmation (`occasion` = scénario et date).
+  `scenario_programme_refuse` vont aux administrateurs, une fois par programmation (`occasion` = scénario et date),
+  sauf l'e-mail « en ligne » d'une programmation SANS auteur au rayon `shopify` : c'est le message standard d'une
+  boutique (`tenterMiseEnLigne`), dont la ligne est éteinte ; le refus garde son e-mail.
 - `modeles_de_bloc` (migration 0296) : un template écrit depuis un bloc du constructeur (`src/workflow/modeles-de-bloc.ts`),
   clé (espace, nom, langue), et son état tranché par Meta (`en_validation`, `approuve`, `refuse`, raison bornée à 300).
   La ligne est la marque « créé par le builder » : le nom naît côté serveur (`nomDuModeleDeBloc`, nom du scénario puis
@@ -2243,12 +2245,18 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   `premier_bloc_verrouille` ; un « Aller à » d'un autre scénario vers un premier bloc est refusé à la publication
   (`viseUnPremierBloc`). `GET /nodes?scenario=<id>` liste les blocs du rayon du scénario édité, et le panneau « Aller à »
   la demande. Le builder respecte la marque (`web/lib/partage/premier-bloc.ts`, partagée avec le serveur) : ni ✕ ni
-  poignée d'entrée sur le bloc, ni « Supprimer » au panneau, ni suppression du bloc au clavier (la touche Retour arrière
-  retire encore ses flèches : `todo.md`), aucune connexion qui y entre, et
+  poignée d'entrée sur le bloc, ni « Supprimer » au panneau, ni suppression du bloc au clavier (`deletable: false`, posé par
+  `toRF`, `web/lib/workflow-canevas.ts` : sans lui, la touche Retour arrière retirait ses flèches), aucune connexion qui
+  y entre, et
   « Aller à » ne le propose pas. Il s'ouvre par `?open=<id>` quel que soit le rayon (une automation n'est pas dans la liste
   du Builder). Dans un scénario `shopify`, les variables d'un template proposent les données de l'événement de sa ligne
   (toutes pour une copie : `donneesDuScenario`), en source `variable` (`var:<clé>`) rangée sur le bloc, et un texte
-  WhatsApp insère `{{shopify.<clé>}}` ; une donnée déjà choisie reste affichée, jamais remplacée par « Nom ». Le scénario d'une ligne
+  WhatsApp insère `{{shopify.<clé>}}` ; une donnée déjà choisie reste affichée, jamais remplacée par « Nom ». 🔴 Une
+  source `variable` n'entre JAMAIS dans les `paramHints` d'un template (le serveur les refuse, 400) : « Modifier ce
+  template » les écarte de ce qu'il envoie et les rend au bloc (`variablesDuBloc`, `TemplateForm` puis
+  `surModeleCree`), sans quoi le message partirait sans ses données. L'éditeur d'un scénario au rayon `shopify` ou
+  `hubspot` revient à sa page d'automations (`/automations/shopify`, `/automations/hubspot`), le rayon lu sur le
+  scénario et non dans l'adresse. Le scénario d'une ligne
   ne se supprime pas : ses utilisations nomment l'automation (`UTILISATIONS`), la clé étrangère de `shopify_lignes` étant
   en cascade.
 - 🔴 **LE MÉNAGE DES TEMPLATES REMPLACÉS DANS UNE AUTOMATION** (spec § 5.1, lot 5). À chaque mise en ligne d'un scénario
@@ -2868,8 +2876,10 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   `premier_message_absent`. Avec une suite et la fonction `scenarios` de l'offre, l'envoi porte le pont
   (`parcours_evenement`) : le parcours d'événement naît sur ce premier message. La ligne naît ÉTEINTE avec un scénario
   d'un seul bloc verrouillé, publié, sans template chez Meta (`assurerLigne`, `src/shopify/lignes-gestion.ts`), au
-  premier allumage dans la console (`PUT .../integrations/shopify/lignes/:evenement`) ou au premier
-  `set_shopify_message`. Éteindre une ligne arrête ses parcours par son préfixe d'origine ; la pause de la boutique
+  branchement de la boutique (le message standard, ci-dessous), au premier allumage dans la console (`PUT
+  .../integrations/shopify/lignes/:evenement`) ou au premier `set_shopify_message`. Allumer une ligne sur un numéro
+  relié par QR code (filière `application`) est refusé en 409 (`PHRASE_SHOPIFY_QR_CODE`), comme par
+  `set_shopify_message` ; l'éteindre reste permis. Éteindre une ligne arrête ses parcours par son préfixe d'origine ; la pause de la boutique
   (`PATCH .../integrations/shopify { pause }`, `pause_le`) arrête ceux de la boutique, comme la coupure, et la reprise
   ne relance que les paniers modifiés après elle (`paniers_depuis`, posé aussi au rallumage de la ligne du panier).
   Ces gestes se journalisent (`shopify.pause`, `shopify.reprise`, `shopify.ligne`) ;
@@ -2882,14 +2892,38 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   lignes se lit sans l'état de chaque template (`etatChezMeta` nul), et brancher un premier bloc est refusé en 503 avant
   toute écriture. L'outil rend les automations et dit les étapes qu'il ne
   change pas (elles se changent dans la console) ; sans la fonction `scenarios` (Free), seule la première part ;
+- 🔴 **LE MESSAGE STANDARD D'UNE LIGNE** (spec `docs/superpowers/specs/2026-11-20-shopify-messages-standard-design.md`,
+  `proposerMessageStandard`, `src/shopify/lignes-gestion.ts`) : `connecterShopify` le propose pour les trois événements
+  (`proposerLesMessagesStandard`, les deux portes de branchement), et l'allumage d'une ligne dont aucune version ne
+  nomme de template le propose aussi. Le corps vient de `TEXTES_PROPOSES` (`web/lib/partage/shopify-messages.ts`, source
+  unique console et serveur) par `corpsStandard` (`src/shopify/messages-standard.ts`) : repères nommés en `{{n}}`, les
+  données en sources `variable` du bloc (jamais dans les indices du template), Utility pour les commandes, Marketing et
+  `PIED_STOP` pour le panier, en français. Le template naît par la porte du builder (`creerModeleDuBloc` : nom généré
+  côté serveur, ligne `modeles_de_bloc`, donc ménagé le jour où le marchand le remplace). 🔴 En validation, il va dans
+  une VERSION PROGRAMMÉE sans auteur (`programmer(…, null, …)`), JAMAIS dans le publié : une ligne allumée pendant
+  l'attente n'envoie rien (`premier_message_absent`) au lieu de consommer chaque événement en `modele_refuse`, et la
+  mise en ligne à l'approbation passe par le chemin commun ; approuvé d'emblée, il est publié. Le brouillon reçoit le
+  même bloc. Jamais par-dessus le message du marchand (un template dans le publié, le programmé ou le brouillon arrête
+  tout), jamais sur la filière `application`, et jamais levé : sans compte WhatsApp Business ou sur refus de Meta, la
+  raison se journalise (`shopify_message_standard_non_cree`) et le branchement comme l'allumage passent. La ligne n'est
+  jamais allumée par lui ;
+- **l'état d'une ligne porte son aperçu** (`EtatLigne.apercu`, `etatDesLignes`) : le corps et le pied du template de la
+  version programmée s'il y en a une, sinon du publié, les exemples rangés par position (`EXEMPLES_DONNEES` pour une
+  source `variable`, `{{n}}` sinon) et `enValidation`. La console le lit défensivement (`lireApercu`,
+  `web/lib/api-shopify.ts`, publiée avant l'API) pour la bulle au survol de chaque ligne, et `etatDeLAutomation`
+  (`web/lib/shopify-lignes.ts`) en tire deux états d'une ligne éteinte : `prete` (template publié approuvé) et
+  `eteinte_en_validation` ; allumée sans template publié mais avec une version programmée, elle est `en_validation`.
+  `get_shopify_state` rend `message` (le corps) et `message_under_review`, et sa note dit qu'à l'approbation,
+  `set_shopify_message` avec ce template et `active` true allume l'automation ;
 - **la bascule (migration 0302)** : les anciens messages (`shopify_messages`) sont éteints et les attentes de l'ancien
   assistant (`shopify_messages_attente`) vidées ; les deux tables ne se lisent plus que par `get_shopify_state` (pour
   les plugins d'avant) et par le ménage des modèles de l'assistant. L'assistant est retiré : `POST
   .../integrations/shopify/messages` répond 410 avec la phrase qui dit où les messages se règlent, et `PATCH
   .../messages/:evenement` règle encore le délai de la relance, pour l'écran d'avant. Ses e-mails et les méthodes du
   magasin qui n'écrivaient que pour lui sont retirés. La console règle les automations sur leur page, Scénario >
-  Automation > Shopify (`/automations/shopify`, `AutomationsShopify` : interrupteur, état, délai du panier, scénario ; le
-  premier allumage ouvre le builder ; sans boutique, la page le dit et mène à la carte) et la pause dans Tools >
+  Automation > Shopify (`/automations/shopify`, `AutomationsShopify` : interrupteur, état, délai du panier, scénario ;
+  la bulle du message au survol et au focus, la ligne cliquable vers son scénario ; le premier allumage d'un événement
+  sans ligne ouvre le builder ; sans boutique, la page le dit et mène à la carte) et la pause dans Tools >
   Intégrations (`ReglageShopify`). L'entrée de la barre suit la boutique (`navSansShopify`, `web/lib/nav.ts`), lue par
   `AppShell` sur la Console comme sur le Performance Lab, une fois par espace et par chargement ; sur sa propre page, elle
   reste ;

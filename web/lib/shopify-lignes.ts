@@ -10,6 +10,8 @@ import { DONNEES_PAR_EVENEMENT, DONNEES_SHOPIFY, LIBELLES_DONNEES, type DonneeSh
 export type EtatAutomation =
   | 'a_creer'
   | 'eteinte'
+  | 'prete'
+  | 'eteinte_en_validation'
   | 'a_completer'
   | 'en_validation'
   | 'refuse'
@@ -21,9 +23,21 @@ export type EtatAutomation =
  * L'état d'une automation : sans ligne, à créer ; éteinte ; allumée sans premier template, à compléter dans son
  * scénario ; puis l'état de ce template chez Meta. Une liste de Meta illisible (`etatChezMeta` nul, un template nommé)
  * se dit « non lu », jamais « refusé » : la panne est celle de la lecture, pas du template.
+ *
+ * Le message standard posé au branchement (spec 2026-11-20) attend Meta dans une version PROGRAMMÉE, la publiée restant
+ * sans template : éteinte, la ligne dit alors qu'il est en validation, puis qu'elle est prête dès qu'un template publié
+ * est approuvé (allumer suffit) ; allumée, elle est en validation plutôt qu'« à compléter ». Propre à Shopify : une ligne
+ * HubSpot éteinte se dit toujours « éteinte » (`etatDeLaLigne`, `hubspot-lignes.ts`).
  */
 export function etatDeLAutomation(l: LigneShopifyVue | undefined): EtatAutomation {
-  return l === undefined ? 'a_creer' : etatDUneLigne(l);
+  if (l === undefined) return 'a_creer';
+  if (!l.actif) {
+    if (l.modele !== null && l.etatChezMeta === 'APPROVED') return 'prete';
+    if (l.versionProgrammee || l.etatChezMeta === 'PENDING' || l.etatChezMeta === 'IN_APPEAL') return 'eteinte_en_validation';
+    return 'eteinte';
+  }
+  if (l.modele === null && l.versionProgrammee) return 'en_validation';
+  return etatDUneLigne(l);
 }
 
 /**

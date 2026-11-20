@@ -33,8 +33,8 @@ const TEMPLATE = {
   body: 'Bonjour {{1}}, votre commande {{2}} est payée. Merci !', headerFormat: null, isCarousel: false, editable: true, buttons: [],
 };
 
-async function monter(page: import('@playwright/test').Page): Promise<{ graphes: Graph[] }> {
-  const recus = { graphes: [] as Graph[] };
+async function monter(page: import('@playwright/test').Page): Promise<{ graphes: Graph[]; creations: Array<Record<string, unknown>> }> {
+  const recus = { graphes: [] as Graph[], creations: [] as Array<Record<string, unknown>> };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   const wf = { id: 'wf-s', name: 'Commande payée', rayon: 'shopify', graph: GRAPHE, draftGraph: GRAPHE, createdAt: '', updatedAt: '' };
   await page.route('**/api/backend/**', async (route) => {
@@ -45,6 +45,10 @@ async function monter(page: import('@playwright/test').Page): Promise<{ graphes:
       const corps = (req.postDataJSON() ?? {}) as { graph?: Graph };
       if (corps.graph) recus.graphes.push(corps.graph);
       return json({ ok: true, brouillon: true });
+    }
+    if (req.method() === 'POST' && /\/workflows\/wf-s\/blocs\/n1\/modele$/.test(url)) {
+      recus.creations.push((req.postDataJSON() ?? {}) as Record<string, unknown>);
+      return json({ modele: 'commande_payee_mi3k2x1a', langue: 'fr', etat: 'en_validation', categorie: 'UTILITY', boutons: [] }, 201);
     }
     if (/\/workflows\/wf-s\/modeles$/.test(url)) return json({ modeles: [], programmee: null });
     if (/\/workflows\/wf-s$/.test(url)) return json({ workflow: wf });
@@ -107,6 +111,34 @@ test.describe('Éditeur : un scénario Shopify (lot 5)', () => {
       { position: 1, source: { type: 'variable', key: 'first_name' } },
       { position: 2, source: { type: 'variable', key: 'order_total' } },
     ]);
+  });
+
+  test('🔴 « Modifier ce template » sur le premier bloc : aucune donnée Shopify dans les indices du template (400 avant le 2026-11-20), et le bloc les garde', async ({ page }) => {
+    const recus = await monter(page);
+    await bloc(page, 'n1').click();
+    await page.getByTestId('template-modifier').click();
+    const modale = page.getByTestId('modele-du-bloc');
+    await expect(modale).toBeVisible();
+    await modale.getByTestId('template-soumettre').click();
+    await expect(modale).toHaveCount(0);
+    expect(recus.creations).toHaveLength(1);
+    const indices = (recus.creations[0]!.paramHints ?? []) as Array<{ source: { type: string } }>;
+    expect(indices.filter((h) => h.source.type === 'variable')).toEqual([]);
+    await expect.poll(() => String((recus.graphes.at(-1)?.nodes.find((n) => n.id === 'n1')?.data as { templateName?: unknown } | undefined)?.templateName ?? ''), { timeout: 10_000 })
+      .toBe('commande_payee_mi3k2x1a');
+    const n1 = recus.graphes.at(-1)!.nodes.find((n) => n.id === 'n1')!;
+    expect((n1.data as { variables: unknown }).variables).toEqual([
+      { position: 1, source: { type: 'variable', key: 'first_name' } },
+      { position: 2, source: { type: 'variable', key: 'order_number' } },
+    ]);
+  });
+
+  test('🔴 le retour mène à Automation > Shopify, pas à la liste des scénarios (spec 2026-11-20 § 4.4)', async ({ page }) => {
+    await monter(page);
+    const retour = page.getByTestId('workflow-retour');
+    await expect(retour).toHaveText('← Retour aux automations Shopify');
+    await retour.click();
+    await expect(page).toHaveURL(/\/automations\/shopify$/);
   });
 
   test('un message de la suite insère une donnée de l’événement en {{shopify.<clé>}}', async ({ page }) => {

@@ -17,14 +17,16 @@ Before the first command, tell the user in a few short lines what is coming, so 
 - it takes about five minutes, and you do the technical part;
 - they make two gestures: sign in to Shopify with the account that manages their store (the one they use to open its
   admin), in a browser window that opens on its own, then click Install on a link you give;
-- then you write the WhatsApp messages with them, and Meta approves each one before it can be sent.
+- connecting the store writes its three WhatsApp messages and sends them to Meta for approval; you show them, and turn
+  each one on when they want it.
 
 Then, at each step, say where you are and what comes next (for example "Step 2 of 4: I am creating the app in your
 Shopify account"), and say plainly when you are waiting for them.
 
 ## Before anything
 
-- Call `get_shopify_state`. If a store is already connected, say which one and go straight to the messages.
+- Call `get_shopify_state`. If a store is already connected, say which one and go straight to the messages (The
+  messages, below).
 - The workspace needs its WhatsApp number connected (`get_setup_state`); without it, nothing can be sent: connect it
   first, with the questions of the setup (`connecter_numero` in the `mise-en-service` skill): every way they lead to
   is an API number. Read its track (`numero.filiere`): `api` is the official API, with templates approved by Meta, and
@@ -108,25 +110,39 @@ redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
    phone number set to Required. Without a phone, an order gets no WhatsApp confirmation and is never attributed to a
    message.
 
-## Set the order messages
+## The messages
 
-On the official API (track `api`), two events can send a message: `order_paid` (the order is paid) and `order_fulfilled` (it is shipped, with tracking).
+On the official API (track `api`), three events send a message: `order_paid` (the order is paid), `order_fulfilled`
+(it is shipped, with tracking) and `checkout_abandoned` (below).
 
-Each event has an automation: a scenario whose first step is the template the event sends. `set_shopify_message`
-creates the automation and its scenario if missing, sets that first template and keeps the steps that follow. On Pro
-and above, the user can add steps after the first message in the console (Scenario > Automation > Shopify, "Open the
-scenario"): a reminder after a wait, an answer to a button, a message quoting the order's data. You only change the
-first message: when an automation has more than one step (`get_shopify_state`), say that the others are changed in the
+Each event has an automation: a scenario whose first step is the template the event sends. Connecting the store
+already wrote a standard message for each event, in French, with its Shopify data linked, and sent it to Meta: the
+two order messages as utility templates, the checkout reminder as a marketing template. The automations stay off:
+nothing reaches a customer before the user turns one on. Nothing is written on a number linked by QR code, nor
+without a connected WhatsApp Business account; an automation that has no message yet gets the standard one when it
+is turned on in the console.
+
+On Pro and above, the user can add steps after the first message in the console (Scenario > Automation > Shopify,
+"Open the scenario"): a reminder after a wait, an answer to a button, a message quoting the order's data. The first
+message itself is reworded there too ("Edit this template", which keeps its Shopify data). You only change the first
+message: when an automation has more than one step (`get_shopify_state`), say that the others are changed in the
 console. On Free there is no console, and only the first message is sent.
 
-1. Propose a short text for each, then create it as a utility template with `create_template`. Links go in the body as
-   variables (`order_status_url`, `tracking_url`): a URL button takes no variable. The data each event can fill:
-   - `order_paid`: `first_name`, `order_number`, `order_total`, `order_status_url`;
-   - `order_fulfilled`: `first_name`, `order_number`, `carrier`, `tracking_number`, `tracking_url`.
-2. Wait for Meta to approve it (`get_template_status`), then call `set_shopify_message` with `event`, `template`,
-   `language` and `variables`, the data of {{1}}, {{2}}... in order, as many as the template has. Tell the user what
-   the wait is: Meta reviews every template, in minutes or up to 24 hours; nothing is sent to their customers before
-   the message is set, and they can close Claude Code meanwhile and come back later with "finish my Shopify messages".
+1. Show the messages: call `get_shopify_state`. Each automation's `message` is the text of its first message, its
+   variables numbered ({{1}}, {{2}}...); say it in plain words, naming the data (first name, order number...). When the
+   automation marks its message under review (its note says so too), Meta is still reviewing it, in minutes or up to
+   24 hours: they can close Claude Code and come back later with "finish my Shopify messages". Never call `set_shopify_message` on an automation whose
+   message is under review: it would cancel the version waiting for Meta.
+2. Turn one on once its message is approved (its template set, its status at Meta APPROVED) and the user wants it: call
+   `set_shopify_message` with `event`, `template` (the name `get_shopify_state` returns), `language`, `active` true,
+   and `variables` exactly as `get_shopify_state` returns them for that automation (the data of {{1}}, {{2}}... in
+   order): without them the message would lose its Shopify data.
+3. If they want other words, offer to write a new message: create it with `create_template` (a utility template for
+   an order, a marketing one for the checkout), links in the body as variables (a URL button takes no variable), wait
+   for Meta (`get_template_status`), then set it with `set_shopify_message`, `variables` naming the data of each
+   {{n}} in order. The data each event can fill: `order_paid`: `first_name`, `order_number`, `order_total`,
+   `order_status_url`; `order_fulfilled`: `first_name`, `order_number`, `carrier`, `tracking_number`, `tracking_url`;
+   `checkout_abandoned`: `first_name`, `checkout_url`.
 
 Never ask the user about their customers' consent: the merchant is responsible for it. Each message records the
 customer as opted in, for campaigns too, and a customer who said STOP stays opted out and receives nothing. Every
@@ -140,15 +156,14 @@ its "any other reply" output, or ends the journey.
 ## Remind abandoned checkouts
 
 A third event, `checkout_abandoned`, sends a reminder when a customer filled the checkout with their phone and did
-not order. It is a marketing message, set like the order messages (its own automation, its first step set here), with
-no consent question either.
+not order. It is a marketing message, proposed and turned on like the order messages (its own automation), with no
+consent question either.
 
-1. Propose a short reminder and create it as a marketing template with `create_template`, the link in the body. Its
-   data: `first_name` and `checkout_url` (the link that reopens the checkout). End the text with the opt-out line, in
-   the template's language: "Répondez STOP pour ne plus recevoir ces messages" in French, "Reply STOP to stop these
-   messages" in English. A customer who replies STOP gets nothing more.
-2. Once Meta approves it, call `set_shopify_message` with `event` set to `checkout_abandoned`, its `variables`, and
-   `delay_minutes`: how long after the checkout last changed the reminder leaves (60 by default, from 15 to 4320).
+1. Its standard message ends with the opt-out line "Répondez STOP pour ne plus recevoir ces messages": a customer who
+   replies STOP gets nothing more. A reminder written instead keeps that line, in the template's language ("Reply STOP
+   to stop these messages" in English).
+2. When turning it on, `set_shopify_message` also takes `delay_minutes`: how long after the checkout last changed the
+   reminder leaves (60 by default, from 15 to 4320).
 3. The first message leaves once per checkout, then the rest of its scenario if it has one; nothing leaves if an order
    came out of it in the meantime, even unpaid, and such an order stops the journey wherever it stands. A newer
    checkout from the same customer takes the place of the older one: its reminder stops the older journey.
@@ -188,7 +203,8 @@ record counts toward the plan's contact limit, and managing that limit is the us
 ## Check or cut
 
 - `get_shopify_state`: the store, whether it is paused, its `automations` (each on or off, its first template and its
-  status at Meta, its number of steps), the last event received, the last 30 days of outcomes (sent, opted out,
+  status at Meta, the text of its first message, its number of steps), the last event received, the last 30 days of
+  outcomes (sent, opted out,
   contact limit reached...) and, for checkout reminders, the last 7 days (a checkout is kept no longer), with those
   recovered and their amount. Read `automations`, never `messages`: that field is the setting from before automations
   and no longer sends. On the Free plan there is no console: this tool is the way to see the connection.

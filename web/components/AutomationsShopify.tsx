@@ -7,8 +7,9 @@ import { useT } from '@/lib/i18n';
 import { cardCls, inputClsAuto } from '@/lib/ui';
 import { Toggle } from '@/components/Toggle';
 import { Squelette } from '@/components/Squelette';
+import { TemplateBodyText } from '@/components/WhatsAppPreview';
 import { routeInconnue } from '@/lib/canaux-services';
-import { lireShopify, reglerLigneShopify, type EtatShopifyVue } from '@/lib/api-shopify';
+import { lireShopify, reglerLigneShopify, type ApercuLigneShopify, type EtatShopifyVue } from '@/lib/api-shopify';
 import {
   DELAI_PANIER_DEFAUT, DELAIS_PROPOSES, EVENEMENTS_SHOPIFY, LIBELLES_EVENEMENTS, type EvenementShopify,
 } from '@/lib/partage/shopify-messages';
@@ -23,10 +24,16 @@ import { delaiEnClair, etatDeLAutomation, type EtatAutomation } from '@/lib/shop
  * Sur sa propre page, elle dit chaque cas plutôt que de disparaître : on y arrive aussi par un lien ou par l'aide, sans
  * boutique (le chemin pour la brancher), ou quand la lecture échoue. La pause et la coupure se règlent dans Tools >
  * Intégrations ; la page les dit.
+ *
+ * Le message en vigueur se voit au survol et au focus d'une ligne (spec 2026-11-20) : une bulle WhatsApp, ses données
+ * remplacées par leurs exemples. Le libellé et l'état de la ligne mènent à son scénario ; l'interrupteur et le délai du
+ * panier restent à part, leurs clics ne quittent pas la page.
  */
 const ETATS: Record<EtatAutomation, readonly [string, string]> = {
   a_creer: ['pas encore créée', 'not created yet'],
   eteinte: ['éteinte', 'off'],
+  prete: ['prête : allumez-la pour l’envoyer', 'ready: turn it on to send it'],
+  eteinte_en_validation: ['éteinte, message en validation chez Meta', 'off, message under review at Meta'],
   a_completer: ['à compléter : choisissez son message dans le scénario', 'to complete: choose its message in the scenario'],
   en_validation: ['en validation chez Meta', 'awaiting Meta’s approval'],
   refuse: ['message refusé ou bloqué par Meta : changez-le dans le scénario', 'message refused or blocked by Meta: change it in the scenario'],
@@ -35,6 +42,32 @@ const ETATS: Record<EtatAutomation, readonly [string, string]> = {
   meta_non_lu: ['allumée, l’état de son message chez Meta n’a pas pu être lu', 'on, its message status at Meta could not be read'],
 };
 const ETATS_EN_SERVICE: readonly EtatAutomation[] = ['active', 'active_nouvelle_version'];
+
+/**
+ * La bulle du message, sous le libellé de sa ligne. En CSS seul, comme `CaptureAuSurvol` : le parent porte `group`, et
+ * elle ne prend pas la souris (`pointer-events-none`), sinon, ouverte, elle couvrirait la ligne suivante.
+ */
+function BulleDuMessage({ id, apercu, testid }: { id: string; apercu: ApercuLigneShopify; testid: string }) {
+  const t = useT();
+  return (
+    <span
+      id={id} role="tooltip" data-testid={testid}
+      className="pointer-events-none invisible absolute left-0 top-full z-20 mt-1 w-72 max-w-[80vw] rounded-carte border border-ink-200 bg-[#efeae2] p-3 opacity-0 shadow-mm-md transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+    >
+      <span className="block rounded-controle rounded-tl-none bg-white px-2.5 py-1.5 shadow-sm">
+        <span className="block whitespace-pre-wrap break-words text-[13px] leading-snug text-ink-900">
+          <TemplateBodyText body={apercu.corps} examples={apercu.exemples} />
+        </span>
+        {apercu.pied !== null && apercu.pied.trim() !== '' && (
+          <span className="mt-1 block break-words text-[11px] leading-snug text-ink-500">{apercu.pied}</span>
+        )}
+      </span>
+      {apercu.enValidation && (
+        <span className="mt-2 block text-xs text-ink-500">{t('En validation chez Meta', 'Under review at Meta')}</span>
+      )}
+    </span>
+  );
+}
 
 export function AutomationsShopify({ tenantId }: { tenantId: string }) {
   const t = useT();
@@ -121,10 +154,26 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
                     checked={allumee} onChange={() => void regler(e, { actif: !allumee })} disabled={enCours !== null}
                     libelle={nom} testid={`automations-shopify-interrupteur-${e}`}
                   />
-                  <span className="font-medium text-ink-900">{nom}</span>
-                  <span className={ETATS_EN_SERVICE.includes(etat) ? 'text-succes-700' : 'text-ink-500'} data-testid={`automations-shopify-etat-${e}`}>
-                    {t(...ETATS[etat])}
-                  </span>
+                  {l === undefined ? (
+                    <>
+                      <span className="font-medium text-ink-900">{nom}</span>
+                      <span className="text-ink-500" data-testid={`automations-shopify-etat-${e}`}>{t(...ETATS[etat])}</span>
+                    </>
+                  ) : (
+                    <span className="group relative flex flex-wrap items-center">
+                      <Link
+                        href={`/workflows?open=${encodeURIComponent(l.workflowId)}`} className="flex flex-wrap items-center gap-3 rounded-controle"
+                        data-testid={`automations-shopify-ligne-${e}`}
+                        {...(l.apercu ? { 'aria-describedby': `automations-shopify-apercu-${e}` } : {})}
+                      >
+                        <span className="font-medium text-ink-900 group-hover:underline">{nom}</span>
+                        <span className={ETATS_EN_SERVICE.includes(etat) ? 'text-succes-700' : 'text-ink-500'} data-testid={`automations-shopify-etat-${e}`}>
+                          {t(...ETATS[etat])}
+                        </span>
+                      </Link>
+                      {l.apercu && <BulleDuMessage id={`automations-shopify-apercu-${e}`} apercu={l.apercu} testid={`automations-shopify-apercu-${e}`} />}
+                    </span>
+                  )}
                   {e === 'checkout_abandoned' && l !== undefined && (
                     <label className="flex items-center gap-2 text-ink-500">
                       {t('Relance', 'Reminder')}

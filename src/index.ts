@@ -113,7 +113,7 @@ import { demanderJeton, verifierBoutique } from './shopify/connexion';
 import { lireClientsAbonnes } from './shopify/clients';
 import { abonnerWebhooks } from './shopify/abonnements';
 import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
-import { relireModelesDeBloc, type DepsMenage, type DepsPublication } from './workflow/modeles-de-bloc';
+import { creerModeleDuBloc, relireModelesDeBloc, type DepsMenage, type DepsPublication } from './workflow/modeles-de-bloc';
 import type { ModelesDeBlocDep } from './http/workflows';
 import { importContacts } from './crm/import';
 import type { DepsGestionShopify } from './shopify/gestion';
@@ -1746,7 +1746,12 @@ async function main(): Promise<void> {
     chiffreVentes: lireChiffreVentes,
     // Les lignes et leurs scénarios (menu « Scénario », lot 5) : les magasins et l'exécuteur ENTIERS (leurs méthodes lisent
     // `this`) ; les templates, la MÊME liste que le catalogue (une minute de cache).
-    lignes: { store: shopifyStore, workflows: workflowStore, parcours: workflowRuntime.executor, modeles: listerModeles, menage: menageDesModeles },
+    lignes: {
+      store: shopifyStore, workflows: workflowStore, parcours: workflowRuntime.executor, modeles: listerModeles, menage: menageDesModeles,
+      // Le message standard (2026-11-20) : la porte du builder, `creerModeleDuBloc` avec ses magasins ENTIERS.
+      creerModele: (tenant, e) => creerModeleDuBloc({ gestion: depsModeles, scenarios: workflowStore, lignes: modelesDeBlocStore, maintenant: () => new Date() }, tenant, e),
+      filiere: (tenant) => comptesApplication.filiereDe(tenant),
+    },
   };
   const traitementShopify: DepsTraitementShopify = {
     store: shopifyStore,

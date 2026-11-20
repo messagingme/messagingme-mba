@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-20 : Automation Shopify, les messages standard, l'aperçu au survol et le retour depuis le scénario
+
+Spec `docs/superpowers/specs/2026-11-20-shopify-messages-standard-design.md`, plan du même jour. Au branchement d'une
+boutique (console et `connect_shopify`), les trois premiers messages sont créés et soumis à Meta, données Shopify
+reliées, par la porte du builder (`creerModeleDuBloc`) et dans une version programmée sans auteur. L'écran Automation >
+Shopify montre le message au survol et ouvre le scénario au clic (états « prête » et « éteinte, message en
+validation ») ; l'éditeur d'un scénario Shopify ou HubSpot revient à sa page ; « Modifier ce template » ne finit plus en
+400 sur un bloc à données Shopify ; `get_shopify_state` rend le texte du message ; allumer sur un numéro relié par QR
+code est refusé dans la console aussi. Aucune migration.
+
+Décisions de Julien : les lignes restent ÉTEINTES (allumées pendant la validation, elles partent pour les événements
+d'après l'approbation, sans e-mail « en ligne ») ; le prénom revient dans le panier (contre le 2026-10-23) ; le
+transporteur sort du texte d'expédition ; les boutiques déjà branchées ne sont pas rattrapées, sauf un cas encore vide à
+son premier allumage. Restent : le lien de test d'un scénario Shopify sans données d'exemple (`todo.md`), et l'essai
+réel de la spec § 7.
+
 ## 2026-11-20 : menu « Scénario », lots 6 (HubSpot) et 7 (le menu)
 
 **En ligne la nuit du 19 au 20** (`88017b53e`, console publiée par Vercel, API NON déployée) : le lot 7 (la barre

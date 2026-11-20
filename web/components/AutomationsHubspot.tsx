@@ -32,6 +32,10 @@ import {
  */
 const ETATS: Record<EtatLigneHubspot, readonly [string, string]> = {
   eteinte: ['éteinte', 'off'],
+  // Les deux suivants ne sont dits que par une ligne Shopify (`etatDeLAutomation`) ; ils ont leur libellé ici pour que
+  // la table reste complète si HubSpot venait à les dire.
+  prete: ['prête : allumez-la pour l’envoyer', 'ready: turn it on to send it'],
+  eteinte_en_validation: ['éteinte, message en validation chez Meta', 'off, message under review at Meta'],
   a_completer: ['à compléter : écrivez son premier message dans le scénario', 'to complete: write its first message in the scenario'],
   en_validation: ['en validation chez Meta', 'awaiting Meta’s approval'],
   refuse: ['message refusé ou bloqué par Meta : changez-le dans le scénario', 'message refused or blocked by Meta: change it in the scenario'],

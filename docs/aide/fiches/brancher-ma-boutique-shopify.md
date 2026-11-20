@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: d2e353
+source_empreinte: 2907c6
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -34,21 +34,31 @@ sur votre boutique : le message « This app hasn't been reviewed » est normal, 
 l'app dans Apps : son Client ID et son Client secret sont dans le cadre Credentials, à droite.
 
 **3. Brancher la boutique.** Revenez dans la carte, collez le nom de la boutique, le Client ID et le Client secret,
-puis « Brancher la boutique ». Vos messages se règlent ensuite dans Scénario > Automation > Shopify.
+puis « Brancher la boutique ». Vos trois messages sont aussitôt écrits et envoyés à Meta pour validation.
 
-**4. Allumer une automation.** Scénario > Automation > Shopify liste vos trois automations : Commande payée, Commande
-expédiée et Panier abandonné, chacune avec son état. Allumez-en une : son scénario s'ouvre dans le builder.
+**4. Voir vos messages, puis les allumer.** Scénario > Automation > Shopify liste vos trois automations : Commande
+payée, Commande expédiée et Panier abandonné. Survolez une ligne pour lire son message, avec des exemples à la place
+des données ; cliquez-la pour ouvrir son scénario.
+
+Le prénom, le numéro de commande, les liens de la commande, du colis ou du panier sont déjà reliés. Meta valide en
+général en quelques minutes : la ligne passe de « éteinte, message en validation chez Meta » à « prête : allumez-la
+pour l'envoyer ». Rien ne part chez vos clients tant que vous n'avez pas allumé son interrupteur ; allumée pendant la
+validation, elle envoie pour les événements qui arrivent après l'approbation.
 
 Pour le panier, choisissez aussi le délai après sa dernière modification : 15 min, 1 h (par défaut), 3 h ou 24 h.
-« Ouvrir le scénario » vous y ramène à tout moment ; éteindre une automation arrête ses parcours en cours.
+Éteindre une automation arrête ses parcours en cours.
 
-**5. Choisir le premier message, puis publier.** Le premier bloc, marqué « premier message », est le template que
-l'événement envoie. Choisissez-en un, ou « Écrire un nouveau template », puis reliez chacune de ses variables à une
-donnée Shopify : le prénom, le numéro de commande, le lien du panier… Enfin, « Publier ».
+**Bon à savoir.** Sur un numéro relié par QR code, aucun message n'est proposé et une automation ne s'allume pas :
+WhatsApp n'y laisse pas écrire en premier à un client. Une automation encore sans message reçoit le message proposé
+quand vous l'allumez.
 
-L'automation s'active quand Meta approuve le template, en général en quelques minutes. Changer de template ne l'arrête
-pas : l'ancien part jusqu'à l'approbation du nouveau. Un template écrit depuis une automation lui appartient : ne le
-réutilisez pas ailleurs, il est supprimé chez Meta peu après son remplacement. Le premier bloc, lui, ne se supprime pas.
+**5. Améliorer le message, si vous le voulez.** Dans le scénario, le premier bloc, marqué « premier message », est le
+template que l'événement envoie. « Modifier ce template » le retouche en gardant ses données Shopify ; vous pouvez
+aussi en choisir un autre, ou « Écrire un nouveau template » et relier ses variables. Enfin, « Publier ».
+
+Le nouveau texte part dès que Meta l'approuve ; jusque-là, l'ancien continue. Un template écrit depuis une automation
+lui appartient : ne le réutilisez pas ailleurs, il est supprimé chez Meta peu après son remplacement. Le premier bloc,
+lui, ne se supprime pas. « ← Retour aux automations Shopify » vous ramène à la liste.
 
 **6. Construire la suite, si vous le voulez.** Après le premier message, ajoutez des blocs comme dans tout scénario : un
 bloc Attente puis un rappel, un bouton du template qui mène à une réponse, un message qui cite une donnée de la
@@ -83,14 +93,13 @@ suite de son scénario. Rien ne part si une commande en est née entre-temps, m�
 panier arrête son parcours, où qu'il en soit. Un second panier prend la place du premier : sa relance arrête le
 parcours du précédent.
 
-Un client qui répond STOP ne reçoit plus rien : dites-le en bas du template de relance (« Répondez STOP pour ne plus
-recevoir ces messages »). La carte compte les relances parties, les paniers devenus une commande à temps,
+Un client qui répond STOP ne reçoit plus rien : le message proposé le dit en bas (« Répondez STOP pour ne plus
+recevoir ces messages »), gardez cette phrase si vous le réécrivez. La carte compte les relances parties, les paniers devenus une commande à temps,
 et ceux en attente ; et, selon la date de la relance, les paniers récupérés (relancés puis payés) et leur montant.
 
 **Bon à savoir.** Le prénom est facultatif chez Shopify : beaucoup de clients ne le donnent pas, surtout avant
 d'abandonner leur panier. Un message qui contient le prénom part quand même, avec « à vous » à sa place (« Bonjour à
-vous » ; « there » pour un template en anglais). Un message de panier gagne donc à commencer simplement par
-« Bonjour, ».
+vous » ; « there » pour un template en anglais).
 
 ## Le téléphone, obligatoire au paiement
 

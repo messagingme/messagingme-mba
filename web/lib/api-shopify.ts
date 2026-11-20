@@ -29,6 +29,19 @@ export interface LigneShopifyVue {
   blocs: number;
   /** Une nouvelle version du scénario attend Meta pour sa mise en ligne. */
   versionProgrammee: boolean;
+  /** Le message en vigueur, pour la bulle au survol ; `null` sans message (ou une API qui ne le dit pas encore). */
+  apercu: ApercuLigneShopify | null;
+}
+
+/**
+ * Le texte du premier template : celui de la version programmée s'il y en a une, sinon du publié. `corps` porte ses
+ * variables numérotées (`{{1}}`...), `exemples[0]` remplace `{{1}}` ; `enValidation` : le template attend Meta.
+ */
+export interface ApercuLigneShopify {
+  corps: string;
+  pied: string | null;
+  exemples: string[];
+  enValidation: boolean;
 }
 
 export interface EtatShopifyVue {
@@ -59,6 +72,17 @@ export interface EtatShopifyVue {
 
 const texte = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
+/** L'aperçu lu défensivement : la console est publiée avant l'API, un champ absent ou mal formé ne montre rien. */
+function lireApercu(x: unknown): ApercuLigneShopify | null {
+  const a = x as Record<string, unknown> | null | undefined;
+  if (!a || typeof a !== 'object' || typeof a.corps !== 'string' || a.corps.trim() === '') return null;
+  return {
+    corps: a.corps, pied: texte(a.pied),
+    exemples: Array.isArray(a.exemples) && a.exemples.every((e) => typeof e === 'string') ? a.exemples as string[] : [],
+    enValidation: a.enValidation === true,
+  };
+}
+
 /** Une ligne lue défensivement : sans événement connu, interrupteur ou scénario, elle est écartée. */
 function lireLigne(x: unknown): LigneShopifyVue[] {
   const l = x as Record<string, unknown> | null;
@@ -67,7 +91,7 @@ function lireLigne(x: unknown): LigneShopifyVue[] {
   return [{
     evenement: l.evenement as EvenementShopify, actif: l.actif, workflowId: l.workflowId, scenario: texte(l.scenario),
     modele: texte(l.modele), langue: texte(l.langue), etatChezMeta: texte(l.etatChezMeta),
-    blocs: typeof l.blocs === 'number' ? l.blocs : 1, versionProgrammee: l.versionProgrammee === true,
+    blocs: typeof l.blocs === 'number' ? l.blocs : 1, versionProgrammee: l.versionProgrammee === true, apercu: lireApercu(l.apercu),
   }];
 }
 

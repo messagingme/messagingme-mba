@@ -5,13 +5,14 @@ import { lireEtatShopify, type LigneShopifyVue } from './api-shopify';
 
 const ligne = (o: Partial<LigneShopifyVue> = {}): LigneShopifyVue => ({
   evenement: 'order_paid', actif: true, workflowId: 'wf-1', scenario: 'Commande payée', modele: 'confirmation', langue: 'fr',
-  etatChezMeta: 'APPROVED', blocs: 1, versionProgrammee: false, ...o,
+  etatChezMeta: 'APPROVED', blocs: 1, versionProgrammee: false, apercu: null, ...o,
 });
 
 describe('l’état d’une automation Shopify (menu « Scénario », lot 5)', () => {
   it('🔴 sans ligne : à créer ; éteinte ; allumée sans premier template : à compléter dans son scénario', () => {
     expect(etatDeLAutomation(undefined)).toBe('a_creer');
-    expect(etatDeLAutomation(ligne({ actif: false }))).toBe('eteinte');
+    expect(etatDeLAutomation(ligne({ actif: false, etatChezMeta: 'REJECTED' }))).toBe('eteinte');
+    expect(etatDeLAutomation(ligne({ actif: false, etatChezMeta: null }))).toBe('eteinte');
     expect(etatDeLAutomation(ligne({ actif: false, modele: null, etatChezMeta: null }))).toBe('eteinte');
     expect(etatDeLAutomation(ligne({ modele: null, langue: null, etatChezMeta: null }))).toBe('a_completer');
   });
@@ -22,6 +23,21 @@ describe('l’état d’une automation Shopify (menu « Scénario », lot 5)', (
     expect(etatDeLAutomation(ligne({ etatChezMeta: 'PAUSED' }))).toBe('refuse');
     expect(etatDeLAutomation(ligne())).toBe('active');
     expect(etatDeLAutomation(ligne({ versionProgrammee: true }))).toBe('active_nouvelle_version');
+  });
+
+  it('🔴 le message standard (spec 2026-11-20) : éteinte, prête dès que le publié est approuvé, sinon en validation', () => {
+    expect(etatDeLAutomation(ligne({ actif: false }))).toBe('prete');
+    // Une nouvelle version attend Meta, mais la publiée est approuvée : allumer envoie déjà.
+    expect(etatDeLAutomation(ligne({ actif: false, versionProgrammee: true }))).toBe('prete');
+    // Le message standard posé dans une version programmée : rien de publié encore.
+    expect(etatDeLAutomation(ligne({ actif: false, modele: null, etatChezMeta: null, versionProgrammee: true }))).toBe('eteinte_en_validation');
+    expect(etatDeLAutomation(ligne({ actif: false, etatChezMeta: 'PENDING' }))).toBe('eteinte_en_validation');
+    expect(etatDeLAutomation(ligne({ actif: false, etatChezMeta: 'IN_APPEAL' }))).toBe('eteinte_en_validation');
+  });
+
+  it('🔴 allumée pendant la validation du message standard : en validation, plus « à compléter »', () => {
+    expect(etatDeLAutomation(ligne({ modele: null, langue: null, etatChezMeta: null, versionProgrammee: true }))).toBe('en_validation');
+    expect(etatDeLAutomation(ligne({ modele: null, langue: null, etatChezMeta: null, versionProgrammee: false }))).toBe('a_completer');
   });
 
   it('la liste de Meta illisible : allumée, l’état de son template non lu (jamais « refusé » par défaut)', () => {
@@ -64,6 +80,23 @@ describe('la lecture de l’état', () => {
     expect(v?.lignes).toEqual([ligne({
       evenement: 'checkout_abandoned', workflowId: 'wf-2', scenario: 'Panier abandonné', modele: null, langue: null, etatChezMeta: null,
     })]);
+  });
+
+  it('🔴 lit l’aperçu d’une ligne ; absent ou mal formé, aucun aperçu (la console est publiée avant l’API)', () => {
+    const avec = (apercu: unknown) => lireEtatShopify({
+      boutique: { domaine: 'b.myshopify.com', etat: 'connectee' },
+      lignes: [{ evenement: 'order_paid', actif: false, workflowId: 'wf-1', modele: null, versionProgrammee: true, ...(apercu === undefined ? {} : { apercu }) }],
+    })?.lignes[0]?.apercu;
+    expect(avec({ corps: 'Bonjour {{1}}', pied: 'STOP', exemples: ['Camille'], enValidation: true }))
+      .toEqual({ corps: 'Bonjour {{1}}', pied: 'STOP', exemples: ['Camille'], enValidation: true });
+    expect(avec({ corps: 'Bonjour {{1}}' })).toEqual({ corps: 'Bonjour {{1}}', pied: null, exemples: [], enValidation: false });
+    expect(avec({ corps: 'Bonjour {{1}}', exemples: ['Camille', 3] })?.exemples).toEqual([]);
+    expect(avec({ corps: 'Bonjour {{1}}', exemples: 'Camille' })?.exemples).toEqual([]);
+    expect(avec(undefined)).toBeNull();
+    expect(avec(null)).toBeNull();
+    expect(avec({ corps: 3 })).toBeNull();
+    expect(avec({ corps: '  ' })).toBeNull();
+    expect(avec('Bonjour')).toBeNull();
   });
 
   it('🔴 une API plus ancienne (sans origine, sans pause, sans lignes) ne casse pas l’écran', () => {

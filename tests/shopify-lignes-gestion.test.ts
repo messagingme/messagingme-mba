@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  assurerLigne, brancherLePremierBloc, etatDesLignes, grapheDUneLigne, NOM_DU_SCENARIO, reglerLigne, reglerPause,
+  assurerLigne, brancherLePremierBloc, etatDesLignes, grapheDUneLigne, NOM_DU_SCENARIO, PHRASE_SHOPIFY_QR_CODE, proposerMessageStandard,
+  reglerLigne, reglerPause,
 } from '../src/shopify/lignes-gestion';
+import { corpsStandard } from '../src/shopify/messages-standard';
 import { MARQUE_PREMIER_BLOC, blocVerrouille } from '../src/shopify/premier-bloc';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { DOMAINE, modeleMeta, monterLignes, VUE_LIGNES as VUE } from './shopify-lignes-faux';
@@ -206,5 +208,110 @@ describe('l’état des lignes', () => {
     const l = (await m.store.ligne(T, 'order_paid'))!;
     m.workflows.programmees.set(l.workflowId, { graphe: { nodes: [], edges: [] }, le: '2026-11-19T10:00:00.000Z', par: 'u1' });
     expect((await etatDesLignes(m.deps, T))[0]).toMatchObject({ versionProgrammee: true });
+  });
+});
+
+describe('le message standard d’une ligne (2026-11-20)', () => {
+  const blocDe = async (m: ReturnType<typeof monter>, graphe: 'programme' | 'publie' | 'brouillon') => {
+    const l = (await m.store.ligne(T, 'order_paid'))!;
+    const wf = (await m.workflows.getById(l.workflowId, T))!;
+    const g = graphe === 'programme' ? m.workflows.programmees.get(l.workflowId)?.graphe : graphe === 'publie' ? wf.graph : wf.draftGraph;
+    return g ? blocVerrouille(g) : null;
+  };
+
+  it('🔴 crée le template standard depuis le bloc verrouillé, le pose dans une version PROGRAMMÉE (sans auteur) et le brouillon, jamais dans le publié ; la ligne reste éteinte', async () => {
+    const m = monter();
+    expect(await proposerMessageStandard(m.deps, T, 'order_paid', 'u1')).toBe('propose');
+    expect(m.creation.appels).toEqual([expect.objectContaining({ tenantId: T, nodeId: 'depart', par: 'u1', corps: corpsStandard('order_paid').corps })]);
+    const data = {
+      [MARQUE_PREMIER_BLOC]: true, templateName: 'commande_payee_x', language: 'fr', templateButtons: [], templateCards: [],
+      variables: corpsStandard('order_paid').variables.map((key, i) => ({ position: i + 1, source: { type: 'variable', key } })),
+    };
+    expect((await blocDe(m, 'programme'))?.data).toEqual(data);
+    expect((await blocDe(m, 'brouillon'))?.data).toEqual(data);
+    expect((await blocDe(m, 'publie'))?.data).toEqual({ [MARQUE_PREMIER_BLOC]: true });
+    const l = (await m.store.ligne(T, 'order_paid'))!;
+    expect(m.workflows.programmees.get(l.workflowId)?.par).toBeNull();
+    expect(l.actif).toBe(false);
+  });
+
+  it('un template approuvé d’emblée par Meta part dans le publié', async () => {
+    const m = monter({ creation: { ok: true, modele: 'commande_payee_x', langue: 'fr', etat: 'approuve', categorie: 'UTILITY', boutons: [] } });
+    expect(await proposerMessageStandard(m.deps, T, 'order_paid', 'u1')).toBe('propose');
+    expect((await blocDe(m, 'publie'))?.data).toMatchObject({ templateName: 'commande_payee_x' });
+    expect(m.workflows.programmees.size).toBe(0);
+  });
+
+  it('🔴 jamais deux fois, jamais par-dessus le message du marchand : un template publié, programmé ou au brouillon arrête tout', async () => {
+    const m = monter();
+    await proposerMessageStandard(m.deps, T, 'order_paid', 'u1');
+    expect(await proposerMessageStandard(m.deps, T, 'order_paid', 'u1')).toBe('deja');
+    const publie = monter();
+    await brancherLePremierBloc(publie.deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: [] }, 'u1');
+    expect(await proposerMessageStandard(publie.deps, T, 'order_paid', 'u1')).toBe('deja');
+    const brouillon = monter();
+    const l = await assurerLigne(brouillon.deps, T, 'order_paid', 'u1');
+    const wf = (await brouillon.workflows.getById(l.workflowId, T))!;
+    brouillon.workflows.parId.set(l.workflowId, { ...wf, draftGraph: { nodes: wf.graph.nodes.map((n) => ({ ...n, data: { ...n.data, templateName: 'le_sien' } })), edges: [] } });
+    expect(await proposerMessageStandard(brouillon.deps, T, 'order_paid', 'u1')).toBe('deja');
+    expect([...m.creation.appels, ...publie.creation.appels, ...brouillon.creation.appels]).toHaveLength(1);
+  });
+
+  it('🔴 un numéro relié par QR code : rien n’est créé ; un refus ou une panne de Meta ne lèvent jamais et ne laissent rien dans le scénario', async () => {
+    const qr = monter({ filiere: 'application' });
+    expect(await proposerMessageStandard(qr.deps, T, 'order_paid', 'u1')).toBe('filiere_application');
+    expect(qr.creation.appels).toHaveLength(0);
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const refuse = monter({ creation: { ok: false, statut: 400, erreur: 'Cet espace n’a pas de compte WhatsApp Business relié à Meta' } });
+    expect(await proposerMessageStandard(refuse.deps, T, 'order_paid', 'u1')).toBe('non_cree');
+    expect(refuse.workflows.programmees.size).toBe(0);
+    const rejete = monter({ creation: { ok: true, modele: 'x', langue: 'fr', etat: 'refuse', categorie: null, boutons: [] } });
+    expect(await proposerMessageStandard(rejete.deps, T, 'order_paid', 'u1')).toBe('non_cree');
+    expect(rejete.workflows.programmees.size).toBe(0);
+    const panne = monter({ creation: 'leve' });
+    expect(await proposerMessageStandard(panne.deps, T, 'order_paid', 'u1')).toBe('echec');
+    vi.restoreAllMocks();
+  });
+
+  it('le délai d’une relance DÉJÀ allumée se change même sur un numéro relié par QR code, sans rien proposer', async () => {
+    const m = monter();
+    await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true }, 'u1');
+    const qr = { ...m.deps, filiere: async () => 'application' as const };
+    const appels = m.creation.appels.length;
+    expect(await reglerLigne(qr, T, 'checkout_abandoned', { actif: true, delaiMinutes: 180 }, 'u1')).toMatchObject({ ok: true });
+    expect(m.store.gestes.at(-1)).toBe('delai:180');
+    expect(m.creation.appels).toHaveLength(appels);
+  });
+
+  it('🔴 allumer un cas encore vide le propose ; allumer sur un numéro relié par QR code est refusé, éteindre reste permis', async () => {
+    const m = monter();
+    expect(await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true }, 'u1')).toMatchObject({ ok: true });
+    expect(m.creation.appels).toEqual([expect.objectContaining({ corps: corpsStandard('checkout_abandoned').corps })]);
+    expect((await m.store.ligne(T, 'checkout_abandoned'))?.actif).toBe(true);
+    const qr = monter({ filiere: 'application' });
+    expect(await reglerLigne(qr.deps, T, 'order_paid', { actif: true }, 'u1')).toEqual({ ok: false, statut: 409, message: PHRASE_SHOPIFY_QR_CODE });
+    expect(qr.workflows.parId.size).toBe(0);
+    expect(await reglerLigne(qr.deps, T, 'order_paid', { actif: false }, 'u1')).toMatchObject({ ok: true });
+  });
+
+  it('🔴 l’aperçu d’une ligne : le template de la version programmée (en validation), ses exemples par position et son pied', async () => {
+    const corps = corpsStandard('checkout_abandoned').corps;
+    const m = monter({
+      creation: { ok: true, modele: 'panier_abandonne_x', langue: 'fr', etat: 'en_validation', categorie: 'MARKETING', boutons: [] },
+      modeles: [modele({ name: 'panier_abandonne_x', status: 'PENDING', body: corps.body, footer: corps.footer, buttons: [] })],
+    });
+    await proposerMessageStandard(m.deps, T, 'checkout_abandoned', 'u1');
+    const [etat] = await etatDesLignes(m.deps, T);
+    expect(etat).toMatchObject({ modele: null, versionProgrammee: true });
+    expect(etat!.apercu).toEqual({ corps: corps.body, pied: corps.footer, exemples: corps.example, donnees: ['first_name', 'checkout_url'], enValidation: true });
+  });
+
+  it('l’aperçu du publié, une source qui n’est pas une donnée Shopify laissée en repère ; sans template : null', async () => {
+    const m = monter({ modeles: [modele({ body: 'Merci {{1}} pour {{2}}' })] });
+    await brancherLePremierBloc(m.deps, T, { evenement: 'order_paid', modele: 'commande_payee', langue: 'fr', variables: ['first_name'] }, 'u1');
+    await assurerLigne(m.deps, T, 'checkout_abandoned', 'u1');
+    const etats = await etatDesLignes(m.deps, T);
+    expect(etats[0]!.apercu).toEqual({ corps: 'Merci {{1}} pour {{2}}', pied: null, exemples: ['Camille', '{{2}}'], donnees: ['first_name', null], enValidation: false });
+    expect(etats[1]!.apercu).toBeNull();
   });
 });

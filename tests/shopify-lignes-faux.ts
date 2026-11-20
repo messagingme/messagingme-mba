@@ -6,6 +6,8 @@ import type { WorkflowGraph } from '../src/workflow/graph';
 import type { Programmation, WorkflowRow } from '../src/workflow/store.pg';
 import type { TemplateSummary } from '../src/meta/templates';
 import type { JobOubli } from '../src/shopify/preparation';
+import type { IssueCreationDeBloc } from '../src/workflow/modeles-de-bloc';
+import type { Filiere } from '../src/application/comptes';
 
 /**
  * LES FAUX DES LIGNES SHOPIFY (menu « Scénario », lot 5, tâche 8), partagés par les tests de la gestion des lignes, de la
@@ -86,6 +88,23 @@ export class FauxScenarios {
     const wf = this.parId.get(id);
     return wf && wf.tenantId === tenantId ? (this.programmees.get(id) ?? null) : null;
   }
+  async programmer(id: string, tenantId: string, par: string | null, graphe: WorkflowGraph): Promise<{ le: string } | null> {
+    const wf = this.parId.get(id);
+    if (!wf || wf.tenantId !== tenantId) return null;
+    this.programmees.set(id, { graphe, le: 'le', par });
+    return { le: 'le' };
+  }
+}
+
+/** La création d'un template depuis un bloc (`creerModeleDuBloc`) : chaque appel noté, l'issue choisie par le test. */
+export class FauxCreation {
+  appels: Array<{ tenantId: string; workflowId: string; nodeId: string; corps: Record<string, unknown>; par: string | null }> = [];
+  constructor(public issue: IssueCreationDeBloc | 'leve' = { ok: true, modele: 'commande_payee_x', langue: 'fr', etat: 'en_validation', categorie: 'UTILITY', boutons: [] }) {}
+  creer = async (tenantId: string, e: { workflowId: string; nodeId: string; corps: Record<string, unknown>; par: string | null }): Promise<IssueCreationDeBloc> => {
+    this.appels.push({ tenantId, ...e });
+    if (this.issue === 'leve') throw new Error('Meta indisponible');
+    return this.issue;
+  };
 }
 
 export class FauxParcours {
@@ -116,15 +135,20 @@ export const modeleMeta = (o: Partial<TemplateSummary> = {}): TemplateSummary =>
 } as TemplateSummary);
 
 /** Les dépendances des lignes, montées sur ces faux. */
-export function monterLignes(o: { vue?: VueBoutique | null; modeles?: TemplateSummary[] | 'panne'; arretLeve?: boolean; store?: FauxBoutique; marques?: string[] } = {}) {
+export function monterLignes(o: {
+  vue?: VueBoutique | null; modeles?: TemplateSummary[] | 'panne'; arretLeve?: boolean; store?: FauxBoutique; marques?: string[];
+  creation?: IssueCreationDeBloc | 'leve'; filiere?: Filiere | null;
+} = {}) {
   const store = o.store ?? new FauxBoutique(o.vue === undefined ? VUE_LIGNES : o.vue);
   const workflows = new FauxScenarios();
   const parcours = new FauxParcours(o.arretLeve === true);
   const menage = new FauxMenage(o.marques);
+  const creation = new FauxCreation(o.creation);
   const modeles = async (): Promise<TemplateSummary[]> => {
     if (o.modeles === 'panne') throw new Error('Graph indisponible');
     return o.modeles ?? [modeleMeta()];
   };
-  const deps: DepsLignesShopify = { store, workflows, parcours, modeles, menage };
-  return { deps, store, workflows, parcours, menage };
+  const filiere = async (): Promise<Filiere | null> => (o.filiere === undefined ? 'api' : o.filiere);
+  const deps: DepsLignesShopify = { store, workflows, parcours, modeles, menage, creerModele: creation.creer, filiere };
+  return { deps, store, workflows, parcours, menage, creation };
 }

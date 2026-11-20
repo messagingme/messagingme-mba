@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import type { IssueCreationDeBloc } from '../src/workflow/modeles-de-bloc';
+import { corpsStandard } from '../src/shopify/messages-standard';
+import { EVENEMENTS_SHOPIFY } from '../src/shopify/donnees';
 import {
   apercuImportClients, brancherMessage, CLIENTS_LUS_MAX, connecterShopify, couperShopify, etatShopify, IMPORT_MAX, importerClients,
   PHRASE_SHOPIFY_QR_CODE, type DepsGestionShopify,
@@ -47,9 +50,13 @@ function monter(o: {
   jeton?: Awaited<ReturnType<DepsGestionShopify['jeton']>>; abonnement?: Awaited<ReturnType<DepsGestionShopify['abonner']>>;
   acces?: Awaited<ReturnType<DepsGestionShopify['store']['acces']>>;
   anciens?: MessageBranche[]; filiere?: Filiere | null; modeles?: TemplateSummary[]; arretLeve?: boolean;
+  creation?: IssueCreationDeBloc | 'leve';
 } = {}) {
   // La boutique vit dans le faux des lignes : la gestion et les lignes lisent la MÊME (une coupure se voit des deux côtés).
-  const lignes = monterLignes({ vue: o.boutique === undefined ? VUE : o.boutique, modeles: o.modeles ?? [modeleMeta({ buttons: [] }), modeleMeta({ id: 'm2', name: 'relance', category: 'MARKETING', buttons: [] })], arretLeve: o.arretLeve });
+  const lignes = monterLignes({
+    vue: o.boutique === undefined ? VUE : o.boutique, modeles: o.modeles ?? [modeleMeta({ buttons: [] }), modeleMeta({ id: 'm2', name: 'relance', category: 'MARKETING', buttons: [] })],
+    arretLeve: o.arretLeve, creation: o.creation, filiere: o.filiere,
+  });
   const journal = { connexions: [] as unknown[], coupes: 0, verifs: 0, abonnements: [] as unknown[], lecturesModele: 0, chiffres: [] as DateRange[] };
   const deps: DepsGestionShopify = {
     store: {
@@ -97,6 +104,30 @@ describe('connecter une boutique', () => {
     expect(journal.connexions).toEqual([{ domaine: 'b.myshopify.com', clientId: 'cid', secretClair: 'shpss_x', nom: 'Essai', pays: 'FR', devise: 'EUR', par: 'u1', origine: 'claude_code' }]);
     // Claude Code : les webhooks sont dans l'app de la CLI, rien ne s'abonne par l'API.
     expect(journal.abonnements).toEqual([]);
+  });
+
+  it('🔴 le branchement propose les trois messages standard (2026-11-20), lignes ÉTEINTES ; Meta en panne ne fait pas échouer le branchement', async () => {
+    const { deps, lignes } = monter({ boutique: null });
+    expect((await connecterShopify(deps, T, { boutique: 'b.myshopify.com', clientId: 'cid', secret: 's' }, 'u1', 'claude_code')).ok).toBe(true);
+    expect(lignes.creation.appels.map((a) => a.corps)).toEqual(EVENEMENTS_SHOPIFY.map((e) => corpsStandard(e).corps));
+    expect([...lignes.store.lignesEnBase.values()].map((l) => l.actif)).toEqual([false, false, false]);
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const panne = monter({ boutique: null, creation: 'leve' });
+    expect((await connecterShopify(panne.deps, T, { boutique: 'b.myshopify.com', clientId: 'cid', secret: 's' }, 'u1', 'claude_code')).ok).toBe(true);
+    vi.restoreAllMocks();
+    // Un branchement refusé ne propose rien.
+    const refusee = monter({ boutique: null, verif: { ok: false, code: 'app_non_installee', message: 'cliquez Installer' } });
+    await connecterShopify(refusee.deps, T, { boutique: 'b.myshopify.com', clientId: 'cid', secret: 's' }, 'u1', 'claude_code');
+    expect(refusee.lignes.creation.appels).toEqual([]);
+  });
+
+  it('🔴 rebrancher la MÊME boutique ne propose rien (« nouvelles seulement ») ; une autre boutique, si', async () => {
+    const meme = monter();
+    expect((await connecterShopify(meme.deps, T, { boutique: 'b.myshopify.com', clientId: 'cid', secret: 's' }, 'u1', 'claude_code')).ok).toBe(true);
+    expect(meme.lignes.creation.appels).toEqual([]);
+    const autre = monter();
+    expect((await connecterShopify(autre.deps, T, { boutique: 'autre.myshopify.com', clientId: 'cid', secret: 's' }, 'u1', 'claude_code')).ok).toBe(true);
+    expect(autre.lignes.creation.appels).toHaveLength(3);
   });
 
   it('🔴 un refus de Shopify ne garde rien ; une saisie mal formée ne va même pas chez Shopify', async () => {
@@ -281,8 +312,8 @@ describe('un message Shopify sur un numéro relié par QR code', () => {
 
   it('🔴 l’éteindre reste permis : active false, sans template ni lecture chez Meta, et ses parcours s’arrêtent', async () => {
     const { deps, journal, lignes } = monter({ filiere: 'application' });
-    // Une ligne allumée quand le numéro était sur l'API.
-    await reglerLigne(lignes.deps, T, 'order_paid', { actif: true }, 'u1');
+    // Une ligne allumée quand le numéro était sur l'API (sur un numéro relié par QR code, l'allumer est refusé).
+    await reglerLigne({ ...lignes.deps, filiere: async () => 'api' }, T, 'order_paid', { actif: true }, 'u1');
     const r = await brancherMessage(deps, T, { evenement: 'order_paid', modele: undefined, langue: 'fr', variables: undefined, actif: false }, 'u1');
     expect(r).toMatchObject({ ok: true, valeur: { lignes: [{ evenement: 'order_paid', actif: false }] } });
     expect(journal.lecturesModele).toBe(0);
@@ -385,7 +416,7 @@ describe('les outils MCP du connecteur', () => {
     expect(await regler().executer(mcpDe(deps), T, args, PERSONNE)).toEqual({
       automations: [{
         event: 'order_paid', active: true, scenario: 'Commande payée', template: 'commande_payee', language: 'fr',
-        template_status: 'APPROVED', steps: 1,
+        template_status: 'APPROVED', steps: 1, message: 'Merci {{1}}', variables: ['first_name'],
       }],
     });
     // La suite écrite dans la console : deux étapes de plus, et une version qui attendait Meta.
@@ -449,7 +480,7 @@ describe('les outils MCP du connecteur', () => {
       expect(r, String(customers_consented)).toEqual({
         automations: [{
           event: 'checkout_abandoned', active: true, scenario: 'Panier abandonné', template: 'relance', language: 'fr',
-          template_status: 'APPROVED', steps: 1,
+          template_status: 'APPROVED', steps: 1, message: 'Merci {{1}}', variables: ['checkout_url'],
         }],
       });
     }

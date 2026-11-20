@@ -195,21 +195,21 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         },
       },
       {
-        titre: { fr: 'Écrire les messages de commande', en: 'Write the order messages' },
-        dire: { fr: 'Propose-moi la confirmation de commande et l’avis d’expédition.', en: 'Suggest the order confirmation and the shipping update.' },
-        outils: ['create_template', 'get_template_status', 'set_shopify_message'],
+        titre: { fr: 'Allumer les messages de commande', en: 'Switch on the order messages' },
+        dire: { fr: 'Montre-moi mes messages Shopify.', en: 'Show me my Shopify messages.' },
+        outils: ['get_shopify_state', 'set_shopify_message'],
         reponse: {
-          fr: 'Claude propose chaque texte, avec le numéro de commande, le montant, le transporteur et le lien de suivi, le fait approuver par Meta (de quelques minutes à 24 heures) et l’active. Vous pouvez fermer Claude Code entre-temps et revenir avec « termine mes messages Shopify ». Chacun est le premier message d’une automation : avec l’offre Pro, vous lui donnez une suite dans la console.',
-          en: 'Claude suggests each text, with the order number, the total, the carrier and the tracking link, has Meta approve it (from a few minutes to 24 hours) and turns it on. You can close Claude Code meanwhile and come back with “finish my Shopify messages”. Each is the first message of an automation: on the Pro plan, you give it a follow-up in the console.',
+          fr: 'Vos messages sont déjà écrits et soumis à Meta au branchement, avec le prénom, le numéro de commande, le montant et le lien de suivi. Claude vous les montre, puis allume ceux que vous voulez une fois approuvés (de quelques minutes à 24 heures) : rien ne part avant. Vous pouvez fermer Claude Code entre-temps et revenir avec « termine mes messages Shopify ». Avec l’offre Pro, vous les retouchez ou leur donnez une suite dans la console.',
+          en: 'Your messages are already written and submitted to Meta when the store is connected, with the first name, the order number, the total and the tracking link. Claude shows them, then switches on the ones you want once approved (from a few minutes to 24 hours): nothing goes out before. You can close Claude Code meanwhile and come back with “finish my Shopify messages”. On the Pro plan, you rework them or give them a follow-up in the console.',
         },
       },
       {
         titre: { fr: 'Relancer les paniers abandonnés', en: 'Remind abandoned checkouts' },
-        dire: { fr: 'Ajoute la relance des paniers abandonnés, une heure après.', en: 'Add the abandoned checkout reminder, one hour later.' },
-        outils: ['create_template', 'set_shopify_message'],
+        dire: { fr: 'Allume la relance des paniers abandonnés, une heure après.', en: 'Switch on the abandoned checkout reminder, one hour later.' },
+        outils: ['set_shopify_message'],
         reponse: {
-          fr: 'Le premier message part une fois par panier, avec le lien qui le rouvre, au délai choisi (de 15 min à 72 h) ; rien ne part si une commande en est née. C’est un message marketing : un client qui répond STOP n’en reçoit plus.',
-          en: 'The first message goes out once per checkout, with the link that reopens it, after the chosen delay (15 min to 72 h); nothing goes out if an order came out of it. It is a marketing message: a customer who replies STOP gets no more of them.',
+          fr: 'Le premier message part une fois par panier, avec le lien qui le rouvre, au délai choisi (de 15 min à 72 h) ; rien ne part si une commande en est née. C’est un message marketing, qui finit par « Répondez STOP pour ne plus recevoir ces messages » : un client qui répond STOP n’en reçoit plus.',
+          en: 'The first message goes out once per checkout, with the link that reopens it, after the chosen delay (15 min to 72 h); nothing goes out if an order came out of it. It is a marketing message, which ends by telling the customer to reply STOP: a customer who replies STOP gets no more of them.',
         },
       },
       {

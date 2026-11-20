@@ -41,7 +41,12 @@ const versMessage = (m: MessageBranche) => ({
  */
 function versAutomation(l: EtatLigne, scenarios: boolean) {
   const suite = l.blocs - 1;
-  const note = l.modele === null
+  // Le message standard (2026-11-20) attend Meta dans une version programmée : le premier template publié est encore vide.
+  const enAttente = l.modele === null && l.versionProgrammee && l.apercu !== null;
+  const note = enAttente
+    ? 'The standard message (message) is under review at Meta: once approved it becomes the template, and set_shopify_message '
+      + 'with that template and active true turns the automation on.'
+    : l.modele === null
     ? 'No first template yet: set_shopify_message with a template sets it.'
     : suite <= 0 ? null
       : scenarios
@@ -50,7 +55,16 @@ function versAutomation(l: EtatLigne, scenarios: boolean) {
         : 'On this plan only the first step is sent: the other steps of the scenario need the Pro plan.';
   return {
     event: l.evenement, active: l.actif, scenario: l.scenario, template: l.modele, language: l.langue,
-    template_status: l.etatChezMeta, steps: l.blocs, ...(note !== null ? { note } : {}),
+    template_status: l.etatChezMeta, steps: l.blocs,
+    // Le texte du premier message, variables numérotées ({{1}}...), celui qui attend Meta s'il y en a un.
+    // Et ses données dans l'ordre de {{1}}, {{2}}... : ce que `set_shopify_message` doit renvoyer pour allumer sans les perdre
+    // (absentes si une position n'est pas une donnée Shopify, ce que l'outil ne sait pas poser).
+    ...(l.apercu !== null ? {
+      message: l.apercu.corps,
+      ...(l.apercu.donnees.every((d) => d !== null) ? { variables: l.apercu.donnees } : {}),
+      ...(l.apercu.enValidation ? { message_under_review: true } : {}),
+    } : {}),
+    ...(note !== null ? { note } : {}),
   };
 }
 
@@ -69,7 +83,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'own Shopify organization and installed on the store: store (the <name>.myshopify.com domain), client_id and '
       + 'client_secret (SHOPIFY_API_KEY and SHOPIFY_API_SECRET from shopify app env show). The connection is checked with '
       + 'Shopify before the secret is kept, encrypted; a refusal says what to do (for example click Install on the given '
-      + 'link). Reconnecting replaces the secret. Counts toward the workspace\'s heavy operations.',
+      + 'link). Reconnecting replaces the secret. Connecting writes a standard WhatsApp message for each event that has none '
+      + '(order paid, order shipped, abandoned checkout) and sends it to Meta for approval; the automations stay off until '
+      + 'turned on (get_shopify_state shows them). Counts toward the workspace\'s heavy operations.',
     annotations: { title: 'Connect a Shopify store', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     entree: {
       type: 'object',
@@ -151,7 +167,8 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     fonction: null,
     description:
       'The Shopify store connected to the workspace: its state (connected or cut), whether it is paused, its automations (one '
-      + 'per event: on or off, its scenario, the first template and its status at Meta, the number of steps), the last event '
+      + 'per event: on or off, its scenario, the first template and its status at Meta, the number of steps, the text of the '
+      + 'first message with its Shopify data in order, and whether it is under review at Meta), the last event '
       + 'received, and the last 30 days of events by outcome (sent, '
       + 'opted out, without consent, contact limit, monthly templates limit, without phone...; on a number linked by QR code '
       + 'also premier_contact: such a number never writes first, so its Shopify messages cannot go out; and for a message '

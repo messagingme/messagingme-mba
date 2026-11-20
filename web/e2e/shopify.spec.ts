@@ -14,9 +14,11 @@ const BOUTIQUE = {
   delaiPanierMinutes: 60, origine: 'claude_code', pauseLe: null,
 };
 const VIDE = { boutique: null, compteurs: {}, paniers: { relances: {}, fermesATemps: 0, enAttente: 0 }, pageApps: null, lignes: [] };
+/** Le message en vigueur d'une ligne, tel que le serveur le rend (spec 2026-11-20) : corps numéroté, exemples par position. */
+const APERCU = { corps: 'Bonjour {{1}}, merci pour votre commande {{2}}.', pied: null, exemples: ['Camille', '#1002'], enValidation: false };
 const ligne = (evenement: string, o: Record<string, unknown> = {}) => ({
   evenement, actif: true, workflowId: `wf-${evenement}`, scenario: evenement, modele: `m_${evenement}`, langue: 'fr',
-  etatChezMeta: 'APPROVED', blocs: 1, versionProgrammee: false, ...o,
+  etatChezMeta: 'APPROVED', blocs: 1, versionProgrammee: false, apercu: APERCU, ...o,
 });
 const BRANCHEE = {
   ...VIDE, boutique: BOUTIQUE, pageApps: 'https://admin.shopify.com/store/ma-boutique/settings/apps', lignes: [ligne('order_paid')],
@@ -183,6 +185,33 @@ test.describe('Scénario > Automation > Shopify : les automations de la boutique
     await page.getByTestId('automations-shopify-interrupteur-order_fulfilled').click();
     await expect.poll(() => trace.lignes).toEqual([{ evenement: 'order_fulfilled', corps: { actif: true } }]);
     await expect(page).toHaveURL(/\/workflows\?open=wf-order_fulfilled$/);
+  });
+
+  test('🔴 le message au focus et au survol d’une ligne, ses données remplacées par leurs exemples ; un clic ouvre son scénario (spec 2026-11-20)', async ({ page }) => {
+    // Le message standard posé au branchement : la ligne éteinte, son template dans une version programmée.
+    const enValidation = ligne('order_paid', {
+      actif: false, modele: null, langue: null, etatChezMeta: null, versionProgrammee: true, apercu: { ...APERCU, enValidation: true },
+    });
+    await monter(page, { ecran: PAGE, etat: { ...BRANCHEE, lignes: [enValidation, ligne('order_fulfilled', { actif: false, apercu: null })] } });
+    const section = page.getByTestId('automations-shopify');
+    await expect(section.getByTestId('automations-shopify-etat-order_paid')).toHaveText('éteinte, message en validation chez Meta');
+    await expect(section.getByTestId('automations-shopify-etat-order_fulfilled')).toHaveText('prête : allumez-la pour l’envoyer');
+    const bulle = section.getByTestId('automations-shopify-apercu-order_paid');
+    await expect(bulle).toBeHidden();
+    // Au clavier d'abord : le focus du lien ouvre la bulle, sans souris.
+    await section.getByTestId('automations-shopify-ligne-order_paid').focus();
+    await expect(bulle).toBeVisible();
+    await expect(bulle).toContainText('Bonjour Camille, merci pour votre commande #1002.');
+    await expect(bulle).toContainText('En validation chez Meta');
+    await section.getByTestId('automations-shopify-ligne-order_paid').blur();
+    await expect(bulle).toBeHidden();
+    await section.getByTestId('automations-shopify-ligne-order_paid').hover();
+    await expect(bulle).toBeVisible();
+    // Une ligne sans message n'a pas de bulle ; une automation pas encore créée, pas de lien.
+    await expect(section.getByTestId('automations-shopify-apercu-order_fulfilled')).toHaveCount(0);
+    await expect(section.getByTestId('automations-shopify-ligne-checkout_abandoned')).toHaveCount(0);
+    await section.getByTestId('automations-shopify-ligne-order_paid').click();
+    await expect(page).toHaveURL(/\/workflows\?open=wf-order_paid$/);
   });
 
   test('la pause se dit, avec le chemin pour la reprendre, et les lignes restent', async ({ page }) => {

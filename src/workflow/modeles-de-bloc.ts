@@ -323,11 +323,16 @@ export async function tenterMiseEnLigne(deps: DepsMiseEnLigne, tenantId: string,
   } catch (err) {
     journaliser('warn', 'scenario_programme_journal_echoue', { tenantId, workflowId: p.id, err: messageDe(err) });
   }
-  await deps.emails.emettre({
-    cle: 'scenario_programme_en_ligne', tenantId, a: 'admins', occasion: `${p.id}:${p.le}`,
-    valeurs: { scenario: p.nom, lien_scenario: deps.lienScenario(p.id) },
-  }).catch(() => undefined);
-  journaliser('info', 'scenario_programme_en_ligne', { tenantId, workflowId: p.id });
+  // 🔴 Le message standard d'une boutique (`proposerMessageStandard`, 2026-11-20) est programmé SANS auteur : sa ligne est
+  // éteinte, « vos contacts la reçoivent désormais » serait faux, et l'écran Automation > Shopify dit qu'il est prêt.
+  const messageStandard = p.par === null && p.rayon === 'shopify';
+  if (!messageStandard) {
+    await deps.emails.emettre({
+      cle: 'scenario_programme_en_ligne', tenantId, a: 'admins', occasion: `${p.id}:${p.le}`,
+      valeurs: { scenario: p.nom, lien_scenario: deps.lienScenario(p.id) },
+    }).catch(() => undefined);
+  }
+  journaliser('info', 'scenario_programme_en_ligne', { tenantId, workflowId: p.id, messageStandard });
   return 'en_ligne';
 }
 

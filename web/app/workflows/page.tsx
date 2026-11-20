@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { WorkflowBuilder } from '@/components/WorkflowBuilder';
 import type { Session } from '@/lib/session';
@@ -66,6 +66,7 @@ function WorkflowsInner({ session }: { session: Session }) {
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [editing, setEditing] = useState<WorkflowSummary | null>(null);
+  const router = useRouter();
   // Les départs du scénario ouvert (`GET /workflows/:id`) ; `null` : un scénario neuf, ou une API qui ne les rend pas.
   const [departs, setDeparts] = useState<Depart[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -416,7 +417,20 @@ function WorkflowsInner({ session }: { session: Session }) {
     return (
       <div className="flex flex-col gap-3 p-3 lg:h-full">
         <div className="flex items-center justify-between">
-          <button onClick={() => { setEditing(null); void load(); }} className="text-sm text-brand-600 hover:underline">← {t('Retour aux scénarios', 'Back to scenarios')}</button>
+          {/* Un scénario d'automation revient à sa page (spec 2026-11-20 § 4.4) : le rayon se lit sur le scénario, jamais dans
+              l'adresse, que les e2e figent à `/workflows?open=<id>`. */}
+          {editing.rayon === 'shopify' || editing.rayon === 'hubspot' ? (
+            <button
+              onClick={() => router.push(editing.rayon === 'shopify' ? '/automations/shopify' : '/automations/hubspot')}
+              className="text-sm text-brand-600 hover:underline" data-testid="workflow-retour"
+            >
+              ← {editing.rayon === 'shopify'
+                ? t('Retour aux automations Shopify', 'Back to Shopify automations')
+                : t('Retour aux automations HubSpot', 'Back to HubSpot automations')}
+            </button>
+          ) : (
+            <button onClick={() => { setEditing(null); void load(); }} className="text-sm text-brand-600 hover:underline" data-testid="workflow-retour">← {t('Retour aux scénarios', 'Back to scenarios')}</button>
+          )}
           <TitrePage>{editing.name}</TitrePage>
         </div>
         {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}

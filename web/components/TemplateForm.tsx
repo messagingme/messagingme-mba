@@ -43,7 +43,11 @@ export interface CreatedTemplate { name: string; language: string; status: strin
  * en-tête image, vidéo ni document (ils se créent dans Contenu > Templates). L'hôte soumet par la route du bloc.
  */
 export interface FormulairePourUnBloc {
-  soumettre(input: Omit<CreateTemplateInput, 'name'>): Promise<void>;
+  /**
+   * `variablesDuBloc` : les sources `variable` (une donnée de l'événement d'une automation), aux positions du corps
+   * envoyé. Un template ne peut pas les porter (le serveur les refuse dans `paramHints`, 400) : elles restent sur le bloc.
+   */
+  soumettre(input: Omit<CreateTemplateInput, 'name'>, variablesDuBloc: TemplateParamHint[]): Promise<void>;
   /** Les sources choisies dans le bloc (`node.data.variables`), qui recouvrent celles du template, position par position. */
   sourcesDuBloc?: TemplateParamHint[];
 }
@@ -286,7 +290,10 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
       }
       const canonBody = canon.body;
       const example = canon.example;
-      const paramHints: TemplateParamHint[] = canon.paramHints;
+      // Une source `variable` (une donnée Shopify du bloc) n'entre jamais dans les indices du template : le serveur les
+      // refuse (400 sur « Modifier ce template »). Elle reste sur le bloc, qui seul la lit à l'envoi.
+      const paramHints: TemplateParamHint[] = canon.paramHints.filter((h) => h.source.type !== 'variable');
+      const variablesDuBloc: TemplateParamHint[] = canon.paramHints.filter((h) => h.source.type === 'variable');
       const header = buildHeader();
       const foot = footer.trim() || undefined;
       // 🔴 Le défaut n'envoie rien : un modèle dont on ne touche pas la durée part comme avant. Seule exception, l'édition
@@ -322,7 +329,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
           ...(buttons.length > 0 ? { buttons } : {}),
           ...(paramHints.length > 0 ? { paramHints } : {}),
           ...(envoyerTtl ? { ttlSecondes: ttl } : {}),
-        });
+        }, variablesDuBloc);
         return;
       }
       // Nom normalisé une seule fois : c'est LUI que Meta connaît, donc lui qu'on remonte à l'appelant.

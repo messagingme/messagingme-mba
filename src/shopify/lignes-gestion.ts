@@ -1,12 +1,16 @@
 import { journaliser } from '../lib/journal';
 import { messageDe } from '../lib/erreur';
 import type { TemplateSummary } from '../meta/templates';
+import { RELIER_EN_COEXISTENCE, type Filiere } from '../application/comptes';
+import { countTemplateVariables } from '../crm/template';
 import type { WorkflowGraph, WorkflowNode } from '../workflow/graph';
 import type { PgWorkflowStore } from '../workflow/store.pg';
 import type { WorkflowExecutor } from '../workflow/executor';
-import { programmerMenage, type DepsMenage } from '../workflow/modeles-de-bloc';
-import { DELAI_PANIER_MAX, DELAI_PANIER_MIN, EVENEMENTS_SHOPIFY, type DonneeShopify, type EvenementShopify } from './donnees';
+import { programmerMenage, type DepsMenage, type IssueCreationDeBloc } from '../workflow/modeles-de-bloc';
+import { EXEMPLES_DONNEES } from '../../web/lib/partage/shopify-messages';
+import { DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_SHOPIFY, EVENEMENTS_SHOPIFY, type DonneeShopify, type EvenementShopify } from './donnees';
 import { NOM_DU_SCENARIO, prefixeShopify, type LigneShopify } from './lignes';
+import { corpsStandard } from './messages-standard';
 import { blocVerrouille, estBlocVerrouille, MARQUE_PREMIER_BLOC } from './premier-bloc';
 import type { PgShopifyStore } from './store.pg';
 
@@ -23,18 +27,32 @@ import type { PgShopifyStore } from './store.pg';
 export interface DepsLignesShopify {
   store: Pick<PgShopifyStore, 'lire' | 'lignes' | 'ligne' | 'poserLigne' | 'allumerLigne' | 'eteindreLigne' | 'mettreEnPause' | 'reprendre' | 'reglerDelaiPanier'>;
   /** Le magasin des scénarios, ENTIER (ses méthodes lisent `this`). */
-  workflows: Pick<PgWorkflowStore, 'insert' | 'publish' | 'getById' | 'update' | 'publicationProgrammee'>;
+  workflows: Pick<PgWorkflowStore, 'insert' | 'publish' | 'getById' | 'update' | 'publicationProgrammee' | 'programmer'>;
   /** L'exécuteur des parcours, ENTIER. */
   parcours: Pick<WorkflowExecutor, 'arreterParcours'>;
   /** Les templates de l'espace chez Meta (`listerModeles`) : le statut et les boutons du premier template. */
   modeles(tenantId: string): Promise<readonly TemplateSummary[]>;
   /** Le ménage du template que le premier bloc remplace (spec § 5.1) : programmé, jamais supprimé ici. */
   menage: DepsMenage;
+  /**
+   * Un template écrit depuis un bloc (`creerModeleDuBloc` lié à ses magasins par le câblage) : le message standard
+   * (2026-11-20) passe par la porte du builder, son nom généré côté serveur et sa ligne `modeles_de_bloc`.
+   */
+  creerModele(tenantId: string, e: { workflowId: string; nodeId: string; corps: Record<string, unknown>; par: string | null }): Promise<IssueCreationDeBloc>;
+  /** La filière de l'espace (`filiereDe`) : sur un numéro relié par QR code, aucun template ne part. */
+  filiere(tenantId: string): Promise<Filiere | null>;
 }
 
 export type Refus = { ok: false; statut: 400 | 409 | 422 | 503; message: string };
 export type Issue<T> = { ok: true; valeur: T } | Refus;
 const refus = (statut: Refus['statut'], message: string): Refus => ({ ok: false, statut, message });
+
+/**
+ * Le refus d'un message Shopify actif sur un numéro relié par QR code (2026-10-24, `brancherMessage` ; l'interrupteur de la
+ * console depuis 2026-11-20), et sa suite : la coexistence, après laquelle les messages se règlent en modèles.
+ */
+export const PHRASE_SHOPIFY_QR_CODE = 'Sur un numéro relié par QR code, les messages Shopify ne peuvent pas partir : WhatsApp ne '
+  + `laisse pas écrire en premier à un client. Pour écrire en premier tout en gardant l’application WhatsApp Business, ${RELIER_EN_COEXISTENCE}`;
 
 export { NOM_DU_SCENARIO };
 
@@ -82,8 +100,14 @@ export async function reglerLigne(
   }
   const b = await boutiqueConnectee(deps, tenantId);
   if (!b.ok) return b;
-  if (r.actif) {
+  // Une ligne déjà allumée (la console renvoie `actif: true` avec un nouveau délai du panier) : ni refus ni proposition.
+  if (r.actif && (await deps.store.ligne(tenantId, evenement))?.actif !== true) {
+    // Sur un numéro relié par QR code, chaque événement finirait `filiere_differente` : refusé ici, comme `set_shopify_message`.
+    if ((await deps.filiere(tenantId)) === 'application') return refus(409, PHRASE_SHOPIFY_QR_CODE);
     await assurerLigne(deps, tenantId, evenement, par);
+    // Un cas encore vide (création sautée au branchement, boutique branchée avant le 2026-11-20) reçoit son message
+    // standard ; un cas qui a son message n'est pas touché. Jamais levé : l'allumage passe.
+    await proposerMessageStandard(deps, tenantId, evenement, par);
     await deps.store.allumerLigne(tenantId, evenement, par);
   } else if (await deps.store.eteindreLigne(tenantId, evenement, par)) {
     await arreterLesParcours(deps, tenantId, prefixeShopify(b.valeur.domaine, evenement), 'ligne éteinte');
@@ -180,6 +204,112 @@ export async function brancherLePremierBloc(
   return { ok: true, valeur: { ligne: (await deps.store.ligne(tenantId, b.evenement)) ?? ligne, programmationAnnulee: programmee !== null } };
 }
 
+/** Le bloc verrouillé de ce graphe nomme-t-il un template ? */
+const nommeUnModele = (g: WorkflowGraph | null | undefined): boolean => {
+  const bloc = g ? blocVerrouille(g) : null;
+  return typeof bloc?.data.templateName === 'string' && bloc.data.templateName.trim() !== '';
+};
+
+/**
+ * Ce que devient la proposition du message standard : posé (programmé ou publié), déjà là (rien de touché), numéro relié
+ * par QR code, refusé par Meta ou sans compte WhatsApp Business (rien dans le scénario), panne (journalisée).
+ */
+export type IssueProposition = 'propose' | 'deja' | 'filiere_application' | 'non_cree' | 'echec';
+
+/**
+ * LE MESSAGE STANDARD D'UNE LIGNE (Julien, 2026-11-20, spec `2026-11-20-shopify-messages-standard-design.md`) : au
+ * branchement de la boutique, et au premier allumage d'un cas encore vide. La ligne naît (ou se retrouve) ÉTEINTE ; le
+ * template standard se crée par la porte du builder (`creerModeleDuBloc` : nom généré côté serveur, jamais le motif de
+ * l'ancien assistant que le ménage supprimerait ; ligne `modeles_de_bloc`, donc ménagé le jour où le marchand le remplace).
+ *
+ * 🔴 PENDANT LA VALIDATION DE META, LE TEMPLATE VA DANS UNE VERSION PROGRAMMÉE (décision 18), JAMAIS DANS LE PUBLIÉ : une
+ * ligne allumée pendant l'attente n'envoie rien (`premier_message_absent`) au lieu de consommer chaque événement en
+ * `modele_refuse`, et l'approbation met en ligne par le chemin existant (`tenterMiseEnLigne`, filet de dix minutes). La
+ * programmation n'a pas d'auteur (`par` nul) : c'est elle qui retient l'e-mail « en ligne », faux pour une ligne éteinte.
+ * Le brouillon reçoit le même bloc, pour que l'éditeur montre le message proposé.
+ *
+ * Jamais par-dessus le message du marchand : un template dans le publié, la version programmée ou le brouillon arrête
+ * tout. Jamais levée : le branchement et l'allumage passent quoi qu'il arrive ici.
+ */
+export async function proposerMessageStandard(
+  deps: DepsLignesShopify, tenantId: string, evenement: EvenementShopify, par: string | null,
+): Promise<IssueProposition> {
+  try {
+    if ((await deps.filiere(tenantId)) === 'application') return 'filiere_application';
+    const ligne = await assurerLigne(deps, tenantId, evenement, par);
+    const wf = await deps.workflows.getById(ligne.workflowId, tenantId);
+    if (wf === null || wf.rayon !== 'shopify') return 'echec';
+    const programmee = await deps.workflows.publicationProgrammee(wf.id, tenantId);
+    if (nommeUnModele(wf.graph) || nommeUnModele(wf.draftGraph) || nommeUnModele(programmee?.graphe)) return 'deja';
+    const bloc = blocVerrouille(wf.draftGraph ?? wf.graph);
+    if (bloc === null) return 'echec';
+    const { corps, variables } = corpsStandard(evenement);
+    const cree = await deps.creerModele(tenantId, { workflowId: wf.id, nodeId: bloc.id, corps, par });
+    if (!cree.ok || cree.etat === 'refuse') {
+      journaliser('warn', 'shopify_message_standard_non_cree', { tenantId, evenement, erreur: cree.ok ? 'refusé par Meta' : cree.erreur });
+      return 'non_cree';
+    }
+    const data = {
+      templateName: cree.modele, language: cree.langue, templateButtons: [], templateCards: [],
+      variables: variables.map((key, i) => ({ position: i + 1, source: { type: 'variable', key } })),
+    };
+    const version = avecLePremierBloc(wf.graph, data);
+    if (version === null) return 'echec';
+    if (cree.etat === 'approuve') {
+      await deps.workflows.publish(wf.id, tenantId, version);
+      await programmerMenage(deps.menage, tenantId, 'shopify', wf.graph, version);
+    } else {
+      await deps.workflows.programmer(wf.id, tenantId, null, version);
+    }
+    const brouillon = avecLePremierBloc(wf.draftGraph ?? wf.graph, data);
+    if (brouillon !== null) await deps.workflows.update(wf.id, tenantId, { graph: brouillon });
+    journaliser('info', 'shopify_message_standard_propose', { tenantId, evenement, etat: cree.etat });
+    return 'propose';
+  } catch (err) {
+    journaliser('error', 'shopify_message_standard_en_echec', { tenantId, evenement, erreur: messageDe(err) });
+    return 'echec';
+  }
+}
+
+/** Les messages standard des trois événements, en parallèle (des scénarios distincts) : au branchement de la boutique. */
+export async function proposerLesMessagesStandard(deps: DepsLignesShopify, tenantId: string, par: string | null): Promise<IssueProposition[]> {
+  return Promise.all(EVENEMENTS_SHOPIFY.map((e) => proposerMessageStandard(deps, tenantId, e, par)));
+}
+
+/** Le message en vigueur d'une ligne, pour l'aperçu de la console : son corps, son pied, un exemple par variable. */
+export interface ApercuLigne {
+  corps: string;
+  pied: string | null;
+  /** Par position : `exemples[0]` remplace {{1}}. Une donnée Shopify vaut son exemple ; une autre source reste en repère. */
+  exemples: string[];
+  /** Par position, la donnée Shopify reliée (`null` pour une autre source) : ce que `set_shopify_message` doit renvoyer. */
+  donnees: Array<DonneeShopify | null>;
+  /** Le template attend Meta (une version programmée, ou un statut en attente). */
+  enValidation: boolean;
+}
+
+const estDonnee = (k: unknown): k is DonneeShopify => typeof k === 'string' && (DONNEES_SHOPIFY as readonly string[]).includes(k);
+
+/** L'aperçu du template que nomme le bloc verrouillé de ce graphe ; `null` sans template, ou introuvable chez Meta. */
+function apercuDe(g: WorkflowGraph | null, modeles: readonly TemplateSummary[], programmee: boolean): ApercuLigne | null {
+  const bloc = g === null ? null : blocVerrouille(g);
+  const nom = typeof bloc?.data.templateName === 'string' ? bloc.data.templateName.trim() : '';
+  if (bloc === null || nom === '') return null;
+  const tpl = modeles.find((t) => t.name === nom && t.language === String(bloc.data.language ?? 'fr'));
+  if (tpl === undefined || typeof tpl.body !== 'string') return null;
+  const sources = Array.isArray(bloc.data.variables) ? bloc.data.variables as Array<{ position?: unknown; source?: { type?: unknown; key?: unknown; value?: unknown } }> : [];
+  const positions = Array.from({ length: countTemplateVariables(tpl.body) }, (_, i) => sources.find((v) => v.position === i + 1)?.source);
+  const donnees = positions.map((s) => (s?.type === 'variable' && estDonnee(s.key) ? s.key : null));
+  const exemples = positions.map((s, i) => {
+    const d = donnees[i];
+    if (d) return EXEMPLES_DONNEES[d];
+    if (s?.type === 'literal' && typeof s.value === 'string' && s.value !== '') return s.value;
+    return `{{${i + 1}}}`;
+  });
+  const statut = String(tpl.status ?? '').toUpperCase();
+  return { corps: tpl.body, pied: tpl.footer ?? null, exemples, donnees, enValidation: programmee || statut === 'PENDING' || statut === 'IN_APPEAL' };
+}
+
 /** Une ligne, telle que la console et `get_shopify_state` la montrent. */
 export interface EtatLigne {
   evenement: EvenementShopify;
@@ -196,6 +326,8 @@ export interface EtatLigne {
   blocs: number;
   /** Une version du scénario attend Meta pour sa mise en ligne (lot 3) : la console dit « nouvelle version en validation ». */
   versionProgrammee: boolean;
+  /** Le message en vigueur (celui de la version programmée s'il y en a une, sinon du publié), pour la bulle de la console. */
+  apercu: ApercuLigne | null;
 }
 
 /** Les lignes de l'espace, dans l'ordre des événements, chacune lue avec son scénario publié et son template chez Meta. */
@@ -213,10 +345,13 @@ export async function etatDesLignes(deps: DepsLignesShopify, tenantId: string): 
     const nom = typeof bloc?.data.templateName === 'string' && bloc.data.templateName.trim() !== '' ? bloc.data.templateName.trim() : null;
     const langue = nom === null ? null : String(bloc?.data.language ?? 'fr');
     const tpl = nom === null ? undefined : modeles.find((t) => t.name === nom && t.language === langue);
+    const programmee = wf === null ? null : await deps.workflows.publicationProgrammee(wf.id, tenantId);
+    // L'aperçu : la version programmée d'abord (le message standard en validation, ou un nouveau texte), sinon le publié.
+    const apercu = (programmee !== null ? apercuDe(programmee.graphe, modeles, true) : null) ?? apercuDe(graphe, modeles, false);
     etats.push({
       evenement: l.evenement, actif: l.actif, workflowId: l.workflowId, scenario: wf?.name ?? null,
       modele: nom, langue, etatChezMeta: tpl?.status ?? null, blocs: graphe?.nodes.length ?? 0,
-      versionProgrammee: wf !== null && (await deps.workflows.publicationProgrammee(wf.id, tenantId)) !== null,
+      versionProgrammee: programmee !== null, apercu,
     });
   }
   return etats;

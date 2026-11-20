@@ -503,12 +503,13 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   }, [selectedId, patcherBloc]);
 
   /**
-   * Un template vient d'être écrit depuis un bloc : le bloc l'envoie désormais, avec ses boutons, sans carte ni choix
-   * de variables propres (les sources du nouveau template ont été posées à sa création). Ses flèches suivent le texte
-   * des boutons. La liste de Meta et l'état des templates du scénario se relisent.
+   * Un template vient d'être écrit depuis un bloc : le bloc l'envoie désormais, avec ses boutons, sans carte. Ses choix de
+   * variables propres se réduisent aux données de l'événement (sources `variable`, que le template ne peut pas porter :
+   * sans elles, un message Shopify partirait sans ses données) ; les autres sources ont été posées à la création du
+   * template. Ses flèches suivent le texte des boutons. La liste de Meta et l'état des templates du scénario se relisent.
    */
-  const surModeleCree = useCallback((nodeId: string, cree: ModeleCreeDepuisUnBloc) => {
-    patcherBloc(nodeId, { templateName: cree.modele, language: cree.langue, templateButtons: cree.boutons, templateCards: [], variables: [] });
+  const surModeleCree = useCallback((nodeId: string, cree: ModeleCreeDepuisUnBloc, variablesDuBloc: TemplateParamHint[]) => {
+    patcherBloc(nodeId, { templateName: cree.modele, language: cree.langue, templateButtons: cree.boutons, templateCards: [], variables: variablesDuBloc });
     setFormulaireDuBloc(null);
     rechargerTemplates();
     // Le serveur lit l'état des templates que NOMME le brouillon ENREGISTRÉ : relire tout de suite ne verrait pas encore le
@@ -1032,7 +1033,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             {...(initial ? { initial } : {})}
             {...(sourcesDuBloc.length > 0 ? { sourcesDuBloc } : {})}
             enregistrerMaintenant={enregistrerMaintenant}
-            onCree={(cree) => surModeleCree(bloc.id, cree)}
+            onCree={(cree, v) => surModeleCree(bloc.id, cree, v)}
             onClose={() => setFormulaireDuBloc(null)}
           />
         );

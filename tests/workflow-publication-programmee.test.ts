@@ -151,6 +151,23 @@ describe('tenterMiseEnLigne', () => {
     expect(appels.audit).toEqual([{ action: 'workflow.published', detail: { blocs: 1, programmee: true } }]);
   });
 
+  it('🔴 le message standard d’une boutique (programmation sans auteur, rayon shopify) se met en ligne SANS l’e-mail « en ligne » : sa ligne est éteinte', async () => {
+    const depart = { id: 'depart', type: 'template', position: { x: 0, y: 0 }, data: { verrouille: true, templateName: 'a', language: 'fr' } };
+    const avant: WorkflowRow = {
+      id: 'wf1', tenantId: 't1', name: 'Commande payée', code: null, graph: graphe({ ...depart, data: { verrouille: true } }), draftGraph: null,
+      publishedAt: null, createdAt: '', updatedAt: '', rayon: 'shopify',
+    };
+    const standard = { ...programmation(graphe(depart)), rayon: 'shopify' as const, par: null };
+    const sans = monter({ lignes: [ligneDe('a', 'approuve')], enLigne: [avant] });
+    expect(await tenterMiseEnLigne(sans.deps, 't1', standard)).toBe('en_ligne');
+    expect(sans.appels.misEnLigne).toEqual([`wf1@${LE}`]);
+    expect(sans.appels.emails).toEqual([]);
+    // Le même scénario publié par le marchand (un auteur) garde son e-mail.
+    const avec = monter({ lignes: [ligneDe('a', 'approuve')], enLigne: [avant] });
+    expect(await tenterMiseEnLigne(avec.deps, 't1', { ...standard, par: 'u1' })).toBe('en_ligne');
+    expect(avec.appels.emails).toHaveLength(1);
+  });
+
   it('un template encore en validation : on attend, rien n’est écrit', async () => {
     const { deps, appels } = monter({ lignes: [ligneDe('a', 'approuve'), ligneDe('b', 'en_validation')] });
     expect(await tenterMiseEnLigne(deps, 't1', programmation(graphe(tpl('n1', 'a'), tpl('n2', 'b'))))).toBe('attend_modeles');

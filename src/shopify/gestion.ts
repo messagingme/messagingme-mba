@@ -2,7 +2,7 @@ import type { LectureModele } from '../api/modele-envoi';
 import { domaineShopify, pageApps, type IssueJeton, type IssueVerification } from './connexion';
 import type { AccesClients, ClientAbonne, LectureClients } from './clients';
 import type { IssueAbonnement } from './abonnements';
-import { RELIER_EN_COEXISTENCE, type Filiere } from '../application/comptes';
+import type { Filiere } from '../application/comptes';
 import type { ImportInput } from '../crm/import';
 import type { ImportReport } from '../crm/types';
 import { LimiteOffreError } from '../offres/refus';
@@ -12,7 +12,10 @@ import {
   type DonneeShopify, type EvenementShopify,
 } from './donnees';
 import type { AttenteMessage, MessageBranche, OrigineBoutique, PgShopifyStore, VueBoutique } from './store.pg';
-import { arreterLesParcours, brancherLePremierBloc, etatDesLignes, reglerLigne, type DepsLignesShopify, type EtatLigne } from './lignes-gestion';
+import {
+  arreterLesParcours, brancherLePremierBloc, etatDesLignes, PHRASE_SHOPIFY_QR_CODE, proposerLesMessagesStandard, reglerLigne,
+  type DepsLignesShopify, type EtatLigne,
+} from './lignes-gestion';
 import { prefixeShopify } from './lignes';
 import type { ChiffreVentes, Montant } from './chiffre';
 import { addDays, todayParis, type DateRange } from '../stats/range';
@@ -49,12 +52,8 @@ export interface DepsGestionShopify {
   lignes: DepsLignesShopify;
 }
 
-/**
- * Le refus d'un message Shopify actif sur un numéro relié par QR code (2026-10-24, `brancherMessage`), et sa suite : la
- * coexistence, après laquelle les messages se règlent en modèles (plan 2026-10-24, tâche 4).
- */
-export const PHRASE_SHOPIFY_QR_CODE = 'Sur un numéro relié par QR code, les messages Shopify ne peuvent pas partir : WhatsApp ne '
-  + `laisse pas écrire en premier à un client. Pour écrire en premier tout en gardant l’application WhatsApp Business, ${RELIER_EN_COEXISTENCE}`;
+// Le refus d'un message Shopify sur un numéro relié par QR code vit avec l'interrupteur des lignes, qui l'emploie aussi.
+export { PHRASE_SHOPIFY_QR_CODE };
 
 export type Refus = { ok: false; statut: 400 | 402 | 409 | 422 | 503; message: string };
 export type Issue<T> = { ok: true; valeur: T } | Refus;
@@ -151,6 +150,10 @@ export async function connecterShopify(
   const origineRetenue: OrigineBoutique = memeApp ? 'claude_code' : origine;
   const v = await deps.verifier(domaine, clientId, secret);
   if (!v.ok) return refus(v.code === 'passager' ? 503 : 422, v.message);
+  // Une boutique NOUVELLE pour l'espace (aucune, ou un autre domaine) reçoit les messages standard ; un rebranchement de la
+  // même, non (Julien, 2026-11-20 : « nouvelles seulement »). Lue AVANT que `connecter` ne la réécrive.
+  const deja = await deps.store.lire(tenantId);
+  const nouvelle = deja === null || deja.domaine !== domaine;
   const issue = await deps.store.connecter(tenantId, {
     domaine, clientId, secretClair: secret, nom: v.nom, pays: v.pays, devise: v.devise, par, origine: origineRetenue,
   });
@@ -167,6 +170,9 @@ export async function connecterShopify(
   }
   const vue = await deps.store.lire(tenantId);
   if (vue === null) return refus(503, 'La boutique n’a pas pu être relue après sa connexion : réessayez.');
+  // Les messages standard (Julien, 2026-11-20) : créés et soumis à Meta pour chaque cas qui n'en a pas, lignes éteintes.
+  // Jamais levé, jamais un refus du branchement : un cas sans message reste « à compléter » et le reçoit à l'allumage.
+  if (nouvelle) await proposerLesMessagesStandard(deps.lignes, tenantId, par);
   return { ok: true, valeur: vue };
 }
 
