@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { audienceVoulue, creerAlignerAudience, realignerLesAudiences } from '../src/mba/audience';
+import { audienceVoulue, creerAlignerAudience, creerRealignementDesAudiences, PAUSE_AGENT_INACCESSIBLE_MS } from '../src/mba/audience';
+import { MetaAgentApiError } from '../src/meta/errors';
 import type { ClientReglages } from '../src/mba/client';
 import type { ReglageDuRepondeur } from '../src/repondeur/mode';
 import type { Fonction } from '../src/offres/offres';
@@ -92,7 +93,7 @@ describe('realignerLesAudiences : le filet', () => {
       panne: reglages({ repondeurMode: 'equipe' }),
       deja: reglages({ repondeurMode: 'equipe' }),
     };
-    const n = await realignerLesAudiences({
+    const n = await creerRealignementDesAudiences({
       reglages: { tenantsAvecNumeroRelie: async () => Object.keys(r), get: async (t) => r[t]! },
       offres: { offreDe: async (t) => (t === 'gele' ? BASE : OFFRE_PLEINE) },
       numero: async (t) => `pn-${t}`,
@@ -100,8 +101,41 @@ describe('realignerLesAudiences : le filet', () => {
         getSettings: async () => { if (t === 'panne') throw new Error('Meta injoignable'); return etats[t]; },
         putSettings: async (_pn, s) => { ecritures.push([t, (s as Record<string, unknown>).ai_audience]); return {}; },
       }),
-    });
+    })();
     expect(ecritures).toEqual([['mba', 'EVERYONE'], ['agentIA', 'ALLOWLISTED_ONLY'], ['gele', 'ALLOWLISTED_ONLY']]);
     expect(n).toBe(3);
+  });
+
+  it('🔴 un espace que Meta refuse (403, conditions de l’IA non acceptées) est mis de côté 6 h, puis repris', async () => {
+    // Mesuré le 2026-11-20 : onze espaces en erreur à chaque passage, soit environ mille lignes d'erreur et autant
+    // d'appels inutiles à Meta par jour.
+    let maintenant = 1_000_000;
+    const lectures: string[] = [];
+    let conditionsAcceptees = false;
+    const realigner = creerRealignementDesAudiences({
+      maintenant: () => maintenant,
+      reglages: { tenantsAvecNumeroRelie: async () => ['refuse', 'ok'], get: async () => reglages({}) },
+      offres: { offreDe: async () => OFFRE_PLEINE },
+      numero: async (t) => `pn-${t}`,
+      client: async (t) => ({
+        getSettings: async () => {
+          lectures.push(t);
+          if (t === 'refuse' && !conditionsAcceptees) {
+            throw new MetaAgentApiError(403, { message: 'Forbidden : The Meta Business AI Terms of Service must be accepted' });
+          }
+          return { ai_audience: 'EVERYONE' };
+        },
+        putSettings: async () => ({}),
+      }),
+    });
+    await realigner();
+    maintenant += 15 * 60 * 1000;
+    await realigner();
+    // Le second passage ne relit pas l'espace refusé ; l'autre, si.
+    expect(lectures).toEqual(['refuse', 'ok', 'ok']);
+    maintenant += PAUSE_AGENT_INACCESSIBLE_MS;
+    conditionsAcceptees = true;
+    await realigner();
+    expect(lectures).toEqual(['refuse', 'ok', 'ok', 'refuse', 'ok']);
   });
 });

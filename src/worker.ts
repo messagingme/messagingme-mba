@@ -152,7 +152,7 @@ import { balayerLimites, creerAlerteEspacePlein, limitesAlertables } from './ema
 import type { EspacesPleins } from './webhooks/espace-plein';
 import { balayerAccompagnement, balayerRecap } from './emails-produit/accompagnement';
 import { PgOffresStore } from './offres/offre.pg';
-import { realignerLesAudiences } from './mba/audience';
+import { creerRealignementDesAudiences } from './mba/audience';
 import { moisDeParis } from './offres/compteurs';
 import { FILE_EMAILS_PRODUIT } from './emails-produit/emission';
 import { FILE_CONVERSIONS_META } from './pub/conversions-meta';
@@ -1753,13 +1753,15 @@ export async function demarrerWorker(): Promise<void> {
 
   // L'audience de l'agent de Meta suit le répondeur de chaque espace (`src/mba/audience.ts`, 2026-11-20) : le filet de
   // l'alignement au geste, au démarrage puis toutes les 15 min. Une lecture des réglages chez Meta par espace relié.
+  // UNE instance pour la vie du processus : elle se souvient des espaces mis de côté après un refus de Meta (403).
+  const realignerLesAudiences = creerRealignementDesAudiences({
+    reglages: settingsStore,
+    offres: usageDesOffres,
+    numero: (t) => repo.getTenantPhoneNumberId(t),
+    client: (t) => metaFactory.mbaClientForTenant(t),
+  });
   const audienceSweep = async (): Promise<void> => {
-    const ecrites = await realignerLesAudiences({
-      reglages: settingsStore,
-      offres: usageDesOffres,
-      numero: (t) => repo.getTenantPhoneNumberId(t),
-      client: (t) => metaFactory.mbaClientForTenant(t),
-    });
+    const ecrites = await realignerLesAudiences();
     // eslint-disable-next-line no-console
     if (ecrites > 0) console.log(`audience-sweep: ${ecrites} audience(s) réalignée(s)`);
   };

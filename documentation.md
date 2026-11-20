@@ -2597,7 +2597,9 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   l'assistant. 🔴 Le filet : `realignerLesAudiences` (tâche `audience-mba` du worker, au démarrage puis toutes les
   15 min) réaligne chaque espace qui a un numéro relié, sous son offre (`sousLOffre`) ; il rattrape un alignement en
   échec et les chemins qui changent le répondeur sans geste (une offre retirée, `PUT /settings` qui éteint le drapeau,
-  une course avec le passage de main). Une écriture des réglages (`modifierSettings`, dont le
+  une course avec le passage de main). Un espace dont Meta refuse la lecture (403, le plus souvent les conditions de
+  l'IA de Meta jamais acceptées : onze espaces le 2026-11-20) est mis de côté 6 h (`PAUSE_AGENT_INACCESSIBLE_MS`), avec un
+  avertissement, au lieu d'une erreur et d'un appel à Meta toutes les 15 minutes. Une écriture des réglages (`modifierSettings`, dont le
   passage de main que le balayage réécrit à chaque ouverture et fermeture des heures ouvrées) GARDE l'audience que Meta
   avait : l'imposer effaçait chaque jour l'`EVERYONE` de MUTAC, et un inconnu restait sans réponse. ⚠️ En `EVERYONE`,
   l'agent répond aussi aux réponses à nos modèles, sauf si le routage des conversations de Meta Business Suite les

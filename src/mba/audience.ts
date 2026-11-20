@@ -1,4 +1,6 @@
 import { journaliser } from '../lib/journal';
+import { messageDe } from '../lib/erreur';
+import { MetaApiError } from '../meta/errors';
 import { leMbaRepond, sousLOffre, type ReglageDuRepondeur } from '../repondeur/mode';
 import type { Fonction } from '../offres/offres';
 import { ecrireAudience, type AudienceDeLAgent, type ClientReglages } from './client';
@@ -63,22 +65,46 @@ export interface DepsRealignement extends DepsAlignementAudience {
  * choisi, sans fin. Avant la décision du 2026-11-20, c'était chaque écriture qui ramenait la liste. Sous l'offre de
  * l'espace (`sousLOffre`) : les gestes, eux, ne sont ouverts qu'aux offres qui ont l'agent de Meta. Un échec reste
  * local à l'espace et se journalise ; rend le nombre d'audiences écrites.
+ *
+ * Un espace dont Meta refuse la lecture (403 : le plus souvent, les conditions de l'IA de Meta jamais acceptées sur ce
+ * compte, mesuré le 2026-11-20 sur onze espaces) n'a pas d'agent utilisable, donc rien à aligner : il est mis de côté
+ * `PAUSE_AGENT_INACCESSIBLE_MS`, avec un avertissement à chaque mise de côté, au lieu d'une erreur et d'un appel à Meta
+ * toutes les 15 minutes. Il est repris seul à la fin de la pause (le jour où il accepte les conditions).
  */
-export async function realignerLesAudiences(d: DepsRealignement): Promise<number> {
-  let ecrites = 0;
-  for (const tenantId of await d.reglages.tenantsAvecNumeroRelie()) {
-    try {
-      const pn = await d.numero(tenantId);
-      if (pn === null) continue;
-      const [r, o] = await Promise.all([d.reglages.get(tenantId), d.offres.offreDe(tenantId)]);
-      const audience = audienceVoulue(sousLOffre(r, o.droits.fonctions));
-      if (await ecrireAudience(await d.client(tenantId), pn, audience)) {
-        ecrites += 1;
-        journaliser('info', 'mba_audience_realignee', { tenantId, audience });
-      }
-    } catch (err) {
-      journaliser('error', 'mba_audience_non_realignee', { err, tenantId });
+export const PAUSE_AGENT_INACCESSIBLE_MS = 6 * 60 * 60 * 1000;
+
+export function creerRealignementDesAudiences(d: DepsRealignement & { maintenant?: () => number }): () => Promise<number> {
+  /** Les espaces mis de côté après un 403, et jusqu'à quand. La mémoire du processus : un redémarrage les reprend. */
+  const misDeCote = new Map<string, number>();
+  return async () => {
+    const maintenant = (d.maintenant ?? Date.now)();
+    let ecrites = 0;
+    for (const tenantId of await d.reglages.tenantsAvecNumeroRelie()) {
+      if ((misDeCote.get(tenantId) ?? 0) > maintenant) continue;
+      misDeCote.delete(tenantId);
+      ecrites += await realignerUnEspace(d, tenantId, () => misDeCote.set(tenantId, maintenant + PAUSE_AGENT_INACCESSIBLE_MS));
     }
+    return ecrites;
+  };
+}
+
+/** Un espace : 1 si son audience a été écrite, 0 sinon. Ne lève jamais. */
+async function realignerUnEspace(d: DepsRealignement, tenantId: string, mettreDeCote: () => void): Promise<number> {
+  try {
+    const pn = await d.numero(tenantId);
+    if (pn === null) return 0;
+    const [r, o] = await Promise.all([d.reglages.get(tenantId), d.offres.offreDe(tenantId)]);
+    const audience = audienceVoulue(sousLOffre(r, o.droits.fonctions));
+    if (!(await ecrireAudience(await d.client(tenantId), pn, audience))) return 0;
+    journaliser('info', 'mba_audience_realignee', { tenantId, audience });
+    return 1;
+  } catch (err) {
+    if (err instanceof MetaApiError && err.httpStatus === 403) {
+      mettreDeCote();
+      journaliser('warn', 'mba_audience_agent_inaccessible', { tenantId, raison: messageDe(err) });
+      return 0;
+    }
+    journaliser('error', 'mba_audience_non_realignee', { err, tenantId });
+    return 0;
   }
-  return ecrites;
 }
