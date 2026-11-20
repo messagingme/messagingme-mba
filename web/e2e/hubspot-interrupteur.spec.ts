@@ -217,11 +217,13 @@ const offre = (o: 'pro' | 'entreprise', fonctions = GRILLE[o].fonctions) => ({
 });
 
 test.describe('Paramètres > Intégrations > HubSpot : « Répondre aux clients depuis HubSpot » (lot 3)', () => {
-  test('🔴 en Pro : la ligne est ouverte et s’allume, l’analyse dit l’offre qui l’ouvre (Entreprise)', async ({ page }) => {
+  // HubSpot n’est plus ouvert qu’à l’Entreprise dans la console (2026-11-20, demande de Julien) : une offre AVEC `crm` mais
+  // sans une fonction garde le cas que ces tests exerçaient en Pro, la ligne par ligne.
+  test('🔴 avec HubSpot mais sans l’analyse : la réponse s’allume, l’analyse dit l’offre qui l’ouvre (Entreprise)', async ({ page }) => {
     const trace = await parametres(page, {
       reglages: CHOIX_FAIT,
       compte: { hasNumber: false, hubspotPortal: { ...PORTAIL, routingMode: 'mm_routing' } },
-      offre: offre('pro'),
+      offre: offre('entreprise', ['inbox', 'console', 'crm']),
     });
     const reponse = page.getByTestId('integration-hubspot-reponse-toggle');
     await expect(page.getByTestId('integration-hubspot-reponse')).toContainText('Jamais à un contact qui a dit STOP');
@@ -238,7 +240,7 @@ test.describe('Paramètres > Intégrations > HubSpot : « Répondre aux clients 
     const trace = await parametres(page, {
       reglages: { ...CHOIX_FAIT, hubspotReponse: true },
       compte: { hasNumber: false, hubspotPortal: { ...PORTAIL, routingMode: 'mm_routing' } },
-      offre: offre('pro', ['console']),
+      offre: offre('entreprise', ['console', 'crm']),
     });
     const reponse = page.getByTestId('integration-hubspot-reponse-toggle');
     await expect(page.getByTestId('integration-hubspot-reponse-offre')).toHaveText('Inclus dans l’offre Pro.');
@@ -253,7 +255,7 @@ test.describe('Paramètres > Intégrations > HubSpot : « Envoyer des modèles d
     const trace = await parametres(page, {
       reglages: CHOIX_FAIT,
       compte: { hasNumber: false, hubspotPortal: { ...PORTAIL, routingMode: 'mm_routing' } },
-      offre: offre('pro'),
+      offre: offre('entreprise'),
     });
     const modeles = page.getByTestId('integration-hubspot-modeles-toggle');
     const reponse = page.getByTestId('integration-hubspot-reponse-toggle');
@@ -316,14 +318,14 @@ test.describe('Paramètres > Intégrations > HubSpot : « Workflows HubSpot : en
     expect(envoye.champs.every((c) => !('libelle' in c))).toBe(true);
   });
 
-  test('🔴 une offre sans HubSpot : la ligne ne s’allume pas et dit quelle offre l’ouvre', async ({ page }) => {
+  test('🔴 une offre sans HubSpot (Pro) : aucune carte, le volet dit l’offre qui l’ouvre (Entreprise)', async ({ page }) => {
     const trace = await parametres(page, {
       reglages: CHOIX_FAIT,
       compte: { hasNumber: false, hubspotPortal: { ...PORTAIL, routingMode: 'mm_routing' } },
       offre: offre('pro'),
     });
-    await expect(page.getByTestId('integration-hubspot-workflows-toggle')).toBeDisabled();
-    await expect(page.getByTestId('integration-hubspot-workflows-offre')).toBeVisible();
+    await expect(page.getByTestId('volet-hubspot').getByTestId('hors-offre-crm')).toContainText('Inclus dans l’offre Entreprise.');
+    await expect(page.getByTestId('integration-hubspot')).toHaveCount(0);
     expect(trace.puts).toHaveLength(0);
   });
 });

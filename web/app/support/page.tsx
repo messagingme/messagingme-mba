@@ -23,6 +23,9 @@ function sujetDemande(t: (fr: string, en: string) => string): string {
   if (sujet === 'pro') return t('Passer en Pro', 'Upgrade to Pro');
   if (sujet === 'business') return t('Passer en Business', 'Upgrade to Business');
   if (sujet === 'entreprise') return t('Passer en Entreprise', 'Upgrade to Enterprise');
+  // Les connecteurs qui se branchent avec nous (Tools > Intégrations, `ConnecteurSurDemande`).
+  if (sujet === 'salesforce') return t('Connecter Salesforce', 'Connect Salesforce');
+  if (sujet === 'dynamics') return t('Connecter Dynamics 365', 'Connect Dynamics 365');
   return '';
 }
 

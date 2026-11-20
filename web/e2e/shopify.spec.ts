@@ -104,6 +104,18 @@ async function monter(page: Page, o: {
 }
 
 test.describe('Tools > Intégrations > Shopify : la carte de la console', () => {
+  test('🔴 survoler la carte n’ouvre aucune capture « Voir l’écran » ; survoler un lien n’ouvre que la sienne', async ({ page }) => {
+    await monter(page, { etat: VIDE });
+    const carte = page.getByTestId('integration-shopify');
+    await expect(carte.getByTestId('shopify-mode-operatoire')).toBeVisible();
+    const captures = carte.getByRole('tooltip', { includeHidden: true });
+    expect(await captures.count()).toBeGreaterThan(1);
+    await carte.getByTestId('shopify-mode-operatoire').hover();
+    await expect(carte.getByRole('tooltip')).toHaveCount(0);
+    await carte.getByRole('button', { name: 'Voir l’écran' }).first().hover();
+    await expect(carte.getByRole('tooltip')).toHaveCount(1);
+  });
+
   test('🔴 sans boutique : le mode opératoire, puis les clés branchent la boutique, nettoyées', async ({ page }) => {
     const trace = await monter(page, { etat: VIDE, apresBranchement: BRANCHEE });
     const carte = page.getByTestId('integration-shopify');

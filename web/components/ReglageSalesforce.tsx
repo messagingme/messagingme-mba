@@ -23,7 +23,7 @@ import { useFermeture } from '@/lib/use-offre';
  *
  * ⚠️ ADMIN SEULEMENT : la carte ne vit que dans la page des administrateurs, et ses routes sont sous `g.admin`.
  */
-/** `siAbsente` : ce que montre le volet de Tools > Intégrations quand la carte ne s'affiche pas (offre fermée, instance sans Salesforce). */
+/** `siAbsente` : ce que montre le volet de Tools > Intégrations quand la carte ne s'affiche pas (offre fermée, instance sans Salesforce ou sans son app). */
 export function ReglageSalesforce({ tenantId, siAbsente = null }: { tenantId: string; siAbsente?: ReactNode }) {
   const t = useT();
   const [vue, setVue] = useState<IntegrationSalesforceVue | null>(null);
@@ -72,6 +72,8 @@ export function ReglageSalesforce({ tenantId, siAbsente = null }: { tenantId: st
   // Route absente (API pas encore déployée) ou réponse illisible : une intégration neuve ne s'affiche pas.
   if (lecture === 'en_cours') return null;
   if (lecture === 'absente' || lecture === 'illisible') return siAbsente;
+  // L'app Salesforce n'est pas sur l'instance : rien à allumer, le volet propose de nous écrire (2026-11-20).
+  if (vue && !vue.cleAppPosee && siAbsente !== null) return siAbsente;
 
   const etat = vue ? etatCarteSalesforce(vue) : null;
   const raison = t(

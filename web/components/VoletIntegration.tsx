@@ -39,7 +39,7 @@ export function VoletIntegration({ cle, logo, logoLarge = false, nom, resume, ch
   }, [cle]);
 
   return (
-    <details ref={ref} id={`volet-${cle}`} data-testid={`volet-${cle}`} className="group rounded-carte border border-ink-200 bg-white">
+    <details ref={ref} id={`volet-${cle}`} data-testid={`volet-${cle}`} className="group/volet rounded-carte border border-ink-200 bg-white">
       <summary className="flex cursor-pointer list-none items-center gap-4 p-5 [&::-webkit-details-marker]:hidden">
         <span className="flex h-10 w-24 shrink-0 items-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- un logo SVG de quelques Ko, sans optimisation à attendre */}
@@ -49,7 +49,7 @@ export function VoletIntegration({ cle, logo, logoLarge = false, nom, resume, ch
           <span className="block text-sm font-semibold text-ink-900">{nom}</span>
           <span className="block text-sm text-ink-500">{resume}</span>
         </span>
-        <Icone nom="deplier" className="text-ink-400 transition-transform duration-150 group-open:rotate-180" />
+        <Icone nom="deplier" className="text-ink-400 transition-transform duration-150 group-open/volet:rotate-180" />
       </summary>
       <div className="border-t border-ink-200 p-5 [&>section]:border-0 [&>section]:p-0 [&>section_h3]:hidden">
         {children}

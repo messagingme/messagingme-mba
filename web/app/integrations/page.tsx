@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell';
 import { useT } from '@/lib/i18n';
 import { IntroPage, TitrePage } from '@/components/TitrePage';
 import { VoletIntegration } from '@/components/VoletIntegration';
+import { ConnecteurSurDemande } from '@/components/ConnecteurSurDemande';
 import { ReglageIntegrationBatch } from '@/components/ReglageIntegrationBatch';
 import { ReglageHubspot } from '@/components/ReglageHubspot';
 import { ReglageSalesforce } from '@/components/ReglageSalesforce';
@@ -15,7 +16,8 @@ import { ReglageShopify } from '@/components/ReglageShopify';
  * qui BRANCHE la console sur l'extérieur.
  *
  * UN VOLET PAR OUTIL, REPLIÉ (2026-11-20, demande de Julien) : le logo, le nom et ce que fait l'outil ; sa carte de
- * réglage se déplie dedans (`VoletIntegration`). Dynamics 365 n'a pas encore de carte : son volet le dit.
+ * réglage se déplie dedans (`VoletIntegration`). HubSpot, Salesforce et Dynamics 365 sont des connecteurs CRM, réservés à
+ * l'offre Entreprise ; Dynamics 365 n'a pas de carte, il se branche avec nous (`ConnecteurSurDemande`).
  *
  * Réservée aux administrateurs, comme l'étaient ces cartes et comme leurs routes (`g.admin`) : `integrations` n'est pas
  * dans `ECRANS_ENCADREMENT`, la coquille y renvoie un manager à l'Inbox. Chaque carte lit l'offre et se ferme d'elle-même.
@@ -65,15 +67,19 @@ function Integrations({ tenantId }: { tenantId: string }) {
             pas. L'Accueil renvoie ici (`#integration-hubspot`) quand il est éteint. */}
         <VoletIntegration cle="hubspot" logo="/logos/hubspot.svg" nom="HubSpot"
           resume={t('Fiches, conversations, modèles et workflows reliés à votre CRM.', 'Records, conversations, templates and workflows linked to your CRM.')}>
-          <ReglageHubspot tenantId={tenantId} />
+          <ConnecteurSurDemande tenantId={tenantId} nom="HubSpot">
+            <ReglageHubspot tenantId={tenantId} />
+          </ConnecteurSurDemande>
         </VoletIntegration>
+        {/* Salesforce et Dynamics 365 se branchent avec nous : l'Entreprise a un bouton de contact, les autres offres la
+            ligne « Inclus dans l'offre Entreprise » (`ConnecteurSurDemande`). */}
         <VoletIntegration cle="salesforce" logo="/logos/salesforce.svg" nom="Salesforce"
           resume={t('Les conversations WhatsApp dans votre org Salesforce.', 'WhatsApp conversations in your Salesforce org.')}>
-          <ReglageSalesforce tenantId={tenantId} siAbsente={enTravaux} />
+          <ReglageSalesforce tenantId={tenantId} siAbsente={<ConnecteurSurDemande tenantId={tenantId} nom="Salesforce" sujet="salesforce" />} />
         </VoletIntegration>
         <VoletIntegration cle="dynamics" logo="/logos/dynamics-365.svg" nom="Dynamics 365"
           resume={t('Les conversations WhatsApp dans Microsoft Dynamics 365.', 'WhatsApp conversations in Microsoft Dynamics 365.')}>
-          {enTravaux}
+          <ConnecteurSurDemande tenantId={tenantId} nom="Dynamics 365" sujet="dynamics" />
         </VoletIntegration>
       </div>
     </div>

@@ -7,11 +7,27 @@ import { test, expect, type Page } from './aide/test';
  */
 const ADMIN = { token: 'e2e-token', email: 'admin@e2e.test', role: 'admin', tenantId: 't-e2e' };
 
-async function monter(page: Page, role = 'admin') {
+// Une vue d'offre minimale (forme de `accueil-bienvenue.spec.ts`) : seule l'Entreprise ouvre les connecteurs CRM.
+const SANS_CRM = ['inbox', 'scenarios', 'statistiques', 'email', 'console'];
+const LIMITES = {
+  utilisateurs: 3, admins: null, contacts: null, envoisModelesMois: null, automations: null, suppressionsJour: null,
+  adressesWebhook: 5, journalWebhooksJours: 30, conservationJours: 90, commissionPct: 20, badge: false, numeroInclus: true,
+};
+const GRILLE = {
+  free: { fonctions: [], limites: LIMITES }, pro: { fonctions: SANS_CRM, limites: LIMITES },
+  entreprise: { fonctions: [...SANS_CRM, 'crm'], limites: LIMITES },
+};
+const VUE_OFFRE = (o: 'pro' | 'entreprise') => ({
+  offre: o, fonctions: GRILLE[o].fonctions, limites: LIMITES, grille: GRILLE, upgradeUrl: 'https://console.e2e.test/offre',
+  usage: { envoisModelesMois: 0, contacts: 0, automations: 0, membres: 1 },
+});
+
+async function monter(page: Page, role = 'admin', offre?: 'pro' | 'entreprise') {
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), { ...ADMIN, role });
   await page.route('**/api/backend/**', async (route) => {
     const chemin = new URL(route.request().url()).pathname;
     const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+    if (chemin.endsWith('/offre') && offre) return json(VUE_OFFRE(offre));
     if (chemin.endsWith('/integrations/batch')) return json({ branche: false });
     if (chemin.endsWith('/settings')) return json({ timezone: 'Europe/Paris' });
     if (chemin.endsWith('/settings/agents-peuvent-prendre')) return json({ actif: false });
@@ -36,14 +52,29 @@ test('🔴 « Intégrations » est la première entrée de Tools, et la page por
   await expect(page.getByTestId('integration-hubspot')).toBeVisible();
 });
 
-test('Salesforce sans route et Dynamics 365 disent « En cours de développement »', async ({ page }) => {
-  await monter(page);
+test('🔴 en Pro, HubSpot, Salesforce et Dynamics 365 disent qu’ils sont dans l’offre Entreprise, sans carte', async ({ page }) => {
+  await monter(page, 'admin', 'pro');
   await page.goto('/integrations');
+  for (const cle of ['hubspot', 'salesforce', 'dynamics']) {
+    const volet = page.getByTestId(`volet-${cle}`);
+    await volet.locator('summary').click();
+    await expect(volet.getByTestId('hors-offre-crm')).toContainText('Inclus dans l’offre Entreprise.');
+  }
+  await expect(page.getByTestId('integration-hubspot')).toHaveCount(0);
+  await expect(page.getByTestId('integration-contact-dynamics')).toHaveCount(0);
+});
+
+test('🔴 en Entreprise, Salesforce sans app et Dynamics 365 proposent de nous écrire, objet prérempli ; HubSpot a sa carte', async ({ page }) => {
+  await monter(page, 'admin', 'entreprise');
+  await page.goto('/integrations#integration-hubspot');
+  await expect(page.getByTestId('integration-hubspot')).toBeVisible();
   for (const cle of ['salesforce', 'dynamics']) {
     const volet = page.getByTestId(`volet-${cle}`);
     await volet.locator('summary').click();
-    await expect(volet.getByTestId('integration-en-travaux')).toHaveText('En cours de développement.');
+    await expect(volet.getByRole('link', { name: 'Nous contacter' })).toHaveAttribute('href', `/support?sujet=${cle}`);
   }
+  await page.getByTestId('volet-dynamics').getByRole('link', { name: 'Nous contacter' }).click();
+  await expect(page.getByTestId('support-sujet')).toHaveValue('Connecter Dynamics 365');
 });
 
 test('🔴 une ancienne ancre de Paramètres mène à la même carte dans Intégrations', async ({ page }) => {
