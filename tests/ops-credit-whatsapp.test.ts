@@ -5,7 +5,7 @@ import type { OpsRouteDeps } from '../src/http/ops';
 import { placesApresPose, type OpsCreditWhatsappDeps } from '../src/http/ops-credit-whatsapp';
 import type { ChargementGrille, ResumeGrille } from '../src/credit-whatsapp/reglages.pg';
 import type { LigneCredit, NumeroDeLEspace, NumeroEnAttente, NumeroPourLaLigne } from '../src/credit-whatsapp/lignes.pg';
-import type { ProvisionVue } from '../src/credit-whatsapp/credit';
+import type { CleEnvoi, EnvoisDuJour, ProvisionVue } from '../src/credit-whatsapp/credit';
 import { CompteInconnuDuPartenaire, MoyenDePaiementEnPlace } from '../src/credit-whatsapp/attache';
 import { exploitationInerte, opsInerte } from './routes-inertes';
 import { accesOps, ADRESSE_OPS } from './acces-ops';
@@ -71,7 +71,7 @@ function app(
       ...lignes,
     },
     audit: async (tenant, acteur, action, _cible, detail) => { traces.push({ tenant, email: acteur.email, action, detail }); },
-    credit: { solde: async () => 0, consommationDuMois: async () => 0, dernieresProvisions: async () => [], ...credit },
+    credit: { solde: async () => 0, consommationDuMois: async () => 0, envoisParJour: async () => [], envoisDuMois: async () => ({ envois: [], suivant: null }), ...credit },
     option: { entreprise: async () => true, placesPayees: async () => 0, reprendreCampagnes: async () => 0, ...option },
     nomDeLEspace,
     attache,
@@ -293,7 +293,7 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      tenantId: T1, lignes: [LIGNE], numeros: [], soldeMicroEur: 0, consommationDuMoisMicroEur: 0, provisions: [], places: { payees: 0, couverts: 0 },
+      tenantId: T1, lignes: [LIGNE], numeros: [], soldeMicroEur: 0, consommationDuMoisMicroEur: 0, envoisParJour: [], places: { payees: 0, couverts: 0 },
     });
     expect(lus).toEqual([`${T1}:${PN}`]);
     expect(poses).toEqual([[T1, PN, 'w1', 'ops', `${ADRESSE_OPS} : numéro d’essai de la ligne`]]);
@@ -567,13 +567,10 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     await a.close();
   });
 
-  it('🔴 sans la session d’exploitation : refus avant toute lecture ; GET rend les lignes, le solde et les dernières provisions', async () => {
+  it('🔴 sans la session d’exploitation : refus avant toute lecture ; GET rend les lignes, le solde et les envois par jour', async () => {
     let lu = false;
-    const PROVISION: ProvisionVue = {
-      id: 'p1', creeLe: '2026-10-30T10:00:00.000Z', phoneNumberId: PN, wamid: 'wamid.1', pays: 'FR', categorie: 'utility',
-      montantMicroEur: 26_040, etat: 'rendu', livreLe: null, illimite: true,
-    };
-    const demandes: number[] = [];
+    const JOUR: EnvoisDuJour = { jour: '2026-10-30', messages: 3, montantMicroEur: 78_120, parCategorie: { utility: 2, service: 1 } };
+    const demandes: string[] = [];
     // Le numéro de la ligne, un autre du même compte WhatsApp, un en coexistence et un chez 360dialog.
     const numeros: NumeroDeLEspace[] = [
       { ...NUMERO, attendLigne: false, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: 'Messaging Me Tech' },
@@ -588,7 +585,7 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     }, [], {
       solde: async () => 973_960,
       consommationDuMois: async () => 52_080,
-      dernieresProvisions: async (_t, n) => { demandes.push(n ?? -1); return [PROVISION]; },
+      envoisParJour: async (t) => { demandes.push(t); return [JOUR]; },
     });
     const refus = await a.inject({ method: 'POST', url: URL_LIGNE, headers: { 'content-type': 'application/json' }, payload: corpsLigne() });
     expect(refus.statusCode).toBeGreaterThanOrEqual(400);
@@ -605,10 +602,10 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
       ],
       soldeMicroEur: 973_960,
       consommationDuMoisMicroEur: 52_080,
-      provisions: [PROVISION],
+      envoisParJour: [JOUR],
       places: { payees: 0, couverts: 0 },
     });
-    expect(demandes).toEqual([50]);
+    expect(demandes).toEqual([T1]);
     await a.close();
   });
 
@@ -750,6 +747,62 @@ describe('GET /ops/credit-whatsapp/grille', () => {
     let lu = false;
     const a = app({ grilleEnVigueur: async () => { lu = true; return GRILLE; } });
     const res = await a.inject({ method: 'GET', url: '/ops/credit-whatsapp/grille' });
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(lu).toBe(false);
+    await a.close();
+  });
+});
+
+/**
+ * L'EXPORT DES ENVOIS D'UN MOIS (2026-11-20) : la fenêtre de l'offre ne montre plus que les envois par jour, le détail
+ * se télécharge page par page. La clé de page voyage telle que Postgres l'a écrite.
+ */
+describe('GET /ops/credit-whatsapp/envois/:tenantId', () => {
+  const ENVOI: ProvisionVue = {
+    id: 'p1', creeLe: '2026-11-20T14:38:08.123Z', phoneNumberId: PN, wamid: 'wamid.1', pays: 'CH', categorie: 'service',
+    montantMicroEur: 14_900, etat: 'ajuste', livreLe: null, illimite: true,
+  };
+  const SUIVANT: CleEnvoi = { cle: '2026-11-20 14:38:08.123456+00', id: '0d9a3c1e-5b7f-4c2a-9e8d-6f1b2a3c4d5e' };
+
+  it('🔴 rend la page demandée, la clé suivante transmise telle quelle', async () => {
+    const appels: unknown[][] = [];
+    const a = app({}, true, {}, [], {
+      envoisDuMois: async (...args) => { appels.push(args); return { envois: [ENVOI], suivant: SUIVANT }; },
+    });
+    const premiere = await a.inject({ method: 'GET', url: `/ops/credit-whatsapp/envois/${T1}?mois=2026-11`, ...withTok(OPS) });
+    expect(premiere.statusCode).toBe(200);
+    expect(premiere.json()).toEqual({ envois: [ENVOI], suivant: SUIVANT });
+    const suite = await a.inject({
+      method: 'GET', ...withTok(OPS),
+      url: `/ops/credit-whatsapp/envois/${T1}?mois=2026-11&apres=${encodeURIComponent(SUIVANT.cle)}&id=${SUIVANT.id}`,
+    });
+    expect(suite.statusCode).toBe(200);
+    expect(appels).toEqual([[T1, '2026-11', null], [T1, '2026-11', SUIVANT]]);
+    await a.close();
+  });
+
+  it('🔴 refuse un mois faux, une clé incomplète ou libre, un espace qui n’est pas un uuid : rien n’est lu', async () => {
+    let lu = false;
+    const a = app({}, true, {}, [], { envoisDuMois: async () => { lu = true; return { envois: [], suivant: null }; } });
+    const base = `/ops/credit-whatsapp/envois/${T1}`;
+    for (const [url, statut] of [
+      [`${base}?mois=2026-13`, 400],
+      [`${base}`, 400],
+      [`${base}?mois=2026-11&apres=${encodeURIComponent(SUIVANT.cle)}`, 400],
+      [`${base}?mois=2026-11&id=${SUIVANT.id}`, 400],
+      [`${base}?mois=2026-11&apres=now()&id=${SUIVANT.id}`, 400],
+      ['/ops/credit-whatsapp/envois/pas-un-uuid?mois=2026-11', 404],
+    ] as const) {
+      expect((await a.inject({ method: 'GET', url, ...withTok(OPS) })).statusCode, url).toBe(statut);
+    }
+    expect(lu).toBe(false);
+    await a.close();
+  });
+
+  it('🔴 sans la session d’exploitation : refus avant toute lecture', async () => {
+    let lu = false;
+    const a = app({}, true, {}, [], { envoisDuMois: async () => { lu = true; return { envois: [], suivant: null }; } });
+    const res = await a.inject({ method: 'GET', url: `/ops/credit-whatsapp/envois/${T1}?mois=2026-11` });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
     expect(lu).toBe(false);
     await a.close();

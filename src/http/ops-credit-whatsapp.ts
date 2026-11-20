@@ -9,7 +9,7 @@ import { MARCHES_META } from '../credit-whatsapp/marches-meta';
 import type { LigneCredit, NumeroDeLEspace, NumeroEnAttente, NumeroPourLaLigne } from '../credit-whatsapp/lignes.pg';
 import { placesApresPose, poserLaLigne, type DepsPose } from '../credit-whatsapp/pose';
 import { CompteInconnuDuPartenaire, type AttacheLigne } from '../credit-whatsapp/attache';
-import type { ProvisionVue } from '../credit-whatsapp/credit';
+import type { CleEnvoi, EnvoisDuJour, PageEnvois } from '../credit-whatsapp/credit';
 import { makeTraceOps, type AuditSink } from '../audit/journal';
 import { estUuid } from './scope';
 // Le même seuil et la même signature que les autres écritures de `/ops` : importés, pas recopiés.
@@ -68,12 +68,13 @@ export interface OpsCreditWhatsappDeps {
   };
   /** Le journal des actions de l'espace : le numéro posé ou retiré, l'exploitant pour acteur. */
   audit: AuditSink;
-  /** Le solde et les dernières provisions de l'espace, montrés avec ses lignes (l'essai réel du lot 1). */
+  /** Le solde et les envois de l'espace, montrés avec ses lignes : par jour à l'écran, en détail à l'export. */
   credit: {
     solde(tenantId: string): Promise<number>;
     /** Ce qu'une Entreprise a envoyé ce mois, au prix client : son solde ne bouge pas, ce montant est à facturer. */
     consommationDuMois(tenantId: string): Promise<number>;
-    dernieresProvisions(tenantId: string, n?: number): Promise<ProvisionVue[]>;
+    envoisParJour(tenantId: string): Promise<EnvoisDuJour[]>;
+    envoisDuMois(tenantId: string, mois: string, apres: CleEnvoi | null): Promise<PageEnvois>;
   };
   /**
    * Le nom d'un espace (`getTenantName` du magasin de `/ops`) : « Ne pas poser » nomme l'espace dont la ligne bloque encore
@@ -148,6 +149,16 @@ const CORPS_ABANDON = z.object({
   note: z.string(),
 }).strict();
 
+/**
+ * La page d'un export : le mois, et la clé `suivant` de la page précédente. `apres` est le `cree_le` en texte Postgres
+ * (« 2026-11-20 15:38:08.123456+00 ») : la forme est vérifiée ici, une valeur libre finirait en 500 dans la requête.
+ */
+const REQUETE_ENVOIS = z.object({
+  mois: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  apres: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}(:\d{2})?$/).optional(),
+  id: z.string().uuid().optional(),
+}).strict();
+
 // Les places qu'une pose demanderait vivent avec la pose (`src/credit-whatsapp/pose.ts`, V3) : réexportées ici pour les
 // lecteurs d'avant.
 export { placesApresPose };
@@ -167,12 +178,12 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
   };
   /**
    * Ce que la fenêtre de l'offre montre d'un espace : ses numéros (couverts ou non par la ligne, et pourquoi l'un ne peut
-   * pas l'être), ses lignes, son solde, ce qu'il a consommé ce mois en illimité, ses dernières provisions.
+   * pas l'être), ses lignes, son solde, ce qu'il a consommé ce mois en illimité, ses envois par jour sur deux mois.
    */
   const vue = async (tenantId: string) => {
-    const [lignes, numeros, soldeMicroEur, consommationDuMoisMicroEur, provisions, placesPayees, couverts] = await Promise.all([
+    const [lignes, numeros, soldeMicroEur, consommationDuMoisMicroEur, envoisParJour, placesPayees, couverts] = await Promise.all([
       deps.lignes.lignesDeLEspace(tenantId), deps.lignes.numerosDeLEspace(tenantId), deps.credit.solde(tenantId),
-      deps.credit.consommationDuMois(tenantId), deps.credit.dernieresProvisions(tenantId, 50),
+      deps.credit.consommationDuMois(tenantId), deps.credit.envoisParJour(tenantId),
       deps.option.placesPayees(tenantId), deps.lignes.numerosCouvertsParOption(tenantId),
     ]);
     const couvrantes = await Promise.all(numeros.map((n) => deps.lignes.ligneDuNumero(n.phoneNumberId)));
@@ -189,7 +200,7 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
       }),
       soldeMicroEur,
       consommationDuMoisMicroEur,
-      provisions,
+      envoisParJour,
       // Les places de l'option (lot 4a) : payées, et les numéros que ses lignes couvrent (au-delà, refusés par la garde).
       places: { payees: placesPayees, couverts: couverts.length },
     };
@@ -310,6 +321,21 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
     const { tenantId } = req.params as { tenantId: string };
     if (!estUuid(tenantId)) return reply.code(404).send({ error: 'espace inconnu' });
     return reply.code(200).send(await vue(tenantId));
+  });
+
+  /**
+   * Le détail des envois d'un mois de Paris, page par page (`envoisDuMois`) : la console les enchaîne et en fait un CSV,
+   * comme l'export de l'historique d'un contact. `apres` et `id` sont la clé `suivant` de la page précédente.
+   */
+  app.get('/ops/credit-whatsapp/envois/:tenantId', opts, async (req, reply) => {
+    const { tenantId } = req.params as { tenantId: string };
+    if (!estUuid(tenantId)) return reply.code(404).send({ error: 'espace inconnu' });
+    const q = REQUETE_ENVOIS.safeParse(req.query);
+    if (!q.success) return reply.code(400).send({ error: 'mois attendu (AAAA-MM), et une clé de page complète ou aucune' });
+    const { mois, apres, id } = q.data;
+    if ((apres === undefined) !== (id === undefined)) return reply.code(400).send({ error: 'clé de page incomplète' });
+    const cle = apres !== undefined && id !== undefined ? { cle: apres, id } : null;
+    return reply.code(200).send(await deps.credit.envoisDuMois(tenantId, mois, cle));
   });
 
   /**

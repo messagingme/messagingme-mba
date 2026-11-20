@@ -1,5 +1,18 @@
 # todo.md : backlog
 
+## 🟡 Les envois du Crédit WhatsApp : la rétention du détail (2026-11-20)
+
+- `credit_whatsapp_provisions` garde une ligne par message, sans aucune purge. Toutes ses lectures sont bornées dans le
+  temps par l'index `(tenant_id, cree_le desc)` et le solde est une colonne, donc le volume ne ralentit rien ; seule la
+  place grossit (environ 350 Mo par million de messages, index compris). Quand ce sera utile : résumer par jour et par
+  catégorie les envois de plus de N mois dans une table d'agrégats, puis supprimer leur détail. N et la durée à garder
+  pour la comptabilité et les contestations sont à décider par Julien. Mesurer d'abord la taille réelle
+  (`pg_total_relation_size`) depuis la machine des workers.
+- Relecture du lot (aucun rouge) : l'agrégat par jour parcourt chaque envoi de l'espace sur deux mois, à mesurer sur la
+  plus grosse Entreprise avant d'en faire une table d'agrégats ; l'export enchaîne ses pages sans nombre maximal (garde-fou
+  si `suivant` ne devenait jamais `null`) ; le test d'intégration ne couvre pas la borne du 1er du mois précédent de
+  `envoisParJour` (un envoi la veille, un le jour même).
+
 ## 🟡 La relance de panier avec agent IA : la relecture des lots 2 et 3 (2026-11-20, aucun rouge)
 
 - `poserLAgent` (`src/shopify/lignes-gestion.ts`) publie AVANT de relire la version programmée : « Changer d'agent »

@@ -69,7 +69,29 @@ export interface LigneHistoriqueWa {
   facture: boolean;
 }
 
-/** Une provision telle que `/ops` la montre (l'essai réel : chaque envoi au prix de la grille, rendu ou corrigé). */
+/** Les envois facturables d'un jour de Paris, tels que `/ops` les résume (`envoisParJour`). */
+export interface EnvoisDuJour {
+  /** 'AAAA-MM-JJ'. */
+  jour: string;
+  messages: number;
+  montantMicroEur: number;
+  /** Les messages du jour par catégorie ; une catégorie absente n'a rien envoyé. */
+  parCategorie: Partial<Record<CategorieMeta, number>>;
+}
+
+/** La clé d'un envoi dans l'ordre de l'export : `cree_le` en texte Postgres (à la microseconde) et son id. */
+export interface CleEnvoi {
+  cle: string;
+  id: string;
+}
+
+/** Une page de l'export d'un mois ; `suivant` est `null` sur la dernière. */
+export interface PageEnvois {
+  envois: ProvisionVue[];
+  suivant: CleEnvoi | null;
+}
+
+/** Une provision telle que `/ops` l'exporte (chaque envoi au prix de la grille, rendu ou corrigé). */
 export interface ProvisionVue {
   id: string;
   creeLe: string;

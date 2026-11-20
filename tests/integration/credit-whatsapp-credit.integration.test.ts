@@ -122,19 +122,57 @@ describe.skipIf(!url)('le Crédit WhatsApp (0264)', () => {
     expect(rows[0]!.livre_le.toISOString()).toBe('2026-10-30T10:00:00.000Z');
   });
 
-  it('les dernières provisions d’un espace pour /ops : les plus récentes d’abord, bornées, dans son espace seulement', async () => {
+  /** Une provision illimitée datée à la main (`cree_le` en texte Postgres, à la microseconde), son id rendu. */
+  async function provisionDatee(t: string, montant: number, creeLe: string, categorie: 'marketing' | 'service' = 'marketing'): Promise<string> {
+    const p = await provision(t, montant, true, categorie);
+    if (!p.ok) throw new Error('provision refusée');
+    await pool.query('update credit_whatsapp_provisions set cree_le = $2::timestamptz where id = $1', [p.provisionId, creeLe]);
+    return p.provisionId;
+  }
+
+  it('les envois par jour de Paris pour /ops : par catégorie, sans les rendus, deux mois au plus, dans son espace seulement', async () => {
     const t = await espace();
     const autre = await espace();
-    for (const montant of [1_000, 2_000, 3_000]) {
-      const p = await provision(t, montant, true);
-      if (!p.ok) throw new Error('provision refusée');
-    }
-    await provision(autre, 9_000, true);
-    const vues = await store.dernieresProvisions(t, 2);
-    expect(vues.map((v) => v.montantMicroEur)).toEqual([3_000, 2_000]);
-    // `illimite` : /ops distingue ce qui va au montant à facturer d'une Entreprise (relecture du lot A).
-    expect(vues[0]).toMatchObject({ phoneNumberId: NUMERO, pays: 'FR', categorie: 'marketing', etat: 'provisionne', wamid: null, livreLe: null, illimite: true });
-    expect((await store.dernieresProvisions(t)).every((v) => v.montantMicroEur !== 9_000)).toBe(true);
+    await provisionDatee(t, 1_000, 'now');
+    await provisionDatee(t, 2_000, 'now');
+    await provisionDatee(t, 3_000, 'now', 'service');
+    const rendue = await provisionDatee(t, 4_000, 'now');
+    await pool.query(`update credit_whatsapp_provisions set etat = 'rendu' where id = $1`, [rendue]);
+    await provisionDatee(t, 5_000, `${new Date(Date.now() - 100 * 86_400_000).toISOString()}`);
+    await provisionDatee(autre, 9_000, 'now');
+    const aujourdhui = (await pool.query<{ j: string }>(`select (now() at time zone 'Europe/Paris')::date::text as j`)).rows[0]!.j;
+    expect(await store.envoisParJour(t)).toEqual([
+      { jour: aujourdhui, messages: 3, montantMicroEur: 6_000, parCategorie: { marketing: 2, service: 1 } },
+    ]);
+  });
+
+  it('🔴 l’export d’un mois de Paris, page par page : bornes de Paris, rendus compris, aucune ligne sautée ni répétée à heure égale', async () => {
+    const t = await espace();
+    const autre = await espace();
+    // Le 1er octobre à 0 h 30 à Paris (été) entre ; le 1er novembre à 0 h 30 à Paris (hiver) n'entre pas.
+    const premier = await provisionDatee(t, 1_000, '2026-09-30 22:30:00+00');
+    await provisionDatee(t, 9_000, '2026-10-31 23:30:00+00');
+    // Trois envois à la même microseconde : seule la clé (cree_le, id) les départage.
+    const egaux = [
+      await provisionDatee(t, 2_000, '2026-10-15 10:00:00.123456+00'),
+      await provisionDatee(t, 3_000, '2026-10-15 10:00:00.123456+00'),
+      await provisionDatee(t, 4_000, '2026-10-15 10:00:00.123456+00'),
+    ];
+    await pool.query(`update credit_whatsapp_provisions set etat = 'rendu' where id = $1`, [egaux[0]]);
+    await provisionDatee(autre, 8_000, '2026-10-15 10:00:00+00');
+    const lus: string[] = [];
+    let apres: { cle: string; id: string } | null = null;
+    let pages = 0;
+    do {
+      const page = await store.envoisDuMois(t, '2026-10', apres, 2);
+      lus.push(...page.envois.map((e) => e.id));
+      apres = page.suivant;
+      pages += 1;
+    } while (apres !== null && pages < 10);
+    expect(lus).toEqual([premier, ...[...egaux].sort()]);
+    expect(pages).toBe(3);
+    const [ligne] = (await store.envoisDuMois(t, '2026-10', null)).envois;
+    expect(ligne).toMatchObject({ id: premier, phoneNumberId: NUMERO, pays: 'FR', categorie: 'marketing', etat: 'provisionne', illimite: true, creeLe: '2026-09-30T22:30:00.000Z' });
   });
 
   it('🔴 illimité (toute Entreprise, 0266) : la provision s’écrit marquée, le solde ne bouge JAMAIS, ni à la prise, ni au retour, ni à la correction', async () => {

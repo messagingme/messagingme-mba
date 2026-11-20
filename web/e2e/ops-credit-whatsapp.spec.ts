@@ -175,14 +175,25 @@ const VUE = {
   ],
   soldeMicroEur: 0,
   consommationDuMoisMicroEur: 5_208_000,
-  provisions: [],
+  envoisParJour: [
+    { jour: '2026-11-20', messages: 31, montantMicroEur: 650_000, parCategorie: { service: 30, utility: 1 } },
+    { jour: '2026-11-19', messages: 2, montantMicroEur: 52_000, parCategorie: { service: 2 } },
+  ],
 };
+
+/** Deux pages d'un export : la seconde demandée avec la clé de la première, telle quelle. */
+const ENVOI = {
+  id: 'p1', creeLe: '2026-11-20T14:38:08.000Z', phoneNumberId: '111', wamid: 'wamid.1', pays: 'CH', categorie: 'service',
+  montantMicroEur: 14_900, etat: 'ajuste', livreLe: null, illimite: true,
+};
+const CLE = { cle: '2026-11-20 14:38:08.123456+00', id: '0d9a3c1e-5b7f-4c2a-9e8d-6f1b2a3c4d5e' };
 
 /** Un Business, avec les places de son option (lot 4a) : une pose y consomme des places, sauf forcée. */
 const BUSINESS = { entreprise: false, business: true, vue: { ...VUE, soldeMicroEur: 12_000_000, places: { payees: 1, couverts: 1 } } };
 
 async function offre(page: import('@playwright/test').Page, espace: { entreprise: boolean; business: boolean; vue: object } = { entreprise: true, business: false, vue: VUE }) {
   const poses: unknown[] = [];
+  const exports: string[] = [];
   await page.addInitScript((s) => window.localStorage.setItem('mba.sessionOps', JSON.stringify(s)), SESSION_OPS);
   await page.route('**/api/backend/**', async (route) => {
     const chemin = route.request().url().split('?')[0]!;
@@ -201,13 +212,18 @@ async function offre(page: import('@playwright/test').Page, espace: { entreprise
       }
       return json(espace.vue);
     }
+    if (chemin.endsWith('/ops/credit-whatsapp/envois/t-essai')) {
+      const q = new URL(route.request().url()).searchParams;
+      exports.push(q.toString());
+      return json(q.has('apres') ? { envois: [{ ...ENVOI, id: 'p2', pays: 'FR' }], suivant: null } : { envois: [ENVOI], suivant: CLE });
+    }
     return json({});
   });
   await page.goto('/ops?tab=clients');
   await page.getByTestId('offre-t-essai').click();
   const modale = page.getByTestId('offre-modale');
   await expect(modale).toBeVisible();
-  return { modale, poses };
+  return { modale, poses, exports };
 }
 
 test.describe('Ops : les numéros d’un espace sur la ligne de crédit', () => {
@@ -244,6 +260,23 @@ test.describe('Ops : les numéros d’un espace sur la ligne de crédit', () => 
     const { modale } = await offre(page);
     await expect(modale.getByTestId('ligne-credit-illimite-mois')).toContainText(/Illimité \(Entreprise\) : 5,21\s€ HT/);
     await expect(modale.getByTestId('ligne-credit-solde')).toHaveCount(0);
+  });
+
+  test('🔴 les envois se lisent par jour, et le détail du mois se télécharge en CSV, page après page', async ({ page }) => {
+    const { modale, exports } = await offre(page);
+    const jours = modale.getByTestId('ligne-credit-jours').locator('tbody tr');
+    await expect(jours).toHaveCount(2);
+    await expect(jours.first()).toContainText('31');
+    await expect(jours.first()).toContainText('service 30 · utility 1');
+    await modale.getByTestId('ligne-credit-export-mois').fill('2026-11');
+    const [telechargement] = await Promise.all([page.waitForEvent('download'), modale.getByTestId('ligne-credit-export').click()]);
+    expect(telechargement.suggestedFilename()).toBe('envois-whatsapp-2026-11-t-essai.csv');
+    const csv = (await (await import('node:fs/promises')).readFile(await telechargement.path())).toString('utf8');
+    const lignes = csv.replace(/^\uFEFF/, '').split('\r\n');
+    expect(lignes).toHaveLength(3);
+    expect(lignes[1]).toBe('2026-11-20 15:38:08,service,CH,0.014900,ajuste,oui,,111,wamid.1');
+    expect(lignes[2]).toContain(',FR,');
+    expect(exports).toEqual(['mois=2026-11', new URLSearchParams({ mois: '2026-11', apres: CLE.cle, id: CLE.id }).toString()]);
   });
 
   test('🔴 hors Entreprise, les places de l’option se lisent, et seule une pose COCHÉE « forcer » part forcée', async ({ page }) => {

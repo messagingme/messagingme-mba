@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale, useT } from '@/lib/i18n';
-import { inputCls } from '@/lib/ui';
+import { inputCls, inputClsAuto } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
-import { lireLignesCreditOps, poserLigneCreditOps, type LigneCreditOps, type NumeroCreditOps, type VueCreditOps } from '@/lib/api';
+import { downloadCsv, toCsv } from '@/lib/csv';
+import {
+  lireEnvoisDuMoisOps, lireLignesCreditOps, poserLigneCreditOps, type LigneCreditOps, type NumeroCreditOps, type PageEnvoisOps,
+  type ProvisionCreditOps, type VueCreditOps,
+} from '@/lib/api';
 
 /**
  * LES NUMÉROS D'UN ESPACE SUR LA LIGNE DU CRÉDIT WHATSAPP (plan du Crédit WhatsApp, tâche 8), dans la fenêtre de l'offre
@@ -19,6 +23,10 @@ import { lireLignesCreditOps, poserLigneCreditOps, type LigneCreditOps, type Num
  * Les places de l'option (lot 4a, décision de Julien du 2026-11-03) : hors Entreprise, une pose consomme des places payées
  * pour tout le compte du numéro, et le serveur refuse sans elles ; un essai se FORCE, case cochée, et sa ligne reste
  * `'ops'`, signée, hors des places.
+ *
+ * Les envois se lisent PAR JOUR (Julien, 2026-11-20 : la liste des 50 derniers envois devenait illisible dès quelques
+ * dizaines par jour). Le détail, message par message, se télécharge en CSV pour un mois, page par page : aucune réponse
+ * du serveur ne porte un mois entier.
  */
 export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton: string; tenantId: string; entreprise: boolean }) {
   const t = useT();
@@ -31,6 +39,9 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
   const [forcer, setForcer] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  // Le mois de Paris en cours, 'AAAA-MM' (la locale suédoise écrit les dates en ISO).
+  const [moisExport, setMoisExport] = useState(() => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }).slice(0, 7));
+  const [exportEnCours, setExportEnCours] = useState(false);
 
   useEffect(() => {
     let vivant = true;
@@ -41,6 +52,37 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
   }, [jeton, tenantId]);
 
   const noteValide = note.trim().length >= 3;
+
+  /** Toutes les pages du mois, puis un CSV : l'heure de Paris, la catégorie, le pays, le montant, l'état, et l'envoi chez Meta. */
+  async function exporter() {
+    setExportEnCours(true);
+    setMsg(null);
+    try {
+      const envois: ProvisionCreditOps[] = [];
+      let apres: PageEnvoisOps['suivant'] = null;
+      do {
+        const page: PageEnvoisOps = await lireEnvoisDuMoisOps(jeton, tenantId, moisExport, apres);
+        envois.push(...page.envois);
+        apres = page.suivant;
+      } while (apres !== null);
+      if (envois.length === 0) {
+        setMsg({ kind: 'err', text: t(`Aucun envoi en ${moisExport}.`, `No send in ${moisExport}.`) });
+        return;
+      }
+      const aParis = (iso: string | null) => (iso === null ? '' : new Date(iso).toLocaleString('sv-SE', { timeZone: 'Europe/Paris' }));
+      downloadCsv(`envois-whatsapp-${moisExport}-${tenantId}.csv`, toCsv(
+        ['envoi (Paris)', 'categorie', 'pays', 'montant HT (EUR)', 'etat', 'illimite', 'livre le (Paris)', 'numero (id Meta)', 'wamid'],
+        envois.map((e) => [
+          aParis(e.creeLe), e.categorie, e.pays, (e.montantMicroEur / 1_000_000).toFixed(6), e.etat, e.illimite === true ? 'oui' : 'non',
+          aParis(e.livreLe), e.phoneNumberId, e.wamid,
+        ]),
+      ));
+    } catch (err) {
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : t('Export impossible', 'Export failed') });
+    } finally {
+      setExportEnCours(false);
+    }
+  }
 
   async function geste(phoneNumberId: string, poser: boolean) {
     setEnvoi(true);
@@ -60,7 +102,7 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
   if (absente || vue === null) return null;
   const lignes = Array.isArray(vue.lignes) ? vue.lignes : [];
   const numeros = Array.isArray(vue.numeros) ? vue.numeros : [];
-  const provisions = Array.isArray(vue.provisions) ? vue.provisions : [];
+  const jours = Array.isArray(vue.envoisParJour) ? vue.envoisParJour : [];
   // Un numéro qui n'est plus dans l'espace (déconnecté) mais dont la ligne court encore : il doit pouvoir se retirer.
   const lignesOrphelines = lignes.filter((l) => !numeros.some((n) => n.phoneNumberId === l.phoneNumberId));
 
@@ -126,33 +168,42 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
           {t(`Solde : ${euros(vue.soldeMicroEur)} HT`, `Balance: ${euros(vue.soldeMicroEur)} excl. VAT`)}
         </p>
       )}
-      {provisions.length > 0 && (
-        <table className="w-full text-xs text-ink-700" data-testid="ligne-credit-provisions">
-          <thead>
-            <tr className="text-left text-ink-500">
-              <th className="font-medium">{t('Envoi', 'Sent')}</th>
-              <th className="font-medium">{t('Catégorie', 'Category')}</th>
-              <th className="font-medium">{t('Pays', 'Country')}</th>
-              <th className="text-right font-medium">{t('Montant', 'Amount')}</th>
-              <th className="font-medium">{t('État', 'State')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {provisions.map((p) => (
-              <tr key={p.id}>
-                <td>{new Date(p.creeLe).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}</td>
-                <td>{p.categorie}</td>
-                <td>{p.pays ?? '?'}</td>
-                <td className="text-right">{(p.montantMicroEur / 1_000_000).toFixed(4)} €</td>
-                <td>
-                  {p.etat === 'rendu' ? t('rendu', 'refunded') : p.etat === 'ajuste' ? t('corrigé', 'adjusted') : p.livreLe ? t('livré', 'delivered') : t('provisionné', 'reserved')}
-                  {/* Une provision illimitée (Entreprise) n'a pas touché le solde : elle va au montant à facturer. */}
-                  {p.illimite === true && <span data-testid="ligne-credit-illimite">{t(' · illimité, à facturer', ' · unlimited, to invoice')}</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {vue.envoisParJour !== undefined && (
+        <div className="grid gap-2" data-testid="ligne-credit-envois">
+          <p className="text-xs font-medium text-ink-500">{t('Envois par jour, ce mois et le précédent', 'Sends per day, this month and the previous one')}</p>
+          {jours.length === 0 ? (
+            <p className="text-xs text-ink-500">{t('Aucun envoi facturé sur ces deux mois.', 'No billed send over these two months.')}</p>
+          ) : (
+            <div className="max-h-64 overflow-y-auto">
+              <table className="w-full text-xs text-ink-700" data-testid="ligne-credit-jours">
+                <thead className="sticky top-0 bg-white">
+                  <tr className="text-left text-ink-500">
+                    <th className="font-medium">{t('Jour', 'Day')}</th>
+                    <th className="text-right font-medium">{t('Messages', 'Messages')}</th>
+                    <th className="pl-3 font-medium">{t('Catégories', 'Categories')}</th>
+                    <th className="text-right font-medium">{t('Montant HT', 'Amount excl. VAT')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jours.map((j) => (
+                    <tr key={j.jour}>
+                      <td>{new Date(`${j.jour}T12:00:00Z`).toLocaleDateString(locale === 'en' ? 'en-GB' : 'fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</td>
+                      <td className="text-right">{j.messages}</td>
+                      <td className="pl-3 text-ink-500">{Object.entries(j.parCategorie).map(([c, n]) => `${c} ${n}`).join(' · ')}</td>
+                      <td className="text-right">{euros(j.montantMicroEur)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="month" className={inputClsAuto} value={moisExport} onChange={(e) => setMoisExport(e.target.value)} data-testid="ligne-credit-export-mois" />
+            <Bouton variante="secondaire" taille="petite" disabled={exportEnCours || !/^\d{4}-\d{2}$/.test(moisExport)} onClick={() => { void exporter(); }} data-testid="ligne-credit-export">
+              {exportEnCours ? t('Export en cours…', 'Exporting…') : t('Télécharger le détail du mois (CSV)', 'Download the month’s detail (CSV)')}
+            </Bouton>
+          </div>
+        </div>
       )}
       {msg && (
         <p data-testid="ligne-credit-message" className={`rounded-controle px-3 py-2 text-xs ${msg.kind === 'ok' ? 'bg-succes-50 text-succes-700' : 'bg-danger-50 text-danger-700'}`}>{msg.text}</p>

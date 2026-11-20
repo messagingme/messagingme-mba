@@ -5066,8 +5066,9 @@ nommé nulle part dans le dépôt. Spec : `docs/superpowers/specs/2026-10-30-cre
 l'estimation d'un lancement, les conditions d'un espace, les magasins), la fabrique d'envoi (`src/meta/factory.ts`), le
 lancement d'une campagne (`src/campaign/lancement.ts`, `schedule-sweep.ts`), les accusés (`src/webhooks/delivery.ts`),
 `/ops` (`src/http/ops-credit-whatsapp.ts` : la grille, chargée puis lue prix par prix avec le prix client, la commission,
-les numéros d'un espace et leur couverture par la ligne, un numéro posé ou retiré, le solde ou le mois d'une Entreprise, et
-les dernières provisions ; `src/http/ops-offre.ts` : la commission négociée d'une Entreprise), l'onglet de la
+les numéros d'un espace et leur couverture par la ligne, un numéro posé ou retiré, le solde ou le mois d'une Entreprise, les
+envois par jour de Paris sur deux mois et l'export CSV d'un mois, envoi par envoi, lu par pages sur la clé
+`(cree_le, id)` ; `src/http/ops-offre.ts` : la commission négociée d'une Entreprise), l'onglet de la
 console (`src/http/credit-whatsapp.ts`, module d'espace `creditWhatsapp` : la vue de l'onglet et l'ouverture d'un achat ;
 `web/components/OngletCreditWhatsapp.tsx`), l'achat par Stripe (`src/stripe/achat-whatsapp.ts`, `offres-whatsapp.ts`, le
 webhook commun `traitement-recharge.ts`), la reprise (`leverPausesCreditWhatsapp`, `src/account/numero-delie.pg.ts`), les
@@ -5451,7 +5452,7 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés
 ensemble ou pas du tout, refusé au démarrage sinon), l'achat répond 503 et l'onglet dit « pas encore disponible ». Sans
-`STRIPE_PRIX_OPTION_WA`, l'option répond 503 et l'onglet ne la montre pas. Le solde d'un espace et ses provisions récentes se lisent dans `/ops`, fenêtre de l'offre.
+`STRIPE_PRIX_OPTION_WA`, l'option répond 503 et l'onglet ne la montre pas. Le solde d'un espace et ses envois par jour se lisent dans `/ops`, fenêtre de l'offre, qui exporte le détail d'un mois en CSV.
 
 **Limites.** `todo.md`, section du Crédit WhatsApp.
 

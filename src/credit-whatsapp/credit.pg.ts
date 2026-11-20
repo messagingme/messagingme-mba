@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import type { CategorieMeta } from './grille';
-import { debutDuMois, type IssueProvision, type LigneHistoriqueWa, type ProvisionDemandee, type ProvisionVue, type RaisonMouvementWa } from './credit';
+import { debutDuMois, type CleEnvoi, type EnvoisDuJour, type IssueProvision, type LigneHistoriqueWa, type PageEnvois, type ProvisionDemandee, type ProvisionVue, type RaisonMouvementWa } from './credit';
 import { JOURS_SERIE, serieDeCredit, type PointDeCredit } from '../lib/serie-credit';
 
 /**
@@ -243,21 +243,71 @@ export class PgCreditWhatsappStore {
     }
   }
 
-  /** Les `n` dernières provisions d'un espace, les plus récentes d'abord (`/ops`, index `(tenant_id, cree_le desc)`). */
-  async dernieresProvisions(tenantId: string, n = 50): Promise<ProvisionVue[]> {
+  /**
+   * Les envois d'un espace par jour de Paris, depuis le 1er du mois précédent (`/ops`) : une ligne par jour, ses messages
+   * par catégorie et son montant. Remplace la liste des 50 derniers envois, illisible dès quelques dizaines par jour
+   * (Julien, 2026-11-20). Les rendus n'y entrent pas (Meta ne les facture pas), comme à l'historique du client. Deux
+   * mois au plus, donc 62 lignes rendues, lues par l'index `(tenant_id, cree_le desc)` : le volume des AUTRES espaces et
+   * des mois anciens n'y change rien, mais l'agrégat parcourt chaque envoi de l'espace sur ces deux mois (relecture du
+   * 2026-11-20). Si une Entreprise à très gros volume rend la fenêtre lente, passer à un agrégat par jour tenu en table.
+   */
+  async envoisParJour(tenantId: string): Promise<EnvoisDuJour[]> {
+    const { rows } = await this.pool.query<{ jour: string; categorie: CategorieMeta; messages: string; montant: string }>(
+      `select (cree_le at time zone 'Europe/Paris')::date::text as jour, categorie, count(*) as messages,
+              sum(montant_micro_eur) as montant
+         from credit_whatsapp_provisions
+        where tenant_id = $1 and etat <> 'rendu'
+          and cree_le >= (date_trunc('month', now() at time zone 'Europe/Paris') - interval '1 month') at time zone 'Europe/Paris'
+        group by 1, 2
+        order by 1 desc, 2`,
+      [tenantId],
+    );
+    const jours: EnvoisDuJour[] = [];
+    for (const r of rows) {
+      let j = jours[jours.length - 1];
+      if (j === undefined || j.jour !== r.jour) {
+        j = { jour: r.jour, messages: 0, montantMicroEur: 0, parCategorie: {} };
+        jours.push(j);
+      }
+      j.messages += Number(r.messages);
+      j.montantMicroEur += Number(r.montant);
+      j.parCategorie[r.categorie] = Number(r.messages);
+    }
+    return jours;
+  }
+
+  /**
+   * Une page des envois d'un mois de Paris ('AAAA-MM'), rendus compris, du plus ancien au plus récent : le détail que
+   * `/ops` exporte en CSV (preuve d'une facture au contrat, réponse à une contestation). Paginée par clé `(cree_le, id)` :
+   * un mois d'Entreprise peut compter des centaines de milliers d'envois, aucune lecture ne les tient tous en mémoire.
+   * `apres` est la clé rendue par la page précédente, en texte Postgres : la microseconde d'un `timestamptz` ne survit
+   * pas à une date JavaScript, et une clé arrondie sauterait ou répéterait des lignes.
+   */
+  async envoisDuMois(tenantId: string, mois: string, apres: CleEnvoi | null, n = 5_000): Promise<PageEnvois> {
     const { rows } = await this.pool.query<{
-      id: string; cree_le: Date; phone_number_id: string; wamid: string | null; pays: string | null; categorie: CategorieMeta;
+      id: string; cle: string; cree_le: Date; phone_number_id: string; wamid: string | null; pays: string | null; categorie: CategorieMeta;
       montant: string; etat: ProvisionVue['etat']; livre_le: Date | null; illimite: boolean;
     }>(
-      `select id, cree_le, phone_number_id, wamid, pays, categorie, montant_micro_eur as montant, etat, livre_le, illimite
-         from credit_whatsapp_provisions where tenant_id = $1 order by cree_le desc limit $2`,
-      [tenantId, n],
+      `select id, cree_le::text as cle, cree_le, phone_number_id, wamid, pays, categorie, montant_micro_eur as montant,
+              etat, livre_le, illimite
+         from credit_whatsapp_provisions
+        where tenant_id = $1
+          and cree_le >= ($2::date::timestamp at time zone 'Europe/Paris')
+          and cree_le < (($2::date + interval '1 month')::timestamp at time zone 'Europe/Paris')
+          and ($3::timestamptz is null or (cree_le, id) > ($3::timestamptz, $4::uuid))
+        order by cree_le, id
+        limit $5`,
+      [tenantId, debutDuMois(mois), apres?.cle ?? null, apres?.id ?? null, n],
     );
-    return rows.map((r) => ({
-      id: r.id, creeLe: r.cree_le.toISOString(), phoneNumberId: r.phone_number_id, wamid: r.wamid, pays: r.pays,
-      categorie: r.categorie, montantMicroEur: Number(r.montant), etat: r.etat, livreLe: r.livre_le?.toISOString() ?? null,
-      illimite: r.illimite === true,
-    }));
+    const dernier = rows.length === n ? rows[rows.length - 1] : undefined;
+    return {
+      envois: rows.map((r) => ({
+        id: r.id, creeLe: r.cree_le.toISOString(), phoneNumberId: r.phone_number_id, wamid: r.wamid, pays: r.pays,
+        categorie: r.categorie, montantMicroEur: Number(r.montant), etat: r.etat, livreLe: r.livre_le?.toISOString() ?? null,
+        illimite: r.illimite === true,
+      })),
+      suivant: dernier === undefined ? null : { cle: dernier.cle, id: dernier.id },
+    };
   }
 
   /**

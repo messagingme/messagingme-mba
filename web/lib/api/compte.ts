@@ -488,7 +488,7 @@ export interface LigneCreditOps {
   arreteeLe: string | null;
 }
 
-/** Une provision du Crédit WhatsApp (`ProvisionVue`, `src/credit-whatsapp/credit.ts`) : un envoi au prix de la grille. */
+/** Un envoi du Crédit WhatsApp tel que `/ops` l'exporte (`ProvisionVue`, `src/credit-whatsapp/credit.ts`), au prix de la grille. */
 export interface ProvisionCreditOps {
   id: string;
   creeLe: string;
@@ -502,6 +502,20 @@ export interface ProvisionCreditOps {
   livreLe: string | null;
   /** Illimitée (Entreprise) : le solde ne l'a pas payée, elle va au montant à facturer. Absent d'une API plus ancienne. */
   illimite?: boolean;
+}
+
+/** Les envois facturables d'un jour de Paris (`EnvoisDuJour`, `src/credit-whatsapp/credit.ts`). */
+export interface EnvoisDuJourOps {
+  jour: string;
+  messages: number;
+  montantMicroEur: number;
+  parCategorie: Partial<Record<TarifGrilleOps['categorie'], number>>;
+}
+
+/** Une page de l'export d'un mois ; `suivant` est `null` sur la dernière. */
+export interface PageEnvoisOps {
+  envois: ProvisionCreditOps[];
+  suivant: { cle: string; id: string } | null;
 }
 
 /**
@@ -521,8 +535,8 @@ export interface NumeroCreditOps {
 }
 
 /**
- * Ce que `/ops` montre du Crédit WhatsApp d'un espace. Le solde, les provisions, les numéros et la consommation du mois
- * sont absents sur une API plus ancienne.
+ * Ce que `/ops` montre du Crédit WhatsApp d'un espace. Le solde, les envois par jour, les numéros et la consommation du
+ * mois sont absents sur une API plus ancienne.
  */
 export interface VueCreditOps {
   lignes: LigneCreditOps[];
@@ -530,7 +544,8 @@ export interface VueCreditOps {
   soldeMicroEur?: number;
   /** Ce qu'une Entreprise a envoyé ce mois, au prix client : son solde ne bouge pas, ce montant est à facturer. */
   consommationDuMoisMicroEur?: number;
-  provisions?: ProvisionCreditOps[];
+  /** Les envois par jour de Paris depuis le 1er du mois précédent, les plus récents d'abord. */
+  envoisParJour?: EnvoisDuJourOps[];
   /** Les places de l'option (lot 4a) : payées chez Stripe, et les numéros que ses lignes couvrent. Absent avant lui. */
   places?: { payees: number; couverts: number };
 }
@@ -557,9 +572,15 @@ export function lireGrilleMetaOps(sessionOps: string): Promise<GrilleMetaOps> {
   return appelOps(sessionOps, '/ops/credit-whatsapp/grille');
 }
 
-/** Les numéros d'un espace sur la ligne du Crédit WhatsApp, son solde et ses dernières provisions. */
+/** Les numéros d'un espace sur la ligne du Crédit WhatsApp, son solde et ses envois par jour. */
 export function lireLignesCreditOps(sessionOps: string, tenantId: string): Promise<VueCreditOps> {
   return appelOps(sessionOps, `/ops/credit-whatsapp/ligne/${encodeURIComponent(tenantId)}`);
+}
+
+/** Une page des envois d'un mois de Paris ('AAAA-MM'), à enchaîner par `suivant` jusqu'à `null`. */
+export function lireEnvoisDuMoisOps(sessionOps: string, tenantId: string, mois: string, apres: PageEnvoisOps['suivant']): Promise<PageEnvoisOps> {
+  const q = new URLSearchParams({ mois, ...(apres === null ? {} : { apres: apres.cle, id: apres.id }) });
+  return appelOps(sessionOps, `/ops/credit-whatsapp/envois/${encodeURIComponent(tenantId)}?${q.toString()}`);
 }
 
 /**
