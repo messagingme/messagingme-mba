@@ -5,6 +5,19 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 : l'assistant qui construit l'agent IA s'ouvre au Pro
+
+Capture de Julien : en formule Pro, l'écran de l'agent IA s'ouvrait sur « Construire en parlant », réservé au Business
+(fonction `assistants`), donc sur un cadenas alors que tous les autres onglets étaient ouverts. Décision de Julien :
+`assistants` passe dans les fonctions du Pro (`src/offres/offres.ts`). La route de l'assistant du MBA, gardée par la
+même fonction, l'est désormais par `agent_meta` : sans cela elle s'ouvrait au Pro par l'API, l'écran du MBA restant
+fermé et l'assistant tournant sur notre clé. Tarifs, trois fiches d'aide (fr et en) et `features.md` suivent.
+
+Code `1c40a19dd`. Un premier déploiement, lancé par un pair, affichait ce commit en `headSha` mais était épinglé sur
+`f9d239c7b`, juste avant : annoncé à tort en production, corrigé en lisant l'image sur la machine, puis run
+44763615123 épinglé sur `1c40a19dd`, `migration=aucune`. `aide:charger` depuis `5493a687f` (la
+fiche Shopify du pair comprise) : 342 lignes, 0 retirée. Restent la capture de la grille et l'essai réel (`todo.md`).
+
 ## 2026-11-20 : Shopify, le mode opératoire de la console en français, et la bulle du champ Boutique
 
 Demande de Julien, captures à l'appui. En français, les gestes nomment les libellés que Shopify affiche en français

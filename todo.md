@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 L'assistant de construction ouvert au Pro : ce qui reste (2026-11-20)
+
+- Refaire la capture de la grille de « Choisir mon offre » (`npm run aide:captures`) : elle montre encore l'assistant
+  dans la colonne Business (les données de démonstration, `web/e2e/captures/offre-demo.ts`, sont à jour).
+- Essai réel sur un espace Pro : l'écran de l'agent IA s'ouvre sur le fil de l'assistant, plus sur « Inclus dans
+  l'offre Business » ; l'écran du MBA et sa route d'assistant restent fermés.
+
 ## 🟡 Le dépliage des messages du canevas : la relecture (2026-11-20, aucun rouge)
 
 - **Les variables d'un template qui suivent ses indices restent `{{n}}` sur le canevas** : le bloc ne porte que les

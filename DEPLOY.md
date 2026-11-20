@@ -213,8 +213,12 @@ en extrait `docs/aide` et le monte dans l'image EN SERVICE (son SHA complet). Ri
 donc la commande part telle quelle du PowerShell 5.1 de Julien (fait le 2026-11-11 : 206 lignes, 0 retirée) :
 
 ```bash
-ssh -o BatchMode=yes -J bastion@<ip de la passerelle>:61000 root@<ip privée> 'set -eo pipefail; S=<sha complet du commit des fiches>; D=/tmp/aide-$S; rm -rf $D; mkdir -p $D; U=https://codeload.github.com/messagingme/messagingme-mba/tar.gz/$S; (curl -fsSL $U || wget -qO- $U) | tar -xz -C $D --strip-components=1 messagingme-mba-$S/docs/aide; chmod -R a+rX $D; docker run --rm --env-file /opt/messagingme/.env.prod -v $D/docs/aide:/app/docs/aide:ro rg.nl-ams.scw.cloud/messagingme/mba:<sha complet en service> npm run aide:charger; rm -rf $D'
+ssh -o BatchMode=yes -J bastion@<ip de la passerelle>:61000 root@<ip privée> 'set -eo pipefail; S=<sha complet du commit des fiches>; D=/tmp/aide-$S; rm -rf $D; mkdir -p $D; U=https://codeload.github.com/messagingme/messagingme-mba/tar.gz/$S; (curl -fsSL $U || wget -qO- $U) | tar -xz -C $D messagingme-mba-$S/docs/aide; A=$D/messagingme-mba-$S/docs/aide; chmod -R a+rX $D; docker run --rm --env-file /opt/messagingme/.env.prod -v $A:/app/docs/aide:ro rg.nl-ams.scw.cloud/messagingme/mba:<sha complet en service> npm run aide:charger; rm -rf $D'
 ```
+
+⚠️ Sans `--strip-components` : avec lui, le `tar` de la machine échoue sur ce membre (« Cannot change mode … No such
+file », mesuré le 2026-11-20). L'image en service se lit sur la machine (`docker inspect -f '{{.Config.Image}}'
+mba-worker`), jamais dans le `headSha` d'un run.
 
 ⚠️ Si le dépôt redevient privé, l'archive se fabrique sur le poste (`git archive --format=tar.gz -o aide-<sha>.tar.gz
 <sha> docs/aide`) et voyage par l'entrée standard du `ssh` (`... < aide-<sha>.tar.gz`, `tar -xz -C /tmp/aide-x` sur
