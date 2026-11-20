@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { IssueCreationDeBloc } from '../src/workflow/modeles-de-bloc';
 import { corpsStandard } from '../src/shopify/messages-standard';
 import { EVENEMENTS_SHOPIFY } from '../src/shopify/donnees';
+import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 import {
   apercuImportClients, brancherMessage, CLIENTS_LUS_MAX, connecterShopify, couperShopify, etatShopify, IMPORT_MAX, importerClients,
   PHRASE_SHOPIFY_QR_CODE, type DepsGestionShopify,
@@ -339,7 +340,7 @@ describe('l’état et la coupure', () => {
     expect(e.pageApps).toBe('https://admin.shopify.com/store/b/settings/apps');
     expect(e.lignes).toMatchObject([{ evenement: 'order_paid', actif: true, modele: 'commande_payee', blocs: 1 }]);
     expect(await etatShopify(monter({ boutique: null }).deps, T)).toEqual({
-      boutique: null, messages: [], compteurs: {}, pageApps: null, attentes: [], lignes: [],
+      boutique: null, messages: [], compteurs: {}, pageApps: null, attentes: [], lignes: [], attestation: null,
       paniers: { relances: {}, fermesATemps: 0, enAttente: 0, relancesParties: 0, recuperes: 0, montantsRecuperes: [], recuperesTest: 0 },
     });
   });
@@ -389,6 +390,21 @@ describe('l’état et la coupure', () => {
 describe('les outils MCP du connecteur', () => {
   const regler = () => OUTILS.find((x) => x.nom === 'set_shopify_message')!;
   const lire = () => OUTILS.find((x) => x.nom === 'get_shopify_state')!;
+
+  it('🔴 l’attestation (2026-11-20) : sans elle, set_shopify_message n’allume rien et dit de demander au marchand ; avec, elle est historisée (claude_code, la personne) et l’allumage passe', async () => {
+    const { deps, lignes } = monter();
+    lignes.store.attestationInitiale = null;
+    const args = { event: 'order_paid', template: 'commande_payee', language: 'fr', variables: ['first_name', 'order_number'] };
+    await expect(regler().executer(mcpDe(deps), T, args, PERSONNE)).rejects.toThrow(/customers_consent_attested/);
+    // Refusé AVANT toute écriture : ni ligne, ni scénario, ni publication.
+    expect([lignes.store.lignesEnBase.size, lignes.workflows.parId.size, lignes.workflows.publications.length]).toEqual([0, 0, 0]);
+    expect((await lire().executer(mcpDe(deps), T, {}, PERSONNE))).toMatchObject({ customers_consent_attested: false });
+    const r = await regler().executer(mcpDe(deps), T, { ...args, customers_consent_attested: true }, PERSONNE);
+    expect(r).toMatchObject({ automations: [{ event: 'order_paid', active: true }] });
+    expect(lignes.store.attestations).toEqual([{ domaine: 'b.myshopify.com', coche: true, texte: TEXTE_ATTESTATION_SHOPIFY.fr, par: 'u1', origine: 'claude_code' }]);
+    expect((await lire().executer(mcpDe(deps), T, {}, PERSONNE))).toMatchObject({ customers_consent_attested: true });
+    expect(Object.keys(regler().entree.properties)).toContain('customers_consent_attested');
+  });
 
   it('🔴 les quatre exigent une personne nommée et sont ouverts à toutes les offres', () => {
     for (const nom of ['connect_shopify', 'set_shopify_message', 'get_shopify_state', 'disconnect_shopify']) {

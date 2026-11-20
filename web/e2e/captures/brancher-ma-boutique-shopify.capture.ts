@@ -131,6 +131,7 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await carte.getByTestId('shopify-boutique').fill('votre-marque.myshopify.com');
       await carte.getByTestId('shopify-client-id').fill('3f9c2e71a8b54d06');
       await carte.getByTestId('shopify-secret').fill('demo-secret-invente');
+      await carte.getByTestId('shopify-attestation-case').check();
       const valider = carte.getByTestId('shopify-brancher-valider');
       await expect(valider).toBeEnabled();
       await capturer(page, CLE, 3, locale, valider, 'bas', valider);

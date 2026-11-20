@@ -6,7 +6,9 @@ import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
 import { BoutonCopier } from '@/components/doc-api/elements';
 import { CaptureAuSurvol } from '@/components/CaptureAuSurvol';
-import { brancherShopify } from '@/lib/api-shopify';
+import { attesterShopify, brancherShopify } from '@/lib/api-shopify';
+import { routeInconnue } from '@/lib/canaux-services';
+import { TEXTE_ATTESTATION_SHOPIFY } from '@/lib/partage/shopify-messages';
 
 /**
  * BRANCHER UNE BOUTIQUE DEPUIS LA CONSOLE (conception 2026-10-22) : le mode opératoire chez Shopify, puis les clés.
@@ -21,11 +23,31 @@ import { brancherShopify } from '@/lib/api-shopify';
 /** Les droits de l'app, ceux de `shopify.app.toml` (la skill du plugin) : la même app, créée sans la CLI. */
 export const DROITS_SHOPIFY = 'read_customers,read_orders,read_checkouts,read_fulfillments';
 
+/**
+ * LA CASE DE L'ATTESTATION (Julien, 2026-11-20) : le marchand atteste que les clients de sa boutique consentent à recevoir
+ * ses messages WhatsApp. Le texte est celui que le serveur historise, dans la langue de la console, affiché tel quel.
+ */
+export function CaseAttestationShopify({ coche, onChange, disabled, testid }: {
+  coche: boolean;
+  onChange: (coche: boolean) => void;
+  disabled?: boolean;
+  testid: string;
+}) {
+  const { locale } = useLocale();
+  return (
+    <label className="flex items-start gap-2 text-sm text-ink-900">
+      <input type="checkbox" className="mt-0.5" checked={coche} disabled={disabled} onChange={(e) => onChange(e.target.checked)} data-testid={testid} />
+      <span>{TEXTE_ATTESTATION_SHOPIFY[locale]}</span>
+    </label>
+  );
+}
+
 export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
   tenantId: string;
   /** Une boutique déjà branchée ou coupée : seules les clés sont redemandées, repliées, le mode opératoire à portée. */
   rebrancher?: boolean;
-  onBranche: () => Promise<void>;
+  /** `avertissement` : la boutique est branchée, mais l'attestation n'a pas pu être enregistrée (à dire au marchand). */
+  onBranche: (avertissement?: string) => Promise<void>;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -33,6 +55,7 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
   const [boutique, setBoutique] = useState('');
   const [clientId, setClientId] = useState('');
   const [secret, setSecret] = useState('');
+  const [atteste, setAtteste] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -40,9 +63,23 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
     setEnCours(true);
     setErreur(null);
     try {
+      // Le corps du branchement est validé strictement par le serveur : l'attestation part à côté, une fois branchée.
       await brancherShopify(tenantId, { boutique: boutique.trim(), clientId: clientId.trim(), secret: secret.trim() });
       setSecret('');
-      await onBranche();
+      let avertissement: string | undefined;
+      try {
+        await attesterShopify(tenantId, true, locale);
+      } catch (e: unknown) {
+        // Une API sans la route (console publiée avant elle) : rien à dire. Une autre panne ne défait pas le branchement.
+        if (!routeInconnue(e)) {
+          const raison = e instanceof Error ? e.message : t('erreur inconnue', 'unknown error');
+          avertissement = t(
+            `Boutique branchée, mais votre attestation n’a pas pu être enregistrée (${raison}) : cochez-la dans Scénario > Automation > Shopify.`,
+            `Store connected, but your confirmation could not be saved (${raison}): tick it in Scenario > Automation > Shopify.`,
+          );
+        }
+      }
+      await onBranche(avertissement);
     } catch (e: unknown) {
       setErreur(e instanceof Error ? e.message : t('Branchement impossible', 'Unable to connect'));
     } finally {
@@ -144,13 +181,21 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
             />
           </label>
         </div>
-        <div className="mt-3">
+        <div className="mt-3" data-testid="shopify-attestation">
+          <CaseAttestationShopify coche={atteste} onChange={setAtteste} disabled={enCours} testid="shopify-attestation-case" />
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <Bouton
             type="button" onClick={() => void brancher()} enCours={enCours}
-            disabled={enCours || !boutique.trim() || !clientId.trim() || !secret.trim()} data-testid="shopify-brancher-valider"
+            disabled={enCours || !atteste || !boutique.trim() || !clientId.trim() || !secret.trim()} data-testid="shopify-brancher-valider"
           >
             {t('Brancher la boutique', 'Connect the store')}
           </Bouton>
+          {!atteste && (
+            <span className="text-ink-500" data-testid="shopify-attestation-raison">
+              {t('Cochez l’attestation pour brancher la boutique.', 'Tick the confirmation to connect the store.')}
+            </span>
+          )}
         </div>
         {erreur && <p className="mt-2 text-danger" data-testid="shopify-brancher-erreur">{erreur}</p>}
       </div>

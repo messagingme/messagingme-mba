@@ -1,7 +1,7 @@
 import type { DepsLignesShopify } from '../src/shopify/lignes-gestion';
 import type { LigneShopify } from '../src/shopify/lignes';
 import type { EvenementShopify } from '../src/shopify/donnees';
-import type { VueBoutique } from '../src/shopify/store.pg';
+import type { AttestationShopify, VueBoutique } from '../src/shopify/store.pg';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import type { Programmation, WorkflowRow } from '../src/workflow/store.pg';
 import type { TemplateSummary } from '../src/meta/templates';
@@ -21,10 +21,24 @@ export const VUE_LIGNES: VueBoutique = {
   connecteeLe: '2026-11-19T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'claude_code', pauseLe: null,
 };
 
+/** Une attestation en vigueur, pour les tests d'avant la case (2026-11-20) : leurs allumages restent permis. */
+export const ATTESTEE: AttestationShopify = { coche: true, texte: 'J’atteste…', email: 'a@b.fr', le: '2026-11-20T08:00:00.000Z', domaine: 'b.myshopify.com' };
+
 export class FauxBoutique {
   lignesEnBase = new Map<EvenementShopify, LigneShopify>();
   pause = false;
   gestes: string[] = [];
+  /** L'historique des attestations (en ajout seul, comme la table) ; la dernière vaut. */
+  attestations: Array<{ domaine: string; coche: boolean; texte: string; par: string | null; origine: string }> = [];
+  /** L'attestation en vigueur quand l'historique est vide : celle des tests d'avant la case, sauf mention contraire. */
+  attestationInitiale: AttestationShopify | null = ATTESTEE;
+  async attester(_t: string, a: { domaine: string; coche: boolean; texte: string; par: string | null; origine: string }): Promise<void> {
+    this.attestations.push(a);
+  }
+  async attestation(): Promise<AttestationShopify | null> {
+    const d = this.attestations.at(-1);
+    return d ? { coche: d.coche, texte: d.texte, email: null, le: 'le', domaine: d.domaine } : this.attestationInitiale;
+  }
   /** `lire` rend la vue du moment : un test qui coupe la boutique la change ici. */
   constructor(public vue: VueBoutique | null = VUE_LIGNES) {}
   async lire(): Promise<VueBoutique | null> { return this.vue === null ? null : { ...this.vue, pauseLe: this.pause ? '2026-11-19T10:00:00.000Z' : null }; }

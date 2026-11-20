@@ -8,7 +8,7 @@ import { DELAI_PANIER_DEFAUT, DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_PAR_EV
 import {
   apercuImportClients, brancherMessage, connecterShopify, couperShopify, etatShopify, importerClients, IMPORT_MAX, type Issue,
 } from '../shopify/gestion';
-import type { EtatLigne } from '../shopify/lignes-gestion';
+import { reglerAttestation, type EtatLigne } from '../shopify/lignes-gestion';
 import type { MessageBranche } from '../shopify/store.pg';
 
 /**
@@ -68,6 +68,14 @@ function versAutomation(l: EtatLigne, scenarios: boolean) {
   };
 }
 
+/**
+ * L'attestation du marchand, posée par Claude Code une fois que le marchand l'a confirmée (2026-11-20) : la phrase
+ * française mot pour mot (les messages standard sont en français), origine `claude_code`, la personne nommée de l'OAuth.
+ */
+async function attester(deps: DepsMcp, tenantId: string, par: string | null): Promise<void> {
+  valeur(await reglerAttestation(deps.shopify.lignes, tenantId, { coche: true, langue: 'fr', origine: 'claude_code' }, par));
+}
+
 /** Les automations rendues ; l'offre n'est lue que si un scénario a plus d'une étape (sinon elle ne change rien). */
 async function automations(deps: DepsMcp, tenantId: string, lignes: readonly EtatLigne[]) {
   const scenarios = lignes.some((l) => l.blocs > 1) ? (await deps.offres.offreDe(tenantId)).droits.fonctions.has('scenarios') : true;
@@ -93,6 +101,13 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         store: { type: 'string', minLength: 1, maxLength: 100, description: 'The store domain, <name>.myshopify.com.' },
         client_id: { type: 'string', minLength: 1, maxLength: 100, pattern: '^[A-Za-z0-9_-]+$', description: 'The app client id (SHOPIFY_API_KEY).' },
         client_secret: { type: 'string', minLength: 1, maxLength: 200, description: 'The app client secret (SHOPIFY_API_SECRET).' },
+        customers_consent_attested: {
+          type: 'boolean',
+          description: 'true ONLY once the merchant has confirmed themself, in this conversation, that the customers of their store '
+            + 'agreed to receive WhatsApp messages from them (order confirmation and tracking, checkout reminders): it records '
+            + 'their attestation (who, when, the exact wording). Never answer for the merchant. Required once before turning an '
+            + 'automation on.',
+        },
       },
       required: ['store', 'client_id', 'client_secret'],
       additionalProperties: false,
@@ -102,6 +117,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
       const vue = valeur(await connecterShopify(deps.shopify, tenantId, { boutique: args.store, clientId: args.client_id, secret: args.client_secret }, personne?.userId ?? null, 'claude_code'));
       journaliser('info', 'mcp_shopify_connectee', { tenantId, userId: personne?.userId ?? null, boutique: vue.domaine });
+      if (args.customers_consent_attested === true) await attester(deps, tenantId, personne?.userId ?? null);
       return { store: vue.domaine, name: vue.nom, country: vue.pays, currency: vue.devise, state: vue.etat };
     },
   },
@@ -124,7 +140,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'the checkout last changed and only if no order came out of it. A missing first name is replaced by a neutral '
       + 'word. Links go in the body (a URL button takes no variable). Each message records the customer as opted in (source '
       + 'shopify:<store>), for campaigns too: the merchant is responsible for its customers\' consent, and a customer who said '
-      + 'STOP stays opted out and receives nothing. Every message goes through the sends rules (STOP, monthly templates, '
+      + 'STOP stays opted out and receives nothing. Turning an automation on requires, once, an attestation from the merchant that '
+      + 'their customers agreed (customers_consent_attested: ask the merchant, never answer for them). '
+      + 'Every message goes through the sends rules (STOP, monthly templates, '
       + 'contact limit) and appears in Campaigns.',
     annotations: { title: 'Set a Shopify message', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     entree: {
@@ -142,6 +160,13 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
           type: 'integer', minimum: DELAI_PANIER_MIN, maximum: DELAI_PANIER_MAX,
           description: `checkout_abandoned only: minutes after the checkout last changed (default ${DELAI_PANIER_DEFAUT}).`,
         },
+        customers_consent_attested: {
+          type: 'boolean',
+          description: 'true ONLY once the merchant has confirmed themself, in this conversation, that the customers of their store '
+            + 'agreed to receive WhatsApp messages from them (order confirmation and tracking, checkout reminders): it records '
+            + 'their attestation (who, when, the exact wording). Never answer for the merchant. Required once before turning an '
+            + 'automation on.',
+        },
       },
       required: ['event', 'language'],
       additionalProperties: false,
@@ -149,6 +174,8 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     async executer(deps: DepsMcp, tenantId, args, personne) {
       // Un plugin d'avant le 2026-10-26 envoie encore `customers_consented` : hors schéma, le serveur la refuse avant
       // l'outil depuis le 2026-11-04 (`refusDesClesInconnues`), avec le refus générique (`todo.md`).
+      // L'attestation du marchand d'abord (2026-11-20) : sans elle, aucun allumage ne passe.
+      if (args.customers_consent_attested === true) await attester(deps, tenantId, personne?.userId ?? null);
       const r = valeur(await brancherMessage(deps.shopify, tenantId, {
         evenement: args.event, modele: args.template, langue: args.language, variables: args.variables, actif: args.active,
         delaiMinutes: args.delay_minutes,
@@ -189,6 +216,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         store: e.boutique.domaine, name: e.boutique.nom, state: e.boutique.etat, cut_reason: e.boutique.motifCoupure,
         last_event_at: e.boutique.dernierEvenementLe,
         paused: e.boutique.pauseLe !== null,
+        // L'attestation du consentement des clients (2026-11-20) : sans elle, aucune automation ne s'allume.
+        customers_consent_attested: e.attestation?.coche === true,
+        ...(e.attestation?.coche === true ? { customers_consent_attested_at: e.attestation.le } : {}),
         automations: await automations(deps, tenantId, e.lignes),
         messages: e.messages.map(versMessage),
         last_30_days: e.compteurs,

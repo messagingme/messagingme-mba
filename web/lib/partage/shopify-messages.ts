@@ -78,6 +78,16 @@ export const TEXTES_PROPOSES: Readonly<Record<EvenementShopify, Readonly<Record<
 };
 
 /**
+ * L'ATTESTATION DU CONSENTEMENT DES CLIENTS (Julien, 2026-11-20) : la phrase que le marchand coche, historisée MOT POUR MOT
+ * (`shopify_attestations`, migration 0305). Le serveur la choisit selon la langue reçue, jamais depuis un texte du client :
+ * changer une phrase ici change ce qui s'atteste à partir de ce jour, les lignes déjà écrites gardent la leur.
+ */
+export const TEXTE_ATTESTATION_SHOPIFY: Readonly<Record<'fr' | 'en', string>> = {
+  fr: 'J’atteste que les clients de ma boutique ont accepté de recevoir de ma part des messages WhatsApp (confirmation et suivi de commande, relance de panier), et j’en assume la responsabilité.',
+  en: 'I confirm that my store’s customers have agreed to receive WhatsApp messages from me (order confirmation and tracking, checkout reminders), and I take responsibility for it.',
+};
+
+/**
  * Le pied de la relance : pas de bouton, qu'un clic ne désabonnerait pas, mais la consigne de répondre STOP, qu'une
  * réponse texte « STOP » applique déjà.
  */

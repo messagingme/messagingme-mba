@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 2907c6
+source_empreinte: 3ed868
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -34,7 +34,12 @@ sur votre boutique : le message « This app hasn't been reviewed » est normal, 
 l'app dans Apps : son Client ID et son Client secret sont dans le cadre Credentials, à droite.
 
 **3. Brancher la boutique.** Revenez dans la carte, collez le nom de la boutique, le Client ID et le Client secret,
-puis « Brancher la boutique ». Vos trois messages sont aussitôt écrits et envoyés à Meta pour validation.
+cochez l'attestation, puis « Brancher la boutique ». Vos trois messages sont aussitôt écrits et envoyés à Meta pour
+validation.
+
+Par cette case, vous attestez que les clients de votre boutique ont accepté de recevoir vos messages WhatsApp, et vous
+en assumez la responsabilité : Meta exige leur accord pour tout message que vous leur envoyez en premier. Sans elle, la
+boutique ne se branche pas. La phrase, la date et votre adresse sont gardées.
 
 **4. Voir vos messages, puis les allumer.** Scénario > Automation > Shopify liste vos trois automations : Commande
 payée, Commande expédiée et Panier abandonné. Survolez une ligne pour lire son message, avec des exemples à la place
@@ -47,6 +52,9 @@ validation, elle envoie pour les événements qui arrivent après l'approbation.
 
 Pour le panier, choisissez aussi le délai après sa dernière modification : 15 min, 1 h (par défaut), 3 h ou 24 h.
 Éteindre une automation arrête ses parcours en cours.
+
+En tête de la page, la case de l'attestation dit quand et par qui elle a été cochée. Sans elle, aucune automation ne
+s'allume. La décocher éteint vos trois automations : la console vous le demande d'abord.
 
 **Bon à savoir.** Sur un numéro relié par QR code, aucun message n'est proposé et une automation ne s'allume pas :
 WhatsApp n'y laisse pas écrire en premier à un client. Une automation encore sans message reçoit le message proposé
@@ -82,8 +90,8 @@ s'arrêtent, et un panier abandonné pendant la pause n'est jamais relancé apr�
 installée sur votre boutique : désinstallez-la depuis la page des apps de la boutique, dont le lien est sur la carte.
 Vous pourrez la rebrancher depuis la carte.
 
-**Bon à savoir.** Chaque message de la boutique rend la fiche du client consentante partout, campagnes comprises ; un
-client qui a répondu STOP le reste et ne reçoit rien.
+**Bon à savoir.** Chaque message de la boutique rend la fiche du client consentante partout, campagnes comprises,
+sur la foi de votre attestation ; un client qui a répondu STOP le reste et ne reçoit rien.
 
 ## La relance des paniers abandonnés
 

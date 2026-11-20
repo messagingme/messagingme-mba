@@ -1,12 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  assurerLigne, brancherLePremierBloc, etatDesLignes, grapheDUneLigne, NOM_DU_SCENARIO, PHRASE_SHOPIFY_QR_CODE, proposerMessageStandard,
-  reglerLigne, reglerPause,
+  assurerLigne, brancherLePremierBloc, etatDesLignes, grapheDUneLigne, NOM_DU_SCENARIO, PHRASE_ATTESTATION_REQUISE, PHRASE_SHOPIFY_QR_CODE,
+  proposerMessageStandard, reglerAttestation, reglerLigne, reglerPause,
 } from '../src/shopify/lignes-gestion';
+import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 import { corpsStandard } from '../src/shopify/messages-standard';
 import { MARQUE_PREMIER_BLOC, blocVerrouille } from '../src/shopify/premier-bloc';
 import type { WorkflowGraph } from '../src/workflow/graph';
-import { DOMAINE, modeleMeta, monterLignes, VUE_LIGNES as VUE } from './shopify-lignes-faux';
+import { ATTESTEE, DOMAINE, modeleMeta, monterLignes, VUE_LIGNES as VUE } from './shopify-lignes-faux';
 
 /**
  * LES LIGNES SHOPIFY, CÔTÉ GESTION (menu « Scénario », lot 5, tâche 8) : la ligne et son scénario d'un bloc verrouillé,
@@ -323,5 +324,59 @@ describe('le message standard d’une ligne (2026-11-20)', () => {
     const etats = await etatDesLignes(m.deps, T);
     expect(etats[0]!.apercu).toEqual({ corps: 'Merci {{1}} pour {{2}}', pied: null, exemples: ['Camille', '{{2}}'], donnees: ['first_name', null], enValidation: false });
     expect(etats[1]!.apercu).toBeNull();
+  });
+});
+
+describe('l’attestation du consentement des clients (2026-11-20)', () => {
+  it('🔴 sans attestation, aucune automation ne s’allume (409), rien n’est créé ; éteindre reste permis', async () => {
+    const m = monter();
+    m.store.attestationInitiale = null;
+    expect(await reglerLigne(m.deps, T, 'order_paid', { actif: true }, 'u1')).toEqual({ ok: false, statut: 409, message: PHRASE_ATTESTATION_REQUISE });
+    expect(m.workflows.parId.size).toBe(0);
+    expect(m.creation.appels).toHaveLength(0);
+    expect(await reglerLigne(m.deps, T, 'order_paid', { actif: false }, 'u1')).toMatchObject({ ok: true });
+    // Retirée : même refus.
+    m.store.attestations.push({ domaine: DOMAINE, coche: false, texte: 'x', par: 'u1', origine: 'console' });
+    expect(await reglerLigne(m.deps, T, 'order_paid', { actif: true }, 'u1')).toMatchObject({ ok: false, statut: 409 });
+  });
+
+  it('🔴 une ligne DÉJÀ allumée continue sans attestation (Julien : rien n’est coupé), et son délai se règle', async () => {
+    const m = monter();
+    await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true }, 'u1');
+    m.store.attestationInitiale = null;
+    expect(await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true, delaiMinutes: 180 }, 'u1')).toMatchObject({ ok: true });
+    expect((await m.store.ligne(T, 'checkout_abandoned'))?.actif).toBe(true);
+  });
+
+  it('🔴 cocher HISTORISE le texte de la langue reçue, la boutique, qui et d’où ; l’allumage passe ensuite', async () => {
+    const m = monter();
+    m.store.attestationInitiale = null;
+    expect(await reglerAttestation(m.deps, T, { coche: true, langue: 'en', origine: 'console' }, 'u1')).toMatchObject({ ok: true });
+    expect(m.store.attestations).toEqual([{ domaine: DOMAINE, coche: true, texte: TEXTE_ATTESTATION_SHOPIFY.en, par: 'u1', origine: 'console' }]);
+    expect(await reglerLigne(m.deps, T, 'order_paid', { actif: true }, 'u1')).toMatchObject({ ok: true });
+  });
+
+  it('🔴 décocher historise aussi, et éteint les automations allumées (leurs parcours s’arrêtent)', async () => {
+    const m = monter();
+    await reglerLigne(m.deps, T, 'order_paid', { actif: true }, 'u1');
+    await reglerLigne(m.deps, T, 'checkout_abandoned', { actif: true }, 'u1');
+    expect(await reglerAttestation(m.deps, T, { coche: false, langue: 'fr', origine: 'console' }, 'u1')).toMatchObject({ ok: true });
+    expect(m.store.attestations.at(-1)).toEqual({ domaine: DOMAINE, coche: false, texte: TEXTE_ATTESTATION_SHOPIFY.fr, par: 'u1', origine: 'console' });
+    expect([...m.store.lignesEnBase.values()].every((l) => !l.actif)).toBe(true);
+    expect(m.parcours.arrets.map((a) => a.motif)).toEqual(['attestation retirée', 'attestation retirée']);
+  });
+
+  it('🔴 l’attestation d’une AUTRE boutique de l’espace ne vaut pas pour celle qui est branchée', async () => {
+    const m = monter();
+    m.store.attestationInitiale = { ...ATTESTEE, domaine: 'ancienne.myshopify.com' };
+    expect(await reglerLigne(m.deps, T, 'order_paid', { actif: true }, 'u1')).toEqual({ ok: false, statut: 409, message: PHRASE_ATTESTATION_REQUISE });
+  });
+
+  it('sans boutique branchée, ou coupée, rien ne s’atteste', async () => {
+    const sans = monter({ vue: null });
+    expect(await reglerAttestation(sans.deps, T, { coche: true, langue: 'fr', origine: 'console' }, 'u1')).toMatchObject({ ok: false, statut: 409 });
+    const coupee = monter({ vue: { ...VUE, etat: 'coupee' } });
+    expect(await reglerAttestation(coupee.deps, T, { coche: true, langue: 'fr', origine: 'console' }, 'u1')).toMatchObject({ ok: false, statut: 409 });
+    expect([...sans.store.attestations, ...coupee.store.attestations]).toEqual([]);
   });
 });

@@ -6,6 +6,7 @@ import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { ShopifyRouteDeps } from '../src/http/shopify';
 import type { Connexion, VueBoutique } from '../src/shopify/store.pg';
 import { monterLignes } from './shopify-lignes-faux';
+import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 
 /**
  * LES ROUTES DE PARAMÈTRES > INTÉGRATIONS > SHOPIFY (conception 2026-10-22), montées par le REGISTRE (qui pose l'étape
@@ -182,5 +183,28 @@ describe('les réglages d’avant', () => {
     const { app } = monter();
     expect((await app.inject({ method: 'POST', url: `${URL_T1}/clients/import`, ...en(admin), payload: { maximum: '3' } })).statusCode).toBe(400);
     expect((await app.inject({ method: 'POST', url: `${URL_T1}/clients/import`, ...en(admin), payload: {} })).statusCode).toBe(400);
+  });
+});
+
+describe('l’attestation du consentement des clients (2026-11-20)', () => {
+  it('🔴 un admin coche : l’historique reçoit la phrase de la langue demandée, sa personne, la console ; le journal le dit', async () => {
+    const { app, trace, lignes, brancher } = monter();
+    brancher();
+    const r = await app.inject({ method: 'POST', url: `${URL_T1}/attestation`, ...en(admin), payload: { coche: true, langue: 'en' } });
+    expect(r.statusCode).toBe(200);
+    expect(lignes.store.attestations).toEqual([{ domaine: 'b.myshopify.com', coche: true, texte: TEXTE_ATTESTATION_SHOPIFY.en, par: 'u1', origine: 'console' }]);
+    expect(r.json().attestation).toMatchObject({ coche: true });
+    expect(trace.audit).toEqual([{ action: 'shopify.attestation', cible: CIBLE, detail: { coche: true } }]);
+  });
+
+  it('🔴 un agent, l’espace d’un autre client, un texte envoyé, ou sans boutique : refusé, rien d’historisé', async () => {
+    const { app, lignes, brancher } = monter();
+    expect((await app.inject({ method: 'POST', url: `${URL_T1}/attestation`, ...en(admin), payload: { coche: true } })).statusCode).toBe(409);
+    brancher();
+    expect((await app.inject({ method: 'POST', url: `${URL_T1}/attestation`, ...en(agent), payload: { coche: true } })).statusCode).toBe(403);
+    expect((await app.inject({ method: 'POST', url: `${URL_T1}/attestation`, ...en(autreEspace), payload: { coche: true } })).statusCode).toBe(403);
+    expect((await app.inject({ method: 'POST', url: `${URL_T1}/attestation`, ...en(admin), payload: { coche: true, texte: 'autre chose' } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'POST', url: `${URL_T1}/attestation`, ...en(admin), payload: { coche: 'oui' } })).statusCode).toBe(400);
+    expect(lignes.store.attestations).toEqual([]);
   });
 });

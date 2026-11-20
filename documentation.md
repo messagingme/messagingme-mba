@@ -2896,7 +2896,26 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   `set_shopify_message` ; l'éteindre reste permis. Éteindre une ligne arrête ses parcours par son préfixe d'origine ; la pause de la boutique
   (`PATCH .../integrations/shopify { pause }`, `pause_le`) arrête ceux de la boutique, comme la coupure, et la reprise
   ne relance que les paniers modifiés après elle (`paniers_depuis`, posé aussi au rallumage de la ligne du panier).
-  Ces gestes se journalisent (`shopify.pause`, `shopify.reprise`, `shopify.ligne`) ;
+  Ces gestes se journalisent (`shopify.pause`, `shopify.reprise`, `shopify.ligne`). 🔴 `reglerLigne` avec `actif: true`
+  sur une ligne DÉJÀ allumée (la console renvoie `actif: true` avec un nouveau délai du panier, `set_shopify_message`
+  avec `active` true) la laisse allumée, sans refus ni proposition : seul `actif: false` mène à l'extinction ;
+- 🔴 **L'ATTESTATION DU CONSENTEMENT DES CLIENTS** (décision de Julien du 2026-11-20, plan
+  `docs/superpowers/plans/2026-11-20-shopify-attestation-consentement.md`, migration 0305) : `shopify_attestations` est
+  un historique en AJOUT SEUL (espace, boutique, `coche`, la phrase `texte` mot pour mot, `par` sans clé étrangère,
+  `email` lu en base depuis `users` de CET espace, `origine` `console` ou `claude_code`, `le`) ; l'état en vigueur est
+  la DERNIÈRE ligne de l'espace (`PgShopifyStore.attestation`, index `(tenant_id, le desc, id desc)`). La phrase vient
+  de `TEXTE_ATTESTATION_SHOPIFY` (`web/lib/partage/shopify-messages.ts`), choisie par le SERVEUR selon la langue reçue,
+  jamais d'un texte du client. `reglerAttestation` (`src/shopify/lignes-gestion.ts`) exige une boutique branchée ;
+  décocher éteint les lignes allumées et arrête leurs parcours (`attestation retirée`). `reglerLigne` refuse le premier
+  allumage d'une ligne sans attestation cochée en 409 (`PHRASE_ATTESTATION_REQUISE`, la même phrase pour la console et
+  Claude Code) ; une ligne allumée avant elle continue. Deux portes : la console (`POST
+  .../integrations/shopify/attestation { coche, langue }`, Zod strict, journalisé `shopify.attestation` ; la carte de
+  branchement l'appelle juste après `POST .../integrations/shopify`, dont le corps reste strict, et n'active son bouton
+  que case cochée ; le bandeau en tête d'`AutomationsShopify`, qui lit `attestation` défensivement et ne montre rien
+  devant une API qui ne la rend pas) et le MCP (`customers_consent_attested: true` sur `connect_shopify`, enregistrée
+  APRÈS le branchement, ou sur `set_shopify_message`, AVANT le réglage ; phrase française, origine `claude_code`).
+  `etatShopify` rend `attestation` (cochée, le, email, texte, boutique) et `get_shopify_state`
+  `customers_consent_attested` (et `customers_consent_attested_at` quand elle l'est) ;
 - **`set_shopify_message` pose le template du premier bloc** (décision 7) : la ligne et son scénario naissent s'ils
   manquent ; la suite est gardée, et un template dont les réponses rapides ne mènent plus aux branches d'où part une
   flèche est refusé ; seules les clés du template changent (template, langue, boutons, cartes, variables : la sortie
@@ -3031,9 +3050,8 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   converti) et vaut `null` quand rien n'a coûté. Seul le pourcentage passe par un flottant ; les montants du chiffre
   restent du texte.
 
-- 🔴 **chaque envoi né d'un événement Shopify écrit la fiche consentante** (décision de Julien du 2026-10-26 : le
-  consentement des clients relève du marchand, aucune affirmation ne lui est demandée, ni par Claude ni par la
-  console) : `consent: opted_in` et la source `shopify:<boutique>`, bornée par `MAX_OPT_IN_SOURCE`, pour la commande,
+- 🔴 **chaque envoi né d'un événement Shopify écrit la fiche consentante** (décision de Julien du 2026-10-26, sur
+  l'attestation du marchand depuis le 2026-11-20, ci-dessus) : `consent: opted_in` et la source `shopify:<boutique>`, bornée par `MAX_OPT_IN_SOURCE`, pour la commande,
   l'expédition et la relance. `appliquerConsentement` ne lève jamais un STOP : la fiche reste désabonnée et le tri
   l'écarte (tenu par `tests/v1-sends.test.ts`, sur le vrai cycle de l'envoi public). Les colonnes `consentement_par` et
   `consentement_le` de `shopify_boutiques` ne sont plus lues ; la connexion les efface encore, pour que l'image d'avant,

@@ -3,13 +3,18 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { useT } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n';
 import { cardCls, inputClsAuto } from '@/lib/ui';
+import { formatDate } from '@/lib/day';
+import { Bouton } from '@/components/Bouton';
 import { Toggle } from '@/components/Toggle';
+import { CaseAttestationShopify } from '@/components/ShopifyBrancher';
 import { Squelette } from '@/components/Squelette';
 import { TemplateBodyText } from '@/components/WhatsAppPreview';
 import { routeInconnue } from '@/lib/canaux-services';
-import { lireShopify, reglerLigneShopify, type ApercuLigneShopify, type EtatShopifyVue } from '@/lib/api-shopify';
+import {
+  attesterShopify, lireShopify, reglerLigneShopify, type ApercuLigneShopify, type AttestationShopify, type EtatShopifyVue,
+} from '@/lib/api-shopify';
 import {
   DELAI_PANIER_DEFAUT, DELAIS_PROPOSES, EVENEMENTS_SHOPIFY, LIBELLES_EVENEMENTS, type EvenementShopify,
 } from '@/lib/partage/shopify-messages';
@@ -28,6 +33,10 @@ import { delaiEnClair, etatDeLAutomation, type EtatAutomation } from '@/lib/shop
  * Le message en vigueur se voit au survol et au focus d'une ligne (spec 2026-11-20) : une bulle WhatsApp, ses données
  * remplacées par leurs exemples. Le libellé et l'état de la ligne mènent à son scénario ; l'interrupteur et le délai du
  * panier restent à part, leurs clics ne quittent pas la page.
+ *
+ * L'attestation du consentement des clients (2026-11-20) en tête : sans elle, le serveur refuse tout allumage (409, dit
+ * sur la ligne) ; la retirer éteint les trois automations, d'où la confirmation. Une API qui ne la rend pas encore : pas
+ * de case, rien ne change.
  */
 const ETATS: Record<EtatAutomation, readonly [string, string]> = {
   a_creer: ['pas encore créée', 'not created yet'],
@@ -69,13 +78,72 @@ function BulleDuMessage({ id, apercu, testid }: { id: string; apercu: ApercuLign
   );
 }
 
+/** Le bandeau de l'attestation : la case, et une fois cochée, quand et par qui ; la décocher se confirme sur place. */
+function BandeauAttestation({ tenantId, attestation, onChange }: {
+  tenantId: string;
+  attestation: AttestationShopify | null;
+  onChange: () => Promise<void>;
+}) {
+  const t = useT();
+  const { locale } = useLocale();
+  /** La valeur en cours d'envoi, montée tout de suite dans la case ; `null` hors envoi. */
+  const [envoi, setEnvoi] = useState<boolean | null>(null);
+  const [retrait, setRetrait] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const attestee = attestation !== null && attestation.coche;
+
+  const envoyer = async (coche: boolean): Promise<void> => {
+    setRetrait(false);
+    setEnvoi(coche);
+    setErreur(null);
+    try {
+      await attesterShopify(tenantId, coche, locale);
+      // Relire : retirer l'attestation éteint les lignes côté serveur.
+      await onChange();
+    } catch (e: unknown) {
+      setErreur(e instanceof Error ? e.message : t('Enregistrement impossible', 'Unable to save'));
+    } finally {
+      setEnvoi(null);
+    }
+  };
+
+  return (
+    <div
+      className={`mb-3 rounded-controle border px-3 py-2 ${attestee ? 'border-ink-200' : 'border-brand-200 bg-brand-50'}`}
+      data-testid="automations-shopify-attestation"
+    >
+      <CaseAttestationShopify
+        coche={envoi ?? attestee} disabled={envoi !== null || retrait} testid="automations-shopify-attestation-case"
+        onChange={(c) => { if (c) void envoyer(true); else setRetrait(true); }}
+      />
+      {attestee ? (
+        <p className="mt-1 pl-6 text-xs text-ink-500" data-testid="automations-shopify-attestation-par">
+          {t('Attestée le ', 'Confirmed on ')}{formatDate(attestation.le, locale, { day: 'numeric', month: 'long', year: 'numeric' })}
+          {attestation.email ? t(` par ${attestation.email}`, ` by ${attestation.email}`) : ''}
+        </p>
+      ) : (
+        <p className="mt-1 pl-6 text-xs text-ink-500">{t('Cochez-la pour allumer vos automations.', 'Tick it to turn your automations on.')}</p>
+      )}
+      {retrait && (
+        <span role="group" data-testid="confirmation-en-ligne" className="mt-2 flex flex-wrap items-center gap-1.5 pl-6">
+          <span className="text-xs text-ink-900">{t('Retirer l’attestation éteint vos trois automations.', 'Withdrawing the confirmation turns your three automations off.')}</span>
+          <Bouton type="button" taille="petite" data-testid="confirmation-oui" onClick={() => void envoyer(false)}>{t('Confirmer', 'Confirm')}</Bouton>
+          <Bouton type="button" variante="secondaire" taille="petite" data-testid="confirmation-non" onClick={() => setRetrait(false)}>{t('Annuler', 'Cancel')}</Bouton>
+        </span>
+      )}
+      {erreur && <p className="mt-1 pl-6 text-sm text-danger" data-testid="automations-shopify-attestation-erreur">{erreur}</p>}
+    </div>
+  );
+}
+
 export function AutomationsShopify({ tenantId }: { tenantId: string }) {
   const t = useT();
   const router = useRouter();
   /** `lecture` jusqu'à la première réponse ; `panne` si elle échoue ou ne se lit pas (une API sans la route comprise). */
   const [vue, setVue] = useState<EtatShopifyVue | 'lecture' | 'panne'>('lecture');
   const [enCours, setEnCours] = useState<EvenementShopify | null>(null);
-  const [erreur, setErreur] = useState<string | null>(null);
+  /** L'erreur d'un réglage, dite sur la ligne de son interrupteur (un allumage sans attestation : 409). */
+  const [erreur, setErreur] = useState<{ evenement: EvenementShopify; texte: string } | null>(null);
 
   const recharger = useCallback(() => lireShopify(tenantId).then((v) => setVue(v ?? 'panne')).catch(() => setVue('panne')), [tenantId]);
   useEffect(() => { void recharger(); }, [recharger]);
@@ -115,9 +183,12 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
       }
       await recharger();
     } catch (err: unknown) {
-      setErreur(routeInconnue(err)
-        ? t('La console est plus récente que l’API : réessayez dans quelques minutes.', 'The console is newer than the API: try again in a few minutes.')
-        : err instanceof Error ? err.message : t('Réglage impossible', 'Unable to save'));
+      setErreur({
+        evenement: e,
+        texte: routeInconnue(err)
+          ? t('La console est plus récente que l’API : réessayez dans quelques minutes.', 'The console is newer than the API: try again in a few minutes.')
+          : err instanceof Error ? err.message : t('Réglage impossible', 'Unable to save'),
+      });
     } finally {
       setEnCours(null);
     }
@@ -129,6 +200,9 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
 
   return (
     <section className={cardCls} data-testid="automations-shopify">
+      {b.etat !== 'coupee' && vue.attestation !== 'inconnue' && (
+        <BandeauAttestation tenantId={tenantId} attestation={vue.attestation} onChange={recharger} />
+      )}
       {b.etat === 'coupee' ? (
         <p className="text-sm text-ink-900" data-testid="automations-shopify-coupee">
           {t('Boutique coupée : rien ne part. Rebranchez-la dans ', 'Store cut: nothing goes out. Reconnect it in ')}
@@ -194,13 +268,15 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
                       {t('Ouvrir le scénario', 'Open the scenario')}
                     </Link>
                   )}
+                  {erreur?.evenement === e && (
+                    <p className="basis-full text-sm text-danger" data-testid="automations-shopify-erreur">{erreur.texte}</p>
+                  )}
                 </li>
               );
             })}
           </ul>
         </div>
       )}
-      {erreur && <p className="mt-2 text-sm text-danger" data-testid="automations-shopify-erreur">{erreur}</p>}
     </section>
   );
 }

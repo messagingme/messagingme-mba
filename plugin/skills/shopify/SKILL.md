@@ -18,7 +18,7 @@ Before the first command, tell the user in a few short lines what is coming, so 
 - they make two gestures: sign in to Shopify with the account that manages their store (the one they use to open its
   admin), in a browser window that opens on its own, then click Install on a link you give;
 - connecting the store writes its three WhatsApp messages and sends them to Meta for approval; you show them, and turn
-  each one on when they want it.
+  each one on when they want it, once they have confirmed that their customers agreed to receive them.
 
 Then, at each step, say where you are and what comes next (for example "Step 2 of 4: I am creating the app in your
 Shopify account"), and say plainly when you are waiting for them.
@@ -136,7 +136,8 @@ console. On Free there is no console, and only the first message is sent.
 2. Turn one on once its message is approved (its template set, its status at Meta APPROVED) and the user wants it: call
    `set_shopify_message` with `event`, `template` (the name `get_shopify_state` returns), `language`, `active` true,
    and `variables` exactly as `get_shopify_state` returns them for that automation (the data of {{1}}, {{2}}... in
-   order): without them the message would lose its Shopify data.
+   order): without them the message would lose its Shopify data. Before the first one, check the merchant's
+   attestation (The consent attestation, below).
 3. If they want other words, offer to write a new message: create it with `create_template` (a utility template for
    an order, a marketing one for the checkout), links in the body as variables (a URL button takes no variable), wait
    for Meta (`get_template_status`), then set it with `set_shopify_message`, `variables` naming the data of each
@@ -144,20 +145,38 @@ console. On Free there is no console, and only the first message is sent.
    `order_status_url`; `order_fulfilled`: `first_name`, `order_number`, `carrier`, `tracking_number`, `tracking_url`;
    `checkout_abandoned`: `first_name`, `checkout_url`.
 
-Never ask the user about their customers' consent: the merchant is responsible for it. Each message records the
-customer as opted in, for campaigns too, and a customer who said STOP stays opted out and receives nothing. Every
-message goes through the sending rules of Messaging Me (STOP, monthly templates, contact limit), and each first message
+Each message records the customer as opted in, for campaigns too, and a customer who said STOP stays opted out and
+receives nothing. Every message
+goes through the sending rules of Messaging Me (STOP, monthly templates, contact limit), and each first message
 shows up in Campaigns, one line per order. `set_shopify_message` with `active` false turns an automation off and stops
 its journeys. If a customer writes while the journey sleeps in a Wait step, or taps a button of another message,
 the workspace's AI agent, responder scenario or application answers and the journey goes on; in Team or Meta agent
 mode, the journey stops and the team or Meta's agent takes over. A written reply to a step that waits for one follows
 its "any other reply" output, or ends the journey.
 
+### The consent attestation
+
+No automation turns on until the merchant has attested, once, that their customers agreed to receive their WhatsApp
+messages: Meta requires that agreement for any message that writes first. `get_shopify_state` says whether it is done
+(`customers_consent_attested`). When it is false, before turning anything on, ask the user, quoting this sentence in
+their language (in French: "J’atteste que les clients de ma boutique ont accepté de recevoir de ma part des messages
+WhatsApp (confirmation et suivi de commande, relance de panier), et j’en assume la responsabilité."):
+
+"I confirm that my store’s customers have agreed to receive WhatsApp messages from me (order confirmation and
+tracking, checkout reminders), and I take responsibility for it."
+
+Only on their clear yes, pass `customers_consent_attested: true` with the call (`set_shopify_message`, or
+`connect_shopify` if they confirmed it before connecting): it records who, when and the sentence, in French, word for
+word. Never answer for the merchant, never assume it from an earlier request, and never pass it when they hesitate or
+say no: then nothing turns on, and say so. A refusal that asks for the attestation means the same: ask the user. It is
+withdrawn in the console (Scenario > Automation > Shopify, Pro and above), which turns the three automations off.
+Automations already on before the attestation existed keep running.
+
 ## Remind abandoned checkouts
 
 A third event, `checkout_abandoned`, sends a reminder when a customer filled the checkout with their phone and did
-not order. It is a marketing message, proposed and turned on like the order messages (its own automation), with no
-consent question either.
+not order. It is a marketing message, proposed and turned on like the order messages (its own automation), under the
+same consent attestation.
 
 1. Its standard message ends with the opt-out line "Répondez STOP pour ne plus recevoir ces messages": a customer who
    replies STOP gets nothing more. A reminder written instead keeps that line, in the template's language ("Reply STOP

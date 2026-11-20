@@ -4,6 +4,29 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+
+## 2026-11-20 : Shopify, l'attestation du consentement des clients
+
+Plan `docs/superpowers/plans/2026-11-20-shopify-attestation-consentement.md`. Décision de Julien, qui remplace celle du
+2026-10-26 (« aucune question au marchand ») : Meta exige l'accord du client pour tout message envoyé en premier, et
+Shopify n'en recueille aucun. Le marchand atteste donc, par une case, que les clients de sa boutique ont accepté de
+recevoir ses messages WhatsApp, et en porte la responsabilité.
+
+Livré : la migration 0305 (`shopify_attestations`, historique en ajout seul : qui, son e-mail, quand, la phrase mot pour
+mot, la boutique, console ou Claude Code), en `migration=avant` parce que l'allumage la lit ; le refus d'allumer sans
+attestation (409, `PHRASE_ATTESTATION_REQUISE`), console et Claude Code ; décocher éteint les trois automations ; la case
+au branchement par la console (requise pour brancher) et en tête de Scénario > Automation > Shopify ;
+`customers_consent_attested` sur `connect_shopify` et `set_shopify_message`, que Claude ne passe que sur le oui du
+marchand (skill `shopify`), et dans `get_shopify_state`. Les automations allumées avant continuent : rien n'est coupé au
+déploiement. Chaque envoi écrit toujours la fiche consentante (source `shopify:<boutique>`), un STOP reste un STOP.
+
+## 2026-11-20 : une automation Shopify déjà allumée s'éteignait quand on changeait son délai (corrigé le jour même)
+
+Depuis 34fae9759, changer le délai de relance du panier (la console renvoie `actif: true` avec le délai) ou appeler
+`set_shopify_message` avec `active` true sur une automation déjà allumée passait par la branche « éteindre » de
+`reglerLigne` : l'automation s'éteignait et ses parcours s'arrêtaient, sans erreur. Corrigé par ce768b9fa : une ligne
+déjà allumée reste allumée, sans refus ni proposition ; tests vérifiés dans les deux sens.
+
 ## 2026-11-20 : l'agent de Meta répond à tout le monde quand il est le répondeur (préparé)
 
 **Le défaut**, mesuré chez MUTAC en lecture seule : un inconnu écrit « Hello » à 09:36 UTC, l'agent ne répond pas. Son

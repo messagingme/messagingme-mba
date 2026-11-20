@@ -3050,7 +3050,7 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   message reçoit le sien à son premier allumage. Rien n'est créé sans compte WhatsApp Business relié, ni sur un numéro
   relié par QR code (où une automation ne s'allume pas, depuis la console comme depuis Claude Code) ; un refus de Meta
   laisse le cas à compléter. Claude Code montre ces messages (`get_shopify_state`, champ `message`) et allume une
-  automation approuvée par `set_shopify_message`.
+  automation approuvée par `set_shopify_message`, une fois le consentement des clients attesté (ci-dessous).
 - **Les règles des envois s'appliquent** : STOP, modèles du mois, limite de contacts de l'offre (la fiche d'un nouveau
   client compte). Chaque premier message fait une ligne dans Campagnes (« Shopify · commande payée · #1002 ») ; un client
   écarté (STOP, limite) n'en fait aucune. Le premier message part même quand l'agent ou un opérateur tient la
@@ -3060,16 +3060,28 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   de Meta, l'agent de Meta répond, et l'automation s'arrête (jamais deux maîtres du fil). Une réponse écrite à un bloc
   qui attend la sienne suit sa sortie « Toute autre réponse » ; sans elle, l'automation s'arrête et le message va à
   celui qui répond d'habitude.
-- **Le consentement** (décision de Julien du 2026-10-26) : Shopify ne recueille aucun consentement WhatsApp, et le
-  consentement de ses clients relève du marchand : aucune question ne le lui demande. Chaque message né d'un événement
-  de la boutique (commande payée, expédition, relance) rend la fiche du client consentante partout, campagnes comprises
-  (source `shopify:<boutique>`) ; un client qui a dit STOP le reste et ne reçoit rien.
+- **L'attestation du consentement** (décision de Julien du 2026-11-20, qui remplace celle du 2026-10-26 où aucune
+  question n'était posée) : Shopify ne recueille aucun consentement WhatsApp, et Meta exige l'accord du client pour
+  tout message envoyé en premier. Le marchand coche donc une case : « J’atteste que les clients de ma boutique ont
+  accepté de recevoir de ma part des messages WhatsApp (confirmation et suivi de commande, relance de panier), et j’en
+  assume la responsabilité. » (texte : `TEXTE_ATTESTATION_SHOPIFY`, `web/lib/partage/shopify-messages.ts`, en anglais
+  pour une console en anglais). **Sans elle, aucune des trois automations ne s'allume**, ni depuis la console ni depuis
+  Claude Code ; celles allumées avant le 2026-11-20 continuent. Chaque geste, cocher comme décocher, est **historisé**
+  et jamais réécrit : qui, son adresse e-mail, quand, la phrase mot pour mot, la boutique, et d'où (console ou Claude
+  Code). **Décocher éteint les trois automations** (avec une confirmation) : elles ne pourraient plus se rallumer. La
+  case se coche au branchement depuis la console (requise pour brancher) et en tête de Scénario > Automation >
+  Shopify ; depuis Claude Code, Claude demande au marchand s'il atteste, en lui citant la phrase, et ne l'enregistre que
+  sur son oui (`customers_consent_attested`, sur `connect_shopify` ou `set_shopify_message`), jamais à sa place ;
+  `get_shopify_state` dit si elle est donnée. Chaque message né d'un événement de la boutique (commande payée,
+  expédition, relance) rend toujours la fiche du client consentante partout, campagnes comprises (source
+  `shopify:<boutique>`) ; un client qui a dit STOP le reste et ne reçoit rien.
 - **Limite de contacts atteinte** : les nouveaux clients ne reçoivent plus leurs messages ; la carte et l'outil d'état
   les comptent, et un e-mail part aux admins au premier refus du mois.
 - **Tools > Intégrations > Shopify** (offre Pro et au-delà, 2026-10-22) :
   - **sans boutique**, un mode opératoire de cinq minutes chez Shopify : créer l'app à la main sur le tableau de bord
     développeur (son adresse et ses droits se copient d'un clic), l'installer sur la boutique, copier son identifiant et
-    son secret ; puis les coller dans la carte, qui branche la boutique et abonne ses événements ;
+    son secret ; puis les coller dans la carte, cocher l'attestation du consentement des clients (sans elle, le bouton
+    « Brancher la boutique » reste grisé), et la carte branche la boutique et abonne ses événements ;
   - **avec une boutique**, la **pause** (2026-11-19) : la boutique reste branchée et ses automations gardent leur
     réglage, mais plus rien ne part, ni premier message ni suite ; les parcours en cours s'arrêtent, et un panier
     abandonné pendant la pause n'est jamais relancé après le rallumage. Puis l'import des clients abonnés, les chiffres
@@ -3078,7 +3090,9 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
     (ci-dessous) : ils ont quitté la carte le 2026-11-19, avec l'assistant qui les écrivait.
 - **Scénario > Automation > Shopify** (offre Pro et au-delà, 2026-11-19 ; sa page, `/automations/shopify`, depuis le lot 7
   du menu « Scénario ») : l'entrée n'apparaît dans la barre qu'avec une boutique branchée ; ouverte sans boutique, la
-  page dit de la brancher dans Tools > Intégrations. Une ligne par automation, son
+  page dit de la brancher dans Tools > Intégrations. En tête, la case de l'attestation du consentement des clients
+  (cochée : la date et l'adresse de qui l'a cochée ; décochée : allumer est refusé, et le refus se lit sur la ligne).
+  Une ligne par automation, son
   interrupteur, son état (pas encore créée, éteinte, éteinte avec son message en validation chez Meta, prête à
   allumer, à compléter, en validation chez Meta, refusée ou bloquée par Meta, active, active avec une nouvelle version
   en validation), le délai du panier et « Ouvrir le scénario ». Au survol ou au focus d'une ligne, une bulle WhatsApp
@@ -3104,8 +3118,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   de son panier en variable), au délai choisi par le marchand après la dernière modification du panier (1 h par défaut,
   de 15 min à 72 h), puis la suite de son scénario s'il en a une. Rien ne part si une commande en est née entre-temps,
   même non payée, et une commande née du panier arrête son parcours, quel que soit le bloc où il en est. La relance d'un
-  second panier arrête le parcours du précédent. Comme les messages de commande, elle ne demande aucune affirmation du
-  consentement (2026-10-26). Les paniers en attente ne se gardent qu'une semaine, et seulement quand l'automation du
+  second panier arrête le parcours du précédent. Comme les messages de commande, elle ne s'allume qu'avec l'attestation
+  du consentement des clients (2026-11-20). Les paniers en attente ne se gardent qu'une semaine, et seulement quand l'automation du
   panier est allumée.
 - **Le prénom absent** (2026-10-23) : il est facultatif au paiement de Shopify. Un message qui le demande sans l'avoir
   part quand même, le prénom remplacé par « à vous » (« there » en anglais) : « Bonjour à vous ». C'est ce que reçoit

@@ -68,6 +68,19 @@ export interface EtatShopifyVue {
   pageApps: string | null;
   /** Les automations réglées, une par événement ; un événement sans ligne n'a jamais été allumé. */
   lignes: LigneShopifyVue[];
+  /**
+   * L'attestation du consentement des clients (2026-11-20) : `null`, jamais attestée ; `coche: false`, retirée.
+   * `inconnue` : une API qui ne la rend pas encore (ou mal formée) ; l'écran ne montre alors pas la case.
+   */
+  attestation: AttestationShopify | null | 'inconnue';
+}
+
+/** La dernière attestation : cochée ou retirée, quand, par qui (`email` `null` quand le serveur ne le connaît pas), et son texte. */
+export interface AttestationShopify {
+  coche: boolean;
+  le: string;
+  email: string | null;
+  texte: string;
 }
 
 const texte = (v: unknown): string | null => (typeof v === 'string' ? v : null);
@@ -93,6 +106,16 @@ function lireLigne(x: unknown): LigneShopifyVue[] {
     modele: texte(l.modele), langue: texte(l.langue), etatChezMeta: texte(l.etatChezMeta),
     blocs: typeof l.blocs === 'number' ? l.blocs : 1, versionProgrammee: l.versionProgrammee === true, apercu: lireApercu(l.apercu),
   }];
+}
+
+/** L'attestation lue défensivement : `null` explicite = jamais attestée ; absente ou mal formée = inconnue. */
+function lireAttestation(x: unknown): AttestationShopify | null | 'inconnue' {
+  if (x === null) return null;
+  const a = x as Record<string, unknown> | undefined;
+  if (!a || typeof a !== 'object' || typeof a.coche !== 'boolean' || typeof a.le !== 'string' || typeof a.texte !== 'string') return 'inconnue';
+  // L'e-mail seul est indulgent : absent (une clé `undefined` disparaît du JSON), il se lit comme inconnu du serveur.
+  if (a.email !== undefined && a.email !== null && typeof a.email !== 'string') return 'inconnue';
+  return { coche: a.coche, le: a.le, email: typeof a.email === 'string' ? a.email : null, texte: a.texte };
 }
 
 /** Lu défensivement : une réponse d'une API plus ancienne ou plus récente que la console ne casse pas l'écran. */
@@ -130,7 +153,7 @@ export function lireEtatShopify(brut: unknown): EtatShopifyVue | null {
     relancesParties: nombre(p.relancesParties), recuperes: nombre(p.recuperes), montantsRecuperes, recuperesTest: nombre(p.recuperesTest),
   };
   const lignes = Array.isArray(o.lignes) ? o.lignes.flatMap(lireLigne) : [];
-  return { boutique, compteurs, paniers, pageApps: texte(o.pageApps), lignes };
+  return { boutique, compteurs, paniers, pageApps: texte(o.pageApps), lignes, attestation: lireAttestation(o.attestation) };
 }
 
 export async function lireShopify(tenantId: string): Promise<EtatShopifyVue | null> {
@@ -158,6 +181,16 @@ export function reglerLigneShopify(
   tenantId: string, evenement: EvenementShopify, corps: { actif: boolean; delaiMinutes?: number },
 ): Promise<{ ligne: unknown }> {
   return request(`${base(tenantId)}/lignes/${encodeURIComponent(evenement)}`, { method: 'PUT', body: JSON.stringify(corps) });
+}
+
+/**
+ * Cocher ou retirer l'attestation du consentement des clients. Le serveur historise le texte de la langue reçue, jamais
+ * un texte venu de la console ; retirer éteint les automations allumées. 409 sans boutique branchée.
+ */
+export async function attesterShopify(tenantId: string, coche: boolean, langue: 'fr' | 'en'): Promise<AttestationShopify | null> {
+  const r = await request<{ attestation?: unknown }>(`${base(tenantId)}/attestation`, { method: 'POST', body: JSON.stringify({ coche, langue }) });
+  const a = lireAttestation(r?.attestation);
+  return a === 'inconnue' ? null : a;
 }
 
 export interface ApercuClientsShopify {

@@ -1009,6 +1009,7 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
         poserLigne: neDevraitPasEtreAppelee('shopify.poserLigne'), allumerLigne: neDevraitPasEtreAppelee('shopify.allumerLigne'),
         eteindreLigne: neDevraitPasEtreAppelee('shopify.eteindreLigne'), mettreEnPause: neDevraitPasEtreAppelee('shopify.mettreEnPause'),
         reprendre: neDevraitPasEtreAppelee('shopify.reprendre'), reglerDelaiPanier: neDevraitPasEtreAppelee('shopify.reglerDelaiPanier'),
+        attestation: async () => null, attester: neDevraitPasEtreAppelee('shopify.attester'),
       },
       workflows: {
         insert: neDevraitPasEtreAppelee('shopify.workflows.insert'), publish: neDevraitPasEtreAppelee('shopify.workflows.publish'),

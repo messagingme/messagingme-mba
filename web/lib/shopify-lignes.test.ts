@@ -122,3 +122,37 @@ describe('la lecture de l’état', () => {
     });
   });
 });
+
+describe('la lecture de l’attestation (2026-11-20)', () => {
+  const avec = (attestation: unknown) => lireEtatShopify({
+    boutique: { domaine: 'b.myshopify.com', etat: 'connectee' }, ...(attestation === undefined ? {} : { attestation }),
+  })?.attestation;
+  const COCHEE = { coche: true, le: '2026-11-20T09:00:00.000Z', email: 'moi@exemple.fr', texte: 'J’atteste...' };
+
+  it('🔴 absente (une API plus ancienne que la console) : inconnue, jamais « pas attestée »', () => {
+    expect(avec(undefined)).toBe('inconnue');
+  });
+
+  it('🔴 null : jamais attestée', () => {
+    expect(avec(null)).toBeNull();
+  });
+
+  it('lit une attestation cochée, puis retirée, l’e-mail absent compris', () => {
+    expect(avec(COCHEE)).toEqual(COCHEE);
+    expect(avec({ ...COCHEE, coche: false, email: null })).toEqual({ ...COCHEE, coche: false, email: null });
+  });
+
+  it('🔴 mal formée : inconnue, la case ne s’affiche pas', () => {
+    expect(avec(true)).toBe('inconnue');
+    expect(avec('oui')).toBe('inconnue');
+    expect(avec({ ...COCHEE, coche: 'oui' })).toBe('inconnue');
+    expect(avec({ ...COCHEE, le: 3 })).toBe('inconnue');
+    expect(avec({ ...COCHEE, texte: undefined })).toBe('inconnue');
+    expect(avec({ ...COCHEE, email: 3 })).toBe('inconnue');
+  });
+
+  it('un e-mail absent se lit comme inconnu du serveur, l’attestation reste lue', () => {
+    const { email: _sansEmail, ...sansEmail } = COCHEE;
+    expect(avec(sansEmail)).toEqual({ ...COCHEE, email: null });
+  });
+});

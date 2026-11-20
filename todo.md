@@ -1,5 +1,30 @@
 # todo.md : backlog
 
+## 🟡 L'attestation du consentement Shopify (2026-11-20)
+
+- **Les captures de la fiche `brancher-ma-boutique-shopify` ne montrent pas la case d'attestation** : ni au branchement
+  (étape 3, que `brancher-ma-boutique-shopify.capture.ts` coche désormais avant de capturer), ni en tête de Scénario >
+  Automation > Shopify (étape 4). Pour l'étape 4, l'état simulé de la capture (`etat`) doit d'abord porter une
+  `attestation` cochée : sans elle, la console la lit « inconnue » et ne montre pas le bandeau. À refaire avec celles des
+  étapes 4 et 5 (lot 5, plus bas) : `npm run aide:captures` (port libre), puis `aide:charger`.
+- **Relecture indépendante (aucun rouge)** :
+  - deux onglets : décocher pendant qu'un allumage crée son message standard chez Meta (plusieurs secondes) peut laisser
+    la ligne allumée sous une attestation retirée ; relire l'attestation juste avant `allumerLigne`, ou la mettre dans
+    l'`update` ;
+  - aucun test d'intégration n'exécute le vrai SQL de `attester` et `attestation` (sous-requête e-mail scopée, `par` nul,
+    ordre `le desc, id desc`) ;
+  - une boutique coupée ne peut pas être décochée (409, bandeau masqué) ;
+  - l'historique n'est en ajout seul que dans le code (ni trigger ni `revoke update, delete`) ;
+  - chaque `customers_consent_attested: true` de Claude Code ajoute une ligne, même déjà attestée ; et ce chemin n'écrit
+    pas `shopify.attestation` au journal d'audit, seulement une trace ;
+  - l'e-mail survit à la suppression du compte (voulu, sans clé étrangère) : à écrire dans la doc RGPD ;
+  - la console publiée avant l'API : une case cochée au branchement dans cette fenêtre n'est pas enregistrée (404
+    ignoré) ; à recocher après le déploiement ;
+  - le bandeau dit « Cochez-la pour allumer vos automations » alors que celles allumées avant la case tournent déjà.
+- **Claude Code ne peut pas retirer l'attestation** (aucun outil ne décoche) : en Free, sans console, elle est
+  irréversible sauf à éteindre chaque automation ; et il enregistre toujours la phrase française, même cité en anglais.
+- **La vitrine** (« Claude allume ceux que vous voulez ») ne dit pas la question d'attestation qui précède.
+
 ## 🟡 L'accueil d'un nouveau membre : ce qui reste après la relecture (2026-11-19, aucun rouge)
 
 - `/me` fait deux lectures par chargement de page (`getById`, puis `accueilAFaire`), toutes deux par clé primaire :

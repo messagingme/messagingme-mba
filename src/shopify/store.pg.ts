@@ -25,6 +25,17 @@ export type EtatBoutique = 'connectee' | 'coupee';
  */
 export type OrigineBoutique = 'console' | 'claude_code';
 
+/** L'attestation du consentement des clients en vigueur (la dernière ligne de `shopify_attestations`). */
+export interface AttestationShopify {
+  coche: boolean;
+  /** La phrase attestée, mot pour mot. */
+  texte: string;
+  /** L'adresse de qui a coché ou décoché, au moment du geste ; null pour un geste sans personne nommée. */
+  email: string | null;
+  le: string;
+  domaine: string;
+}
+
 /** Un message préparé par l'assistant de la console, dont le modèle attend l'approbation de Meta (migration 0249). */
 export interface AttenteMessage {
   evenement: EvenementShopify;
@@ -362,6 +373,29 @@ export class PgShopifyStore {
       }
       return allumee;
     });
+  }
+
+  /**
+   * L'ATTESTATION DU CONSENTEMENT DES CLIENTS (Julien, 2026-11-20, migration 0305) : chaque geste AJOUTE une ligne,
+   * aucune ne se modifie. L'e-mail se lit en base depuis l'utilisateur DE CET ESPACE, jamais d'un corps reçu.
+   */
+  async attester(tenantId: string, a: { domaine: string; coche: boolean; texte: string; par: string | null; origine: OrigineBoutique }): Promise<void> {
+    await this.pool.query(
+      `insert into shopify_attestations (tenant_id, domaine, coche, texte, par, email, origine)
+       values ($1, $2, $3, $4, $5::uuid, (select email from users where id = $5::uuid and tenant_id = $1), $6)`,
+      [tenantId, a.domaine, a.coche, a.texte, a.par, a.origine],
+    );
+  }
+
+  /** L'attestation en vigueur : la DERNIÈRE ligne de l'espace ; `null` si la case n'a jamais été touchée. */
+  async attestation(tenantId: string): Promise<AttestationShopify | null> {
+    const r = await this.pool.query<{ coche: boolean; texte: string; email: string | null; le: Date; domaine: string }>(
+      `select coche, texte, email, le, domaine from shopify_attestations
+        where tenant_id = $1 order by le desc, id desc limit 1`,
+      [tenantId],
+    );
+    const l = r.rows[0];
+    return l ? { coche: l.coche, texte: l.texte, email: l.email, le: l.le.toISOString(), domaine: l.domaine } : null;
   }
 
   /** Éteint la ligne ; `false` si elle l'était déjà ou n'existe pas. L'arrêt de ses parcours revient à l'appelant. */

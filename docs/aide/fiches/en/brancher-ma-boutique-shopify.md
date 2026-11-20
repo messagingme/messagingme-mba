@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: ad6a80
+traduit_de: 3b0b24
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -27,8 +27,12 @@ Untick “Embed app in Shopify admin”, leave the rest as it is, then Create ap
 store: the message “This app hasn’t been reviewed” is expected, it is your own app. Finally, open the app in Apps:
 its Client ID and its Client secret are in the Credentials box, on the right.
 
-**3. Connect the store.** Back in the card, paste the store name, the Client ID and the Client secret, then “Connect the
-store”. Your three messages are written at once and sent to Meta for approval.
+**3. Connect the store.** Back in the card, paste the store name, the Client ID and the Client secret, tick the
+confirmation, then “Connect the store”. Your three messages are written at once and sent to Meta for approval.
+
+With this box, you confirm that your store’s customers have agreed to receive your WhatsApp messages, and you take
+responsibility for it: Meta requires their agreement for any message you send them first. Without it, the store does
+not connect. The sentence, the date and your address are kept.
 
 **4. See your messages, then switch them on.** Scenario > Automation > Shopify lists your three automations: Order
 paid, Order shipped and Abandoned checkout. Hover over a line to read its message, with examples in place of the data;
@@ -41,6 +45,9 @@ events that come after the approval.
 
 For the checkout, also choose the delay after its last change: 15 min, 1 h (by default), 3 h or 24 h. Switching an
 automation off stops its journeys under way.
+
+At the top of the page, the confirmation box says when and by whom it was ticked. Without it, no automation switches
+on. Unticking it switches your three automations off: the console asks you first.
 
 **Good to know.** On a number linked by QR code, no message is proposed and an automation does not switch on: WhatsApp
 does not let it write first to a customer. An automation that still has no message gets the proposed one when you
@@ -76,8 +83,8 @@ journeys under way stop, and a checkout abandoned during the pause is never remi
 stays installed on your store: uninstall it from the store apps page, whose link is on the card. You can reconnect it
 from the card.
 
-**Good to know.** Each message from the store makes the customer’s record consenting everywhere, campaigns included; a
-customer who replied STOP stays opted out and gets nothing.
+**Good to know.** Each message from the store makes the customer’s record consenting everywhere, campaigns included,
+on the strength of your confirmation; a customer who replied STOP stays opted out and gets nothing.
 
 ## The abandoned checkout reminder
 

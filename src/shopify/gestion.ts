@@ -11,9 +11,10 @@ import {
   estEvenementShopify,
   type DonneeShopify, type EvenementShopify,
 } from './donnees';
-import type { AttenteMessage, MessageBranche, OrigineBoutique, PgShopifyStore, VueBoutique } from './store.pg';
+import type { AttenteMessage, AttestationShopify, MessageBranche, OrigineBoutique, PgShopifyStore, VueBoutique } from './store.pg';
 import {
-  arreterLesParcours, brancherLePremierBloc, etatDesLignes, PHRASE_SHOPIFY_QR_CODE, proposerLesMessagesStandard, reglerLigne,
+  arreterLesParcours, attestationEnVigueur, brancherLePremierBloc, etatDesLignes, PHRASE_ATTESTATION_REQUISE, PHRASE_SHOPIFY_QR_CODE,
+  proposerLesMessagesStandard, reglerLigne,
   type DepsLignesShopify, type EtatLigne,
 } from './lignes-gestion';
 import { prefixeShopify } from './lignes';
@@ -92,13 +93,15 @@ export interface EtatShopify {
    * anciennes tables, restent lus pour les plugins d'avant, le temps que l'ancienne console et ses plugins disparaissent.
    */
   lignes: EtatLigne[];
+  /** L'attestation du consentement des clients en vigueur (2026-11-20) ; null si la case n'a jamais été touchée. */
+  attestation: AttestationShopify | null;
 }
 
 export async function etatShopify(deps: DepsGestionShopify, tenantId: string): Promise<EtatShopify> {
   const boutique = await deps.store.lire(tenantId);
   if (boutique === null) {
     return {
-      boutique: null, messages: [], compteurs: {}, pageApps: null, attentes: [], lignes: [],
+      boutique: null, messages: [], compteurs: {}, pageApps: null, attentes: [], lignes: [], attestation: null,
       paniers: { relances: {}, fermesATemps: 0, enAttente: 0, relancesParties: 0, recuperes: 0, montantsRecuperes: [], recuperesTest: 0 },
     };
   }
@@ -118,6 +121,8 @@ export async function etatShopify(deps: DepsGestionShopify, tenantId: string): P
     pageApps: pageApps(boutique.domaine),
     attentes: await deps.store.attentes(tenantId),
     lignes: await etatDesLignes(deps.lignes, tenantId),
+    // Celle de CETTE boutique seulement : l'attestation d'une boutique d'avant ne se montre pas comme la sienne.
+    attestation: await (async () => { const a = await deps.lignes.store.attestation(tenantId); return a?.domaine === boutique.domaine ? a : null; })(),
   };
 }
 
@@ -245,6 +250,14 @@ export async function brancherMessage(
   if (boutique.etat === 'coupee') return refus(409, 'La boutique est coupée : rebranchez-la avec connect_shopify avant d’y brancher un message.');
   // Aucune affirmation n'est demandée, relance de panier comprise (décision de Julien du 2026-10-26) : le consentement des
   // clients est la responsabilité du marchand, chaque envoi écrit la fiche consentante, et un STOP reste un STOP.
+
+  // 🔴 L'attestation AVANT toute écriture (relecture du 2026-11-20) : sans elle, rien ne s'allume, et le premier bloc ne doit
+  // pas être réécrit (ni une version en attente de Meta annulée) pour un allumage qui sera refusé. Une ligne déjà allumée
+  // reste allumée sans elle.
+  if (actif && (await deps.lignes.store.ligne(tenantId, evenement))?.actif !== true
+    && (await attestationEnVigueur(deps.lignes, tenantId, boutique.domaine)) === null) {
+    return refus(409, PHRASE_ATTESTATION_REQUISE);
+  }
 
   const langue = b.langue.trim();
   if (actif && modele !== null) {

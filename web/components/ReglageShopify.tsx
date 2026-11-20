@@ -118,8 +118,9 @@ export function ReglageShopify({ tenantId }: { tenantId: string }) {
     setMessage({ genre: 'ok', texte: bilan });
     await recharger();
   };
-  const branchee = async (texte: string): Promise<void> => {
-    setMessage({ genre: 'ok', texte });
+  /** Branchée ; `avertissement` : l'attestation n'a pas pu être enregistrée, la carte le dit à la place du succès. */
+  const branchee = async (texte: string, avertissement?: string): Promise<void> => {
+    setMessage(avertissement ? { genre: 'erreur', texte: avertissement } : { genre: 'ok', texte });
     await recharger();
   };
 
@@ -141,7 +142,7 @@ export function ReglageShopify({ tenantId }: { tenantId: string }) {
               'Your customers get on WhatsApp their order confirmation, its shipping, and a reminder if they abandon their checkout.',
             )}
           </p>
-          <ShopifyBrancher tenantId={tenantId} onBranche={() => branchee(t('Boutique branchée : allumez maintenant ses automations dans Scénario > Automation > Shopify.', 'Store connected: now turn its automations on in Scenario > Automation > Shopify.'))} />
+          <ShopifyBrancher tenantId={tenantId} onBranche={(a) => branchee(t('Boutique branchée : allumez maintenant ses automations dans Scénario > Automation > Shopify.', 'Store connected: now turn its automations on in Scenario > Automation > Shopify.'), a)} />
         </>
       )}
       {b !== null && (
@@ -163,7 +164,7 @@ export function ReglageShopify({ tenantId }: { tenantId: string }) {
           {/* Rebrancher : une boutique coupée, ou une boutique de la console dont l'abonnement des événements a échoué
               (le refus le dit au branchement ; relu plus tard, la carte la montre branchée : relecture du lot 3). */}
           {(b.etat === 'coupee' || b.origine === 'console') && (
-            <ShopifyBrancher tenantId={tenantId} rebrancher onBranche={() => branchee(t('Boutique rebranchée.', 'Store reconnected.'))} />
+            <ShopifyBrancher tenantId={tenantId} rebrancher onBranche={(a) => branchee(t('Boutique rebranchée.', 'Store reconnected.'), a)} />
           )}
           {b.etat === 'connectee' && (
             <>

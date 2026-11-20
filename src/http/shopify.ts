@@ -7,7 +7,7 @@ import {
   apercuImportClients, connecterShopify, couperShopify, etatShopify, importerClients, type DepsGestionShopify,
 } from '../shopify/gestion';
 import { EVENEMENTS_DISPONIBLES, estEvenementShopify } from '../shopify/donnees';
-import { reglerLigne, reglerPause } from '../shopify/lignes-gestion';
+import { reglerAttestation, reglerLigne, reglerPause } from '../shopify/lignes-gestion';
 import { reglerMessage } from '../shopify/preparation';
 
 /**
@@ -45,6 +45,8 @@ const corpsReglage = z.object({ delaiMinutes: z.number().int().optional(), ...co
 const corpsImport = z.object({ maximum: z.number().int() }).strict();
 const corpsPause = z.object({ pause: z.boolean() }).strict();
 const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int().optional() }).strict();
+// La langue choisit la phrase attestée côté serveur (`TEXTE_ATTESTATION_SHOPIFY`) : jamais un texte reçu.
+const corpsAttestation = z.object({ coche: z.boolean(), langue: z.enum(['fr', 'en']).optional() }).strict();
 
 const raisonCorps = (e: z.ZodError): string => {
   const i = e.issues[0];
@@ -90,6 +92,18 @@ export function registerShopify(app: FastifyInstance, deps: ShopifyRouteDeps, ga
     if (!r.ok) return reply.code(r.statut).send({ error: r.message });
     if (r.valeur.changee) await journal(tenant, req, corps.data.pause ? 'shopify.pause' : 'shopify.reprise', CIBLE);
     return reply.code(200).send(r.valeur);
+  });
+
+  // L'attestation du consentement des clients (Julien, 2026-11-20) : chaque geste s'ajoute à l'historique, avec la phrase,
+  // la boutique et la personne de la session ; décocher éteint les automations allumées.
+  app.post('/tenants/:tenantId/integrations/shopify/attestation', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const corps = corpsAttestation.safeParse(req.body ?? {});
+    if (!corps.success) return reply.code(400).send({ error: raisonCorps(corps.error) });
+    const r = await reglerAttestation(deps.gestion.lignes, tenant, { coche: corps.data.coche, langue: corps.data.langue ?? 'fr', origine: 'console' }, req.auth?.userId ?? null);
+    if (!r.ok) return reply.code(r.statut).send({ error: r.message });
+    await journal(tenant, req, 'shopify.attestation', CIBLE, { coche: corps.data.coche });
+    return reply.code(200).send({ attestation: r.valeur });
   });
 
   // L'interrupteur d'une automation : le premier allumage crée son scénario (un bloc template verrouillé, sans template

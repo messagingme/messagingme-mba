@@ -7,12 +7,12 @@ import type { WorkflowGraph, WorkflowNode } from '../workflow/graph';
 import type { PgWorkflowStore } from '../workflow/store.pg';
 import type { WorkflowExecutor } from '../workflow/executor';
 import { programmerMenage, type DepsMenage, type IssueCreationDeBloc } from '../workflow/modeles-de-bloc';
-import { EXEMPLES_DONNEES } from '../../web/lib/partage/shopify-messages';
+import { EXEMPLES_DONNEES, TEXTE_ATTESTATION_SHOPIFY } from '../../web/lib/partage/shopify-messages';
 import { DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_SHOPIFY, EVENEMENTS_SHOPIFY, type DonneeShopify, type EvenementShopify } from './donnees';
 import { NOM_DU_SCENARIO, prefixeShopify, type LigneShopify } from './lignes';
 import { corpsStandard } from './messages-standard';
 import { blocVerrouille, estBlocVerrouille, MARQUE_PREMIER_BLOC } from './premier-bloc';
-import type { PgShopifyStore } from './store.pg';
+import type { AttestationShopify, OrigineBoutique, PgShopifyStore } from './store.pg';
 
 /**
  * LES LIGNES SHOPIFY, CÔTÉ GESTION (menu « Scénario », lot 5, tâche 8) : la porte unique de la console (routes) et des
@@ -25,7 +25,7 @@ import type { PgShopifyStore } from './store.pg';
  */
 
 export interface DepsLignesShopify {
-  store: Pick<PgShopifyStore, 'lire' | 'lignes' | 'ligne' | 'poserLigne' | 'allumerLigne' | 'eteindreLigne' | 'mettreEnPause' | 'reprendre' | 'reglerDelaiPanier'>;
+  store: Pick<PgShopifyStore, 'lire' | 'lignes' | 'ligne' | 'poserLigne' | 'allumerLigne' | 'eteindreLigne' | 'mettreEnPause' | 'reprendre' | 'reglerDelaiPanier' | 'attestation' | 'attester'>;
   /** Le magasin des scénarios, ENTIER (ses méthodes lisent `this`). */
   workflows: Pick<PgWorkflowStore, 'insert' | 'publish' | 'getById' | 'update' | 'publicationProgrammee' | 'programmer'>;
   /** L'exécuteur des parcours, ENTIER. */
@@ -53,6 +53,46 @@ const refus = (statut: Refus['statut'], message: string): Refus => ({ ok: false,
  */
 export const PHRASE_SHOPIFY_QR_CODE = 'Sur un numéro relié par QR code, les messages Shopify ne peuvent pas partir : WhatsApp ne '
   + `laisse pas écrire en premier à un client. Pour écrire en premier tout en gardant l’application WhatsApp Business, ${RELIER_EN_COEXISTENCE}`;
+
+/**
+ * Le refus d'allumer sans l'attestation du consentement des clients (Julien, 2026-11-20). La même phrase pour la console
+ * et Claude Code : elle dit où cocher, et ce que Claude doit faire (poser la question au marchand, jamais répondre pour lui).
+ */
+export const PHRASE_ATTESTATION_REQUISE = 'Avant d’allumer une automation Shopify, le marchand atteste que les clients de sa boutique '
+  + 'ont accepté de recevoir ses messages WhatsApp : la case en tête de Scénario > Automation > Shopify, ou depuis Claude Code, '
+  + 'customers_consent_attested à vrai, une fois que le marchand l’a confirmé lui-même. (La case n’apparaît pas : rechargez la page.)';
+
+/**
+ * L'attestation EN VIGUEUR pour la boutique branchée : la dernière de l'espace, cochée, et donnée pour CE domaine. Une
+ * attestation d'une autre boutique de l'espace (changée, reprise ailleurs puis rebranchée) ne vaut pas pour celle-ci.
+ */
+export async function attestationEnVigueur(deps: Pick<DepsLignesShopify, 'store'>, tenantId: string, domaine: string): Promise<AttestationShopify | null> {
+  const a = await deps.store.attestation(tenantId);
+  return a !== null && a.coche && a.domaine === domaine ? a : null;
+}
+
+/**
+ * L'ATTESTATION DU CONSENTEMENT DES CLIENTS (Julien, 2026-11-20 ; elle remplace « aucune question au marchand » du
+ * 2026-10-26) : cocher ou décocher AJOUTE une ligne à l'historique (`shopify_attestations`), avec la phrase de la langue
+ * reçue mot pour mot, la boutique, qui et d'où. 🔴 Décocher éteint les automations allumées : elles ne pourraient plus
+ * s'allumer, les laisser partir serait envoyer sous une attestation retirée. Les lignes allumées AVANT la case, elles,
+ * continuent tant que personne ne la décoche (décision du même jour : rien n'est coupé au déploiement).
+ */
+export async function reglerAttestation(
+  deps: DepsLignesShopify, tenantId: string, a: { coche: boolean; langue: 'fr' | 'en'; origine: OrigineBoutique }, par: string | null,
+): Promise<Issue<AttestationShopify | null>> {
+  const b = await boutiqueConnectee(deps, tenantId);
+  if (!b.ok) return b;
+  await deps.store.attester(tenantId, { domaine: b.valeur.domaine, coche: a.coche, texte: TEXTE_ATTESTATION_SHOPIFY[a.langue], par, origine: a.origine });
+  if (!a.coche) {
+    for (const l of await deps.store.lignes(tenantId)) {
+      if (l.actif && (await deps.store.eteindreLigne(tenantId, l.evenement, par))) {
+        await arreterLesParcours(deps, tenantId, prefixeShopify(b.valeur.domaine, l.evenement), 'attestation retirée');
+      }
+    }
+  }
+  return { ok: true, valeur: await deps.store.attestation(tenantId) };
+}
 
 export { NOM_DU_SCENARIO };
 
@@ -100,13 +140,14 @@ export async function reglerLigne(
   }
   const b = await boutiqueConnectee(deps, tenantId);
   if (!b.ok) return b;
-  // Une ligne déjà allumée (la console renvoie `actif: true` avec un nouveau délai du panier) : ni refus ni proposition.
   if (r.actif) {
     // 🔴 Une ligne DÉJÀ allumée (la console renvoie `actif: true` avec un nouveau délai du panier ; `set_shopify_message`
     // active true) reste allumée, sans refus ni proposition : jamais la branche « éteindre » (elle l'éteignait, 2026-11-20).
     if ((await deps.store.ligne(tenantId, evenement))?.actif !== true) {
       // Sur un numéro relié par QR code, chaque événement finirait `filiere_differente` : refusé ici, comme `set_shopify_message`.
       if ((await deps.filiere(tenantId)) === 'application') return refus(409, PHRASE_SHOPIFY_QR_CODE);
+      // Sans l'attestation du consentement des clients en vigueur, rien ne s'allume (Julien, 2026-11-20).
+      if ((await attestationEnVigueur(deps, tenantId, b.valeur.domaine)) === null) return refus(409, PHRASE_ATTESTATION_REQUISE);
       await assurerLigne(deps, tenantId, evenement, par);
       // Un cas encore vide (création sautée au branchement, boutique branchée avant le 2026-11-20) reçoit son message
       // standard ; un cas qui a son message n'est pas touché. Jamais levé : l'allumage passe.
