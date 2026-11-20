@@ -1,7 +1,7 @@
 ---
 ecran: email-templates
 source_section: E-mail (menu Tools > SMTP email, menu Contenu > Modèles d'email)
-source_empreinte: 2320b8
+source_empreinte: ad27cd
 ---
 # Envoyer un e-mail depuis un scénario
 
@@ -17,7 +17,9 @@ vrai message à l'adresse de votre choix, et c'est le seul moyen de savoir qu'un
 est bon avant qu'un client n'en fasse les frais.
 
 **Écrire vos modèles**, ensuite, dans Contenu > Modèles d'email : un nom, un sujet, un corps, au choix en
-**texte simple** ou en **HTML brut** si vous collez un message préparé ailleurs. Le sujet et le corps
+**texte simple** ou en **HTML brut** si vous collez un message préparé ailleurs. En HTML, l'aperçu sous le
+code montre le rendu du mail, à chaque frappe ; les variables y restent écrites `{{prenom}}`,
+elles prennent leur valeur à l'envoi. Le sujet et le corps
 acceptent des variables, insérées par le même bouton « Variable » que les modèles WhatsApp et les messages
 RCS, avec la même liste de champs de base et de champs à vous. Vous ne recopiez jamais un nom de variable à
 la main.

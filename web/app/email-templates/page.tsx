@@ -32,6 +32,7 @@ import { Icone } from '@/components/Icone';
  * Trois surfaces, UN seul selecteur : le sujet (champ d'une ligne) et le corps HTML (zone de code) recoivent
  * le jeton au curseur ; le corps en format Texte passe par l'editeur a chips. Le HTML n'y passe PAS
  * volontairement : un `contenteditable` resérialise le DOM et abimerait un mail colle depuis un outil externe.
+ * Le corps HTML se voit rendu juste sous son code, dans une iframe isolee (`sandbox=""`).
  */
 export default function EmailTemplatesPage() {
   return <AppShell active="email-templates">{(session) => <EmailTemplatesInner session={session} />}</AppShell>;
@@ -176,6 +177,23 @@ function EmailTemplatesInner({ session }: { session: Session }) {
                 className={`${inputCls} font-mono text-xs`}
                 placeholder={'<p>Bonjour ,</p>'}
               />
+              {/* L'APERÇU, rendu à chaque frappe. 🔴 `sandbox=""` est la garde : sans script ni même origine, un
+                  HTML collé ne peut ni s'exécuter ni lire la session de la console (elle vit dans le localStorage
+                  de cette origine). Ne pas y ajouter `allow-scripts` ni `allow-same-origin`. Les variables restent
+                  écrites `{{champ}}` : elles ne prennent leur valeur qu'à l'envoi, contact par contact. */}
+              <div className="mt-3 overflow-hidden rounded-controle border border-ink-200">
+                <div className="flex items-center gap-2 border-b border-ink-100 bg-ink-50 px-3 py-2 text-xs">
+                  <span className="font-medium text-ink-500">{t('Aperçu', 'Preview')}</span>
+                  <span className="truncate text-ink-900">{form.subject}</span>
+                </div>
+                <iframe
+                  data-testid="email-template-apercu"
+                  title={t('Aperçu du modèle', 'Template preview')}
+                  sandbox=""
+                  srcDoc={form.body}
+                  className="block h-[36rem] w-full bg-white"
+                />
+              </div>
             </div>
           ) : (
             <ChampCorpsVariables

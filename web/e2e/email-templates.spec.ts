@@ -122,6 +122,10 @@ test.describe('Contenu : modèles d’email', () => {
     // Le HTML colle reste INTACT : c'est pour ça que cette surface n'est pas un contenteditable.
     const html = '<table><tr><td style="padding:0">Bonjour</td></tr></table>';
     await page.getByTestId('email-template-body').fill(html);
+    // L'aperçu rend le HTML tapé, dans une iframe isolée (sans script ni même origine).
+    const apercu = page.getByTestId('email-template-apercu');
+    await expect(apercu).toHaveAttribute('sandbox', '');
+    await expect(page.frameLocator('[data-testid="email-template-apercu"]').locator('td')).toHaveText('Bonjour');
     await page.getByTestId('email-template-body-variable').click();
     await page.getByTestId('email-template-body-variable-prenom').click();
 

@@ -988,8 +988,10 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   qui est le seul moyen de savoir qu'un mot de passe d'application est bon avant qu'un client
   n'en fasse les frais.
 - ✅ **Écrire ses modèles** (menu **Contenu > Modèles d'email**) : un nom, un sujet, un corps,
-  au choix en **texte simple** ou en **HTML brut** (pour coller un mail préparé ailleurs). Le
-  sujet et le corps acceptent des **variables**, insérées par le **même bouton « Variable »**
+  au choix en **texte simple** ou en **HTML brut** (pour coller un mail préparé ailleurs). En
+  HTML, un **aperçu** rend le mail sous son code, à chaque frappe (isolé : aucun script n'y
+  tourne ; les variables y restent écrites `{{champ}}`). Le sujet et le corps acceptent des
+  **variables**, insérées par le **même bouton « Variable »**
   que les templates WhatsApp et les messages RCS, avec la même liste de champs de base et de
   champs perso. On ne recopie jamais `{{prenom}}` à la main.
 - ✅ **Le bloc « Envoi de mail » dans un scénario** : il est présenté **à part dans la palette
