@@ -5,6 +5,25 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 : Tools > Intégrations en volets
+
+Demande de Julien (« un peu le bordel quand tu l'ouvres ») : la page empilait quatre cartes dépliées, dont celle de
+Batch avec son propre en-tête « Intégrations ». Commit 3cba049ed : un volet replié par outil (`VoletIntegration`,
+`<details>` natif), logo repris de la vitrine dans `web/public/logos/` (Shopify en monochrome, comme l'exige sa
+marque), la carte intérieure perd cadre et titre par sélecteurs du volet, sans retoucher chaque carte. Dynamics 365
+ajouté, sans carte ; Salesforce et Shopify reçoivent un repli (`siAbsente`) quand leur carte ne s'afficherait pas.
+Les ancres `#integration-<outil>` déplient leur volet. Les e2e des intégrations ouvrent leur volet par l'ancre ; 77
+verts en local sur un build de production. Captures de la fiche Shopify à refaire (todo.md).
+
+Le même jour, deux suites demandées par Julien. **Les captures « Voir l'écran » de la carte Shopify s'ouvraient toutes à
+la fois** au survol du volet : `CaptureAuSurvol` lisait un `group-hover` nu, qui répond à N'IMPORTE quel ancêtre `group`,
+et le volet en était un. Les deux groupes sont désormais nommés (`group/capture`, `group/volet`) ; un e2e de
+`shopify.spec.ts` l'exige, vu rouge sur le code fautif (7 captures ouvertes). **Les connecteurs CRM selon l'offre** :
+le serveur ne les ouvrait déjà qu'à l'Entreprise (`crm`, installation HubSpot comprise), la console le dit maintenant
+(`ConnecteurSurDemande`) : « Inclus dans l'offre Entreprise » ailleurs, et en Entreprise un bouton « Nous contacter »
+pour Salesforce sans app et Dynamics 365 (`/support?sujet=`). Quatre e2e HubSpot qui exerçaient la carte en Pro gardent
+leur cas sur une offre avec `crm` privée d'une fonction.
+
 ## 2026-11-20 : Shopify, la relance de panier avec agent IA (lots 1 à 4)
 
 Spec `docs/superpowers/specs/2026-11-20-shopify-relance-agent-ia-design.md`, plan du même jour. Demande de Julien : la

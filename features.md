@@ -281,6 +281,12 @@ ils le règlent, comme Developers. Aucune adresse n'a changé.
   quittent Paramètres > Général, qui ne règle plus que l'espace (fuseau, heures d'ouverture, prise des conversations,
   contacts bloqués, et une ligne qui dit où elles sont parties). Réservé aux admins. Une ancienne ancre
   (`/parametres#integration-shopify`, dans des e-mails déjà partis ou un favori) ouvre la même carte dans Intégrations.
+  **Depuis le 2026-11-20** (demande de Julien), un **volet replié par outil** : Shopify, Batch, HubSpot, Salesforce et
+  **Dynamics 365**, chacun avec son logo, son nom et ce qu'il fait ; sa carte de réglage se déplie dedans. Une ancre
+  (`#integration-hubspot`…) ouvre son volet. **HubSpot, Salesforce et Dynamics 365 sont réservés à l'offre Entreprise** :
+  en Free, Pro et Business, leur volet dit « Inclus dans l'offre Entreprise » ; en Entreprise, HubSpot a sa carte, et
+  Salesforce (tant que son app n'est pas sur l'instance) comme Dynamics 365 un bouton « Nous contacter », qui ouvre le
+  Support avec l'objet prérempli.
 - ✅ **En Free, la console se réduit à l'essentiel** (spec offres v2, 2026-10-17) : **Accueil** (le numéro, et les
   trois gestes pour piloter l'espace depuis Claude Code, Cursor ou l'API), **Clés d'API**, **Documentation API**,
   **Serveur MCP**, **Offre**, le **Compte** et le **Support**. Les autres écrans restent dans la barre, grisés, et

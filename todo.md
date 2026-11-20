@@ -1,5 +1,10 @@
 # todo.md : backlog
 
+## 🟡 Tools > Intégrations en volets : les captures Shopify (2026-11-20)
+
+- Refaire les captures de la fiche « Brancher ma boutique Shopify » (`npm run aide:captures`) : elles montrent encore
+  l'ancienne carte. Le script (`web/e2e/captures/brancher-ma-boutique-shopify.capture.ts`) ouvre déjà le volet.
+
 ## 🟡 Les envois du Crédit WhatsApp : la rétention du détail (2026-11-20)
 
 - `credit_whatsapp_provisions` garde une ligne par message, sans aucune purge. Toutes ses lectures sont bornées dans le
