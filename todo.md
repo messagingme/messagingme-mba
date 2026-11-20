@@ -17,16 +17,10 @@
 - Tests absents : les boutons posés sur le bloc par `proposerMessageStandard` (le faux de création rend `boutons: []`),
   la boutique absente (issue `echec`), la chaîne de création réelle (`lireCreationDeModele` puis `preparerLiens`) et
   l'intégration SQL de `lienDuPanier`.
-- La console : l'aperçu de l'adresse (`exempleUrl`) affiche `https://<boutique>/A1234` pour cette clé ; la capture de la
-  fiche (`brancher-ma-boutique-shopify.capture.ts`) montre encore l'ancien texte de relance.
+- La console : l'aperçu de l'adresse (`exempleUrl`) affiche `https://<boutique>/A1234` pour cette clé.
 
 ## 🟡 L'attestation du consentement Shopify (2026-11-20)
 
-- **Les captures de la fiche `brancher-ma-boutique-shopify` ne montrent pas la case d'attestation** : ni au branchement
-  (étape 3, que `brancher-ma-boutique-shopify.capture.ts` coche désormais avant de capturer), ni en tête de Scénario >
-  Automation > Shopify (étape 4). Pour l'étape 4, l'état simulé de la capture (`etat`) doit d'abord porter une
-  `attestation` cochée : sans elle, la console la lit « inconnue » et ne montre pas le bandeau. À refaire avec celles des
-  étapes 4 et 5 (lot 5, plus bas) : `npm run aide:captures` (port libre), puis `aide:charger`.
 - **Relecture indépendante (aucun rouge)** :
   - deux onglets : décocher pendant qu'un allumage crée son message standard chez Meta (plusieurs secondes) peut laisser
     la ligne allumée sous une attestation retirée ; relire l'attestation juste avant `allumerLigne`, ou la mettre dans
@@ -276,8 +270,6 @@ La relecture indépendante des messages standard Shopify (2026-11-20, aucun roug
   MARKETING par Meta passerait).
 - **L'aperçu** lit la liste de Meta en cache une minute (vide juste après la création) et dit « en validation » dès
   qu'une version est programmée, même si son premier template est déjà approuvé.
-- **Les captures de la fiche `brancher-ma-boutique-shopify`** (étapes 4 et 5) montrent l'ancien écran : `npm run
-  aide:captures` (port libre), puis `aide:charger`.
 - **`tests/plugin.test.ts` ne connaît pas les clés que rend `get_shopify_state`** (`message_under_review`...) : la skill
   les évite ; dériver les clés de `versAutomation`.
 

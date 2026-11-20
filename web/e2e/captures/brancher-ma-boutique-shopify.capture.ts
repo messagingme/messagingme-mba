@@ -19,10 +19,20 @@ const ligne = (evenement: string, o: Record<string, unknown> = {}) => ({
   evenement, actif: true, workflowId: `wf-${evenement}`, scenario: evenement, modele: `${evenement}_demo`, langue: 'fr',
   etatChezMeta: 'APPROVED', blocs: 1, versionProgrammee: false, ...o,
 });
-/** L'écran Automation (étape 4) : la commande payée active, l'expédition pas encore créée, le panier en validation. */
+/** Le message en vigueur d'une ligne, tel que le serveur le rend pour la bulle au survol (`apercu`). */
+const apercu = (corps: string, exemples: string[], enValidation = false, pied: string | null = null) => ({ corps, pied, exemples, donnees: [], enValidation });
+/**
+ * L'écran Automation (étape 4), juste après le branchement : l'attestation cochée en tête, la commande payée allumée (sa
+ * bulle ouverte au survol), l'expédition éteinte avec son message standard en validation chez Meta, le panier prêt.
+ */
 const AUTOMATIONS = {
   ...VIDE, boutique: BOUTIQUE, pageApps: 'https://admin.shopify.com/store/votre-marque/settings/apps',
-  lignes: [ligne('order_paid', { blocs: 2 }), ligne('checkout_abandoned', { etatChezMeta: 'PENDING', blocs: 3 })],
+  attestation: { coche: true, le: '2026-11-20T09:12:00.000Z', email: 'camille@votre-marque.fr', texte: 'J’atteste…' },
+  lignes: [
+    ligne('order_paid', { apercu: apercu('Bonjour {{1}}, merci pour votre commande {{2}} de {{3}}.\nSuivez-la ici : {{4}}\nÀ très vite !', ['Camille', '#1002', '42,00 €', 'https://votre-marque.fr/commandes/1002']) }),
+    ligne('order_fulfilled', { actif: false, modele: null, etatChezMeta: null, versionProgrammee: true, apercu: apercu('Bonjour {{1}}, votre commande {{2}} est en route.\nSuivez votre colis : {{3}}\nÀ très vite !', ['Camille', '#1002', 'https://www.laposte.fr/suivi/6A12345678901'], true) }),
+    ligne('checkout_abandoned', { actif: false, apercu: apercu('Bonjour {{1}}, vous avez laissé des articles dans votre panier.\nIl vous attend : reprenez-le en un clic.\nÀ très vite !', ['Camille'], false, 'Répondez STOP pour ne plus recevoir ces messages') }),
+  ],
 };
 /** Branchée depuis un mois : les trois automations actives, les chiffres des 30 jours. */
 const EN_SERVICE = {
@@ -71,19 +81,24 @@ const APERCU = { abonnes: 412, sansTelephone: 57, dejaDansLEspace: 38, nouveaux:
 const PANIER = {
   fr: {
     nom: 'Panier abandonné',
-    relance: 'Bonjour, vous avez laissé des articles dans votre panier. Il vous attend ici : {{1}} À très vite ! Répondez STOP pour ne plus recevoir ces messages.',
-    rappel: 'Votre panier vous attend toujours : {{1}} Une question ? Répondez-nous ici. Répondez STOP pour ne plus recevoir ces messages.',
+    relance: 'Bonjour {{1}}, vous avez laissé des articles dans votre panier.\nIl vous attend : reprenez-le en un clic.\nÀ très vite !',
+    rappel: 'Votre panier vous attend toujours. Une question ? Répondez-nous ici.',
+    bouton: 'Reprendre mon panier',
+    pied: 'Répondez STOP pour ne plus recevoir ces messages',
   },
   en: {
     nom: 'Abandoned checkout',
-    relance: 'Hello, you left items in your cart. It is waiting for you here: {{1}} See you soon! Reply STOP to stop these messages.',
-    rappel: 'Your cart is still waiting for you: {{1}} A question? Reply to us here. Reply STOP to stop these messages.',
+    relance: 'Hello {{1}}, you left items in your cart.\nIt is waiting for you: pick it up in one click.\nSee you soon!',
+    rappel: 'Your cart is still waiting for you. A question? Reply to us here.',
+    bouton: 'Back to my cart',
+    pied: 'Reply STOP to stop these messages',
   },
 } as const;
-const LIEN_DU_PANIER = [{ position: 1, source: { type: 'variable', key: 'checkout_url' } }];
-const modele = (locale: Locale, name: string, body: string) => ({
-  id: `tpl-${name}`, name, status: 'APPROVED', category: 'MARKETING', language: locale, body, headerFormat: null,
-  isCarousel: false, editable: true, buttons: [],
+/** Le message standard du panier (2026-11-20) : le prénom en variable, le lien derrière le bouton « Reprendre mon panier ». */
+const PRENOM = [{ position: 1, source: { type: 'variable', key: 'first_name' } }];
+const modele = (locale: Locale, name: string, body: string, bouton: string, pied: string) => ({
+  id: `tpl-${name}`, name, status: 'APPROVED', category: 'MARKETING', language: locale, body, footer: pied, headerFormat: null,
+  isCarousel: false, editable: true, buttons: [{ type: 'URL', text: bouton, url: 'https://votre-marque.myshopify.com/{panier_shopify}' }],
 });
 
 for (const locale of ['fr', 'en'] as Locale[]) {
@@ -142,7 +157,11 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await page.goto('/automations/shopify');
       const section = page.getByTestId('automations-shopify');
       await expect(section.getByTestId('automations-shopify-etat-order_fulfilled')).toBeVisible();
-      await capturer(page, CLE, 4, locale, section, 'haut', section.getByTestId('automations-shopify-interrupteur-order_fulfilled'));
+      await expect(section.getByTestId('automations-shopify-attestation')).toBeVisible();
+      // La bulle de la commande payée, ouverte au survol de sa ligne.
+      await section.getByTestId('automations-shopify-ligne-order_paid').hover();
+      await expect(section.getByTestId('automations-shopify-apercu-order_paid')).toBeVisible();
+      await capturer(page, CLE, 4, locale, section, 'haut', section.getByTestId('automations-shopify-ligne-order_paid'));
 
       // 7. L'import des clients abonnés : le compte d'abord, puis combien en importer. Rien n'est importé.
       etat = EN_SERVICE;
@@ -173,10 +192,11 @@ for (const locale of ['fr', 'en'] as Locale[]) {
 
       // 5 et 6, en dernier : les faux de l'éditeur passent devant tous ceux d'au-dessus.
       const p = PANIER[locale];
-      const relance = modele(locale, 'relance_panier', p.relance);
-      const rappel = modele(locale, 'rappel_panier', p.rappel);
+      const relance = modele(locale, 'relance_panier', p.relance, p.bouton, p.pied);
+      const rappel = modele(locale, 'rappel_panier', p.rappel, p.bouton, p.pied);
       const envoi = (id: string, y: number, t: typeof relance, verrouille: boolean) => bloc(id, 'template', 0, y, {
-        templateName: t.name, language: locale, templateButtons: [], variables: LIEN_DU_PANIER, ...(verrouille ? { verrouille: true } : {}),
+        templateName: t.name, language: locale, templateButtons: [{ type: 'URL', text: p.bouton }],
+        ...(verrouille ? { variables: PRENOM, verrouille: true } : {}),
       });
       const graphe: Graphe = {
         nodes: [envoi('n1', 0, relance, true), bloc('n2', 'wait', 0, 260, { delay: 1, unit: 'days' }), envoi('n3', 420, rappel, false)],
@@ -199,9 +219,9 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await ouvrir(page);
       await expect(page.getByTestId('panneau-premier-bloc')).toBeVisible();
 
-      // 5. Le premier message : son template, et sa variable reliée au lien du panier (une donnée Shopify).
+      // 5. Le premier message : son template, sa variable reliée au prénom (une donnée Shopify), son bouton vers le panier.
       const variable = page.getByTestId('template-node-variable-1');
-      await expect(variable).toHaveValue('var:checkout_url');
+      await expect(variable).toHaveValue('var:first_name');
       await centrer(variable);
       await capturer(page, CLE, 5, locale, undefined, 'haut', variable, true);
 
