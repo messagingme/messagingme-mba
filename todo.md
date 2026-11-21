@@ -1,5 +1,14 @@
 # todo.md : backlog
 
+## 🟡 Les champs de base dans les choix de variables : ce qui reste (2026-11-21)
+
+- L'essai réel de Julien sur son espace : le bloc « Envoi de mail » en mode « Variable » propose « Email » en tête, et
+  le bouton « Variable » d'un mail propose Prénom, Nom et Email ; un envoi à un contact dont la fiche porte un email.
+  Numéro dans `docs/prive/ESSAIS-REELS.md`.
+- `web/e2e/email-templates.spec.ts:40` instable : « Enregistrer » est resté désactivé une fois (job proxy de la CI front
+  du commit 3ce7059e1), puis le test est passé à la relance et dans le job vercel. Le quantifier sur la référence avant
+  d'en chercher la cause.
+
 ## 🟡 Le scénario déplié sous les automations et « Modifier » sur le canevas : la relecture (2026-11-20, aucun rouge)
 
 - L'état des lignes Shopify reste celui de l'ouverture pendant l'édition du scénario déplié (« à compléter » après le

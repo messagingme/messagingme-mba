@@ -1529,7 +1529,10 @@ ordre alphabétique ; l'agent de Meta tient un champ socle pour existant avant s
 création, sur la ligne de l'onglet et à chaque appel). Les choix de champ du constructeur de scénarios qui ÉCRIVENT
 proposent les trois socles avant leur première écriture (`champsEcrivables`, `web/lib/fields.ts`, 2026-11-10), comme
 l'éditeur de formulaires, où « Nom » vise `nom_de_famille` depuis le même jour (l'ancienne cible `@profile_name` reste
-routée et s'affiche « Nom WhatsApp », `NOM_WHATSAPP`). ⚠️ L'import CSV envoie encore « Nom de famille » vers
+routée et s'affiche « Nom WhatsApp », `NOM_WHATSAPP`). Les listes qui LISENT un champ les proposent aussi : les
+variables d'un message (mail, RCS, modèles d'email : `emailVariableFields`, qui passe par `champsEcrivables`) et le
+destinataire « Variable » du bloc e-mail (`champsDestinataireEmail`, « Email » en tête). Le serveur les lit dans
+`contacts.fields` comme tout champ perso ; une fiche qui ne les a pas remplis rend du vide. ⚠️ L'import CSV envoie encore « Nom de famille » vers
 `profile_name` (`src/crm/recognize.ts`).
 
 🔴 **Le modèle ne choisit jamais une cible.** Sur un connecteur API client, l'adresse est figée sur la source,

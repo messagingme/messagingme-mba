@@ -5,6 +5,18 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-21 : les champs de base proposés avant leur première écriture, destinataire et variables d'un mail
+
+Signalé par Julien : en mode « Variable », le destinataire du bloc « Envoi de mail » ne proposait pas « Email », seulement
+deux champs perso de l'espace. Cause : la liste venait de `GET /user-fields`, où un champ socle (Prénom, Nom, Email)
+n'existe qu'après sa première écriture ; aucune fiche de l'espace n'avait d'email. Le moteur le lisait déjà sans
+condition (`adressesDestinataires` sur `contactVars`). Même défaut que celui corrigé le 2026-11-10 pour les choix qui
+écrivent. Correctif 496b243c9 : `champsDestinataireEmail`, « Email » en tête. Puis, à la demande de Julien, 3ce7059e1 :
+les variables d'un message (`emailVariableFields`, donc le bouton « Variable » des mails, RCS et modèles) passent par
+`champsEcrivables`. Les tests neufs ont été vus rouges sans chaque correctif, verts avec. CI racine verte job par job sur
+les deux commits ; la CI front rouge sur `mobile-debordement` seul, déjà rouge avant (commit d'un pair), plus un e2e des
+modèles d'email instable une fois (`todo.md`). Console seule : publiée par Vercel au push, aucun déploiement d'API.
+
 ## 2026-11-20 : Make, n8n, Zapier dans Tools > Intégrations, et leurs fiches d'aide
 
 Plan `docs/superpowers/plans/2026-11-20-make-n8n-zapier.md`, en direct. Demande de Julien : une section pour ces outils,
