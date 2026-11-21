@@ -855,8 +855,10 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             de boutons : sur un écran étroit il passait à la ligne et sortait du champ de vision, d'où le doute
             « est-ce que mon scénario est enregistré ». Il est désormais toujours VISIBLE (fond, bordure) et son
             état au repos DIT qu'il n'y a rien à cliquer, au lieu d'un simple « Enregistrement automatique »
-            qu'on pouvait lire comme une option à activer. */}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+            qu'on pouvait lire comme une option à activer.
+            ⚠️ Ce groupe passe à la ligne quand la place manque, jamais `shrink-0` : insécable, il faisait 428 px et le
+            builder débordait de 50 px au téléphone (e2e/mobile-debordement.spec.ts). Sur ordinateur, il tient sur une ligne. */}
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
         <div className="flex shrink-0 items-center gap-2 rounded-controle border border-ink-200 bg-white px-2.5 py-1 text-xs" data-testid="workflow-autosave">
           {enregistrement.erreur ? (
             <>
