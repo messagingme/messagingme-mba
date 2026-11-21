@@ -128,6 +128,7 @@ import { creerDlqSweep } from './ops/dlq-sweep';
 import { creerWebhooksMuetsSweep } from './ops/webhooks-muets-sweep';
 import { creerVeilleCharge } from './ops/veille-charge';
 import { creerCapture } from './ops/incidents';
+import { creerDeclencheur } from './ops/incidents-declencheur';
 import { PgIncidentsStore } from './ops/incidents.pg';
 import { lireConsommationEquipe, creerVeilleVercel } from './agent/llm/consommation-equipe';
 import { fetchGet } from './lib/http-get';
@@ -2155,7 +2156,11 @@ export async function demarrerWorker(): Promise<void> {
     // Chaque alerte partie fige l'état du système (plan 2026-11-21, lot 1), sans être attendue.
     incidents: (() => {
       const store = new PgIncidentsStore(pool, config.PGBOSS_SCHEMA);
-      return creerCapture({ store, lire: () => store.lireInstantane() });
+      return creerCapture({
+        store,
+        lire: () => store.lireInstantane(),
+        declencher: creerDeclencheur({ url: config.INCIDENTS_DECLENCHEUR_URL, token: config.INCIDENTS_DECLENCHEUR_TOKEN }),
+      });
     })(),
   });
   taches.programmer('veille-charge', 60_000, veilleCharge, {

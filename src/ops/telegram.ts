@@ -8,6 +8,14 @@ import { messageDe } from '../lib/erreur';
  */
 export type IssueTelegram = 'recue' | 'non_recue' | 'incertaine';
 
+export interface OptionsTelegram {
+  token?: string;
+  chatId?: string;
+  timeoutMs?: number;
+  /** Des boutons sous le message ; `donnee` (64 octets au plus chez Telegram) revient au clic. */
+  boutons?: ReadonlyArray<{ texte: string; donnee: string }>;
+}
+
 /**
  * Les échecs d'établissement de la connexion (le code de la cause d'un `fetch failed` d'undici) : la requête n'est
  * jamais partie, l'alerte n'a pas pu arriver.
@@ -50,7 +58,7 @@ async function libeller(texte: string): Promise<string> {
  */
 export async function envoyerTelegram(
   text: string,
-  opts: { token?: string; chatId?: string; timeoutMs?: number } = {},
+  opts: OptionsTelegram = {},
 ): Promise<IssueTelegram> {
   const token = opts.token ?? config.TELEGRAM_BOT_TOKEN;
   const chatId = opts.chatId ?? config.TELEGRAM_CHAT_ID;
@@ -62,7 +70,12 @@ export async function envoyerTelegram(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // Telegram plafonne un message à 4096 caractères : on tronque (une alerte n'a pas besoin du corps entier).
-      body: JSON.stringify({ chat_id: chatId, text: corps.slice(0, 4000) }),
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: corps.slice(0, 4000),
+        // Une rangée de boutons (décision d'un incident, plan 2026-11-21) : chaque clic revient en `callback_query`.
+        ...(opts.boutons?.length ? { reply_markup: { inline_keyboard: [opts.boutons.map((b) => ({ text: b.texte, callback_data: b.donnee }))] } } : {}),
+      }),
       signal: AbortSignal.timeout(opts.timeoutMs ?? 5000),
     });
     if (!res.ok) {
@@ -79,10 +92,31 @@ export async function envoyerTelegram(
   }
 }
 
+/**
+ * Répond au clic d'un bouton (`answerCallbackQuery` : le bouton cesse de tourner, une bulle affiche le texte), puis
+ * confirme dans la conversation. Ne lève jamais.
+ */
+export async function repondreClic(callbackId: string, texte: string): Promise<void> {
+  const token = config.TELEGRAM_BOT_TOKEN;
+  if (token === '') return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callback_query_id: callbackId, text: texte.slice(0, 200) }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[telegram] réponse au clic en erreur:', messageDe(err));
+  }
+  await envoyerTelegram(texte);
+}
+
 /** `envoyerTelegram`, réduit à « reçue » : `true` seulement sur un 2xx. */
 export async function sendTelegram(
   text: string,
-  opts: { token?: string; chatId?: string; timeoutMs?: number } = {},
+  opts: OptionsTelegram = {},
 ): Promise<boolean> {
   return (await envoyerTelegram(text, opts)) === 'recue';
 }

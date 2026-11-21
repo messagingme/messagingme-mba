@@ -10,7 +10,7 @@ import { lireJetonPiece } from './workflow/piece-lien';
 import type { DepsPubInscription } from './pub/inscription';
 import { puisSignaler } from './pub/declencheurs';
 import { surveillerOps } from './ops/tentatives';
-import { envoyerTelegram, sendTelegram, brancherLibelleur } from './ops/telegram';
+import { envoyerTelegram, sendTelegram, brancherLibelleur, repondreClic } from './ops/telegram';
 import { creerLibelleurEspaces } from './ops/libelle-espaces';
 import { creerVerificateurTurnstile } from './auth/turnstile';
 import { creerSuiviRetoursInscription } from './auth/retours-inscription';
@@ -196,6 +196,7 @@ import { creerLecteurCockpit } from './ops/cockpit';
 import { creerLecteurFacture } from './ops/facture-scaleway';
 import { creerVeilleSante, INTERVALLE_VEILLE_SANTE_MS } from './ops/veille-sante';
 import { creerCapture } from './ops/incidents';
+import { creerDeclencheur } from './ops/incidents-declencheur';
 import { PgIncidentsStore } from './ops/incidents.pg';
 import { lireEntreesSante, sourcesSante } from './ops/sante-lecture';
 import { evaluerSante } from './ops/sante';
@@ -2441,6 +2442,24 @@ async function main(): Promise<void> {
      */
     creditPaiement: paiementDeLaConsole,
     creditWhatsapp: creditWhatsappDeLaConsole,
+    // Le rapport de la tâche cloud sur un incident (plan 2026-11-21, lot 3), monté seulement avec son jeton.
+    ...(config.INCIDENTS_RAPPORT_TOKEN ? {
+      incidentsRapport: {
+        token: config.INCIDENTS_RAPPORT_TOKEN,
+        incidents: new PgIncidentsStore(pool, config.PGBOSS_SCHEMA),
+        envoyer: (texte: string, boutons?: ReadonlyArray<{ texte: string; donnee: string }>) => sendTelegram(texte, { boutons }),
+      },
+    } : {}),
+    // La décision prise dans Telegram (plan 2026-11-21, lot 4), montée seulement avec le jeton du webhook du bot.
+    ...(config.TELEGRAM_WEBHOOK_SECRET && config.TELEGRAM_CHAT_ID ? {
+      incidentsDecision: {
+        secret: config.TELEGRAM_WEBHOOK_SECRET,
+        auteur: config.TELEGRAM_CHAT_ID,
+        incidents: new PgIncidentsStore(pool, config.PGBOSS_SCHEMA),
+        declencher: creerDeclencheur({ url: config.INCIDENTS_DECLENCHEUR_URL, token: config.INCIDENTS_DECLENCHEUR_TOKEN }),
+        accuser: repondreClic,
+      },
+    } : {}),
     // Le pont du code (lot 3a), monté seulement avec son secret : une signature sans secret ne prouverait rien.
     ...(config.OTP_PONT_SECRET ? {
       otpPont: { secret: config.OTP_PONT_SECRET, numeros: numerosFournis, transcrire: transcrireAppelOtp },
@@ -4133,7 +4152,11 @@ async function main(): Promise<void> {
     // Chaque alerte partie fige l'état du système (plan 2026-11-21, lot 1), sans être attendue.
     incidents: (() => {
       const store = new PgIncidentsStore(pool, config.PGBOSS_SCHEMA);
-      return creerCapture({ store, lire: () => store.lireInstantane() });
+      return creerCapture({
+        store,
+        lire: () => store.lireInstantane(),
+        declencher: creerDeclencheur({ url: config.INCIDENTS_DECLENCHEUR_URL, token: config.INCIDENTS_DECLENCHEUR_TOKEN }),
+      });
     })(),
   });
   const minuterieVeilleSante = setInterval(() => {

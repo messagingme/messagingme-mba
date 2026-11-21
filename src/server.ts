@@ -138,6 +138,8 @@ import { registerOpsSuppression, type OpsSuppressionDeps } from './http/ops-supp
 import { registerOpsDuplication } from './http/ops-duplication';
 import type { DuplicationScenario } from './ops/duplication/service';
 import { registerOtpPont, type OtpPontRouteDeps } from './http/otp-pont';
+import { registerIncidentsRapport, type IncidentsRapportRouteDeps } from './http/incidents-rapport';
+import { registerIncidentsDecision, type IncidentsDecisionRouteDeps } from './http/incidents-decision';
 import { MetaApiError } from './meta/errors';
 import { CompteChez360dialog } from './meta/credentials';
 import type { CodeApi } from './api/erreurs';
@@ -327,6 +329,10 @@ export interface ServerDeps {
    * l'Asterisk, pas authentifié par un jeton : l'appelant est un service. Monté seulement quand le secret est posé.
    */
   otpPont?: OtpPontRouteDeps;
+  /** Le rapport de la tâche cloud sur un incident de santé (plan 2026-11-21, lot 3). */
+  incidentsRapport?: IncidentsRapportRouteDeps;
+  /** La décision de Julien sur un incident, prise dans Telegram (plan 2026-11-21, lot 4). */
+  incidentsDecision?: IncidentsDecisionRouteDeps;
   /** La réserve de numéros fournis dans `/ops` (lot 3a). Même autorité que `/ops`, module à part. */
   opsNumeros?: OpsNumerosDeps;
   /** Stats du dashboard (séries 1 pt/jour). */
@@ -858,6 +864,11 @@ export function modulesDeRoutes(
     entree('resendWebhook', 'signature-service', deps.resendWebhook, (app, d) => registerResendWebhook(app, d)),
     // Le pont du code (lot 3a) : l'Asterisk du VPS y poste chaque enregistrement, signé avec `OTP_PONT_SECRET`.
     entree('otpPont', 'signature-service', deps.otpPont, (app, d) => registerOtpPont(app, d)),
+    // Le rapport de la tâche cloud sur un incident (plan 2026-11-21) : autorité = le jeton `INCIDENTS_RAPPORT_TOKEN`,
+    // comparé en temps constant avant tout le reste.
+    entree('incidentsRapport', 'signature-service', deps.incidentsRapport, (app, d) => registerIncidentsRapport(app, d)),
+    // La décision prise dans Telegram : autorité = le jeton secret du webhook du bot, puis l'auteur du clic.
+    entree('incidentsDecision', 'signature-service', deps.incidentsDecision, (app, d) => registerIncidentsDecision(app, d)),
     entree('stats', 'tenant', deps.stats, (app, d, g) => registerStats(app, d, g.admin), fonctionDesStatistiques),
     entree('settings', 'tenant', deps.settings, (app, d, g) => registerSettings(app, d, g.admin, g.encadrement)),
     entree('admin', 'tenant', deps.admin, (app, d, g) => registerUsers(app, d, g.admin)),

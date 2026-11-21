@@ -52,4 +52,21 @@ describe.skipIf(!url)('incidents de santé (Postgres)', () => {
     // Rien d'ouvert : clore ne fait rien, sans erreur.
     await store.clore('itest-rien', null);
   });
+
+  it('🔴 le rapport s’inscrit une seule fois, et respecte les contraintes de la 0308', async () => {
+    const store = new PgIncidentsStore(pool, SCHEMA);
+    const id = await store.ouvrir({ source: 'charge', signal: 'itest-rapport', etat: 'alerte', texte: 't', instantane: null });
+    const r = { categorie: 'plomberie' as const, issue: 2 as const, rapport: 'vingt jobs', action: 'vider en continu', fichier: 'incidents/x.md' };
+    expect(await store.rapporter(id, r)).toEqual({ signal: 'itest-rapport' });
+    expect(await store.rapporter(id, r)).toBeNull();
+    expect(await store.rapporter(999_999_999, r)).toBeNull();
+    const ligne = (await pool.query(`select categorie, issue, action, rapport_le is not null as rendu from incidents where id = $1`, [id])).rows[0];
+    expect(ligne).toEqual({ categorie: 'plomberie', issue: 2, action: 'vider en continu', rendu: true });
+    // La décision : une seule fois, et seulement sur une issue 2.
+    expect(await store.decider(id, 'approuve')).toBe(true);
+    expect(await store.decider(id, 'refuse')).toBe(false);
+    const autre = await store.ouvrir({ source: 'charge', signal: 'itest-rapport', etat: 'alerte', texte: 't', instantane: null });
+    await store.rapporter(autre, { categorie: 'faux_positif', issue: 1, rapport: 'r' });
+    expect(await store.decider(autre, 'approuve')).toBe(false);
+  });
 });

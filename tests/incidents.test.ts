@@ -34,7 +34,7 @@ describe('🔴 la capture d’un incident', () => {
   it('🔴 n’est jamais attendue : ouvrir rend la main avant que l’instantané soit lu', async () => {
     const { store, ouverts } = storeNote();
     let liberer!: () => void;
-    const capture = creerCapture({ store, lire: () => new Promise((r) => { liberer = () => r({ pris_le: 't' }); }) });
+    const capture = creerCapture({ declencher: () => {}, store, lire: () => new Promise((r) => { liberer = () => r({ pris_le: 't' }); }) });
     capture.ouvrir('sante', 'entrants', 'orange', 'texte');
     expect(ouverts).toEqual([]);
     liberer();
@@ -42,11 +42,19 @@ describe('🔴 la capture d’un incident', () => {
     expect(ouverts).toEqual([{ source: 'sante', signal: 'entrants', etat: 'orange', texte: 'texte', instantane: { pris_le: 't' } }]);
   });
 
+  it('🔴 l’incident inscrit réveille la tâche cloud avec son identifiant et son instantané', async () => {
+    const { store } = storeNote();
+    const reveils: unknown[] = [];
+    creerCapture({ store, lire: async () => ({ pris_le: 't' }), declencher: (c) => { reveils.push(c); } }).ouvrir('sante', 'entrants', 'rouge', 'texte');
+    await vider();
+    expect(reveils).toEqual([{ type: 'incident', id: 1, source: 'sante', signal: 'entrants', etat: 'rouge', texte: 'texte', instantane: { pris_le: 't' } }]);
+  });
+
   it('🔴 cinq alertes de la même minute lisent la base UNE fois, la minute suivante relit', async () => {
     const { store, ouverts } = storeNote();
     let t = 0;
     let lectures = 0;
-    const capture = creerCapture({ store, lire: async () => ({ n: ++lectures }), maintenant: () => t });
+    const capture = creerCapture({ declencher: () => {}, store, lire: async () => ({ n: ++lectures }), maintenant: () => t });
     for (const f of ['a', 'b', 'c', 'd', 'e']) capture.ouvrir('charge', `veille:file:${f}`, 'alerte', 't');
     await vider();
     expect(lectures).toBe(1);
@@ -59,11 +67,11 @@ describe('🔴 la capture d’un incident', () => {
 
   it('🔴 un instantané illisible n’empêche pas l’incident d’être inscrit, et une base en panne ne remonte pas', async () => {
     const a = storeNote();
-    creerCapture({ store: a.store, lire: async () => { throw new Error('lecture'); } }).ouvrir('charge', 'veille:pool:api', 'alerte', 't');
+    creerCapture({ declencher: () => {}, store: a.store, lire: async () => { throw new Error('lecture'); } }).ouvrir('charge', 'veille:pool:api', 'alerte', 't');
     await vider();
     expect(a.ouverts).toEqual([expect.objectContaining({ signal: 'veille:pool:api', instantane: null })]);
     const b = storeNote({ ouvrirLeve: true });
-    expect(() => creerCapture({ store: b.store, lire: async () => ({}) }).ouvrir('sante', 'base', 'rouge', 't')).not.toThrow();
+    expect(() => creerCapture({ declencher: () => {}, store: b.store, lire: async () => ({}) }).ouvrir('sante', 'base', 'rouge', 't')).not.toThrow();
     await vider();
   });
 });

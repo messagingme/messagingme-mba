@@ -724,6 +724,20 @@ export const schema = z.object({
   DIDWW_TRUNK_OTP_ID: z.string().default(''),
   OTP_PONT_SECRET: z.string().default(''),
   /**
+   * Les incidents de santé analysés (plan 2026-11-21, lot 3). `INCIDENTS_DECLENCHEUR_URL` et `_TOKEN` : l'adresse de
+   * déclenchement de la tâche cloud Claude qui analyse chaque incident, et son jeton (il ne sait que la déclencher).
+   * Posés ensemble ou pas du tout ; vides, aucun incident ne réveille rien. `INCIDENTS_RAPPORT_TOKEN` : le jeton que
+   * la tâche présente pour rendre son rapport (`/internes/incidents/:id/rapport`) ; vide, la route n'est pas montée.
+   */
+  INCIDENTS_DECLENCHEUR_URL: z.string().default(''),
+  INCIDENTS_DECLENCHEUR_TOKEN: z.string().default(''),
+  INCIDENTS_RAPPORT_TOKEN: z.string().default(''),
+  /**
+   * Le jeton secret du webhook du bot Telegram (`setWebhook`, champ `secret_token`), que Telegram renvoie à chaque mise
+   * à jour : il ferme la route qui reçoit les décisions sur les incidents. Vide : la route n'est pas montée.
+   */
+  TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
+  /**
    * La filière « application WhatsApp Business » (plan 2026-10-22) : le service de connexions `mba-application` tient
    * les sessions des comptes reliés comme appareils liés. `APPLICATION_SERVICE_URL` : son adresse sur le réseau privé,
    * pour l'API et le worker. `APPLICATION_SERVICE_SECRET` : le secret partagé qui signe chaque appel
@@ -917,6 +931,19 @@ export const schema = z.object({
     // Le pont du code : un secret court se devinerait. ⚠️ AUCUNE garde au démarrage sur la paire clé DIDWW et trunk :
     // `.env.prod` porte encore la ligne `DIDWW_API_KEY` d'une clé révoquée (mesuré le 2026-10-02), et la garde aurait
     // refusé de démarrer l'API au premier déploiement. Il manque l'une ou l'autre : la déclaration rend 503.
+    if ((c.INCIDENTS_DECLENCHEUR_URL === '') !== (c.INCIDENTS_DECLENCHEUR_TOKEN === '')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['INCIDENTS_DECLENCHEUR_URL'], message: 'INCIDENTS_DECLENCHEUR_URL et INCIDENTS_DECLENCHEUR_TOKEN se posent ensemble' });
+    }
+    if (c.INCIDENTS_DECLENCHEUR_URL !== '' && !/^https:\/\/api\.anthropic\.com\/v1\/claude_code\/routines\/[A-Za-z0-9_-]+\/fire$/.test(c.INCIDENTS_DECLENCHEUR_URL)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['INCIDENTS_DECLENCHEUR_URL'], message: 'INCIDENTS_DECLENCHEUR_URL doit être https://api.anthropic.com/v1/claude_code/routines/<id>/fire' });
+    }
+    // Telegram n'accepte que 1 à 256 caractères parmi A-Z, a-z, 0-9, _ et - ; un secret court se devinerait.
+    if (c.TELEGRAM_WEBHOOK_SECRET !== '' && !/^[A-Za-z0-9_-]{32,256}$/.test(c.TELEGRAM_WEBHOOK_SECRET)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['TELEGRAM_WEBHOOK_SECRET'], message: 'TELEGRAM_WEBHOOK_SECRET : 32 à 256 caractères parmi A-Z, a-z, 0-9, _ et -' });
+    }
+    if (c.INCIDENTS_RAPPORT_TOKEN !== '' && c.INCIDENTS_RAPPORT_TOKEN.length < 32) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['INCIDENTS_RAPPORT_TOKEN'], message: 'INCIDENTS_RAPPORT_TOKEN doit faire au moins 32 caractères' });
+    }
     if (c.OTP_PONT_SECRET !== '' && c.OTP_PONT_SECRET.length < 32) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['OTP_PONT_SECRET'], message: 'OTP_PONT_SECRET doit faire au moins 32 caractères' });
     }

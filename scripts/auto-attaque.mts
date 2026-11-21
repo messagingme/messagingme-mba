@@ -71,6 +71,8 @@ import type { ResendWebhookRouteDeps } from '../src/http/webhook-resend';
 import type { Receiver360Deps } from '../src/webhooks/receiver-360dialog';
 import type { ShopifyWebhooksRouteDeps } from '../src/http/shopify-webhooks';
 import type { OtpPontRouteDeps } from '../src/http/otp-pont';
+import type { IncidentsRapportRouteDeps } from '../src/http/incidents-rapport';
+import type { IncidentsDecisionRouteDeps } from '../src/http/incidents-decision';
 import type { ContactVitrineDeps } from '../src/http/contact-vitrine';
 import type { LivreBlancVitrineDeps } from '../src/http/livre-blanc-vitrine';
 import type { CspRapportsDeps } from '../src/http/csp-rapports';
@@ -369,6 +371,21 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
     numeros: { parNumero: async () => null, ecrireCode: async () => false, appelDejaLu: async () => false, appelsRecents: async () => 0 },
     transcrire: async () => { throw new Error('auto-attaque : aucune transcription'); },
   } satisfies OtpPontRouteDeps,
+  // Le rapport d'un incident (plan 2026-11-21) : un VRAI jeton, sans quoi la comparaison n'est jamais exercée. Un jeton
+  // faux ou absent doit tomber avant le magasin (sonde 12).
+  incidentsRapport: {
+    token: SECRET_SERVICE,
+    incidents: inconnu('incidentsRapport'),
+    envoyer: async () => false,
+  } satisfies IncidentsRapportRouteDeps,
+  // La décision prise dans Telegram : un VRAI jeton de webhook ; un jeton faux ou absent doit tomber avant le magasin.
+  incidentsDecision: {
+    secret: SECRET_SERVICE,
+    auteur: '1',
+    incidents: inconnu('incidentsDecision'),
+    declencher: () => {},
+    accuser: async () => {},
+  } satisfies IncidentsDecisionRouteDeps,
   // La réserve de numéros fournis : même session d'exploitation que `/ops`, vérifiée avant toute dépendance.
   opsNumeros: inconnu('opsNumeros'),
   // Les e-mails du produit dans /ops (lot 7) : même session d'exploitation, vérifiée avant toute dépendance.

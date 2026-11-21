@@ -1,4 +1,5 @@
 import { journaliser } from '../lib/journal';
+import type { Declencheur } from './incidents-declencheur';
 
 /**
  * LES INCIDENTS DE SANTÉ (plan 2026-11-21, lot 1) : chaque alerte de santé ou de charge fige l'état du système au moment
@@ -12,8 +13,11 @@ import { journaliser } from '../lib/journal';
  * souvent (`DELAI_ENTRE_ALERTES_MS`, `RELANCE_ALERTE_MS`).
  */
 
-/** La limite du texte qu'accepte le déclencheur de la tâche cloud qui analyse l'incident (lot 3). */
-export const TAILLE_MAX_INSTANTANE = 65_536;
+/**
+ * Le texte qu'accepte le déclencheur de la tâche cloud fait 65 536 caractères au plus (lot 3) : l'instantané en garde
+ * 60 000, le reste pour l'enveloppe (identifiant, signal, texte de l'alerte), qui ne doit jamais être coupée.
+ */
+export const TAILLE_MAX_INSTANTANE = 60_000;
 
 export type Instantane = Record<string, unknown>;
 
@@ -45,7 +49,13 @@ export function bornerInstantane(i: Instantane, max = TAILLE_MAX_INSTANTANE): In
  * La capture d'un incident, lancée sans être attendue : rien ne remonte à l'appelant. `lire` rend l'instantané ; s'il
  * échoue, l'incident s'inscrit quand même, sans instantané, pour que l'alerte ait sa trace.
  */
-export function creerCapture(deps: { store: IncidentsStore; lire: () => Promise<Instantane>; maintenant?: () => number }) {
+export function creerCapture(deps: {
+  store: IncidentsStore;
+  lire: () => Promise<Instantane>;
+  /** Réveille la tâche cloud qui analyse l'incident (`incidents-declencheur.ts`) ; ne fait rien s'il n'est pas configuré. */
+  declencher: Declencheur;
+  maintenant?: () => number;
+}) {
   const maintenant = deps.maintenant ?? (() => Date.now());
   // 🔴 UN SEUL INSTANTANÉ PAR MINUTE, partagé : cinq files en retard au même passage déclenchent cinq alertes, donc
   // cinq captures, qui liraient cinq fois la base au pire moment (relecture du lot 1). La lecture en vol ou récente
@@ -69,7 +79,8 @@ export function creerCapture(deps: { store: IncidentsStore; lire: () => Promise<
     ouvrir(source: 'sante' | 'charge', signal: string, etat: 'orange' | 'rouge' | 'alerte', texte: string): void {
       void (async () => {
         const instantane = await lireSansEchec();
-        await deps.store.ouvrir({ source, signal, etat, texte: texte.slice(0, 2000), instantane });
+        const id = await deps.store.ouvrir({ source, signal, etat, texte: texte.slice(0, 2000), instantane });
+        deps.declencher({ type: 'incident', id, source, signal, etat, texte: texte.slice(0, 2000), instantane });
       })().catch((err: unknown) => journaliser('warn', 'incident_non_inscrit', { signal, err }));
     },
     clore(signal: string): void {

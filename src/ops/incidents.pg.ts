@@ -1,6 +1,8 @@
 import type { Pool } from 'pg';
 import type { Instantane, IncidentsStore } from './incidents';
 import { BASE_QUEUES } from '../queue/names';
+import type { Rapport } from '../http/incidents-rapport';
+import type { Decision } from '../http/incidents-decision';
 
 /**
  * Les lectures de l'instantané d'un incident et le stockage des incidents (plan 2026-11-21, lot 1). Tout est en lecture
@@ -32,6 +34,25 @@ export class PgIncidentsStore implements IncidentsStore {
         where id = (select id from incidents where signal = $1 and clos_le is null order by ouvert_le desc limit 1)`,
       [signal, instantane === null ? null : JSON.stringify(instantane)],
     );
+  }
+
+  /** Inscrit le rapport de la tâche cloud, une seule fois par incident (`rapport_le is null`). */
+  async rapporter(id: number, r: Rapport): Promise<{ signal: string } | null> {
+    const res = await this.pool.query<{ signal: string }>(
+      `update incidents set categorie = $2, issue = $3, rapport = $4, action = $5, fichier = $6, rapport_le = now()
+        where id = $1 and rapport_le is null returning signal`,
+      [id, r.categorie, r.issue, r.rapport, r.action ?? null, r.fichier ?? null],
+    );
+    return res.rows[0] ?? null;
+  }
+
+  /** Inscrit la décision de Julien, une seule fois, et seulement sur un incident qui la demandait (issue 2). */
+  async decider(id: number, decision: Decision): Promise<boolean> {
+    const res = await this.pool.query(
+      `update incidents set decision = $2, decide_le = now() where id = $1 and issue = 2 and decision is null`,
+      [id, decision],
+    );
+    return (res.rowCount ?? 0) === 1;
   }
 
   /** L'état du système maintenant. Une lecture qui échoue est notée dans l'instantané, sans faire échouer les autres. */
