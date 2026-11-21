@@ -74,7 +74,10 @@ jobs:
       # Next, de TypeScript, de PostCSS ou de Tailwind) est dans le PREFIXE de la cle, que `restore-keys` reprend en
       # entier : si l'un d'eux change, aucun ancien cache n'est restaure, le build repart de zero.
       # ⚠️ AVANT `npm ci` : apres, `web/**` compterait `node_modules` dans l'empreinte des sources.
-      - uses: actions/cache@v4
+      # ⚠️ RESTAURE ICI, ENREGISTRE EN FIN DE JOB MEME SUR UN ECHEC : `actions/cache` d'un seul tenant n'enregistre
+      # que si le job reussit, et un e2e rouge (sans rapport avec la compilation) laisserait le cache vide.
+      - uses: actions/cache/restore@v4
+        id: cache-next
         with:
           path: web/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('web/package-lock.json', 'web/next.config.*', 'web/tsconfig.json', 'web/postcss.config.*', 'web/tailwind.config.*') }}-${{ hashFiles('web/**/*.ts', 'web/**/*.tsx', 'web/**/*.js', 'web/**/*.jsx', 'web/**/*.mjs', 'web/**/*.css') }}
@@ -122,3 +125,8 @@ jobs:
       # reconstruire ne fait rien, en silence. On verifie donc qu'elle est bien SCELLEE dans le bundle client.
       - name: La base d API est scellee dans le bundle, et la CSP l autorise
         run: node scripts/verifier-base-api.mjs https://api.messagingme.app
+      - uses: actions/cache/save@v4
+        if: always() && steps.cache-next.outputs.cache-hit != 'true' && hashFiles('web/.next/cache/**') != ''
+        with:
+          path: web/.next/cache
+          key: ${{ steps.cache-next.outputs.cache-primary-key }}

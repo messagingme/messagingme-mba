@@ -165,8 +165,13 @@ describe('le cache de compilation de Next dans la CI front (2026-11-21)', () => 
   });
 
   it('🔴 le cache est restauré AVANT `npm ci`, sinon `node_modules` entrerait dans l’empreinte des sources', () => {
-    const cache = ciWebCache.indexOf('uses: actions/cache@');
+    const cache = ciWebCache.indexOf('uses: actions/cache/restore@');
     expect(cache).toBeGreaterThan(-1);
     expect(cache).toBeLessThan(ciWebCache.indexOf('- run: npm ci'));
+  });
+
+  it('🔴 le cache s’enregistre AUSSI quand un e2e échoue : sinon un test rouge le laisse vide pour toujours', () => {
+    expect(ciWebCache).toMatch(/uses: actions\/cache\/save@v4\n\s+if: always\(\)/);
+    expect(ciWebCache).not.toMatch(/uses: actions\/cache@/);
   });
 });
