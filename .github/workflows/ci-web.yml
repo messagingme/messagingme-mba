@@ -66,6 +66,20 @@ jobs:
           # Sans ce chemin, la clé de cache serait calculée sur le lockfile RACINE et raterait
           # l'invalidation quand les deps de web/ changent.
           cache-dependency-path: web/package-lock.json
+      # 🔴 LE CACHE DE COMPILATION DE NEXT, D'UN RUN A L'AUTRE (2026-11-21), celui que la documentation de Next
+      # recommande en CI. Il ne garde pas la console construite, il garde des morceaux de compilation etiquetes par
+      # le CONTENU de leur fichier source : un fichier change est recompile, les autres sont repris. Le resultat est
+      # donc reassemble a chaque run depuis le code du push.
+      # ⚠️ Ce qu'une empreinte de fichier ne voit pas (une montee de Next ou d'une dependance, la configuration de
+      # Next, de TypeScript, de PostCSS ou de Tailwind) est dans le PREFIXE de la cle, que `restore-keys` reprend en
+      # entier : si l'un d'eux change, aucun ancien cache n'est restaure, le build repart de zero.
+      # ⚠️ AVANT `npm ci` : apres, `web/**` compterait `node_modules` dans l'empreinte des sources.
+      - uses: actions/cache@v4
+        with:
+          path: web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('web/package-lock.json', 'web/next.config.*', 'web/tsconfig.json', 'web/postcss.config.*', 'web/tailwind.config.*') }}-${{ hashFiles('web/**/*.ts', 'web/**/*.tsx', 'web/**/*.js', 'web/**/*.jsx', 'web/**/*.mjs', 'web/**/*.css') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('web/package-lock.json', 'web/next.config.*', 'web/tsconfig.json', 'web/postcss.config.*', 'web/tailwind.config.*') }}-
       - run: npm ci
       # Build AVANT tsc : next build régénère next-env.d.ts (gitignore) et .next/types, sans lesquels
       # tsc plante sur des types fantômes. Le build fait déjà le type-check ET la passe ESLint de Next

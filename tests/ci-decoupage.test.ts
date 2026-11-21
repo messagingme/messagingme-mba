@@ -151,3 +151,22 @@ describe('CodeQL, la nuit et après chaque déploiement (2026-11-21)', () => {
     expect(declencheurs).toContain(`workflows: ['${nom}']`);
   });
 });
+
+describe('le cache de compilation de Next dans la CI front (2026-11-21)', () => {
+  const ciWebCache = readFileSync(resolve(RACINE, '.github/workflows/ci-web.yml'), 'utf8');
+
+  it('🔴 une montée de Next ou de la configuration repart de zéro : le lockfile est dans le préfixe repris', () => {
+    // `restore-keys` reprend le cache le plus récent qui commence par ce préfixe. S'il ne portait pas
+    // l'empreinte du lockfile, un cache compilé par l'ancienne version de Next serait restauré après la montée.
+    const prefixe = /restore-keys: \|\n\s+(.+)\n/.exec(ciWebCache)?.[1] ?? '';
+    for (const fichier of ['web/package-lock.json', 'web/next.config.*', 'web/tsconfig.json']) {
+      expect(prefixe, `le préfixe a perdu ${fichier}`).toContain(`'${fichier}'`);
+    }
+  });
+
+  it('🔴 le cache est restauré AVANT `npm ci`, sinon `node_modules` entrerait dans l’empreinte des sources', () => {
+    const cache = ciWebCache.indexOf('uses: actions/cache@');
+    expect(cache).toBeGreaterThan(-1);
+    expect(cache).toBeLessThan(ciWebCache.indexOf('- run: npm ci'));
+  });
+});
