@@ -46,7 +46,26 @@ describe('les deux moitiés de la CI', () => {
     // topologie de `console.messagingme.app` ne serait plus exercée, sans que rien ne le dise (lot 6 du bilan
     // des audits). La jambe `proxy` est retirée le 2026-11-21 : la console du VPS (`mba.`) n'existe plus.
     expect(ciWeb).toMatch(/^\s+E2E_TOPOLOGIE: vercel$/m);
-    expect(ciWeb).not.toMatch(/matrix/);
+    expect(ciWeb).not.toMatch(/topologie: \[/);
+  });
+
+  it('🔴 les E2E sont coupés en EXACTEMENT deux moitiés distinctes : une répartition fausse taît la moitié des tests', () => {
+    // Deux fois `1/2`, ou un `/3` avec deux machines, ferait tourner une partie des tests nulle part, en vert.
+    expect(ciWeb).toMatch(/^\s+moitie: \[1, 2\]$/m);
+    expect(ciWeb).toMatch(/^\s+run: npm run test:e2e -- --shard=\$\{\{ matrix\.moitie \}\}\/2$/m);
+    expect(ciWeb.match(/^\s+run: .*--shard=/gm)).toHaveLength(1);
+  });
+
+  it('🔴 les contrôles hors E2E tournent sur UNE seule moitié, et chacun sur une moitié', () => {
+    // Sur les deux, on paierait deux fois ; sur aucune (une condition fausse, `moitie == 3`), ils sauteraient en vert.
+    const condition = (etape: string) => new RegExp(`- name: ${etape}\\n\\s+if: matrix\\.moitie == ([12])\\n`).exec(ciWeb)?.[1];
+    for (const etape of ['Build Next \\(type-check \\+ lint inclus\\)', 'Lint \\(next/core-web-vitals\\)', 'Type-check exhaustif',
+      'Tests unitaires front \\(vitest\\)']) {
+      expect(condition(etape), etape).toBe('1');
+    }
+    for (const etape of ['Build avec l adresse d API de production', 'La base d API est scellee dans le bundle, et la CSP l autorise']) {
+      expect(condition(etape), etape).toBe('2');
+    }
   });
 
   it('🔴 les trois autres jobs sont restés, aucun n’a disparu dans le déménagement', () => {

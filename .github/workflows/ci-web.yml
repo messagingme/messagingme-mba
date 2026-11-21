@@ -51,7 +51,20 @@ jobs:
     # propre origine) est retiree le 2026-11-21 : `mba.messagingme.app` est supprime depuis le 2026-10-26, cette
     # console n'est plus servie nulle part, et la jambe coutait 1 230 minutes par semaine. Le relais reste celui de
     # `npm run dev` en local, qui le montre a qui developpe ; `E2E_TOPOLOGIE=proxy` le rejoue a la main.
-    name: web
+    #
+    # 🔴 LES E2E SONT COUPES EN DEUX MOITIES, SUR DEUX MACHINES EN PARALLELE (2026-11-21). Ils prenaient 12 min 30
+    # sur une seule (2 045 tests, deja quatre processus, le maximum utile d'une machine), soit l'essentiel des
+    # 15 a 17 minutes d'attente. `--shard=N/2` de Playwright repartit les FICHIERS de tests en deux parts fixes :
+    # chaque test tourne une fois, sur une seule machine. Le job est rouge si l'une des deux moities l'est.
+    # ⚠️ LE PIEGE EST UNE REPARTITION FAUSSE (deux fois `1/2`) : la moitie des tests ne tournerait jamais, en vert.
+    # `tests/ci-decoupage.test.ts` exige exactement `[1, 2]` et `--shard=${{ matrix.moitie }}/2`.
+    # Ce qui ne depend pas des e2e ne tourne que sur UNE machine : les controles (build, lint, tsc, vitest) sur la
+    # moitie 1, le build de production et sa verification sur la moitie 2, pour equilibrer les deux.
+    name: web (${{ matrix.moitie }}/2)
+    strategy:
+      fail-fast: false
+      matrix:
+        moitie: [1, 2]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -88,14 +101,18 @@ jobs:
       # tsc plante sur des types fantômes. Le build fait déjà le type-check ET la passe ESLint de Next
       # (qui n'échoue que sur des erreurs, pas des warnings). Aucun BACKEND_URL requis (fallback next.config.mjs).
       - name: Build Next (type-check + lint inclus)
+        if: matrix.moitie == 1
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
       - name: Lint (next/core-web-vitals)
+        if: matrix.moitie == 1
         run: npm run lint
       - name: Type-check exhaustif
+        if: matrix.moitie == 1
         run: npx tsc --noEmit
       - name: Tests unitaires front (vitest)
+        if: matrix.moitie == 1
         run: npm test
       # E2E : les appels /api/backend/* sont mockés par page.route -> aucun backend ni base requis. Le webServer
       # de Playwright build + sert le Next ; on installe juste le navigateur (avec ses deps système).
@@ -105,7 +122,7 @@ jobs:
         # déjà les bibliothèques de Chrome : on installe alors Chromium sans elles. S'il en manque une, les E2E le disent.
         run: npx playwright install --with-deps chromium || npx playwright install chromium
       - name: Tests E2E (Playwright)
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.moitie }}/2
         env:
           NEXT_TELEMETRY_DISABLED: '1'
           E2E_TOPOLOGIE: vercel
@@ -117,6 +134,7 @@ jobs:
       # Playwright reutilise ce repertoire. Construire avec la vraie adresse AVANT les E2E ferait appeler `api.`
       # par la console, donc plus aucune interception, donc toutes les specs rouges.
       - name: Build avec l adresse d API de production
+        if: matrix.moitie == 2
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
@@ -124,6 +142,7 @@ jobs:
       # Un build qui passe ne prouve QUE la compilation. La variable est figee AU BUILD : la changer sans
       # reconstruire ne fait rien, en silence. On verifie donc qu'elle est bien SCELLEE dans le bundle client.
       - name: La base d API est scellee dans le bundle, et la CSP l autorise
+        if: matrix.moitie == 2
         run: node scripts/verifier-base-api.mjs https://api.messagingme.app
       - uses: actions/cache/save@v4
         if: always() && steps.cache-next.outputs.cache-hit != 'true' && hashFiles('web/.next/cache/**') != ''
