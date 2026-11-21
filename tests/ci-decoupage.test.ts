@@ -132,3 +132,22 @@ describe('la RAISON de l’asymétrie, vérifiée plutôt qu’affirmée', () =>
     expect(fautifs).toEqual([]);
   });
 });
+
+describe('CodeQL, la nuit et après chaque déploiement (2026-11-21)', () => {
+  const codeql = readFileSync(resolve(RACINE, '.github/workflows/codeql.yml'), 'utf8');
+  const deploiement = readFileSync(resolve(RACINE, '.github/workflows/deploy-scaleway.yml'), 'utf8');
+  const declencheurs = codeql.slice(codeql.indexOf('\non:'), codeql.indexOf('\nconcurrency:'));
+
+  it('🔴 elle ne tourne plus à chaque push : 910 minutes par semaine pour un contrôle qui ne bloque rien', () => {
+    expect(declencheurs).not.toMatch(/^ {2}(push|pull_request):/m);
+    expect(declencheurs).toMatch(/^ {4}- cron: '17 4 \* \* \*'$/m);
+  });
+
+  it('🔴 elle suit le déploiement SOUS SON NOM EXACT : un renommage la ferait taire sans aucune erreur', () => {
+    // `workflow_run` désigne un workflow par son `name:`, pas par son fichier : renommer le déploiement ne casse
+    // rien de visible, l'analyse cesse simplement de partir.
+    const nom = /^name: (.+)$/m.exec(deploiement)?.[1];
+    expect(nom).toBeTruthy();
+    expect(declencheurs).toContain(`workflows: ['${nom}']`);
+  });
+});

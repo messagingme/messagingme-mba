@@ -5,20 +5,31 @@ name: CodeQL
 # (injection, SSRF, XSS) avec la suite `security-extended`. Ses alertes vont dans l'onglet Security de GitHub ; elles
 # ne bloquent rien, elles se lisent (`documentation.md` § les contrôles de sécurité de la CI).
 #
+# 🔴 CHAQUE NUIT ET APRÈS CHAQUE DÉPLOIEMENT, PLUS À CHAQUE PUSH (2026-11-21). Elle tournait sur chaque push de code,
+# soit 139 fois et 910 minutes la semaine du 14 au 21 novembre, alors qu'elle ne bloque rien : ce qui compte, c'est
+# que ce qui part en production ait été analysé. La nuit, elle relit la tête de `main` avec les requêtes du jour, qui
+# peuvent trouver dans un code qui n'a pas bougé. Après un déploiement réussi, elle analyse le commit de la tête de
+# `main` au lancement du déploiement (`workflow_run.head_sha`), sauf si une analyse réussie de ce commit existe déjà.
+# ⚠️ Déclenchée par `workflow_run` et non réclamée par le déploiement : `tests/deploy-scaleway.test.ts` refuse toute
+# permission d'écriture dans ce workflow-là, et une exécution à part ne fait attendre aucun déploiement.
+#
 # ⚠️ La configuration « par défaut » de GitHub est désactivée (`not-configured`, vérifié) : l'activer en plus de ce
 # fichier ferait refuser les analyses de l'un des deux.
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
   schedule:
-    # Chaque lundi : une nouvelle requête de CodeQL peut trouver dans un code qui n'a pas bougé.
-    - cron: '17 4 * * 1'
+    - cron: '17 4 * * *'
+  workflow_run:
+    workflows: ['Deploiement Scaleway (API et workers)']
+    types: [completed]
   workflow_dispatch:
+    inputs:
+      commit:
+        description: 'SHA complet a analyser ; vide = la tete de main'
+        required: false
+        default: ''
 
 concurrency:
-  group: codeql-${{ github.ref }}
+  group: codeql-${{ inputs.commit || github.event.workflow_run.head_sha || github.sha }}
   cancel-in-progress: true
 
 permissions:
@@ -26,18 +37,37 @@ permissions:
 
 jobs:
   analyse:
+    # Un déploiement échoué ou annulé n'a rien mis en production : rien à analyser.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
       actions: read
+    env:
+      SHA: ${{ inputs.commit || github.event.workflow_run.head_sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Ce commit a-t-il deja ete analyse ?
+        id: deja
+        run: |
+          n=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow codeql.yml --commit "$SHA" --status success --limit 1 --json databaseId --jq 'length')
+          if [ "$n" != "0" ]; then echo "CodeQL a deja analyse $SHA"; echo "fait=oui" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v5
+        if: steps.deja.outputs.fait != 'oui'
+        with:
+          ref: ${{ env.SHA }}
       - uses: github/codeql-action/init@v4
+        if: steps.deja.outputs.fait != 'oui'
         with:
           languages: javascript-typescript
           build-mode: none
           queries: security-extended
+      # Les résultats se rangent sous le commit ANALYSÉ, pas sous la tête de `main` au lancement : sinon l'onglet
+      # Security attribuerait les alertes au mauvais commit.
       - uses: github/codeql-action/analyze@v4
+        if: steps.deja.outputs.fait != 'oui'
         with:
           category: /language:javascript-typescript
+          ref: refs/heads/main
+          sha: ${{ env.SHA }}
