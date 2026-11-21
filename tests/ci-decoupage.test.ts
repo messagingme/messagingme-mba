@@ -41,11 +41,12 @@ describe('les deux moitiés de la CI', () => {
     expect(jobsDe(ci)).not.toContain('web');
   });
 
-  it('🔴 la console se joue dans les DEUX topologies livrées, et la jambe `vercel` le sait', () => {
-    // Sans la variable, les deux jambes de la matrice tourneraient en proxy, vertes : la topologie de
-    // `console.messagingme.app` ne serait plus exercée, sans que rien ne le dise (lot 6 du bilan des audits).
-    expect(ciWeb).toMatch(/^\s+topologie: \[proxy, vercel\]$/m);
-    expect(ciWeb).toMatch(/^\s+E2E_TOPOLOGIE: \$\{\{ matrix\.topologie \}\}$/m);
+  it('🔴 la console se joue dans la topologie LIVRÉE, `vercel`, et la CI le dit', () => {
+    // Sans la variable, les E2E tourneraient dans le défaut de `playwright.config.ts`, `proxy`, verts : la
+    // topologie de `console.messagingme.app` ne serait plus exercée, sans que rien ne le dise (lot 6 du bilan
+    // des audits). La jambe `proxy` est retirée le 2026-11-21 : la console du VPS (`mba.`) n'existe plus.
+    expect(ciWeb).toMatch(/^\s+E2E_TOPOLOGIE: vercel$/m);
+    expect(ciWeb).not.toMatch(/matrix/);
   });
 
   it('🔴 les trois autres jobs sont restés, aucun n’a disparu dans le déménagement', () => {
