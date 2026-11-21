@@ -125,9 +125,13 @@ const VARS_DE_BASE: Array<{ key: string; label: [string, string] }> = [
  *
  * Un champ perso qui porterait la même clé qu'une variable de base gagne : c'est lui que `contactVars`
  * renverra, puisqu'il écrase la clé système en fin de construction.
+ *
+ * 🔴 Les champs SOCLE (Prénom, Nom, Email) y sont même jamais remplis (Julien, 2026-11-21) : `GET /user-fields` ne les
+ * rend qu'après leur première écriture, et un espace neuf ne pouvait pas écrire « Bonjour {{prenom}} ». Le serveur les
+ * lit dans `contacts.fields` comme tout champ perso. Même règle, et même libellé distinct, que `champsEcrivables`.
  */
 export function emailVariableFields(fields: UserFieldDef[], t: (fr: string, en: string) => string): UserFieldDef[] {
-  const perso = emailResolvableFields(fields);
+  const perso = emailResolvableFields(champsEcrivables(fields, t, { avecJson: true }));
   const dejaLa = new Set(perso.map((f) => f.key));
   const base: UserFieldDef[] = VARS_DE_BASE
     .filter((v) => !dejaLa.has(v.key))

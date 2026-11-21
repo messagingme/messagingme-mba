@@ -27,9 +27,21 @@ describe('emailVariableFields', () => {
     expect(emailVariableFields([champ('name', 'Nom')], t).map((f) => f.key)).not.toContain('name');
   });
 
-  it('garde les champs perso, et les place APRÈS les variables de base', () => {
+  it('garde les champs perso, et les place APRÈS les variables de base et les champs socle', () => {
     const out = emailVariableFields([champ('ville', 'Ville')], t).map((f) => f.key);
-    expect(out).toEqual(['profile_name', 'phone', 'ville']);
+    expect(out).toEqual(['profile_name', 'phone', 'prenom', 'nom_de_famille', 'email', 'ville']);
+  });
+
+  it('🔴 propose Prénom, Nom et Email même quand aucune fiche ne les a remplis (absents de user-fields)', () => {
+    const out = emailVariableFields([], t);
+    expect(out.map((f) => f.key)).toEqual(expect.arrayContaining(['prenom', 'nom_de_famille', 'email']));
+    expect(out.find((f) => f.key === 'prenom')?.label).toBe('Prénom');
+  });
+
+  it('un socle déjà créé n’est pas doublé, et un champ perso au même libellé ne le masque pas', () => {
+    const out = emailVariableFields([champ('prenom', 'Prénom'), champ('nom', 'Nom')], t);
+    expect(out.filter((f) => f.key === 'prenom')).toHaveLength(1);
+    expect(out.find((f) => f.key === 'nom_de_famille')?.label).toBe('Nom (champ de base)');
   });
 
   it('un champ perso de même clé qu’une variable de base ne la duplique pas', () => {
@@ -46,7 +58,11 @@ describe('emailVariableFields', () => {
   it('🔴 TOUTE variable proposée est réellement résolue par le serveur (contrat vérifié sur contactVars)', () => {
     // Le vrai garde-fou : on confronte la liste proposée à ce que la table de substitution fournit VRAIMENT.
     // Sans lui, on peut re-proposer une clé qui laisse un blanc dans le mail envoyé au client, sans erreur.
-    const contact = { phone_e164: '+33600000001', bsuid: 'b1', profile_name: 'Camille', fields: { ville: 'Lyon' } };
+    // Les champs socle vivent dans `contacts.fields` comme les champs perso : une fiche qui les a remplis les fournit.
+    const contact = {
+      phone_e164: '+33600000001', bsuid: 'b1', profile_name: 'Camille',
+      fields: { ville: 'Lyon', prenom: 'Camille', nom_de_famille: 'Martin', email: 'camille@exemple.fr' },
+    };
     const vars = contactVars(contact);
     for (const f of emailVariableFields([champ('ville', 'Ville')], t)) {
       expect(Object.keys(vars), `variable proposée « ${f.label} » (${f.key})`).toContain(f.key);
