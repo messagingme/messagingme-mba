@@ -48,7 +48,7 @@ export const corpsEnvoi = schemaCorps.extend({
     variables: z.record(z.string(), z.string()).optional()
       .describe('Values for this recipient only, never written on the record: the {{name}} of an RCS message, or a template parameter of source variable.'),
   })).min(1).max(MAX_RECIPIENTS),
-  params: z.array(parametreTemplate).optional().describe('Template parameters: positions run from 1 to N, with no gap and no repeat.'),
+  params: z.array(parametreTemplate).optional().describe('Template parameters: positions run from 1 to N, with no gap and no repeat. On a scenario target, omitted or empty = the fields chosen in its opening block, when they cover every variable of its template.'),
 }).describe('One target, 1 to 50 recipients. A malformed recipient is skipped (see skipped in the response), it does not fail the send.');
 
 const RESOLUTION: readonly CodeApi[] = ['invalid_recipient', 'invalid_phone', 'unknown_contact', 'identity_conflict'];

@@ -185,7 +185,8 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
           type: 'array', maxItems: 50,
           items: { type: 'string', minLength: 1, maxLength: 1024, pattern: VALEUR_ACCEPTEE.source },
           description: 'One value per variable of the opening template body, in order ({{1}} then {{2}}...), without line '
-            + 'breaks, tabs or more than four spaces in a row (Meta refuses them). Empty if it has none.',
+            + 'breaks, tabs or more than four spaces in a row (Meta refuses them). Omitted or empty: the fields chosen in the '
+            + 'opening block are used, when they cover every variable.',
         },
         idempotency_key: { type: 'string', minLength: 1, maxLength: CLE_IDEMPOTENCE_MAX, description: 'A key specific to this send (a UUID for example).' },
       },

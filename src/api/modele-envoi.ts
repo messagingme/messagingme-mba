@@ -1,6 +1,7 @@
 import type { TemplateSummary } from '../meta/templates';
 import { carouselSendBlocker, headerMediaSendBlocker } from '../meta/template-components';
-import { countTemplateVariables, type TemplateParam } from '../crm/template';
+import { countTemplateVariables, validateParamMapping, type TemplateParam } from '../crm/template';
+import type { ParamHint } from '../crm/template-hints.pg';
 import { estLienTraceAvecJeton } from '../links/rewrite';
 import type { CodeApi } from './erreurs';
 import type { CampaignCategory } from '../campaign/types';
@@ -139,10 +140,16 @@ export interface DepsModeleEnvoyable {
  * `params` à `null` = un bloc, dont le template résout ses variables par les sources de la console : rien à
  * comparer. `non_envoyable` est jugé par la fonction du catalogue (`raisonNonEnvoyable`). `illisible` n'est
  * jamais ramené à « utility ».
+ *
+ * `duBloc` : les champs choisis dans le bloc d'ouverture d'un scénario (`modeleDOuverture`). Sans `params`, ils en
+ * tiennent lieu s'ils décrivent exactement les variables du corps, positions 1..N et sources sans `variable` (un
+ * scénario n'en reçoit pas) : c'est ce que la console promet en les affichant, et `params` rendu est alors le
+ * mapping à enregistrer sur l'envoi. `params` fourni prime toujours, et son compte reste vérifié.
  */
 export async function modeleEnvoyable(
   deps: Pick<DepsModeleEnvoyable, 'lireModele'>, tenantId: string, name: string, language: string, params: TemplateParam[] | null, quoi: string,
-): Promise<{ categorie: CampaignCategory } | RefusEnvoi> {
+  duBloc?: ParamHint[],
+): Promise<{ categorie: CampaignCategory; params?: TemplateParam[] } | RefusEnvoi> {
   const lu = await deps.lireModele(tenantId, name, language);
   if (lu.statut === 'absent') {
     return { refus: { statut: 404, code: 'template_not_found', message: `${quoi} introuvable, non approuvé ou d’une autre langue : ${name} (${language})` } };
@@ -156,6 +163,11 @@ export async function modeleEnvoyable(
   }
   if (lu.statut === 'non_envoyable') {
     return { refus: { statut: 422, code: 'unsendable_target', message: `le ${quoi} ${name} ne peut partir par aucun envoi : ${lu.raison}. Il n’apparaît pas dans GET /v1/templates` } };
+  }
+  if (params !== null && params.length === 0 && duBloc !== undefined && duBloc.length > 0 && lu.variables > 0) {
+    const repris = validateParamMapping(duBloc);
+    if (repris !== null && repris.length === lu.variables) return { categorie: lu.categorie, params: repris };
+    return { refus: { statut: 422, code: 'unsendable_target', message: `le ${quoi} ${name} attend ${lu.variables} variable(s) dans son corps : params n’en décrit aucune et les champs choisis dans le bloc d’ouverture ne les couvrent pas toutes (positions 1 à ${lu.variables}, sans source « variable ») : Meta refuserait chaque message` } };
   }
   if (params !== null && params.length !== lu.variables) {
     return { refus: { statut: 422, code: 'unsendable_target', message: `le ${quoi} ${name} attend ${lu.variables} variable(s) dans son corps et params en décrit ${params.length} : Meta refuserait chaque message` } };

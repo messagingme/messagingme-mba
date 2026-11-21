@@ -79,7 +79,14 @@ const noeud = (id: string, type: WorkflowNode['type'], data: Record<string, unkn
 const G_TEMPLATE: WorkflowGraph = { nodes: [noeud('t', 'template', { templateName: 'promo' })], edges: [] };
 const G_SESSION: WorkflowGraph = { nodes: [noeud('q', 'quick_message', { body: 'Bonjour' })], edges: [] };
 const G_RCS: WorkflowGraph = { nodes: [noeud('r', 'rcs_message', { text: 'Carte' })], edges: [] };
-const SCENARIOS: Record<string, WorkflowGraph> = { scn_template: G_TEMPLATE, scn_session: G_SESSION, scn_rcs: G_RCS, scn_vide: { nodes: [], edges: [] } };
+/** Le bloc d'ouverture porte les champs choisis dans la console (`data.variables`), pour les deux variables ou la première. */
+const CHAMPS_DU_BLOC = [{ position: 1, source: { type: 'field', key: 'prenom' } }, { position: 2, source: { type: 'field', key: 'dossier' } }];
+const G_SOURCES: WorkflowGraph = { nodes: [noeud('t', 'template', { templateName: 'jour_10', variables: CHAMPS_DU_BLOC })], edges: [] };
+const G_SOURCES_PARTIEL: WorkflowGraph = { nodes: [noeud('t', 'template', { templateName: 'jour_10', variables: CHAMPS_DU_BLOC.slice(0, 1) })], edges: [] };
+const SCENARIOS: Record<string, WorkflowGraph> = {
+  scn_template: G_TEMPLATE, scn_session: G_SESSION, scn_rcs: G_RCS, scn_vide: { nodes: [], edges: [] },
+  scn_sources: G_SOURCES, scn_sources_partiel: G_SOURCES_PARTIEL,
+};
 /**
  * Les cibles `node` : `nod_<id du bloc>`.
  *
@@ -1897,6 +1904,53 @@ describe('POST /v1/sends : les params d’un scénario qui ouvre par un template
     }, 'i-scn-variable');
     expect([variable.statusCode, variable.json<{ code: string }>().code]).toEqual([400, 'invalid_body']);
     expect(cap.sends).toEqual([]);
+    await server.close();
+  });
+
+  /**
+   * 🔴 LE DÉFAUT DU 2026-11-21 (bot Odalys, palier J-10) : un scénario dont le bloc d'ouverture a ses variables
+   * choisies dans la console, appelé SANS `params`, était refusé en 422 alors que l'écran promet que ces choix
+   * s'appliquent. Sans `params`, les champs du bloc deviennent le mapping de l'envoi, s'ils couvrent tout.
+   */
+  const CAMILLE_DOSSIER = new Map<string, ContactEnvoi>([[C1, fiche(C1, 1, { fields: { prenom: 'Camille', dossier: 'D-42' } })]]);
+
+  it('🔴 sans params, les champs choisis dans le bloc d’ouverture couvrent les variables : 201, ils deviennent le mapping', async () => {
+    const { server, cap } = app({}, { modele: { statut: 'approuve', categorie: 'utility', variables: 2 }, fiches: CAMILLE_DOSSIER });
+    for (const [corps, cle] of [[{}, 'i-bloc-absent'], [{ params: [] }, 'i-bloc-vide']] as const) {
+      const res = await envoyer(server, { ...SCN('scn_sources'), ...corps, recipients: [{ contactId: C1 }] }, cle);
+      expect(res.statusCode, cle).toBe(201);
+    }
+    expect(cap.sends.map((e) => e.input.paramMapping)).toEqual([CHAMPS_DU_BLOC, CHAMPS_DU_BLOC]);
+    expect(cap.sends.map((e) => e.recipients.map((r) => r.resolvedParams))).toEqual([[['Camille', 'D-42']], [['Camille', 'D-42']]]);
+    await server.close();
+  });
+
+  it('params fourni prime sur les champs du bloc, et son compte reste vérifié', async () => {
+    const { server, cap } = app({}, { modele: { statut: 'approuve', categorie: 'utility', variables: 2 }, fiches: CAMILLE_DOSSIER });
+    const lit = [{ position: 1, source: { type: 'literal', value: 'Chère cliente' } }, { position: 2, source: { type: 'field', key: 'dossier' } }];
+    const ok = await envoyer(server, { ...SCN('scn_sources'), params: lit, recipients: [{ contactId: C1 }] }, 'i-bloc-prime');
+    expect(ok.statusCode).toBe(201);
+    expect(cap.sends[0]!.input.paramMapping).toEqual(lit);
+    const court = await envoyer(server, { ...SCN('scn_sources'), params: lit.slice(0, 1), recipients: [{ contactId: C1 }] }, 'i-bloc-court');
+    expect([court.statusCode, court.json<{ code: string }>().code]).toEqual([422, 'unsendable_target']);
+    expect(cap.sends).toHaveLength(1);
+    await server.close();
+  });
+
+  it('les champs du bloc ne couvrent pas toutes les variables : le 422 reste, et dit pourquoi', async () => {
+    const { server, cap } = app({}, { modele: { statut: 'approuve', categorie: 'utility', variables: 2 }, fiches: CAMILLE_DOSSIER });
+    const res = await envoyer(server, { ...SCN('scn_sources_partiel'), recipients: [{ contactId: C1 }] }, 'i-bloc-partiel');
+    expect([res.statusCode, res.json<{ code: string }>().code]).toEqual([422, 'unsendable_target']);
+    expect(res.json<{ error: string }>().error).toContain('bloc d’ouverture');
+    expect(cap.sends).toEqual([]);
+    await server.close();
+  });
+
+  it('⚠️ un template sans variable part sans mapping, même si le bloc garde des champs d’une version précédente', async () => {
+    const { server, cap } = app({}, { modele: { statut: 'approuve', categorie: 'utility', variables: 0 }, fiches: CAMILLE_DOSSIER });
+    const res = await envoyer(server, { ...SCN('scn_sources'), recipients: [{ contactId: C1 }] }, 'i-bloc-perime');
+    expect(res.statusCode).toBe(201);
+    expect(cap.sends[0]!.input.paramMapping).toEqual([]);
     await server.close();
   });
 

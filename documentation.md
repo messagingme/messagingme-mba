@@ -6766,6 +6766,13 @@ Ajouté par le lot 4 de l'API publique :
    (`modeleDOuverture(graph, depuis)`) : la catégorie retenue est la plus stricte de la lue et de la déclarée
    (`categoriePlusStricte`), illisible = refus. Le nombre de variables, lui, ne se compare PAS : `params` est
    refusé sur un bloc, dont le template résout ses variables par les sources de la console, contact par contact.
+   Un SCÉNARIO appelé sans `params` (absent ou vide) reprend les champs choisis dans son bloc d'ouverture
+   (`modeleDOuverture(graph).sources`, argument `duBloc` de `modeleEnvoyable`) s'ils couvrent exactement les
+   positions 1 à N du corps, sans source `variable` : ils deviennent le `paramMapping` de l'envoi, résolu par
+   destinataire comme un `params` fourni. Seuls les champs du BLOC comptent, pas les indices posés sur le template
+   (`template_param_hints`, que l'API ne lit pas). `params` fourni prime et son compte reste vérifié ; des champs
+   qui ne couvrent pas tout laissent le 422 `unsendable_target`, qui le dit ; un template sans variable ignore des
+   champs restés d'une version précédente.
 37. **`POST /v1/messages/whatsapp` cherche le fil, il ne le crée jamais** (`PgInboxStore.filDuContact`, même
    fragment de `wa_id` que `ouvrirConversationDuContact`) : sans fil, pas d'entrant, donc fenêtre fermée par
    construction, 422 sans rien écrire. `POST /v1/messages/rcs`, lui, ouvre le fil APRÈS l'envoi, et rend

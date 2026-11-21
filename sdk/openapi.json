@@ -4446,7 +4446,7 @@
                     }
                   },
                   "params": {
-                    "description": "Template parameters: positions run from 1 to N, with no gap and no repeat.",
+                    "description": "Template parameters: positions run from 1 to N, with no gap and no repeat. On a scenario target, omitted or empty = the fields chosen in its opening block, when they cover every variable of its template.",
                     "type": "array",
                     "items": {
                       "type": "object",

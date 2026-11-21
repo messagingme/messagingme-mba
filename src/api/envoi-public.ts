@@ -217,6 +217,8 @@ interface CibleResolue {
   startNodeId?: string;
   /** Cible `rcsMessage` : l'agent qui envoie et le contenu, qui partent dans la campagne RCS. */
   rcs?: { agentId: string; contenu: RcsOutbound };
+  /** Scénario sans `params` : les champs choisis dans son bloc d'ouverture, qui deviennent le `paramMapping` de l'envoi. */
+  params?: TemplateParam[];
 }
 
 export interface RapportEnvoi {
@@ -293,14 +295,15 @@ async function resoudreCible(
       }
       return { ouverture: 'rcs', category: c.category, label: r.value.name, templateName: '', templateLanguage: '', workflowId: r.value.id };
     }
-    // Il ouvre par un template : c'est lui que `params` paramètre, lu chez Meta comme la cible template.
+    // Il ouvre par un template : c'est lui que `params` paramètre, lu chez Meta comme la cible template. Sans
+    // `params`, les champs choisis dans le bloc d'ouverture en tiennent lieu (`modeleEnvoyable`, `duBloc`).
     const ouvre = modeleDOuverture(r.value.graph);
     if (!ouvre) return { refus: { statut: 422, code: 'unsendable_target', message: 'le template d’ouverture de ce scénario n’a pas pu être identifié' } };
-    const m = await modeleEnvoyable(deps, tenantId, ouvre.templateName, ouvre.language, params, 'template d’ouverture du scénario');
+    const m = await modeleEnvoyable(deps, tenantId, ouvre.templateName, ouvre.language, params, 'template d’ouverture du scénario', ouvre.sources);
     if ('refus' in m) return m;
     return {
       ouverture: 'whatsapp_template', category: categoriePlusStricte(m.categorie, c.category), categorieMeta: m.categorie,
-      label: r.value.name, templateName: '', templateLanguage: '', workflowId: r.value.id,
+      label: r.value.name, templateName: '', templateLanguage: '', workflowId: r.value.id, ...(m.params ? { params: m.params } : {}),
     };
   }
   const r = await deps.resolveNode(tenantId, c.code);
@@ -526,6 +529,8 @@ export async function lancerEnvoiPublic(
     if ('refus' in numero) return await libererEtRefuser(numero.refus);
     const cible = await resoudreCible(deps, tenantId, demandee, params, options.rayonDuScenario ?? 'general');
     if ('refus' in cible) return await libererEtRefuser(cible.refus);
+    // Le mapping de l'envoi : `params` fourni, ou les champs du bloc d'ouverture d'un scénario appelé sans.
+    const mapping = cible.params ?? params;
     if (options.serviceSeulement && cible.category !== 'utility') {
       await deps.idempotence.release(tenantId, idem.cle, jeton);
       return {
@@ -595,7 +600,7 @@ export async function lancerEnvoiPublic(
       category: cible.category, ouverture: cible.ouverture, resolus: uniques, contacts,
       ...(fenetre ? { fenetreOuverteParContact: fenetre } : {}),
     });
-    const { recipients, ecarts } = construireDestinataires(cible.category, params, tri, new Date(), cible.rcs ? 'rcs' : 'whatsapp');
+    const { recipients, ecarts } = construireDestinataires(cible.category, mapping, tri, new Date(), cible.rcs ? 'rcs' : 'whatsapp');
     // Le refus exact, sur les destinataires réels (doublons et écarts retirés) : refusé en entier, avant toute campagne,
     // et la clé rendue : le même appel repartira le mois prochain ou après le passage en Pro.
     if (etatDuMois !== null && recipients.length > etatDuMois.reste) return await refuserLeMois(etatDuMois, recipients.length);
@@ -648,7 +653,7 @@ export async function lancerEnvoiPublic(
         tenantId, phoneNumberId: numero.phoneNumberId, category: cible.category,
         name: options.nom !== undefined ? options.nom.slice(0, 120)
           : cible.rcs ? `${PREFIXE_ENVOI_API}${cible.label}` : `${PREFIXE_ENVOI_API}${cible.label}`.slice(0, 120),
-        templateName: cible.templateName, templateLanguage: cible.templateLanguage, paramMapping: params,
+        templateName: cible.templateName, templateLanguage: cible.templateLanguage, paramMapping: mapping,
         ...(cible.workflowId ? { workflowId: cible.workflowId } : {}),
         ...(cible.startNodeId ? { startNodeId: cible.startNodeId } : {}),
         ...(cible.rcs ? { channel: 'rcs' as const, rcsAgentId: cible.rcs.agentId, rcsMessage: cible.rcs.contenu } : {}),
