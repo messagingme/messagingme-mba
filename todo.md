@@ -1,5 +1,17 @@
 # todo.md : backlog
 
+## 🟡 Un scénario envoyé sans params reprend les champs du bloc : la relecture (2026-11-21, aucun rouge, cab229d6b)
+
+- À déployer (API) puis l'essai réel : le palier J-10 d'ODALYS Checkin (`sw4mka`) part sans `params`, et
+  `SEJOURS_MBA_PARAMS_10` peut quitter le `.env` du bot. Numéro dans `docs/prive/ESSAIS-REELS.md`.
+- HubSpot (`src/hubspot-workflow/envoi.ts`, valeurs vides retirées en fin de liste) : un workflow dont toutes les
+  propriétés sont vides envoie `params: []`, et un scénario à variables part désormais avec les champs de la fiche
+  choisis dans le bloc au lieu d'un refus. Décider si une propriété HubSpot vide doit rester un refus visible.
+- Fiche vide (contact créé par son numéro) : les champs du bloc ne se résolvent pas, le destinataire est écarté
+  `missing_variable` et l'envoi rend 201 avec `recipientCount: 0`, clé consommée, là où le 422 libérait la clé.
+- Les positions que le bloc ne couvre pas restent refusées, alors que la console les complète par les indices du
+  template (`sourcesDuBloc`, `template_param_hints`, que l'API ne lit pas). Les lire aussi, ou le dire dans le 422.
+
 ## 🟡 Les champs de base dans les choix de variables : ce qui reste (2026-11-21)
 
 - L'essai réel de Julien sur son espace : le bloc « Envoi de mail » en mode « Variable » propose « Email » en tête, et
