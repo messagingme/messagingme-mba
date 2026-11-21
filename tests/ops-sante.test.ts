@@ -61,6 +61,21 @@ describe('evaluerSante : une pastille par brique', () => {
     expect(brique({ ...SAINE, latencesFiles: [], chargeFiles: [charge('webhook-status', 300)] }, 'accuses')).toMatchObject({ etat: 'rouge', mesure: 300 });
   });
 
+  it('🔴 les entrants se jugent sur l’ATTENTE, et seulement à partir de vingt messages (incident du 2026-11-21)', () => {
+    const entrants = (echantillons: number, attente: number, boutEnBout: number) => ({
+      queue: 'webhook', echantillons, attenteP50Secondes: 0, attenteP95Secondes: attente, boutEnBoutP95Secondes: boutEnBout, boutEnBoutMaxSecondes: boutEnBout,
+    });
+    // Le cas réel : sept messages, aucune attente, un traitement de 20 s. Pas une saturation : vert.
+    expect(brique({ ...SAINE, latencesFiles: [entrants(7, 0, 18.4)] }, 'entrants').etat).toBe('vert');
+    // Vingt-cinq messages traités lentement sans avoir attendu : toujours pas une saturation.
+    expect(brique({ ...SAINE, latencesFiles: [entrants(25, 0.1, 40)] }, 'entrants').etat).toBe('vert');
+    // Vingt-cinq messages qui ATTENDENT : là, les workers ou la base saturent.
+    expect(brique({ ...SAINE, latencesFiles: [entrants(25, 40, 41)] }, 'entrants')).toMatchObject({ etat: 'rouge', mesure: 40 });
+    expect(brique({ ...SAINE, latencesFiles: [entrants(25, 8, 9)] }, 'entrants').etat).toBe('orange');
+    // Une file figée se voit sans effectif : l'âge du plus vieux en attente juge toujours.
+    expect(brique({ ...SAINE, latencesFiles: [entrants(3, 0, 0)], chargeFiles: [charge('webhook', 45)] }, 'entrants').etat).toBe('rouge');
+  });
+
   it('aucun trafic : rien à mesurer, donc vert (une nuit calme n’est pas une panne)', () => {
     const calme = { ...SAINE, latencesFiles: [], chargeFiles: [], latencesHttp: [] };
     expect(brique(calme, 'entrants')).toMatchObject({ etat: 'vert', mesure: null });

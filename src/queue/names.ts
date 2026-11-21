@@ -183,8 +183,15 @@ export const SONDAGE_FILET_NOTIFIE = 60;
  * NOTRE clé Anthropic, sans plafond de dépense : une rafale se paie en une heure au lieu de plusieurs jours, pour le même
  * total. Pas de réveil à l'arrivée (hors de `FILES_NOTIFIEES`, le worker d'analyse n'écoute pas) ni de changement de
  * cadence : la première analyse d'une rafale attend toujours son tour, les suivantes plus.
+ *
+ * `push-analysis` (2026-11-21) : la suite de `analyze-conversation`, une boucle (concurrence 1). Mesuré le 2026-11-21
+ * (`pgboss.job`) : vingt jobs de 0 s prêts vers 10:20, pris un par tour de 30 s, jusqu'à 539 s d'attente, et
+ * l'alerte de retard de file. La rafale de pg-boss ne s'engage qu'AU-DELÀ de 20 prêts (`> SEUIL_RAFALE`) : 21 jobs
+ * partaient en quelques secondes, 20 en dix minutes. Le vidage traite les petits paquets comme les gros, sans régime
+ * nouveau : une boucle, un envoi à la fois au connecteur HubSpot, un 429 rejoué par `postAnalysis` et un échec par
+ * `DELAI_REJEU_VIDAGE_SECONDES`.
  */
-export const FILES_VIDEES_EN_CONTINU: readonly (typeof BASE_QUEUES)[number][] = ['webhook', 'webhook-status', 'analyze-conversation'];
+export const FILES_VIDEES_EN_CONTINU: readonly (typeof BASE_QUEUES)[number][] = ['webhook', 'webhook-status', 'analyze-conversation', 'push-analysis'];
 
 export function videeEnContinu(queue: string): boolean {
   return (FILES_VIDEES_EN_CONTINU as readonly string[]).includes(queue);

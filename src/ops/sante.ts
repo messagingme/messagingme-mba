@@ -102,11 +102,27 @@ function etat(mesure: number | null, seuil: Seuil): EtatBrique {
 const INDISPONIBLE = { mesure: null, etat: 'orange', indisponible: true } as const;
 
 /**
+ * Les entrants ne se jugent sur leur p95 qu'à partir de ce nombre de messages finis dans le quart d'heure, comme la
+ * veille de réception de Meta (20 requêtes). En dessous, le p95 n'est que le pire message : un seul traitement de
+ * 20 s parmi sept (un appel extérieur lent) a fait passer « entrants » orange le 2026-11-21 à 10:53, alors qu'aucun
+ * message n'avait attendu. L'âge du plus vieux en attente, lui, juge toujours : une file figée se voit sans effectif.
+ */
+export const EFFECTIF_MIN_ENTRANTS = 20;
+
+/**
  * Le retard d'une file : le pire du p95 du quart d'heure et de l'âge du plus vieux en attente (une file figée se voit
  * tout de suite). Appelée seulement quand les deux lectures ont réussi.
+ *
+ * 🔴 Les entrants se jugent sur l'ATTENTE (`started_on - start_after`), pas sur le bout en bout : le message d'alerte
+ * annonce « les workers ou la base saturent », et seule l'attente le dit. Un traitement lent est un appel extérieur
+ * (Meta, modèle), pas une saturation. Les accusés gardent le bout en bout : la remise d'un fil à l'agent de Meta
+ * attend l'accusé traité.
  */
 function retardFile(latences: QueueLatenceRow[], charge: QueueLoadRow[], file: string): number | null {
-  const p95 = latences.find((l) => l.queue === file && l.echantillons > 0)?.boutEnBoutP95Secondes;
+  const ligne = latences.find((l) => l.queue === file && l.echantillons > 0);
+  const p95 = file === FILE_ENTRANTS
+    ? (ligne && ligne.echantillons >= EFFECTIF_MIN_ENTRANTS ? ligne.attenteP95Secondes : undefined)
+    : ligne?.boutEnBoutP95Secondes;
   const age = charge.find((c) => c.queue === file)?.ageMaxSecondes;
   const valeurs = [p95, age].filter((v): v is number => typeof v === 'number' && v > 0);
   return valeurs.length === 0 ? null : Math.max(...valeurs);
