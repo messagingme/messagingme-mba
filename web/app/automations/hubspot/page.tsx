@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n';
  * comme celles de Shopify. `/automations` ne garde que les « Autres ».
  */
 export default function AutomationsHubspotPage() {
-  return <AppShell active="automations-hubspot">{(session) => <AutomationsHubspotInner tenantId={session.tenantId} />}</AppShell>;
+  return <AppShell active="automations-hubspot" pleineLargeur>{(session) => <AutomationsHubspotInner tenantId={session.tenantId} />}</AppShell>;
 }
 
 function AutomationsHubspotInner({ tenantId }: { tenantId: string }) {

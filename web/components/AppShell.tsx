@@ -59,9 +59,15 @@ const PORTAIL_PAR_ESPACE = new Map<string, boolean>();
  * + contenu pleine largeur. RBAC : seule l'inbox est ouverte à l'agent ; tout le reste exige admin (la
  * vraie autorité reste le serveur, on évite juste d'afficher une page interdite).
  */
-export function AppShell({ active, fullBleed = false, fonction, children }: {
+export function AppShell({ active, fullBleed = false, pleineLargeur = false, fonction, children }: {
   active: Tab;
   fullBleed?: boolean;
+  /**
+   * La page garde son défilement et ses marges, mais sans la largeur `liste` : elle prend tout l’écran. Pour les pages
+   * qui déplient un scénario sous leur liste (automations Shopify et HubSpot, Julien, 2026-11-21 : « ça fait vraiment
+   * petit ») : le canevas du builder a besoin de la largeur, la page n’a pas besoin de la hauteur de la coquille.
+   */
+  pleineLargeur?: boolean;
   /**
    * La fonction de l'offre qu'exige cette page quand sa clé de menu ne la porte pas (lot 6) : une sous-page qui partage
    * la clé d'un écran ouvert, comme la connexion Salesforce sous Paramètres. Sinon, la carte de la barre la donne.
@@ -699,7 +705,7 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
             WhatsApp (l'option en vente, ou une ligne), l'offre déjà lue : hors vente, aucune lecture de plus (jaune 8). */}
         {session.role === 'admin' && (vueOffre?.offre === 'pro' || vueOffre?.offre === 'business') && vueOffre.ongletCreditWhatsapp
           && <BandeauLigneCredit tenantId={session.tenantId} />}
-        <main className={fullBleed ? 'w-full flex-1 lg:flex lg:min-h-0 lg:flex-col' : 'mx-auto w-full max-w-liste flex-1 px-4 py-8 sm:px-6'}>
+        <main className={fullBleed ? 'w-full flex-1 lg:flex lg:min-h-0 lg:flex-col' : `mx-auto w-full ${pleineLargeur ? '' : 'max-w-liste '}flex-1 px-4 py-8 sm:px-6`}>
           {pageEnAttente ? null : pageFermee && vueOffre && fonctionDeCettePage ? <EncartOffre fonction={fonctionDeCettePage} vue={vueOffre} /> : children(session)}
         </main>
       </div>

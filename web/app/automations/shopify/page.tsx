@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n';
  * étaient en tête de l'écran Automation depuis le lot 5 ; `/automations` ne garde que les « Autres ».
  */
 export default function AutomationsShopifyPage() {
-  return <AppShell active="automations-shopify">{(session) => <AutomationsShopifyInner tenantId={session.tenantId} />}</AppShell>;
+  return <AppShell active="automations-shopify" pleineLargeur>{(session) => <AutomationsShopifyInner tenantId={session.tenantId} />}</AppShell>;
 }
 
 function AutomationsShopifyInner({ tenantId }: { tenantId: string }) {

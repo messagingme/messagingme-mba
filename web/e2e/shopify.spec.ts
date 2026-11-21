@@ -293,6 +293,15 @@ test.describe('Scénario > Automation > Shopify : les automations de la boutique
     await expect(page).toHaveURL(/\/automations\/shopify$/);
   });
 
+  test('sur grand écran, le scénario déplié prend toute la largeur, pas celle des listes (Julien, 2026-11-21)', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await monter(page, { ecran: PAGE, etat: { ...RELANCE_ACTIVE, attestation: ATTESTEE } });
+    await page.getByTestId('automations-shopify-ouvrir-order_paid').click();
+    const cadre = await page.getByTestId('scenario-ouvert').boundingBox();
+    // `max-w-liste` vaut 72rem (1152 px) : au-delà, la page n'est plus bornée par elle.
+    expect(cadre?.width ?? 0).toBeGreaterThan(1300);
+  });
+
   test('🔴 le message au focus et au survol d’une ligne, ses données remplacées par leurs exemples ; un clic ouvre son scénario (spec 2026-11-20)', async ({ page }) => {
     // Le message standard posé au branchement : la ligne éteinte, son template dans une version programmée.
     const enValidation = ligne('order_paid', {
