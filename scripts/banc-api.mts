@@ -256,6 +256,8 @@ function veilleDuBanc(pool: Pool): () => Promise<void> {
       dire(`VEILLE ${cle} : ${texte}`);
       if (TELEGRAM) void sendTelegram(`[BANC lot 14, copie jetable, PAS la production] ${texte}`);
     },
+    // Le banc n'inscrit pas d'incidents : il mesure la veille, pas la capture.
+    incidents: { ouvrir: () => {}, clore: () => {} },
   });
 }
 

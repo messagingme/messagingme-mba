@@ -195,6 +195,8 @@ import { lireConsommationEquipe } from './agent/llm/consommation-equipe';
 import { creerLecteurCockpit } from './ops/cockpit';
 import { creerLecteurFacture } from './ops/facture-scaleway';
 import { creerVeilleSante, INTERVALLE_VEILLE_SANTE_MS } from './ops/veille-sante';
+import { creerCapture } from './ops/incidents';
+import { PgIncidentsStore } from './ops/incidents.pg';
 import { lireEntreesSante, sourcesSante } from './ops/sante-lecture';
 import { evaluerSante } from './ops/sante';
 import { lireCatalogueGateway } from './agent/llm/modeles-gateway';
@@ -4128,6 +4130,11 @@ async function main(): Promise<void> {
     },
     verrous: verrousCourts,
     envoyer: (texte) => sendTelegram(`[mba-${NOM_API}] ${texte}`),
+    // Chaque alerte partie fige l'état du système (plan 2026-11-21, lot 1), sans être attendue.
+    incidents: (() => {
+      const store = new PgIncidentsStore(pool, config.PGBOSS_SCHEMA);
+      return creerCapture({ store, lire: () => store.lireInstantane() });
+    })(),
   });
   const minuterieVeilleSante = setInterval(() => {
     void veilleSante().catch((err: unknown) => {

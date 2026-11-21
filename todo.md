@@ -1,5 +1,14 @@
 # todo.md : backlog
 
+## 🟡 Les incidents de santé, lot 1 : la relecture (2026-11-21, un rouge corrigé avant le push)
+
+- **Aucune rétention sur `incidents`** : jusqu'à 64 Ko par alerte, environ 2 Go par an au pire. Une purge à 180 jours
+  quand le recueil aura servi.
+- **`clore` peut rater un incident** : un retour au vert retenu par `DELAI_ENTRE_ALERTES_MS` laisse l'incident ouvert ;
+  l'orange suivant en ouvre un second, et `clore` ne ferme que le plus récent.
+- Le texte du lot 1 de `docs/superpowers/plans/2026-11-21-incidents-sante.md` dit « Cockpit » et « imports en cours » :
+  l'instantané ne les lit pas encore (Cockpit n'est que dans l'API ; les imports se voient par leurs files).
+
 ## 🟡 Un scénario envoyé sans params reprend les champs du bloc : la relecture (2026-11-21, aucun rouge, cab229d6b)
 
 - À déployer (API) puis l'essai réel : le palier J-10 d'ODALYS Checkin (`sw4mka`) part sans `params`, et

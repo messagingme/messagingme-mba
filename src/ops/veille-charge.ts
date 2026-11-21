@@ -5,6 +5,7 @@ import type { LigneCompteur } from '../db/debit';
 import { dlqName } from '../queue/names';
 import { journaliser } from '../lib/journal';
 import { CLE_REFUS_GLOBAL } from '../auth/plafond-global';
+import type { CaptureIncidents } from './incidents';
 
 /**
  * La veille de charge (lot 14, décision de Julien du 2026-10-12) : prévenir AVANT que ça casse, sur des mesures qui
@@ -51,6 +52,8 @@ export interface LecturesCharge {
 export function creerVeilleCharge(deps: {
   lire: LecturesCharge;
   alerter: (cle: string, texte: string) => void;
+  /** Fige l'état du système à chaque alerte partie (`incidents.ts`), sans être attendue. */
+  incidents: CaptureIncidents;
   maintenant?: () => number;
 }): () => Promise<void> {
   const maintenant = deps.maintenant ?? (() => Date.now());
@@ -61,6 +64,7 @@ export function creerVeilleCharge(deps: {
     if (avant !== undefined && t - avant < RELANCE_ALERTE_MS) return;
     derniere.set(cle, t);
     deps.alerter(cle, texte);
+    deps.incidents.ouvrir('charge', cle, 'alerte', texte);
   };
   const lire = async <T>(quoi: string, f: () => Promise<T>): Promise<T | null> => {
     try {

@@ -14,6 +14,7 @@ import { FakeQueue } from './fake-queue';
 import type { OpsRouteDeps } from '../src/http/ops';
 import { exploitationInerte, opsInerte } from './routes-inertes';
 import { accesOps } from './acces-ops';
+import { sansIncidents } from './incidents-fixture';
 
 /**
  * LES SEUILS RÉGLABLES ET LES ALERTES DE SANTÉ (refonte de /ops, lot 4). La validation refuse sans corriger, comme la
@@ -108,6 +109,7 @@ describe('la veille de Santé', () => {
       prolonger: async () => true,
     };
     const veille = creerVeilleSante({
+      incidents: sansIncidents,
       evaluer: o.evaluer ?? (async () => ({ bilan: bilanDe(o.briques), seuils: SEUILS_DEFAUT, workers: o.workers ?? [] })),
       alertes: {
         dernieres: async () => new Map((o.dernieres ?? []).map((a) => [a.signal, a])),
@@ -174,6 +176,7 @@ describe('la veille de Santé', () => {
     let etat: EtatBrique = 'orange';
     const envoyes: string[] = [];
     const veille = creerVeilleSante({
+      incidents: sansIncidents,
       evaluer: async () => ({ bilan: bilanDe([{ cle: 'processeur-base', etat, mesure: etat === 'vert' ? 10 : 65 }]), seuils: SEUILS_DEFAUT, workers: [] }),
       alertes: {
         dernieres: async () => new Map(journal.map((a) => [a.signal, a])),
@@ -214,6 +217,7 @@ describe('la veille de Santé', () => {
     const prises: number[] = [];
     const vide = { bilan: bilanDe([]), seuils: SEUILS_DEFAUT, workers: [] };
     const veille = creerVeilleSante({
+      incidents: sansIncidents,
       // Seul le premier passage reste bloqué, jusqu'à `liberer`.
       evaluer: () => (prises.length === 1 ? new Promise((ok) => { liberer = () => ok(vide); }) : Promise.resolve(vide)),
       alertes: { dernieres: async () => new Map(), noter: async () => {} },

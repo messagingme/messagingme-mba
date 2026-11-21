@@ -127,6 +127,8 @@ import { viderVersLaBase } from './ops/pool-attentes.pg';
 import { creerDlqSweep } from './ops/dlq-sweep';
 import { creerWebhooksMuetsSweep } from './ops/webhooks-muets-sweep';
 import { creerVeilleCharge } from './ops/veille-charge';
+import { creerCapture } from './ops/incidents';
+import { PgIncidentsStore } from './ops/incidents.pg';
 import { lireConsommationEquipe, creerVeilleVercel } from './agent/llm/consommation-equipe';
 import { fetchGet } from './lib/http-get';
 import { CLE_REFUS_GLOBAL } from './auth/plafond-global';
@@ -2150,6 +2152,11 @@ export async function demarrerWorker(): Promise<void> {
       refusPlafondGlobal: () => compteurDebit.lister(CLE_REFUS_GLOBAL, 2 * 60_000),
     },
     alerter: (cle, texte) => alert(cle, texte),
+    // Chaque alerte partie fige l'état du système (plan 2026-11-21, lot 1), sans être attendue.
+    incidents: (() => {
+      const store = new PgIncidentsStore(pool, config.PGBOSS_SCHEMA);
+      return creerCapture({ store, lire: () => store.lireInstantane() });
+    })(),
   });
   taches.programmer('veille-charge', 60_000, veilleCharge, {
     // eslint-disable-next-line no-console

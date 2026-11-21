@@ -6,6 +6,7 @@ import { BORNES_LATENCE_MS } from '../src/ops/latence-http';
 import { CLE_REFUS_GLOBAL } from '../src/auth/plafond-global';
 import type { PointAttente } from '../src/ops/pool-attentes.pg';
 import { capturerJournal } from './journal';
+import { sansIncidents } from './incidents-fixture';
 
 /**
  * 🔴 LA VEILLE DE CHARGE (lot 14, A) : prévenir AVANT que ça casse. Quatre alertes, chacune sur une mesure qui existait
@@ -34,7 +35,7 @@ const calme: LecturesCharge = {
 function monter(lire: Partial<LecturesCharge>, t0 = 1_800_000_000_000) {
   let t = t0;
   const alertes: Array<{ cle: string; texte: string }> = [];
-  const passe = creerVeilleCharge({ lire: { ...calme, ...lire }, alerter: (cle, texte) => alertes.push({ cle, texte }), maintenant: () => t });
+  const passe = creerVeilleCharge({ lire: { ...calme, ...lire }, alerter: (cle, texte) => alertes.push({ cle, texte }), incidents: sansIncidents, maintenant: () => t });
   return { passe, alertes, avancer: (ms: number) => { t += ms; } };
 }
 

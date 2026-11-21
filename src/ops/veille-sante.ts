@@ -4,6 +4,7 @@ import type { WorkerHeartbeatRow } from './heartbeat-store.pg';
 import type { BilanSante, Brique, CleBrique, EtatBrique } from './sante';
 import type { Seuil, SeuilsCapacite } from './seuils';
 import type { AlerteCapacite } from './seuils.pg';
+import type { CaptureIncidents } from './incidents';
 
 /**
  * LES ALERTES DE SANTÉ SUR TELEGRAM (refonte de /ops, lot 4) : quand un signal de capacité change d'état (passe orange,
@@ -89,6 +90,8 @@ export function creerVeilleSante(deps: {
   verrous: VerrousCourts;
   /** Rend `false` quand Telegram n'a pas pris le message (non configuré, ou refus) : rien ne se note, on réessaiera. */
   envoyer: (texte: string) => Promise<boolean>;
+  /** Fige l'état du système à chaque alerte partie (`incidents.ts`), sans être attendue. */
+  incidents: CaptureIncidents;
   maintenant?: () => number;
 }): () => Promise<void> {
   const maintenant = deps.maintenant ?? (() => Date.now());
@@ -114,6 +117,8 @@ export function creerVeilleSante(deps: {
         continue;
       }
       await deps.alertes.noter(b.cle, b.etat, b.mesure);
+      if (b.etat === 'vert') deps.incidents.clore(b.cle);
+      else deps.incidents.ouvrir('sante', b.cle, b.etat, texteAlerte(b, seuils));
     }
   }
 
