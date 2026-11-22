@@ -1146,6 +1146,10 @@ Critères nouveaux, sans modèle :
 définition actuelle de l'activité. Un clic est un lien `/r/`. On ne mélange pas les deux dans le libellé. Les clics
 sans contact (jetons d'avant l'attribution) restent ignorés, comme aujourd'hui.
 
+Les deux cas « sans commander » ne se règlent pas ici. Ce sont les boutons prêts du lot 4 de la feuille de route
+(un clic, aucune période). Les critères à N jours restent disponibles pour qui veut une fenêtre, dans Activité et
+dans le MCP. Ils ne sont pas les boutons.
+
 Exemples Pro, tous sans IA :
 
 - « a cliqué sans jamais répondre » : le critère dédié ;
@@ -1296,7 +1300,7 @@ Ordre dans l'accordéon, de haut en bas :
 6. Collection. Lot 1b. Absente tant que le scope manque : la ligne dit pourquoi et donne le lien d'installation, elle ne filtre pas à zéro.
 7. Étiquettes Shopify, distinctes des étiquettes Messaging Me. Lot 4a. Si la synchro n'a jamais abouti, la ligne le dit et ne s'applique pas.
 8. Segments Shopify suivis, avec la date de synchro. Lot 4c. Vide : « aucun segment suivi », lien vers la carte Shopify.
-9. Croisements commerce du lot 7a : a écrit sans commander, a cliqué sans commander. Pas « a écrit » ni « a cliqué » tout seuls, qui restent dans Activité.
+9. Deux boutons prêts, lot 4 : « A écrit sans commander », « A cliqué sans commander ». Un clic, aucun réglage. Masqués tant qu'aucun contact ne correspond. Le détail est plus bas. « A écrit » et « a cliqué » tout seuls restent dans Activité.
 
 La joignabilité WhatsApp ne rentre pas dans ce volet. Elle est déjà le filtre général « sauf les injoignables connus ». Les numéros en échec définitif sont supprimés : il n'y a pas une liste d'injoignables Shopify à filtrer. Le volet ne répète pas le taux du Performance Lab.
 
@@ -1322,49 +1326,76 @@ Le pied de page, source Shopify, dit le même nombre que la liste. Pas une phras
 
 Pas de route nouvelle. Les filtres voyagent comme aujourd'hui dans `fieldFilters`. `GET /tenants/:tenantId/contacts/segments` annonce ce que le volet a le droit de montrer (boutique, collections, étiquettes, segments). Le compte est `countContacts` / le `total` de la liste, déjà partagés. L'API publique `/v1` ne reçoit pas ces filtres.
 
+### Les deux boutons prêts
+
+Décision de Julien (2026-11-22). « A écrit sans commander » et « A cliqué sans commander » ne sont pas des formulaires.
+Chacun est un bouton, dans l'accordéon Shopify et dans l'onglet Shopify de l'audience. Un clic l'applique. Un second
+clic le retire. Aucun jour, aucun minimum, aucun maximum.
+
+La règle, fermée :
+
+- **A écrit** : au moins un message reçu du contact. Un appui de bouton et une réaction comptent, comme l'activité
+  d'aujourd'hui (`noterActivite`). La date est `derniere_reponse_le`, pas `derniere_activite_le`, qui mélange le clic.
+  La colonne et son remplissage sont ceux du chantier 7, livrés dans ce lot. « Au moins un » veut dire la date non nulle.
+  Les messages déjà purgés par la conservation ne reviennent pas : la légende du bouton le dit (« message reçu encore
+  connu »), ce n'est pas un réglage.
+- **A cliqué** : au moins un clic de lien suivi rattaché à la fiche (`dernier_clic_le` non nul). Un clic sans contact
+  ne compte pas. Quelqu'un qui a aussi écrit reste dans ce bouton : les deux boutons ne s'excluent pas.
+- **Sans commander** : aucune ligne dans `shopify_commandes` pour cette fiche, dans cet espace. Pas de fenêtre de
+  jours. Une commande de test compte, une commande remboursée compte : les deux décisions déjà prises. « Aucune » veut
+  dire aucune commande enregistrée, pas « jamais acheté avant le branchement ». La légende cite `commandes_depuis`.
+
+Le bouton n'est pas là tant que le cas n'existe pas. Zéro contact : masqué, pas grisé. Dès qu'un contact correspond,
+il apparaît, avec le nombre en pastille (« A écrit sans commander · 12 »). La pastille est le compte du bouton seul,
+pas le croisement avec les autres filtres du panneau. Le total de la liste, lui, reste le compte vivant déjà là
+(`countContacts`, « N contact(s) correspondent ») et peut être plus petit si d'autres filtres sont posés.
+
+Le compte de la pastille se calcule une fois, dans `GET /tenants/:tenantId/contacts/segments`, que `useSegments`
+appelle déjà à l'ouverture du panneau. Deux `count`, le même `buildContactWhere` que `GET .../contacts/count`, chacun
+avec le filtre fixe du bouton. Pas une nouvelle route, pas un parcours des messages, pas un compte à chaque frappe.
+Sans boutique, on ne les calcule pas : l'accordéon n'est pas là. On ne met pas ce nombre en cache en base. La lecture
+du panneau suffit. Si elle tarde, les boutons restent masqués le temps de la réponse, plutôt que d'afficher un zéro
+faux.
+
+Un brouillon qui a le bouton posé le garde visible même si le compte retombe à zéro, pour qu'on puisse le retirer.
+Même règle qu'un filtre déjà posé.
+
+Clés réservées, valeur JSON `true`, rien d'autre : `segment_ecrit_sans_commande`, `segment_clic_sans_commande`. Une
+clé en plus dans la valeur est refusée. Le MCP les annonce en booléens sans paramètre (`wrote_without_order`,
+`clicked_without_order`), pour que l'assistant ait le même geste qu'un clic.
+
 ### Effort et place dans l'ordre
 
-| Lot | Contenu | Effort |
-|---|---|---|
-| UX | Accordéon avec les trois filtres déjà livrés, bouton Shopify de l'audience, `FiltresShopify` partagé, activité laissée à part | S |
-| Ensuite | Chaque lot (1a, 1b, 4a, 4c, 7a) ajoute sa ligne dans `FiltresShopify` seulement | inclus dans le lot |
-
-L'UX part tout de suite, avant les chantiers. Elle ne dépend de rien d'autre que de l'écran actuel. Les lignes nouvelles arrivent avec le filtre qu'elles lisent, pas dans un lot d'écran à la fin. Sans ça, chaque chantier redessinerait le panneau.
-
-Dans la feuille de route, ce lot est le 0. Les lots 1a et suivants ne refont pas l'écran : ils ajoutent une ligne.
+Le volet et le bouton d'audience, avec les trois filtres déjà livrés, sont le lot 1 de la feuille de route. Les lignes
+nouvelles s'ajoutent à `FiltresShopify` dans le lot qui les porte. Le panneau ne se redessine pas à chaque fois.
 
 ## Feuille de route
 
-L'ordre privilégie ce qui ne demande aucun redéploiement de l'app du marchand, et ce qui rend un segment vrai plus tôt.
+Ordre confirmé par Julien le 2026-11-22. C'est l'ordre de livraison. Les numéros 1a, 2a et 7a des chantiers restent
+les noms techniques. Ici, le lot est le paquet qui part.
 
-| Ordre | Lot | Dépend de | Pourquoi là |
-|---|---|---|---|
-| 0 | UX, accordéon et onglet Shopify | rien | Les trois filtres déjà livrés sortent de « Achats et activité ». Mini-CRM et audience lisent `FiltresShopify`. |
-| 1 | 1a, lignes et filtres produit | le lot 0 pour la ligne du volet | Le corps `orders/paid` a déjà les lignes. Vente croisée et réassort, depuis le branchement, sans scope nouveau. La ligne s'ajoute au volet, elle ne redessine pas le panneau. |
-| 2 | 7a, réponse et clic séparés | rien | Indépendant de Shopify. « A cliqué sans jamais répondre », Pro, sans IA. Peut partir en parallèle de 1a. |
-| 3 | 2a, rattrapage 60 jours | 1a | Même scope qu'aujourd'hui. Remplit les lignes sur le passé récent. Rend l'onglet fiche honnête, y compris en Free. |
-| 4 | 4a, étiquettes Shopify en lecture | rien d'autre que `read_customers`, déjà là | Le marchand retrouve ses étiquettes sans les mélanger aux nôtres. Pas de webhook. |
-| 5 | 2c, fiches d'acheteurs | 2a, et la règle des numéros | Pro. Numéro utilisable seulement. Le premier `131026` supprime la fiche créée pour l'envoi et rend la place. |
-| 6 | 2b, 24 mois | 2a | Demande `read_all_orders` et un redéploiement. À grouper avec 1b et 4b pour ne faire approuver l'app qu'une fois. |
-| 7 | 4c, segments natifs | 4a pour le lien client | Le marchand coche jusqu'à 20 segments. Asynchrone à prévoir dès ce lot. |
-| 8 | 1b, collections | 1a, et le redéploiement de 2b si on groupe les scopes | `read_products`. Sémantique « collection actuelle », dite dans l'écran. |
-| 9 | 7b, temps de l'analyse | 7a utile, pas requis | Entreprise. Petit. Peut monter dès que 7a est là, sans attendre Shopify. |
-| 10 | 4b, webhooks d'étiquettes | 4a | Fraîcheur sous la journée. Inutile tant que la reprise quotidienne suffit. |
+| Lot | Contenu | Dépend de | Effort | En parallèle |
+|---|---|---|---|---|
+| 1 | Refactor seulement. Accordéon Shopify dans `ContactFilterPanel`, bouton Shopify dans l'audience, composant partagé `FiltresShopify`, les trois filtres déjà livrés (commandes, dépense, dernière commande). L'activité reste dans « Achats et activité ». | rien | S | le lot 2 |
+| 2 | Règle du numéro utilisable, suppression de la fiche au premier accusé `failed` de code `131026`, bloc Joignabilité en bas de Performance Lab > Quantitatif > Shopify. | rien | M | le lot 1 |
+| 3 | Produits, réassort, collection. Les lignes viennent du webhook, sans scope nouveau. La collection se code ici et reste masquée tant que `read_products` n'est pas accordé : cet accord part avec le lot 6, pas dans un consentement à part. | le lot 1 pour la ligne du volet | M | |
+| 4 | « A écrit sans commander » et « A cliqué sans commander », boutons prêts, pastille, masqués à zéro. Colonnes `derniere_reponse_le` et `dernier_clic_le`. | le lot 1 pour les boutons du volet. Les commandes payées existent déjà. | M | |
+| 5 | Rattrapage 60 jours pour toutes les offres. Fiches vivantes seulement, numéro utilisable, pas de fiche créée. Les lignes du lot 3 se remplissent en même temps. | les lots 2 et 3 | M | |
+| 6 | Étiquettes Shopify et segments natifs, en lecture, sans les mélanger aux étiquettes Messaging Me. Un seul consentement marchand pour les scopes nouveaux : `read_products` (la collection du lot 3 s'allume) et `read_all_orders` (le lot 7 s'en sert). Les sujets de webhook d'étiquettes vont dans le même déploiement d'app, ce ne sont pas des scopes. | le lot 1 pour les lignes du volet | M | |
+| 7 | D'abord le Pro : historique 24 mois et fiches d'acheteurs (numéro utilisable, suppression au premier `131026`). Ensuite l'Entreprise : le rapport entre la dernière analyse et les commandes. | le lot 5 pour la reprise, le lot 6 pour `read_all_orders` déjà accordé | M, puis S | |
 
-En parallèle, sans se gêner : 1a et 7a. Puis 2a. Le groupe « le marchand redéploie » (2b, 1b, 4b) part dans une seule
-mise à jour de la skill et un seul lien d'installation, même si les lots de code sont séparés. Une approbation par
-boutique, pas trois.
+Le lot 2 ne touche pas au panneau de filtres. Il peut partir en même temps que le lot 1, sur une autre branche de
+travail. À partir du lot 3, on enchaîne : chaque lot ajoute sa ligne au volet déjà en place.
 
-Gains rapides, dans l'ordre : **1a**, **7a**, **2a**. Les trois tiennent avec les scopes déjà installés. 1a et 2a
-donnent la vente croisée et le réassort sur 60 jours. 7a donne le signal conversationnel que le Pro peut avoir sans
-payer une analyse.
-
-Ce qui attend volontairement : les remboursements, l'appartenance à une collection au jour du paiement, l'historique
-des analyses, une intention « délai de livraison », les webhooks de segment, la copie automatique des étiquettes.
+Ce qui attend toujours : les remboursements déduits, l'appartenance à une collection au jour du paiement, l'historique
+des analyses, une intention « délai de livraison », la copie automatique des étiquettes Shopify vers les étiquettes
+Messaging Me.
 
 Ordre de mise en production, pour chaque lot qui touche la console : la console ne montre un critère que si
 `GET .../contacts/segments` l'annonce. Un critère qui atteint une API plus ancienne ne trouve personne. Le même filet
-que le lot du 2026-10-31. La migration qui ajoute une colonne écrite par un chemin chaud part en `avant`.
+que le lot du 2026-10-31. La migration qui ajoute une colonne écrite par un chemin chaud part en `avant`. Le lot 2
+écrit `whatsapp` sur un accusé déjà chaud et ajoute le compte du Performance Lab : sa migration de comptes, si elle
+nomme une table lue par l'accusé, part en `avant`.
 
 ## Questions ouvertes
 
@@ -1413,9 +1444,10 @@ que le lot du 2026-10-31. La migration qui ajoute une colonne écrite par un che
     dès qu'un message échoue, pas dans un lot à part ?
 21. **Ventes sans contact.** `ventes_attribuees` peut garder l'identifiant de commande et le montant, sans téléphone,
     quand la preuve UTM existe. On le laisse. On confirme qu'aucun carnet ne se reconstruit depuis cette table ?
-22. **Volet Shopify.** « A écrit » et « a cliqué » restent dans Activité. Seuls « sans commander » entrent dans le volet.
-    On confirme ce découpage ? La boutique coupée laisse l'onglet cliquable (historique local). On confirme qu'on ne le
-    grise pas comme la pause HubSpot ?
+22. **Boutons « sans commander ».** La règle est fermée : pas de période, « aucune commande enregistrée », les deux
+    boutons ne s'excluent pas. Faut-il plus tard une période en plus, à côté du bouton, ou le geste sans réglage suffit
+    pour de bon ? La pastille est le compte du bouton seul. On confirme qu'elle ne doit pas devenir le total déjà
+    filtré par le reste du panneau ?
 
 ## Sources
 
