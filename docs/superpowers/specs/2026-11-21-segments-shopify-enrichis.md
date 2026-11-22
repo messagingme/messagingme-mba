@@ -1270,13 +1270,77 @@ Un filtre n'envoie rien. Le consentement marketing reste celui de la campagne.
 7a est un M à cause des deux chemins chauds, de la migration de remplissage et des trois portes (filtre, console,
 MCP). 7b est un S : une clé, une clause, un contrôle, un refus d'offre. Le chantier n'est pas un L.
 
+## Filtres Shopify, mini-CRM et audience de campagne
+
+Décision d'ergonomie de Julien (2026-11-22). Les critères Shopify se regroupent dans un seul volet, au mini-CRM et au choix des destinataires. Une seule définition, les deux écrans la montrent.
+
+### Ce qui existe
+
+**Mini-CRM.** L'écran Contacts (`web/app/contacts/page.tsx`) et le choix des destinataires passent par le même panneau, `ContactFilterPanel` (`web/components/ContactFilterPanel.tsx`). Le commentaire du fichier le dit : une seule implémentation, pas deux moteurs. Les critères d'achats sont le bloc « Achats et activité », composant `FiltresAchatsActivite` (`web/components/FiltresAchatsActivite.tsx`), branché en bas du panneau. Il mélange l'activité (a écrit ou cliqué, sans boutique) et, si `GET .../contacts/segments` a répondu avec une boutique, les trois filtres Shopify déjà livrés : commandes payées, dépense, dernière commande. Il n'y a pas de volet repliable. Le total du mini-CRM est celui de la liste (`res.total`).
+
+**Audience de campagne.** Étape 4, `EtapeAudience` (`web/components/campagne/EtapeAudience.tsx`). Une rangée de boutons `BoutonSource` : « Liste de contacts », « Import fichier », « HubSpot » si le connecteur est là, « Au fil de l'eau ». HubSpot n'est pas un filtre. `HubspotListImport` (`web/components/HubspotListImport.tsx`) liste les listes du portail, en importe une, pose l'étiquette « HubSpot: <nom> », puis `apresImport` ramène la source sur `crm` filtrée par cette étiquette. Le bouton est masqué si le portail n'est pas relié (`hubspotListes` : `hubspotListsEnabled` et `hubspotPortalConnecte !== false`, `web/app/campaigns/nouvelle/page.tsx`). En pause, il reste, grisé, avec la raison. La liste de contacts, elle, réaffiche `ContactFilterPanel` dans `ListeDestinataires`. Le compte vivant est celui du serveur : « N contact(s) correspondent » (`destinataires-total`) et, en pied, « N contacts retenus » (`audience-compte`). `useContactsFiltres` ne tourne que si `source === 'crm'`. Changer de source oublie la cible (`choisirSource`).
+
+### Le volet Shopify du mini-CRM
+
+Un accordéon « Shopify », replié par défaut, dans `ContactFilterPanel`, à la place des trois lignes de commandes aujourd'hui noyées dans « Achats et activité ». Le patron visuel est celui déjà utilisé pour un volet repliable : `details` et `summary` (comme `VoletIntegration`), pas un composant nouveau. S'il y a au moins un critère Shopify posé, l'accordéon s'ouvre, pour qu'un brouillon repris montre ce qui filtre.
+
+L'activité générale (actif, inactif, a écrit, a cliqué, a cliqué sans répondre) reste dans « Achats et activité ». Elle marche sans boutique. Elle ne déménage pas.
+
+Ordre dans l'accordéon, de haut en bas :
+
+1. Commandes payées (au moins, au plus, sur N jours). Déjà livré.
+2. Dépense, avec la devise. Déjà livré.
+3. Dernière commande, en jours. Déjà livré.
+4. Produit ou variante (identifiant, SKU, titre déjà vu). Lot 1a. L'exclusion « n'a pas acheté » sur la même ligne, jamais seule.
+5. Dernier achat de ce produit, en jours (réassort). Lot 1a.
+6. Collection. Lot 1b. Absente tant que le scope manque : la ligne dit pourquoi et donne le lien d'installation, elle ne filtre pas à zéro.
+7. Étiquettes Shopify, distinctes des étiquettes Messaging Me. Lot 4a. Si la synchro n'a jamais abouti, la ligne le dit et ne s'applique pas.
+8. Segments Shopify suivis, avec la date de synchro. Lot 4c. Vide : « aucun segment suivi », lien vers la carte Shopify.
+9. Croisements commerce du lot 7a : a écrit sans commander, a cliqué sans commander. Pas « a écrit » ni « a cliqué » tout seuls, qui restent dans Activité.
+
+La joignabilité WhatsApp ne rentre pas dans ce volet. Elle est déjà le filtre général « sauf les injoignables connus ». Les numéros en échec définitif sont supprimés : il n'y a pas une liste d'injoignables Shopify à filtrer. Le volet ne répète pas le taux du Performance Lab.
+
+Sous la liste, la phrase déjà écrite par `FiltresAchatsActivite` : commandes suivies depuis telle date, remboursements non déduits, boutique coupée le cas échéant.
+
+**Vide.** Pas de boutique : l'accordéon n'est pas là. Même règle que le bouton HubSpot, masqué plutôt que grisé. Un critère déjà posé (brouillon d'avant la coupure du lien) reste visible pour être retiré. Boutique coupée : l'accordéon reste, l'historique se filtre, la phrase date la coupure. Boutique branchée sans aucune commande : l'accordéon s'ouvre, les champs sont vides, la phrase de suivi suffit. On n'invente pas un second état « rien à filtrer » qui cacherait les champs.
+
+**Offres.** La console est Pro et au-dessus. La Free ne voit pas ce panneau. Dans le volet, pas de filtre Enterprise sauf le rapport commande / analyse, qui reste dans « Dernière analyse » (fonction `analyse`). Collections, étiquettes et segments apparaissent quand leur lot est annoncé par `GET .../contacts/segments`, comme les trois critères actuels. Une ligne que l'API ne connaît pas n'est pas proposée.
+
+Le composant s'extrait de `FiltresAchatsActivite` : `FiltresShopify`, mêmes clés réservées, même `onChange` de `fieldFilters`. `FiltresAchatsActivite` ne garde que l'activité. Les deux écrans importent `FiltresShopify`. Aucune seconde liste de critères.
+
+### L'onglet Shopify de l'audience
+
+Même rangée que HubSpot : un `BoutonSource` « Shopify », logo à côté du libellé, `data-testid="audience-source-shopify"`, placé après HubSpot et avant « Au fil de l'eau ».
+
+Visible seulement si une boutique est connue de l'espace (branchée ou coupée avec historique). Pas de boutique : le bouton n'est pas rendu. Pas de gris « vous n'avez pas Shopify ». Boutique en pause ou coupée : le bouton reste cliquable, l'aide sous le bouton dit la coupure. On ne le grise pas comme la pause HubSpot : les filtres lisent un historique local, ils n'appellent pas Shopify au moment du clic.
+
+Ce n'est pas un import. HubSpot copie une liste puis étiquette. Shopify filtre des fiches déjà là. Le panneau affiché est `ListeDestinataires`, donc le même `ContactFilterPanel`, avec l'accordéon Shopify ouvert (`voletShopify` forcé ouvert). Le compte vivant ne change pas de chemin : `useContactsFiltres` et « N contacts retenus ». Pour ça, la source qui compte doit inclure Shopify. On ajoute `shopify` à `SourceAudience`. `actif` vaut vrai pour `crm` et pour `shopify`. `choisirSource('shopify')` ne jette pas les `fieldFilters` Shopify. Il remet la sélection sur « tout ce qui correspond », comme un changement de source le fait déjà, et il ouvre le volet. Revenir à « Liste de contacts » garde les filtres : les deux boutons montrent le même `ContactFilters`. Sinon le compte divergerait dès qu'on change d'onglet.
+
+Le pied de page, source Shopify, dit le même nombre que la liste. Pas une phrase « l'import choisira », qui est celle de HubSpot et du fichier.
+
+### API
+
+Pas de route nouvelle. Les filtres voyagent comme aujourd'hui dans `fieldFilters`. `GET /tenants/:tenantId/contacts/segments` annonce ce que le volet a le droit de montrer (boutique, collections, étiquettes, segments). Le compte est `countContacts` / le `total` de la liste, déjà partagés. L'API publique `/v1` ne reçoit pas ces filtres.
+
+### Effort et place dans l'ordre
+
+| Lot | Contenu | Effort |
+|---|---|---|
+| UX | Accordéon avec les trois filtres déjà livrés, bouton Shopify de l'audience, `FiltresShopify` partagé, activité laissée à part | S |
+| Ensuite | Chaque lot (1a, 1b, 4a, 4c, 7a) ajoute sa ligne dans `FiltresShopify` seulement | inclus dans le lot |
+
+L'UX part tout de suite, avant les chantiers. Elle ne dépend de rien d'autre que de l'écran actuel. Les lignes nouvelles arrivent avec le filtre qu'elles lisent, pas dans un lot d'écran à la fin. Sans ça, chaque chantier redessinerait le panneau.
+
+Dans la feuille de route, ce lot est le 0. Les lots 1a et suivants ne refont pas l'écran : ils ajoutent une ligne.
+
 ## Feuille de route
 
 L'ordre privilégie ce qui ne demande aucun redéploiement de l'app du marchand, et ce qui rend un segment vrai plus tôt.
 
 | Ordre | Lot | Dépend de | Pourquoi là |
 |---|---|---|---|
-| 1 | 1a, lignes et filtres produit | rien | Le corps `orders/paid` a déjà les lignes. Vente croisée et réassort, depuis le branchement, sans scope nouveau. |
+| 0 | UX, accordéon et onglet Shopify | rien | Les trois filtres déjà livrés sortent de « Achats et activité ». Mini-CRM et audience lisent `FiltresShopify`. |
+| 1 | 1a, lignes et filtres produit | le lot 0 pour la ligne du volet | Le corps `orders/paid` a déjà les lignes. Vente croisée et réassort, depuis le branchement, sans scope nouveau. La ligne s'ajoute au volet, elle ne redessine pas le panneau. |
 | 2 | 7a, réponse et clic séparés | rien | Indépendant de Shopify. « A cliqué sans jamais répondre », Pro, sans IA. Peut partir en parallèle de 1a. |
 | 3 | 2a, rattrapage 60 jours | 1a | Même scope qu'aujourd'hui. Remplit les lignes sur le passé récent. Rend l'onglet fiche honnête, y compris en Free. |
 | 4 | 4a, étiquettes Shopify en lecture | rien d'autre que `read_customers`, déjà là | Le marchand retrouve ses étiquettes sans les mélanger aux nôtres. Pas de webhook. |
@@ -1349,6 +1413,9 @@ que le lot du 2026-10-31. La migration qui ajoute une colonne écrite par un che
     dès qu'un message échoue, pas dans un lot à part ?
 21. **Ventes sans contact.** `ventes_attribuees` peut garder l'identifiant de commande et le montant, sans téléphone,
     quand la preuve UTM existe. On le laisse. On confirme qu'aucun carnet ne se reconstruit depuis cette table ?
+22. **Volet Shopify.** « A écrit » et « a cliqué » restent dans Activité. Seuls « sans commander » entrent dans le volet.
+    On confirme ce découpage ? La boutique coupée laisse l'onglet cliquable (historique local). On confirme qu'on ne le
+    grise pas comme la pause HubSpot ?
 
 ## Sources
 
