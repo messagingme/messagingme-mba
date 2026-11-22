@@ -152,10 +152,10 @@ Beaucoup de ces commandes n'ont aucun téléphone, ou un téléphone illisible, 
 WhatsApp. On ne crée une fiche, et on ne rattache une commande, que pour un numéro valide et adressable sur WhatsApp.
 On ne conserve pas un numéro qu'on ne peut pas écrire.
 
-Un contact adressable, dans cette spec : un E.164 que `normalizePhone` accepte, que `estUnFixe` ne refuse pas, et qui
-n'est pas un « non » WhatsApp encore frais (`verdictWhatsApp` = `non`, péremption 90 jours,
-`PEREMPTION_WHATSAPP_MS`). Un numéro jamais éprouvé est adressable au sens « on a le droit d'essayer une fois », pas
-au sens « on le sait sur WhatsApp ». Le pourcentage montré au marchand sépare les deux.
+Un numéro utilisable, dans cette spec : un E.164 que `normalizePhone` accepte et que `estUnFixe` ne refuse pas. On a
+le droit d'essayer un envoi. On ne sait pas encore s'il est sur WhatsApp. S'il ne l'est pas, la fiche est supprimée au
+premier accusé définitif, et elle sort du plafond. Le pourcentage du Performance Lab sépare livré, sans numéro,
+invalide, supprimé, en attente.
 
 ### Ce qui se passe aujourd'hui
 
@@ -223,70 +223,177 @@ ni mobile est une commande sans numéro utilisable.
 Ces commandes ne laissent aucune donnée personnelle. Pas de téléphone, pas de nom, pas d'adresse, pas d'identifiant
 client Shopify, pas de ligne dans `shopify_commandes`. Le webhook est quand même acquitté : le message, s'il est
 allumé, a déjà son issue `sans_telephone`. On garde au plus des comptes, par espace et par jour, sans identifiant de
-commande : reçues, sans numéro utilisable, numéro non mobile, rattachées à une fiche adressable, éprouvées et livrées,
-éprouvées et non livrées (`131026` au second échec). `ventes_attribuees` sans contact (identifiant de commande, montant,
-devise, pas de téléphone) reste le chemin du chiffre d'affaires déjà livré. Cette spec ne le vide pas. Elle ne s'en
-sert pas comme carnet.
+commande : reçues, sans numéro, numéro invalide ou fixe, livrées, supprimées après échec définitif, encore en attente.
+Aucun de ces comptes ne porte un téléphone ni un identifiant de commande. `ventes_attribuees` sans contact (identifiant
+de commande, montant, devise, pas de téléphone) reste le chemin du chiffre d'affaires déjà livré. Cette spec ne le vide
+pas. Elle ne s'en sert pas comme carnet.
 
-**Savoir qu'un numéro n'est pas sur WhatsApp.** Il n'y a pas d'appel de vérification dans ce dépôt, et le `131026` est
-le signal que Meta documente. Il dit « pas livrable », ce qui couvre aussi des conditions non acceptées et un client
-trop ancien : ce n'est pas une preuve éternelle. D'où la politique déjà en code, qu'on garde : pas de rejeu immédiat,
-une relance, puis le « non ». Le « non » périme à 90 jours. On ne rallonge pas les essais. Deux échecs suffisent. Un
-troisième envoi automatique vers le même numéro, sans geste nouveau, ne part pas tant que le « non » est frais.
+**Décision de Julien (2026-11-22).** Quand Meta renvoie un accusé `failed` pour un motif permanent « pas sur WhatsApp
+ou non livrable », on ramène l'échec dans Messaging Me et on supprime la fiche. La place du plafond se libère
+(`contactsToutesOrigines` ne compte que les fiches vivantes). On ne garde que le compte anonyme de l'échec.
 
-**Après le second `131026`.**
+L'accusé existe déjà. Le webhook Meta `statuses` est lu par `extractDelivery` (`src/webhooks/delivery.ts`) : `sent`,
+`delivered`, `read` ou `failed`, et `errors[0].code`. `updateDeliveryByMessageId` pose le statut sur le destinataire
+et sur le message. Aujourd'hui, au `131026`, le balayage de campagne retente une fois puis écrit
+`whatsapp_joignable = false` et garde la fiche. Cette écriture est remplacée par la suppression, sur le même accusé.
 
-- Fiche née de cet envoi Shopify, sans message entrant de la personne : on la purge. Elle sort du plafond. Les
-  commandes et les lignes partent avec elle (cascade déjà prévue). Le compte « non livrées » augmente. On ne garde pas
-  le numéro. Une commande suivante pourra réessayer, parce qu'on n'a pas de liste noire : c'est le prix de ne pas
-  stocker le numéro, et `131026` n'est pas définitif à vie. Un condensat du type de l'empreinte STOP (illisible, pour
-  ne pas recréer tout de suite) est une question ouverte, pas le défaut.
-- Fiche déjà là pour une autre raison (elle a écrit, elle a été importée, un envoi précédent a été livré) : on ne la
-  purge pas. On pose le « non », comme aujourd'hui. Elle reste dans le plafond : c'est une personne avec qui l'espace
-  a déjà une fiche légitime, pas un numéro mort créé en masse. Les segments et les campagnes de ces chantiers
-  l'écartent tant que le verdict est `non`. Le filtre « sauf les injoignables connus » devient le défaut des cibles
-  qui utilisent un critère Shopify de cette spec, pas un filtre que l'assistant doit penser à poser.
+**Pas de second envoi avant la suppression.** Le rejeu d'aujourd'hui servait à ne marquer « injoignable » qu'au second
+échec, tout en gardant la fiche. Il n'a plus d'objet : le temps du second essai, le numéro mort occupe le plafond et
+consomme un modèle de plus. La page des codes dit, pour `131026`, de joindre la personne par un autre canal, pas de
+renvoyer. Si la cause était des conditions non acceptées ou une application ancienne (la page met les trois causes
+sous le même code, sans les distinguer), la personne peut encore nous écrire : un message entrant recrée une fiche.
+On ne garde ni le numéro ni une liste noire, donc une commande suivante pourra retenter. C'est le prix assumé.
 
-On ne crée pas de fiche « pour stocker la commande » sans envoi. La seule création admise est celle que l'envoi d'un
-template fait déjà, et elle ne devient durable que si le message n'a pas fini en second `131026`. Le plafond ne se
-remplit pas de numéros morts.
+**Codes qui suppriment, liste fermée.** Un seul, lu sur la page des codes le 2026-11-22 :
 
-### Le chiffre montré au marchand
+| Code | Ce que la page en dit | Effet |
+|---|---|---|
+| `131026` | « Unable to deliver message ». Le numéro n'est pas un numéro WhatsApp, ou les conditions ne sont pas acceptées, ou l'application est trop ancienne. | Au premier accusé `failed` : supprimer la fiche. |
 
-« X % de vos commandes sont joignables sur WhatsApp. »
+Un accusé `failed` sans ce code ne supprime personne. Un `failed` sans code non plus : on ne devine pas.
 
-X = commandes livrées au moins une fois sur WhatsApp, divisées par les commandes reçues sur la période (webhook, et
-reprise une fois qu'elle a classé chaque commande). Une commande au numéro valide jamais éprouvé n'entre pas dans X
-comme un échec : elle est « pas encore éprouvée ». L'écran montre quatre parts qui font le tout :
+**Codes qui ne suppriment pas.** Ils parlent de nous, du message ou d'un choix de la personne qui est pourtant sur
+WhatsApp. La fiche reste. Le compte « supprimées » ne bouge pas.
 
-- pas de numéro utilisable (absent, illisible, ou non mobile) ;
-- numéro utilisable, pas encore éprouvé ;
-- livrée sur WhatsApp ;
-- éprouvée, non livrée (`131026` au second échec).
+| Code | Nature | Pourquoi on garde la fiche |
+|---|---|---|
+| `130429`, `131048`, `131056` | Plafond de débit, de qualité, ou de la paire (`CODES_PLAFOND_NUMERO`, et `131056` rejouable) | Temporaire. Ça vise notre numéro ou le rythme, pas l'existence du destinataire. |
+| `131049` | Meta refuse le marketing pour ménager l'écosystème. Attendre 24 h. | Temporaire. Le moteur le retente déjà le lendemain matin. |
+| `131042` | Moyen de paiement, ligne de crédit, compte suspendu | Le compte WhatsApp Business, pas le client. |
+| `131045` | Numéro émetteur pas enregistré | Le nôtre. |
+| `131047` | Plus de 24 h depuis la dernière réponse | Il faut un modèle, pas une suppression. |
+| `131051`, `131052`, `131053` | Type de message ou média | Le message. |
+| `134100`, `134101`, `134102` | Marketing Messages API (catégorie, synchro, modèle indisponible) | Le modèle. |
+| `100`, `131008`, `131009` | Paramètre | Le corps de l'appel. |
+| `190`, `131005` | Jeton ou permission | Le compte. |
+| `131000`, `131016` | Erreur inconnue, service indisponible | La page dit de réessayer. |
+| `130472` | Expérience marketing | Temporaire, côté Meta. |
+| `131037`, `131057`, `131063` | Nom affiché, maintenance, modèle marketing désactivé | Le compte ou le modèle. |
+| `131050` | La personne a coupé les messages marketing de cette entreprise | Elle est sur WhatsApp. C'est un refus marketing, pas une absence. On ne la supprime pas. Le chemin de désabonnement existant s'en charge s'il écoute déjà ce code. Ce lot ne le transforme pas en suppression. |
+| `130403` | Nous avons bloqué cette personne | Geste à nous. |
+| `131021` | L'émetteur et le destinataire sont le même numéro | Erreur d'envoi. |
 
-X est la troisième part. Sans la quatrième ligne, un marchand qui n'a pas allumé la confirmation lirait 0 % et
-croirait que personne n'est sur WhatsApp. Le texte le dit : « joignable » veut dire « un message est arrivé », pas
-« le numéro a l'air bon ».
+La suppression est celle du mini-CRM (`purgeMany`) : la fiche, ses conversations, ses commandes Shopify, ses lignes.
+Elle part du traitement de l'accusé, pour tout envoi de l'espace (confirmation Shopify, campagne, scénario), pas
+seulement pour Shopify. C'est le même webhook. Une suppression qui échoue ne fait pas rejouer Meta : l'accusé est déjà
+pris, on journalise, le balayage suivant retrouve les `failed` encore liés à une fiche vivante.
+
+**Fiche qui avait déjà une conversation ou un accord.** Proposition, pas une décision : on ne la supprime pas dans ce
+lot. Effacer quelqu'un qui a écrit, ou dont le consentement a été posé par un import ou un CSV avant cet envoi,
+détruirait l'historique et l'accord à cause d'un modèle non livré. Ces fiches restent, elles restent dans le plafond,
+et le compte les isole (« échec définitif, fiche conservée »). Question ouverte pour Julien. S'il dit de supprimer
+quand même, `purgeMany` emporte l'historique avec la fiche, et le compte ne distingue plus les deux.
+
+On ne crée pas de fiche « pour stocker la commande » sans envoi. La fiche créée pour l'envoi ne survit pas à un
+`131026`. Le plafond ne se remplit pas de numéros morts.
 
 ### La règle dans chaque chantier
 
-**Chantier 1.** Les lignes et les collections ne s'écrivent que sur une fiche adressable déjà résolue par le téléphone
-utilisable. Pas de fiche créée pour porter un produit. Une fiche au verdict `non` ne reçoit pas de nouvelle ligne. Les
-commandes sans numéro utilisable n'ont pas de ligne, seulement le compte du jour.
+**Chantier 1.** Les lignes et les collections ne s'écrivent que sur une fiche encore là, résolue par un numéro
+utilisable. Pas de fiche créée pour porter un produit. Une commande sans numéro utilisable n'a pas de ligne, seulement
+le compte du jour. Si la fiche est supprimée après un `131026`, les lignes partent avec elle.
 
 **Chantier 2.** La reprise 60 jours (Free) et 24 mois (Pro) ne crée aucune fiche. Elle ne rattache que les commandes
-dont le téléphone utilisable est déjà celui d'une fiche adressable. Le reste est un compte, pas une file d'attente de
-numéros. L'action Pro « fiches d'acheteurs » ne pré-crée pas jusqu'à 1 000. Elle n'envoie que vers des numéros
-utilisables, dans les places restantes, et une fiche qui finit en second `131026` sans message entrant est purgée et
-libère sa place. Le plafond 1 000 ne se remplit pas de numéros morts. L'aperçu compte sans rien écrire.
+dont le numéro utilisable est déjà celui d'une fiche vivante. Le reste est un compte. L'action Pro « fiches
+d'acheteurs » n'envoie que vers des numéros utilisables, dans les places restantes. Au premier `131026`, la fiche
+créée pour cet envoi est supprimée et la place revient. L'aperçu compte sans rien écrire.
 
-**Chantier 4.** Étiquettes et segments Shopify ne se posent que sur des fiches adressables. Pas de fiche créée pour
-accueillir une étiquette. Un client Shopify dont le seul numéro est inutilisable, ou dont la fiche est en verdict
-`non`, compte dans « membres lus, pas de fiche adressable » et n'est pas stocké.
+**Chantier 4.** Étiquettes et segments Shopify ne se posent que sur des fiches vivantes. Pas de fiche créée pour
+accueillir une étiquette. Un client sans numéro utilisable, ou dont la fiche a été supprimée, compte dans « membres
+lus, pas de fiche » et n'est pas stocké.
 
-**Chantier 7.** Les signaux de conversation (réponse, clic, analyse) n'existent que sur des fiches déjà adressables :
-quelqu'un a écrit, a cliqué un lien qui le désigne, ou a une analyse. Ce chantier ne crée personne pour croiser un
-achat. « A cliqué sans jamais répondre » ne recrute pas les numéros que le `131026` a écartés.
+**Chantier 7.** Réponse, clic et analyse supposent une fiche vivante. Ce chantier ne crée personne. Une fiche supprimée
+après un `131026` sort des critères. « A cliqué sans jamais répondre » ne recrute pas ces numéros.
+
+## Performance Lab, commandes expédiées et messages livrés
+
+### Où c'est
+
+L'onglet **Performance Lab** a un groupe **Quantitatif**. L'entrée **Shopify** n'apparaît que si l'espace a une
+boutique (`navSansShopify`, `web/lib/nav.ts`, clé `quanti-shopify`, adresse `/dashboard/shopify`). La fonction de
+l'écran est `statistiques` : Pro et au-dessus, pas le `performance_lab` réservé à la Synthèse et à l'analyse des
+conversations (`src/offres/etape.ts`). La Free n'a pas la console.
+
+La page est `web/app/dashboard/shopify/page.tsx`. Aujourd'hui, de haut en bas : la période (la même barre que les
+onglets voisins), le chiffre d'affaires attribué, la règle de calcul, le ROI des leviers de vente
+(`getRoi`, `/stats/roi`), puis le tableau par source. Le même chiffre d'affaires est lu par `get_revenue_stats`. Ce
+bloc-ci ne change pas cet outil.
+
+Le bloc nouveau se place **en bas de cette page**, après la règle et après le tableau par source. Même période. Les
+commandes de test sont annoncées à part et n'entrent pas dans le taux, comme le chiffre d'affaires.
+
+### Les deux chiffres, et le taux
+
+Sur la période :
+
+- **Commandes expédiées** : le nombre de commandes distinctes pour lesquelles Shopify a envoyé au moins un
+  `fulfillments/create`. Le sujet est déjà abonné (`SUJETS_ABONNES`, et le toml de la skill). Le corps est
+  `schemaExpedition` (`src/shopify/donnees.ts`) : `order_id` est l'identifiant de la commande, `id` celui de
+  l'expédition. Une commande en deux colis (`#1002` puis `#1002.1`) compte une fois. On ne compte pas les événements,
+  on compte les commandes.
+- **Messages WhatsApp livrés** : les messages de confirmation (`orders/paid`) et d'avis d'expédition
+  (`fulfillments/create`) dont l'accusé Meta est `delivered` ou `read`. `sent` n'est pas une livraison : Meta a
+  accepté l'envoi, le téléphone ne l'a pas forcément reçu. `read` compte comme livré, puisque lu implique livré.
+  L'accusé vient du webhook `statuses`, déjà ingéré par `extractDelivery`.
+
+Le taux ne divise pas les messages par les commandes : une confirmation et un avis d'expédition feraient dépasser
+100 %. 
+
+**Taux de joignabilité** = commandes expédiées de la période pour lesquelles au moins un de ces messages est
+`delivered` ou `read`, divisé par les commandes expédiées de la période.
+
+Les deux totaux restent visibles l'un à côté de l'autre. La phrase sous le taux dit qu'une commande peut avoir deux
+messages.
+
+### La répartition
+
+Les commandes expédiées se répartissent en cinq parts, sans recouvrement. La première part qui s'applique gagne :
+
+1. **Livrée** : au moins un message `delivered` ou `read`.
+2. **Échec, contact supprimé** : un accusé `failed` de code `131026`, et la fiche a été supprimée.
+3. **Sans numéro** : aucun des quatre candidats n'avait de texte.
+4. **Numéro invalide ou fixe** : du texte, mais aucun E.164 mobile (`normalizePhone` refuse, ou `estUnFixe`).
+5. **En attente** : un numéro utilisable, l'envoi est parti ou pas encore, et aucun accusé `delivered`, `read` ou
+   `failed` définitif n'est arrivé. Un simple `sent` reste ici.
+
+La somme des cinq est le nombre de commandes expédiées. Une commande payée pas encore expédiée n'est pas dans ce
+bloc. Elle reste dans les comptes journaliers de la section précédente.
+
+### D'où vient chaque compte
+
+| Part | Source |
+|---|---|
+| Commandes expédiées | Webhook `fulfillments/create`, dédoublonné par `order_id`. |
+| Messages livrés | Webhook `statuses`, statut `delivered` ou `read`, messages dont l'origine est la confirmation ou l'avis d'expédition. |
+| Sans numéro, invalide ou fixe | Classement au moment de `orders/paid` ou de la reprise, dans le compte du jour. Pas de téléphone conservé. |
+| Échec, contact supprimé | Le même `statuses` avec `failed` et `131026`, au moment de la suppression. |
+| En attente | Le reste des commandes expédiées : `sent` sans suite, ou message pas encore parti. |
+
+Pour ne pas compter deux fois un colis, on garde une ligne par commande : `tenant_id`, `commande_id`, l'issue
+(`livree`, `supprimee`, `sans_numero`, `invalide`, `en_attente`), la date d'expédition. Pas de téléphone, pas de nom,
+pas d'adresse. `customers/redact` qui cite cette commande efface la ligne (elle ne porte personne, mais l'identifiant
+de commande était dans la demande). La coupure de la boutique l'efface avec le reste. Le téléphone, lui, n'est jamais
+écrit sur cette ligne.
+
+### L'écran, en mots
+
+Sous le tableau « Par source », une carte « Joignabilité WhatsApp ».
+
+Deux nombres côte à côte, en grand : « 128 commandes expédiées » et « 96 messages livrés ». Dessous, une phrase :
+« 74 % des commandes expédiées ont reçu au moins un WhatsApp livré. Livré veut dire accusé reçu par le téléphone, pas
+seulement accepté par Meta. » Si aucune commande n'est expédiée sur la période, pas de pourcentage : la phrase dit
+qu'il n'y a rien à rapporter, jamais 0 % qui se lirait « personne n'est sur WhatsApp ».
+
+Puis quatre lignes, dans l'ordre, avec le nombre et la part :
+
+- 20 sans numéro ;
+- 8 numéro invalide ou fixe ;
+- 12 échec, contact supprimé ;
+- 24 en attente d'accusé.
+
+128 = 74 livrées au sens du taux (commandes, pas messages) + 20 + 8 + 12 + 24. Les 96 messages peuvent dépasser 74 :
+certaines commandes ont eu la confirmation et l'avis d'expédition. La carte le dit en une ligne. Les commandes de
+test, s'il y en a, une ligne grise en dessous, hors du taux.
 
 ## Chantier 1. Lignes de commande, produits et collections
 
@@ -494,7 +601,7 @@ Les lignes sont des données d'achat rattachées à une fiche qui existe déjà.
 `customers/redact` efface les fiches liées à la commande ou au client, et la cascade emporte les lignes. La coupure
 et `shop/redact` passent par `effacerBranchement`, qui doit emporter la nouvelle table. La purge d'une fiche aussi.
 
-On ne crée pas de fiche. On ne rattache pas une commande à une fiche au verdict WhatsApp `non`. On ne change pas le
+On ne crée pas de fiche pour stocker un produit. Une fiche supprimée après un `131026` emporte ses lignes. On ne change pas le
 consentement. Un modèle marketing continue de n'atteindre que les contacts consentants. Enregistrer qu'une fiche
 adressable a acheté un produit ne l'abonne pas.
 
@@ -616,8 +723,8 @@ sans fiche. Les trois sont relançables et idempotentes (`lierCommande` et l'ups
 |---|---|---|
 | Déclenchement | Outil MCP, une personne nommée, aperçu puis confirmation. Pas au branchement. | Le même outil, plus un bouton sur la carte Shopify. Pas au branchement. |
 | Fenêtre | 60 jours, scope actuel, pas de redéploiement | 60 jours sans rien changer. Jusqu'à 24 mois si `read_all_orders` est accordé. Au-delà de 24 mois : non, dans ce lot. |
-| Rattachement | Fiches adressables déjà là seulement. Le carnet Free en a au plus 100, et une fiche au verdict `non` ne reçoit rien. | Fiches adressables déjà là. Le volume suit le carnet (1 000, 5 000, ou le devis). Pas de numéro inutilisable stocké. |
-| Fiches nouvelles | Non. L'import des abonnés marketing existe déjà. Cette spec ne l'élargit pas aux numéros non éprouvés. | Action à part. Numéro de client utilisable seulement. Place libérée si le second `131026` purge une fiche sans message entrant. |
+| Rattachement | Fiches vivantes seulement, numéro utilisable. Le carnet Free en a au plus 100. | Fiches vivantes, numéro utilisable. Le volume suit le carnet (1 000, 5 000, ou le devis). Pas de numéro inutilisable stocké. |
+| Fiches nouvelles | Non. L'import des abonnés marketing existe déjà. Cette spec ne l'élargit pas aux numéros non éprouvés. | Action à part. Numéro de client utilisable seulement. Au premier `131026`, la fiche créée pour l'envoi est supprimée et la place revient. |
 | Ciblage campagne | Non : `find_contacts` exige `console`. L'onglet fiche, lui, montre l'historique, toutes offres. | Oui, console et MCP. |
 
 Ce qui fait passer au Pro : cibler et envoyer (déjà fermé en Free), aller au-delà de 60 jours, et proposer des fiches
@@ -678,8 +785,9 @@ Création de fiches (Pro et au-dessus, action séparée), sous la règle des num
 - la fiche naît parce qu'un template part, pas pour stocker la commande. Consentement : la source `shopify:<domaine>`
   de l'envoi existant pose déjà `opted_in` quand le message de confirmation part. Cette action-ci ne pose pas un
   second accord. Un achat seul n'est pas un opt-in. Un STOP connu renaît désabonné ;
-- au second `131026`, si la personne n'a jamais écrit, la fiche est purgée et la place revient. Le compte « non
-  livrées » augmente. On ne garde pas le numéro ;
+- au premier accusé `failed` de code `131026`, la fiche créée pour cet envoi est supprimée et la place revient.
+  Le compte « échec, contact supprimé » augmente. On ne garde pas le numéro. Une fiche qui avait déjà une
+  conversation ou un accord avant cet envoi est le cas ouvert plus bas : on propose de la garder ;
 - étiquette proposée, pour celles qui restent : « Acheteur Shopify », pas « Shopify ». L'import des abonnés pose déjà
   « Shopify ». Question ouverte si l'équipe préfère la même étiquette ;
 - un modèle marketing ne part quand même qu'aux consentants. Le bouton le dit.
@@ -779,7 +887,7 @@ présenter un achat comme un opt-in WhatsApp.
 |---|---|---|
 | 2a | Reprise 60 jours, fiches existantes, lignes comprises, aperçu, job, MCP, bouton Pro, onglet fiche à jour | M |
 | 2b | `read_all_orders`, fenêtre 24 mois, repli 60 jours, skill et lien d'installation | M |
-| 2c | Fiches d'acheteurs, Pro et au-dessus : numéro utilisable, purge au second `131026` sans message entrant | M |
+| 2c | Fiches d'acheteurs, Pro et au-dessus : numéro utilisable, suppression au premier `131026` | M |
 
 Le chantier est un L. 2a se livre seul, et c'est lui qui rend le lot 1a utile sur le passé récent. 2b et 2c sont le
 motif de passage au Pro.
@@ -862,7 +970,7 @@ passage : on interroge les clients dont on a déjà l'identifiant (lots de 250, 
 page des limites). Les fiches sans identifiant de client passent par le téléphone, une fois, et l'identifiant trouvé
 est gardé pour la fois d'après.
 
-On ne crée pas de fiche. On ne pose rien sur une fiche au verdict `non`. Un membre dont le numéro n'est pas utilisable,
+On ne crée pas de fiche. On ne pose rien sur une fiche déjà supprimée. Un membre dont le numéro n'est pas utilisable,
 ou qui n'a pas de fiche adressable, est compté (« 142 membres, 37 fiches adressables ») et oublié : pas de téléphone,
 pas d'identifiant client orphelin. Ce compte peut mener à l'action du chantier 2, qui reste soumise au `131026`.
 
@@ -983,7 +1091,7 @@ ne dépend pas de 4b.
 
 La règle des numéros s'applique sans création de fiche. Une réponse, un clic attribué et une analyse sont déjà le fait
 d'une personne qui a un numéro. On ne recrute pas, pour ces critères, les commandes sans numéro utilisable ni les
-fiches purgées après un second `131026`.
+fiches supprimées au premier `131026`.
 
 ### État actuel
 
@@ -1172,7 +1280,7 @@ L'ordre privilégie ce qui ne demande aucun redéploiement de l'app du marchand,
 | 2 | 7a, réponse et clic séparés | rien | Indépendant de Shopify. « A cliqué sans jamais répondre », Pro, sans IA. Peut partir en parallèle de 1a. |
 | 3 | 2a, rattrapage 60 jours | 1a | Même scope qu'aujourd'hui. Remplit les lignes sur le passé récent. Rend l'onglet fiche honnête, y compris en Free. |
 | 4 | 4a, étiquettes Shopify en lecture | rien d'autre que `read_customers`, déjà là | Le marchand retrouve ses étiquettes sans les mélanger aux nôtres. Pas de webhook. |
-| 5 | 2c, fiches d'acheteurs | 2a, et la règle des numéros | Pro. Numéro utilisable seulement. Un second `131026` sans message entrant purge la fiche et rend la place. |
+| 5 | 2c, fiches d'acheteurs | 2a, et la règle des numéros | Pro. Numéro utilisable seulement. Le premier `131026` supprime la fiche créée pour l'envoi et rend la place. |
 | 6 | 2b, 24 mois | 2a | Demande `read_all_orders` et un redéploiement. À grouper avec 1b et 4b pour ne faire approuver l'app qu'une fois. |
 | 7 | 4c, segments natifs | 4a pour le lien client | Le marchand coche jusqu'à 20 segments. Asynchrone à prévoir dès ce lot. |
 | 8 | 1b, collections | 1a, et le redéploiement de 2b si on groupe les scopes | `read_products`. Sémantique « collection actuelle », dite dans l'écran. |
@@ -1197,8 +1305,8 @@ que le lot du 2026-10-31. La migration qui ajoute une colonne écrite par un che
 ## Questions ouvertes
 
 1. **Julien, fiches d'acheteurs.** On n'en pré-crée pas jusqu'au plafond. Seul un numéro utilisable, et seulement parce
-   qu'un template part. Au second `131026` sans message entrant, la fiche est purgée et la place revient. La Free n'a
-   pas cette action. Est-ce le levier Pro voulu, ou la création d'acheteurs doit-elle rester l'import des abonnés
+   qu'un template part. Au premier `131026`, la fiche créée pour l'envoi est supprimée et la place revient. La Free
+   n'a pas cette action. Est-ce le levier Pro voulu, ou la création d'acheteurs doit-elle rester l'import des abonnés
    marketing ?
 2. **Julien, consentement.** Un achat ne pose pas `opted_in`, y compris quand Claude Code lance l'action. Ça diverge
    de l'import des abonnés depuis Claude Code, qui pose l'accord sous attestation. On confirme la divergence ?
@@ -1230,23 +1338,17 @@ que le lot du 2026-10-31. La migration qui ajoute une colonne écrite par un che
     dans ces lots ?
 17. **Business.** Même profondeur et mêmes actions que le Pro, avec 5 000 contacts, sans l'analyse. On confirme qu'on
     ne lui réserve pas une fenêtre d'historique plus longue ?
-18. **Julien, purge après `131026`.** On purge la fiche née de l'envoi Shopify si la personne n'a jamais écrit, pour
-    ne pas remplir le plafond. On garde une fiche qui existait déjà, avec le verdict `non`. On ne garde pas de liste
-    de numéros. Un condensat illisible, sur le modèle de l'empreinte STOP, éviterait de recréer la même fiche à la
-    commande suivante. On le veut, ou le réessai à la prochaine commande suffit ?
-19. **`131026` n'est pas seulement « pas sur WhatsApp ».** La doc Meta cite aussi les conditions non acceptées et une
-    application trop ancienne. La péremption à 90 jours reste. On confirme qu'on ne traite pas ce code comme un refus
-    définitif à vie ?
-20. **Fixes.** `estUnFixe` est appliqué au chemin Shopify (aujourd'hui HubSpot seulement) : un fixe est sauté, le
+18. **Julien, fiche qui avait déjà une conversation ou un accord.** La suppression au premier `131026` est décidée pour
+    une fiche créée par l'envoi. On propose de garder une fiche qui avait déjà un message entrant, ou un consentement
+    posé avant cet envoi (import, CSV). La supprimer effacerait l'historique. On la garde jusqu'à ta réponse, ou on
+    supprime aussi ?
+19. **Fixes.** `estUnFixe` est appliqué au chemin Shopify (aujourd'hui HubSpot seulement) : un fixe est sauté, le
     candidat suivant est essayé. On confirme ?
-21. **Plafond et fiches déjà injoignables.** Elles restent dans les 100, 1 000 et 5 000. Seules les fiches purgées
-    par la règle 18 en sortent. Faut-il, plus tard, ne plus compter un verdict `non` frais ?
-22. **Import des abonnés déjà en production.** Il crée une fiche sur un E.164 sans demander à Meta. Cette spec ne le
-    change pas. Le même second `131026` doit-il le rattraper dans un lot à part ?
-23. **Ventes sans contact.** `ventes_attribuees` peut garder l'identifiant de commande et le montant, sans téléphone,
+20. **Import des abonnés déjà en production.** Il crée une fiche sur un E.164 sans demander à Meta. Le même premier
+    `131026` la supprime s'il n'y a pas l'exception de la question 18. On confirme que l'import entre dans cette règle
+    dès qu'un message échoue, pas dans un lot à part ?
+21. **Ventes sans contact.** `ventes_attribuees` peut garder l'identifiant de commande et le montant, sans téléphone,
     quand la preuve UTM existe. On le laisse. On confirme qu'aucun carnet ne se reconstruit depuis cette table ?
-24. **Le pourcentage.** X = commandes livrées au moins une fois / commandes reçues, avec les quatre parts (sans numéro
-    utilisable, pas encore éprouvé, livrée, non livrée). La définition convient-elle au marchand ?
 
 ## Sources
 
