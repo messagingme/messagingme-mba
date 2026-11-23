@@ -1,7 +1,7 @@
 ---
 ecran: contacts
 source_section: Contacts & CRM
-source_empreinte: d61f38
+source_empreinte: 340919
 publique: oui
 rubrique: parler-aux-clients
 rang: 4
@@ -53,13 +53,13 @@ campagne qu'il vous faut.
 
 ## Les filtres « Achats et activité »
 
-La partie « Achats et activité » des filtres marche dans tous les espaces pour l'activité : les contacts actifs (qui
-vous ont écrit ou ont cliqué un lien suivi) dans les derniers jours, ou inactifs depuis un nombre de jours, ceux qui
-n'ont jamais rien fait compris. Ses critères de commande (nombre de commandes payées, montant dépensé, date de la
-dernière commande) demandent une **boutique Shopify branchée** (Tools > Intégrations) : nous ne connaissons une
-commande que parce que Shopify nous l'envoie. Sans boutique, ils n'apparaissent pas. Avec, ils comptent les commandes
-payées depuis le branchement de la boutique, commandes de test comprises, remboursements non déduits, et seulement
-celles d'un numéro déjà dans vos contacts. Le pays se filtre par « Téléphone commence par » (+32 pour la Belgique).
+La partie « Achats et activité » des filtres marche dans tous les espaces : les contacts actifs (qui vous ont écrit ou
+ont cliqué un lien suivi) dans les derniers jours, ou inactifs depuis un nombre de jours, ceux qui n'ont jamais rien
+fait compris. Les critères de commande (nombre de commandes payées, montant dépensé, date de la dernière commande) sont
+dans le volet **Shopify** des filtres, replié tant que vous ne l'ouvrez pas. Il demande une **boutique Shopify
+branchée** (Tools > Intégrations) : nous ne connaissons une commande que parce que Shopify nous l'envoie. Sans
+boutique, il n'apparaît pas. Avec, ses critères comptent les commandes payées depuis le branchement de la boutique,
+commandes de test comprises, remboursements non déduits, et seulement celles d'un numéro déjà dans vos contacts. Le pays se filtre par « Téléphone commence par » (+32 pour la Belgique).
 Votre site n'est pas sous Shopify ? Il peut poser des étiquettes sur vos contacts par l'API (« client fidèle »), que
 vous filtrez ensuite.
 

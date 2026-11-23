@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  audienceEnFiltres, audienceInitiale, auFilDeLEau, cibleDeCreation, filtresDesImportes,
+  audienceEnFiltres, audienceInitiale, audienceParListe, auFilDeLEau, cibleDeCreation, filtresDesImportes,
   libelleAudience,
 } from './audience';
 import { estRetenu, nbRetenus, selectionTout, selectionVide } from './selection-contacts';
@@ -142,6 +142,27 @@ describe('l audience d une campagne qui demarre', () => {
 });
 
 /**
+ * L'ONGLET SHOPIFY : la liste de contacts, volet Shopify ouvert (spec du 2026-11-21, lot 1).
+ *
+ * 🔴 CE QUE CES CAS PROTÈGENT : sous l'onglet Shopify, l'écran charge la liste et affiche le nombre visé. Un prédicat
+ * qui l'oublierait afficherait la phrase des imports (« l'import choisira »), et la liste ne se chargerait pas.
+ */
+describe('l onglet Shopify de l audience', () => {
+  it('la liste se charge pour crm et shopify, jamais pour un import ni au fil de l eau', () => {
+    expect(audienceParListe({ source: 'crm' })).toBe(true);
+    expect(audienceParListe({ source: 'shopify' })).toBe(true);
+    expect(audienceParListe({ source: 'fichier' })).toBe(false);
+    expect(audienceParListe({ source: 'hubspot' })).toBe(false);
+    expect(audienceParListe({ source: 'webhook' })).toBe(false);
+  });
+
+  it('le libelle est celui de la liste de contacts', () => {
+    const crm = { ...audienceInitiale(), filtres: { tags: ['vip'] } };
+    expect(libelleAudience({ ...crm, source: 'shopify' })).toBe(libelleAudience(crm));
+  });
+});
+
+/**
  * LA CAMPAGNE AU FIL DE L'EAU : l'absence de liste, pas une quatrieme facon d'en faire une.
  *
  * 🔴 CE QUE CES CAS PROTÈGENT : la sélection RESTE dans l'état quand on passe au fil de l'eau (elle n'est
@@ -154,6 +175,7 @@ describe('au fil de l eau', () => {
     expect(auFilDeLEau({ source: 'crm' })).toBe(false);
     expect(auFilDeLEau({ source: 'fichier' })).toBe(false);
     expect(auFilDeLEau({ source: 'hubspot' })).toBe(false);
+    expect(auFilDeLEau({ source: 'shopify' })).toBe(false);
   });
 
   /**

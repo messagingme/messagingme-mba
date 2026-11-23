@@ -1905,8 +1905,12 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   jamais actives, « actif » non ; le pays est un `or` de préfixes E.164 (`libphonenumber-js`), et un pays qui partage
   son indicatif sans en être le pays principal (`paysPrincipalDe` : CA, PR, JE, KZ) est refusé en nommant celui qui le
   cible, puisque le numéro ne les distingue pas. La console ne propose ces critères que si `GET .../contacts/segments` répond
-  (`FiltresAchatsActivite`), et les critères de commande que si l'espace a une boutique ; l'outil MCP refuse un critère
-  de commande sans boutique, puisque « au plus 0 commande » y viserait tout l'espace.
+  (`FiltresAchatsActivite` pour l'activité), et les critères de commande que si l'espace a une boutique, dans le volet
+  repliable `FiltresShopify` (spec du 2026-11-21) ; un critère déjà posé reste visible dans les deux. Chacun reçoit tous
+  les critères de segment et ne remplace que les siens. L'onglet « Shopify » de l'audience d'une campagne
+  (`SourceAudience` `shopify`) est la liste de contacts, ce volet ouvert : `audienceParListe` (`web/lib/audience.ts`)
+  décide du chargement et du compte pour `crm` et `shopify`, la création ne lit que filtres et sélection. L'outil MCP
+  refuse un critère de commande sans boutique, puisque « au plus 0 commande » y viserait tout l'espace.
 - 🔴 **Le déclencheur « un champ d'analyse devient » (`analyse_devient`) naît de la copie, jamais d'un balayage.**
   `save` rend la copie faite (ancienne et nouvelle valeurs, lues dans sa transaction), le job d'analyse la passe
   au point de sortie (`AnalyseTerminee`, un type à part de `StoredConversationAnalysis`, contrat de la poussée
@@ -3049,7 +3053,7 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   `GET /tenants/:tenantId/contacts/:contactId/shopify` (module `contacts`, même garde que `/resume` et `/bilan`) sert
   `PgVentesStore.achatsDuContact`, forme partagée `web/lib/partage/achats-shopify.ts`. Deux règles, chacune celle d'une
   surface voisine pour que les nombres se recoupent : le RÉSUMÉ (nombre, dépense, dernière commande) est celui des filtres
-  « Achats et activité » qui ciblent ce client (`src/crm/segments.ts` : toutes ses lignes de `shopify_commandes`, test
+  du volet Shopify qui ciblent ce client (`src/crm/segments.ts` : toutes ses lignes de `shopify_commandes`, test
   compris, dépense dans la devise de la boutique) ; le RAPPORTÉ par WhatsApp est celui du chiffre attribué (test exclu,
   part prouvée = `preuve` non nulle, par devise), joint par `commande_id`. Les paniers se retrouvent par le numéro de la
   fiche (`shopify_paniers.telephone`), donc sur 7 jours au plus. La console ne montre l'onglet que si

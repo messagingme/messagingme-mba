@@ -12,6 +12,7 @@ import { estFiltreAnalyse, filtreAnalyseParDefaut } from '@/lib/champs-fiche';
 import { useChampsFiltrables } from '@/lib/use-champs-filtrables';
 import { useSegments } from '@/lib/use-segments';
 import { FiltresAchatsActivite } from '@/components/FiltresAchatsActivite';
+import { FiltresShopify } from '@/components/FiltresShopify';
 import { estCleSegment } from '@/lib/partage/segments';
 
 /**
@@ -22,10 +23,11 @@ import { estCleSegment } from '@/lib/partage/segments';
  *
  * Filtres : nom, opt-in, joignabilité, niveau de risque de désengagement, téléphone (commence par / contient),
  * tags (possède ET/OU + ne possède pas), champs perso répétables (contient / ne contient pas / égal / vide /
- * rempli), un contrôle Email dédié, les champs de la dernière analyse (lot 2b « Tout sur la fiche »), et les achats et
- * l'activité (segments, 2026-10-31 : `FiltresAchatsActivite`).
+ * rempli), un contrôle Email dédié, les champs de la dernière analyse (lot 2b « Tout sur la fiche »), l'activité
+ * (segments, 2026-10-31 : `FiltresAchatsActivite`) et le volet Shopify (commandes de la boutique, 2026-11-21 :
+ * `FiltresShopify`).
  */
-export function ContactFilterPanel({ tenantId, filters, onChange, userFields, tagSuggestions, onClear, lignes }: {
+export function ContactFilterPanel({ tenantId, filters, onChange, userFields, tagSuggestions, onClear, lignes, voletShopifyOuvert = false }: {
   /** L'espace, pour lire la liste des champs de la fiche : elle seule dit quels filtres d'analyse l'API sait appliquer. */
   tenantId: string;
   filters: ContactFilters;
@@ -39,6 +41,8 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
    * plutôt que de le proposer à une API qui l'ignorerait.
    */
   lignes: readonly unknown[];
+  /** L'onglet « Shopify » de l'audience d'une campagne ouvre le volet Shopify ; le mini-CRM le laisse replié. */
+  voletShopifyOuvert?: boolean;
 }) {
   const t = useT();
   /**
@@ -253,8 +257,10 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
         </div>
       )}
 
-      {/* Achats et activité : offerts seulement si l'API les a annoncés (`useSegments`) ; un critère posé reste visible. */}
+      {/* Achats et activité, puis le volet Shopify : offerts seulement si l'API les a annoncés (`useSegments`) ; un
+          critère posé reste visible. Chacun reçoit TOUS les critères de segment et ne remplace que les siens. */}
       <FiltresAchatsActivite segments={segmentRows} onChange={(s) => ecrireFiltres(fieldRows, analyseRows, emailRow, s)} suivi={suivi} />
+      <FiltresShopify segments={segmentRows} onChange={(s) => ecrireFiltres(fieldRows, analyseRows, emailRow, s)} suivi={suivi} ouvert={voletShopifyOuvert} />
 
       <div className="flex justify-end border-t border-ink-100 pt-2">
         <button type="button" onClick={onClear} className="text-xs text-ink-500 hover:text-danger">{t('Réinitialiser les filtres', 'Reset filters')}</button>

@@ -163,7 +163,7 @@ export function useContactsFiltres(opts: {
  * ici en ferait une liste à rallonger à chaque nouveau cas d'un seul des deux appelants.
  */
 export function ListeDestinataires({
-  tenantId, page, filtres, onFiltres, selection, onSelection, userFields, tagSuggestions, bandeaux,
+  tenantId, page, filtres, onFiltres, selection, onSelection, userFields, tagSuggestions, bandeaux, voletShopifyOuvert = false,
 }: {
   /** L'espace : le panneau de filtres y lit les champs de la fiche qu'il peut proposer. */
   tenantId: string;
@@ -175,6 +175,8 @@ export function ListeDestinataires({
   userFields: UserFieldDef[];
   tagSuggestions: string[];
   bandeaux?: ReactNode;
+  /** L'onglet « Shopify » de l'audience : le même panneau, volet Shopify ouvert. */
+  voletShopifyOuvert?: boolean;
 }) {
   const t = useT();
   const { contacts, total, enCours } = page;
@@ -199,6 +201,7 @@ export function ListeDestinataires({
           tagSuggestions={tagSuggestions}
           onClear={() => onFiltres({})}
           lignes={contacts}
+          voletShopifyOuvert={voletShopifyOuvert}
         />
       </div>
 

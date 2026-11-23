@@ -214,7 +214,7 @@ function audienceDe(v: unknown): AudienceChoix {
   const base = audienceInitiale();
   const toutFiltre = booleen(o, 'toutFiltre') ?? base.selection.toutFiltre;
   return {
-    source: dans(o.source, ['crm', 'fichier', 'hubspot', 'webhook'] as const) ?? base.source,
+    source: dans(o.source, ['crm', 'shopify', 'fichier', 'hubspot', 'webhook'] as const) ?? base.source,
     webhookId: texte(o, 'webhookId') ?? '',
     filtres: filtresRepris(o.filtres),
     selection: { toutFiltre, selected: identifiants(o.selected), exclus: identifiants(o.exclus) },

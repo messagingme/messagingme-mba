@@ -181,14 +181,15 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await expect(page.getByTestId('ventes-total-EUR')).toBeVisible();
       await capturer(page, CLE, 9, locale, undefined, 'haut', page.getByTestId('ventes-total-EUR'));
 
-      // 10. Contacts, les filtres « Achats et activité » : au moins 2 commandes en 90 jours.
+      // 10. Contacts, le volet « Shopify » des filtres, déplié : au moins 2 commandes en 90 jours.
       await page.goto('/contacts');
       await page.getByTestId('contacts-toggle-filters').click();
+      await page.getByTestId('filtres-shopify-titre').click();
       await page.getByTestId('filtre-commandes-min').fill('2');
       await page.getByTestId('filtre-commandes-jours').fill('90');
-      const achats = page.getByTestId('filtres-achats');
+      const volet = page.getByTestId('filtres-shopify');
       await expect(page.getByTestId('filtres-achats-suivi')).toBeVisible();
-      await capturer(page, CLE, 10, locale, achats, 'haut', page.getByTestId('filtre-commandes-min'));
+      await capturer(page, CLE, 10, locale, volet, 'haut', page.getByTestId('filtre-commandes-min'));
 
       // 5 et 6, en dernier : les faux de l'éditeur passent devant tous ceux d'au-dessus.
       const p = PANIER[locale];

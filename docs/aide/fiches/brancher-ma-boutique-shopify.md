@@ -156,12 +156,13 @@ le premier message d'une commande (la confirmation, l'avis d'expédition), seule
 
 Vos clients choisis par leurs commandes payées : combien, pour quel montant, la dernière quand.
 
-**10. Filtrer par « Achats et activité ».** Offre Pro : dans le mini-CRM, ouvrez les filtres ; la même partie
-sert aux destinataires d'une campagne. Commandes payées, dépense, dernière commande, sur la période de votre choix.
+**10. Filtrer dans le volet « Shopify ».** Offre Pro : dans le mini-CRM, ouvrez les filtres puis le volet Shopify ;
+dans une campagne, le bouton Shopify de l'audience l'ouvre. Commandes payées, dépense, dernière commande, sur la
+période de votre choix.
 
 **Bon à savoir.** Les commandes ne comptent que depuis le branchement de la boutique : l'historique de Shopify n'est
 pas repris, et un client importé arrive sans ses commandes passées. Juste après le branchement, « au moins 2 commandes »
-ne trouve donc personne ; le panneau dit la date du début du suivi. Seules comptent les commandes d'un numéro déjà dans
+ne trouve donc personne ; le volet dit la date du début du suivi. Seules comptent les commandes d'un numéro déjà dans
 vos contacts, commandes de test comprises. Le pays et l'activité, eux, marchent dans tous les espaces, avec ou sans
 boutique.
 

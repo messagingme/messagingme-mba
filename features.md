@@ -704,16 +704,18 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     texte libre). La section n'apparaît que si le serveur sait appliquer ces filtres.
   - **Dans les filtres de la liste des contacts**, donc aussi pour **cibler une campagne** (2026-11-03, segments) :
     une partie **Achats et activité** filtre les contacts **actifs** (qui ont écrit ou cliqué un lien suivi) dans les
-    N derniers jours, ou **inactifs** depuis N jours, ceux qui n'ont jamais rien fait compris. Si l'espace a une
-    boutique Shopify, elle filtre aussi par **commandes payées** (au moins, au plus, sur les N derniers jours ou depuis
-    le début du suivi), par **dépense** (même forme, dans la devise de la boutique) et par **dernière commande** (il y
-    a au moins ou au plus N jours). Chaque commande payée d'un contact connu compte, message de confirmation branché ou
-    non, commandes de test comprises, remboursements non déduits ; l'écran dit depuis quand elles sont suivies. Une
-    saisie impossible (un minimum au-dessus du maximum, « au moins 0 commande ») est signalée, et le dernier critère
-    valide reste appliqué : une faute de frappe n'élargit jamais l'audience.
-    🔴 **Sans boutique Shopify, les trois critères de commande n'apparaissent pas**, et l'écran dit pourquoi : nous ne
+    N derniers jours, ou **inactifs** depuis N jours, ceux qui n'ont jamais rien fait compris. Elle marche dans tous
+    les espaces. Si l'espace a une boutique Shopify, un volet **Shopify** (2026-11-23), replié par défaut et ouvert dès
+    qu'un de ses critères est posé, filtre par **commandes payées** (au moins, au plus, sur les N derniers jours ou
+    depuis le début du suivi), par **dépense** (même forme, dans la devise de la boutique) et par **dernière commande**
+    (il y a au moins ou au plus N jours). Chaque commande payée d'un contact connu compte, message de confirmation
+    branché ou non, commandes de test comprises, remboursements non déduits ; le volet dit depuis quand elles sont
+    suivies, et la date de coupure d'une boutique coupée, dont l'historique reste filtrable. Une saisie impossible (un
+    minimum au-dessus du maximum, « au moins 0 commande ») est signalée, et le dernier critère valide reste appliqué :
+    une faute de frappe n'élargit jamais l'audience. Replier le volet ne retire aucun critère.
+    🔴 **Sans boutique Shopify, le volet n'apparaît pas** (masqué plutôt que grisé, comme HubSpot) : nous ne
     connaissons une commande que parce que Shopify nous l'envoie (un site hors Shopify peut poser des étiquettes par
-    l'API, que l'on filtre ensuite). L'activité marche dans tous les espaces.
+    l'API, que l'on filtre ensuite). Un critère déjà posé reste visible, pour être retiré.
     La partie n'apparaît que si le serveur sait appliquer ces filtres. Le pays se filtre par « Téléphone commence
     par » (+32 pour la Belgique).
 - ✅ **La fiche contact en onglets** (2026-09-30) : **Fiche**, **Tags**, **Champs**, **Analyse**, **Historique**.
@@ -1693,6 +1695,10 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
     « N contact(s) correspondent » ; « Tout sélectionner (N) » cible tout le segment.
   - **📄 Import fichier** : importe un CSV (même écran de mapping que l'onglet Contacts) avec un **tag obligatoire**.
     Les contacts atterrissent dans le CRM taggés, et la campagne cible aussitôt ce tag.
+  - **🛍️ Shopify** (2026-11-23) : n'apparaît que si l'espace a une boutique (branchée, ou coupée avec son
+    historique). Ce n'est pas un import : c'est la même **Liste de contacts**, son volet **Shopify** ouvert
+    (commandes payées, dépense, dernière commande). Filtres et compte sont les mêmes d'un bouton à l'autre. Une
+    boutique coupée laisse le bouton cliquable : son infobulle date la coupure.
   - **⋯ Autre** (2026-08-26) : les deux sources qui ne servent pas au cas courant sont rangées derrière ce
     bouton, qui ouvre une seconde ligne. **HubSpot n'y apparaît pas du tout** quand le connecteur est éteint sur
     l'Accueil (avant : un bouton grisé pour une intégration qu'on n'a pas).

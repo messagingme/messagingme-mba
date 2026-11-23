@@ -5,15 +5,17 @@ import { CsvImport } from '@/components/CsvImport';
 import { HubspotListImport } from '@/components/HubspotListImport';
 import { fmtNum } from '@/lib/format';
 import {
-  auFilDeLEau, filtresDesImportes,
+  audienceParListe, auFilDeLEau, filtresDesImportes,
   type AudienceChoix, type SourceAudience,
 } from '@/lib/audience';
+import { formatDate } from '@/lib/day';
+import { useSegments } from '@/lib/use-segments';
 import { nbRetenus, selectionTout } from '@/lib/selection-contacts';
 import { ListeDestinataires, useContactsFiltres, type RestaurationSelection } from '@/components/campagne/ListeDestinataires';
 import { SourceWebhook } from '@/components/campagne/SourceWebhook';
 import type { CapacitesEspace, EtatCampagne, ReferencesContenu } from '@/components/campagne/AssistantCampagne';
 import { TitrePage } from '@/components/TitrePage';
-import { LogoHubSpot } from '@/components/LogosCanaux';
+import { LogoHubSpot, LogoShopify } from '@/components/LogosCanaux';
 import { Icone } from '@/components/Icone';
 
 /**
@@ -46,6 +48,11 @@ import { Icone } from '@/components/Icone';
  * question (« Joignabilité WhatsApp : sauf les injoignables connus », clé `joignabiliteWhatsApp`).
  * Garder les deux aurait donné deux commandes pour un seul filtre, c'est-à-dire la divergence en
  * miniature : cocher l'une sans l'autre, et l'écran ne sait plus dire ce qui est posé.
+ *
+ * 🔴 L'ONGLET « SHOPIFY » N'EST PAS UN IMPORT (spec du 2026-11-21, lot 1) : c'est la même liste, le même
+ * `ContactFilterPanel` et le même compte que « Liste de contacts », volet Shopify ouvert. Les filtres restent d'un
+ * onglet à l'autre (`choisirSource` ne touche qu'à la sélection) : deux onglets qui garderaient chacun leurs filtres
+ * afficheraient deux nombres pour la même campagne.
  */
 export function EtapeAudience({
   tenantId,
@@ -91,7 +98,7 @@ export function EtapeAudience({
   const page = useContactsFiltres({
     tenantId,
     filtres: audience.filtres,
-    actif: audience.source === 'crm',
+    actif: audienceParListe(audience),
     selection: audience.selection,
     onSelection: (selection) => modifier({ selection }),
     ...(restauration ? { restauration } : {}),
@@ -131,6 +138,13 @@ export function EtapeAudience({
 
   const retenus = nbRetenus(audience.selection, page.total);
   const hubspotVisible = capacites.hubspotListes;
+  /**
+   * LA BOUTIQUE QUE L'API ANNONCE (branchée ou coupée), la même lecture que le volet du panneau. ⚠️ L'onglet reste
+   * affiché quand il est la source en cours (brouillon repris, annonce pas encore lue) : sinon aucun onglet ne serait
+   * actif au-dessus d'une liste affichée.
+   */
+  const boutique = useSegments(tenantId)?.boutique ?? null;
+  const shopifyVisible = boutique !== null || audience.source === 'shopify';
   /** Le prédicat partagé, jamais un `source === 'webhook'` de plus : cf. `auFilDeLEau`. */
   const fil = auFilDeLEau(audience);
 
@@ -174,6 +188,19 @@ export function EtapeAudience({
             testId="audience-source-hubspot"
           />
         )}
+        {/* ⚠️ SHOPIFY N'APPARAÎT QU'AVEC UNE BOUTIQUE, comme HubSpot sans connecteur. Coupée, il reste cliquable :
+            les filtres lisent les commandes déjà enregistrées, ils n'appellent pas Shopify au clic. */}
+        {shopifyVisible && (
+          <BoutonSource
+            actif={audience.source === 'shopify'}
+            desactive={importEnCours}
+            onClick={() => choisirSource('shopify')}
+            libelle="Shopify"
+            icone={<span aria-hidden="true"><LogoShopify className="h-3.5 w-3.5" /></span>}
+            aide={boutique?.coupeeLe ? `Boutique coupée le ${formatDate(boutique.coupeeLe, 'fr')} : les filtres lisent les commandes déjà enregistrées.` : undefined}
+            testId="audience-source-shopify"
+          />
+        )}
         <BoutonSource
           actif={fil}
           desactive={importEnCours}
@@ -215,6 +242,7 @@ export function EtapeAudience({
             onSelection={(selection) => modifier({ selection })}
             userFields={references.userFields}
             tagSuggestions={references.tags.map((tc) => tc.tag)}
+            voletShopifyOuvert={audience.source === 'shopify'}
             bandeaux={selectionReduite !== null ? (
               /* 🔴 LA SÉLECTION REPRISE A MAIGRI DEPUIS. On le DIT : revenir sur un brouillon qui vise
                  moins de monde qu'on ne l'a laissé, sans explication, est pire que de tout recocher,
@@ -245,7 +273,7 @@ export function EtapeAudience({
             n'envoie à personne qui soit déjà là, elle prend les arrivants à partir de son lancement. */}
         {fil
           ? <span className="text-ink-500">Aucune liste : chaque contact qui arrivera par cette adresse recevra le message.</span>
-          : audience.source !== 'crm'
+          : !audienceParListe(audience)
           ? <span className="text-ink-500">L’import choisira les contacts : ils seront visés par leur étiquette.</span>
           : page.enCours
             ? 'Comptage...'
@@ -282,6 +310,7 @@ function BoutonSource({
     <button
       type="button"
       disabled={desactive === true}
+      aria-pressed={actif}
       onClick={onClick}
       {...(aide ? { title: aide } : {})}
       {...(testId ? { 'data-testid': testId } : {})}

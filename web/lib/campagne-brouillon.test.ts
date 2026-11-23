@@ -57,6 +57,14 @@ describe('un aller-retour par le format de l assistant', () => {
     expect(relu.audience?.selection.toutFiltre).toBe(false);
   });
 
+  // L'onglet Shopify de l'audience (lot 1 des segments Shopify) : un brouillon repris y revient, filtres compris.
+  it('la source shopify fait l aller-retour, avec ses filtres', () => {
+    const shopify: EtatBrouillon = { ...ETAT, audience: { ...ETAT.audience, source: 'shopify' } };
+    const relu = etatDeBrouillon(JSON.parse(JSON.stringify(brouillonDeLEtat(shopify))));
+    expect(relu.audience?.source).toBe('shopify');
+    expect(relu.audience?.filtres).toEqual({ tags: ['vip'] });
+  });
+
   it('les exclusions survivent aussi, dans l autre mode', () => {
     const avecExclus: EtatBrouillon = {
       ...ETAT,

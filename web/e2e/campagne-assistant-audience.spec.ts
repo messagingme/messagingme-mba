@@ -41,6 +41,13 @@ interface Options {
   total?: number;
   /** Les corps des POST de création, remplis au fil de l'eau. */
   creations?: Array<Record<string, unknown>>;
+  /**
+   * La boutique que `/contacts/segments` annonce : `null` = aucune boutique, absent = une API qui ne répond pas à la
+   * route (le comportement d'avant les segments, celui de tous les autres cas de ce fichier).
+   */
+  boutique?: { coupeeLe: string | null } | null;
+  /** L'audience d'un brouillon repris (`?brouillon=d1`), au format de l'assistant. */
+  brouillon?: Record<string, unknown>;
 }
 
 async function monter(page: Page, sur: Options = {}): Promise<void> {
@@ -57,6 +64,15 @@ async function monter(page: Page, sur: Options = {}): Promise<void> {
         autoRetryEnabled: true, timezone: 'Europe/Paris', businessHours: {},
       });
     }
+    if (chemin.endsWith('/contacts/segments') && sur.boutique !== undefined) {
+      return json({
+        boutique: sur.boutique === null ? null : { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: sur.boutique.coupeeLe },
+        activiteCompleteDepuis: '2026-11-03',
+      });
+    }
+    if (chemin.endsWith('/campaign-drafts') && sur.brouillon) {
+      return json({ drafts: [{ id: 'd1', name: 'Reprise', updatedAt: '2026-11-20T10:00:00.000Z', state: { assistant: 1, audience: sur.brouillon } }] });
+    }
     if (chemin.endsWith('/contacts/count')) return json({ total: sur.total ?? CONTACTS.length });
     if (chemin.endsWith('/contacts')) return json({ contacts: CONTACTS });
     if (chemin.endsWith('/templates')) return json({ templates: TEMPLATES });
@@ -70,7 +86,7 @@ async function monter(page: Page, sur: Options = {}): Promise<void> {
     if (chemin.endsWith('/run')) return json({ ok: true });
     return json({});
   });
-  const q = new URLSearchParams({ etape: sur.etape ?? 'audience', canal: 'whatsapp' });
+  const q = new URLSearchParams({ etape: sur.etape ?? 'audience', canal: 'whatsapp', ...(sur.brouillon ? { brouillon: 'd1' } : {}) });
   await page.goto(`/campaigns/nouvelle?${q.toString()}`);
   if ((sur.etape ?? 'audience') === 'audience') await expect(page.getByTestId('etape-audience')).toBeVisible();
 }
@@ -239,4 +255,97 @@ test('🔴 ce qui est coche est ce qui PART', async ({ page }) => {
   // ⚠️ ET SURTOUT PAS LES DEUX : le serveur refuse une création qui porte une liste ET des filtres, et
   // laisser passer les filtres ici viserait tout l'espace pendant que l'écran annonce deux personnes.
   expect(creations[0]!.contactTarget).toBeUndefined();
+});
+
+/**
+ * L'ONGLET « SHOPIFY » DE L'AUDIENCE (spec du 2026-11-21, lot 1) : pas un import, la même liste filtrée, volet Shopify
+ * ouvert. 🔴 Ce que ces cas protègent : un onglet qui garderait ses propres filtres, ou un compte qui ne se calculerait
+ * pas sous cet onglet, annoncerait un nombre et en enverrait un autre.
+ */
+test.describe('l onglet Shopify de l audience', () => {
+  const COMMANDES = { key: 'segment_commandes', op: 'segment', value: '{"min":2}' };
+
+  test('sans boutique, pas d onglet Shopify, et pas de volet', async ({ page }) => {
+    await monter(page, { boutique: null });
+    await expect(page.getByTestId('destinataires-liste')).toBeVisible();
+    await expect(page.getByTestId('audience-source-shopify')).toHaveCount(0);
+    await expect(page.getByTestId('filtres-shopify')).toHaveCount(0);
+  });
+
+  test('avec une boutique : la meme liste, le volet ouvert, le meme compte', async ({ page }) => {
+    await monter(page, { boutique: { coupeeLe: null } });
+    await expect(page.getByTestId('audience-compte')).toHaveText(/3 contacts retenus/);
+    // Sous « Liste de contacts », le volet reste replié.
+    await expect(page.getByTestId('filtres-shopify')).not.toHaveAttribute('open', '');
+    await page.getByTestId('audience-source-shopify').click();
+    await expect(page.getByTestId('audience-source-shopify')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('filtres-shopify')).toHaveAttribute('open', '');
+    await expect(page.getByTestId('filtre-commandes-min')).toBeVisible();
+    await expect(page.getByTestId('destinataires-liste')).toBeVisible();
+    // Le pied dit le nombre visé, jamais la phrase des imports.
+    await expect(page.getByTestId('audience-compte')).toHaveText(/3 contacts retenus/);
+  });
+
+  test('🔴 les filtres restent d un onglet a l autre', async ({ page }) => {
+    await monter(page, { boutique: { coupeeLe: null } });
+    await page.getByTestId('audience-source-shopify').click();
+    await page.getByTestId('filtre-commandes-min').fill('2');
+    await page.getByRole('button', { name: 'Liste de contacts', exact: true }).click();
+    await expect(page.getByTestId('filtre-commandes-min')).toHaveValue('2');
+    await page.getByTestId('audience-source-shopify').click();
+    await expect(page.getByTestId('filtre-commandes-min')).toHaveValue('2');
+  });
+
+  test('boutique coupee : l onglet reste cliquable et l aide date la coupure', async ({ page }) => {
+    await monter(page, { boutique: { coupeeLe: '2026-11-15T10:00:00.000Z' } });
+    const bouton = page.getByTestId('audience-source-shopify');
+    await expect(bouton).toBeEnabled();
+    await expect(bouton).toHaveAttribute('title', /Boutique coupée le 15\/11\/2026/);
+    await bouton.click();
+    await expect(page.getByTestId('filtres-achats-suivi')).toContainText('Boutique coupée le');
+  });
+
+  // Un brouillon repris montre ce qui filtre : un volet fermé cacherait pourquoi la liste a maigri.
+  test('un brouillon qui porte un critere Shopify ouvre le volet, meme sous Liste de contacts', async ({ page }) => {
+    await monter(page, {
+      boutique: { coupeeLe: null },
+      brouillon: { source: 'crm', webhookId: '', filtres: { fieldFilters: [COMMANDES] }, toutFiltre: true, selected: [], exclus: [] },
+    });
+    await expect(page.getByTestId('filtres-shopify')).toHaveAttribute('open', '', { timeout: 15_000 });
+    await expect(page.getByTestId('filtre-commandes-min')).toHaveValue('2');
+    await expect(page.getByTestId('audience-source-shopify')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('un brouillon repris sous l onglet Shopify y revient', async ({ page }) => {
+    await monter(page, {
+      boutique: { coupeeLe: null },
+      brouillon: { source: 'shopify', webhookId: '', filtres: {}, toutFiltre: true, selected: [], exclus: [] },
+    });
+    await expect(page.getByTestId('audience-source-shopify')).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+    await expect(page.getByTestId('filtres-shopify')).toHaveAttribute('open', '');
+  });
+
+  test('🔴 ce qui part depuis l onglet Shopify : les filtres, critere de commande compris', async ({ page }) => {
+    const creations: Array<Record<string, unknown>> = [];
+    await monter(page, { etape: 'nom', creations, boutique: { coupeeLe: null } });
+    await page.getByLabel('Nom de la campagne').fill('Essai Shopify');
+    await page.getByRole('button', { name: 'Suivant' }).click();
+    await page.getByRole('radio', { name: 'WhatsApp', exact: true }).check();
+    await page.getByRole('button', { name: 'Suivant' }).click();
+    await page.getByRole('button', { name: /Étage 1/ }).click();
+    await page.getByTestId('modele-1').selectOption('promo_rentree');
+    await page.getByRole('button', { name: 'Suivant' }).click();
+
+    await page.getByTestId('audience-source-shopify').click();
+    await page.getByTestId('filtre-commandes-min').fill('2');
+    await expect(page.getByTestId('audience-compte')).toHaveText(/3 contacts retenus/);
+    await page.getByRole('button', { name: 'Suivant' }).click();
+    await page.getByTestId('bouton-lancer').click();
+    await expect(page.getByTestId('recap-lancee')).toBeVisible();
+
+    expect(creations).toHaveLength(1);
+    expect(creations[0]!.contactIds).toBeUndefined();
+    const cible = creations[0]!.contactTarget as { filters?: { fieldFilters?: unknown[] } } | undefined;
+    expect(cible?.filters?.fieldFilters).toEqual([COMMANDES]);
+  });
 });

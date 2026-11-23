@@ -2,8 +2,9 @@ import { test, expect } from './aide/test';
 import { TREIZE_POUCES, pasDeDebordement } from './aide/largeur';
 
 /**
- * Les filtres « Achats et activité » des contacts (segments, spec du 2026-10-31) : l'activité toujours, les commandes, la
- * dépense et la dernière commande si l'espace a une boutique Shopify.
+ * Les filtres « Achats et activité » des contacts (segments, spec du 2026-10-31) : l'activité toujours ; les commandes, la
+ * dépense et la dernière commande dans le volet « Shopify », replié, seulement si l'espace a une boutique (spec du
+ * 2026-11-21, lot 1).
  *
  * 🔴 Le cas qui compte le plus : une API qui ne répond pas à `/contacts/segments` (plus ancienne que la console, qui part
  * en production à chaque push) ne se voit proposer AUCUN de ces critères. Elle les jetterait sans rien dire, et « au
@@ -48,15 +49,23 @@ async function ouvrir(page: import('@playwright/test').Page): Promise<void> {
   await page.getByTestId('contacts-toggle-filters').click();
 }
 
+/** Déplie le volet Shopify, replié par défaut dans le mini-CRM. */
+async function deplierShopify(page: import('@playwright/test').Page): Promise<void> {
+  await page.getByTestId('filtres-shopify-titre').click();
+  await expect(page.getByTestId('filtres-shopify')).toHaveAttribute('open', '');
+}
+
 test.describe('Contacts : les filtres d’achats et d’activité', () => {
   test.use({ viewport: TREIZE_POUCES });
 
   test('🔴 avec une boutique : commandes sur une période et activité partent à l’API', async ({ page }) => {
     const requetes = await mock(page, AVEC_BOUTIQUE);
     await ouvrir(page);
+    // Replié par défaut : les critères de commande ne se voient qu'une fois le volet ouvert.
+    await expect(page.getByTestId('filtres-shopify')).toBeVisible();
+    await expect(page.getByTestId('filtre-commandes-min')).toBeHidden();
+    await deplierShopify(page);
     await expect(page.getByTestId('filtres-achats-suivi')).toContainText('Commandes payées suivies depuis le');
-    // Avec une boutique, pas d'invitation à la brancher.
-    await expect(page.getByTestId('filtres-achats-sans-boutique')).toHaveCount(0);
     await page.getByTestId('filtre-commandes-jours').fill('90');
     await page.getByTestId('filtre-commandes-min').fill('2');
     await page.getByTestId('filtre-actif-jours').fill('30');
@@ -65,12 +74,13 @@ test.describe('Contacts : les filtres d’achats et d’activité', () => {
       return s.segment_commandes === '{"min":2,"jours":90}' && s.segment_actif === '30';
     })).toBe(true);
     // La devise de la boutique est dite là où l'on saisit un montant.
-    await expect(page.getByTestId('filtres-achats')).toContainText('Dépense (EUR)');
+    await expect(page.getByTestId('filtres-shopify')).toContainText('Dépense (EUR)');
   });
 
   test('🔴 une saisie invalide est dite, n’est jamais envoyée, et ne retire pas le critère valide', async ({ page }) => {
     const requetes = await mock(page, AVEC_BOUTIQUE);
     await ouvrir(page);
+    await deplierShopify(page);
     await page.getByTestId('filtre-commandes-min').fill('0');
     await expect(page.getByTestId('filtre-commandes-erreur')).toContainText('ne restreint rien');
     await page.getByTestId('filtre-commandes-min').fill('3');
@@ -85,13 +95,30 @@ test.describe('Contacts : les filtres d’achats et d’activité', () => {
     expect(requetes.some((q) => 'segment_commandes' in segments(q) && segments(q).segment_commandes !== '{"min":3}')).toBe(false);
   });
 
-  test('sans boutique : l’activité seulement, et l’écran dit pourquoi les commandes manquent', async ({ page }) => {
+  // Pas de boutique, pas de volet : masqué plutôt que grisé, comme le bouton HubSpot (décision de Julien du 2026-11-22).
+  test('sans boutique : l’activité seulement, et aucun volet Shopify', async ({ page }) => {
     await mock(page, SANS_BOUTIQUE);
     await ouvrir(page);
     await expect(page.getByTestId('filtre-actif-jours')).toBeVisible();
+    await expect(page.getByTestId('filtres-shopify')).toHaveCount(0);
     await expect(page.getByTestId('filtre-commandes-min')).toHaveCount(0);
     await expect(page.getByTestId('filtre-depense-min')).toHaveCount(0);
-    await expect(page.getByTestId('filtres-achats-sans-boutique')).toContainText('branchez votre boutique Shopify');
+  });
+
+  // 🔴 Replier le volet range l'écran, il ne retire rien : un critère qui partirait avec le volet élargirait l'audience.
+  test('replier le volet ne retire pas le critère posé', async ({ page }) => {
+    const requetes = await mock(page, AVEC_BOUTIQUE);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('filtre-commandes-min').fill('2');
+    await expect.poll(() => requetes.some((q) => segments(q).segment_commandes === '{"min":2}')).toBe(true);
+    await page.getByTestId('filtres-shopify-titre').click();
+    await expect(page.getByTestId('filtres-shopify')).not.toHaveAttribute('open', '');
+    await page.getByTestId('filtre-actif-jours').fill('30');
+    await expect.poll(() => requetes.some((q) => segments(q).segment_actif === '30')).toBe(true);
+    expect(segments(requetes[requetes.length - 1]!).segment_commandes).toBe('{"min":2}');
+    await page.getByTestId('filtres-shopify-titre').click();
+    await expect(page.getByTestId('filtre-commandes-min')).toHaveValue('2');
   });
 
   test('🔴 une API qui ne connaît pas les segments : aucun de ces critères n’est proposé', async ({ page }) => {
@@ -100,11 +127,13 @@ test.describe('Contacts : les filtres d’achats et d’activité', () => {
     // Le reste du panneau est là : seul ce qui dépend de l'API manque.
     await expect(page.getByTestId('filtre-joignabilite')).toBeVisible();
     await expect(page.getByTestId('filtres-achats')).toHaveCount(0);
+    await expect(page.getByTestId('filtres-shopify')).toHaveCount(0);
   });
 
   test('sur un 13 pouces, la partie ne fait pas déborder le panneau', async ({ page }) => {
     await mock(page, AVEC_BOUTIQUE);
     await ouvrir(page);
+    await deplierShopify(page);
     await expect(page.getByTestId('filtre-derniere-commande-max')).toBeVisible();
     await pasDeDebordement(page);
   });

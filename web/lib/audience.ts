@@ -20,8 +20,12 @@ import { cibleContacts, selectionTout, type SelectionContacts } from './selectio
  * et lui amène un contact à la fois, à mesure qu'il arrive par l'adresse choisie. Tout ce qui compte,
  * filtre ou coche des contacts n'a donc rien à faire dans ce mode, et une campagne qui naît vide y est
  * l'état NORMAL, pas un échec.
+ *
+ * ⚠️ `shopify` N'EST PAS UN IMPORT (spec du 2026-11-21, lot 1) : HubSpot copie une liste puis l'étiquette, Shopify
+ * filtre des fiches déjà là. C'est la liste de contacts, volet Shopify ouvert : mêmes filtres, même compte, même
+ * création (`audienceParListe`).
  */
-export type SourceAudience = 'crm' | 'fichier' | 'hubspot' | 'webhook';
+export type SourceAudience = 'crm' | 'shopify' | 'fichier' | 'hubspot' | 'webhook';
 
 /** L'audience complète : d'où elle vient, ce qui la filtre, et ce qui a été coché dedans. */
 export interface AudienceChoix {
@@ -70,6 +74,17 @@ export function audienceInitiale(): AudienceChoix {
  */
 export function auFilDeLEau(a: Pick<AudienceChoix, 'source'>): boolean {
   return a.source === 'webhook';
+}
+
+/**
+ * L'AUDIENCE EST-ELLE LA LISTE DE CONTACTS FILTRÉE, sous l'onglet « Liste de contacts » ou « Shopify » ?
+ *
+ * 🔴 UN SEUL PRÉDICAT pour le chargement de la liste et pour le compte du pied de page : un écran qui testerait
+ * `source === 'crm'` de son côté afficherait, sous l'onglet Shopify, la phrase des imports (« l'import choisira »)
+ * au lieu du nombre que la campagne va viser.
+ */
+export function audienceParListe(a: Pick<AudienceChoix, 'source'>): boolean {
+  return a.source === 'crm' || a.source === 'shopify';
 }
 
 /**

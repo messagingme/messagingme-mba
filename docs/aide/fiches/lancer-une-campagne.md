@@ -2,7 +2,7 @@
 description: Lancer une campagne WhatsApp ou RCS en cinq étapes : le nom, le canal, le contenu, l'audience, puis le récapitulatif et l'envoi.
 ecran: campagnes
 source_section: Campagnes
-source_empreinte: e97000
+source_empreinte: c32269
 publique: oui
 rubrique: parler-aux-clients
 rang: 5
@@ -88,8 +88,9 @@ champ que vous avez créé, le nom, le niveau de risque de désengagement, ce qu
 compteur vous dit en direct combien de contacts correspondent.
 
 La partie « Achats et activité » des filtres ajoute les contacts actifs ou inactifs depuis un nombre de jours, dans
-tous les espaces. Le nombre de commandes, le montant dépensé et la date de la dernière commande demandent une
-**boutique Shopify branchée** : sans elle, ces critères n'apparaissent pas (voir la fiche « Brancher ma boutique
+tous les espaces. Le nombre de commandes, le montant dépensé et la date de la dernière commande sont dans le volet
+**Shopify** des filtres, qui demande une **boutique Shopify branchée** ; le bouton **Shopify** de l'audience montre
+la même liste, ce volet ouvert. Sans boutique, ni l'un ni l'autre n'apparaît (voir la fiche « Brancher ma boutique
 Shopify »).
 
 Vous pouvez aussi importer un fichier CSV, qui pose alors un tag obligatoire sur les contacts importés et cible

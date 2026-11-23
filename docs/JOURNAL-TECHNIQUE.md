@@ -5,6 +5,21 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : segments Shopify, lot 1 : le volet Shopify des filtres et l'onglet Shopify de l'audience
+
+Spec `docs/superpowers/specs/2026-11-21-segments-shopify-enrichis.md` (étude du 2026-11-21, arrivée sur `main` avec ce
+lot), plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-1-volet.md`, en direct avec une relecture. Refactor
+de la console seule, décision d'ergonomie de Julien du 2026-11-22 : les trois critères de commande déjà livrés quittent
+« Achats et activité » pour un volet repliable `FiltresShopify`, replié par défaut, ouvert dès qu'un critère est posé,
+absent sans boutique (comme HubSpot ; l'ancienne phrase « branchez votre boutique » est retirée). L'audience d'une
+campagne gagne la source `shopify` : la même liste, volet ouvert, `audienceParListe` décidant du chargement et du compte
+pour `crm` et `shopify` ; la création ne lit que filtres et sélection, donc rien n'a changé de calcul. Aucune route,
+aucune migration, aucun déploiement d'API. Vérifié : suite racine et tests purs de la console, les e2e de l'assistant
+de campagne et de l'écran Contacts sur la build de production, et dans les deux sens sur le câblage du compte (remis à `crm` seul, deux
+cas rougissent avec « L'import choisira les contacts » au lieu du nombre ; source restaurée par `md5sum`, build
+refaite). Capture de l'étape 10 de « Brancher ma boutique Shopify » refaite (FR et EN), trois fiches publiques et leurs
+traductions retouchées. Reste : `aide:charger` en production, l'essai réel sur un espace avec une boutique.
+
 ## 2026-11-21 : les champs de base proposés avant leur première écriture, destinataire et variables d'un mail
 
 Signalé par Julien : en mode « Variable », le destinataire du bloc « Envoi de mail » ne proposait pas « Email », seulement
