@@ -13,6 +13,13 @@ describe('suiviSegmentsDe', () => {
     expect(suiviSegmentsDe({ boutique: null, activiteCompleteDepuis: '2026-11-03' })).toEqual({ boutique: null, activiteCompleteDepuis: '2026-11-03' });
   });
 
+  it('lit la date du dernier rattrapage des commandes (lot 5) ; absente ou illisible, il n’y en a pas', () => {
+    const boutique = { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null };
+    expect(suiviSegmentsDe({ boutique: { ...boutique, rattrapeesDepuis: '2026-09-24T00:00:00.000Z' }, activiteCompleteDepuis: '2026-11-03' })?.boutique)
+      .toEqual({ ...boutique, rattrapeesDepuis: '2026-09-24T00:00:00.000Z' });
+    expect(suiviSegmentsDe({ boutique: { ...boutique, rattrapeesDepuis: 12 }, activiteCompleteDepuis: '2026-11-03' })?.boutique).toEqual(boutique);
+  });
+
   it('🔴 illisible : null, donc aucun critère proposé', () => {
     for (const v of [null, 'x', [], {}, { boutique: null }, { boutique: {}, activiteCompleteDepuis: '2026-11-03' }, { boutique: 3, activiteCompleteDepuis: 'x' }]) {
       expect(suiviSegmentsDe(v), JSON.stringify(v)).toBeNull();

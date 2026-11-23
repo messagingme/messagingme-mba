@@ -947,16 +947,20 @@ describe('serveur MCP : cohérence du catalogue', () => {
       disconnect_shopify: [true, true, false],
       // L'import des clients (lot 3) : rejoué, il n'écrit que les suivants, sans doublon ; il lit chez Shopify.
       import_shopify_customers: [true, true, true],
+      // Le rattrapage des commandes (segments Shopify, lot 5) : relancé, il relit la même fenêtre et réécrit les mêmes
+      // rattachements ; il lit chez Shopify.
+      import_shopify_order_history: [true, true, true],
       // Offres v2 : une clé de plus à chaque appel, rien chez un tiers ; le Pro ouvre une session chez Stripe à chaque appel.
       create_api_key: [true, false, false],
       subscribe_pro: [true, false, true],
       // La ligne de crédit (plan 2026-11-13) : une session chez Stripe à chaque appel, comme le Pro.
       take_credit_line: [true, false, true],
     });
-    // Une lecture ne touche personne hors de l'espace, à DEUX exceptions nommées : `preview_site` va lire un site tiers,
-    // `preview_shopify_customers` les clients de la boutique chez Shopify (lot 3).
+    // Une lecture ne touche personne hors de l'espace, à TROIS exceptions nommées : `preview_site` va lire un site tiers,
+    // `preview_shopify_customers` les clients de la boutique chez Shopify (lot 3), `preview_shopify_order_history` ses
+    // commandes (segments Shopify, lot 5).
     const lecturesEnMondeOuvert = OUTILS.filter((x) => x.annotations.readOnlyHint && x.annotations.openWorldHint).map((o) => o.nom);
-    expect(lecturesEnMondeOuvert.sort()).toEqual(['preview_shopify_customers', 'preview_site']);
+    expect(lecturesEnMondeOuvert.sort()).toEqual(['preview_shopify_customers', 'preview_shopify_order_history', 'preview_site']);
   });
 
   it('🔴 readOnlyHint vaut exactement « le scope est mcp:read », et chaque écriture déclare destructiveHint et idempotentHint', () => {

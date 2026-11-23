@@ -118,6 +118,8 @@ import { creerModeleDuBloc, relireModelesDeBloc, type DepsMenage, type DepsPubli
 import type { ModelesDeBlocDep } from './http/workflows';
 import { importContacts } from './crm/import';
 import type { DepsGestionShopify } from './shopify/gestion';
+import { FILE_REPRISE, cablerReprise } from './shopify/reprise';
+import { PgReprisesStore } from './shopify/reprises.pg';
 import { FILE_OUBLI_MODELE } from './shopify/preparation';
 import { CHAMP_LIEN_SUIVI, traiterWebhookShopify, type DepsTraitementShopify } from './shopify/traitement';
 import { relancerPaniers, type DepsRelance } from './shopify/relance';
@@ -1763,6 +1765,14 @@ async function main(): Promise<void> {
       // La relance avec agent IA (2026-11-20) : l'agent choisi, lu dans la liste de l'espace (le magasin ENTIER).
       agents: agentStore,
     },
+    // Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5) : l'aperçu et le lancement ici,
+    // le job dans le worker, par le MÊME câblage (`cablerReprise`) ; les magasins ENTIERS, leurs méthodes lisent `this`.
+    reprise: cablerReprise({
+      reprises: new PgReprisesStore(pool),
+      boutiques: shopifyStore,
+      contacts: contactStore,
+      enfiler: async (job, quand) => { await queue.enqueue(FILE_REPRISE, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
+    }),
   };
   const traitementShopify: DepsTraitementShopify = {
     store: shopifyStore,

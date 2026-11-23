@@ -53,6 +53,11 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
    * l'essai réel du 2026-11-16, sur l'espace de démonstration, où toutes les commandes attribuées étaient de test).
    */
   const testAttribuees = commandes.some((c) => c.test && c.attribution !== null);
+  /**
+   * Une commande d'AVANT le début du suivi courant vient d'un branchement précédent (une boutique rebranchée garde ses
+   * commandes) ou du rattrapage des 60 derniers jours : « suivies depuis le » se complète alors, pour ne pas mentir.
+   */
+  const plusAnciennes = commandes.some((c) => Date.parse(c.payeeLe) < Date.parse(boutique.commandesDepuis));
 
   return (
     <div className="mt-4 space-y-5 text-sm" data-testid="fiche-shopify">
@@ -61,6 +66,7 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
           `${boutique.nom ?? boutique.domaine} : commandes payées suivies depuis le ${depuis}, commandes de test comprises, remboursements non déduits.`,
           `${boutique.nom ?? boutique.domaine}: paid orders recorded since ${depuis}, test orders included, refunds not deducted.`,
         )}
+        {plusAnciennes && ` ${t('Les plus anciennes viennent d’un branchement précédent ou du rattrapage des commandes.', 'Older ones come from a previous connection or from the order catch-up.')}`}
         {boutique.coupeeLe && ` ${t(`Boutique coupée le ${formatDate(boutique.coupeeLe, locale)}.`, `Store disconnected on ${formatDate(boutique.coupeeLe, locale)}.`)}`}
       </p>
 
@@ -134,7 +140,7 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
                       ))}
                       {c.lignesTronquees && (
                         <li className="text-ink-400" data-testid="fiche-shopify-lignes-tronquees">
-                          {t('Liste incomplète : seules les 250 premières lignes de la commande sont gardées.', 'Incomplete list: only the first 250 lines of the order are kept.')}
+                          {t('Liste incomplète : la commande porte plus de lignes que celles gardées ici.', 'Incomplete list: the order has more lines than those kept here.')}
                         </li>
                       )}
                     </ul>

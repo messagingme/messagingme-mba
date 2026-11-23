@@ -156,6 +156,8 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
     const vue: SuiviSegmentsVue = {
       boutique: boutique === null ? null : {
         devise: boutique.devise, commandesDepuis: boutique.commandesDepuis.toISOString(), coupeeLe: boutique.coupeeLe?.toISOString() ?? null,
+        // Le dernier rattrapage terminé des commandes (lot 5) : la note du volet dit depuis quand elles ont été relues.
+        ...(boutique.rattrapage ? { rattrapeesDepuis: boutique.rattrapage.depuis.toISOString() } : {}),
       },
       activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
       // Les critères produit (lot 3) : la console ne les propose qu'à une API qui le dit ici.

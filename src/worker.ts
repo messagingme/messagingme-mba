@@ -29,6 +29,8 @@ import { journaliser } from './lib/journal';
 import { PgVentesStore } from './shopify/ventes.pg';
 import { FILE_PREUVE_UTM, traiterPreuveUtm, type DepsPreuveUtm } from './shopify/preuve-utm';
 import { FILE_SANS_WHATSAPP, traiterSansWhatsapp, type DepsSansWhatsapp } from './shopify/sans-whatsapp';
+import { FILE_REPRISE, cablerReprise, traiterReprise } from './shopify/reprise';
+import { PgReprisesStore } from './shopify/reprises.pg';
 import type { SansWhatsappSink } from './webhooks/delivery';
 import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
 import { FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsOubli, type ProgrammerOubli } from './shopify/preparation';
@@ -582,6 +584,18 @@ export async function demarrerWorker(): Promise<void> {
     listeDeLAgent,
   };
   await queue.work(FILE_SANS_WHATSAPP, async (data) => { await traiterSansWhatsapp(depsSansWhatsapp, data); });
+
+  /**
+   * Le rattrapage des commandes Shopify des 60 derniers jours (segments Shopify enrichis, lot 5) : le MÊME câblage que
+   * l'API (`cablerReprise`). Le job tient la reprise par un bail et se réenfile à son curseur après deux minutes.
+   */
+  const depsReprise = cablerReprise({
+    reprises: new PgReprisesStore(pool),
+    boutiques: new PgShopifyStore(pool, config.ENCRYPTION_KEY),
+    contacts: contactStore,
+    enfiler: async (job, quand) => { await queue.enqueue(FILE_REPRISE, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
+  });
+  await queue.work(FILE_REPRISE, async (data) => { await traiterReprise(depsReprise, data); });
 
   /**
    * L'issue d'un événement envoyé à l'agent de Meta, relue 20 s après, et une relance sur une panne passagère de Meta

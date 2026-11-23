@@ -162,6 +162,7 @@ function analyseVue(ar: AnalyseEtResume | undefined): Record<string, unknown> | 
 /**
  * Ce que l'assistant doit savoir pour lire un segment (spec du 2026-10-31) : depuis quand TOUTES les commandes sont
  * suivies (et la coupure d'une boutique coupée), depuis quand l'activité est complète. Seulement si le critère est posé.
+ * Depuis le lot 5 des segments Shopify enrichis, la fenêtre du dernier rattrapage TERMINÉ, que le suivi lit au mieux.
  */
 async function suiviDeLaReponse(deps: DepsMcp, tenantId: string, f: ContactFilters): Promise<Record<string, string>> {
   const cles = (f.fieldFilters ?? []).filter((x) => x.op === OP_SEGMENT).map((x) => x.key);
@@ -170,6 +171,7 @@ async function suiviDeLaReponse(deps: DepsMcp, tenantId: string, f: ContactFilte
   const boutique = commandes ? (await deps.contacts.suiviSegments(tenantId)).boutique : null;
   return {
     ...(boutique ? { orders_recorded_since: boutique.commandesDepuis.toISOString() } : {}),
+    ...(boutique?.rattrapage ? { orders_backfilled_since: boutique.rattrapage.depuis.toISOString(), orders_backfilled_at: boutique.rattrapage.le.toISOString() } : {}),
     ...(boutique?.coupeeLe ? { shop_cut_at: boutique.coupeeLe.toISOString() } : {}),
     ...(activite ? { activity_complete_since: ACTIVITE_COMPLETE_DEPUIS } : {}),
   };
@@ -188,7 +190,8 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       + 'latest conversation analysis (intent, sentiment, satisfaction, urgency, resolved...). Criteria combine: "customers '
       + 'with two orders in 90 days" is orders {"min":2,"within_days":90}; "Belgian customers inactive for 3 months" is '
       + 'countries ["BE"] and inactive_for_days 90. Orders are the paid orders recorded since orders_recorded_since (in '
-      + 'the answer); activity is complete since activity_complete_since. Orders exist only for a workspace with a '
+      + 'the answer) and, after a catch-up of the order history (import_shopify_order_history), those created since '
+      + 'orders_backfilled_since for the records that existed then; activity is complete since activity_complete_since. Orders exist only for a workspace with a '
       + 'connected Shopify store (get_shopify_state): we know an order only because Shopify sends it. Without a store, '
       + 'the orders criteria are refused: target by countries, activity or tags instead, and say so to the person. '
       + `Returns the total and up to ${MAX_CONTACTS_TROUVES} contacts with their country, and their `

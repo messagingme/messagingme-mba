@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: a2cc9a
+traduit_de: f801d8
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -159,11 +159,20 @@ without ordering” (at least one tracked link click), for contacts with no orde
 second removes it; the number on each button says how many contacts it finds, and a button that finds nobody is not
 shown.
 
-**Good to know.** Orders only count from the moment the store was connected: Shopify’s history is not taken over, and
-an imported customer arrives without their past orders. Right after connecting, “at least 2 orders” therefore finds
-nobody; the section gives the date tracking started. Only orders from a number already in your contacts count, test
-orders included. Products are only known for orders paid since November 23, 2026. Country and activity work in every
-workspace, with or without a store.
+**11. Catch up the orders of the last 60 days.** On the Shopify card, “Catch up” first counts, writing nothing, the paid
+orders of the last 60 days: already known, to attach to a record of your contacts, without a record or without a
+phone. “Start the catch-up” reads them all again in the background, and the card tells where it stands.
+
+Each order joins the record of its phone, with its amount and products; an order without a record is counted, never
+kept. No record is created, no message goes out, and the revenue brought in by WhatsApp does not change. Allow a few
+minutes for most stores, over an hour for the largest.
+
+**Good to know.** Orders count from the moment the store was connected; a catch-up adds those of the 60 days before
+it, as Shopify lets no one read further back. Without a catch-up, right after connecting, “at least 2 orders”
+therefore finds nobody; the section gives the date tracking started, and the date of the catch-up. Only orders from a
+number already in your contacts count, test orders included: import your customers before catching up their orders.
+Products are known for orders paid since November 23, 2026, and for those of a catch-up. Country and activity work in
+every workspace, with or without a store.
 
 ## The sending rules
 

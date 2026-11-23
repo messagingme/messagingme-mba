@@ -27,6 +27,17 @@
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 5 (le rattrapage des commandes des 60 derniers jours) : la relecture (2026-11-23, aucun rouge)
+
+- La file `shopify-reprise` est servie un job à la fois (`src/worker.ts`, aucune `concurrency`) : vers huit rattrapages
+  simultanés, celui qui attend son tour dépasse 15 minutes sans passage, se dit « interrompu » et peut être relancé de
+  zéro. Sans effet au volume actuel ; `concurrency` 2 ou 3 avec `groupConcurrency: 1` (le `groupId` est déjà l'espace).
+- La taille des pages (`PAR_PAGE_REPRISE`, 5) est une estimation du coût GraphQL : la régler sur `shopify_reprise_cout`
+  (coût demandé et réel de la première page de chaque passage), relevé dans les journaux après le premier rattrapage.
+- La raison d'un arrêt (`erreur` de la reprise) est écrite en français, et s'affiche telle quelle dans la console anglaise.
+- La vitrine dit « vos clients choisis par leurs commandes depuis le branchement de votre boutique »
+  (`scripts/vitrine/boutique-textes.ts`) : incomplet depuis le rattrapage, pas faux. À reprendre avec un lot de la vitrine.
+
 ## 🟡 Segments Shopify, lot 4 (boutons « a écrit » et « a cliqué » sans commander)
 
 - 🔵 **DÉCIDÉ par Julien le 2026-11-23 : une période réglable à côté des boutons, plus tard** (question 22 de la
@@ -194,14 +205,6 @@
   lien à jeton (antivirus qui scanne l'adresse). `countClicks` ne garde plus que les clics attribués sur ces liens
   depuis 0e6c640a9 : aligner le funnel (Analytics > Quantitatif) sur la même condition
   (`contact_id is not null or not avec_jeton`).
-
-## 🟡 Tools > Intégrations en volets : les captures Shopify (2026-11-20)
-
-- Refaire les captures de la fiche « Brancher ma boutique Shopify » (`npm run aide:captures`) : elles montrent encore
-  l'ancienne carte. Le script (`web/e2e/captures/brancher-ma-boutique-shopify.capture.ts`) ouvre déjà le volet.
-  ⚠️ Rejoué le 2026-11-23 (seule l'étape 10 a été reprise, lot 1 des segments) : la capture 8 garde ouverte la fenêtre
-  d'import de l'étape 7 (le `goto` sur la même adresse, à l'ancre près, ne recharge pas la page). Fermer la fenêtre ou
-  recharger avant l'étape 8, puis relire chaque image avant de les convertir.
 
 ## 🟡 Les envois du Crédit WhatsApp : la rétention du détail (2026-11-20)
 

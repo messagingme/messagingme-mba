@@ -25,9 +25,11 @@ export const ACTIVITE_COMPLETE_DEPUIS = '2026-11-03';
 /**
  * Ce qu'un espace permet de cibler en commandes : sa boutique (branchée ou coupée), sa devise, la date depuis laquelle
  * TOUTES ses commandes payées sont suivies, et sa coupure. `null` sans boutique : un critère de commande y est refusé.
+ * `rattrapage` (segments Shopify enrichis, lot 5) : le dernier rattrapage terminé, les commandes créées depuis `depuis`
+ * relues le `le` pour les fiches qui existaient alors ; absent sans rattrapage, ou quand sa lecture a échoué.
  */
 export interface SuiviSegments {
-  boutique: { devise: string | null; commandesDepuis: Date; coupeeLe: Date | null } | null;
+  boutique: { devise: string | null; commandesDepuis: Date; coupeeLe: Date | null; rattrapage?: { depuis: Date; le: Date } } | null;
 }
 
 /** Un code pays connu (ISO alpha-2, capitales) : seul ce qui a un indicatif se cible. */

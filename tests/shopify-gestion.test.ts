@@ -26,6 +26,7 @@ import { DROITS, type Offre } from '../src/offres/offres';
 import type { TemplateSummary } from '../src/meta/templates';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { modeleMeta, monterLignes } from './shopify-lignes-faux';
+import { monterReprise } from './reprise-faux';
 
 const DOMAINE = 'b.myshopify.com';
 
@@ -92,6 +93,8 @@ function monter(o: {
     filiere: async () => (o.filiere === undefined ? 'api' : o.filiere),
     chiffreVentes: async (_t, range) => { journal.chiffres.push(range); return CHIFFRE; },
     lignes: lignes.deps,
+    // Le rattrapage des commandes (lot 5) : éprouvé par `tests/shopify-reprise.test.ts`, une boutique sans commande ici.
+    reprise: monterReprise().deps,
   };
   return { deps, journal, lignes };
 }

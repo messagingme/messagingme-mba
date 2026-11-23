@@ -6,6 +6,7 @@ import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { ShopifyRouteDeps } from '../src/http/shopify';
 import type { Connexion, VueBoutique } from '../src/shopify/store.pg';
 import { monterLignes } from './shopify-lignes-faux';
+import { commandeLue, monterReprise, page } from './reprise-faux';
 import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 
 /**
@@ -31,10 +32,12 @@ const VUE: VueBoutique = {
   connecteeLe: '2026-10-22T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'console', pauseLe: null,
 };
 
-function monter() {
+function monter(o: { reprise?: Parameters<typeof monterReprise>[0] } = {}) {
   const trace = { connexions: [] as Connexion[], abonnements: [] as unknown[], audit: [] as Array<{ action: string; cible: unknown; detail: unknown }> };
   // La boutique vit dans le faux des lignes : la gestion, les lignes et la pause lisent la MÊME.
   const lignes = monterLignes({ vue: null });
+  // Le rattrapage des commandes (segments Shopify, lot 5) : sa propre boutique, ses pages et ses reprises en mémoire.
+  const reprise = monterReprise(o.reprise);
   const non = async (): Promise<never> => { throw new Error('hors de ce test'); };
   const store = {
     lire: () => lignes.store.lire(),
@@ -59,11 +62,12 @@ function monter() {
         paniers: { relances: 0, recuperes: 0, montants: [], recuperesTest: 0 },
       }),
       lignes: lignes.deps,
+      reprise: reprise.deps,
     },
     audit: async (_t, _acteur, action, cible, detail) => { trace.audit.push({ action, cible, detail }); },
   };
   const app = buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET }, shopify: deps });
-  return { app, trace, lignes, brancher: () => { lignes.store.vue = VUE; } };
+  return { app, trace, lignes, reprise, brancher: () => { lignes.store.vue = VUE; } };
 }
 
 describe('le branchement depuis la console', () => {
@@ -206,5 +210,69 @@ describe('l’attestation du consentement des clients (2026-11-20)', () => {
     expect((await app.inject({ method: 'POST', url: `${URL_T1}/attestation`, ...en(admin), payload: { coche: true, texte: 'autre chose' } })).statusCode).toBe(400);
     expect((await app.inject({ method: 'POST', url: `${URL_T1}/attestation`, ...en(admin), payload: { coche: 'oui' } })).statusCode).toBe(400);
     expect(lignes.store.attestations).toEqual([]);
+  });
+});
+
+/**
+ * LE RATTRAPAGE DES COMMANDES DES 60 DERNIERS JOURS (segments Shopify enrichis, lot 5) : l'aperçu lit sans rien écrire,
+ * le lancement rend 202 (le worker fait le travail) et se journalise, l'état se relit. Admin seulement, comme la carte.
+ */
+describe('le rattrapage des commandes', () => {
+  const URL_APERCU = `${URL_T1}/commandes/apercu`;
+  const URL_RATTRAPAGE = `${URL_T1}/commandes/rattrapage`;
+  const lecture = (jeton: string) => ({ headers: { authorization: `Bearer ${jeton}` } });
+
+  it('l’aperçu compte les commandes de la fenêtre sans rien écrire', async () => {
+    const { app, reprise } = monter({ reprise: { fiches: { '+33612345678': 'fa' }, pages: { '': page([commandeLue(1), commandeLue(2, { telephone: null })], null, 2) } } });
+    const r = await app.inject({ method: 'GET', url: URL_APERCU, ...lecture(admin) });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ fenetreDebut: '2026-09-24T00:00:00.000Z', lues: 2, deja: 0, rattachables: 1, sansFiche: 0, sansNumero: 1, ecartees: 2, complet: true });
+    expect(reprise.trace.liees).toEqual([]);
+  });
+
+  it('🔴 le lancement : 202, la reprise inscrite au nom de la personne, son job enfilé, le journal ; puis l’état la rend', async () => {
+    const { app, reprise, trace } = monter();
+    expect((await app.inject({ method: 'GET', url: URL_RATTRAPAGE, ...lecture(admin) })).json()).toEqual({ reprise: null });
+    const r = await app.inject({ method: 'POST', url: URL_RATTRAPAGE, ...en(admin), payload: {} });
+    expect(r.statusCode).toBe(202);
+    const id = r.json().reprise.id as string;
+    expect(r.json().reprise).toMatchObject({ statut: 'en_attente', fenetreDebut: '2026-09-24T00:00:00.000Z', interrompue: false });
+    expect(reprise.lignes[0]!.r.par).toBe('u1');
+    expect(reprise.trace.jobs).toEqual([{ job: { tenantId: 't1', repriseId: id }, dansSecondes: 0 }]);
+    expect(trace.audit).toEqual([{ action: 'shopify.rattrapage', cible: CIBLE, detail: { reprise: id, depuis: '2026-09-24T00:00:00.000Z' } }]);
+    expect((await app.inject({ method: 'GET', url: URL_RATTRAPAGE, ...lecture(admin) })).json()).toMatchObject({ reprise: { id, statut: 'en_attente' } });
+  });
+
+  it('un second lancement pendant le premier : 409, rien de plus ; un corps hors contrat : 400', async () => {
+    const { app, reprise, trace } = monter();
+    await app.inject({ method: 'POST', url: URL_RATTRAPAGE, ...en(admin), payload: {} });
+    const r = await app.inject({ method: 'POST', url: URL_RATTRAPAGE, ...en(admin), payload: {} });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().error).toMatch(/déjà en cours/);
+    expect((await app.inject({ method: 'POST', url: URL_RATTRAPAGE, ...en(admin), payload: { jours: 365 } })).statusCode).toBe(400);
+    expect(reprise.lignes).toHaveLength(1);
+    expect(trace.audit).toHaveLength(1);
+  });
+
+  it('sans boutique branchée, l’aperçu et le lancement disent quoi faire (409)', async () => {
+    const { app } = monter({ reprise: { boutique: null } });
+    for (const r of [
+      await app.inject({ method: 'GET', url: URL_APERCU, ...lecture(admin) }),
+      await app.inject({ method: 'POST', url: URL_RATTRAPAGE, ...en(admin), payload: {} }),
+    ]) {
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error).toMatch(/Aucune boutique Shopify/);
+    }
+  });
+
+  it('🔴 un agent et l’espace d’un autre client sont refusés, sans rien lire ni lancer', async () => {
+    const { app, reprise } = monter();
+    for (const jeton of [agent, autreEspace]) {
+      expect((await app.inject({ method: 'GET', url: URL_APERCU, ...lecture(jeton) })).statusCode).toBe(403);
+      expect((await app.inject({ method: 'POST', url: URL_RATTRAPAGE, ...en(jeton), payload: {} })).statusCode).toBe(403);
+      expect((await app.inject({ method: 'GET', url: URL_RATTRAPAGE, ...lecture(jeton) })).statusCode).toBe(403);
+    }
+    expect(reprise.lignes).toEqual([]);
+    expect(reprise.trace.lectures).toEqual([]);
   });
 });

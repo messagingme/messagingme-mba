@@ -38,6 +38,7 @@ import type { StripeWebhookRouteDeps } from '../src/http/credit-stripe';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
 import type { DepsScenariosApi } from '../src/workflow/scenarios-api';
 import { depsScenarios } from './aide/scenarios-api';
+import type { DepsReprise } from '../src/shopify/reprise';
 
 /**
  * LES DÉPENDANCES DE ROUTES DEVENUES REQUISES, EN VALEURS INERTES NOMMÉES (lot 3 de l'audit ponytail, 2026-09-26).
@@ -984,6 +985,23 @@ export const mcpCampagnesInertes: Pick<DepsMcp, 'campagnes'> = {
   },
 };
 
+/** Le rattrapage des commandes Shopify (segments Shopify enrichis, lot 5) : aucune boutique, aucune reprise, rien ne se lance. */
+export const repriseInerte: DepsReprise = {
+  reprises: {
+    lancer: neDevraitPasEtreAppelee('shopify.reprise.lancer'), prendre: neDevraitPasEtreAppelee('shopify.reprise.prendre'),
+    avancer: neDevraitPasEtreAppelee('shopify.reprise.avancer'), relacher: neDevraitPasEtreAppelee('shopify.reprise.relacher'),
+    finir: neDevraitPasEtreAppelee('shopify.reprise.finir'), annuler: neDevraitPasEtreAppelee('shopify.reprise.annuler'),
+    lire: async () => null, derniere: async () => null,
+  },
+  boutique: async () => null,
+  jeton: neDevraitPasEtreAppelee('shopify.reprise.jeton'),
+  lirePage: neDevraitPasEtreAppelee('shopify.reprise.lirePage'),
+  commandesConnues: neDevraitPasEtreAppelee('shopify.reprise.commandesConnues'),
+  fichesParNumeros: neDevraitPasEtreAppelee('shopify.reprise.fichesParNumeros'),
+  lierCommande: neDevraitPasEtreAppelee('shopify.reprise.lierCommande'),
+  enfiler: neDevraitPasEtreAppelee('shopify.reprise.enfiler'),
+};
+
 /** Le connecteur Shopify (2026-10-21) : aucune boutique, et rien ne s'écrit. */
 export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
   shopify: {
@@ -1026,6 +1044,7 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
       creerModele: neDevraitPasEtreAppelee('shopify.creerModele'),
       filiere: async () => null,
     },
+    reprise: repriseInerte,
   },
 };
 

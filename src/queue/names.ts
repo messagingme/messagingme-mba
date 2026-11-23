@@ -7,7 +7,7 @@
  * Les files travaillées par le worker. `analyze-conversation` et `push-analysis` ne sont enregistrées que si la
  * fonction est activée, mais la file existe côté /ops même désactivée : on les liste inconditionnellement.
  */
-export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'hubspot-stop', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta', 'agent-evenement-issue', 'shopify-sans-whatsapp'] as const;
+export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'hubspot-stop', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta', 'agent-evenement-issue', 'shopify-sans-whatsapp', 'shopify-reprise'] as const;
 
 /**
  * Le nom de la DLQ d'une file, défini une seule fois : `PgBossQueue.ensure()` l'importe pour la créer, donc le nom
@@ -70,6 +70,9 @@ export const QUEUE_POLLING_SECONDS: Record<(typeof BASE_QUEUES)[number], number>
   // La suppression d'une fiche née d'un envoi Shopify, au premier 131026 (segments Shopify, lot 2a) : personne n'attend,
   // la place revient dans la minute.
   'shopify-sans-whatsapp': 60,
+  // Le rattrapage des commandes Shopify (segments Shopify, lot 5) : le marchand vient de cliquer et regarde la carte ;
+  // dix secondes avant le premier passage ne se ressentent pas, et les passages suivants partent à leur heure.
+  'shopify-reprise': 10,
 };
 
 /**
@@ -104,6 +107,7 @@ export const FILES_NOTIFIEES: Record<(typeof BASE_QUEUES)[number], boolean> = {
   'conversions-meta': false, // une conversion de nos publicités : Meta l'accepte pendant sept jours, personne n'attend (pixel, lot 2)
   'agent-evenement-issue': false, // relue à son heure (`startAfter`, 20 s après l'envoi), qu'aucun réveil n'avance (2026-11-10)
   'shopify-sans-whatsapp': false, // une fiche morte supprimée : la place revient dans la minute, personne n'attend (2026-11-23)
+  'shopify-reprise': false, // le rattrapage des commandes : un travail de fond de plusieurs minutes, sa cadence suffit (2026-11-23)
 };
 
 /**

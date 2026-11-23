@@ -216,6 +216,17 @@ describe('les segments de l’assistant', () => {
     expect(Object.keys(r2).sort()).toEqual(['contacts', 'total']);
   });
 
+  it('🔴 find_contacts dit la fenêtre du dernier rattrapage TERMINÉ des commandes, que le suivi lit ; sans rattrapage, rien', async () => {
+    const rattrapage = { depuis: new Date('2026-09-24T00:00:00Z'), le: new Date('2026-11-23T12:05:00Z') };
+    const avec = deps({ boutique: { ...BOUTIQUE, rattrapage } });
+    expect(await outil.executer(avec.d, T, { orders: { min: 1 } }, null)).toMatchObject({
+      orders_recorded_since: '2026-11-03T10:00:00.000Z', orders_backfilled_since: '2026-09-24T00:00:00.000Z', orders_backfilled_at: '2026-11-23T12:05:00.000Z',
+    });
+    const sans = (await outil.executer(deps({ boutique: BOUTIQUE }).d, T, { orders: { min: 1 } }, null)) as Record<string, unknown>;
+    expect(sans).not.toHaveProperty('orders_backfilled_since');
+    expect(sans).not.toHaveProperty('orders_backfilled_at');
+  });
+
   it('🔴 chaque borne appliquée est annoncée dans le schéma de l’outil', () => {
     const p = outil.entree.properties;
     expect(p.orders!.properties!.min).toMatchObject({ type: 'integer', minimum: 0, maximum: BORNES_SEGMENTS.commandesMax });

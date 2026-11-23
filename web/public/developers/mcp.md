@@ -232,6 +232,9 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | get_shopify_state | mcp:read connexion OAuth requise | La boutique Shopify branchée : son état, sa pause, ses automations (allumées ou non, leur premier modèle et son état chez Meta, leur nombre d’étapes), le dernier événement reçu, les issues des 30 derniers jours et les paniers des 7 derniers. |
 | preview_shopify_customers | mcp:read connexion OAuth requise | Compter, sans rien écrire, les clients Shopify abonnés au marketing (e-mail ou SMS) qui ont un téléphone : déjà dans l’espace, nouveaux, places libres de l’offre, importables. |
 | import_shopify_customers | mcp:write connexion OAuth requise | Importer les clients Shopify abonnés que le marchand a choisis, les plus récents d’abord : des fiches étiquetées Shopify, consentantes par la déclaration du client, dans la limite de l’offre. |
+| preview_shopify_order_history | mcp:read connexion OAuth requise | Compter, sans rien écrire, les commandes payées des 60 derniers jours de la boutique Shopify : déjà connues, rattachables à une fiche, sans fiche ou sans numéro, jamais payées. |
+| import_shopify_order_history | mcp:write connexion OAuth requise | Rattraper les commandes payées des 60 derniers jours : chacune rejoint la fiche de son numéro, avec son montant et ses produits ; aucune fiche créée, aucun message envoyé. |
+| get_shopify_order_history | mcp:read connexion OAuth requise | L’état du dernier rattrapage des commandes : en cours, terminé ou arrêté, et ses comptes (lues, rattachées, déjà connues, sans fiche, sans numéro). |
 | disconnect_shopify | mcp:write connexion OAuth requise | Couper la boutique Shopify : plus aucun message ne part, les demandes RGPD de la boutique restent traitées. |
 
 ### Webhooks

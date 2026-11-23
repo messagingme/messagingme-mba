@@ -5,6 +5,40 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : segments Shopify, lot 5 : le rattrapage des commandes des 60 derniers jours
+
+Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-5-rattrapage.md`, implémenteur par lot et revue humaine du
+diff. Les commandes payées CRÉÉES dans les 60 jours qui précèdent (la limite que `read_orders` ouvre) sont relues par
+l'API Admin GraphQL de Shopify, reformées en corps du webhook `orders/paid` et validées par `schemaCommande` : le même
+numéro, la même fiche, le même montant et les mêmes lignes qu'une commande reçue. Connue, une commande garde sa fiche et
+ne reçoit ses lignes que s'il lui en manque (celles d'avant le lot 3) ; inconnue, elle rejoint la fiche active de son
+numéro ; sans fiche ou sans numéro utilisable, elle est comptée, jamais gardée. Aucune fiche créée, aucun message, ni
+attribution ni joignabilité ; `commandes_depuis` ne bouge pas. Arbitrages de Julien, en questions fermées : une commande
+sans fiche est comptée sans être gardée ; 60 jours pour toutes les offres (trois outils MCP pour toutes, la carte de la
+console en Pro) ; aucun lancement au branchement, un aperçu puis un geste ; et pour le lot 7, le Pro remontera 24 mois
+(question 4 de la spec, tranchée).
+La migration 0313 (`shopify_reprises`, une ligne par rattrapage avec le domaine de sa boutique, aucune donnée de
+personne, un index unique partiel « une reprise vivante par espace ») est NON bloquante : la purge ne la nomme pas, et
+le seul chemin chaud qui la lit (`suiviSegments`) le fait au mieux, une table absente le tait sans faire tomber la liste
+des contacts. Le job (file `shopify-reprise`, rôle `analyse`) tient la reprise par un bail de 180 s et un jeton de
+garde, passe deux minutes au plus, enfile sa suite puis libère le bail, et reprend au curseur.
+La relecture : aucun rouge, quatorze jaunes, corrigés dans le lot avant le push sauf trois laissés au `todo.md` (la
+concurrence de la file, le réglage de la taille des pages sur le coût mesuré, la vitrine « depuis le branchement »).
+Corrigés : 🔴 toute panne libère le bail (tenu, il faisait réenfiler chaque rejeu sans rien user, sans fin, et
+refusait toute relance) ; la dernière page et la fin s'écrivent ensemble (un échec entre les deux la recomptait) ; la
+boutique est relue avant chaque page écrite, et une reprise ne continue jamais sur une autre boutique (son domaine) ;
+une commande déjà complète n'est jamais réécrite (relue à 50 lignes, elle se serait dite tronquée) ; le dernier
+rattrapage ne se dit que s'il a fini après le début du suivi courant ; un job non enfilé clôt sa reprise ; l'aperçu
+tient ses 25 s frein compris et rend des comptes partiels sur une panne ; chaque passage journalise le coût de sa
+première page (`shopify_reprise_cout`) ; les textes devenus faux (onglet Shopify de la fiche, `within_days`, la carte,
+la durée annoncée). Trouvé en refaisant les captures, un défaut plus ancien : le volet des intégrations masquait le
+titre de toute fenêtre ouverte depuis sa carte (l'import des clients compris) ; la règle exclut désormais les
+fenêtres, gardée par l'e2e. Les captures de la fiche « Brancher ma boutique Shopify » sont refaites sur la console
+actuelle (la tâche du `todo.md` est close), avec l'étape 11, le rattrapage.
+Vérifié : suite racine, typage, lint, auto-attaque (aucune trouvaille sur 473 routes) ; le banc PGlite (le vrai
+magasin, la migration jouée) ; console (lint, types, 1 379 tests, les 58 e2e de la carte et des filtres sur la build de
+production) ; trente-sept mutations du code et de la console, toutes rouges, chacune sur le test qui la vise.
+
 ## 2026-11-23 : le oui aux données de la fiche pose vraiment l'outil, et l'active
 
 Julien, en relisant le lot précédent : « poser des questions si ce n'est pas concrètement suivi de la mise en place d'un

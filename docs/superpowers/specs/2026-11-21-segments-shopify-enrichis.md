@@ -1408,6 +1408,7 @@ nomme une table lue par l'accusé, part en `avant`.
 3. **Julien, étiquette des fiches créées.** « Acheteur Shopify », pour ne pas rejoindre en silence l'étiquette
    « Shopify » de l'import d'abonnés. Autre nom, ou la même étiquette ?
 4. **Julien, 24 mois.** `read_all_orders` pourrait tout lire. On borne à 24 mois. Plus court (12) ou plus long ?
+   **Tranchée le 2026-11-23 : 24 mois pour le Pro** (Julien, en lançant le lot 5) ; 60 jours pour toutes les offres.
 5. **Julien, remboursements.** On continue de ne pas les déduire, produits compris. Le rouvrir oblige un sujet de plus
    (`refunds/create` ou `orders/updated`) et un redéploiement chez chaque marchand. On le laisse fermé ?
 6. **Mesure, 60 jours.** Sur l'app de la boutique de développement, une commande créée il y a plus de 60 jours est-elle

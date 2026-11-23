@@ -166,8 +166,10 @@ describe('le centre d’aide de la vitrine', () => {
     // 13, essai 5, modèle et crédit 6) ; 384 avec l'étape « Construire la suite » de « Brancher ma boutique Shopify », dans
     // les deux langues (le même jour, menu « Scénario », lot 5d : les messages de la boutique devenus des automations) ; 386
     // avec l'étape « Prévoir l'échec de livraison » de l'Envoi template, dans les deux langues (2026-11-20) ; 406 avec les 20 des deux
-    // fiches webhook, dans les deux langues (le même jour : recevoir 6, envoyer 4).
-    expect(vues).toBe(406);
+    // fiches webhook, dans les deux langues (le même jour : recevoir 6, envoyer 4) ; 408 avec l'étape « Rattraper les
+    // commandes des 60 derniers jours » de « Brancher ma boutique Shopify », dans les deux langues (2026-11-23, segments
+    // Shopify enrichis, lot 5).
+    expect(vues).toBe(408);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {

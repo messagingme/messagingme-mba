@@ -12,6 +12,8 @@ import {
 } from '../shopify/gestion';
 import { reglerAttestation, type EtatLigne } from '../shopify/lignes-gestion';
 import type { MessageBranche } from '../shopify/store.pg';
+import { apercuReprise, etatReprise, lancerReprise } from '../shopify/reprise';
+import type { RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
 import { messageDe } from '../lib/erreur';
 
 /**
@@ -45,6 +47,16 @@ function valeur<T>(r: Issue<T>): T {
 }
 
 const evenements = EVENEMENTS_DISPONIBLES.map((e) => `${e} (${DONNEES_PAR_EVENEMENT[e].join(', ')})`).join('; ');
+
+/** Une reprise des commandes (segments Shopify enrichis, lot 5), telle que le lancement et l'état la rendent. */
+const versRattrapage = (v: RepriseShopifyVue) => ({
+  status: v.statut, interrupted: v.interrompue, window_start: v.fenetreDebut, started_at: v.commenceLe, finished_at: v.finiLe,
+  counts: {
+    paid_orders_read: v.comptes.lues, attached: v.comptes.rattachees, already_known: v.comptes.deja,
+    without_record: v.comptes.sansFiche, without_usable_phone: v.comptes.sansNumero,
+  },
+  error: v.erreur,
+});
 
 /** Un message d'avant le lot 5 (l'ancienne table), que `get_shopify_state` rend encore aux plugins d'avant. */
 const versMessage = (m: MessageBranche) => ({
@@ -321,6 +333,66 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         imported: b.importes, restored: b.retablis, left_out: b.restent, free_places_left: b.placesLibres, tag: b.etiquette,
         complete: b.complet, consent: 'opted_in: declared by the user through Claude (a record that said STOP stays opted out)',
       };
+    },
+  },
+  {
+    ...ficheOutilMcp('preview_shopify_order_history'),
+    fonction: null,
+    description:
+      'Counts, before any catch-up, the paid orders (paid, partially or fully refunded) created in the last 60 days in the '
+      + 'connected Shopify store, the window Shopify opens to the app: how many are already known (received live: a catch-up '
+      + 'adds their products), how many would join a record of the workspace (the same phone choice as a live order), how '
+      + 'many have no record with that phone or no usable phone (counted, never kept: a catch-up creates no record), and how '
+      + 'many were never paid (left out). Writes nothing. complete is false when the 25 seconds of the preview were not '
+      + 'enough to read every order: the counts are then partial, never a total. Counts toward the workspace\'s heavy operations.',
+    annotations: { title: 'Count the Shopify orders to catch up', readOnlyHint: true, openWorldHint: true },
+    entree: { type: 'object', properties: {} },
+    async executer(deps: DepsMcp, tenantId) {
+      const c = await deps.couteux.consommer(tenantId);
+      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      const a = valeur(await apercuReprise(deps.shopify.reprise, tenantId));
+      return {
+        window_start: a.fenetreDebut, paid_orders_read: a.lues, already_known: a.deja, attachable: a.rattachables,
+        without_record: a.sansFiche, without_usable_phone: a.sansNumero, never_paid: a.ecartees, complete: a.complet,
+      };
+    },
+  },
+  {
+    ...ficheOutilMcp('import_shopify_order_history'),
+    fonction: null,
+    description:
+      'Starts the catch-up of the paid orders created in the last 60 days in the connected Shopify store, after '
+      + 'preview_shopify_order_history and the user\'s yes. An order already known keeps its record and gets its products; '
+      + 'an unknown order joins the active record of its usable phone, with its amount and products, as a live order would '
+      + 'have. An order without a record or without a usable phone is counted, never kept. It creates no record, sends no '
+      + 'message and attributes no revenue: find_contacts (orders, products, amount spent) then sees these orders. It runs in '
+      + 'the background, a few minutes for most stores and over an hour for the largest: get_shopify_order_history follows '
+      + 'it. Refused while another '
+      + 'catch-up of the workspace is running. Counts toward the workspace\'s heavy operations.',
+    annotations: { title: 'Catch up the Shopify orders', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    entree: { type: 'object', properties: {} },
+    async executer(deps: DepsMcp, tenantId, _args, personne) {
+      const c = await deps.couteux.consommer(tenantId);
+      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      const r = valeur(await lancerReprise(deps.shopify.reprise, tenantId, personne?.userId ?? null));
+      journaliser('info', 'mcp_shopify_rattrapage', { tenantId, userId: personne?.userId ?? null, reprise: r.id });
+      return { ...versRattrapage(r), next_step: 'get_shopify_order_history follows it: a few minutes for most stores, over an hour for the largest' };
+    },
+  },
+  {
+    ...ficheOutilMcp('get_shopify_order_history'),
+    fonction: null,
+    description:
+      'The last catch-up of the Shopify orders of the workspace: its status (en_attente, en_cours, termine, refuse, erreur), '
+      + 'interrupted when nothing moved for 15 minutes (import_shopify_order_history closes it and starts again), the window '
+      + 'read, when it started and finished, its counts (paid orders read, attached to a record, already known, without a '
+      + 'record, without a usable phone) and the reason it stopped. started is false when none was ever started.',
+    annotations: { title: 'Get the Shopify orders catch-up', readOnlyHint: true, openWorldHint: false },
+    entree: { type: 'object', properties: {} },
+    async executer(deps: DepsMcp, tenantId) {
+      const r = await etatReprise(deps.shopify.reprise, tenantId);
+      if (!r) return { started: false, next_step: 'preview_shopify_order_history, then import_shopify_order_history once the user agrees' };
+      return { started: true, ...versRattrapage(r) };
     },
   },
   {

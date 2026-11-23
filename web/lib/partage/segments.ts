@@ -69,7 +69,11 @@ export const BORNES_SEGMENTS = {
 
 /** Ce que l'API sait cibler pour un espace (`GET /tenants/:id/contacts/segments`). */
 export interface SuiviSegmentsVue {
-  boutique: { devise: string | null; commandesDepuis: string; coupeeLe: string | null } | null;
+  /**
+   * `rattrapeesDepuis` (lot 5) : le début de la fenêtre du dernier rattrapage terminé des commandes ; absent d'une API plus
+   * ancienne, ou sans rattrapage.
+   */
+  boutique: { devise: string | null; commandesDepuis: string; coupeeLe: string | null; rattrapeesDepuis?: string } | null;
   /** Depuis quand l'activité (message reçu, clic attribué) est complète ; avant, seul ce qui restait conservé. */
   activiteCompleteDepuis: string;
   /**

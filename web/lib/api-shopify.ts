@@ -2,6 +2,7 @@
 
 import { request } from './http';
 import { estAutomationShopify, type AutomationShopify } from './partage/shopify-messages';
+import type { ApercuRepriseVue, RepriseShopifyVue } from './partage/reprise-shopify';
 
 /**
  * LE CONNECTEUR SHOPIFY : la carte de Tools > Intégrations (plan 2026-10-21, lot 1 ; conception 2026-10-22) et la section
@@ -224,4 +225,21 @@ export function importerClientsShopify(
   tenantId: string, maximum: number,
 ): Promise<{ importes: number; retablis: number; restent: number; placesLibres: number | null; etiquette: string; complet: boolean }> {
   return request(`${base(tenantId)}/clients/import`, { method: 'POST', body: JSON.stringify({ maximum }) });
+}
+
+/**
+ * LE RATTRAPAGE DES COMMANDES DES 60 DERNIERS JOURS (segments Shopify enrichis, lot 5) : l'aperçu lit chez Shopify sans
+ * rien écrire, le lancement inscrit la reprise (le worker la fait), l'état se relit. Une API plus ancienne rend 404 : la
+ * carte n'en montre alors rien (`routeInconnue`).
+ */
+export function apercuRattrapageShopify(tenantId: string): Promise<ApercuRepriseVue> {
+  return request(`${base(tenantId)}/commandes/apercu`);
+}
+
+export async function lancerRattrapageShopify(tenantId: string): Promise<RepriseShopifyVue> {
+  return (await request<{ reprise: RepriseShopifyVue }>(`${base(tenantId)}/commandes/rattrapage`, { method: 'POST', body: '{}' })).reprise;
+}
+
+export async function lireRattrapageShopify(tenantId: string): Promise<RepriseShopifyVue | null> {
+  return (await request<{ reprise: RepriseShopifyVue | null }>(`${base(tenantId)}/commandes/rattrapage`)).reprise ?? null;
 }

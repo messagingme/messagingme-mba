@@ -222,12 +222,21 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         },
       },
       {
+        titre: { fr: 'Rattraper les 60 derniers jours de commandes', en: 'Catch up the last 60 days of orders' },
+        dire: { fr: 'Rattrape mes commandes Shopify des 60 derniers jours.', en: 'Catch up my Shopify orders of the last 60 days.' },
+        outils: ['preview_shopify_order_history', 'import_shopify_order_history', 'get_shopify_order_history'],
+        reponse: {
+          fr: 'Claude compte d’abord, sans rien écrire, les commandes payées des 60 derniers jours : déjà connues, à rattacher à une fiche, sans fiche ou sans numéro. Avec votre accord, il lance le rattrapage, quelques minutes pour la plupart des boutiques : chaque commande rejoint la fiche de son numéro, avec ses produits. Aucune fiche n’est créée, aucun message ne part.',
+          en: 'Claude counts first, writing nothing, the paid orders of the last 60 days: already known, to attach to a record, without a record or without a phone. With your go-ahead, it starts the catch-up, a few minutes for most stores: each order joins the record of its phone, with its products. No record is created, no message goes out.',
+        },
+      },
+      {
         titre: { fr: 'Cibler par les commandes', en: 'Target by orders' },
         dire: { fr: 'Mes clients qui ont commandé au moins 2 fois en 90 jours, en France.', en: 'My customers who ordered at least twice in 90 days, in France.' },
         outils: [],
         reponse: {
-          fr: 'Avec l’offre Pro, Claude retrouve les contacts par leurs commandes payées : combien, combien dépensé, depuis quand rien. Les commandes comptent depuis le branchement de la boutique, remboursements non déduits.',
-          en: 'On the Pro plan, Claude finds the contacts by their paid orders: how many, how much spent, how long since the last one. Orders count from when the store was connected, refunds not deducted.',
+          fr: 'Avec l’offre Pro, Claude retrouve les contacts par leurs commandes payées : combien, combien dépensé, depuis quand rien. Les commandes comptent depuis le branchement de la boutique, et les 60 jours d’avant un rattrapage, remboursements non déduits.',
+          en: 'On the Pro plan, Claude finds the contacts by their paid orders: how many, how much spent, how long since the last one. Orders count from when the store was connected, and the 60 days before a catch-up, refunds not deducted.',
         },
       },
       {

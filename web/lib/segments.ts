@@ -23,6 +23,7 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
       devise: typeof b.devise === 'string' ? b.devise : null,
       commandesDepuis: b.commandesDepuis,
       coupeeLe: typeof b.coupeeLe === 'string' ? b.coupeeLe : null,
+      ...(typeof b.rattrapeesDepuis === 'string' ? { rattrapeesDepuis: b.rattrapeesDepuis } : {}),
     },
     activiteCompleteDepuis: o.activiteCompleteDepuis,
     ...produits,

@@ -49,6 +49,8 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'shopify.reprise': ['Boutique Shopify reprise', 'Shopify store resumed'],
   'shopify.ligne': ['Automation Shopify réglée', 'Shopify automation changed'],
   'shopify.attestation': ['Consentement des clients Shopify attesté ou retiré', 'Shopify customers consent confirmed or withdrawn'],
+  // Segments Shopify enrichis, lot 5 : le rattrapage des commandes des 60 derniers jours (le détail : la reprise, sa date de début).
+  'shopify.rattrapage': ['Rattrapage des commandes Shopify lancé', 'Shopify order history catch-up started'],
   // L'interrupteur du numéro sur l'Accueil (migration 0180). La cible est l'ESPACE, jamais le numéro affiché.
   'numero.delie': ['Numéro WhatsApp délié', 'WhatsApp number unlinked'],
   'numero.relie': ['Numéro WhatsApp relié', 'WhatsApp number relinked'],

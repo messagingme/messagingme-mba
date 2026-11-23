@@ -71,6 +71,9 @@ export const FILES_PAR_ROLE: Record<NomDeFile, Appartenance> = {
   'push-handoff': 'principal',
   // L'analyse et ce qu'elle alimente : personne n'attend derrière, et c'est ce qui appelle les modèles.
   'analyze-conversation': 'analyse',
+  // Le rattrapage des commandes Shopify (segments Shopify, lot 5) : des passages de deux minutes qui appellent Shopify
+  // page après page ; personne n'attend derrière, et un passage lent ne doit pas retarder un message entrant.
+  'shopify-reprise': 'analyse',
   'push-analysis': 'analyse',
   'hubspot-catchup': 'analyse',
 };

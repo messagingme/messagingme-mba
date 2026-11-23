@@ -1,7 +1,7 @@
 ---
 name: shopify
-description: Connects the user's Shopify store to Messaging Me so that customers receive WhatsApp messages when an order is paid or shipped, and a reminder when they abandon a checkout, and imports the store's customers who subscribed to marketing - creates the store app with the Shopify CLI in the merchant's own organization, installs it with one click, keeps its secret and sets the messages. Use when the user wants to connect Shopify, send order confirmations, shipping updates or abandoned checkout reminders on WhatsApp, import their Shopify customers, know how much revenue their WhatsApp messages brought in, or check or cut the Shopify connection.
-allowed-tools: mcp__plugin_messagingme_messagingme__get_shopify_state, mcp__plugin_messagingme_messagingme__get_revenue_stats, mcp__plugin_messagingme_messagingme__preview_shopify_customers, mcp__plugin_messagingme_messagingme__list_templates, mcp__plugin_messagingme_messagingme__get_template_status, mcp__plugin_messagingme_messagingme__get_setup_state
+description: Connects the user's Shopify store to Messaging Me so that customers receive WhatsApp messages when an order is paid or shipped, and a reminder when they abandon a checkout, imports the store's customers who subscribed to marketing, and catches up the paid orders of the last 60 days for the segments - creates the store app with the Shopify CLI in the merchant's own organization, installs it with one click, keeps its secret and sets the messages. Use when the user wants to connect Shopify, send order confirmations, shipping updates or abandoned checkout reminders on WhatsApp, import their Shopify customers, bring their past orders into their segments, know how much revenue their WhatsApp messages brought in, or check or cut the Shopify connection.
+allowed-tools: mcp__plugin_messagingme_messagingme__get_shopify_state, mcp__plugin_messagingme_messagingme__get_revenue_stats, mcp__plugin_messagingme_messagingme__preview_shopify_customers, mcp__plugin_messagingme_messagingme__preview_shopify_order_history, mcp__plugin_messagingme_messagingme__get_shopify_order_history, mcp__plugin_messagingme_messagingme__list_templates, mcp__plugin_messagingme_messagingme__get_template_status, mcp__plugin_messagingme_messagingme__get_setup_state
 ---
 
 # Connect a Shopify store
@@ -213,6 +213,24 @@ record counts toward the plan's contact limit, and managing that limit is the us
    answer.
 3. Call `import_shopify_customers` with `max_contacts`, the number they chose. A number above the free places is refused
    and nothing is written. The records are tagged Shopify; calling again imports the next ones without duplicates.
+
+## Catch up the last 60 days of orders
+
+Orders paid before the store was connected are not in the segments (`find_contacts`: orders, products, amount spent).
+The catch-up reads the paid orders created in the last 60 days, the window Shopify opens to the app, and attaches each
+one to the record of its phone already in the workspace, amount and products included, as a live order would have
+been. It creates no record, sends no message and attributes no revenue: an order whose phone matches no record, or
+without a usable phone, is counted and never kept. It is open to every plan.
+
+1. Count first with `preview_shopify_order_history`, which writes nothing. Tell the user, in plain words: how many paid
+   orders the window holds, how many are already known (they get their products), how many would join a record, how
+   many have no record or no usable phone (counted, never kept). When `complete` is false, the counts are partial: the
+   catch-up itself reads everything.
+2. Once the user agrees, call `import_shopify_order_history`. It runs in the background, a few minutes for most
+   stores and over an hour for the largest, and is refused while another one runs.
+3. `get_shopify_order_history` follows it: its status and its counts. `interrupted` means nothing moved for 15 minutes:
+   starting it again closes it and reads the window again. Once it is `termine`, `find_contacts` says from which date
+   the orders were caught up, with its orders criteria.
 
 ## What WhatsApp brought in
 

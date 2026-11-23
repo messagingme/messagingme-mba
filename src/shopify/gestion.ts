@@ -18,6 +18,7 @@ import {
   type DepsLignesShopify, type EtatLigne,
 } from './lignes-gestion';
 import { prefixeShopify } from './lignes';
+import type { DepsReprise } from './reprise';
 import type { ChiffreVentes, Montant } from './chiffre';
 import { addDays, todayParis, type DateRange } from '../stats/range';
 
@@ -51,6 +52,8 @@ export interface DepsGestionShopify {
   chiffreVentes(tenantId: string, range: DateRange): Promise<ChiffreVentes>;
   /** Les lignes et leurs scénarios (menu « Scénario », lot 5) : `./lignes-gestion.ts`. */
   lignes: DepsLignesShopify;
+  /** Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5) : `cablerReprise`, `./reprise.ts`. */
+  reprise: DepsReprise;
 }
 
 // Le refus d'un message Shopify sur un numéro relié par QR code vit avec l'interrupteur des lignes, qui l'emploie aussi.

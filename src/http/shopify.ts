@@ -9,6 +9,7 @@ import {
 import { AUTOMATIONS_DISPONIBLES, estAutomationShopify } from '../shopify/donnees';
 import { reglerAttestation, reglerLigne, reglerPause } from '../shopify/lignes-gestion';
 import { reglerMessage } from '../shopify/preparation';
+import { apercuReprise, etatReprise, lancerReprise } from '../shopify/reprise';
 
 /**
  * PARAMÈTRES > INTÉGRATIONS > SHOPIFY : la carte de la console (plan 2026-10-21, lot 1 ; conception 2026-10-22). Une
@@ -48,6 +49,8 @@ const corpsPause = z.object({ pause: z.boolean() }).strict();
 const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int().optional(), agentId: z.string().uuid().optional() }).strict();
 // La langue choisit la phrase attestée côté serveur (`TEXTE_ATTESTATION_SHOPIFY`) : jamais un texte reçu.
 const corpsAttestation = z.object({ coche: z.boolean(), langue: z.enum(['fr', 'en']).optional() }).strict();
+// Le rattrapage des commandes (lot 5) : aucun réglage, la fenêtre est celle de Shopify (60 jours).
+const corpsRattrapage = z.object({}).strict();
 
 const raisonCorps = (e: z.ZodError): string => {
   const i = e.issues[0];
@@ -156,5 +159,29 @@ export function registerShopify(app: FastifyInstance, deps: ShopifyRouteDeps, ga
     if (!r.ok) return reply.code(r.statut).send({ error: r.message });
     await journal(tenant, req, 'shopify.import', CIBLE, { importes: r.valeur.importes, retablis: r.valeur.retablis });
     return reply.code(200).send(r.valeur);
+  });
+
+  // LE RATTRAPAGE DES COMMANDES DES 60 DERNIERS JOURS (segments Shopify enrichis, lot 5) : l'aperçu lit chez Shopify sans
+  // rien écrire, le lancement inscrit la reprise et enfile son job (202, le worker la fait), l'état se relit.
+  app.get('/tenants/:tenantId/integrations/shopify/commandes/apercu', optsLourds, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const r = await apercuReprise(deps.gestion.reprise, tenant);
+    if (!r.ok) return reply.code(r.statut).send({ error: r.message });
+    return reply.code(200).send(r.valeur);
+  });
+
+  app.post('/tenants/:tenantId/integrations/shopify/commandes/rattrapage', optsLourds, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const corps = corpsRattrapage.safeParse(req.body ?? {});
+    if (!corps.success) return reply.code(400).send({ error: raisonCorps(corps.error) });
+    const r = await lancerReprise(deps.gestion.reprise, tenant, req.auth?.userId ?? null);
+    if (!r.ok) return reply.code(r.statut).send({ error: r.message });
+    await journal(tenant, req, 'shopify.rattrapage', CIBLE, { reprise: r.valeur.id, depuis: r.valeur.fenetreDebut });
+    return reply.code(202).send({ reprise: r.valeur });
+  });
+
+  app.get('/tenants/:tenantId/integrations/shopify/commandes/rattrapage', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    return reply.code(200).send({ reprise: await etatReprise(deps.gestion.reprise, tenant) });
   });
 }

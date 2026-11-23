@@ -1,6 +1,6 @@
 ---
 slug: import-my-contacts
-traduit_de: 000c85
+traduit_de: 72bd76
 ---
 # Add or import my contacts
 
@@ -50,7 +50,8 @@ The order criteria (number of paid orders, amount spent, date of the last order,
 “clicked” without ordering buttons) are in the **Shopify** section of the
 filters, folded until you open it. It needs a **connected Shopify store** (Tools > Integrations): we only know about an
 order because Shopify sends it to us. Without a store, it does not appear. With one, its criteria count the orders paid
-since the store was connected, test orders included, refunds not deducted, and only those from a number already in
+since the store was connected (and those of the 60 days before a catch-up, started from the Shopify card), test
+orders included, refunds not deducted, and only those from a number already in
 your contacts. The country is filtered with “Phone starts with”
 (+32 for Belgium). Your site is not on Shopify? It can put tags on your contacts through the API (“loyal customer”),
 which you then filter.

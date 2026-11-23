@@ -1,7 +1,7 @@
 ---
 ecran: contacts
 source_section: Contacts & CRM
-source_empreinte: c9d396
+source_empreinte: ac9933
 publique: oui
 rubrique: parler-aux-clients
 rang: 4
@@ -59,8 +59,8 @@ fait compris. Les critères de commande (nombre de commandes payées, montant d�
 produits achetés, et les boutons « a écrit » ou « a cliqué » sans commander) sont
 dans le volet **Shopify** des filtres, replié tant que vous ne l'ouvrez pas. Il demande une **boutique Shopify
 branchée** (Tools > Intégrations) : nous ne connaissons une commande que parce que Shopify nous l'envoie. Sans
-boutique, il n'apparaît pas. Avec, ses critères comptent les commandes payées depuis le branchement de la boutique,
-commandes de test comprises, remboursements non déduits, et seulement celles d'un numéro déjà dans vos contacts. Le pays se filtre par « Téléphone commence par » (+32 pour la Belgique).
+boutique, il n'apparaît pas. Avec, ses critères comptent les commandes payées depuis le branchement de la boutique (et
+celles des 60 jours qui précèdent un rattrapage, lancé depuis la carte Shopify), commandes de test comprises, remboursements non déduits, et seulement celles d'un numéro déjà dans vos contacts. Le pays se filtre par « Téléphone commence par » (+32 pour la Belgique).
 Votre site n'est pas sous Shopify ? Il peut poser des étiquettes sur vos contacts par l'API (« client fidèle »), que
 vous filtrez ensuite.
 

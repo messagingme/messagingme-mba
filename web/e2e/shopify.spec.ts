@@ -26,6 +26,12 @@ const BRANCHEE = {
 };
 /** L'attestation du consentement des clients (2026-11-20), telle que le serveur la rend ; sans le champ, une API ancienne. */
 const ATTESTEE = { coche: true, le: '2026-11-20T09:00:00.000Z', email: 'moi@e2e.test', texte: 'J’atteste…' };
+/** Le rattrapage des commandes (lot 5) : l'aperçu et la reprise lancée, tels que le serveur les rend. */
+const APERCU_RATTRAPAGE = { fenetreDebut: '2026-09-24T00:00:00.000Z', lues: 42, deja: 10, rattachables: 25, sansFiche: 5, sansNumero: 2, ecartees: 3, complet: true };
+const REPRISE = {
+  id: 'r1', statut: 'en_attente', interrompue: false, fenetreDebut: '2026-09-24T00:00:00.000Z', commenceLe: '2026-11-23T12:00:00.000Z', finiLe: null,
+  comptes: { lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0 }, erreur: null,
+};
 /** La relance aussi en service : la carte dit alors la ligne des paniers. */
 const RELANCE_ACTIVE = { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned')] };
 
@@ -36,6 +42,8 @@ interface Trace {
   /** Les POST de l'attestation, et l'ordre de tous les POST (le branchement, puis l'attestation). */
   attestations: unknown[];
   posts: string[];
+  /** Les lancements du rattrapage des commandes (lot 5). */
+  rattrapages: number;
 }
 
 async function monter(page: Page, o: {
@@ -46,8 +54,14 @@ async function monter(page: Page, o: {
   refusAllumage?: string;
   /** Les agents IA de l'espace (`GET /agents`), pour la relance avec agent IA ; absents, aucun. */
   agents?: Array<Record<string, unknown>>;
+  /**
+   * Le rattrapage des commandes (segments Shopify, lot 5) : la dernière reprise (`absente` : le 404 du routeur, une API
+   * plus ancienne), l'aperçu, la reprise rendue au lancement.
+   */
+  rattrapage?: { etat?: Record<string, unknown> | null | 'absente'; apercu?: Record<string, unknown>; lancee?: Record<string, unknown> };
 }): Promise<Trace> {
-  const trace: Trace = { branchements: [], pauses: [], lignes: [], attestations: [], posts: [] };
+  const trace: Trace = { branchements: [], pauses: [], lignes: [], attestations: [], posts: [], rattrapages: 0 };
+  let rattrapage = o.rattrapage?.etat ?? null;
   const session = { token: 'e2e-token', email: 'moi@e2e.test', role: o.role ?? 'admin', tenantId: 't-e2e' };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), session);
   let etat = o.etat ?? BRANCHEE;
@@ -62,6 +76,16 @@ async function monter(page: Page, o: {
       if (corps.actif && o.refusAllumage) return json({ error: o.refusAllumage }, 409);
       return json({ ligne: { evenement: reglageLigne[1], workflowId: `wf-${reglageLigne[1]}`, actif: corps.actif, modifieLe: '2026-11-19T10:00:00.000Z' } });
     }
+    if (chemin.endsWith('/integrations/shopify/commandes/rattrapage')) {
+      if (rattrapage === 'absente') return json({ message: `Route ${req.method()} not found`, error: 'Not Found', statusCode: 404 }, 404);
+      if (req.method() === 'POST') {
+        trace.rattrapages += 1;
+        rattrapage = o.rattrapage?.lancee ?? REPRISE;
+        return json({ reprise: rattrapage }, 202);
+      }
+      return json({ reprise: rattrapage });
+    }
+    if (chemin.endsWith('/integrations/shopify/commandes/apercu')) return json(o.rattrapage?.apercu ?? APERCU_RATTRAPAGE);
     if (chemin.endsWith('/integrations/shopify') && req.method() === 'PATCH') {
       trace.pauses.push(req.postDataJSON());
       return json({ changee: true });
@@ -226,6 +250,62 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await monter(page, { etat: { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned', { actif: false })] } });
     await expect(page.getByTestId('integration-shopify-etat')).toBeVisible();
     await expect(page.getByTestId('integration-shopify-paniers')).toHaveCount(0);
+  });
+
+  test('🔴 le rattrapage des commandes : l’aperçu compte, le lancement part une fois, la carte dit qu’il tourne (lot 5)', async ({ page }) => {
+    const trace = await monter(page, {});
+    const carte = page.getByTestId('integration-shopify');
+    await expect(carte.getByTestId('integration-shopify-rattrapage-etat')).toHaveCount(0);
+    await carte.getByTestId('integration-shopify-rattraper').click();
+    // 🔴 Le titre de la fenêtre se voit : le volet des intégrations masque le titre de la CARTE, jamais celui d'une fenêtre.
+    await expect(page.getByTestId('shopify-rattrapage').getByRole('heading', { name: 'Rattraper les commandes des 60 derniers jours' })).toBeVisible();
+    await expect(carte.getByRole('heading', { name: 'Shopify', exact: true })).toBeHidden();
+    const apercu = page.getByTestId('shopify-rattrapage-apercu');
+    await expect(apercu).toContainText('42 commandes payées créées depuis le');
+    await expect(apercu).toContainText('25 à rattacher à une fiche');
+    await expect(apercu).toContainText('5 sans fiche à leur numéro : comptées, jamais gardées');
+    await expect(apercu).toContainText('2 sans numéro WhatsApp utilisable');
+    await expect(apercu).toContainText('3 écartées : jamais payées ou illisibles');
+    await expect(page.getByTestId('shopify-rattrapage')).toContainText('Aucune fiche n’est créée et aucun message ne part');
+    expect(trace.rattrapages).toBe(0);
+    await page.getByTestId('shopify-rattrapage-lancer').click();
+    await expect(page.getByTestId('shopify-rattrapage')).toHaveCount(0);
+    expect(trace.rattrapages).toBe(1);
+    await expect(carte.getByTestId('integration-shopify-message')).toContainText('Rattrapage lancé');
+    await expect(carte.getByTestId('integration-shopify-rattrapage-etat')).toContainText('En cours, lancé le');
+    // Pendant qu'il tourne, aucun second lancement n'est proposé.
+    await expect(carte.getByTestId('integration-shopify-rattraper')).toHaveCount(0);
+  });
+
+  test('un aperçu partiel le dit ; un rattrapage terminé dit son bilan, un rattrapage arrêté dit pourquoi', async ({ page }) => {
+    const termine = { ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z', comptes: { lues: 42, rattachees: 25, deja: 10, sansFiche: 5, sansNumero: 2 } };
+    await monter(page, { rattrapage: { etat: termine, apercu: { ...APERCU_RATTRAPAGE, complet: false } } });
+    const etat = page.getByTestId('integration-shopify-rattrapage-etat');
+    await expect(etat).toContainText('Terminé le');
+    await expect(etat).toContainText('42 commandes payées créées depuis le');
+    await expect(etat).toContainText('25 rattachées à une fiche, 10 déjà connues, 7 sans fiche ou sans numéro, non gardées');
+    await page.getByTestId('integration-shopify-rattraper').click();
+    await expect(page.getByTestId('shopify-rattrapage-partiel')).toContainText('l’aperçu n’a pas tout lu');
+  });
+
+  test('un seul : le singulier, en français jusqu’à un', async ({ page }) => {
+    const un = { ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z', comptes: { lues: 1, rattachees: 1, deja: 0, sansFiche: 0, sansNumero: 0 } };
+    await monter(page, { rattrapage: { etat: un } });
+    await expect(page.getByTestId('integration-shopify-rattrapage-etat'))
+      .toContainText('1 commande payée créée depuis le');
+    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).toContainText('1 rattachée à une fiche, 0 déjà connue, 0 sans fiche ou sans numéro, non gardée.');
+  });
+
+  test('un rattrapage arrêté par Shopify dit sa raison, et se relance', async ({ page }) => {
+    await monter(page, { rattrapage: { etat: { ...REPRISE, statut: 'refuse', finiLe: '2026-11-23T12:01:00.000Z', erreur: 'Shopify refuse la lecture des commandes' } } });
+    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).toContainText('Arrêté : Shopify refuse la lecture des commandes');
+    await expect(page.getByTestId('integration-shopify-rattraper')).toHaveText('Relancer');
+  });
+
+  test('🔴 l’API sans les routes du rattrapage (404 du routeur) : la carte n’en dit rien', async ({ page }) => {
+    await monter(page, { rattrapage: { etat: 'absente' } });
+    await expect(page.getByTestId('integration-shopify-etat')).toBeVisible();
+    await expect(page.getByTestId('integration-shopify-rattrapage')).toHaveCount(0);
   });
 
   test('🔴 API pas encore déployée (404 du routeur) : AUCUNE carte', async ({ page }) => {

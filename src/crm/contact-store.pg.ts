@@ -561,6 +561,22 @@ export class PgContactStore implements ContactStore {
   }
 
   /**
+   * Les fiches ACTIVES (ni supprimées, ni anonymisées) de ces numéros E.164, dans l'espace : numéro vers identifiant (un
+   * numéro n'a qu'une fiche par espace, index unique `contacts_tenant_phone_uidx`). Le rattrapage des commandes Shopify
+   * (segments, lot 5) y rattache une page de commandes en une lecture, jamais une par commande ; aucune fiche n'est créée.
+   * La fiche que le webhook choisirait (`findByPhone`), une anonymisée en moins.
+   */
+  async fichesParNumeros(tenantId: string, numeros: readonly string[]): Promise<Map<string, string>> {
+    if (numeros.length === 0) return new Map();
+    const res = await this.pool.query<{ phone_e164: string; id: string }>(
+      `select x.phone_e164, x.id from contacts x
+        where x.tenant_id = $1 and x.phone_e164 = any($2::text[]) and ${FICHE_ACTIVE}`,
+      [tenantId, numeros],
+    );
+    return new Map(res.rows.map((r) => [r.phone_e164, r.id]));
+  }
+
+  /**
    * Fusion jsonb des valeurs saisies dans un WhatsApp Flow sur le contact du `wa_id` (`MATCH_BY_WAID_SQL`) : les
    * clés fournies écrasent, les autres restent. Ne crée pas de fiche pour un numéro hors base. Rend le nombre de
    * contacts touchés (0 = inconnu).
@@ -1586,8 +1602,37 @@ export class PgContactStore implements ContactStore {
     );
     const b = res.rows[0];
     if (!b) return { boutique: null };
+    const rattrapage = await this.dernierRattrapage(tenantId, b.commandes_depuis);
     // `coupee_le` ne vaut que pour une boutique coupée : un rebranchement la remet à nul, mais rien ne coûte de le redire.
-    return { boutique: { devise: b.devise, commandesDepuis: b.commandes_depuis, coupeeLe: b.etat === 'coupee' ? b.coupee_le : null } };
+    return {
+      boutique: {
+        devise: b.devise, commandesDepuis: b.commandes_depuis, coupeeLe: b.etat === 'coupee' ? b.coupee_le : null,
+        ...(rattrapage ? { rattrapage } : {}),
+      },
+    };
+  }
+
+  /**
+   * Le dernier rattrapage TERMINÉ des commandes (segments Shopify enrichis, lot 5, migration 0313) : la fenêtre relue et
+   * sa fin. 🔴 Seulement s'il a fini APRÈS le début du suivi courant (`commandes_depuis`) : le rattrapage a lu jusqu'à sa
+   * fin, le suivi reprend au branchement, donc rien ne manque entre les deux. Un rattrapage d'avant une coupure, un
+   * effacement ou une autre boutique laisserait un trou : il n'est plus dit. AU MIEUX : une lecture en panne (la table pas
+   * encore créée) le tait, elle ne fait jamais échouer le suivi, que la liste des contacts et `find_contacts` lisent.
+   */
+  private async dernierRattrapage(tenantId: string, commandesDepuis: Date): Promise<{ depuis: Date; le: Date } | null> {
+    try {
+      const res = await this.pool.query<{ fenetre_debut: Date; fini_le: Date }>(
+        `select fenetre_debut, fini_le from shopify_reprises
+          where tenant_id = $1 and genre = 'commandes' and statut = 'termine' and fini_le >= $2
+          order by fini_le desc limit 1`,
+        [tenantId, commandesDepuis],
+      );
+      const r = res.rows[0];
+      return r ? { depuis: r.fenetre_debut, le: r.fini_le } : null;
+    } catch (err) {
+      journaliser('warn', 'suivi_rattrapage_illisible', { tenantId, erreur: messageDe(err) });
+      return null;
+    }
   }
 
   /**

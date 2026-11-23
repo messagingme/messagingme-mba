@@ -12,8 +12,10 @@ import { Icone } from '@/components/Icone';
  * pour ne pas le dupliquer.
  *
  * ⚠️ LA CARTE INTÉRIEURE PERD SON CADRE ET SON TITRE (le volet les porte déjà) par les sélecteurs de la classe ci-dessous,
- * sans retoucher chaque carte : `[&>section]` vise la `<section>` racine de chaque Reglage*, dont le seul `<h3>` est
- * le titre (aucun de leurs sous-composants n'en pose).
+ * sans retoucher chaque carte : `[&>section]` vise la `<section>` racine de chaque Reglage*, dont le `<h3>` est le titre.
+ * 🔴 SAUF le titre d'une FENÊTRE ouverte depuis la carte (`Modale`, rendue dans la section, `role="dialog"`) : la règle
+ * le masquait aussi, et l'import des clients puis le rattrapage des commandes Shopify s'ouvraient sans titre (relevé à la
+ * capture d'aide du 2026-11-23).
  */
 export function VoletIntegration({ cle, logo, logoLarge = false, nom, resume, children }: {
   cle: string;
@@ -53,7 +55,7 @@ export function VoletIntegration({ cle, logo, logoLarge = false, nom, resume, ch
         </span>
         <Icone nom="deplier" className="text-ink-400 transition-transform duration-150 group-open/volet:rotate-180" />
       </summary>
-      <div className="border-t border-ink-200 p-5 [&>section]:border-0 [&>section]:p-0 [&>section_h3]:hidden">
+      <div className="border-t border-ink-200 p-5 [&>section]:border-0 [&>section]:p-0 [&>section_h3:not([role=dialog]_h3)]:hidden">
         {children}
       </div>
     </details>

@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 065187
+source_empreinte: 78c5cb
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -169,11 +169,20 @@ sans commander » (au moins un clic sur un lien suivi), pour les contacts sans a
 le bouton, un second le retire ; le nombre sur chaque bouton dit combien de contacts il trouve, et un bouton qui ne
 trouve personne ne s'affiche pas.
 
-**Bon à savoir.** Les commandes ne comptent que depuis le branchement de la boutique : l'historique de Shopify n'est
-pas repris, et un client importé arrive sans ses commandes passées. Juste après le branchement, « au moins 2 commandes »
-ne trouve donc personne ; le volet dit la date du début du suivi. Seules comptent les commandes d'un numéro déjà dans
-vos contacts, commandes de test comprises. Les produits ne sont connus que pour les commandes payées depuis le 23
-novembre 2026. Le pays et l'activité, eux, marchent dans tous les espaces, avec ou sans boutique.
+**11. Rattraper les commandes des 60 derniers jours.** Sur la carte Shopify, « Rattraper » compte d'abord, sans rien
+écrire, les commandes payées des 60 derniers jours : déjà connues, à rattacher à une fiche de vos contacts, sans fiche
+ou sans numéro. « Lancer le rattrapage » les relit toutes en arrière-plan, et la carte dit où il en est.
+
+Chaque commande rejoint la fiche de son numéro, avec son montant et ses produits ; une commande sans fiche est
+comptée, jamais gardée. Aucune fiche n'est créée, aucun message ne part, et le chiffre rapporté par WhatsApp n'en
+change pas. Comptez quelques minutes pour la plupart des boutiques, plus d'une heure pour les très grandes.
+
+**Bon à savoir.** Les commandes comptent depuis le branchement de la boutique ; un rattrapage ajoute celles des 60 jours
+qui le précèdent, Shopify ne laissant pas lire plus loin. Sans rattrapage, juste après le branchement, « au moins 2
+commandes » ne trouve donc personne ; le volet dit la date du début du suivi, et celle du rattrapage. Seules comptent
+les commandes d'un numéro déjà dans vos contacts, commandes de test comprises : importez vos clients avant de
+rattraper leurs commandes. Les produits sont connus pour les commandes payées depuis le 23 novembre 2026, et pour
+celles d'un rattrapage. Le pays et l'activité, eux, marchent dans tous les espaces, avec ou sans boutique.
 
 ## Les règles des envois
 

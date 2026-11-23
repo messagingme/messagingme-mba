@@ -722,7 +722,8 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     s'affiche pas (sauf déjà posé, pour être retiré). Claude Code a les mêmes (`wrote_without_order`,
     `clicked_without_order`). Chaque commande payée d'un contact connu compte, message de confirmation
     branché ou non, commandes de test comprises, remboursements non déduits ; le volet dit depuis quand elles sont
-    suivies, et la date de coupure d'une boutique coupée, dont l'historique reste filtrable. Une saisie impossible (un
+    suivies, depuis quand un rattrapage les a relues (lot 5 : les 60 jours qui le précèdent), et la date de coupure
+    d'une boutique coupée, dont l'historique reste filtrable. Une saisie impossible (un
     minimum au-dessus du maximum, « au moins 0 commande ») est signalée, et le dernier critère valide reste appliqué :
     une faute de frappe n'élargit jamais l'audience. Replier le volet ne retire aucun critère.
     🔴 **Sans boutique Shopify, le volet n'apparaît pas** (masqué plutôt que grisé, comme HubSpot) : nous ne
@@ -3248,8 +3249,21 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
     confirmations ni les avis d'expédition. Le détail : « Analytics », Quantitatif > Shopify.
 - **Cibler les clients par leurs commandes** (2026-11-04, offre Pro) : une fois la boutique branchée, la liste des
   contacts, le choix des destinataires d'une campagne et Claude Code (`find_contacts`) ciblent par nombre de commandes
-  payées, montant dépensé et jours depuis la dernière commande, depuis le branchement de la boutique. Sans boutique, ces
-  critères n'existent pas (détail dans « Contacts & CRM »).
+  payées, montant dépensé et jours depuis la dernière commande, depuis le branchement de la boutique, et les 60 jours
+  d'avant un rattrapage. Sans boutique, ces critères n'existent pas (détail dans « Contacts & CRM »).
+- **Le rattrapage des commandes des 60 derniers jours** (2026-11-23, segments Shopify enrichis, lot 5 ; toutes les
+  offres : par Claude Code partout, et en Pro sur la carte Shopify de la console) : les commandes payées CRÉÉES dans les
+  60 jours qui précèdent (la limite que Shopify ouvre à l'app) rejoignent les fiches déjà là, avec leur montant et leurs
+  produits, comme si elles avaient été reçues au fil de l'eau. Un aperçu compte d'abord, sans rien écrire : déjà
+  connues, à rattacher, sans fiche, sans numéro, écartées (jamais payées ou illisibles), et il dit quand il n'a pas tout
+  lu. Le lancement tourne ensuite en arrière-plan, quelques minutes pour la plupart des boutiques, plus d'une heure pour
+  les très grandes ; la carte et `get_shopify_order_history` disent où il en est. Une commande déjà connue garde sa
+  fiche et reçoit ses produits s'il lui en manque ; une commande sans fiche à son numéro, ou sans numéro utilisable, est
+  comptée, jamais gardée. Aucune fiche n'est créée, aucun message ne part, le chiffre rapporté par WhatsApp n'en change
+  pas. Un seul rattrapage à la fois par espace ; relancé, il relit la fenêtre sans doublon ; une boutique coupée ou
+  remplacée pendant qu'il tourne l'arrête. Ensuite, le volet des achats et `find_contacts` (`orders_backfilled_since`)
+  disent depuis quand les commandes ont été relues, tant qu'aucune coupure n'a suivi. Outils :
+  `preview_shopify_order_history`, `import_shopify_order_history`, `get_shopify_order_history`.
 
 ## API publique `/v1` (intégrateurs externes)
 

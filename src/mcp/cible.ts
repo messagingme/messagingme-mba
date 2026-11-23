@@ -71,7 +71,7 @@ function achatsAnnonces(description: string): ProprieteEntree {
         items: { type: 'object', properties: PRODUIT_ANNONCE, additionalProperties: false },
         description: `1 to ${produitsMax} products, each {"product_id"} or {"sku"}, never both.`,
       },
-      within_days: { ...JOURS, description: `Bought over the last N days (1 to ${joursMax}); without it, since orders_recorded_since.` },
+      within_days: { ...JOURS, description: `Bought over the last N days (1 to ${joursMax}); without it, every recorded order (orders_recorded_since, and orders_backfilled_since after a catch-up).` },
     },
     required: ['products'],
     additionalProperties: false,
@@ -86,7 +86,7 @@ function plageAnnoncee(o: { borne: 'integer' | 'number'; max: number; avecJours:
     properties: {
       min: { type: o.borne, minimum: 0, maximum: o.max, description: `At least this ${o.unite}.` },
       max: { type: o.borne, minimum: 0, maximum: o.max, description: `At most this ${o.unite}.` },
-      ...(o.avecJours ? { within_days: { ...JOURS, description: `Counted over the last N days (1 to ${joursMax}); without it, since orders_recorded_since.` } } : {}),
+      ...(o.avecJours ? { within_days: { ...JOURS, description: `Counted over the last N days (1 to ${joursMax}); without it, every recorded order (orders_recorded_since, and orders_backfilled_since after a catch-up).` } } : {}),
     },
     additionalProperties: false,
     description: o.description,
@@ -133,7 +133,7 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
   wrote_without_order: {
     type: 'boolean', enum: [true],
     description: 'One-click segment, the console button "Wrote without ordering": contacts who sent at least one message '
-      + 'still known (a reaction or a button tap counts) and have no order recorded since the store was connected. true '
+      + 'still known (a reaction or a button tap counts) and have no order recorded (live, or by a catch-up). true '
       + 'only, no period; omit it otherwise. Needs the Shopify store.',
   },
   clicked_without_order: {

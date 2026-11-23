@@ -35,7 +35,7 @@ export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly t
     outils: ['search_contacts', 'get_contact', 'block_contact', 'prepare_contacts_deletion', 'delete_contacts', 'find_contacts', 'tag_contacts', 'list_fields', 'create_field', 'set_contact_field', 'prepare_campaign', 'launch_campaign', 'control_campaign', 'list_scenarios', 'get_scenario', 'create_scenario', 'update_scenario', 'delete_scenario', 'send_scenario_to_contact'],
   },
   { titre: 'Chat bubble', titreFr: 'Bulle WhatsApp', outils: ['list_widgets', 'create_widget', 'update_widget'] },
-  { titre: 'Shopify store', titreFr: 'Boutique Shopify', outils: ['connect_shopify', 'set_shopify_message', 'get_shopify_state', 'preview_shopify_customers', 'import_shopify_customers', 'disconnect_shopify'] },
+  { titre: 'Shopify store', titreFr: 'Boutique Shopify', outils: ['connect_shopify', 'set_shopify_message', 'get_shopify_state', 'preview_shopify_customers', 'import_shopify_customers', 'preview_shopify_order_history', 'import_shopify_order_history', 'get_shopify_order_history', 'disconnect_shopify'] },
   { titre: 'Webhooks', titreFr: 'Webhooks', outils: ['create_webhook_endpoint', 'list_webhook_endpoints', 'update_webhook_endpoint', 'delete_webhook_endpoint', 'send_test_event', 'get_webhook_deliveries', 'replay_webhook_delivery'] },
   { titre: 'Statistics', titreFr: 'Chiffres', outils: ['get_message_stats', 'get_campaign_stats', 'get_ai_stats', 'get_revenue_stats'] },
 ];

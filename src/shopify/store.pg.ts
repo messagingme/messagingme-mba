@@ -5,6 +5,7 @@ import { estDonneeShopify, type DonneeShopify, type EvenementShopify, type Ligne
 import { effacerJoignabiliteDuBranchement } from './joignabilite.pg';
 import { journaliser } from '../lib/journal';
 import { messageDe } from '../lib/erreur';
+import { ficheActive } from '../crm/contact-store.pg';
 import type { LigneShopify } from './lignes';
 import { LIGNES_DU_PANIER, autreRelanceDuPanier, lignesDe, type AutomationShopify } from '../../web/lib/partage/shopify-messages';
 
@@ -721,6 +722,27 @@ export class PgShopifyStore {
       [tenantId, commandeIds, clientId],
     );
     return res.rows.map((r) => r.contact_id);
+  }
+
+  /**
+   * Les commandes déjà notées dans l'espace parmi `ids`, leur fiche, et s'il faut leur ajouter leurs lignes (le
+   * rattrapage, segments Shopify, lot 5). Une commande connue garde sa fiche ; seule celle d'une fiche ACTIVE qui n'a
+   * encore aucune ligne (reçue avant le lot 3) est à compléter : réécrire une commande déjà complète pourrait la dire
+   * tronquée à tort (le rattrapage lit moins de lignes que le webhook n'en garde). Une lecture par page, jamais par commande.
+   */
+  async commandesConnues(tenantId: string, ids: readonly string[]): Promise<Map<string, { contactId: string; aCompleter: boolean }>> {
+    if (ids.length === 0) return new Map();
+    const res = await this.pool.query<{ commande_id: string; contact_id: string; a_completer: boolean }>(
+      `select c.commande_id, c.contact_id,
+              (x.id is not null and not exists (
+                select 1 from shopify_commande_lignes l where l.tenant_id = c.tenant_id and l.commande_id = c.commande_id
+              )) as a_completer
+         from shopify_commandes c
+         left join contacts x on x.id = c.contact_id and x.tenant_id = c.tenant_id and ${ficheActive('x')}
+        where c.tenant_id = $1 and c.commande_id = any($2::text[])`,
+      [tenantId, ids],
+    );
+    return new Map(res.rows.map((r) => [r.commande_id, { contactId: r.contact_id, aCompleter: r.a_completer }]));
   }
 }
 

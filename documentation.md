@@ -3221,6 +3221,34 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   panne les omet sans faire tomber cette réponse, qui est la garde de TOUS les critères de segment. La console masque un
   bouton à zéro ou sans compte, sauf déjà posé. Le MCP les annonce `enum: [true]` (`wrote_without_order`,
   `clicked_without_order`) : la borne appliquée est annoncée ;
+- 🔴 **le rattrapage des commandes des 60 derniers jours** (segments Shopify enrichis, lot 5, migration 0313,
+  `src/shopify/reprise.ts`) : les commandes payées CRÉÉES depuis minuit (UTC) il y a 60 jours, lues par l'API Admin
+  GraphQL (`lirePageCommandes`, `src/shopify/commandes-lues.ts`, par `fetchPublic`), reformées en corps du webhook
+  `orders/paid` puis validées par `schemaCommande` : le même numéro (`telephoneDeCommande`), le même montant et les
+  mêmes lignes (`detailsDeCommande`) qu'une commande reçue. Seules les payées comptent (`PAID`, `PARTIALLY_REFUNDED`,
+  `REFUNDED`). Une commande DÉJÀ notée garde sa fiche ; elle ne reçoit ses lignes que si elle n'en a aucune et que sa
+  fiche est active (`commandesConnues`, `aCompleter`) : réécrire une commande complète la dirait tronquée à tort, le
+  rattrapage lisant 50 lignes par commande quand le webhook en garde 250. Une inconnue rejoint la fiche ACTIVE de son
+  numéro (`fichesParNumeros`, celle que `findByPhone` donnerait au webhook) ; sinon elle est comptée, jamais gardée.
+  🔴 Aucune fiche créée, ni attribution de vente, ni joignabilité, ni message ; `commandes_depuis` ne bouge pas. Deux
+  lectures groupées par page (`commandesConnues`, `fichesParNumeros`), jamais une par commande. `shopify_reprises` tient
+  une ligne par rattrapage, sans aucune donnée de personne : 🔴 un index unique partiel refuse une seconde reprise
+  VIVANTE par espace (le lancement rend 409 avec la date de la vivante) ; le job (file `shopify-reprise`, rôle
+  `analyse`) la prend par un BAIL de 180 s et un JETON DE GARDE renouvelés à chaque page, passe 2 minutes au plus,
+  enfile sa suite PUIS libère le bail, et reprend au curseur. 🔴 TOUTE panne (Shopify, base, secret illisible) libère le
+  bail et remonte : pg-boss rejoue, ses essais s'usent, puis la file d'échec ; tenu, le bail ferait réenfiler chaque
+  rejeu sans rien user, sans fin. Un refus de Shopify clôt en `refuse` ; la boutique, relue avant d'écrire chaque page,
+  coupée, effacée ou remplacée (la reprise garde son domaine) clôt en `erreur`. La dernière page et la fin s'écrivent
+  ensemble (`finir` ajoute ses comptes) ; un job qui n'a pas pu être enfilé clôt sa reprise (`annuler`). Une reprise
+  vivante sans passage depuis 15 minutes, bail mort, se dit `interrompue` et se clôt en `erreur` au lancement suivant.
+  Une page trop lourde (5xx, `MAX_COST_EXCEEDED`) se redemande deux fois plus petite ; chaque passage journalise le coût
+  de sa première page (`shopify_reprise_cout`). L'aperçu (`apercuReprise`) lit 25 s au plus, frein de Shopify compris
+  (`delaiMs` borne l'appel entier), sans rien écrire, et dit `complet: false` quand il n'a pas tout lu, panne comprise.
+  Les portes : trois routes de la carte (`.../commandes/apercu`, `.../commandes/rattrapage` en `POST` 202 et en `GET`,
+  admin) et trois outils MCP ouverts à toutes les offres, à une personne nommée. Le dernier rattrapage TERMINÉ APRÈS le
+  début du suivi courant (`fini_le >= commandes_depuis` : sans trou entre les deux) se lit dans `suiviSegments`, AU
+  MIEUX (une panne le tait, jamais le suivi) : `GET .../contacts/segments` le rend (`rattrapeesDepuis`), `find_contacts`
+  aussi (`orders_backfilled_since`) ;
 - **le secret qui vérifie doit être celui de la boutique relue** : le cache d'une minute ne laisse pas passer un
   webhook de l'ancienne app après une reconnexion, et `shop/redact` n'efface jamais une boutique `connectee` ;
 - 🔴 **la relance de panier est balayée DANS L'API** (`src/shopify/relance.ts`, la minuterie d'une minute de
