@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { envoyerTelegram, sendTelegram, brancherLibelleur } from '../src/ops/telegram';
+import { envoyerTelegram, envoyerTelegramDetaille, sendTelegram, brancherLibelleur } from '../src/ops/telegram';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -36,6 +36,21 @@ describe('sendTelegram', () => {
       throw new Error('network down');
     }));
     await expect(sendTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).resolves.toBe(false);
+  });
+});
+
+describe('🔴 le motif d’un échec (incident 1, 2026-11-23 : refusé sans motif lisible)', () => {
+  it('un refus de Telegram rend son statut et sa description', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 400, json: async () => ({ ok: false, description: 'Bad Request: chat not found' }) })));
+    expect(await envoyerTelegramDetaille('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).toEqual({ issue: 'non_recue', detail: '400 Bad Request: chat not found' });
+  });
+
+  it('🔴 une erreur réseau rend son motif, JAMAIS le jeton du bot', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('fetch failed https://api.telegram.org/botJETON-SECRET-123/sendMessage'); }));
+    const r = await envoyerTelegramDetaille('x', { token: 'JETON-SECRET-123', chatId: 'C', timeoutMs: 100 });
+    expect(r.issue).toBe('incertaine');
+    expect(r.detail).not.toContain('JETON-SECRET-123');
+    expect(r.detail).toContain('<bot>');
   });
 });
 

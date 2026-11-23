@@ -46,6 +46,11 @@ export class PgIncidentsStore implements IncidentsStore {
     return res.rows[0] ?? null;
   }
 
+  /** Retire la marque « rendu » : Telegram n'a pas pris le rapport, la tâche le renverra (le contenu reste, il sera écrasé). */
+  async annulerRapport(id: number): Promise<void> {
+    await this.pool.query(`update incidents set rapport_le = null where id = $1`, [id]);
+  }
+
   /** Inscrit la décision de Julien, une seule fois, et seulement sur un incident qui la demandait (issue 2). */
   async decider(id: number, decision: Decision): Promise<boolean> {
     const res = await this.pool.query(

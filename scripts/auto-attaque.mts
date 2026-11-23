@@ -376,7 +376,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
   incidentsRapport: {
     token: SECRET_SERVICE,
     incidents: inconnu('incidentsRapport'),
-    envoyer: async () => false,
+    envoyer: async () => ({ parti: false }),
   } satisfies IncidentsRapportRouteDeps,
   // La décision prise dans Telegram : un VRAI jeton de webhook ; un jeton faux ou absent doit tomber avant le magasin.
   incidentsDecision: {

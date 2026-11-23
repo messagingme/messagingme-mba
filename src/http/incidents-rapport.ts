@@ -13,6 +13,8 @@ import { journaliser } from '../lib/journal';
  *
  * 🔴 L'ADRESSE EST PUBLIQUE, LE JETON LA FERME : comparé en temps constant, AVANT toute lecture du corps ou de la base.
  * Un rapport ne s'inscrit qu'une fois par incident (`rapport_le is null`) : un rejeu ne renvoie pas de message.
+ * 🔴 SAUF SI TELEGRAM L'A REFUSÉ : le rapport n'est alors PAS marqué rendu (`annulerRapport`), la route répond 502 avec
+ * le motif de Telegram, et la tâche le renvoie (incident 1, 2026-11-23 : refusé, marqué rendu, donc perdu sans motif).
  */
 
 export const CHEMIN_RAPPORT = '/internes/incidents/:id/rapport';
@@ -49,8 +51,11 @@ export interface IncidentsRapportRouteDeps {
   incidents: {
     /** Inscrit le rapport ; rend le signal de l'incident, ou `null` s'il n'existe pas ou a déjà son rapport. */
     rapporter(id: number, r: Rapport): Promise<{ signal: string } | null>;
+    /** Retire la marque « rendu » d'un rapport que Telegram n'a pas pris : il pourra être renvoyé. */
+    annulerRapport(id: number): Promise<void>;
   };
-  envoyer(texte: string, boutons?: ReadonlyArray<{ texte: string; donnee: string }>): Promise<boolean>;
+  /** Rend `parti` et, sur un échec, le motif de Telegram (jamais le jeton du bot). */
+  envoyer(texte: string, boutons?: ReadonlyArray<{ texte: string; donnee: string }>): Promise<{ parti: boolean; detail?: string }>;
 }
 
 /** Le jeton présenté est-il le bon ? En temps constant ; une longueur différente est un refus. */
@@ -92,8 +97,12 @@ export function registerIncidentsRapport(app: FastifyInstance, deps: IncidentsRa
           { texte: '⏸ Plus tard', donnee: `incident:${id}:plus_tard` },
         ]
       : undefined;
-    const parti = await deps.envoyer(texteRapport(id, incident.signal, lu.data), boutons);
-    if (!parti) journaliser('warn', 'incident_rapport_non_envoye', { id });
-    return reply.code(200).send({ ok: true, telegram: parti });
+    const envoi = await deps.envoyer(texteRapport(id, incident.signal, lu.data), boutons);
+    if (!envoi.parti) {
+      journaliser('warn', 'incident_rapport_non_envoye', { id, detail: envoi.detail });
+      await deps.incidents.annulerRapport(id);
+      return reply.code(502).send({ error: 'Telegram n’a pas pris le rapport : renvoie-le dans une minute', telegram: envoi.detail ?? 'inconnu' });
+    }
+    return reply.code(200).send({ ok: true, telegram: true });
   });
 }

@@ -6,20 +6,24 @@ import { creerDeclencheur } from '../src/ops/incidents-declencheur';
 const JETON = 'j'.repeat(40);
 const vider = () => new Promise((r) => setTimeout(r, 0));
 
-function monter(o: { deja?: boolean } = {}) {
+function monter(o: { deja?: boolean; refuse?: string } = {}) {
   const app = Fastify();
   const inscrits: Array<[number, Rapport]> = [];
   const envoyes: Array<{ texte: string; boutons?: ReadonlyArray<{ texte: string; donnee: string }> }> = [];
+  const annules: number[] = [];
   registerIncidentsRapport(app, {
     token: JETON,
-    incidents: { rapporter: async (id, r) => { inscrits.push([id, r]); return o.deja ? null : { signal: 'entrants' }; } },
-    envoyer: async (texte, boutons) => { envoyes.push({ texte, boutons }); return true; },
+    incidents: {
+      rapporter: async (id, r) => { inscrits.push([id, r]); return o.deja ? null : { signal: 'entrants' }; },
+      annulerRapport: async (id) => { annules.push(id); },
+    },
+    envoyer: async (texte, boutons) => { envoyes.push({ texte, boutons }); return o.refuse ? { parti: false, detail: o.refuse } : { parti: true }; },
   });
   const poster = (corps: unknown, jeton: string | null = JETON, id = '42') => app.inject({
     method: 'POST', url: `/internes/incidents/${id}/rapport`, payload: corps as object,
     headers: jeton === null ? {} : { authorization: `Bearer ${jeton}` },
   });
-  return { poster, inscrits, envoyes };
+  return { poster, inscrits, envoyes, annules };
 }
 
 const RAPPORT_2 = { categorie: 'plomberie', issue: 2, rapport: 'vingt jobs de 0 s attendaient 539 s', action: 'vider la file en continu', fichier: 'incidents/2026-11-21-1033-push-analysis.md' };
@@ -60,6 +64,14 @@ describe('🔴 le rapport de la tâche cloud sur un incident', () => {
     ]) expect((await m.poster(corps)).statusCode, JSON.stringify(corps)).toBe(400);
     expect((await m.poster(RAPPORT_2, JETON, 'abc')).statusCode).toBe(400);
     expect(m.envoyes).toEqual([]);
+  });
+
+  it('🔴 Telegram refuse : 502 avec son motif, et le rapport n’est PAS marqué rendu (il pourra être renvoyé)', async () => {
+    const m = monter({ refuse: '400 Bad Request: chat not found' });
+    const r = await m.poster(RAPPORT_2);
+    expect(r.statusCode).toBe(502);
+    expect(r.json()).toMatchObject({ telegram: '400 Bad Request: chat not found' });
+    expect(m.annules).toEqual([42]);
   });
 
   it('🔴 un rejeu, ou un incident inconnu : 409, et aucun second message', async () => {

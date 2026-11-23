@@ -10,7 +10,7 @@ import { lireJetonPiece } from './workflow/piece-lien';
 import type { DepsPubInscription } from './pub/inscription';
 import { puisSignaler } from './pub/declencheurs';
 import { surveillerOps } from './ops/tentatives';
-import { envoyerTelegram, sendTelegram, brancherLibelleur, repondreClic } from './ops/telegram';
+import { envoyerTelegram, envoyerTelegramDetaille, sendTelegram, brancherLibelleur, repondreClic } from './ops/telegram';
 import { creerLibelleurEspaces } from './ops/libelle-espaces';
 import { creerVerificateurTurnstile } from './auth/turnstile';
 import { creerSuiviRetoursInscription } from './auth/retours-inscription';
@@ -2455,7 +2455,10 @@ async function main(): Promise<void> {
       incidentsRapport: {
         token: config.INCIDENTS_RAPPORT_TOKEN,
         incidents: new PgIncidentsStore(pool, config.PGBOSS_SCHEMA),
-        envoyer: (texte: string, boutons?: ReadonlyArray<{ texte: string; donnee: string }>) => sendTelegram(texte, { boutons }),
+        envoyer: async (texte: string, boutons?: ReadonlyArray<{ texte: string; donnee: string }>) => {
+          const r = await envoyerTelegramDetaille(texte, { boutons });
+          return { parti: r.issue === 'recue', ...(r.detail ? { detail: r.detail } : {}) };
+        },
       },
     } : {}),
     // La décision prise dans Telegram (plan 2026-11-21, lot 4), montée seulement avec le jeton du webhook du bot.

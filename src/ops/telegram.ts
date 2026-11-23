@@ -60,9 +60,21 @@ export async function envoyerTelegram(
   text: string,
   opts: OptionsTelegram = {},
 ): Promise<IssueTelegram> {
+  return (await envoyerTelegramDetaille(text, opts)).issue;
+}
+
+/**
+ * `envoyerTelegram`, avec le MOTIF d'un échec : le statut et la description que Telegram rend, ou le code de l'erreur
+ * réseau. Jamais le jeton du bot. Le rapport d'un incident le rend à son appelant (incident 1, 2026-11-23 : un envoi
+ * refusé dont le motif n'était écrit que dans les journaux de l'API).
+ */
+export async function envoyerTelegramDetaille(
+  text: string,
+  opts: OptionsTelegram = {},
+): Promise<{ issue: IssueTelegram; detail?: string }> {
   const token = opts.token ?? config.TELEGRAM_BOT_TOKEN;
   const chatId = opts.chatId ?? config.TELEGRAM_CHAT_ID;
-  if (token === '' || chatId === '') return 'non_recue'; // alerting facultatif : non configuré = no-op
+  if (token === '' || chatId === '') return { issue: 'non_recue', detail: 'Telegram non configuré' }; // alerting facultatif : non configuré = no-op
   // Après le test de configuration : sans Telegram, aucune lecture en base pour rien.
   const corps = await libeller(text);
   try {
@@ -79,16 +91,20 @@ export async function envoyerTelegram(
       signal: AbortSignal.timeout(opts.timeoutMs ?? 5000),
     });
     if (!res.ok) {
+      // Le motif ne fait jamais échouer le refus lui-même : un corps illisible laisse le seul statut.
+      const description = await Promise.resolve().then(() => res.json()).then((j: { description?: unknown }) => String(j?.description ?? '')).catch(() => '');
+      const detail = `${res.status} ${description}`.trim().slice(0, 300);
       // eslint-disable-next-line no-console
-      console.error('[telegram] envoi KO:', res.status);
-      return 'non_recue';
+      console.error('[telegram] envoi KO:', detail);
+      return { issue: 'non_recue', detail };
     }
-    return 'recue';
+    return { issue: 'recue' };
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[telegram] envoi erreur:', messageDe(err));
     const code = codeDeLaCause(err);
-    return code !== null && CONNEXION_JAMAIS_ETABLIE.has(code) ? 'non_recue' : 'incertaine';
+    const detail = `${code ?? 'erreur'} ${messageDe(err)}`.split(token).join('<bot>').slice(0, 300);
+    return { issue: code !== null && CONNEXION_JAMAIS_ETABLIE.has(code) ? 'non_recue' : 'incertaine', detail };
   }
 }
 
