@@ -22,8 +22,9 @@ sans elle (onze mutations) ; les couches de la marque et le câblage des deux fi
 Déployé le même jour par le run 45159185817 (`migration=avant`, « 0309_contacts_nee_de.sql ... ok »), fumée et
 fiches OAuth conformes. Relu en base par Julien (la sonde en lecture seule est refusée au garde-fou du mode automatique) :
 `nee_de` en `text` nullable sans défaut, `contacts_nee_de_check` validée (`CHECK ((nee_de = 'shopify'::text))`), 0309 en tête
-des migrations, aucune transaction de plus de 5 s ; `aide:charger` sur l'image 8947171d0 : 360 lignes, 0 retirée. Restent
-l'appel de la garde par le vrai code en lecture seule, puis l'essai réel.
+des migrations, aucune transaction de plus de 5 s ; `aide:charger` sur l'image 8947171d0 : 360 lignes, 0 retirée. La garde du
+job, appelée par le vrai code de l'image en lecture seule, rend `null` sur un message inconnu ; aucune fiche encore
+marquée ; la file `shopify-sans-whatsapp` et sa DLQ existent. Reste l'essai réel.
 
 ## 2026-11-20 : /ops, les envois de la ligne de crédit par jour et le détail d'un mois en CSV
 
