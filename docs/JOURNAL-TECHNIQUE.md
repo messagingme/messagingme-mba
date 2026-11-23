@@ -20,8 +20,10 @@ WhatsApp. Vérifié : suite racine (hors un délai de 5 s dépassé sous charge 
 typage, lint, auto-attaque ; les gardes sur un banc PGlite (toutes les migrations, le vrai `pg`), chacune vue rouge
 sans elle (onze mutations) ; les couches de la marque et le câblage des deux files d'accusés, vus rouges sans eux.
 Déployé le même jour par le run 45159185817 (`migration=avant`, « 0309_contacts_nee_de.sql ... ok »), fumée et
-fiches OAuth conformes. Restent : la relecture en base (la sonde en lecture seule est refusée au garde-fou du mode
-automatique, la commande est à Julien), `aide:charger` sur l'image 8947171d0, l'essai réel.
+fiches OAuth conformes. Relu en base par Julien (la sonde en lecture seule est refusée au garde-fou du mode automatique) :
+`nee_de` en `text` nullable sans défaut, `contacts_nee_de_check` validée (`CHECK ((nee_de = 'shopify'::text))`), 0309 en tête
+des migrations, aucune transaction de plus de 5 s ; `aide:charger` sur l'image 8947171d0 : 360 lignes, 0 retirée. Restent
+l'appel de la garde par le vrai code en lecture seule, puis l'essai réel.
 
 ## 2026-11-20 : /ops, les envois de la ligne de crédit par jour et le détail d'un mois en CSV
 
