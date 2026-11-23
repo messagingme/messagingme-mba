@@ -5,6 +5,25 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 : /ops, les envois de la ligne de crédit par jour et le détail d'un mois en CSV
+
+Signalé par Julien : la fenêtre de l'offre listait les 50 derniers envois facturés, un par ligne, illisible dès
+quelques dizaines par jour, et il craignait que le stockage d'une ligne par message « nous bloque ». Tranché sur le
+code avant d'écrire : toutes les lectures de `credit_whatsapp_provisions` sont bornées dans le temps par
+`(tenant_id, cree_le desc)`, le solde est une colonne, et le détail par message est nécessaire (correction à l'accusé,
+rendu, franchise de service, régularisation). Le seul sujet à terme est l'absence de purge, porté au `todo.md` avec
+la durée à décider par Julien. Livré en direct : `envoisParJour` (deux mois de Paris, par catégorie, rendus exclus)
+remplace `dernieresProvisions`, et `GET /ops/credit-whatsapp/envois/:tenantId?mois=` rend une page de 5 000 envois
+paginée sur `(cree_le, id)`, la clé voyageant en texte Postgres pour garder la microseconde ; la console enchaîne les
+pages et fabrique le CSV. Vérifié : suite racine, typecheck, lints, auto-attaque ; le refus d'une clé incomplète vu
+rouge sans sa garde ; les 16 e2e de la fenêtre et une capture sur la build de production ; l'intégration (bornes de
+Paris, égalité à la microseconde) en CI. Relecture sans rouge : deux jaunes corrigés (un commentaire qui promettait un
+coût indépendant du volume, le fuseau du libellé du jour), trois au `todo.md`. Poussé en 925312a33, déployé par le run
+44778932796 (sans migration), route vue en 401 sans session contre 404 pour une route inconnue. Ce run a aussi emporté
+a76c0bcdc (moteur de la sortie « En cas d'échec ») et da17a5f31 (relance de panier Shopify avec agent IA), avec
+l'accord de Julien : le run précédent, affiché sous a76c0bcdc, avait construit 0e6c640a9 (épinglé). Reste : l'essai
+réel dans /ops.
+
 ## 2026-11-21 : deux retouches de la console : l'aperçu HTML des modèles d'email, la pleine largeur des automations
 
 En direct, console seule (publiée par Vercel au push, aucun déploiement d'API). **6ecc15c72** (poussé le 20 au soir) :

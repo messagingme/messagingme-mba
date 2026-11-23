@@ -4131,6 +4131,11 @@ boîte par sous-menu.
 - ✅ **Retrouver un espace par son code** (2026-11-19) : la table des espaces de l'onglet **Clients** montre le code
   d'espace à côté du nom, et un champ filtre la liste sur le nom ou le code, sans tenir compte des majuscules. Les
   alertes Telegram qui citent un espace par son identifiant le citent aussi par son nom et son code.
+- ✅ **Les envois de la ligne de crédit, par jour** (2026-11-20) : la fenêtre de l'offre d'un espace (onglet **Clients**)
+  montre ses envois facturés par la ligne de crédit, une ligne par jour sur le mois en cours et le précédent : le nombre
+  de messages, leur répartition par catégorie et le montant HT. Le détail d'un mois, envoi par envoi (heure, catégorie,
+  pays, montant, état, illimité ou non, numéro, wamid), se télécharge en CSV : la pièce d'une facture au contrat ou
+  d'une contestation.
 - ✅ **Dupliquer un scénario dans un autre espace** (2026-11-16 ; ses dépendances le 2026-11-17 ; ses templates et ses
   Flows le 2026-11-17). On choisit l'espace source, le scénario, puis l'espace de destination ; un récapitulatif dit,
   avant d'écrire quoi que ce soit, ce qui arrivera : les blocs débranchés (« aller vers », « assigner », et ce qu'on ne
