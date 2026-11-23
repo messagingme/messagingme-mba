@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { createHmac, randomBytes } from 'node:crypto';
 import { verifierSignatureShopify } from '../src/shopify/signature';
 import {
-  donneesDeCommande, donneesDExpedition, montantAffiche, montantBoutique, numeroDeCommandeDExpedition, schemaCheckout, schemaCommande,
-  schemaExpedition, telephoneDeCheckout, telephoneDeCommande, telephoneDExpedition, telephoneE164, valeurDeVariable,
+  classementDeCommande, donneesDeCommande, donneesDExpedition, montantAffiche, montantBoutique,
+  numeroDeCommandeDExpedition, schemaCheckout, schemaCommande, schemaExpedition, telephoneDeCheckout, telephoneDeCommande,
+  telephoneDExpedition, telephoneE164, valeurDeVariable,
 } from '../src/shopify/donnees';
 import { domaineShopify, lienInstallation, verifierBoutique } from '../src/shopify/connexion';
 
@@ -247,5 +248,30 @@ describe('🔴 un fixe est sauté au profit du candidat suivant', () => {
   it('⚠️ sans l’option, un fixe reste un numéro (l’effacement doit retrouver sa fiche)', () => {
     expect(telephoneE164([{ brut: FIXE, pays: 'FR' }], null)).toBe('+33142685300');
     expect(telephoneE164([{ brut: FIXE, pays: 'FR' }], null, { sauterFixes: true })).toBeNull();
+  });
+});
+
+/**
+ * LE CLASSEMENT D'UNE COMMANDE POUR LA CARTE « JOIGNABILITÉ WHATSAPP » (segments Shopify enrichis, lot 2b) : les mêmes
+ * candidats que le message, sans garder le numéro. Les trois issues, et une commande « utilisable » est exactement une
+ * commande dont le message a un numéro.
+ */
+describe('🔴 le classement d’une commande, sans garder le numéro', () => {
+  it('aucun texte dans les quatre candidats : sans numéro', () => {
+    const c = schemaCommande.parse(commande({ shipping_address: null, billing_address: null, customer: null, phone: '  ' }));
+    expect(classementDeCommande(c, 'FR')).toBe('sans_numero');
+  });
+
+  it('du texte mais aucun numéro que WhatsApp porte (illisible, fixe) : invalide', () => {
+    const illisible = schemaCommande.parse(commande({ shipping_address: { phone: 'pas un numéro', country_code: 'FR' } }));
+    expect(classementDeCommande(illisible, 'FR')).toBe('invalide');
+    const fixe = schemaCommande.parse(commande({ shipping_address: { phone: '01 42 68 53 00', country_code: 'FR' } }));
+    expect(classementDeCommande(fixe, 'FR')).toBe('invalide');
+  });
+
+  it('un mobile quelque part : utilisable, et c’est le numéro du message', () => {
+    const c = schemaCommande.parse(commande({ shipping_address: { phone: '01 42 68 53 00', country_code: 'FR' }, customer: { id: 9, phone: '06 12 34 56 78' } }));
+    expect(classementDeCommande(c, 'FR')).toBe('utilisable');
+    expect(telephoneDeCommande(c, 'FR')).not.toBeNull();
   });
 });

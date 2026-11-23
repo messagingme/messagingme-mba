@@ -242,6 +242,7 @@ const PARTAGE_DES_STATISTIQUES: Record<string, Fonction | null> = {
   '/stats/ventes': 'statistiques',
   // Le ROI des messages, sur la même page (plan 2026-11-06) : formule Pro aussi ; l'outil MCP ne le lit pas.
   '/stats/roi': 'statistiques',
+  '/stats/joignabilite': 'statistiques',
   '/stats/cost/pubs': 'statistiques',
   '/stats/cost/messages': 'statistiques',
   '/stats/cost/ia': 'statistiques',

@@ -104,6 +104,7 @@ import { depotSandbox, soumissionHubspot } from './http/livre-blanc-vitrine';
 import type { ShopifyWebhooksRouteDeps } from './http/shopify-webhooks';
 import { PgShopifyStore } from './shopify/store.pg';
 import { PgVentesStore } from './shopify/ventes.pg';
+import { PgJoignabiliteStore } from './shopify/joignabilite.pg';
 import { chiffreVentes } from './shopify/chiffre';
 import { PgCoutLeviersStore } from './shopify/cout-leviers.pg';
 import { roiVentes } from './shopify/roi';
@@ -1707,6 +1708,11 @@ async function main(): Promise<void> {
    * méthodes lisent `this.pool`.
    */
   const ventesStore = new PgVentesStore(pool);
+  /**
+   * La joignabilité WhatsApp des commandes (segments Shopify enrichis, lot 2b) : la réception de Shopify l'écrit au mieux,
+   * la route de Quantitatif la lit. Le store entier : ses méthodes lisent `this.pool`.
+   */
+  const joignabiliteStore = new PgJoignabiliteStore(pool);
   const lireChiffreVentes = (tenant: string, range: DateRange) => chiffreVentes(ventesStore, tenant, range);
   /**
    * Le ROI des messages (Quantitatif > Shopify, plan 2026-11-06) : le même chiffre que la route voisine, sa série par jour,
@@ -1774,6 +1780,8 @@ async function main(): Promise<void> {
     ventes: ventesStore,
     // Sa preuve par UTM, relue par le worker 30 minutes après la commande (tâche 6b).
     programmerPreuve: (job, quand) => queue.enqueue(FILE_PREUVE_UTM, job, { groupId: job.tenantId, startAfter: quand }),
+    // La joignabilité des commandes (segments Shopify, lot 2b) : le store ENTIER, partagé avec la carte qui le lit.
+    joignabilite: joignabiliteStore,
     /**
      * L'effacement de la purge du mini-CRM (même retrait chez l'agent de Meta, même suivi en fond), HORS limite du jour :
      * une demande d'effacement transmise par Shopify est une obligation légale, pas un geste qu'une offre limite.
@@ -2584,6 +2592,7 @@ async function main(): Promise<void> {
       // Quantitatif > Shopify : la lecture partagée avec l'outil MCP et la page Shopify (plan 2026-10-30).
       getVentes: lireChiffreVentes,
       getRoiVentes: lireRoiVentes,
+      getJoignabilite: (tenant, range) => joignabiliteStore.lire(tenant, range),
       // Le même journal que l'écran d'exploitation (`/parametres`), avec le code et la plage en filtre : deux
       // requêtes sur des populations voisines feraient se contredire deux écrans de même titre.
       getErrorContacts: (tenant, range, code, filter) => erreursLivraison.lister(tenant, {

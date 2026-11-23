@@ -24,6 +24,8 @@ import { creerApresLAgent } from './mba/lien-de-test';
 import { PgEventStore } from './webhooks/store';
 import { PgCampaignStore, PgQualityProvider } from './campaign/store.pg';
 import { PgShopifyStore } from './shopify/store.pg';
+import { PgJoignabiliteStore } from './shopify/joignabilite.pg';
+import { journaliser } from './lib/journal';
 import { PgVentesStore } from './shopify/ventes.pg';
 import { FILE_PREUVE_UTM, traiterPreuveUtm, type DepsPreuveUtm } from './shopify/preuve-utm';
 import { FILE_SANS_WHATSAPP, traiterSansWhatsapp, type DepsSansWhatsapp } from './shopify/sans-whatsapp';
@@ -1813,13 +1815,20 @@ export async function demarrerWorker(): Promise<void> {
   // Les événements Shopify (0246) : le dédoublonnage et les chiffres de la carte portent sur 30 jours, et Shopify ne
   // réessaie pas un webhook au-delà de 48 h.
   const evenementsShopify = new PgShopifyStore(pool, config.ENCRYPTION_KEY);
+  const joignabiliteShopify = new PgJoignabiliteStore(pool);
   const shopifySweep = async (): Promise<number> => {
     const n = await evenementsShopify.purgerEvenements(30);
     // Les paniers (lot 2) portent le téléphone d'un client qui n'a peut-être rien commandé : une semaine, pas plus.
     const p = await evenementsShopify.purgerPaniers(7);
+    // La joignabilité des commandes (0310, segments Shopify, lot 2b) : jamais expédiée à 60 jours, toute ligne à 400.
+    // Au mieux et APRÈS les paniers : sa table absente (migration non bloquante) n'arrête pas leur purge.
+    const j = await joignabiliteShopify.purger().catch((err: unknown) => {
+      journaliser('warn', 'shopify_joignabilite_en_echec', { quoi: 'purge', erreur: messageDe(err) });
+      return { commandes: 0, envois: 0 };
+    });
     // eslint-disable-next-line no-console
     if (n + p > 0) console.log(`shopify-sweep: ${n} événement(s) et ${p} panier(s) Shopify purgé(s)`);
-    return n + p;
+    return n + p + j.commandes + j.envois;
   };
   taches.programmer('shopify-evenements', 60 * 60 * 1000, shopifySweep, { immediat: true, enEchec: echecDeBalayage('shopify-sweep', 'sweeper:shopify') });
 

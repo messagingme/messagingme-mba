@@ -3104,6 +3104,34 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   sans étage de repli, fiche vivante, ni activité ni message entrant, et aucun message déjà livré ou lu (le numéro est
   alors sur WhatsApp, le 131026 dit autre chose qu'un numéro mort). Une fiche importée, saisie ou née d'un entrant
   n'est jamais visée : le repli d'une campagne et la branche d'échec d'un scénario se servent du même 131026 ;
+- 🔴 **la joignabilité des commandes se LIT au moment de la carte, rien ne s'écrit dans les accusés** (segments Shopify
+  enrichis, lot 2b, migration 0310). Deux tables sans téléphone, nom ni adresse : `shopify_joignabilite`, une ligne par
+  commande (`classement` posé à `orders/paid` par `classementDeCommande`, les mêmes candidats et la même règle que le
+  message ; `test` ; `expediee_le`, la PREMIÈRE expédition) ; `shopify_envois`, la campagne d'une confirmation ou d'un
+  avis d'expédition vers sa commande, posée par le rappel `surCampagne` de `envoyerShopify` (au premier passage : un
+  webhook rejoué après `servi` ne revient pas jusqu'à l'envoi ; un rejeu de la clé rend la même campagne).
+  🔴 **Une commande ne compte qu'une fois son paiement vu** : une commande payée avant la mise en service (ou avant le
+  branchement) naît à son expédition SANS classement, et `PgJoignabiliteStore.lire` (`src/shopify/joignabilite.pg.ts`)
+  ne lit que les lignes classées ; sa confirmation, partie sans lien vers elle, l'aurait rangée en attente et fait lire
+  un taux proche de 0 % des semaines durant. Une commande payée à la livraison entre à son `orders/paid`. `lire` range
+  chaque commande expédiée de la période dans la première part qui s'applique, sur `campaign_recipients` joint par une
+  campagne DE L'ESPACE : livrée (`delivered` ou `read`), supprimée (`failed` 131026 d'une ligne que la purge a
+  anonymisée, `to_e164 = 'anonyme'` : un 131026 dont la fiche est gardée reste en attente), puis le classement. Le
+  filtre d'espace du lien et celui de la campagne ont chacun leur cas dans l'intégration : l'un masquait l'autre.
+  🔴 **Tout s'écrit au mieux**, pour que 0310 ne soit pas bloquante : `joignabiliteAuMieux` dans le traitement, la garde
+  de `envoyerShopify` autour du rappel ; une commande se classe ligne éteinte et pause comprises, jamais pour une
+  boutique coupée. 🔴 **L'effacement avec le branchement** (`effacerBranchement` : `shop/redact`, la désinstallation d'une
+  boutique de la console, la reprise par un autre espace) passe par `effacerJoignabiliteDuBranchement`, DANS la
+  transaction derrière un point de reprise (`savepoint`) : un `try/catch` nu laisserait la transaction en `25P02` sur une
+  table absente et ferait échouer tout `shop/redact` (prouvé sur Postgres par
+  `tests/integration/joignabilite-shopify.integration.test.ts`). `customers/redact` efface les commandes citées ; le
+  ménage du worker (`shopifySweep`, seule requête transverse) retire une ligne jamais expédiée ou jamais vue payée à 60
+  jours, toute ligne 400 jours après son EXPÉDITION (une précommande payée il y a plus d'un an se lit encore), et une
+  campagne reliée avec sa commande ; le simple Couper garde tout, comme les commandes. La route
+  `GET /tenants/:tenantId/stats/joignabilite` (fonction `statistiques`) rend `JoignabiliteShopify`
+  (`web/lib/partage/joignabilite-shopify.ts`) ; la console cache la carte sur un 404 ou un corps illisible
+  (`lireJoignabilite` refuse des parts qui ne font pas le total), et l'arrondi n'y produit jamais un faux « 0 % » ni un
+  faux « 100 % » (`pourcentLisible`) ;
 - **le secret qui vérifie doit être celui de la boutique relue** : le cache d'une minute ne laisse pas passer un
   webhook de l'ancienne app après une reconnexion, et `shop/redact` n'efface jamais une boutique `connectee` ;
 - 🔴 **la relance de panier est balayée DANS L'API** (`src/shopify/relance.ts`, la minuterie d'une minute de

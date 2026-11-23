@@ -5,6 +5,7 @@ import type { DepsJobPremier, IssueJobPremier } from '../application/premier-mes
 import type { ParcoursEvenementDeCampagne } from '../campaign/parcours-evenement';
 import type { TemplateParam } from '../crm/template';
 import { journaliser } from '../lib/journal';
+import { messageDe } from '../lib/erreur';
 import type { SourceOffres } from '../offres/offre.pg';
 import { ORIGINE_MAX } from '../workflow/evenement';
 import type { DonneeShopify } from './donnees';
@@ -57,6 +58,12 @@ export interface EnvoiShopify {
   sourceConsentement: string;
   /** Le pont du parcours d'événement (`pontDuPremierBloc`) ; absent, le premier message part seul. */
   parcoursEvenement?: ParcoursEvenementDeCampagne;
+  /**
+   * La campagne née de cet envoi, rejeu compris (segments Shopify enrichis, lot 2b : relier les accusés d'une confirmation
+   * ou d'un avis d'expédition à sa commande). Appelée AU MIEUX : une panne se journalise, l'issue ne change pas, puisque
+   * le message est déjà parti. Absente (la relance d'un panier), rien n'est relié.
+   */
+  surCampagne?: (campaignId: string) => Promise<void>;
 }
 
 /** Ce que devient un événement : l'issue inscrite, comptée par la carte. `en_cours` n'en est pas une (on réessaie). */
@@ -93,6 +100,16 @@ export async function envoyerShopify(envoyer: EnvoyerPublic, e: EnvoiShopify): P
     nom: e.nomLigne, sansCampagneVide: true, neeDe: 'shopify',
     ...(e.parcoursEvenement !== undefined ? { parcoursEvenement: e.parcoursEvenement } : {}),
   });
+  // Un 200 sans campagne (personne d'envoyable, `sansCampagneVide`) porte un `sendId` vide : rien à relier.
+  const campagne = !compteurEnvoiRefuse(r) && (r.statut === 200 || r.statut === 201) ? (r.corps as RapportEnvoi).sendId : '';
+  if (e.surCampagne !== undefined && campagne !== '') {
+    try {
+      await e.surCampagne(campagne);
+    } catch (err) {
+      // La campagne nommée (aucune donnée personnelle) : le lien perdu se retrouve par elle, son nom porte la commande.
+      journaliser('warn', 'shopify_joignabilite_en_echec', { tenantId: e.tenantId, quoi: 'envoi', campagne, erreur: messageDe(err) });
+    }
+  }
   return issueDeLEnvoi(r);
 }
 

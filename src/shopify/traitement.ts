@@ -8,8 +8,9 @@ import {
   donneesDeCommande, donneesDExpedition, schemaCommande, schemaDemandeDonnees,
   schemaEffacementClient, schemaExpedition, telephoneDeCommande, telephoneDExpedition, telephoneE164,
   avecPrenomDeSecours, estObjetSimple, numeroDeCommandeDExpedition, prenomDeCheckout, schemaCheckout, telephoneDeCheckout, valeurDeVariable,
-  type CommandeShopify, type DonneeShopify, type EvenementShopify,
+  classementDeCommande, type CommandeShopify, type DonneeShopify, type EvenementShopify,
 } from './donnees';
+import type { PgJoignabiliteStore } from './joignabilite.pg';
 import { envoyerPremierBloc, pontSelonLOffre, type DepsEnvoiShopify, type IssueShopify } from './envoi';
 import { PREFIXE_LIGNE_SHOPIFY, attribuerCommande, detailsDeCommande } from './attribution';
 import { origineShopify, prefixeShopify } from './lignes';
@@ -83,6 +84,11 @@ export interface DepsTraitementShopify {
   budgetAttributionMs?: number;
   /** Enfiler la relecture de la preuve par UTM d'une commande (file `shopify-preuve-utm`, traitée par le worker). */
   programmerPreuve: ProgrammerPreuve;
+  /**
+   * La joignabilité WhatsApp des commandes (segments Shopify enrichis, lot 2b), passée ENTIÈRE : chaque écriture se fait
+   * au mieux (`joignabiliteAuMieux`), jamais un frein pour la confirmation.
+   */
+  joignabilite: Pick<PgJoignabiliteStore, 'noterCommande' | 'noterExpedition' | 'noterEnvoi' | 'effacerCommandes'>;
 }
 
 /** 200 : traité ou délibérément ignoré. 503 : Shopify doit réessayer plus tard. */
@@ -122,6 +128,11 @@ export async function traiterWebhookShopify(
       await attribuerSansFreiner(deps, b, c.data);
       // Une commande payée ferme aussi son panier : `orders/create` peut arriver après (aucun ordre entre sujets).
       await fermerSiPanier(deps, b, c.data.checkout_token, telephoneDeCommande(c.data, b.pays));
+      // Son classement (sans numéro, invalide ou fixe, utilisable), ligne allumée ou non, pause comprise : la carte lit
+      // toutes les commandes d'une boutique branchée. Aucun téléphone n'y est écrit.
+      await joignabiliteAuMieux(b, 'commande', () => deps.joignabilite.noterCommande(
+        b.tenantId, String(c.data.id), classementDeCommande(c.data, b.pays), c.data.test === true,
+      ));
       return servir(deps, b, {
         evenement: 'order_paid', reference: String(c.data.id), sujet,
         commandeId: String(c.data.id), clientId: c.data.customer?.id ? String(c.data.customer.id) : null,
@@ -132,6 +143,9 @@ export async function traiterWebhookShopify(
     case 'fulfillments/create': {
       const f = schemaExpedition.safeParse(corps);
       if (!f.success) return illisible(b, sujet, f.error);
+      // La PREMIÈRE expédition de la commande (un second colis ne la déplace pas), ligne allumée ou non. Une commande dont
+      // le paiement n'a pas été vu (payée avant la mise en service) naît ici sans classement : la carte l'ignore.
+      await joignabiliteAuMieux(b, 'expedition', () => deps.joignabilite.noterExpedition(b.tenantId, String(f.data.order_id)));
       return servir(deps, b, {
         evenement: 'order_fulfilled', reference: String(f.data.id), sujet,
         commandeId: String(f.data.order_id), clientId: null,
@@ -204,6 +218,19 @@ async function attribuerSansFreiner(deps: DepsTraitementShopify, b: BoutiqueRecu
   const issue = await Promise.race([attribution, new Promise<'hors_budget'>((r) => { minuterie = setTimeout(() => r('hors_budget'), budget); })]);
   clearTimeout(minuterie);
   if (issue === 'hors_budget') journaliser('warn', 'shopify_attribution_hors_budget', { tenantId: b.tenantId, budgetMs: budget });
+}
+
+/**
+ * 🔴 LA JOIGNABILITÉ S'ÉCRIT AU MIEUX (segments Shopify enrichis, lot 2b) : une panne se journalise et le traitement
+ * continue. Ni la confirmation ni son issue n'en dépendent, et la migration 0310 n'est pas bloquante : sa table absente,
+ * chaque écriture échoue ici, seule.
+ */
+async function joignabiliteAuMieux(b: BoutiqueRecue, quoi: 'commande' | 'expedition' | 'effacement', ecrire: () => Promise<void>): Promise<void> {
+  try {
+    await ecrire();
+  } catch (err) {
+    journaliser('warn', 'shopify_joignabilite_en_echec', { tenantId: b.tenantId, quoi, erreur: messageDe(err) });
+  }
 }
 
 /**
@@ -368,6 +395,9 @@ async function servir(deps: DepsTraitementShopify, b: BoutiqueRecue, s: Service)
           // Bornée comme toute source de consentement (`MAX_OPT_IN_SOURCE`) : trop longue, le destinataire serait écarté.
           sourceConsentement: `shopify:${b.domaine}`.slice(0, MAX_OPT_IN_SOURCE),
           parcoursEvenement: await pontSelonLOffre(deps.offres, b.tenantId, bloc, cle, 'evenement_shopify'),
+          // La campagne de ce message vers sa commande : ses accusés se liront dans la carte de la joignabilité. Au
+          // premier passage, car un webhook rejoué après `servi` ne revient pas jusqu'ici.
+          surCampagne: (campagne) => deps.joignabilite.noterEnvoi(b.tenantId, campagne, s.commandeId),
         });
     }
     // Un autre traitement tient la même clé d'envoi : le laisser finir, Shopify réessaiera.
@@ -400,11 +430,14 @@ async function servir(deps: DepsTraitementShopify, b: BoutiqueRecue, s: Service)
 async function effacerClient(deps: DepsTraitementShopify, b: BoutiqueRecue, corps: unknown): Promise<ReponseTraitement> {
   const d = schemaEffacementClient.safeParse(corps);
   if (!d.success) return illisible(b, 'customers/redact', d.error);
+  const commandes = (d.data.orders_to_redact ?? []).map(String);
   try {
     // Les ventes attribuées de ces commandes perdent leur numéro et leur contact ; le montant et la source restent.
-    await deps.ventes.anonymiserCommandes(b.tenantId, (d.data.orders_to_redact ?? []).map(String));
+    await deps.ventes.anonymiserCommandes(b.tenantId, commandes);
+    // Leurs lignes de joignabilité : sans personne dedans (ni téléphone ni nom), mais la demande cite leur identifiant.
+    await joignabiliteAuMieux(b, 'effacement', () => deps.joignabilite.effacerCommandes(b.tenantId, commandes));
     const ids = new Set(await deps.store.contactsLies(
-      b.tenantId, (d.data.orders_to_redact ?? []).map(String), d.data.customer?.id ? String(d.data.customer.id) : null,
+      b.tenantId, commandes, d.data.customer?.id ? String(d.data.customer.id) : null,
     ));
     const tel = telephoneE164([{ brut: d.data.customer?.phone }], b.pays);
     const parNumero = tel === null ? null : await deps.ficheParTelephone(b.tenantId, tel);

@@ -255,16 +255,36 @@ export function telephoneE164(
   return null;
 }
 
-/** L'ordre mesuré pour une commande : livraison, facturation, client, puis le champ de la commande ; un fixe est sauté. */
+type CandidatTelephone = { brut: string | null | undefined; pays?: string | null | undefined };
+
+/** L'ordre mesuré pour une commande : livraison, facturation, client, puis le champ de la commande. */
+const candidatsDeCommande = (c: CommandeShopify): CandidatTelephone[] => [
+  { brut: c.shipping_address?.phone, pays: c.shipping_address?.country_code },
+  { brut: c.billing_address?.phone, pays: c.billing_address?.country_code },
+  { brut: c.customer?.phone },
+  { brut: c.phone },
+];
+const candidatsDExpedition = (f: ExpeditionShopify): CandidatTelephone[] => [{ brut: f.destination?.phone, pays: f.destination?.country_code }];
+
+/** Le téléphone d'une commande, un fixe sauté. */
 export function telephoneDeCommande(c: CommandeShopify, paysBoutique: string | null): string | null {
-  return telephoneE164([
-    { brut: c.shipping_address?.phone, pays: c.shipping_address?.country_code },
-    { brut: c.billing_address?.phone, pays: c.billing_address?.country_code },
-    { brut: c.customer?.phone },
-    { brut: c.phone },
-  ], paysBoutique, { sauterFixes: true });
+  return telephoneE164(candidatsDeCommande(c), paysBoutique, { sauterFixes: true });
 }
 
 export function telephoneDExpedition(f: ExpeditionShopify, paysBoutique: string | null): string | null {
-  return telephoneE164([{ brut: f.destination?.phone, pays: f.destination?.country_code }], paysBoutique, { sauterFixes: true });
+  return telephoneE164(candidatsDExpedition(f), paysBoutique, { sauterFixes: true });
+}
+
+/**
+ * Le CLASSEMENT d'une commande pour la carte « Joignabilité WhatsApp » (segments Shopify enrichis, lot 2b), sans garder le
+ * numéro : `sans_numero` (aucun candidat n'a de texte), `invalide` (du texte, mais aucun E.164 que WhatsApp porte : la
+ * normalisation refuse, ou `estUnFixe`), `utilisable` sinon. Les MÊMES candidats et la même règle que le message : une
+ * commande classée utilisable est une commande dont la confirmation a un numéro.
+ */
+export type ClassementTelephone = 'sans_numero' | 'invalide' | 'utilisable';
+
+export function classementDeCommande(c: CommandeShopify, paysBoutique: string | null): ClassementTelephone {
+  const candidats = candidatsDeCommande(c);
+  if (!candidats.some((x) => typeof x.brut === 'string' && x.brut.trim() !== '')) return 'sans_numero';
+  return telephoneE164(candidats, paysBoutique, { sauterFixes: true }) === null ? 'invalide' : 'utilisable';
 }

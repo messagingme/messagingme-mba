@@ -42,11 +42,19 @@ const ROI = {
   autres: null,
 };
 
-async function mock(page: import('@playwright/test').Page, opts: { boutique?: unknown; ventes?: unknown; statut?: number; roi?: unknown } = {}) {
+/** L'exemple de la spec : 128 = 74 livrées + 12 supprimées + 20 sans numéro + 8 invalides + 14 en attente. */
+const JOIGNABILITE = { expediees: 128, messagesLivres: 96, livrees: 74, supprimees: 12, sansNumero: 20, invalides: 8, enAttente: 14, testExpediees: 3 };
+
+async function mock(page: import('@playwright/test').Page, opts: { boutique?: unknown; ventes?: unknown; statut?: number; roi?: unknown; joignabilite?: unknown } = {}) {
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), ADMIN);
   await page.route('**/api/backend/**', async (route) => {
     const url = route.request().url();
     const json = (b: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    if (url.includes('/stats/joignabilite')) {
+      // Par défaut, un corps illisible : la page reste celle d'avant, sans la carte, comme avant ce lot.
+      if (opts.joignabilite === 404) return json({ message: 'Route GET:/tenants/t-e2e/stats/joignabilite not found', error: 'Not Found', statusCode: 404 }, 404);
+      return json(opts.joignabilite ?? {});
+    }
     if (url.includes('/stats/roi')) {
       // Par défaut, la route du ROI rend un corps illisible : la page reste celle d'avant, comme avant ce lot.
       if (opts.roi === 404) return json({ message: 'Route GET:/tenants/t-e2e/stats/roi not found', error: 'Not Found', statusCode: 404 }, 404);
@@ -158,6 +166,47 @@ test.describe('Quantitatif > Shopify', () => {
     await expect(page.getByTestId('ventes-total-EUR')).toBeVisible();
     await expect(page.getByTestId('ventes-sources')).toBeVisible();
     await expect(page.getByTestId('roi-carte')).toHaveCount(0);
+  });
+
+  /**
+   * LA CARTE « JOIGNABILITÉ WHATSAPP » (segments Shopify enrichis, lot 2b) : les deux nombres côte à côte, le taux en
+   * COMMANDES (jamais messages sur commandes), les quatre parts dans l'ordre, la ligne des deux messages, le test à part.
+   */
+  test('🔴 la joignabilité : commandes expédiées, messages livrés, taux en commandes, les quatre parts, le test à part', async ({ page }) => {
+    await mock(page, { joignabilite: JOIGNABILITE });
+    await page.goto('/dashboard/shopify');
+    await expect(page.getByTestId('joignabilite-expediees')).toHaveText('128');
+    await expect(page.getByTestId('joignabilite-messages')).toHaveText('96');
+    await expect(page.getByTestId('joignabilite-taux')).toContainText(/58 %/);
+    await expect(page.getByTestId('joignabilite-taux')).toContainText(/pas seulement accepté par Meta|not just accepted by Meta/);
+    await expect(page.getByTestId('joignabilite-sans-numero')).toContainText(/20 sans numéro|20 without a number/);
+    await expect(page.getByTestId('joignabilite-sans-numero')).toContainText('16 %');
+    await expect(page.getByTestId('joignabilite-invalides')).toContainText(/8 numéro invalide ou fixe|8 invalid or landline number/);
+    await expect(page.getByTestId('joignabilite-supprimees')).toContainText(/12 échec, contact supprimé|12 failed, contact deleted/);
+    await expect(page.getByTestId('joignabilite-attente')).toContainText(/14 en attente|14 awaiting/);
+    await expect(page.getByTestId('joignabilite-deux-messages')).toBeVisible();
+    await expect(page.getByTestId('joignabilite-tests')).toContainText(/3 commandes de test|3 test orders/);
+  });
+
+  test('🔴 aucune commande expédiée : la phrase le dit, jamais « 0 % »', async ({ page }) => {
+    await mock(page, { joignabilite: { expediees: 0, messagesLivres: 0, livrees: 0, supprimees: 0, sansNumero: 0, invalides: 0, enAttente: 0, testExpediees: 0 } });
+    await page.goto('/dashboard/shopify');
+    await expect(page.getByTestId('joignabilite-vide')).toBeVisible();
+    await expect(page.getByTestId('joignabilite-taux')).toHaveCount(0);
+    await expect(page.getByTestId('joignabilite-parts')).toHaveCount(0);
+    await expect(page.getByTestId('joignabilite-carte')).not.toContainText('%');
+  });
+
+  test('🔴 la route de la joignabilité absente ou illisible : la page reste celle d’avant, sans la carte', async ({ page }) => {
+    await mock(page, { joignabilite: 404 });
+    await page.goto('/dashboard/shopify');
+    await expect(page.getByTestId('ventes-total-EUR')).toBeVisible();
+    await expect(page.getByTestId('joignabilite-carte')).toHaveCount(0);
+    // Des parts qui ne font pas le total : illisible, pas de carte plutôt qu'une répartition fausse.
+    await mock(page, { joignabilite: { ...JOIGNABILITE, enAttente: 15 } });
+    await page.goto('/dashboard/shopify');
+    await expect(page.getByTestId('ventes-total-EUR')).toBeVisible();
+    await expect(page.getByTestId('joignabilite-carte')).toHaveCount(0);
   });
 
   test('la console publiée avant l’API : « pas encore disponible »', async ({ page }) => {

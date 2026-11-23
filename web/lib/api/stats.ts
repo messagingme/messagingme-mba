@@ -627,6 +627,15 @@ export function getRoi(tenantId: string, range?: StatsRange): Promise<unknown> {
 }
 
 /**
+ * Quantitatif > Shopify, la joignabilité WhatsApp des commandes expédiées (segments Shopify enrichis, lot 2b) : `unknown`,
+ * lu par `lireJoignabilite` (`@/lib/joignabilite-shopify`). Un 404 (console publiée avant l'API) remonte en `ApiError`, et
+ * la page reste comme avant, sans la carte.
+ */
+export function getJoignabilite(tenantId: string, range?: StatsRange): Promise<unknown> {
+  return request<unknown>(`/tenants/${tenantId}/stats/joignabilite${rangeQuery(range)}`);
+}
+
+/**
  * Le damier « satisfaction x urgence » (lot F du 2026-09-08, migration 0121).
  *
  * Un point par CASE occupee du damier (les deux notes sont des entiers de 0 a 10 : 121 positions au plus),

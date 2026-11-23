@@ -463,9 +463,10 @@ export const reglagesDepInertes: Pick<ReglagesDep,
 
 export const statsInertes: Pick<StatsRouteDeps,
   'getErrorContacts' | 'getCoutParCampagne' | 'getCoutParPub' | 'getCoutMessages' | 'getCoutIa' | 'getDetailCoutCampagne'
-  | 'getWorkflowNodeCounts' | 'getPerformance' | 'getVentes' | 'getRoiVentes'> = {
+  | 'getWorkflowNodeCounts' | 'getPerformance' | 'getVentes' | 'getRoiVentes' | 'getJoignabilite'> = {
   getVentes: neDevraitPasEtreAppelee('getVentes'),
   getRoiVentes: neDevraitPasEtreAppelee('getRoiVentes'),
+  getJoignabilite: neDevraitPasEtreAppelee('getJoignabilite'),
   getErrorContacts: async () => [],
   getCoutParCampagne: neDevraitPasEtreAppelee('getCoutParCampagne'),
   getCoutParPub: neDevraitPasEtreAppelee('getCoutParPub'),

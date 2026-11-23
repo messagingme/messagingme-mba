@@ -37,14 +37,25 @@ une marque posée à l'insertion.
 
 ## Lot 2b : la carte « Joignabilité WhatsApp »
 
-1. **Migration** : `shopify_joignabilite` (`tenant_id`, `commande_id`, classement `sans_numero` | `invalide` |
-   `utilisable`, `livree`, `supprimee`, `test`, `expediee_le`), sans téléphone ni nom ; `shopify_envois`
-   (`campaign_id` vers `commande_id`) pour relier un accusé à sa commande. `effacerBranchement` et `customers/redact`
-   les effacent ; une ligne jamais expédiée part à 60 jours.
-2. **Écritures** : le classement à `orders/paid`, `expediee_le` à `fulfillments/create`, `livree` sur un accusé
-   `delivered` ou `read` d'un envoi Shopify, `supprimee` par le job du 2a.
-3. **Route** de la période (fonction `statistiques`), carte en bas de Performance Lab > Quantitatif > Shopify : les
-   deux nombres, le taux sur les commandes expédiées (jamais 0 % sans expédition), les quatre parts, le test à part.
+1. **Migration 0310** : `shopify_joignabilite` (`tenant_id`, `commande_id`, classement `sans_numero` | `invalide` |
+   `utilisable`, `test`, `expediee_le`), sans téléphone ni nom ; `shopify_envois` (`campaign_id` vers `commande_id`)
+   pour relier les accusés d'un message à sa commande. Non bloquante : tout ce qui l'écrit ou l'efface le fait au mieux.
+2. **Écritures, au mieux** (une panne est journalisée, rien ne s'arrête) : le classement et le drapeau test à
+   `orders/paid`, pour toute commande d'une boutique branchée ; `expediee_le` au premier `fulfillments/create`, ligne
+   allumée ou non ; la campagne d'un message de confirmation ou d'expédition vers sa commande, par un rappel de l'envoi
+   Shopify. 🔴 Rien n'est écrit dans le traitement des accusés : livrée et supprimée se LISENT au moment de la carte, sur
+   `campaign_recipients` (accusé `delivered` ou `read` ; `failed` 131026 d'une ligne anonymisée par la purge).
+   🔴 Une commande ne compte qu'une fois son paiement vu (rouge de la relecture) : payée avant la mise en service, puis
+   expédiée, elle naît sans classement et la carte l'ignore, plutôt que de la ranger « en attente » faute de lien vers
+   sa confirmation.
+3. **Effacements** : avec le branchement de la boutique (`shop/redact`, la désinstallation d'une boutique de la console,
+   la reprise par un autre espace), dans sa transaction mais derrière un point de reprise, pour qu'une table absente ne
+   fasse pas échouer le reste ; `customers/redact` (les commandes citées), au mieux ; le ménage périodique du worker
+   retire une ligne jamais expédiée à 60 jours, toute ligne à 400.
+4. **Route** `/stats/joignabilite` (formule Pro, comme `/stats/ventes`), la réponse partagée
+   (`web/lib/partage/joignabilite-shopify.ts`) ; la carte en bas de Performance Lab > Quantitatif > Shopify, chargée à
+   part comme le ROI (absente sur un 404) : les deux nombres, le taux sur les commandes expédiées (jamais 0 % sans
+   expédition), les quatre parts, le test à part.
 
 ## Méthode de livraison
 

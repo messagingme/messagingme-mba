@@ -11,6 +11,7 @@ import type { CoutParPub } from '../pubs/publicites.pg';
 import type { Performance } from '../stats/performance';
 import type { ChiffreVentes } from '../shopify/chiffre';
 import type { RoiVentes } from '../shopify/roi';
+import type { JoignabiliteShopify } from '../../web/lib/partage/joignabilite-shopify';
 import type { PricingSummary } from '../meta/pricing';
 import { parseRange } from '../stats/range';
 import type { DateRange } from '../stats/range';
@@ -96,6 +97,11 @@ export interface StatsRouteDeps {
    * qu'ils ont ramené (`roiVentes`, `src/shopify/roi.ts`). Route à part de `/stats/ventes`, que l'outil MCP partage.
    */
   getRoiVentes(tenantId: string, range: DateRange): Promise<RoiVentes>;
+  /**
+   * La joignabilité WhatsApp des commandes expédiées (Quantitatif > Shopify, segments Shopify enrichis, lot 2b) :
+   * `PgJoignabiliteStore.lire` (`src/shopify/joignabilite.pg.ts`). Route à part, que la console tolère absente.
+   */
+  getJoignabilite(tenantId: string, range: DateRange): Promise<JoignabiliteShopify>;
 }
 
 /** Ce que les routes lisent du dépôt des statistiques d'envoi. */
@@ -360,6 +366,18 @@ export function registerStats(app: FastifyInstance, deps: StatsRouteDeps, garde:
     const r = parseRange(req.query as Record<string, unknown>);
     if ('error' in r) return reply.code(400).send({ error: r.error });
     return reply.code(200).send(await deps.getRoiVentes(tenant, r.range));
+  });
+
+  /**
+   * Quantitatif > Shopify, la joignabilité WhatsApp : les commandes expédiées de la période, leurs messages livrés et la
+   * répartition en cinq parts (`src/shopify/joignabilite.pg.ts`). Formule Pro, comme `/stats/ventes`. ⚠️ Son chemin ne
+   * contient PAS `/stats/ventes` : un faux réseau qui répond sur ce motif (e2e) lui rendrait le chiffre.
+   */
+  app.get('/tenants/:tenantId/stats/joignabilite', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const r = parseRange(req.query as Record<string, unknown>);
+    if ('error' in r) return reply.code(400).send({ error: r.error });
+    return reply.code(200).send(await deps.getJoignabilite(tenant, r.range));
   });
 
   /**

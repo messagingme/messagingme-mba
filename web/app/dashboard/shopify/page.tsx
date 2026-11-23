@@ -5,7 +5,7 @@ import { AppShell } from '@/components/AppShell';
 import { RangeBar } from '@/components/RangeBar';
 import { IntroPage, TitrePage } from '@/components/TitrePage';
 import type { Session } from '@/lib/session';
-import { getRoi, getVentes, type StatsRange } from '@/lib/api';
+import { getJoignabilite, getRoi, getVentes, type StatsRange } from '@/lib/api';
 import { ApiError, erreurDeChargement } from '@/lib/http';
 import { useT, useLocale } from '@/lib/i18n';
 import { presetRange } from '@/lib/range';
@@ -13,6 +13,7 @@ import { fmtNum } from '@/lib/format';
 import type { Locale } from '@/lib/locale';
 import { fmtMontant, libelleSource, lireVentes, type ChiffreVentesVue } from '@/lib/ventes';
 import { fmtRoi, lireRoi, type RoiVue } from '@/lib/roi';
+import { lireJoignabilite, partDesExpediees, tauxJoignabilite, type JoignabiliteVue } from '@/lib/joignabilite-shopify';
 import { CourbeRoi } from '@/components/analytics/CourbeRoi';
 
 /**
@@ -31,6 +32,10 @@ import { CourbeRoi } from '@/components/analytics/CourbeRoi';
  * ce que les leviers de vente ont coûté en face de ce qu'ils ont ramené, et le tableau « Par source » qui part de tout ce
  * qui a coûté. Lu sur sa propre route (`/stats/roi`) : si elle manque (404, console publiée avant l'API) ou ne se lit
  * pas, la page reste celle d'avant, sans la carte, plutôt que d'afficher un coût faux.
+ *
+ * LA JOIGNABILITÉ WHATSAPP (segments Shopify enrichis, lot 2b) : une carte en bas de la page, les commandes expédiées de
+ * la période et ce que leurs messages sont devenus. Même règle que le ROI : sa propre route (`/stats/joignabilite`), et
+ * sans elle (404, réponse illisible) la page reste celle d'avant, sans la carte.
  */
 export default function ShopifyQuantiPage() {
   return <AppShell active="quanti-shopify">{(session) => <ShopifyInner session={session} />}</AppShell>;
@@ -50,6 +55,7 @@ function ShopifyInner({ session }: { session: Session }) {
   const [range, setRange] = useState<StatsRange>(() => presetRange(30));
   const [etat, setEtat] = useState<Etat>({ etat: 'chargement' });
   const [roi, setRoi] = useState<RoiVue | null>(null);
+  const [joignabilite, setJoignabilite] = useState<JoignabiliteVue | null>(null);
 
   useEffect(() => {
     // Une réponse arrivée après un changement de période ne doit pas écraser celle de la période affichée.
@@ -76,6 +82,16 @@ function ShopifyInner({ session }: { session: Session }) {
     return () => { actif = false; };
   }, [session.tenantId, range]);
 
+  useEffect(() => {
+    let actif = true;
+    setJoignabilite(null);
+    // Comme le ROI : toute panne laisse la page sans la carte, jamais un zéro qui se lirait « personne n'est sur WhatsApp ».
+    getJoignabilite(session.tenantId, range)
+      .then((brut) => { if (actif) setJoignabilite(lireJoignabilite(brut)); })
+      .catch(() => { if (actif) setJoignabilite(null); });
+    return () => { actif = false; };
+  }, [session.tenantId, range]);
+
   return (
     <div className="space-y-4">
       {/* La barre reste un enfant DIRECT de la page : elle est collante, et un conteneur à sa mesure la bornerait. */}
@@ -99,6 +115,7 @@ function ShopifyInner({ session }: { session: Session }) {
       )}
       {etat.etat === 'erreur' && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{etat.message}</p>}
       {etat.etat === 'pret' && <Tableau ventes={etat.ventes} roi={roi} locale={locale} t={t} />}
+      {joignabilite && <CarteJoignabilite v={joignabilite} locale={locale} t={t} />}
     </div>
   );
 }
@@ -208,6 +225,71 @@ function Tableau({ ventes, roi, locale, t }: { ventes: ChiffreVentesVue; roi: Ro
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * La carte « Joignabilité WhatsApp » (spec des segments Shopify enrichis, « L'écran, en mots ») : les deux nombres côte à
+ * côte, le taux en phrase, puis les quatre parts qui ne sont pas livrées, dans l'ordre de la spec. 🔴 Sans expédition sur
+ * la période, aucun pourcentage : « 0 % » se lirait « personne n'est sur WhatsApp ».
+ */
+function CarteJoignabilite({ v, locale, t }: { v: JoignabiliteVue; locale: Locale; t: T }) {
+  const taux = tauxJoignabilite(v);
+  const part = (n: number) => partDesExpediees(n, v);
+  const ligne = (testid: string, n: number, fr: string, en: string) => (
+    <li data-testid={testid} className="flex justify-between gap-3">
+      <span>{fmtNum(n, locale)} {t(fr, en)}</span>
+      <span className="tabular-nums text-ink-500">{part(n)} %</span>
+    </li>
+  );
+  return (
+    <div className="rounded-carte border border-ink-200 bg-white p-5" data-testid="joignabilite-carte">
+      <h3 className="mb-3 text-sm font-semibold text-ink-900">{t('Joignabilité WhatsApp', 'WhatsApp reachability')}</h3>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs text-ink-500">{t('Commandes expédiées', 'Shipped orders')}</dt>
+          <dd data-testid="joignabilite-expediees" className="text-3xl font-semibold tracking-tight tabular-nums text-ink-900">{fmtNum(v.expediees, locale)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-500">{t('Messages livrés', 'Messages delivered')}</dt>
+          <dd data-testid="joignabilite-messages" className="text-3xl font-semibold tracking-tight tabular-nums text-ink-900">{fmtNum(v.messagesLivres, locale)}</dd>
+        </div>
+      </dl>
+      {taux === null ? (
+        <p data-testid="joignabilite-vide" className="mt-3 text-sm text-ink-500">
+          {t('Aucune commande expédiée sur la période : rien à rapporter.', 'No order shipped in the period: nothing to report.')}
+        </p>
+      ) : (
+        <>
+          <p data-testid="joignabilite-taux" className="mt-3 text-sm text-ink-900">
+            {t(
+              `${taux} % des commandes expédiées ont reçu au moins un WhatsApp livré. Livré veut dire accusé reçu par le téléphone, pas seulement accepté par Meta.`,
+              `${taux} % of shipped orders received at least one delivered WhatsApp. Delivered means acknowledged by the phone, not just accepted by Meta.`,
+            )}
+          </p>
+          <ul className="mt-3 space-y-1 text-sm text-ink-700" data-testid="joignabilite-parts">
+            {ligne('joignabilite-sans-numero', v.sansNumero, 'sans numéro', 'without a number')}
+            {ligne('joignabilite-invalides', v.invalides, 'numéro invalide ou fixe', 'invalid or landline number')}
+            {ligne('joignabilite-supprimees', v.supprimees, 'échec, contact supprimé', 'failed, contact deleted')}
+            {ligne('joignabilite-attente', v.enAttente, 'en attente d’accusé', 'awaiting acknowledgement')}
+          </ul>
+          <p data-testid="joignabilite-deux-messages" className="mt-3 text-xs text-ink-500">
+            {t(
+              'Une commande peut recevoir deux messages, la confirmation et l’avis d’expédition : les messages livrés peuvent dépasser les commandes livrées.',
+              'An order can receive two messages, the confirmation and the shipping notice: delivered messages can exceed delivered orders.',
+            )}
+          </p>
+        </>
+      )}
+      {v.testExpediees > 0 && (
+        <p data-testid="joignabilite-tests" className="mt-2 text-xs text-ink-400">
+          {t(
+            v.testExpediees === 1 ? '1 commande de test expédiée, hors du taux.' : `${fmtNum(v.testExpediees, locale)} commandes de test expédiées, hors du taux.`,
+            v.testExpediees === 1 ? '1 test order shipped, not in the rate.' : `${fmtNum(v.testExpediees, locale)} test orders shipped, not in the rate.`,
+          )}
+        </p>
+      )}
+    </div>
   );
 }
 

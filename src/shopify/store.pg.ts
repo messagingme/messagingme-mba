@@ -2,12 +2,14 @@ import type { Pool, PoolClient } from 'pg';
 import { decryptSecret, encryptSecret } from '../crypto/secretbox';
 import { enTransaction } from '../db/transaction';
 import { estDonneeShopify, type DonneeShopify, type EvenementShopify } from './donnees';
+import { effacerJoignabiliteDuBranchement } from './joignabilite.pg';
 import type { LigneShopify } from './lignes';
 import { LIGNES_DU_PANIER, autreRelanceDuPanier, lignesDe, type AutomationShopify } from '../../web/lib/partage/shopify-messages';
 
 /**
  * LE STORE DU CONNECTEUR SHOPIFY (plan 2026-10-21, lot 1), seul à écrire les tables `shopify_*` (migration 0246) ;
- * `purgeMany` y efface aussi les lignes d'une fiche purgée.
+ * `purgeMany` y efface aussi les lignes d'une fiche purgée. Deux exceptions : `shopify_joignabilite` et `shopify_envois`
+ * (migration 0310) s'écrivent par `./joignabilite.pg.ts`, qui fournit aussi leur effacement avec le branchement.
  *
  * 🔴 `tenant_id = $1` SUR CHAQUE REQUÊTE, sauf SIX lectures transverses nommées ici : `boutiqueParDomaine` et
  * `couperParDomaine` (ce sont elles qui DONNENT l'espace, à partir du domaine qui signe un webhook), et quatre balayages
@@ -292,7 +294,7 @@ export class PgShopifyStore {
     );
   }
 
-  /** `shop/redact` : le branchement part entier (secret, messages, paniers, événements, commandes), les fiches restent. */
+  /** `shop/redact` : le branchement part entier (secret, messages, paniers, événements, commandes, joignabilité), les fiches restent. */
   async effacerBoutique(tenantId: string): Promise<void> {
     await enTransaction(this.pool, (client) => effacerBranchement(client, tenantId));
   }
@@ -697,6 +699,7 @@ async function effacerBranchement(client: PoolClient, tenantId: string): Promise
   for (const table of ['shopify_messages', 'shopify_messages_attente', 'shopify_paniers', 'shopify_evenements', 'shopify_commandes', 'shopify_boutiques']) {
     await client.query(`delete from ${table} where tenant_id = $1`, [tenantId]);
   }
+  await effacerJoignabiliteDuBranchement(client, tenantId);
 }
 
 interface LigneAttente {

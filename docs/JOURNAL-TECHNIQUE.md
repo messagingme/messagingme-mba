@@ -5,6 +5,30 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : segments Shopify, lot 2b : la carte « Joignabilité WhatsApp »
+
+Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-2-numeros.md`, implémenteur par lot et revue humaine du
+diff. En bas de Performance Lab > Quantitatif > Shopify, la carte dit combien de commandes expédiées sur la période ont
+reçu au moins un WhatsApp livré, et range les autres en quatre parts. Deux tables sans téléphone, nom ni adresse (0310) :
+`shopify_joignabilite` (le classement à `orders/paid`, la première expédition) et `shopify_envois` (la campagne d'une
+confirmation ou d'un avis d'expédition vers sa commande, rendue par un rappel de l'envoi Shopify, au premier passage
+puisqu'un webhook rejoué après `servi` ne revient pas jusqu'à l'envoi). Rien ne s'écrit dans le traitement des accusés :
+livrée et supprimée se lisent au moment de la carte sur `campaign_recipients`, la suppression étant celle du lot 2a (sa
+ligne anonymisée). Tout s'écrit au mieux, pour que la migration ne soit pas bloquante. Le piège trouvé en câblant :
+l'effacement avec le branchement tourne dans une transaction, et un `try/catch` autour d'une instruction en échec y
+laisse la transaction abandonnée (`25P02`), donc tout `shop/redact` en échec sur une table absente ; d'où un point de
+reprise (`savepoint`), vu rouge sans lui sur le moteur Postgres de PGlite.
+La relecture (1 rouge, 7 jaunes). Le rouge : une commande payée avant la mise en service puis expédiée naissait à
+l'expédition sans lien vers sa confirmation et tombait « en attente », donc un taux proche de 0 % des semaines durant ;
+corrigé, une commande ne compte qu'une fois son paiement vu (une commande payée à la livraison entre à son paiement).
+Quatre jaunes corrigés dans le lot (le ménage daté de l'expédition, les accusés lus par une campagne de l'espace,
+« < 1 % » plutôt qu'un faux « 0 % », la campagne nommée au journal d'un lien perdu), trois au `todo.md`. En ajoutant la
+jointure sur la campagne de l'espace, la mutation du filtre d'espace des liens est restée VERTE : les deux filtres se
+masquaient sur le même cas ; un second lien forgé, dans l'autre sens, donne à chacun le sien. Vérifié : suite racine,
+typage, lint, auto-attaque ; console (lint, types, tests unitaires, les 12 e2e de la page sur la build de production) ;
+sur le banc PGlite, l'intégration et quatorze mutations, toutes rouges, et la sonde de relecture de la 0310 (lecture
+seule, le vrai code). Un test des paniers (`skip locked`) ne se joue pas sur la session unique du banc : la CI tranche.
+
 ## 2026-11-23 : segments Shopify, lot 2a : le numéro utilisable, la fiche supprimée au premier 131026
 
 Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-2-numeros.md`, implémenteur par lot et revue humaine du

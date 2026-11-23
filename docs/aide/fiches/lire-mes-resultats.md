@@ -1,7 +1,7 @@
 ---
 ecran: perf-synthese
 source_section: Analytics (menu Analytics)
-source_empreinte: 5b72d5
+source_empreinte: e8e538
 ---
 # Lire mes résultats dans le Performance Lab
 
@@ -50,6 +50,14 @@ IA, avec ses réponses, et agent de Meta), jamais les confirmations de commande.
 passés par la ligne de crédit, une estimation pour les autres, et l'écran le dit. Le ROI se calcule dans la devise
 de votre boutique ; un coût dans une autre devise est montré à part. Le tableau « Par source » montre aussi les
 campagnes qui n'ont rien vendu.
+
+En bas de la même page, la carte **Joignabilité WhatsApp** dit combien de vos **commandes expédiées** ont reçu au
+moins un WhatsApp **livré** (la confirmation ou l'avis d'expédition, reçu par le téléphone et pas seulement accepté
+par Meta). Le taux se compte en commandes : une commande qui a reçu ses deux messages compte une fois. Les autres
+commandes se rangent en quatre lignes : sans numéro, numéro invalide ou fixe, échec avec contact supprimé (le numéro
+ne recevait pas WhatsApp), et en attente d'accusé. Sans commande expédiée sur la période, la carte ne donne pas de
+pourcentage. Les commandes de test sont annoncées à part, hors du taux. La carte compte les commandes payées depuis
+sa mise en service, le 23 novembre 2026.
 
 La page **Quantitatif > Performance** mesure votre équipe sur les conversations qu'un robot lui a passées (un
 scénario, un agent IA, l'agent de Meta, ou la réponse à une campagne qui arrive dans l'Inbox), et sur celles qu'un

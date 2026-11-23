@@ -2228,6 +2228,27 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
   - Une vente est datée de son paiement, un coût de son envoi : l'écran le dit sous la courbe. Pas dans Claude Code
     (`get_revenue_stats` ne change pas).
 
+- ✅ **Quantitatif > Shopify : la joignabilité WhatsApp des commandes** (2026-11-23, formule Pro, segments Shopify
+  enrichis lot 2b, plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-2-numeros.md`). En bas de la page, une
+  carte dit combien de **commandes expédiées** sur la période ont reçu au moins un WhatsApp **livré** : la confirmation
+  ou l'avis d'expédition, accusé `delivered` ou `read` (un simple `sent` n'est pas une livraison). Deux nombres côte à
+  côte, les commandes expédiées et les messages livrés, puis le taux, en commandes et jamais en messages : une commande
+  qui a reçu ses deux messages compte une fois, et la carte le dit.
+  - **Les cinq parts**, sans recouvrement, la première qui s'applique gagnant : livrée ; échec, contact supprimé (Meta
+    a dit le message non distribuable, `131026`, et la fiche née de ce message a été supprimée, lot 2a) ; sans numéro ;
+    numéro invalide ou fixe ; en attente d'accusé. Les mêmes candidats et la même règle que le message : une commande « utilisable » est une
+    commande dont la confirmation avait un numéro.
+  - **Les commandes comptées** : celles dont le paiement a été vu depuis la mise en service (2026-11-23) et dont la
+    première expédition tombe dans la période (une commande en deux colis compte une fois), notées même quand la
+    confirmation est éteinte ou la boutique en pause. Une commande payée avant, dont la confirmation est partie sans lien
+    vers elle, n'y entre pas : elle aurait fait lire un taux trop bas. Une commande payée pas encore expédiée non plus.
+  - Aucune commande expédiée : la phrase dit qu'il n'y a rien à rapporter, jamais « 0 % ». L'arrondi n'affiche jamais
+    un faux « 0 % » ni un faux « 100 % » (« < 1 % », « > 99 % »). Les commandes de test sont une ligne grise à part,
+    hors du taux.
+  - **Ni téléphone, ni nom, ni adresse** : une ligne par commande (son identifiant, son classement, sa date
+    d'expédition), effacée par `customers/redact` qui la cite, avec le branchement de la boutique, et 400 jours après
+    son expédition (60 pour une commande jamais expédiée ou jamais vue payée). Pas dans Claude Code.
+
 - ✅ **Quantitatif > Performance : le temps de réponse et le temps de résolution de l'équipe** (2026-09-29,
   `/dashboard/performance`). Sur les seules conversations qu'un **robot a passées à l'équipe** : un scénario (bloc
   « passer à un humain »), un agent IA, l'agent de Meta, ou la réponse à une campagne dont le devenir est l'Inbox.

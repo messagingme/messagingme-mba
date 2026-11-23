@@ -3,11 +3,11 @@ import { traiterWebhookShopify, type BoutiqueRecue, type DepsTraitementShopify }
 import { envoyerShopify, noterIssueShopify, pontDuPremierBloc, variablesDuDestinataire, type EnvoyerPublic } from '../src/shopify/envoi';
 import type { Reservation } from '../src/shopify/store.pg';
 import type { Emission } from '../src/emails-produit/emission';
-import type { RapportEnvoi, ResultatEnvoiPublic } from '../src/api/envoi-public';
+import { COMPTEUR_ENVOI_REFUSE, type RapportEnvoi, type ResultatEnvoiPublic } from '../src/api/envoi-public';
 import { VALEUR_VARIABLE_MAX } from '../src/api/variables';
 import type { Filiere } from '../src/application/comptes';
 import type { Touche } from '../src/shopify/attribution';
-import type { DonneeShopify, EvenementShopify } from '../src/shopify/donnees';
+import type { ClassementTelephone, DonneeShopify, EvenementShopify } from '../src/shopify/donnees';
 import { MARQUE_PREMIER_BLOC } from '../src/shopify/premier-bloc';
 import type { ParamHint } from '../src/crm/template-hints.pg';
 import { DROITS } from '../src/offres/offres';
@@ -57,6 +57,37 @@ class FauxVentes {
   async anonymiserCommandes(_t: string, ids: readonly string[]): Promise<number> {
     this.anonymisees.push([...ids]);
     return ids.length;
+  }
+}
+
+/**
+ * Le faux store de la joignabilité (segments Shopify enrichis, lot 2b) : une CLASSE dont les méthodes lisent `this`,
+ * comme le vrai. `leve` : chaque écriture tombe en panne, comme sur une base où la migration 0310 n'est pas passée.
+ */
+class FauxJoignabilite {
+  commandes: Array<[string, string, ClassementTelephone, boolean]> = [];
+  expeditions: Array<[string, string]> = [];
+  envois: Array<[string, string, string]> = [];
+  effacees: string[][] = [];
+  constructor(private readonly leve = false) {}
+  private panne(): void {
+    if (this.leve) throw new Error('relation "shopify_joignabilite" does not exist');
+  }
+  async noterCommande(t: string, commande: string, classement: ClassementTelephone, test: boolean): Promise<void> {
+    this.panne();
+    this.commandes.push([t, commande, classement, test]);
+  }
+  async noterExpedition(t: string, commande: string): Promise<void> {
+    this.panne();
+    this.expeditions.push([t, commande]);
+  }
+  async noterEnvoi(t: string, campagne: string, commande: string): Promise<void> {
+    this.panne();
+    this.envois.push([t, campagne, commande]);
+  }
+  async effacerCommandes(_t: string, ids: readonly string[]): Promise<void> {
+    this.panne();
+    this.effacees.push([...ids]);
   }
 }
 
@@ -152,6 +183,7 @@ function monter(o: {
   offre?: 'base' | 'pro';
   /** L'arrêt des parcours en panne. */
   arretLeve?: boolean;
+  joignabilite?: FauxJoignabilite;
 } = {}) {
   const journal = {
     reserve: [] as string[], issues: [] as Array<[string, string]>, liberes: [] as string[], liees: [] as unknown[],
@@ -166,6 +198,7 @@ function monter(o: {
   const messages = o.messages ?? [MESSAGE];
   const offres = new FauxOffres(o.offre ?? 'pro');
   const parcours = new FauxParcours(journal.ordre, o.arretLeve === true);
+  const joignabilite = o.joignabilite ?? new FauxJoignabilite();
   const deps: DepsTraitementShopify = {
     store: {
       ligne: async (_t, e) => {
@@ -208,8 +241,9 @@ function monter(o: {
       if (o.programmerLeve) throw new Error('file indisponible');
       journal.preuves.push({ job, quand });
     },
+    joignabilite,
   };
-  return { deps, journal, offres, parcours };
+  return { deps, journal, offres, parcours, joignabilite };
 }
 
 describe('une commande payée', () => {
@@ -649,6 +683,20 @@ describe('l’adaptateur de l’envoi public : l’issue de chaque réponse', ()
     await envoyerShopify(capture, { ...envoi, params, valeurs: { order_number: '#1002' }, parcoursEvenement: pont });
     expect(appels[1]!.options).toEqual({ nom: 'n', sansCampagneVide: true, neeDe: 'shopify', parcoursEvenement: pont });
   });
+
+  it('🔴 lot 2b : la campagne née de l’envoi est rendue, rejeu compris ; aucune sans campagne ; un rappel en panne ne change pas l’issue', async () => {
+    const reliees: string[] = [];
+    const surCampagne = async (id: string) => { reliees.push(id); };
+    expect(await envoyerShopify(rendant({ statut: 201, corps: rapport({ sendId: 'c-1' }) }), { ...envoi, surCampagne })).toBe('envoye');
+    // Le rejeu d'une clé déjà servie rend le même rapport : la même campagne, que le store ne relie qu'une fois.
+    expect(await envoyerShopify(rendant({ statut: 200, corps: rapport({ sendId: 'c-1' }) }), { ...envoi, surCampagne })).toBe('envoye');
+    expect(await envoyerShopify(ecarte('opted_out'), { ...envoi, surCampagne })).toBe('desabonne');
+    expect(await envoyerShopify(rendant({ statut: 409, corps: { code: 'number_unlinked' } }), { ...envoi, surCampagne })).toBe('numero_indisponible');
+    expect(await envoyerShopify(rendant(COMPTEUR_ENVOI_REFUSE), { ...envoi, surCampagne })).toBe('refuse');
+    expect(reliees).toEqual(['c-1', 'c-1']);
+    const enPanne = async () => { throw new Error('base indisponible'); };
+    expect(await envoyerShopify(rendant({ statut: 201, corps: rapport({ sendId: 'c-2' }) }), { ...envoi, surCampagne: enPanne })).toBe('envoye');
+  });
 });
 
 describe('les variables du destinataire et le pont d’un premier bloc (lot 5)', () => {
@@ -863,5 +911,65 @@ describe('les commandes notées pour les segments', () => {
     const { deps, journal } = monter({ messages: [{ ...MESSAGE, evenement: 'order_fulfilled', modele: 'colis_parti', variables: [] }] });
     await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', expedition);
     expect(journal.liees).toEqual([[T, '1002', null, 'fiche-1', undefined]]);
+  });
+});
+
+/**
+ * LA JOIGNABILITÉ WHATSAPP DES COMMANDES (segments Shopify enrichis, lot 2b) : le classement à la commande payée, la
+ * première expédition, la campagne d'un message vers sa commande, l'effacement d'une commande citée. 🔴 Tout au mieux :
+ * une panne ne coûte jamais la confirmation, son issue, la réponse à Shopify ni l'effacement des fiches.
+ */
+describe('la joignabilité des commandes (lot 2b)', () => {
+  const EXPEDIEE: MessageDeTest = { ...MESSAGE, evenement: 'order_fulfilled', modele: 'colis_parti', variables: [] };
+
+  it('🔴 une commande payée est classée, ligne éteinte et pause comprises, sans aucun téléphone ; jamais pour une boutique coupée', async () => {
+    const { deps, joignabilite } = monter({ messages: [] });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande());
+    await traiterWebhookShopify(deps, { ...BOUTIQUE, pause: true }, 'orders/paid', commande({ id: 1003, test: true }));
+    await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande({ id: 1004, customer: null, shipping_address: null }));
+    // Un fixe seul : du texte, mais rien que WhatsApp porte.
+    await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande({ id: 1005, shipping_address: { first_name: 'Ana', phone: '01 45 67 89 01', country_code: 'FR' } }));
+    await traiterWebhookShopify(deps, { ...BOUTIQUE, etat: 'coupee' }, 'orders/paid', commande({ id: 1006 }));
+    expect(joignabilite.commandes).toEqual([
+      [T, '1002', 'utilisable', false], [T, '1003', 'utilisable', true], [T, '1004', 'sans_numero', false], [T, '1005', 'invalide', false],
+    ]);
+  });
+
+  it('🔴 une expédition est notée par l’identifiant de sa COMMANDE, ligne éteinte comprise, sans classement (seul le paiement en pose un)', async () => {
+    const { deps, joignabilite } = monter({ messages: [] });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', expedition);
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', { ...expedition, id: 5002, name: '#1002.2', destination: null });
+    expect(joignabilite.expeditions).toEqual([[T, '1002'], [T, '1002']]);
+    expect(joignabilite.commandes).toEqual([]);
+  });
+
+  it('🔴 la campagne de la confirmation et celle de l’avis d’expédition sont reliées à leur commande ; rien sans campagne', async () => {
+    const { deps, joignabilite } = monter({ messages: [MESSAGE, EXPEDIEE] });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande());
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', expedition);
+    expect(joignabilite.envois).toEqual([[T, 's1', '1002'], [T, 's1', '1002']]);
+    const vide = monter({ reponse: { statut: 200, corps: rapport({ sendId: '', recipientCount: 0, skipped: [{ index: 0, reason: 'opted_out' }] }) } });
+    await traiterWebhookShopify(vide.deps, BOUTIQUE, 'orders/paid', commande());
+    const refuse = monter({ reponse: { statut: 422, corps: { code: 'template_not_approved' } } });
+    await traiterWebhookShopify(refuse.deps, BOUTIQUE, 'orders/paid', commande());
+    expect([vide.joignabilite.envois, refuse.joignabilite.envois]).toEqual([[], []]);
+  });
+
+  it('🔴 une joignabilité en panne ne coûte ni la confirmation, ni son issue, ni la réponse à Shopify, ni l’effacement des fiches', async () => {
+    const { deps, journal } = monter({ messages: [MESSAGE, EXPEDIEE], joignabilite: new FauxJoignabilite(true) });
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande())).toEqual({ statut: 200 });
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', expedition)).toEqual({ statut: 200 });
+    expect(journal.envois).toHaveLength(2);
+    expect(journal.issues.map(([, issue]) => issue)).toEqual(['envoye', 'envoye']);
+    expect(journal.liberes).toEqual([]);
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'customers/redact', { customer: { id: 77 }, orders_to_redact: [1002] })).toEqual({ statut: 200 });
+    expect(journal.effaces).toEqual([['fiche-1']]);
+  });
+
+  it('customers/redact efface les lignes des commandes citées, et seulement elles', async () => {
+    const { deps, joignabilite } = monter();
+    await traiterWebhookShopify(deps, BOUTIQUE, 'customers/redact', { customer: { id: 77 }, orders_to_redact: [1002, 1003] });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'customers/redact', { customer: { id: 78 } });
+    expect(joignabilite.effacees).toEqual([['1002', '1003'], []]);
   });
 });
