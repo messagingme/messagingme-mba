@@ -9,6 +9,7 @@ import { resolveTemplateParams, type TemplateParam } from '../crm/template';
 import { MATCH_BY_WAID_SQL } from '../crm/contact-store.pg';
 import type { EtatConfirme } from './confirmation';
 import { RECIPIENT_FAILED_SQL } from './echecs-sql';
+import { CODE_SANS_WHATSAPP } from '../meta/errors';
 import type { CampagneAssignante } from '../inbox/assignation-campagne';
 import type { GroupeAEstimer } from '../credit-whatsapp/estimation';
 import {
@@ -1845,6 +1846,54 @@ export class PgRecipientStore implements RecipientStore, DeliveryStore {
     // `rowCount` ne convient pas : l'énoncé rend toujours une ligne (le `select` final). C'est le compte porté
     // par cette ligne qui répond.
     return Number(res.rows[0]?.n ?? 0);
+  }
+
+  /**
+   * LA FICHE QUE LE PREMIER 131026 DE CE MESSAGE SUPPRIME, ou `null` (segments Shopify enrichis, lot 2a ; décision de
+   * Julien du 2026-11-23 : seulement une fiche née d'un envoi Shopify et qui n'a jamais écrit). Lue APRÈS que l'accusé a
+   * écrit l'échec (`updateDeliveryByMessageId`), par le job de la file `shopify-sans-whatsapp`. Toutes les gardes dans la
+   * même requête, chacune une raison de GARDER la fiche :
+   *   - le destinataire porte encore cet échec (`failed`, 131026) : une relance l'a remis en route entre-temps, non ;
+   *   - `retry_count < 2` : 2, c'est un scénario qui a pris la sortie « En cas d'échec » (`cederAuScenario`) et poursuit
+   *     sur cette fiche, ou un injoignable déjà traité par le balayage (`markUnreachableDone`) ;
+   *   - pas de repli (`SANS_REPLI_SQL`) : un étage RCS ou e-mail rattrape ce contact sur la même fiche ;
+   *   - pas déjà purgé (`NON_PURGE_SQL`), fiche vivante ;
+   *   - `nee_de = 'shopify'` : une fiche importée, saisie, ou née d'un entrant n'est jamais visée ;
+   *   - jamais écrit : ni activité (`derniere_activite_le`, message reçu ou clic, complète depuis 0273, donc pour toute
+   *     fiche marquée), ni message entrant encore conservé (au cas où la date aurait manqué une écriture « au mieux ») ;
+   *   - jamais rien reçu : aucun message livré ou lu, ni sur une ligne de campagne (gardée sans limite de durée), ni dans
+   *     la conversation encore conservée. Un message livré prouve que le numéro EST sur WhatsApp : le 131026 d'après dit
+   *     alors des conditions non acceptées ou une application trop ancienne, pas un numéro mort (relecture du lot).
+   * L'espace vient de la campagne du message, et la fiche est cherchée DANS cet espace.
+   */
+  async ficheNeeDeShopifySansWhatsapp(messageId: string): Promise<{ tenantId: string; contactId: string } | null> {
+    const res = await this.pool.query<{ tenant_id: string; contact_id: string }>(
+      `select c.tenant_id, k.id as contact_id
+         from campaign_recipients r
+         join campaigns c on c.id = r.campaign_id
+         join contacts k on k.id = r.contact_id and k.tenant_id = c.tenant_id
+        where r.message_id = $1
+          and r.delivery_status = 'failed' and r.error_code = $2::integer
+          and r.retry_count < 2
+          and ${SANS_REPLI_SQL}
+          and ${NON_PURGE_SQL}
+          and k.nee_de = 'shopify'
+          and k.deleted_at is null and k.anonymized_at is null
+          and k.derniere_activite_le is null
+          and not exists (
+            select 1 from conversations v join conversation_messages m on m.conversation_id = v.id
+             where v.tenant_id = c.tenant_id and v.contact_id = k.id
+               and (m.direction = 'in' or m.statut in ('delivered', 'read'))
+          )
+          and not exists (
+            select 1 from campaign_recipients d
+             where d.contact_id = k.id and d.delivery_status in ('delivered', 'read')
+          )
+        limit 1`,
+      [messageId, CODE_SANS_WHATSAPP],
+    );
+    const l = res.rows[0];
+    return l ? { tenantId: l.tenant_id, contactId: l.contact_id } : null;
   }
 
   async listPending(campaignId: string): Promise<Recipient[]> {

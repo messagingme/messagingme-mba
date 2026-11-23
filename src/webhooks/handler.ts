@@ -1,6 +1,6 @@
 import { parseWebhook } from './parse';
 import { processStatuses } from './delivery';
-import type { EchecsLibresSink, LivraisonTemplatesSink, NodeStatusSink, ParcoursSurEchecSink, RemiseMbaSurAccuse } from './delivery';
+import type { EchecsLibresSink, LivraisonTemplatesSink, NodeStatusSink, ParcoursSurEchecSink, RemiseMbaSurAccuse, SansWhatsappSink } from './delivery';
 import { extractInbound, processInbound } from './inbound';
 import { processFlowCompletions } from './flow-mapping';
 import { rangerParLesParcours, type RangementParLesParcours } from './rangement-par-le-parcours';
@@ -87,6 +87,11 @@ interface WebhookJobDepsCommunes {
    */
   livraisonTemplates?: LivraisonTemplatesSink;
   /**
+   * Segments Shopify enrichis, lot 2a : un échec 131026 enfile la suppression d'une fiche née d'un envoi Shopify et jamais
+   * écrite. Absente : la fiche reste, le comportement d'avant le lot. Câblée sur les DEUX files qui portent des accusés.
+   */
+  sansWhatsapp?: SansWhatsappSink;
+  /**
    * Le statut d'un modèle tranché par Meta (lot 13, domaine 3, livraison C) : l'événement sortant
    * `template.status_changed`. Câblé sur la file `webhook` seulement : un statut de modèle n'est pas un accusé.
    */
@@ -161,7 +166,7 @@ export type WebhookJobDeps = WebhookJobDepsCommunes
 export async function handleWebhookJob(recu: unknown, deps: WebhookJobDeps): Promise<void> {
   const {
     store, delivery, flowMapping, workflowAdvance, remiseMbaEntrant, inboundContactUpsert,
-    handover, triggers, testTokens, nodeEvents, inboundAssignation, inboundWidget, remiseMba, parcoursSurEchec, livraisonTemplates,
+    handover, triggers, testTokens, nodeEvents, inboundAssignation, inboundWidget, remiseMba, parcoursSurEchec, livraisonTemplates, sansWhatsapp,
     tarifsMeta, echecsLibres, ajustementCredit, arriveesPub, routagePub, signauxAccuse, signalReponse, numerosDelies,
   } = deps;
   /**
@@ -196,7 +201,7 @@ export async function handleWebhookJob(recu: unknown, deps: WebhookJobDeps): Pro
     const isNew = await store.insertEvent(ev);
     if (!isNew && ev.dedupKey.startsWith('msg:')) alreadySeen.add(ev.dedupKey.slice(4));
   }
-  if (delivery) await processStatuses(events, delivery, { tarifs: tarifsMeta, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux: signauxAccuse, parcours: parcoursSurEchec, livraisonTemplates });
+  if (delivery) await processStatuses(events, delivery, { tarifs: tarifsMeta, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux: signauxAccuse, parcours: parcoursSurEchec, livraisonTemplates, sansWhatsapp });
   /**
    * Un payload qui ne porte QUE des statuts de modèles : une panne lève et fait rejouer le job par pg-boss, sans risque
    * (rien d'autre à rejouer, identifiant d'événement stable, ligne d'envoi unique par adresse). Mêlé à des messages :

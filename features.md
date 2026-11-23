@@ -3090,8 +3090,12 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   laisse le cas à compléter. Claude Code montre ces messages (`get_shopify_state`, champ `message`) et allume une
   automation approuvée par `set_shopify_message`, une fois le consentement des clients attesté (ci-dessous).
 - **Les règles des envois s'appliquent** : STOP, modèles du mois, limite de contacts de l'offre (la fiche d'un nouveau
-  client compte). Chaque premier message fait une ligne dans Campagnes (« Shopify · commande payée · #1002 ») ; un client
-  écarté (STOP, limite) n'en fait aucune. Le premier message part même quand l'agent ou un opérateur tient la
+  client compte). **Un numéro que WhatsApp ne porte pas ne garde pas de fiche** (2026-11-23) : un fixe, un numéro de
+  service ou une VOIP française est sauté au profit du numéro suivant de la commande ou du panier ; et la fiche que le
+  message a créée pour un numéro absent de WhatsApp est supprimée au premier échec 131026 de Meta, sa place dans la
+  limite revient, tant que ce client n'a jamais écrit, cliqué ni reçu un message. Une fiche déjà là avant le message
+  (importée, saisie, ou qui a écrit) n'est jamais supprimée ainsi. Chaque premier message fait une ligne dans Campagnes
+  (« Shopify · commande payée · #1002 ») ; un client écarté (STOP, limite) n'en fait aucune. Le premier message part même quand l'agent ou un opérateur tient la
   conversation, et ne la coupe pas. Un client qui écrit pendant que l'automation dort dans un bloc « Attente », ou qui
   clique sur le bouton d'un autre message (décisions 34 et 35) : l'agent IA, le scénario répondeur ou l'application de
   l'espace lui répond, et l'automation continue ; en mode Équipe, une demande s'ouvre dans « À traiter », en mode agent

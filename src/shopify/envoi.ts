@@ -89,7 +89,9 @@ export async function envoyerShopify(envoyer: EnvoyerPublic, e: EnvoiShopify): P
     }],
   };
   const r = await envoyer(e.tenantId, corps, async () => true, {
-    nom: e.nomLigne, sansCampagneVide: true, ...(e.parcoursEvenement !== undefined ? { parcoursEvenement: e.parcoursEvenement } : {}),
+    // `neeDe` : une fiche que ce message crée est née d'un envoi Shopify ; jamais écrite, le premier 131026 la supprime.
+    nom: e.nomLigne, sansCampagneVide: true, neeDe: 'shopify',
+    ...(e.parcoursEvenement !== undefined ? { parcoursEvenement: e.parcoursEvenement } : {}),
   });
   return issueDeLEnvoi(r);
 }

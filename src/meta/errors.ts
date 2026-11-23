@@ -45,6 +45,13 @@ export function raisonDePause(err: unknown): RaisonDePause | undefined {
   return err instanceof MetaApiError && err.code === 131048 ? 'qualite' : 'debit';
 }
 
+/**
+ * « Unable to deliver message » : le numéro n'est pas sur WhatsApp, ou la personne n'a pas accepté les conditions, ou son
+ * application est trop ancienne (la page des codes de Meta met les trois sous ce code). Lu par la bascule d'une campagne
+ * (`src/campaign/bascule.ts`) et par l'accusé qui supprime une fiche née d'un envoi Shopify (`src/webhooks/delivery.ts`).
+ */
+export const CODE_SANS_WHATSAPP = 131026;
+
 // Transitoires : rejouables tels quels.
 // 131026 n'y est pas : Meta dit que le numéro n'est pas sur WhatsApp ou que la personne n'a pas accepté les
 // conditions, rien qui change dans la seconde. Son rattrapage vit au niveau campagne. `classify` sert à

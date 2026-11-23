@@ -5,6 +5,22 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : segments Shopify, lot 2a : le numéro utilisable, la fiche supprimée au premier 131026
+
+Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-2-numeros.md`, implémenteur par lot et revue humaine du
+diff. Décisions de Julien du jour, prises quand j'ai relevé que la spec (« pour tout envoi de l'espace ») aurait coupé le
+repli RCS ou e-mail d'une campagne et la sortie « En cas d'échec » d'un scénario, qui se servent du même 131026 sur la
+même fiche : seule une fiche NÉE D'UN ENVOI SHOPIFY et jamais écrite est supprimée ; un fixe est sauté. La cartographie
+a montré que rien ne disait de façon durable qu'une fiche était née d'un envoi Shopify (`opt_in_source =
+shopify:<domaine>` est aussi écrit sur une fiche existante restée `unknown`) : d'où `contacts.nee_de` (0309), posée au
+mieux par une écriture à part juste après l'insertion, pour que la migration ne soit pas bloquante. Au `failed` 131026,
+l'accusé enfile la file `shopify-sans-whatsapp`, dont le job relit les gardes en une requête puis purge, hors limite du
+jour. La relecture (aucun rouge) a fait ajouter une garde : aucun message déjà livré ou lu, qui prouverait le numéro sur
+WhatsApp. Vérifié : suite racine (hors un délai de 5 s dépassé sous charge sur `mcp-agent`, vert trois fois seul),
+typage, lint, auto-attaque ; les gardes sur un banc PGlite (toutes les migrations, le vrai `pg`), chacune vue rouge
+sans elle (onze mutations) ; les couches de la marque et le câblage des deux files d'accusés, vus rouges sans eux.
+Reste : le déploiement (`migration=avant`), la relecture en base, `aide:charger`, l'essai réel.
+
 ## 2026-11-20 : /ops, les envois de la ligne de crédit par jour et le détail d'un mois en CSV
 
 Signalé par Julien : la fenêtre de l'offre listait les 50 derniers envois facturés, un par ligne, illisible dès

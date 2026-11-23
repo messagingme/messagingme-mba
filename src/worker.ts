@@ -26,6 +26,8 @@ import { PgCampaignStore, PgQualityProvider } from './campaign/store.pg';
 import { PgShopifyStore } from './shopify/store.pg';
 import { PgVentesStore } from './shopify/ventes.pg';
 import { FILE_PREUVE_UTM, traiterPreuveUtm, type DepsPreuveUtm } from './shopify/preuve-utm';
+import { FILE_SANS_WHATSAPP, traiterSansWhatsapp, type DepsSansWhatsapp } from './shopify/sans-whatsapp';
+import type { SansWhatsappSink } from './webhooks/delivery';
 import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
 import { FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsOubli, type ProgrammerOubli } from './shopify/preparation';
 import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
@@ -567,6 +569,19 @@ export async function demarrerWorker(): Promise<void> {
   await queue.work(FILE_PREUVE_UTM, async (data) => { await traiterPreuveUtm(preuveUtm, data); });
 
   /**
+   * Segments Shopify enrichis, lot 2a : au premier 131026, la suppression d'une fiche née d'un envoi Shopify et jamais
+   * écrite (`src/shopify/sans-whatsapp.ts`). Enfilée par les DEUX files qui traitent des accusés (`webhook` et
+   * `webhook-status`), faite par la sienne. Les magasins ENTIERS ou par une flèche : leurs méthodes lisent `this`.
+   */
+  const sansWhatsapp: SansWhatsappSink = { surEchec: (messageId) => queue.enqueue(FILE_SANS_WHATSAPP, { messageId }) };
+  const depsSansWhatsapp: DepsSansWhatsapp = {
+    ficheASupprimer: (messageId) => recipientStore.ficheNeeDeShopifySansWhatsapp(messageId),
+    contacts: contactStore,
+    listeDeLAgent,
+  };
+  await queue.work(FILE_SANS_WHATSAPP, async (data) => { await traiterSansWhatsapp(depsSansWhatsapp, data); });
+
+  /**
    * L'issue d'un événement envoyé à l'agent de Meta, relue 20 s après, et une relance sur une panne passagère de Meta
    * (`src/mba/issue-evenement.ts`). Le socle programme la lecture ; seule une panne de notre base AVANT le renvoi lève.
    */
@@ -769,6 +784,8 @@ export async function demarrerWorker(): Promise<void> {
       parcoursSurEchec: runStore,
       // La sortie « En cas d'échec » des templates de scénario : l'accusé fait repartir le parcours qui l'attend.
       livraisonTemplates,
+      // Segments Shopify, lot 2a : un 131026 enfile la suppression d'une fiche née d'un envoi Shopify, jamais écrite.
+      sansWhatsapp,
       // 🔴 Opt-out par mot-clé sur WhatsApp (STOP, désabonner...) : sans lui, un contact qui répond STOP
       // resterait `opted_in` et recevrait la campagne suivante. La source `whatsapp_stop` le distingue d'un refus
       // posé à la main. Le wamid du STOP suit jusqu'au signal : un STOP redélivré garde le même `em_event_id`.
@@ -882,7 +899,7 @@ export async function demarrerWorker(): Promise<void> {
   await queue.work('webhook-status', async (data) => {
     // Trois dépendances nommées : ce qui est absent l'est volontairement (aucune conversation, aucune
     // automation, aucun scénario ne se déclenche sur un accusé).
-    await handleWebhookJob(data, { store: eventStore, delivery: recipientStore, nodeEvents: nodeEventStore, parcoursSurEchec: runStore, livraisonTemplates, remiseMba: fil.remettreSurAccuse, tarifsMeta: tarifsMetaStore, echecsLibres: echecsMessages, signauxAccuse: puitsSignaux.accuse, ajustementCredit: ajustementCreditWhatsapp });
+    await handleWebhookJob(data, { store: eventStore, delivery: recipientStore, nodeEvents: nodeEventStore, parcoursSurEchec: runStore, livraisonTemplates, sansWhatsapp, remiseMba: fil.remettreSurAccuse, tarifsMeta: tarifsMetaStore, echecsLibres: echecsMessages, signauxAccuse: puitsSignaux.accuse, ajustementCredit: ajustementCreditWhatsapp });
   }, { concurrency: config.WEBHOOK_STATUS_CONCURRENCY, groupConcurrency: 1 });
 
   // File campaign-run. DRY_RUN=true : sender de démo (aucun appel Meta). Sinon : token résolu par tenant,

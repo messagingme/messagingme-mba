@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 413f06
+source_empreinte: c3555c
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -170,7 +170,9 @@ boutique.
 
 Un client qui a répondu STOP ne reçoit rien, et les modèles du mois et la limite de contacts de votre offre comptent :
 la fiche d'un nouveau client compte. Si cette limite est atteinte, les nouveaux clients ne reçoivent plus leurs
-messages ; la carte les compte, et vous recevez un e-mail au premier refus du mois. Chaque premier message apparaît
+messages ; la carte les compte, et vous recevez un e-mail au premier refus du mois. Un numéro fixe est laissé de côté
+au profit d'un mobile de la commande. Et si le numéro d'un nouveau client n'est pas sur WhatsApp, la fiche créée pour
+son message est supprimée dès que Meta le dit : sa place revient. Chaque premier message apparaît
 dans Campagnes, une ligne par commande. Il part même quand l'agent ou votre équipe tient la conversation, sans la
 couper.
 

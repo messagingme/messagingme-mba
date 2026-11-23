@@ -228,7 +228,7 @@ describe('une commande payée', () => {
       ],
       recipients: [{ phone: '+33633921577', variables: { first_name: 'Julien', order_number: '#1002', order_status_url: 'https://b.myshopify.com/1/orders/x/authenticate?key=k' } }],
     });
-    expect(journal.envois[0]!.options).toEqual({ nom: 'Shopify · commande payée · #1002', sansCampagneVide: true });
+    expect(journal.envois[0]!.options).toEqual({ nom: 'Shopify · commande payée · #1002', sansCampagneVide: true, neeDe: 'shopify' });
     expect(journal.issues).toEqual([['shopify:b.myshopify.com:orders/paid:1002', 'envoye']]);
     // Écrite deux fois, au même effet : par l'attribution (fiche connue) puis après la confirmation (segments, 2026-11-03).
     expect(journal.liees).toEqual([[T, '1002', '77', 'fiche-1', SANS_MONTANT], [T, '1002', '77', 'fiche-1', SANS_MONTANT]]);
@@ -575,16 +575,16 @@ describe('la ligne Shopify et son premier bloc (lot 5)', () => {
     const pro = monter({ messages: [{ ...MESSAGE, suite: true }] });
     await traiterWebhookShopify(pro.deps, BOUTIQUE, 'orders/paid', commande());
     expect(pro.journal.envois[0]!.options).toEqual({
-      nom: 'Shopify · commande payée · #1002', sansCampagneVide: true,
+      nom: 'Shopify · commande payée · #1002', sansCampagneVide: true, neeDe: 'shopify',
       parcoursEvenement: { workflowId: 'wf-order_paid', noeudId: 'depart', type: 'evenement_shopify', origine: CLE, boutons: [{ type: 'QUICK_REPLY', text: 'Oui' }] },
     });
     const free = monter({ messages: [{ ...MESSAGE, suite: true }], offre: 'base' });
     await traiterWebhookShopify(free.deps, BOUTIQUE, 'orders/paid', commande());
-    expect(free.journal.envois[0]!.options).toEqual({ nom: 'Shopify · commande payée · #1002', sansCampagneVide: true });
+    expect(free.journal.envois[0]!.options).toEqual({ nom: 'Shopify · commande payée · #1002', sansCampagneVide: true, neeDe: 'shopify' });
     expect(free.journal.issues).toEqual([[CLE, 'envoye']]);
     const seul = monter();
     await traiterWebhookShopify(seul.deps, BOUTIQUE, 'orders/paid', commande());
-    expect(seul.journal.envois[0]!.options).toEqual({ nom: 'Shopify · commande payée · #1002', sansCampagneVide: true });
+    expect(seul.journal.envois[0]!.options).toEqual({ nom: 'Shopify · commande payée · #1002', sansCampagneVide: true, neeDe: 'shopify' });
     expect(seul.offres.lus).toBe(0);
   });
 
@@ -644,10 +644,10 @@ describe('l’adaptateur de l’envoi public : l’issue de chaque réponse', ()
     const params = [{ position: 1, source: { type: 'field' as const, key: 'prenom' } }, { position: 2, source: { type: 'variable' as const, key: 'order_number' } }];
     await envoyerShopify(capture, { ...envoi, params, valeurs: { order_number: '#1002' } });
     expect(appels[0]!.corps).toMatchObject({ params });
-    expect(appels[0]!.options).toEqual({ nom: 'n', sansCampagneVide: true });
+    expect(appels[0]!.options).toEqual({ nom: 'n', sansCampagneVide: true, neeDe: 'shopify' });
     const pont = { workflowId: 'w', noeudId: 'd', type: 'evenement_shopify' as const, origine: 'shopify:b:orders/paid:1', boutons: [] };
     await envoyerShopify(capture, { ...envoi, params, valeurs: { order_number: '#1002' }, parcoursEvenement: pont });
-    expect(appels[1]!.options).toEqual({ nom: 'n', sansCampagneVide: true, parcoursEvenement: pont });
+    expect(appels[1]!.options).toEqual({ nom: 'n', sansCampagneVide: true, neeDe: 'shopify', parcoursEvenement: pont });
   });
 });
 

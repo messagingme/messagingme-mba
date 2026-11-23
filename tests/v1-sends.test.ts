@@ -139,7 +139,7 @@ function app(over: Surcharges = {}, monde: Partial<Monde> = {}) {
   const cap = {
     sends: [] as Array<{ input: CreationEnvoiPublic; recipients: BuiltRecipient[] }>,
     enqueued: [] as Array<{ id: string; rate: number | null }>,
-    resolutions: [] as Array<{ cles: ClesFiche; creer: ModeCreation }>,
+    resolutions: [] as Array<{ cles: ClesFiche; creer: ModeCreation; neeDe?: 'shopify' }>,
     /** Chaque demande d'écriture de consentement qui atteint le dépôt, écrite ou non. */
     consentements: [] as Array<{ contactId: string; consent: 'opted_in' | 'opted_out'; source: string; lecturesAvant: number }>,
     /** Ce que le dépôt a VRAIMENT écrit. */
@@ -212,7 +212,7 @@ function app(over: Surcharges = {}, monde: Partial<Monde> = {}) {
     offres: offresToutOuvert,
     /** Double de la résolution du lot 1 : par contactId, numéro ou BSUID ; crée sur un numéro si on le demande. */
     resoudreFiche: async (tenant, cles, o) => {
-      cap.resolutions.push({ cles, creer: o.creer });
+      cap.resolutions.push({ cles, creer: o.creer, ...(o.neeDe ? { neeDe: o.neeDe } : {}) });
       if (tenant !== 't1') return { ok: false, code: 'unknown_contact' };
       if (!cles.contactId && !cles.externalId && !cles.phone && !cles.bsuid) return { ok: false, code: 'invalid_recipient' };
       if (cles.phone !== undefined && !/^\+\d{8,15}$/.test(cles.phone)) return { ok: false, code: 'invalid_phone' };
@@ -1241,6 +1241,18 @@ describe('POST /v1/sends : idempotence', () => {
     // Sans l'option, le même envoi vide est scellé : une campagne à zéro destinataire, comme avant.
     expect(statutDe(await lancerEnvoiPublic(sends, 't1', CORPS, 'k-vide-2', async () => true))).toBe(201);
     expect(cap.sends).toHaveLength(1);
+  });
+
+  /**
+   * L'origine d'une fiche créée (segments Shopify enrichis, lot 2a) : l'adaptateur Shopify la passe, la résolution la
+   * reçoit ; un appelant de `/v1/sends` ne la passe jamais, elle ne se lit pas dans le corps.
+   */
+  it('🔴 l’origine `neeDe` d’un adaptateur part à la résolution ; ni le corps ni un autre appelant ne la posent', async () => {
+    const { sends, cap } = app();
+    await lancerEnvoiPublic(sends, 't1', { ...CORPS, neeDe: 'shopify' }, 'k-corps', async () => true);
+    expect(cap.resolutions.every((r) => r.neeDe === undefined)).toBe(true);
+    await lancerEnvoiPublic(sends, 't1', CORPS, 'k-shopify', async () => true, { neeDe: 'shopify' });
+    expect(cap.resolutions.at(-1)).toMatchObject({ creer: 'phone', neeDe: 'shopify' });
   });
 
   it('🔴 Service seulement : un modèle que Meta dit Marketing est refusé en 422, rien n’est créé, la clé est libérée', async () => {

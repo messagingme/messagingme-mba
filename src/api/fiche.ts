@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { CountryCode } from 'libphonenumber-js';
 import { normalizePhone } from '../crm/phone';
 import { estUuid } from '../http/scope';
-import type { ClesNormalisees, FicheIdentite, PgContactStore } from '../crm/contact-store.pg';
+import type { ClesNormalisees, FicheIdentite, NeeDe, PgContactStore } from '../crm/contact-store.pg';
 import { LimiteOffreError, adresseOffre } from '../offres/refus';
 
 /**
@@ -139,7 +139,8 @@ export async function resoudreFiche(
   deps: DepsFiche,
   tenantId: string,
   cles: ClesFiche,
-  opts: { creer: ModeCreation },
+  /** `neeDe` : l'origine posée sur une fiche que cet appel INSÈRE (`creerFicheApi`), jamais sur une fiche retrouvée. */
+  opts: { creer: ModeCreation; neeDe?: NeeDe },
 ): Promise<ResolutionFiche> {
   const n = normaliserCles(cles);
   if (!n.ok) return n;
@@ -164,7 +165,7 @@ export async function resoudreFiche(
         ...(c.phoneE164 ? { phoneE164: c.phoneE164 } : {}),
         ...(c.bsuid ? { bsuid: c.bsuid } : {}),
         ...(c.externalId ? { externalId: c.externalId } : {}),
-      });
+      }, opts.neeDe ? { neeDe: opts.neeDe } : {});
     } catch (err) {
       // La limite de contacts de l'offre (lot 6) : un refus de la ligne, jamais une panne de la requête.
       if (err instanceof LimiteOffreError) return { ok: false, code: 'plan_limit_reached' };

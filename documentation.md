@@ -3087,6 +3087,23 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   `consentement_le` de `shopify_boutiques` ne sont plus lues ; la connexion les efface encore, pour que l'image d'avant,
   qui les lit, reste un retour arrière sûr. Les routes de la console acceptent encore `consentementAffirme` et
   l'ignorent : un onglet resté sur l'ancien bundle l'envoie ;
+- 🔴 **un numéro que WhatsApp ne porte pas ne garde pas de fiche** (segments Shopify enrichis, lot 2a, décision de Julien
+  du 2026-11-23). Deux pièces. (1) `telephoneDeCommande`, `telephoneDExpedition` et `telephoneDeCheckout` passent
+  `sauterFixes` à `telephoneE164` : un candidat `estUnFixe` est sauté, le suivant essayé ; `customers/redact` et l'import
+  des abonnés appellent `telephoneE164` sans l'option, un effacement doit retrouver la fiche d'un fixe. L'attribution
+  d'une commande (`attribution.ts`) passe aussi par `telephoneDeCommande` : une commande dont le seul numéro est un fixe
+  ne se rattache plus à une fiche, comme la spec le veut (« on ne rattache une commande que pour un numéro adressable »).
+  (2) L'envoi
+  Shopify passe `neeDe: 'shopify'` à l'envoi public (option interne, jamais lue du corps), et `creerFicheApi` pose
+  `contacts.nee_de` (migration 0309) sur une fiche qu'il vient d'INSÉRER, par une écriture à part et au mieux, pour que
+  0309 ne soit pas bloquante. Au `failed` 131026, `processStatuses` enfile en dernier le job `shopify-sans-whatsapp`
+  (`src/shopify/sans-whatsapp.ts`, câblé sur `webhook` ET `webhook-status`, `tests/sans-whatsapp-cablage.test.ts`) ; le
+  job relit les gardes en une requête (`PgRecipientStore.ficheNeeDeShopifySansWhatsapp`) puis purge par `purgeMany` et
+  `oublierChezMeta`, hors limite de suppressions du jour. Les gardes, chacune une raison de garder la fiche : marque
+  `shopify`, échec 131026 toujours écrit, `retry_count < 2` (2 = sortie « En cas d'échec » prise ou injoignable traité),
+  sans étage de repli, fiche vivante, ni activité ni message entrant, et aucun message déjà livré ou lu (le numéro est
+  alors sur WhatsApp, le 131026 dit autre chose qu'un numéro mort). Une fiche importée, saisie ou née d'un entrant
+  n'est jamais visée : le repli d'une campagne et la branche d'échec d'un scénario se servent du même 131026 ;
 - **le secret qui vérifie doit être celui de la boutique relue** : le cache d'une minute ne laisse pas passer un
   webhook de l'ancienne app après une reconnexion, et `shop/redact` n'efface jamais une boutique `connectee` ;
 - 🔴 **la relance de panier est balayée DANS L'API** (`src/shopify/relance.ts`, la minuterie d'une minute de

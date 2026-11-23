@@ -13,6 +13,7 @@ import { FILE_EMAILS_PRODUIT } from '../src/emails-produit/emission';
 import { FILE_OUBLI_MODELE } from '../src/shopify/preparation';
 import { FILE_PREMIER_MESSAGE } from '../src/application/premier-message';
 import { FILE_PREUVE_UTM } from '../src/shopify/preuve-utm';
+import { FILE_SANS_WHATSAPP } from '../src/shopify/sans-whatsapp';
 import { FILE_ISSUE_EVENEMENT } from '../src/mba/issue-evenement';
 import { FILE_HUBSPOT_STOP } from '../src/crm/hubspot-stop';
 import { FILE_CONVERSIONS_META } from '../src/pub/conversions-meta';
@@ -54,6 +55,7 @@ describe('queue names (source unique)', () => {
       if (name === 'FILE_OUBLI_MODELE') return FILE_OUBLI_MODELE;
       if (name === 'FILE_PREMIER_MESSAGE') return FILE_PREMIER_MESSAGE;
       if (name === 'FILE_PREUVE_UTM') return FILE_PREUVE_UTM;
+      if (name === 'FILE_SANS_WHATSAPP') return FILE_SANS_WHATSAPP;
       if (name === 'FILE_CONVERSIONS_META') return FILE_CONVERSIONS_META;
       if (name === 'FILE_ISSUE_EVENEMENT') return FILE_ISSUE_EVENEMENT;
       if (name === 'FILE_HUBSPOT_STOP') return FILE_HUBSPOT_STOP;
@@ -83,6 +85,7 @@ describe('queue names (source unique)', () => {
       FILE_OUBLI_MODELE,
       FILE_PREMIER_MESSAGE,
       FILE_PREUVE_UTM,
+      FILE_SANS_WHATSAPP,
       FILE_CONVERSIONS_META,
       FILE_ISSUE_EVENEMENT,
       FILE_HUBSPOT_STOP,

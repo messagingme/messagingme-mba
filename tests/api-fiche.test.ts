@@ -108,6 +108,17 @@ describe('resoudreFiche : rattacher et créer', () => {
     expect(await resoudreFiche(r, T, { bsuid: 'BSUID-2' }, { creer: 'phone_ou_bsuid' })).toMatchObject({ ok: true, cree: true });
   });
 
+  it('🔴 l’origine (`neeDe`) n’est posée que sur une fiche CRÉÉE, jamais sur une fiche retrouvée (segments Shopify, lot 2a)', async () => {
+    const r = new FichesMemoire();
+    const deja = r.ajouter(T, { phoneE164: '+33611111111' });
+    expect(await resoudreFiche(r, T, { phone: '+33611111111' }, { creer: 'phone', neeDe: 'shopify' })).toEqual({ ok: true, contactId: deja.id, cree: false });
+    const neuve = await resoudreFiche(r, T, { phone: '+33612345678' }, { creer: 'phone', neeDe: 'shopify' });
+    expect(neuve).toMatchObject({ ok: true, cree: true });
+    // Sans l'option (l'API publique, Claude), une création ne porte aucune origine.
+    expect(await resoudreFiche(r, T, { phone: '+33698765432' }, { creer: 'phone' })).toMatchObject({ ok: true, cree: true });
+    expect(r.naissances).toEqual([{ id: (neuve as { contactId: string }).contactId, neeDe: 'shopify' }]);
+  });
+
   it('🔴 une course sur l’identifiant externe finit en `identity_conflict`, jamais en seconde fiche', async () => {
     const r = new FichesMemoire();
     const autre = r.ajouter(T, { phoneE164: '+33698765432' });

@@ -1,3 +1,4 @@
+import { CODE_SANS_WHATSAPP } from '../meta/errors';
 import { RANG_INITIAL, rangSuivant, type Etage } from './etages';
 
 /**
@@ -12,8 +13,6 @@ import { RANG_INITIAL, rangSuivant, type Etage } from './etages';
  * via `rattrapage_hors_horaires`.
  */
 
-/** Le numéro n'est pas un numéro WhatsApp (ou la personne n'a pas accepté les conditions). */
-const CODE_SANS_WHATSAPP = 131026;
 /** Meta a plafonné le marketing pour ce destinataire. Le plafond se libère avec le temps. */
 const CODE_PLAFOND_MARKETING = 131049;
 

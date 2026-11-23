@@ -4,6 +4,7 @@ import type { AjustementCreditSink } from '../credit-whatsapp/ajustement';
 import { asRecord } from './json';
 import { tenter } from '../lib/tenter';
 import { messageDe } from '../lib/erreur';
+import { CODE_SANS_WHATSAPP } from '../meta/errors';
 
 export type DeliveryStatus = 'sent' | 'delivered' | 'read' | 'failed';
 
@@ -152,6 +153,17 @@ export interface PuitsAccuses {
   livraisonTemplates?: LivraisonTemplatesSink;
   /** Les signaux ; requis au niveau du handler, seul appelant de production. */
   signaux?: SignalAccuse;
+  /**
+   * Segments Shopify enrichis, lot 2a : un échec 131026 enfile la suppression d'une fiche née d'un envoi Shopify et
+   * jamais écrite (`src/shopify/sans-whatsapp.ts`, dont le job relit toutes les gardes). Absent : la fiche reste, le
+   * comportement d'avant le lot.
+   */
+  sansWhatsapp?: SansWhatsappSink;
+}
+
+/** L'enfilement de la suppression d'une fiche sans WhatsApp, par le seul identifiant du message en échec. */
+export interface SansWhatsappSink {
+  surEchec(messageId: string): Promise<unknown>;
 }
 
 /**
@@ -165,7 +177,7 @@ export async function processStatuses(
   delivery: DeliveryStore,
   puits: PuitsAccuses,
 ): Promise<void> {
-  const { tarifs, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux, parcours, livraisonTemplates } = puits;
+  const { tarifs, echecsLibres, ajustementCredit, nodeEvents, remiseMba, signaux, parcours, livraisonTemplates, sansWhatsapp } = puits;
   for (const ev of events) {
     if (ev.source !== 'statuses') continue;
     const d = extractDelivery(ev.data);
@@ -254,6 +266,15 @@ export async function processStatuses(
         // eslint-disable-next-line no-console
         console.error('signal d’accusé ignoré:', messageDe(err));
       }
+    }
+    /**
+     * En dernier : APRÈS l'écriture de l'échec, que le job relit, et après la sortie « En cas d'échec » d'un scénario qui,
+     * prise, garde la fiche (`retry_count = 2`). Le job tourne à part : la purge efface aussi les événements bruts de la
+     * personne, dont celui que ce job-ci traite encore. Best-effort : un enfilement manqué laisse la fiche, comme avant.
+     */
+    if (sansWhatsapp && d.status === 'failed' && d.errorCode === CODE_SANS_WHATSAPP) {
+      const messageId = d.messageId;
+      await tenter('suppression d’une fiche sans WhatsApp non enfilée:', () => sansWhatsapp.surEchec(messageId));
     }
   }
 }

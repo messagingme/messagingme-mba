@@ -8,6 +8,7 @@ import type { NiveauRisque, RaisonRisque } from '../engagement/risque';
 import type { ContactStore, ContactUpsert, ContactDeLot, LotContacts } from './import';
 import { classifyWaId, waIdOf } from './identity';
 import { messageDe } from '../lib/erreur';
+import { journaliser } from '../lib/journal';
 import type { LigneDeLaListe } from '../mba/liste';
 import type { CleFicheFixe } from './champs-fiche';
 import { clauseFiltreFiche, estCleFiltrable, estOperateurFicheSeul } from './filtre-fiche';
@@ -120,6 +121,12 @@ export interface ClesNormalisees {
 
 /** Une fiche créée ou retrouvée par l'index du numéro ou du BSUID, ou le refus d'un index d'unicité. */
 export type CreationFiche = (FicheIdentite & { created: boolean }) | 'conflit';
+
+/**
+ * L'origine d'une fiche qu'un envoi vient d'INSÉRER (`contacts.nee_de`, migration 0309, segments Shopify enrichis, lot 2a).
+ * Une seule valeur : le premier accusé 131026 ne supprime que les fiches nées d'un envoi Shopify et jamais écrites.
+ */
+export type NeeDe = 'shopify';
 
 /** Tout ce que `GET /v1/contacts/{contactId}` rend, lu en une requête. Dates en ISO. */
 export interface FicheApiLigne {
@@ -1144,7 +1151,11 @@ export class PgContactStore implements ContactStore {
    * porte un autre identifiant externe ou BSUID, et c'est « conflit », sans rien avoir écrit. Une violation d'un
    * autre index unique rend « conflit » aussi ; `resoudreFiche` relit alors la base.
    */
-  async creerFicheApi(tenantId: string, cles: { phoneE164?: string; bsuid?: string; externalId?: string }): Promise<CreationFiche> {
+  async creerFicheApi(
+    tenantId: string,
+    cles: { phoneE164?: string; bsuid?: string; externalId?: string },
+    { neeDe }: { neeDe?: NeeDe } = {},
+  ): Promise<CreationFiche> {
     if (!cles.phoneE164 && !cles.bsuid) throw new Error('creerFicheApi : un numéro ou un BSUID est requis');
     // Sans numéro (un BSUID seul), la fiche compte comme une création : `resoudreFiche` n'appelle ceci qu'après n'avoir
     // trouvé aucune fiche.
@@ -1178,10 +1189,28 @@ export class PgContactStore implements ContactStore {
       const r = res.rows[0];
       // Aucune ligne : la fiche de ce numéro (ou BSUID) porte une autre clé, le `where` a tout refusé.
       if (!r) return 'conflit';
+      if (neeDe && r.created) await this.noterNaissance(tenantId, r.id, neeDe);
       return { id: r.id, created: r.created, externalId: r.external_id, phoneE164: r.phone_e164, bsuid: r.bsuid };
     } catch (err) {
       if (estUnicite(err)) return 'conflit';
       throw err;
+    }
+  }
+
+  /**
+   * La marque d'une fiche que cet appel vient d'INSÉRER (`created`, jamais une fiche retrouvée ni ressuscitée), posée une
+   * fois (`nee_de is null`). 🔴 AU MIEUX, DANS UNE ÉCRITURE À PART : la nommer dans l'`insert` ferait de 0309 une
+   * migration bloquante pour tout envoi qui crée une fiche. Une panne (colonne pas encore là, base qui hoquette) laisse
+   * la fiche sans marque, donc gardée au premier 131026 : le comportement d'avant le lot, jamais un envoi refusé.
+   */
+  private async noterNaissance(tenantId: string, contactId: string, neeDe: NeeDe): Promise<void> {
+    try {
+      await this.pool.query(
+        'update contacts set nee_de = $3 where tenant_id = $1 and id = $2 and nee_de is null',
+        [tenantId, contactId, neeDe],
+      );
+    } catch (err) {
+      journaliser('warn', 'fiche_naissance_non_notee', { tenantId, neeDe, erreur: messageDe(err) });
     }
   }
 

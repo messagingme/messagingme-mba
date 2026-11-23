@@ -1,5 +1,5 @@
 // tests/aide/fiches-memoire.ts
-import type { ClesNormalisees, CreationFiche, EditionFicheApi, FicheApiLigne, FicheIdentite } from '../../src/crm/contact-store.pg';
+import type { ClesNormalisees, CreationFiche, EditionFicheApi, FicheApiLigne, FicheIdentite, NeeDe } from '../../src/crm/contact-store.pg';
 
 /**
  * UN RÉPERTOIRE DE FICHES EN MÉMOIRE, AUX RÈGLES DE LA BASE.
@@ -41,6 +41,8 @@ type Cle = 'externalId' | 'phoneE164' | 'bsuid';
 export class FichesMemoire {
   readonly fiches: FicheMemoire[] = [];
   readonly ecritures: string[] = [];
+  /** Les origines posées (`contacts.nee_de`) : seulement sur une fiche que `creerFicheApi` vient d'insérer, comme la base. */
+  readonly naissances: Array<{ id: string; neeDe: NeeDe }> = [];
   /** Les étiquettes DÉCLARÉES (la table `tags`), par espace. */
   readonly declarees: Array<{ tenantId: string; nom: string }> = [];
   appelsChercher = 0;
@@ -89,7 +91,9 @@ export class FichesMemoire {
       .map((f) => this.identite(f));
   }
 
-  async creerFicheApi(tenantId: string, c: { phoneE164?: string; bsuid?: string; externalId?: string }): Promise<CreationFiche> {
+  async creerFicheApi(
+    tenantId: string, c: { phoneE164?: string; bsuid?: string; externalId?: string }, { neeDe }: { neeDe?: NeeDe } = {},
+  ): Promise<CreationFiche> {
     const cle: Cle = c.phoneE164 !== undefined ? 'phoneE164' : 'bsuid';
     const valeur = c.phoneE164 ?? c.bsuid;
     if (valeur === undefined) throw new Error('creerFicheApi : un numéro ou un BSUID est requis');
@@ -113,6 +117,7 @@ export class FichesMemoire {
     if (c.bsuid !== undefined && this.prise(tenantId, null, 'bsuid', c.bsuid)) return 'conflit';
     const f = this.ajouter(tenantId, { phoneE164: c.phoneE164 ?? null, bsuid: c.bsuid ?? null, externalId: c.externalId ?? null });
     this.ecritures.push(`creation:${f.id}`);
+    if (neeDe) this.naissances.push({ id: f.id, neeDe });
     return { ...this.identite(f), created: true };
   }
 

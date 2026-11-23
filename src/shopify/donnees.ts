@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isSupportedCountry, type CountryCode } from 'libphonenumber-js';
-import { normalizePhone } from '../crm/phone';
+import { estUnFixe, normalizePhone } from '../crm/phone';
 import { VALEUR_VARIABLE_MAX } from '../api/variables';
 
 /**
@@ -134,7 +134,7 @@ export function telephoneDeCheckout(c: CheckoutShopify, paysBoutique: string | n
     { brut: c.customer?.phone },
     { brut: c.billing_address?.phone, pays: c.billing_address?.country_code },
     { brut: c.shipping_address?.phone, pays: c.shipping_address?.country_code },
-  ], paysBoutique);
+  ], paysBoutique, { sauterFixes: true });
 }
 
 /** Le prénom d'un checkout, rangé avec le panier : la relance part longtemps après le webhook. */
@@ -234,27 +234,37 @@ function sansVides(brut: Partial<Record<DonneeShopify, string | null | undefined
 /**
  * Le téléphone d'un événement en E.164, ou `null`. Chaque candidat se normalise au pays de SON adresse, à défaut à celui
  * de la boutique : un numéro national saisi au checkout n'a de sens qu'avec son pays. Le premier candidat valide gagne.
+ *
+ * `sauterFixes` (segments Shopify enrichis, lot 2a ; décision de Julien du 2026-11-23) : un candidat que WhatsApp ne porte
+ * pas (`estUnFixe` : ligne fixe, numéro de service, VOIP française) est sauté et le suivant essayé. Un fixe de livraison
+ * ne masque plus un mobile sur le client, et ne fonde plus une fiche qui échouerait en 131026. Posé par les trois
+ * chemins d'un MESSAGE ; l'effacement de `customers/redact` et l'import des abonnés s'en passent : un effacement doit
+ * retrouver la fiche d'un fixe, et l'import garde sa règle.
  */
-export function telephoneE164(candidats: ReadonlyArray<{ brut: string | null | undefined; pays?: string | null | undefined }>, paysBoutique: string | null): string | null {
+export function telephoneE164(
+  candidats: ReadonlyArray<{ brut: string | null | undefined; pays?: string | null | undefined }>,
+  paysBoutique: string | null,
+  { sauterFixes = false }: { sauterFixes?: boolean } = {},
+): string | null {
   for (const c of candidats) {
     if (typeof c.brut !== 'string' || c.brut.trim() === '') continue;
     const pays = [c.pays, paysBoutique].find((p): p is CountryCode => typeof p === 'string' && isSupportedCountry(p)) ?? 'FR';
     const r = normalizePhone(c.brut, pays);
-    if (r.e164) return r.e164;
+    if (r.e164 && !(sauterFixes && estUnFixe(r.e164))) return r.e164;
   }
   return null;
 }
 
-/** L'ordre mesuré pour une commande : livraison, facturation, client, puis le champ de la commande. */
+/** L'ordre mesuré pour une commande : livraison, facturation, client, puis le champ de la commande ; un fixe est sauté. */
 export function telephoneDeCommande(c: CommandeShopify, paysBoutique: string | null): string | null {
   return telephoneE164([
     { brut: c.shipping_address?.phone, pays: c.shipping_address?.country_code },
     { brut: c.billing_address?.phone, pays: c.billing_address?.country_code },
     { brut: c.customer?.phone },
     { brut: c.phone },
-  ], paysBoutique);
+  ], paysBoutique, { sauterFixes: true });
 }
 
 export function telephoneDExpedition(f: ExpeditionShopify, paysBoutique: string | null): string | null {
-  return telephoneE164([{ brut: f.destination?.phone, pays: f.destination?.country_code }], paysBoutique);
+  return telephoneE164([{ brut: f.destination?.phone, pays: f.destination?.country_code }], paysBoutique, { sauterFixes: true });
 }

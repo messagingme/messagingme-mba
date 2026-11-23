@@ -2,6 +2,7 @@ import { setTimeout as dormir } from 'node:timers/promises';
 import type { ParcoursEvenementDeCampagne } from '../campaign/parcours-evenement';
 import { z } from 'zod';
 import type { PoolClient } from 'pg';
+import type { NeeDe } from '../crm/contact-store.pg';
 import { waIdOf } from '../crm/identity';
 import type { BuiltRecipient, ChampsFiche, ContactEnvoi } from '../campaign/build';
 import type { CampaignCategory } from '../campaign/types';
@@ -109,7 +110,7 @@ export interface DepsEnvoiPublic {
    */
   offres: SourceOffres;
   /** La résolution de fiche partagée (`resoudreFiche`), liée à ses dépendances par le câblage. */
-  resoudreFiche(tenantId: string, cles: ClesFiche, opts: { creer: ModeCreation }): Promise<ResolutionFiche>;
+  resoudreFiche(tenantId: string, cles: ClesFiche, opts: { creer: ModeCreation; neeDe?: NeeDe }): Promise<ResolutionFiche>;
   /**
    * L'écriture du consentement partagée (`appliquerConsentement`). Son issue n'est pas lue ici : un `opted_in` sur
    * une fiche désabonnée est refusé (🔴 un STOP ne se lève pas par machine), la fiche reste `opted_out` et le tri
@@ -337,7 +338,7 @@ async function resoudreCible(
  * fenêtre chez un inconnu, donc `jamais`. Un inconnu qui ne porte qu'un `bsuid` n'est jamais créé ici.
  */
 async function resoudreDestinataires(
-  deps: DepsEnvoiPublic, tenantId: string, bruts: unknown[], creer: ModeCreation,
+  deps: DepsEnvoiPublic, tenantId: string, bruts: unknown[], creer: ModeCreation, neeDe: NeeDe | undefined,
 ): Promise<{ resolus: DestinataireResolu[]; created: number; matched: number }> {
   const resolus: DestinataireResolu[] = [];
   let created = 0;
@@ -347,7 +348,7 @@ async function resoudreDestinataires(
     if (!d.success) { resolus.push({ index, ecart: 'invalid_recipient' }); continue; }
     // `variables` est retiré des clés : `resoudreFiche` ne les voit pas, et elles ne touchent jamais la fiche.
     const { consent, consentSource, variables, ...cles } = d.data;
-    const r = await deps.resoudreFiche(tenantId, cles, { creer });
+    const r = await deps.resoudreFiche(tenantId, cles, { creer, ...(neeDe ? { neeDe } : {}) });
     if (!r.ok) { resolus.push({ index, ecart: r.code }); continue; }
     if (r.cree) created += 1; else matched += 1;
     resolus.push({
@@ -424,6 +425,12 @@ export interface OptionsEnvoiPublic {
    * corps HTTP : un appelant de l'API publique ne lance jamais un scénario d'automation.
    */
   rayonDuScenario?: 'hubspot';
+  /**
+   * 🔴 INTERNE (segments Shopify enrichis, lot 2a) : l'origine posée sur une fiche que CET envoi crée (`contacts.nee_de`),
+   * `shopify` pour les messages de commande et de panier (`envoyerShopify`). Le premier accusé 131026 ne supprime que
+   * ces fiches-là. JAMAIS lu du corps HTTP : un appelant de l'API publique ne marque pas une fiche supprimable.
+   */
+  neeDe?: NeeDe;
 }
 
 /** La même enveloppe que `refuser` (`{ error, code }`), rendue au lieu d'être envoyée. */
@@ -576,7 +583,7 @@ export async function lancerEnvoiPublic(
     };
     if (etatDuMois !== null && etatDuMois.reste === 0) return await refuserLeMois(etatDuMois, corps.recipients.length);
     const { resolus, created, matched } = await resoudreDestinataires(
-      deps, tenantId, corps.recipients, cible.ouverture === 'whatsapp_session' ? 'jamais' : 'phone',
+      deps, tenantId, corps.recipients, cible.ouverture === 'whatsapp_session' ? 'jamais' : 'phone', options.neeDe,
     );
     const uniques = marquerDoublons(resolus);
     /**

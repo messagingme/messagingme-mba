@@ -147,7 +147,7 @@ describe('la relance d’un panier réclamé', () => {
         variables: { first_name: 'Julien', checkout_url: 'https://b.myshopify.com/1/checkouts/ac/x/recover?key=k' },
       }],
     });
-    expect(journal.envois[0]!.options).toEqual({ nom: 'Shopify · panier abandonné', sansCampagneVide: true });
+    expect(journal.envois[0]!.options).toEqual({ nom: 'Shopify · panier abandonné', sansCampagneVide: true, neeDe: 'shopify' });
     expect(journal.issues).toEqual([['jeton-1', 'envoye']]);
   });
 
@@ -275,7 +275,7 @@ describe('la relance du lot 5 : premier bloc, pont et place du panier le plus r�
     const pro = monter([panier()], undefined, [], { bloc: { ...BLOC, suite: true } });
     await relancerPaniers(pro.deps);
     expect(pro.journal.envois[0]!.options).toEqual({
-      nom: 'Shopify · panier abandonné', sansCampagneVide: true,
+      nom: 'Shopify · panier abandonné', sansCampagneVide: true, neeDe: 'shopify',
       parcoursEvenement: {
         workflowId: 'wf-panier', noeudId: 'depart', type: 'evenement_shopify',
         origine: 'shopify:b.myshopify.com:checkouts/abandoned:jeton-1', boutons: [{ type: 'QUICK_REPLY', text: 'Oui' }],
@@ -283,13 +283,13 @@ describe('la relance du lot 5 : premier bloc, pont et place du panier le plus r�
     });
     const free = monter([panier()], undefined, [], { bloc: { ...BLOC, suite: true }, offre: 'base' });
     await relancerPaniers(free.deps);
-    expect(free.journal.envois[0]!.options).toEqual({ nom: 'Shopify · panier abandonné', sansCampagneVide: true });
+    expect(free.journal.envois[0]!.options).toEqual({ nom: 'Shopify · panier abandonné', sansCampagneVide: true, neeDe: 'shopify' });
   });
 
   it('🔴 un jeton qui porte l’origine au-delà de 200 caractères : la relance part seule, sans pont, sous sa clé coupée', async () => {
     const { deps, journal } = monter([panier({ jeton: 'j'.repeat(190) })], undefined, [], { bloc: { ...BLOC, suite: true } });
     await relancerPaniers(deps);
-    expect(journal.envois[0]!.options).toEqual({ nom: 'Shopify · panier abandonné', sansCampagneVide: true });
+    expect(journal.envois[0]!.options).toEqual({ nom: 'Shopify · panier abandonné', sansCampagneVide: true, neeDe: 'shopify' });
     expect((journal.envois[0]!.corps as { idempotencyKey: string }).idempotencyKey).toHaveLength(200);
   });
 });

@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { createHmac, randomBytes } from 'node:crypto';
 import { verifierSignatureShopify } from '../src/shopify/signature';
 import {
-  donneesDeCommande, donneesDExpedition, montantAffiche, montantBoutique, numeroDeCommandeDExpedition, schemaCommande, schemaExpedition,
-  telephoneDeCommande, telephoneDExpedition, valeurDeVariable,
+  donneesDeCommande, donneesDExpedition, montantAffiche, montantBoutique, numeroDeCommandeDExpedition, schemaCheckout, schemaCommande,
+  schemaExpedition, telephoneDeCheckout, telephoneDeCommande, telephoneDExpedition, telephoneE164, valeurDeVariable,
 } from '../src/shopify/donnees';
 import { domaineShopify, lienInstallation, verifierBoutique } from '../src/shopify/connexion';
 
@@ -209,5 +209,43 @@ describe('la vérification d’une connexion', () => {
     expect(await verifierBoutique('b.myshopify.com', 'cid', 'sec', faux(reponse(503, 'indisponible')).appeler)).toMatchObject({ ok: false, code: 'passager' });
     expect(await verifierBoutique('b.myshopify.com', 'cid', 'sec', faux(new Error('ECONNRESET')).appeler)).toMatchObject({ ok: false, code: 'passager' });
     expect(await verifierBoutique('b.myshopify.com', 'cid', 'sec', faux(reponse(200, { access_token: 'x' }), reponse(500, '')).appeler)).toMatchObject({ ok: false, code: 'passager' });
+  });
+});
+
+/**
+ * 🔴 UN FIXE NE FONDE PAS UNE FICHE (segments Shopify enrichis, lot 2a ; décision de Julien du 2026-11-23). Un fixe envoyé
+ * à Meta échoue en 131026 après avoir créé une fiche qui remplit la limite de contacts : les trois chemins d'un MESSAGE le
+ * sautent et essaient le candidat suivant. L'effacement de `customers/redact` et l'import des abonnés, non.
+ */
+describe('🔴 un fixe est sauté au profit du candidat suivant', () => {
+  const FIXE = '01 42 68 53 00';
+  const MOBILE = '06 12 34 56 78';
+
+  it('commande : un fixe de livraison ne masque plus le mobile du client', () => {
+    const c = schemaCommande.parse(commande({ shipping_address: { phone: FIXE, country_code: 'FR' }, customer: { id: 9, phone: MOBILE } }));
+    expect(telephoneDeCommande(c, 'FR')).toBe('+33612345678');
+  });
+
+  it('commande : rien que des numéros que WhatsApp ne porte pas (fixe, VOIP française, gratuit) = aucun numéro', () => {
+    const c = schemaCommande.parse(commande({
+      shipping_address: { phone: FIXE, country_code: 'FR' }, billing_address: { phone: '09 70 80 90 10', country_code: 'FR' },
+      customer: { id: 9, phone: '0800 123 456' }, phone: null,
+    }));
+    expect(telephoneDeCommande(c, 'FR')).toBeNull();
+  });
+
+  it('expédition : un fixe de destination n’est pas un numéro', () => {
+    const f = schemaExpedition.parse({ id: 1, order_id: 2, name: '#1.1', tracking_url: null, destination: { phone: FIXE, country_code: 'FR' } });
+    expect(telephoneDExpedition(f, 'FR')).toBeNull();
+  });
+
+  it('panier : un fixe de l’acheteur est sauté, le mobile de la livraison gagne', () => {
+    const c = schemaCheckout.parse({ token: 'jeton', phone: FIXE, shipping_address: { phone: MOBILE, country_code: 'FR' } });
+    expect(telephoneDeCheckout(c, 'FR')).toBe('+33612345678');
+  });
+
+  it('⚠️ sans l’option, un fixe reste un numéro (l’effacement doit retrouver sa fiche)', () => {
+    expect(telephoneE164([{ brut: FIXE, pays: 'FR' }], null)).toBe('+33142685300');
+    expect(telephoneE164([{ brut: FIXE, pays: 'FR' }], null, { sauterFixes: true })).toBeNull();
   });
 });

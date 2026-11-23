@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: b7f051
+traduit_de: f520ff
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -159,7 +159,9 @@ orders included. Country and activity work in every workspace, with or without a
 
 A customer who replied STOP gets nothing, and the monthly templates and your plan’s contact limit count: a new
 customer’s record counts. If that limit is reached, new customers no longer get their messages; the card counts them,
-and you get an email at the first refusal of the month. Each first message shows in Campaigns, one line per order. It
+and you get an email at the first refusal of the month. A landline number is set aside in favour of a mobile on the
+order. And if a new customer’s number is not on WhatsApp, the record created for their message is deleted as soon as
+Meta says so: its place comes back. Each first message shows in Campaigns, one line per order. It
 goes out even when the agent or your team holds the conversation, without cutting it.
 
 If the customer writes during a Wait block, or taps a button of another of your messages: the AI agent, the responder
