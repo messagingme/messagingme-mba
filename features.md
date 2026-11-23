@@ -708,7 +708,13 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     les espaces. Si l'espace a une boutique Shopify, un volet **Shopify** (2026-11-23), replié par défaut et ouvert dès
     qu'un de ses critères est posé, filtre par **commandes payées** (au moins, au plus, sur les N derniers jours ou
     depuis le début du suivi), par **dépense** (même forme, dans la devise de la boutique) et par **dernière commande**
-    (il y a au moins ou au plus N jours). Chaque commande payée d'un contact connu compte, message de confirmation
+    (il y a au moins ou au plus N jours). Depuis le 2026-11-23 (lot 3), il filtre aussi par **produit acheté** : « a
+    acheté » (TOUS les produits choisis, sur les N derniers jours au choix), « n'a pas acheté » (AUCUN, jamais seul :
+    il s'ajoute à « a acheté », sinon il viserait presque tout l'espace), et le **réassort** (le dernier achat d'un
+    produit, il y a au moins ou au plus N jours, un achat connu exigé). Un produit se vise entier (toutes ses
+    variantes) ou par variante (son SKU), choisi parmi ceux déjà commandés dans l'espace, jamais le catalogue ; une
+    carte cadeau ne se cible jamais, sa commande comptant toujours. Claude Code a les mêmes (`bought`, `not_bought`,
+    `days_since_product`), et `get_shopify_state` lui donne les produits vus. Chaque commande payée d'un contact connu compte, message de confirmation
     branché ou non, commandes de test comprises, remboursements non déduits ; le volet dit depuis quand elles sont
     suivies, et la date de coupure d'une boutique coupée, dont l'historique reste filtrable. Une saisie impossible (un
     minimum au-dessus du maximum, « au moins 0 commande ») est signalée, et le dernier critère valide reste appliqué :
@@ -727,8 +733,10 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   dépensé, dernière commande, puis chacune avec sa date, son montant et la mention « test »), ce que WhatsApp en a
   rapporté et par quelle source (campagne nommée, relance de panier, agent, scénario, preuve par le lien ou par le
   panier), et ses paniers abandonnés des 7 derniers jours avec leur relance. Les commandes ne sont connues que depuis
-  le branchement de la boutique, et l'onglet le dit ; ni le numéro lisible de la commande ni les produits ne sont
-  gardés.
+  le branchement de la boutique, et l'onglet le dit ; le numéro lisible de la commande n'est pas gardé. Depuis le
+  2026-11-23 (segments Shopify, lot 3), chaque commande montre ses produits : titre, variante, SKU et quantité au
+  paiement, une carte cadeau marquée, une commande de plus de 250 lignes dite incomplète ; une commande reçue avant
+  n'en montre pas.
 - ✅ **Onglet « Historique » sur la fiche contact** (2026-07-20) : deux vues de tout ce que ce contact a vécu.
   **Campagnes reçues** : quelle campagne, quel template ou scénario, quand, et où en est le message (envoyé,
   délivré, lu, non délivré, écarté, envoi en échec avec son motif). Un message parti dont Meta n'a jamais
@@ -2234,9 +2242,11 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
   ou l'avis d'expédition, accusé `delivered` ou `read` (un simple `sent` n'est pas une livraison). Deux nombres côte à
   côte, les commandes expédiées et les messages livrés, puis le taux, en commandes et jamais en messages : une commande
   qui a reçu ses deux messages compte une fois, et la carte le dit.
-  - **Les cinq parts**, sans recouvrement, la première qui s'applique gagnant : livrée ; échec, contact supprimé (Meta
+  - **Les six parts**, sans recouvrement, la première qui s'applique gagnant : livrée ; échec, contact supprimé (Meta
     a dit le message non distribuable, `131026`, et la fiche née de ce message a été supprimée, lot 2a) ; sans numéro ;
-    numéro invalide ou fixe ; en attente d'accusé. Les mêmes candidats et la même règle que le message : une commande « utilisable » est une
+    numéro invalide ou fixe ; en attente d'accusé (un message parti, pas encore reçu) ; **pas de message livrable**
+    (aucun message parti, automation éteinte, pause ou STOP, ou tous en échec ; décision de Julien du 2026-11-23,
+    livrée avec le lot 3). Les mêmes candidats et la même règle que le message : une commande « utilisable » est une
     commande dont la confirmation avait un numéro.
   - **Les commandes comptées** : celles dont le paiement a été vu depuis la mise en service (2026-11-23) et dont la
     première expédition tombe dans la période (une commande en deux colis compte une fois), notées même quand la

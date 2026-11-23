@@ -12,6 +12,7 @@ import {
 import { lirePlageSaisie, saisieDePlage, type SaisiePlage } from '@/lib/segments';
 import { Icone } from '@/components/Icone';
 import { LogoShopify } from '@/components/LogosCanaux';
+import { FiltresProduitsShopify } from '@/components/FiltresProduitsShopify';
 
 /**
  * LE VOLET « SHOPIFY » DU PANNEAU DE FILTRES (spec du 2026-11-21, lot 1, décision d'ergonomie de Julien du
@@ -27,7 +28,8 @@ import { LogoShopify } from '@/components/LogosCanaux';
  * ⚠️ IL S'OUVRE DÈS QU'UN CRITÈRE EST POSÉ : un brouillon repris montre ce qui filtre, au lieu d'un volet fermé qui
  * cacherait pourquoi la liste a maigri.
  */
-export function FiltresShopify({ segments, onChange, suivi, ouvert: force = false }: {
+export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: force = false }: {
+  tenantId: string;
   segments: ContactFieldFilter[];
   onChange: (segments: ContactFieldFilter[]) => void;
   suivi: SuiviSegmentsVue | null;
@@ -37,6 +39,7 @@ export function FiltresShopify({ segments, onChange, suivi, ouvert: force = fals
   const t = useT();
   const { locale } = useLocale();
   const posee = segments.some((s) => (CLES_COMMANDES as readonly string[]).includes(s.key));
+  const produitPose = segments.some((s) => s.key === CLES_SEGMENT.achete || s.key === CLES_SEGMENT.pasAchete || s.key === CLES_SEGMENT.reassort);
   const [ouvert, setOuvert] = useState(force || posee);
   useEffect(() => {
     if (force || posee) setOuvert(true);
@@ -80,6 +83,8 @@ export function FiltresShopify({ segments, onChange, suivi, ouvert: force = fals
           avecJours={false} restreint={false} entier max={BORNES_SEGMENTS.joursMax}
           libelle={t('Dernière commande, il y a (jours)', 'Last order, days ago')}
         />
+        {/* Les critères produit (lot 3) : annoncés par l'API, ou déjà posés (un brouillon les garde visibles pour les retirer). */}
+        {(suivi?.produits === true || produitPose) && <FiltresProduitsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
         {boutique && (
           <p className="text-xs text-ink-500" data-testid="filtres-achats-suivi">
             {t(

@@ -7,6 +7,16 @@
  */
 export type SourceVenteVue = 'campagne' | 'relance_panier' | 'commande_payee' | 'commande_expediee' | 'scenario' | 'agent' | 'agent_meta';
 
+/** Une ligne de commande (segments Shopify enrichis, lot 3) : sans prix, la dépense reste celle de la commande. */
+export interface LigneCommandeVue {
+  titre: string;
+  varianteTitre: string | null;
+  sku: string | null;
+  /** La quantité au paiement (les remboursements ne sont pas déduits). */
+  quantite: number;
+  carteCadeau: boolean;
+}
+
 export interface CommandeShopifyVue {
   commandeId: string;
   payeeLe: string;
@@ -16,6 +26,13 @@ export interface CommandeShopifyVue {
   test: boolean;
   /** Ce que WhatsApp a rapporté de cette commande, ou `null` si elle ne lui est pas attribuée. */
   attribution: { source: SourceVenteVue; campagne: string | null; preuve: 'panier' | 'utm' | null } | null;
+  /**
+   * Ses lignes, dans l'ordre de Shopify (lot 3). ABSENT : une API plus ancienne, ou des lignes qui ne se lisent pas en
+   * base ; l'écran n'en dit alors rien, jamais « aucun produit ». Vide : une commande reçue avant ce lot.
+   */
+  lignes?: LigneCommandeVue[];
+  /** Le corps portait plus de lignes que le plafond (250) : la liste est incomplète. */
+  lignesTronquees?: boolean;
 }
 
 export interface PanierShopifyVue {

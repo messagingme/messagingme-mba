@@ -186,6 +186,16 @@ test.describe('Quantitatif > Shopify', () => {
     await expect(page.getByTestId('joignabilite-attente')).toContainText(/14 en attente|14 awaiting/);
     await expect(page.getByTestId('joignabilite-deux-messages')).toBeVisible();
     await expect(page.getByTestId('joignabilite-tests')).toContainText(/3 commandes de test|3 test orders/);
+    // Une API à cinq parts (d'avant le lot 3) : pas de sixième ligne, ses commandes sont « en attente ».
+    await expect(page.getByTestId('joignabilite-pas-livrable')).toHaveCount(0);
+  });
+
+  test('🔴 la sixième part (lot 3) : « pas de message livrable », sortie de l’attente, dans le total', async ({ page }) => {
+    await mock(page, { joignabilite: { ...JOIGNABILITE, enAttente: 10, pasLivrable: 4 } });
+    await page.goto('/dashboard/shopify');
+    await expect(page.getByTestId('joignabilite-attente')).toContainText(/10 en attente|10 awaiting/);
+    await expect(page.getByTestId('joignabilite-pas-livrable')).toContainText(/4 pas de message livrable|4 no deliverable message/);
+    await expect(page.getByTestId('joignabilite-pas-livrable')).toContainText('3 %');
   });
 
   test('🔴 aucune commande expédiée : la phrase le dit, jamais « 0 % »', async ({ page }) => {

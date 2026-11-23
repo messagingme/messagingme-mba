@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lirePlageSaisie, saisieDePlage, suiviSegmentsDe } from './segments';
+import { lirePlageSaisie, produitsVusDe, saisieDePlage, suiviSegmentsDe } from './segments';
 
 /**
  * Les segments côté console (spec du 2026-10-31). 🔴 Deux gardes : une réponse illisible de la route rend `null` (le
@@ -17,6 +17,32 @@ describe('suiviSegmentsDe', () => {
     for (const v of [null, 'x', [], {}, { boutique: null }, { boutique: {}, activiteCompleteDepuis: '2026-11-03' }, { boutique: 3, activiteCompleteDepuis: 'x' }]) {
       expect(suiviSegmentsDe(v), JSON.stringify(v)).toBeNull();
     }
+  });
+
+  it('🔴 les critères produit (lot 3) ne s’annoncent que sur un `true` en toutes lettres', () => {
+    const base = { boutique: null, activiteCompleteDepuis: '2026-11-03' };
+    expect(suiviSegmentsDe({ ...base, produits: true })).toEqual({ ...base, produits: true });
+    for (const produits of [undefined, false, 'true', 1]) {
+      expect(suiviSegmentsDe({ ...base, produits }), String(produits)).toEqual(base);
+    }
+  });
+});
+
+describe('produitsVusDe', () => {
+  it('lit les produits vus ; une entrée sans titre, ou sans identifiant ni SKU, s’écarte seule', () => {
+    expect(produitsVusDe({ produits: [
+      { produitId: '8801', sku: 'SER-30', titre: 'Sérum', varianteTitre: '30 ml', commandes: 4 },
+      { produitId: null, sku: 'TIP', titre: 'Pourboire', varianteTitre: null, commandes: 1 },
+      { produitId: '1', sku: 'X' }, { produitId: null, sku: null, titre: 'Rien' }, 'pas une entrée',
+    ] })).toEqual([
+      { produitId: '8801', sku: 'SER-30', titre: 'Sérum', varianteTitre: '30 ml', commandes: 4 },
+      { produitId: null, sku: 'TIP', titre: 'Pourboire', varianteTitre: null, commandes: 1 },
+    ]);
+  });
+
+  it('🔴 une réponse illisible rend null (l’écran le dit), jamais « aucun produit »', () => {
+    for (const v of [null, {}, { produits: 'x' }, []]) expect(produitsVusDe(v), JSON.stringify(v)).toBeNull();
+    expect(produitsVusDe({ produits: [] })).toEqual([]);
   });
 });
 

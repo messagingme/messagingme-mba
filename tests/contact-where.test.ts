@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { buildContactWhere, buildBulkSelector } from '../src/crm/contact-store.pg';
 import { PEREMPTION_WHATSAPP_MS } from '../web/lib/partage/joignabilite';
 import { CLES_SEGMENT, filtreSegment } from '../web/lib/partage/segments';
+import { ligneVisee } from '../src/crm/segments';
 
 // Fonctions PURES (aucune DB) : on vérifie le SQL + les params générés. C'est le GATE testable de la boucle
 // mini-CRM (les nouveaux opérateurs de filtre + le sélecteur d'action en masse), sans toucher Postgres.
@@ -280,6 +281,67 @@ describe('buildContactWhere : les critères de segment', () => {
       { key: S.pays, op: 'segment' as const, value: '["XX"]' }, { key: S.commandes, op: 'segment' as const, value: '{pas du json' },
       { key: S.commandes, op: 'segment' as const, value: '{}' }, { key: S.actif, op: 'segment' as const, value: '"30"' },
       { key: S.commandes, op: 'segment' as const, value: '{"min":0}' }, { key: S.depense, op: 'segment' as const, value: '{"min":-5}' },
+    ]) {
+      expect(buildContactWhere('t1', { fieldFilters: [f] }).where.split(' and '), f.value).toContain('false');
+    }
+  });
+});
+
+/**
+ * LES CRITÈRES PRODUIT EN SQL (segments Shopify enrichis, lot 3). 🔴 Chaque sous-requête nomme l'espace sur les deux
+ * tables ; 🔴 le prédicat des index partiels de la migration 0311 est repris mot pour mot ; une carte cadeau n'entre
+ * jamais ; une valeur qui ne se lit pas vise PERSONNE.
+ */
+describe('buildContactWhere : les critères produit', () => {
+  const S = CLES_SEGMENT;
+  const ou = (...f: ReturnType<typeof filtreSegment>[]) => buildContactWhere('t1', { fieldFilters: f });
+  const sousRequetes = (where: string): string[] => where.match(/select o\.contact_id from shopify_commande_lignes l/g) ?? [];
+
+  it('🔴 « a acheté » : TOUS les produits, une sous-requête chacun, jointes par « and », scopées deux fois', () => {
+    const { where, params } = ou(filtreSegment(S.achete, { produits: [{ produit: '8801' }, { sku: 'SER-30' }], jours: 90 }));
+    const compact = where.replace(/\s+/g, ' ');
+    expect(sousRequetes(compact)).toHaveLength(2);
+    expect(compact.match(/where l\.tenant_id = \$1 and o\.tenant_id = \$1 and /g)).toHaveLength(2);
+    expect(compact).toContain('(l.produit_id = $2 and l.produit_id is not null and not l.carte_cadeau) and o.payee_le >= now() - $3::int');
+    expect(compact).toContain('(l.sku = $4 and l.sku is not null and not l.carte_cadeau) and o.payee_le >= now() - $5::int');
+    expect(compact).toMatch(/\) and id in \(select o\.contact_id from shopify_commande_lignes/);
+    expect(params).toEqual(['t1', '8801', 90, 'SER-30', 90]);
+  });
+
+  it('🔴 « n’a pas acheté » : AUCUN des produits, une seule sous-requête « not in », les produits en « or »', () => {
+    const { where, params } = ou(filtreSegment(S.achete, { produits: [{ sku: 'A' }] }), filtreSegment(S.pasAchete, { produits: [{ produit: '9' }, { sku: 'B' }] }));
+    const compact = where.replace(/\s+/g, ' ');
+    expect(compact).toContain('id not in (select o.contact_id from shopify_commande_lignes l');
+    expect(compact).toContain('((l.produit_id = $3 and l.produit_id is not null and not l.carte_cadeau) or (l.sku = $4 and l.sku is not null and not l.carte_cadeau))');
+    expect(params).toEqual(['t1', 'A', '9', 'B']);
+  });
+
+  it('le réassort exige un achat connu de CE produit, son dernier achat borné des deux côtés', () => {
+    const { where, params } = ou(filtreSegment(S.reassort, { sku: 'SER-30', min: 60, max: 120 }));
+    const compact = where.replace(/\s+/g, ' ');
+    expect(compact).toContain('id in (select o.contact_id from shopify_commande_lignes l');
+    expect(compact).toContain('group by o.contact_id having max(o.payee_le) <= now() - $3::int');
+    expect(compact).toContain('and max(o.payee_le) >= now() - $4::int');
+    expect(params).toEqual(['t1', 'SER-30', 60, 120]);
+  });
+
+  it('🔴 le prédicat des index partiels de la migration 0311 est repris mot pour mot par chaque requête', () => {
+    const sql = readFileSync(new URL('../db/migrations/0311_shopify_commande_lignes.sql', import.meta.url), 'utf8');
+    const predicats = [...sql.matchAll(/on shopify_commande_lignes \(tenant_id, (\w+)\)\s+where ([^;]+);/g)].map((m) => [m[1], m[2]!.trim()] as const);
+    expect(predicats).toEqual([['produit_id', 'produit_id is not null and not carte_cadeau'], ['sku', 'sku is not null and not carte_cadeau']]);
+    let n = 1;
+    const add = (): string => `$${++n}`;
+    for (const [colonne, predicat] of predicats) {
+      const visee = ligneVisee(colonne === 'produit_id' ? { produit: '1' } : { sku: 'A' }, add).replaceAll('l.', '');
+      expect(visee, colonne).toContain(predicat);
+    }
+  });
+
+  it('🔴 une valeur produit qui ne se lit pas vise personne, jamais tout l’espace', () => {
+    for (const f of [
+      { key: S.achete, op: 'segment' as const, value: '{"produits":[]}' }, { key: S.achete, op: 'segment' as const, value: '{pas du json' },
+      { key: S.pasAchete, op: 'segment' as const, value: '{"produits":[{"x":1}]}' }, { key: S.reassort, op: 'segment' as const, value: '{"sku":"A"}' },
+      { key: S.reassort, op: 'segment' as const, value: '{"min":3}' },
     ]) {
       expect(buildContactWhere('t1', { fieldFilters: [f] }).where.split(' and '), f.value).toContain('false');
     }

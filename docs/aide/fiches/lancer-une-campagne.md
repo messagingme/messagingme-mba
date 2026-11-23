@@ -88,7 +88,8 @@ champ que vous avez créé, le nom, le niveau de risque de désengagement, ce qu
 compteur vous dit en direct combien de contacts correspondent.
 
 La partie « Achats et activité » des filtres ajoute les contacts actifs ou inactifs depuis un nombre de jours, dans
-tous les espaces. Le nombre de commandes, le montant dépensé et la date de la dernière commande sont dans le volet
+tous les espaces. Le nombre de commandes, le montant dépensé, la date de la dernière commande et les produits achetés
+sont dans le volet
 **Shopify** des filtres, qui demande une **boutique Shopify branchée** ; le bouton **Shopify** de l'audience montre
 la même liste, ce volet ouvert. Sans boutique, ni l'un ni l'autre n'apparaît (voir la fiche « Brancher ma boutique
 Shopify »).

@@ -1,6 +1,8 @@
 import { getCountryCallingCode, isSupportedCountry, parsePhoneNumberFromString } from 'libphonenumber-js';
 import metadonnees from 'libphonenumber-js/min/metadata';
-import { CLES_SEGMENT, plagePosee, type CleSegment, type Plage, type PlageSurJours } from '../../web/lib/partage/segments';
+import {
+  CLES_SEGMENT, plagePosee, type AchatsVises, type CleSegment, type Plage, type PlageSurJours, type ProduitVise, type Reassort,
+} from '../../web/lib/partage/segments';
 
 /**
  * LES CRITÈRES DE SEGMENT EN SQL (spec docs/superpowers/specs/2026-10-31-segments-commandes-pays-activite-design.md) :
@@ -82,6 +84,38 @@ function clausePlageCommandes(mesure: string, p: PlageSurJours, add: (v: unknown
   return `id not in (${de} having ${mesure} > ${add(p.max)}::${type})`;
 }
 
+/**
+ * Ce qu'une ligne doit porter pour viser un produit (lot 3) : son identifiant, ou son SKU. 🔴 Le prédicat de l'index
+ * partiel de la migration 0311 est repris MOT POUR MOT (`produit_id is not null and not carte_cadeau`, `sku is not null
+ * and not carte_cadeau`) : un `where` qui s'en écarte ne produit qu'un balayage, sans erreur. Il écarte aussi les cartes
+ * cadeaux (décision de Julien du 2026-11-23). Exporté pour le test qui tient ce contrat.
+ */
+export function ligneVisee(p: ProduitVise, add: (v: unknown) => string): string {
+  return 'produit' in p
+    ? `(l.produit_id = ${add(p.produit)} and l.produit_id is not null and not l.carte_cadeau)`
+    : `(l.sku = ${add(p.sku)} and l.sku is not null and not l.carte_cadeau)`;
+}
+
+/** Les fiches dont une commande porte une ligne qui répond à `lignes`, sur les `jours` derniers jours si posés. */
+function fichesAyantAchete(lignes: string, jours: number | undefined, add: (v: unknown) => string): string {
+  const periode = jours !== undefined ? ` and o.payee_le >= ${ilYA(add(jours))}` : '';
+  return `select o.contact_id from shopify_commande_lignes l
+            join shopify_commandes o on o.tenant_id = l.tenant_id and o.commande_id = l.commande_id
+           where l.tenant_id = $1 and o.tenant_id = $1 and ${lignes}${periode}`;
+}
+
+/** Une valeur « a acheté » ou « n'a pas acheté » déjà validée, ou `null` (qui vise PERSONNE). */
+function achatsLus(v: unknown): AchatsVises | null {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return null;
+  const a = v as Partial<AchatsVises>;
+  return Array.isArray(a.produits) && a.produits.length > 0 && a.produits.every(estProduitVise) ? a as AchatsVises : null;
+}
+function estProduitVise(p: unknown): p is ProduitVise {
+  if (p === null || typeof p !== 'object') return false;
+  const o = p as Record<string, unknown>;
+  return typeof o.produit === 'string' || typeof o.sku === 'string';
+}
+
 /** Les jours depuis la dernière commande : exige une commande connue. */
 function clauseDerniereCommande(p: Plage, add: (v: unknown) => string): string {
   const bornes = [
@@ -112,6 +146,28 @@ export function clauseSegment(cle: CleSegment, valeur: string, add: (v: unknown)
     case CLES_SEGMENT.derniereCommande: {
       const p = plage(v);
       return p && plagePosee(p) ? clauseDerniereCommande(p, add) : 'false';
+    }
+    case CLES_SEGMENT.achete: {
+      // TOUS les produits : une sous-requête par produit, jointes par `and`.
+      const a = achatsLus(v);
+      return a ? `(${a.produits.map((p) => `id in (${fichesAyantAchete(ligneVisee(p, add), a.jours, add)})`).join(' and ')})` : 'false';
+    }
+    case CLES_SEGMENT.pasAchete: {
+      // AUCUN des produits. `contact_id` n'est jamais nul dans `shopify_commandes` : le `not in` ne bute pas sur un nul.
+      const a = achatsLus(v);
+      return a ? `id not in (${fichesAyantAchete(`(${a.produits.map((p) => ligneVisee(p, add)).join(' or ')})`, a.jours, add)})` : 'false';
+    }
+    case CLES_SEGMENT.reassort: {
+      // Le DERNIER achat de ce produit dans la plage : exige un achat connu (« il y a au moins 180 jours » ne retient pas
+      // qui n'en a jamais acheté).
+      const r = v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Reassort : null;
+      if (!r || !estProduitVise(r) || !plagePosee(r)) return 'false';
+      const lignes = ligneVisee(r, add);
+      const bornes = [
+        ...(r.min !== undefined ? [`max(o.payee_le) <= ${ilYA(add(r.min))}`] : []),
+        ...(r.max !== undefined ? [`max(o.payee_le) >= ${ilYA(add(r.max))}`] : []),
+      ];
+      return `id in (${fichesAyantAchete(lignes, undefined, add)} group by o.contact_id having ${bornes.join(' and ')})`;
     }
     case CLES_SEGMENT.actif: {
       const n = jours(v);

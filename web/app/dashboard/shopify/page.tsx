@@ -272,6 +272,11 @@ function CarteJoignabilite({ v, locale, t }: { v: JoignabiliteVue; locale: Local
             {ligne('joignabilite-invalides', v.invalides, 'numéro invalide ou fixe', 'invalid or landline number')}
             {ligne('joignabilite-supprimees', v.supprimees, 'échec, contact supprimé', 'failed, contact deleted')}
             {ligne('joignabilite-attente', v.enAttente, 'en attente d’accusé', 'awaiting acknowledgement')}
+            {/* La sixième part (lot 3) : absente d'une API plus ancienne, qui comptait ces commandes en attente. */}
+            {v.pasLivrable !== undefined && ligne(
+              'joignabilite-pas-livrable', v.pasLivrable,
+              'pas de message livrable (automation éteinte, STOP ou échec)', 'no deliverable message (automation off, STOP or failure)',
+            )}
           </ul>
           <p data-testid="joignabilite-deux-messages" className="mt-3 text-xs text-ink-500">
             {t(

@@ -52,8 +52,32 @@ const AIDE_ANALYSE = CLES_FILTRABLES.map((cle) => {
   return `${cle}: ${operateursDuChamp(champ).join('/')}${valeurs}`;
 }).join('; ');
 
-const { joursMax, commandesMax, depenseMax, paysMax } = BORNES_SEGMENTS;
+const { joursMax, commandesMax, depenseMax, paysMax, produitsMax, skuMax } = BORNES_SEGMENTS;
 const JOURS = { type: 'integer', minimum: 1, maximum: joursMax } as const;
+
+/** Un produit visé (lot 3) : son identifiant Shopify OU un SKU, jamais les deux (refusé par `lireSegment`). */
+const PRODUIT_ANNONCE = {
+  product_id: { type: 'string', pattern: '^\\d{1,30}$', description: 'The Shopify product id, in digits: every variant of the product.' },
+  sku: { type: 'string', minLength: 1, maxLength: skuMax, description: `One variant, by its SKU (1 to ${skuMax} characters).` },
+} as const;
+
+/** « A acheté » ou « n'a pas acheté » : 1 à `produitsMax` produits et, au choix, une fenêtre en jours. */
+function achatsAnnonces(description: string): ProprieteEntree {
+  return {
+    type: 'object',
+    properties: {
+      products: {
+        type: 'array', minItems: 1, maxItems: produitsMax,
+        items: { type: 'object', properties: PRODUIT_ANNONCE, additionalProperties: false },
+        description: `1 to ${produitsMax} products, each {"product_id"} or {"sku"}, never both.`,
+      },
+      within_days: { ...JOURS, description: `Bought over the last N days (1 to ${joursMax}); without it, since orders_recorded_since.` },
+    },
+    required: ['products'],
+    additionalProperties: false,
+    description,
+  };
+}
 
 /** Une plage `{ min, max }`, et `within_days` pour le nombre et la somme des commandes. */
 function plageAnnoncee(o: { borne: 'integer' | 'number'; max: number; avecJours: boolean; unite: string; description: string }): ProprieteEntree {
@@ -90,6 +114,22 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
     description: 'Days since the last paid order; requires at least one order. {"min":180} for "nothing for 6 months", '
       + '{"max":30} for "ordered this month". Needs the Shopify store.',
   }),
+  bought: achatsAnnonces('Contacts whose paid orders include ALL these products, e.g. {"products":[{"product_id":"8801"}],'
+    + '"within_days":90}. Gift cards never match. Product ids and SKUs come from get_shopify_state (products_seen). Needs '
+    + 'the Shopify store.'),
+  not_bought: achatsAnnonces('Contacts whose paid orders include NONE of these products. Only together with "bought": '
+    + 'alone it would target almost the whole workspace, and it is refused.'),
+  days_since_product: {
+    type: 'object',
+    properties: {
+      ...PRODUIT_ANNONCE,
+      min: { type: 'integer', minimum: 0, maximum: joursMax, description: 'Last purchase of this product at least N days ago.' },
+      max: { type: 'integer', minimum: 0, maximum: joursMax, description: 'Last purchase of this product at most N days ago.' },
+    },
+    additionalProperties: false,
+    description: 'Restock: the last paid purchase of ONE product ({"product_id"} or {"sku"}) between min and max days ago, '
+      + 'e.g. {"sku":"SER-30","min":60,"max":120}; requires a known purchase of it, at least one bound. Needs the Shopify store.',
+  },
   active_within_days: {
     ...JOURS,
     description: `Contacts who wrote to the workspace or clicked a tracked link in the last N days (1 to ${joursMax}).`,
@@ -131,8 +171,8 @@ export const CHAMPS_CIBLE_FILTRES: Record<string, ProprieteEntree> = {
       additionalProperties: false,
     },
     description: `Enterprise plan only. Filters on each contact's latest conversation analysis: ${AIDE_ANALYSE}. `
-      + `${MAX_FIELD_FILTERS} filters at most in all, the orders, spent, days_since_last_order, active_within_days, `
-      + 'inactive_for_days and countries criteria included.',
+      + `${MAX_FIELD_FILTERS} filters at most in all, the orders, spent, days_since_last_order, bought, not_bought, `
+      + 'days_since_product, active_within_days, inactive_for_days and countries criteria included.',
   },
   ...CHAMPS_CIBLE_SEGMENTS,
 };
@@ -230,8 +270,10 @@ export async function lireCibleMcp(
   return cible;
 }
 
-const CLES_SEGMENTS = ['orders', 'spent', 'days_since_last_order', 'active_within_days', 'inactive_for_days', 'countries'] as const;
-const CLES_COMMANDES_MCP = ['orders', 'spent', 'days_since_last_order'] as const;
+const CLES_SEGMENTS = [
+  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'active_within_days', 'inactive_for_days', 'countries',
+] as const;
+const CLES_COMMANDES_MCP = ['orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product'] as const;
 
 /**
  * Les critères de segment de l'outil, dans la forme du fil : des `fieldFilters` sous clé réservée, opérateur `segment`
@@ -252,9 +294,37 @@ async function lireSegmentsMcp(
     if (inconnues.length > 0) throw new RefusOutil(`paramètre « ${cle} » : clé inconnue (${inconnues.join(', ')}) ; seules ${permises.join(', ')}`);
     return { min: brut.min, max: brut.max, ...(avecJours ? { jours: brut.within_days } : {}) };
   };
+  /** Les clés annoncées d'un objet, et elles seules : une clé inconnue est refusée en la nommant. */
+  const seules = (cle: string, brut: Record<string, unknown>, permises: readonly string[]): void => {
+    const inconnues = Object.keys(brut).filter((k) => !permises.includes(k));
+    if (inconnues.length > 0) throw new RefusOutil(`paramètre « ${cle} » : clé inconnue (${inconnues.join(', ')}) ; seules ${permises.join(', ')}`);
+  };
+  /** Un produit de l'outil (`product_id` ou `sku`) dans la forme de la console (`produit` ou `sku`) ; les deux restent les deux. */
+  const produit = (cle: string, p: unknown): unknown => {
+    if (typeof p !== 'object' || p === null || Array.isArray(p)) return p;
+    const brut = p as Record<string, unknown>;
+    seules(cle, brut, ['product_id', 'sku', 'min', 'max']);
+    return { ...('product_id' in brut ? { produit: brut.product_id } : {}), ...('sku' in brut ? { sku: brut.sku } : {}) };
+  };
+  const achats = (cle: string): unknown => {
+    const v = args[cle];
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) return v;
+    const brut = v as Record<string, unknown>;
+    seules(cle, brut, ['products', 'within_days']);
+    if (Array.isArray(brut.products)) {
+      for (const p of brut.products) if (typeof p === 'object' && p !== null) seules(cle, p as Record<string, unknown>, ['product_id', 'sku']);
+    }
+    return { produits: Array.isArray(brut.products) ? brut.products.map((p) => produit(cle, p)) : brut.products, jours: brut.within_days };
+  };
+  const reassort = (): unknown => {
+    const v = args.days_since_product;
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) return v;
+    const brut = v as Record<string, unknown>;
+    return { ...(produit('days_since_product', brut) as object), min: brut.min, max: brut.max };
+  };
   if (CLES_COMMANDES_MCP.some((k) => present(args[k])) && (await deps.contacts.suiviSegments(tenantId)).boutique === null) {
-    throw new RefusOutil('aucune boutique Shopify dans cet espace : les critères de commande (orders, spent, days_since_last_order) '
-      + 'n’ont rien à compter. get_shopify_state dit comment la brancher');
+    throw new RefusOutil('aucune boutique Shopify dans cet espace : les critères de commande (orders, spent, days_since_last_order, '
+      + 'bought, not_bought, days_since_product) n’ont rien à compter. get_shopify_state dit comment la brancher');
   }
   const pays = args.countries;
   if (present(pays) && (!Array.isArray(pays) || pays.length === 0)) throw new RefusOutil('paramètre « countries » : une liste non vide de codes ISO est attendue');
@@ -262,6 +332,9 @@ async function lireSegmentsMcp(
     ...(present(args.orders) ? [entree(CLES_SEGMENT.commandes, plage('orders', true))] : []),
     ...(present(args.spent) ? [entree(CLES_SEGMENT.depense, plage('spent', true))] : []),
     ...(present(args.days_since_last_order) ? [entree(CLES_SEGMENT.derniereCommande, plage('days_since_last_order', false))] : []),
+    ...(present(args.bought) ? [entree(CLES_SEGMENT.achete, achats('bought'))] : []),
+    ...(present(args.not_bought) ? [entree(CLES_SEGMENT.pasAchete, achats('not_bought'))] : []),
+    ...(present(args.days_since_product) ? [entree(CLES_SEGMENT.reassort, reassort())] : []),
     ...(present(args.active_within_days) ? [entree(CLES_SEGMENT.actif, args.active_within_days)] : []),
     ...(present(args.inactive_for_days) ? [entree(CLES_SEGMENT.inactif, args.inactive_for_days)] : []),
     ...(present(pays) ? [entree(CLES_SEGMENT.pays, pays)] : []),

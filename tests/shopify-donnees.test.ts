@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createHmac, randomBytes } from 'node:crypto';
 import { verifierSignatureShopify } from '../src/shopify/signature';
 import {
-  classementDeCommande, donneesDeCommande, donneesDExpedition, montantAffiche, montantBoutique,
+  LIGNES_MAX, classementDeCommande, donneesDeCommande, donneesDExpedition, lignesDeCommande, montantAffiche, montantBoutique,
   numeroDeCommandeDExpedition, schemaCheckout, schemaCommande, schemaExpedition, telephoneDeCheckout, telephoneDeCommande,
   telephoneDExpedition, telephoneE164, valeurDeVariable,
 } from '../src/shopify/donnees';
@@ -273,5 +273,60 @@ describe('🔴 le classement d’une commande, sans garder le numéro', () => {
     const c = schemaCommande.parse(commande({ shipping_address: { phone: '01 42 68 53 00', country_code: 'FR' }, customer: { id: 9, phone: '06 12 34 56 78' } }));
     expect(classementDeCommande(c, 'FR')).toBe('utilisable');
     expect(telephoneDeCommande(c, 'FR')).not.toBeNull();
+  });
+});
+
+/**
+ * LES LIGNES D'UNE COMMANDE PAYÉE (segments Shopify enrichis, lot 3), dans la forme REST de `line_items` que décrit la
+ * doc de Shopify. 🔴 Une ligne illisible s'écarte seule : jamais la commande, ni sa confirmation avec elle.
+ */
+describe('🔴 les lignes d’une commande payée', () => {
+  const ligne = (over: Record<string, unknown> = {}) => ({
+    id: 13741, product_id: 8801, variant_id: 4601, sku: 'SER-30', title: 'Sérum vitamine C', variant_title: '30 ml',
+    name: 'Sérum vitamine C - 30 ml', quantity: 2, price: '24.00', gift_card: false, ...over,
+  });
+
+  it('se lisent sans prix, identifiants en texte, dans l’ordre du corps', () => {
+    const c = schemaCommande.parse(commande({ line_items: [ligne(), ligne({ id: 13742, product_id: null, sku: '', title: 'Pourboire', variant_title: null, quantity: 1 })] }));
+    expect(lignesDeCommande(c)).toEqual({
+      tronquees: false,
+      lignes: [
+        { ligneId: '13741', produitId: '8801', varianteId: '4601', sku: 'SER-30', titre: 'Sérum vitamine C', varianteTitre: '30 ml', quantite: 2, carteCadeau: false },
+        // Une ligne sur mesure : sans produit, son SKU vide ramené à nul, gardée par son titre.
+        { ligneId: '13742', produitId: null, varianteId: '4601', sku: null, titre: 'Pourboire', varianteTitre: null, quantite: 1, carteCadeau: false },
+      ],
+    });
+  });
+
+  it('🔴 une ligne illisible (quantité, identifiant, titre) s’écarte seule ; la commande et les autres lignes restent', () => {
+    const corps = commande({ line_items: [ligne({ quantity: 0 }), ligne({ id: null }), ligne({ title: ' ', name: '' }), 'pas une ligne', ligne({ id: 13745 })] });
+    const c = schemaCommande.safeParse(corps);
+    expect(c.success).toBe(true);
+    expect(lignesDeCommande(c.data!).lignes.map((l) => l.ligneId)).toEqual(['13745']);
+    // Une liste qui n'en est pas une se lit comme aucune ligne, la commande toujours acceptée.
+    const etrange = schemaCommande.safeParse(commande({ line_items: { id: 1 } }));
+    expect(etrange.success).toBe(true);
+    expect(lignesDeCommande(etrange.data!)).toEqual({ lignes: [], tronquees: false });
+  });
+
+  it('la carte cadeau est gardée, marquée ; le titre se replie sur `name` ; une ligne en double ne compte qu’une fois', () => {
+    const c = schemaCommande.parse(commande({ line_items: [ligne({ gift_card: true, title: null }), ligne()] }));
+    expect(lignesDeCommande(c).lignes).toEqual([
+      { ligneId: '13741', produitId: '8801', varianteId: '4601', sku: 'SER-30', titre: 'Sérum vitamine C - 30 ml', varianteTitre: '30 ml', quantite: 2, carteCadeau: true },
+    ]);
+  });
+
+  it(`🔴 ${LIGNES_MAX} lignes au plus, les premières du corps, et la commande dit qu’elle est tronquée`, () => {
+    const lignes = Array.from({ length: LIGNES_MAX + 3 }, (_, i) => ligne({ id: 20000 + i }));
+    const lu = lignesDeCommande(schemaCommande.parse(commande({ line_items: lignes })));
+    expect([lu.lignes.length, lu.tronquees, lu.lignes[0]!.ligneId, lu.lignes.at(-1)!.ligneId]).toEqual([LIGNES_MAX, true, '20000', String(20000 + LIGNES_MAX - 1)]);
+    const pile = lignesDeCommande(schemaCommande.parse(commande({ line_items: lignes.slice(0, LIGNES_MAX) })));
+    expect([pile.lignes.length, pile.tronquees]).toEqual([LIGNES_MAX, false]);
+  });
+
+  it('un titre trop long se coupe à 200 caractères, la ligne gardée ; sans `line_items`, aucune ligne', () => {
+    const c = schemaCommande.parse(commande({ line_items: [ligne({ title: 'x'.repeat(250) })] }));
+    expect(lignesDeCommande(c).lignes[0]!.titre).toHaveLength(200);
+    expect(lignesDeCommande(schemaCommande.parse(commande()))).toEqual({ lignes: [], tronquees: false });
   });
 });

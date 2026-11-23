@@ -6,11 +6,14 @@
  *
  * ⚠️ À NE PAS CONFONDRE avec `./joignabilite` (la mémoire de joignabilité d'UN contact, sa péremption).
  *
- * Sur la période (date d'EXPÉDITION, jour de Paris), les commandes réelles expédiées (au moins un `fulfillments/create`,
- * une commande en deux colis compte une fois) se répartissent en cinq parts SANS RECOUVREMENT, la première qui s'applique
- * gagne : livrée (au moins un message de confirmation ou d'expédition `delivered` ou `read`), échec avec contact supprimé
- * (un 131026 dont la fiche a été supprimée), sans numéro, numéro invalide ou fixe, en attente (le reste, un `sent` compris).
- * 🔴 `livrees + supprimees + sansNumero + invalides + enAttente = expediees`, toujours : le serveur le construit ainsi.
+ * Sur la période (date d'EXPÉDITION, jour de Paris), les commandes réelles expédiées dont le paiement a été vu (au
+ * moins un `fulfillments/create`, une commande en deux colis compte une fois) se répartissent en six parts SANS
+ * RECOUVREMENT, la première qui s'applique gagne : livrée (au moins un message de confirmation ou d'expédition
+ * `delivered` ou `read`), échec avec contact supprimé (un 131026 dont la fiche a été supprimée), sans numéro, numéro
+ * invalide ou fixe, en attente (un message encore en vol : pas parti, ou un simple `sent`), et pas de message livrable
+ * (aucun message parti, ou tous en échec : automation éteinte, pause, STOP, échec définitif ; décision de Julien du
+ * 2026-11-23, lot 3).
+ * 🔴 `livrees + supprimees + sansNumero + invalides + enAttente + pasLivrable = expediees`, toujours.
  */
 export interface JoignabiliteShopify {
   /** Commandes réelles expédiées sur la période (les commandes de test sont à part). */
@@ -22,6 +25,8 @@ export interface JoignabiliteShopify {
   sansNumero: number;
   invalides: number;
   enAttente: number;
+  /** Absent d'une API d'avant le lot 3 : ses commandes étaient alors comptées dans `enAttente`. */
+  pasLivrable?: number;
   /** Les commandes de TEST expédiées sur la période : annoncées à part, jamais dans le taux. */
   testExpediees: number;
 }

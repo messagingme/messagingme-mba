@@ -100,8 +100,10 @@ const commande = (over: Record<string, unknown> = {}) => ({
 });
 const expedition = { id: 5001, order_id: 1002, name: '#1002.1', tracking_company: 'Colissimo', tracking_number: '6A1', tracking_url: 'https://suivi/6A1', destination: { first_name: 'Julien', phone: '+33633921577', country_code: 'FR' } };
 
+/** `commande()` ne porte aucune ligne (segments, lot 3) : le détail en porte une liste vide, sans troncature. */
+const SANS_LIGNES = { lignes: [], tronquees: false };
 /** Ce que dit le paiement de `commande()` : ni `processed_at` (la réception date), ni montant de boutique lisible. */
-const SANS_MONTANT = { payeeLe: new Date('2026-10-21T10:00:00Z'), montant: null, devise: null, test: false };
+const SANS_MONTANT = { payeeLe: new Date('2026-10-21T10:00:00Z'), montant: null, devise: null, test: false, lignes: SANS_LIGNES };
 
 /**
  * Un message branché, au sens de ces tests (lot 5 du menu « Scénario ») : la LIGNE de l'événement, et le PREMIER BLOC de
@@ -868,7 +870,7 @@ describe('l’attribution d’une commande payée', () => {
  */
 describe('les commandes notées pour les segments', () => {
   const payee = { processed_at: '2026-10-21T09:30:00+02:00', total_price_set: { shop_money: { amount: '49.90', currency_code: 'EUR' } } };
-  const DETAILS = { payeeLe: new Date('2026-10-21T07:30:00Z'), montant: '49.90', devise: 'EUR', test: false };
+  const DETAILS = { payeeLe: new Date('2026-10-21T07:30:00Z'), montant: '49.90', devise: 'EUR', test: false, lignes: SANS_LIGNES };
 
   it('🔴 sans aucun message branché, la commande d’une fiche connue est écrite avec sa date et son montant', async () => {
     const { deps, journal } = monter({ messages: [] });

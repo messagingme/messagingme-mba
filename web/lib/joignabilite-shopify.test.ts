@@ -20,6 +20,16 @@ describe('la carte « Joignabilité WhatsApp » : la lecture', () => {
   it('🔴 des parts qui ne font pas le total sont illisibles', () => {
     expect(lireJoignabilite({ ...SPEC, enAttente: 15 })).toBeNull();
   });
+
+  it('🔴 la sixième part (lot 3) entre dans le total ; absente (API plus ancienne), la réponse à cinq parts se lit encore', () => {
+    const six = { ...SPEC, enAttente: 10, pasLivrable: 4 };
+    expect(lireJoignabilite(six)).toEqual(six);
+    expect(lireJoignabilite({ ...SPEC, pasLivrable: 4 })).toBeNull();
+    expect(lireJoignabilite({ ...six, pasLivrable: -1 })).toBeNull();
+    expect(lireJoignabilite({ ...six, pasLivrable: '4' })).toBeNull();
+    expect(lireJoignabilite(SPEC)).toEqual(SPEC);
+    expect(lireJoignabilite(SPEC)).not.toHaveProperty('pasLivrable');
+  });
 });
 
 describe('la carte « Joignabilité WhatsApp » : le taux et les parts', () => {

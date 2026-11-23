@@ -63,6 +63,25 @@ test.describe('Fiche contact : l’onglet Shopify', () => {
     await expect(page.getByTestId('fiche-shopify-commandes')).toContainText('test');
     await expect(page.getByTestId('fiche-shopify-rapporte')).toContainText('sur 1 commande');
     await expect(page.getByTestId('fiche-shopify-paniers')).toContainText('Relancé sur WhatsApp le');
+    // Une API d'avant le lot 3 n'envoie pas de lignes : l'onglet n'en dit rien, jamais « aucun produit ».
+    await expect(page.getByTestId('fiche-shopify-lignes')).toHaveCount(0);
+    await pasDeDebordement(page);
+  });
+
+  test('les produits d’une commande (lot 3), la carte cadeau marquée, une liste tronquée dite', async ({ page }) => {
+    const lignes = [
+      { titre: 'Sérum vitamine C', varianteTitre: '30 ml', sku: 'SER-30', quantite: 2, carteCadeau: false },
+      { titre: 'Carte cadeau', varianteTitre: '50 €', sku: null, quantite: 1, carteCadeau: true },
+    ];
+    await mock(page, AVEC_BOUTIQUE, { ...ACHATS, commandes: [{ ...ACHATS.commandes[1], lignes, lignesTronquees: true }, { ...ACHATS.commandes[0], lignes: [], lignesTronquees: false }] });
+    await ouvrirFiche(page);
+    await page.getByTestId('fiche-onglet-shopify').click();
+    await expect(page.getByTestId('fiche-shopify-ligne')).toHaveCount(2);
+    await expect(page.getByTestId('fiche-shopify-ligne').first()).toContainText('2 × Sérum vitamine C · 30 ml (SER-30)');
+    await expect(page.getByTestId('fiche-shopify-ligne').nth(1)).toContainText(/carte cadeau|gift card/);
+    await expect(page.getByTestId('fiche-shopify-lignes-tronquees')).toBeVisible();
+    // Une commande reçue avant le lot (aucune ligne) n'affiche rien de plus.
+    await expect(page.getByTestId('fiche-shopify-lignes')).toHaveCount(1);
     await pasDeDebordement(page);
   });
 

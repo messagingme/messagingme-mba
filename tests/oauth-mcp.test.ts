@@ -80,6 +80,7 @@ function monter(o: { publicApiUrl?: string; apiParMinute?: number } = {}) {
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
       suiviSegments: async () => ({ boutique: null }),
+      produitsVus: async () => [],
     },
     listerMembres: async () => [],
     scenariosApi: scenariosApiInerte,

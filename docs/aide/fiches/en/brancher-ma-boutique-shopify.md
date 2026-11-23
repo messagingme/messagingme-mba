@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: f520ff
+traduit_de: 45f715
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -145,15 +145,20 @@ confirmation, the shipping notice), only the follow-up of its scenario.
 
 ## Targeting your customers by their orders
 
-Your customers picked by their paid orders: how many, for how much, the last one when.
+Your customers picked by their paid orders: how many, for how much, the last one when, and what they bought.
 
 **10. Filter in the “Shopify” section.** Pro plan: in the mini-CRM, open the filters then the Shopify section; in a
 campaign, the audience’s Shopify button opens it. Paid orders, spend, last order, over the period you choose.
 
+And products: those who bought a product (or a single variant, by its SKU), those who did not buy it (always together
+with a bought product, never alone), and restock, the last purchase of a product so many days ago. You pick them among
+the products already ordered in your store; gift cards cannot be targeted.
+
 **Good to know.** Orders only count from the moment the store was connected: Shopify’s history is not taken over, and
 an imported customer arrives without their past orders. Right after connecting, “at least 2 orders” therefore finds
 nobody; the section gives the date tracking started. Only orders from a number already in your contacts count, test
-orders included. Country and activity work in every workspace, with or without a store.
+orders included. Products are only known for orders paid since November 23, 2026. Country and activity work in every
+workspace, with or without a store.
 
 ## The sending rules
 

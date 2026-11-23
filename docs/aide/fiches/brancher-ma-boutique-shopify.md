@@ -154,17 +154,21 @@ le premier message d'une commande (la confirmation, l'avis d'expédition), seule
 
 ## Cibler vos clients par leurs commandes
 
-Vos clients choisis par leurs commandes payées : combien, pour quel montant, la dernière quand.
+Vos clients choisis par leurs commandes payées : combien, pour quel montant, la dernière quand, et ce qu'ils ont acheté.
 
 **10. Filtrer dans le volet « Shopify ».** Offre Pro : dans le mini-CRM, ouvrez les filtres puis le volet Shopify ;
 dans une campagne, le bouton Shopify de l'audience l'ouvre. Commandes payées, dépense, dernière commande, sur la
 période de votre choix.
 
+Et les produits : ceux qui ont acheté un produit (ou une seule variante, par son SKU), ceux qui ne l'ont pas acheté
+(toujours avec un produit acheté, jamais seul), et le réassort, le dernier achat d'un produit il y a tant de jours.
+Vous les choisissez parmi les produits déjà commandés dans votre boutique ; les cartes cadeaux ne se ciblent pas.
+
 **Bon à savoir.** Les commandes ne comptent que depuis le branchement de la boutique : l'historique de Shopify n'est
 pas repris, et un client importé arrive sans ses commandes passées. Juste après le branchement, « au moins 2 commandes »
 ne trouve donc personne ; le volet dit la date du début du suivi. Seules comptent les commandes d'un numéro déjà dans
-vos contacts, commandes de test comprises. Le pays et l'activité, eux, marchent dans tous les espaces, avec ou sans
-boutique.
+vos contacts, commandes de test comprises. Les produits ne sont connus que pour les commandes payées depuis le 23
+novembre 2026. Le pays et l'activité, eux, marchent dans tous les espaces, avec ou sans boutique.
 
 ## Les règles des envois
 

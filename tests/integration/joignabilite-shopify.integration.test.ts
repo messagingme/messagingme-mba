@@ -85,7 +85,8 @@ describe.skipIf(!url)('la joignabilité WhatsApp des commandes Shopify (Postgres
       `update campaign_recipients set to_e164 = 'anonyme'
         where campaign_id in (select campaign_id from shopify_envois where tenant_id = $1 and commande_id = 'B')`, [ici],
     );
-    // B2 : un 131026 dont la fiche est encore là (gardée par les gardes du 2a) : en attente, pas supprimée.
+    // B2 : un 131026 dont la fiche est encore là (gardée par les gardes du 2a) : ni supprimée ni en attente, un échec
+    // définitif, donc « pas de message livrable » (la sixième part, lot 3).
     await store.noterCommande(ici, 'B2', 'utilisable', false);
     await message(ici, 'B2', { echec: 131026 });
     // C, D : sans numéro, numéro invalide.
@@ -94,6 +95,8 @@ describe.skipIf(!url)('la joignabilité WhatsApp des commandes Shopify (Postgres
     // E : seulement `sent` : en attente.
     await store.noterCommande(ici, 'E', 'utilisable', false);
     await message(ici, 'E', 'sent');
+    // N : un numéro utilisable mais aucun message (automation éteinte) : « pas de message livrable ».
+    await store.noterCommande(ici, 'N', 'utilisable', false);
     // F : un invalide dont l'avis d'expédition (au numéro de livraison) a été livré : LIVRÉE gagne.
     await store.noterCommande(ici, 'F', 'invalide', false);
     await message(ici, 'F', 'delivered');
@@ -131,15 +134,16 @@ describe.skipIf(!url)('la joignabilité WhatsApp des commandes Shopify (Postgres
     await store.noterCommande(ici, 'P', 'utilisable', false);
     await store.noterCommande(ici, 'V', 'sans_numero', false);
     await store.noterCommande(ailleurs, 'X', 'sans_numero', false);
-    for (const c of ['A', 'B', 'B2', 'C', 'D', 'E', 'F', 'G', 'H', 'S', 'T', 'V']) await store.noterExpedition(ici, c);
+    for (const c of ['A', 'B', 'B2', 'C', 'D', 'E', 'F', 'G', 'H', 'N', 'S', 'T', 'V']) await store.noterExpedition(ici, c);
     await store.noterExpedition(ailleurs, 'X');
     await pool.query(`update shopify_joignabilite set expediee_le = now() - interval '40 days' where tenant_id = $1 and commande_id = 'V'`, [ici]);
 
     expect(await store.lire(ici, periode())).toEqual({
-      // A, B, B2, C, D, E, F, G, H : 9 = 3 livrées (A, F, G) + 2 supprimées (B, H) + 1 sans numéro (C) + 1 invalide (D) +
-      // 2 en attente (B2, E) ; 4 messages livrés (deux pour A, un pour F, un pour G) ; T à part ; S jamais vue payée, P
-      // jamais expédiée, V hors période, X et le « C » livré de l'autre espace ailleurs.
-      expediees: 9, messagesLivres: 4, livrees: 3, supprimees: 2, sansNumero: 1, invalides: 1, enAttente: 2, testExpediees: 1,
+      // A, B, B2, C, D, E, F, G, H, N : 10 = 3 livrées (A, F, G) + 2 supprimées (B, H) + 1 sans numéro (C) + 1 invalide
+      // (D) + 1 en attente (E) + 2 sans message livrable (B2, N) ; 4 messages livrés (deux pour A, un pour F, un pour G) ;
+      // T à part ; S jamais vue payée, P jamais expédiée, V hors période, X et le « C » livré de l'autre espace ailleurs.
+      expediees: 10, messagesLivres: 4, livrees: 3, supprimees: 2, sansNumero: 1, invalides: 1, enAttente: 1, pasLivrable: 2,
+      testExpediees: 1,
     });
   });
 
@@ -158,10 +162,10 @@ describe.skipIf(!url)('la joignabilité WhatsApp des commandes Shopify (Postgres
     expect((await pool.query(`select classement from shopify_joignabilite where tenant_id = $1 and commande_id = 'AVANT'`, [ici])).rows)
       .toEqual([{ classement: null }]);
     expect(await store.lire(ici, periode())).toEqual(avant);
-    // Payée à la livraison : son paiement arrive après l'expédition, elle entre, expédition gardée.
+    // Payée à la livraison : son paiement arrive après l'expédition, elle entre, expédition gardée ; aucun message relié.
     await store.noterCommande(ici, 'AVANT', 'utilisable', false);
     const apres = await store.lire(ici, periode());
-    expect([apres.expediees - avant.expediees, apres.enAttente - avant.enAttente]).toEqual([1, 1]);
+    expect([apres.expediees - avant.expediees, (apres.pasLivrable ?? 0) - (avant.pasLivrable ?? 0)]).toEqual([1, 1]);
   });
 
   it('🔴 customers/redact efface les commandes citées, l’effacement du branchement tout l’espace, jamais un autre espace', async () => {

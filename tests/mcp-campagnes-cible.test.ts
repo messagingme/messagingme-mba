@@ -239,4 +239,54 @@ describe('les segments de l’assistant', () => {
     await expect(supprimer.executer(d, T, { inactive_for_days: 90 }, { userId: '99999999-9999-4999-8999-999999999999', autorisationId: 'aut-1' }))
       .rejects.toThrow(/paramètre inconnu/);
   });
+
+  it('les critères produit (lot 3), traduits dans le contrat commun', async () => {
+    const { d } = deps({ boutique: BOUTIQUE });
+    const args = {
+      bought: { products: [{ product_id: '8801' }, { sku: 'SER-30' }], within_days: 90 },
+      not_bought: { products: [{ sku: 'SER-60' }] },
+      days_since_product: { sku: 'SER-30', min: 60, max: 120 },
+    };
+    expect(await lireCibleMcp(args, PRO, d, T, { identifiants: true })).toEqual({
+      filters: { fieldFilters: [
+        filtreSegment(S.achete, { produits: [{ produit: '8801' }, { sku: 'SER-30' }], jours: 90 }),
+        filtreSegment(S.pasAchete, { produits: [{ sku: 'SER-60' }] }),
+        filtreSegment(S.reassort, { sku: 'SER-30', min: 60, max: 120 }),
+      ] },
+      excludeIds: [],
+    });
+  });
+
+  it('🔴 un critère produit sans boutique est refusé avant toute lecture des contacts', async () => {
+    for (const args of [{ bought: { products: [{ sku: 'A' }] } }, { days_since_product: { sku: 'A', min: 30 } }]) {
+      const { d, lus } = deps();
+      await expect(lireCibleMcp(args, PRO, d, T, { identifiants: false }), JSON.stringify(args)).rejects.toThrow(/aucune boutique Shopify/);
+      expect(lus.map((l) => l.quoi)).toEqual(['suivi']);
+    }
+  });
+
+  const produitsMalformes: Array<Record<string, unknown>> = [
+    { not_bought: { products: [{ sku: 'A' }] } }, { bought: { products: [] } }, { bought: { products: [{ product_id: '1', sku: 'A' }] } },
+    { bought: { products: [{ title: 'Sérum' }] } }, { bought: { products: [{ product_id: 'abc' }] } },
+    { bought: { products: [{ sku: 'A' }], depuis: 3 } }, { bought: [{ sku: 'A' }] },
+    { days_since_product: { sku: 'A' } }, { days_since_product: { sku: 'A', min: 30, within_days: 7 } },
+  ];
+  it.each(produitsMalformes)('🔴 critère produit refusé, jamais ignoré : %j', async (args) => {
+    const { d } = deps({ boutique: BOUTIQUE });
+    await expect(lireCibleMcp(args, PRO, d, T, { identifiants: true })).rejects.toThrow(RefusOutil);
+  });
+
+  it('🔴 chaque borne des critères produit est annoncée dans le schéma de l’outil, et sur chaque outil de la cible', () => {
+    const p = outil.entree.properties;
+    expect(p.bought!.properties!.products).toMatchObject({ type: 'array', minItems: 1, maxItems: BORNES_SEGMENTS.produitsMax });
+    expect(p.bought!.properties!.products!.items).toMatchObject({
+      additionalProperties: false, properties: { product_id: { pattern: '^\\d{1,30}$' }, sku: { minLength: 1, maxLength: BORNES_SEGMENTS.skuMax } },
+    });
+    expect(p.bought!.properties!.within_days).toMatchObject({ minimum: 1, maximum: BORNES_SEGMENTS.joursMax });
+    expect(p.days_since_product!.properties!.min).toMatchObject({ type: 'integer', minimum: 0, maximum: BORNES_SEGMENTS.joursMax });
+    expect(p.days_since_product!.additionalProperties).toBe(false);
+    for (const nom of ['tag_contacts', 'prepare_campaign', 'set_contact_field']) {
+      expect(Object.keys(OUTILS.find((o) => o.nom === nom)!.entree.properties), nom).toEqual(expect.arrayContaining(['bought', 'not_bought', 'days_since_product']));
+    }
+  });
 });

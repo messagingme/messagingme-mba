@@ -18,6 +18,12 @@ const CONTACT = {
 const AVEC_BOUTIQUE = { boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: '2026-11-03' };
 const SANS_BOUTIQUE = { boutique: null, activiteCompleteDepuis: '2026-11-03' };
 
+/** Les produits déjà vus dans les commandes (lot 3), tels que `GET .../contacts/segments/produits` les rend. */
+const PRODUITS = [
+  { produitId: '8801', sku: 'SER-30', titre: 'Sérum vitamine C', varianteTitre: '30 ml', commandes: 4 },
+  { produitId: '8802', sku: 'CRE-50', titre: 'Crème de nuit', varianteTitre: '50 ml', commandes: 2 },
+];
+
 /** `segments` : la réponse de la route, ou `null` pour une API qui ne la connaît pas (404). */
 async function mock(page: import('@playwright/test').Page, segments: unknown): Promise<URLSearchParams[]> {
   const requetes: URLSearchParams[] = [];
@@ -25,6 +31,10 @@ async function mock(page: import('@playwright/test').Page, segments: unknown): P
   await page.route('**/api/backend/**', async (route) => {
     const url = new URL(route.request().url());
     const json = (b: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    if (url.pathname.endsWith('/contacts/segments/produits')) {
+      const q = (url.searchParams.get('q') ?? '').toLowerCase();
+      return json({ produits: PRODUITS.filter((p) => q === '' || p.titre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) });
+    }
     if (url.pathname.endsWith('/contacts/segments')) return segments === null ? json({ error: 'Not Found' }, 404) : json(segments);
     if (url.pathname.endsWith('/conversations/todo-count')) return json({ count: 0 });
     if (url.pathname.endsWith('/contacts')) { requetes.push(url.searchParams); return json({ contacts: [CONTACT], total: 1 }); }
@@ -136,5 +146,69 @@ test.describe('Contacts : les filtres d’achats et d’activité', () => {
     await deplierShopify(page);
     await expect(page.getByTestId('filtre-derniere-commande-max')).toBeVisible();
     await pasDeDebordement(page);
+  });
+});
+
+/**
+ * LES CRITÈRES PRODUIT DU VOLET (segments Shopify enrichis, lot 3) : choisis parmi les produits déjà commandés, ils
+ * partent à l'API dans `fields`. 🔴 L'exclusion n'est jamais seule, et une API qui ne les annonce pas n'en voit aucun.
+ */
+test.describe('Contacts : les critères produit du volet Shopify', () => {
+  test.use({ viewport: TREIZE_POUCES });
+  const AVEC_PRODUITS = { ...AVEC_BOUTIQUE, produits: true };
+  const dernier = (requetes: URLSearchParams[]) => segments(requetes.at(-1) ?? new URLSearchParams());
+
+  test('🔴 « a acheté », la fenêtre, l’exclusion jamais seule, le réassort et la variante partent à l’API', async ({ page }) => {
+    const requetes = await mock(page, AVEC_PRODUITS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-produits-resultat')).toHaveCount(2);
+    // L'exclusion seule viserait presque tout l'espace : son bouton attend « a acheté ».
+    await expect(page.getByTestId('produit-pas-achete').first()).toBeDisabled();
+    await expect(page.getByTestId('filtre-pas-achete-aide')).toBeVisible();
+    await page.getByTestId('produit-achete').first().click();
+    await expect(page.getByTestId('filtre-achete-puce')).toHaveText(/Sérum vitamine C/);
+    await expect.poll(() => dernier(requetes).segment_achete).toBe('{"produits":[{"produit":"8801"}]}');
+    await page.getByTestId('filtre-achete-jours').fill('90');
+    await expect.poll(() => dernier(requetes).segment_achete).toBe('{"produits":[{"produit":"8801"}],"jours":90}');
+    await page.getByTestId('produit-pas-achete').nth(1).click();
+    await expect.poll(() => dernier(requetes).segment_pas_achete).toBe('{"produits":[{"produit":"8802"}]}');
+    // Retirer le dernier produit acheté emporte l'exclusion, qui ne s'emploie jamais seule.
+    await page.getByTestId('filtre-achete-retirer').click();
+    await expect.poll(() => [dernier(requetes).segment_achete, dernier(requetes).segment_pas_achete]).toEqual([undefined, undefined]);
+    // Le réassort part avec une borne visible, « il y a au moins 60 jours », modifiable.
+    await page.getByTestId('produit-reassort').first().click();
+    await expect.poll(() => dernier(requetes).segment_reassort).toBe('{"produit":"8801","min":60}');
+    await expect(page.getByTestId('filtre-reassort-min')).toHaveValue('60');
+    await page.getByTestId('filtre-reassort-max').fill('120');
+    await expect.poll(() => dernier(requetes).segment_reassort).toBe('{"produit":"8801","min":60,"max":120}');
+    // Vider les deux bornes le temps d'une frappe ne retire rien : la dernière plage valide reste.
+    await page.getByTestId('filtre-reassort-min').fill('');
+    await page.getByTestId('filtre-reassort-max').fill('');
+    await expect(page.getByTestId('filtre-reassort-erreur')).toBeVisible();
+    expect(dernier(requetes).segment_reassort).toBe('{"produit":"8801","min":60,"max":120}');
+    // La variante, par son SKU.
+    await page.getByTestId('filtre-produits-cible-sku').check();
+    await page.getByTestId('produit-achete').first().click();
+    await expect.poll(() => dernier(requetes).segment_achete).toBe('{"produits":[{"sku":"SER-30"}]}');
+  });
+
+  test('la recherche passe à l’API ; une liste illisible le dit', async ({ page }) => {
+    await mock(page, AVEC_PRODUITS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('filtre-produits-recherche').fill('crème');
+    await expect(page.getByTestId('filtre-produits-resultat')).toHaveCount(1);
+    await expect(page.getByTestId('filtre-produits-resultat')).toContainText('Crème de nuit');
+    await page.getByTestId('filtre-produits-recherche').fill('introuvable');
+    await expect(page.getByTestId('filtre-produits-aucun')).toBeVisible();
+  });
+
+  test('🔴 une API qui n’annonce pas les critères produit : aucune ligne produit dans le volet', async ({ page }) => {
+    await mock(page, AVEC_BOUTIQUE);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-commandes-min')).toBeVisible();
+    await expect(page.getByTestId('filtres-produits')).toHaveCount(0);
   });
 });

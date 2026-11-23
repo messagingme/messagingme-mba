@@ -94,8 +94,78 @@ export const schemaCommande = z.object({
   test: z.boolean().nullish().catch(null),
   /** La page d'arrivée de la visite qui a mené à la commande, avec sa requête : la preuve par UTM (tâche 6). */
   landing_site: texte.catch(null),
+  /**
+   * Les lignes (segments Shopify enrichis, lot 3), lues BRUTES ici puis une à une par `lignesDeCommande` : une ligne
+   * illisible s'écarte seule, jamais la commande, ni sa confirmation avec elle.
+   */
+  line_items: z.array(z.unknown()).nullish().catch(null),
 });
 export type CommandeShopify = z.infer<typeof schemaCommande>;
+
+/** Les lignes gardées par commande, dans l'ordre du corps (spec, chantier 1) ; au-delà, la commande le dit. */
+export const LIGNES_MAX = 250;
+const BORNE_TITRE = 200;
+const BORNE_SKU = 255;
+
+/** Une ligne de commande, sans prix ni montant : la dépense reste celle de la commande. */
+export interface LigneDeCommande {
+  ligneId: string;
+  produitId: string | null;
+  varianteId: string | null;
+  sku: string | null;
+  titre: string;
+  varianteTitre: string | null;
+  /** La quantité au paiement (les remboursements ne sont pas déduits, décision du 2026-10-31). */
+  quantite: number;
+  /** Gardée, mais écartée des critères produit (décision de Julien du 2026-11-23). */
+  carteCadeau: boolean;
+}
+export interface LignesDeCommande { lignes: LigneDeCommande[]; tronquees: boolean }
+
+/** Un identifiant REST de Shopify (un entier, parfois en texte), rendu en texte ; un autre format ne se lit pas. */
+const idTexte = z.union([z.number().int().positive(), z.string().regex(/^\d{1,30}$/)]).transform(String);
+const schemaLigne = z.object({
+  id: idTexte,
+  // `product_id` peut être nul (produit supprimé depuis, ligne sur mesure) : la ligne reste, cherchable par son SKU.
+  product_id: idTexte.nullish().catch(null),
+  variant_id: idTexte.nullish().catch(null),
+  sku: texte.catch(null),
+  title: texte.catch(null),
+  name: texte.catch(null),
+  variant_title: texte.catch(null),
+  quantity: z.number().int().min(1).max(100_000),
+  gift_card: z.boolean().nullish().catch(null),
+});
+
+/** Un texte utile : coupé à sa borne, vide ramené à nul. */
+function texteUtile(v: string | null | undefined, borne: number): string | null {
+  const t = v?.trim() ?? '';
+  return t === '' ? null : t.slice(0, borne);
+}
+
+/**
+ * LES LIGNES D'UNE COMMANDE PAYÉE (segments Shopify enrichis, lot 3) : celles qui se lisent, dans l'ordre du corps,
+ * `LIGNES_MAX` au plus, une fois chacune. Une quantité illisible, un identifiant de ligne absent ou un titre vide
+ * écartent LA ligne, jamais la commande. `tronquees` : le corps en portait plus que le plafond.
+ */
+export function lignesDeCommande(c: CommandeShopify): LignesDeCommande {
+  const brutes = c.line_items ?? [];
+  const vues = new Set<string>();
+  const lignes: LigneDeCommande[] = [];
+  for (const brute of brutes.slice(0, LIGNES_MAX)) {
+    const l = schemaLigne.safeParse(brute);
+    if (!l.success || vues.has(l.data.id)) continue;
+    const titre = texteUtile(l.data.title, BORNE_TITRE) ?? texteUtile(l.data.name, BORNE_TITRE);
+    if (titre === null) continue;
+    vues.add(l.data.id);
+    lignes.push({
+      ligneId: l.data.id, produitId: l.data.product_id ?? null, varianteId: l.data.variant_id ?? null,
+      sku: texteUtile(l.data.sku, BORNE_SKU), titre, varianteTitre: texteUtile(l.data.variant_title, BORNE_TITRE),
+      quantite: l.data.quantity, carteCadeau: l.data.gift_card === true,
+    });
+  }
+  return { lignes, tronquees: brutes.length > LIGNES_MAX };
+}
 
 export const schemaExpedition = z.object({
   id: idShopify,

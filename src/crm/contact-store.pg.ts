@@ -13,7 +13,7 @@ import type { LigneDeLaListe } from '../mba/liste';
 import type { CleFicheFixe } from './champs-fiche';
 import { clauseFiltreFiche, estCleFiltrable, estOperateurFicheSeul } from './filtre-fiche';
 import { clauseSegment, type SuiviSegments } from './segments';
-import { estCleSegment } from '../../web/lib/partage/segments';
+import { estCleSegment, type ProduitVuVue } from '../../web/lib/partage/segments';
 import { COLONNES_ANALYSE_FICHE, analyseDeLaLigne, type AnalyseDeFiche, type LigneAnalyseFiche } from '../analysis/fiche';
 import { LimiteOffreError } from '../offres/refus';
 import { DROITS, contactsToutesOrigines, estOffre, type LimiteContacts } from '../offres/offres';
@@ -1588,6 +1588,28 @@ export class PgContactStore implements ContactStore {
     if (!b) return { boutique: null };
     // `coupee_le` ne vaut que pour une boutique coupée : un rebranchement la remet à nul, mais rien ne coûte de le redire.
     return { boutique: { devise: b.devise, commandesDepuis: b.commandes_depuis, coupeeLe: b.etat === 'coupee' ? b.coupee_le : null } };
+  }
+
+  /**
+   * LES PRODUITS DÉJÀ VUS dans les commandes de l'espace (segments Shopify enrichis, lot 3), pour choisir un critère :
+   * jamais le catalogue, seulement ce que des commandes payées ont porté, les plus achetés d'abord. Une entrée par
+   * produit et SKU (une variante), hors cartes cadeaux, que les critères n'acceptent pas. `recherche` cherche dans le
+   * titre et le SKU, sans la casse, ses `%` et `_` pris à la lettre.
+   */
+  async produitsVus(tenantId: string, recherche: string | undefined, limite: number): Promise<ProduitVuVue[]> {
+    const motif = recherche === undefined || recherche.trim() === '' ? null : `%${recherche.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const res = await this.pool.query<{ produit_id: string | null; sku: string | null; titre: string; variante_titre: string | null; commandes: number }>(
+      `select l.produit_id, l.sku, min(l.titre) as titre, min(l.variante_titre) as variante_titre,
+              count(distinct l.commande_id)::int as commandes
+         from shopify_commande_lignes l
+        where l.tenant_id = $1 and not l.carte_cadeau and (l.produit_id is not null or l.sku is not null)
+          and ($2::text is null or l.titre ilike $2 or l.sku ilike $2 or l.variante_titre ilike $2)
+        group by l.produit_id, l.sku
+        order by commandes desc, titre, l.produit_id, l.sku
+        limit $3`,
+      [tenantId, motif, limite],
+    );
+    return res.rows.map((r) => ({ produitId: r.produit_id, sku: r.sku, titre: r.titre, varianteTitre: r.variante_titre, commandes: r.commandes }));
   }
 
   /** Ids des contacts correspondant aux filtres (source « Liste de contacts » d'une campagne), scopé tenant,

@@ -11,7 +11,7 @@ import type { Guard, PreHandler } from '../auth/middleware';
 import { espaceVerifie } from './scope';
 import { buildContactFilters, normalizeFieldFilters } from '../crm/contact-filters';
 import { ACTIVITE_COMPLETE_DEPUIS, type SuiviSegments } from '../crm/segments';
-import type { SuiviSegmentsVue } from '../../web/lib/partage/segments';
+import type { ProduitVuVue, SuiviSegmentsVue } from '../../web/lib/partage/segments';
 import { nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite } from '../offres/refus';
@@ -27,6 +27,8 @@ export interface ContactsListeDep extends ContactStore {
   idsForFilters(tenantId: string, filters: ContactFilters): Promise<string[]>;
   /** La boutique et ses dates de suivi, pour les critères de segment (`GET .../contacts/segments`). */
   suiviSegments(tenantId: string): Promise<SuiviSegments>;
+  /** Les produits déjà vus dans les commandes de l'espace, pour choisir un critère produit (lot 3). */
+  produitsVus(tenantId: string, recherche: string | undefined, limite: number): Promise<ProduitVuVue[]>;
 }
 
 export interface ImportRouteDeps extends ImportDeps {
@@ -130,8 +132,22 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
         devise: boutique.devise, commandesDepuis: boutique.commandesDepuis.toISOString(), coupeeLe: boutique.coupeeLe?.toISOString() ?? null,
       },
       activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
+      // Les critères produit (lot 3) : la console ne les propose qu'à une API qui le dit ici.
+      produits: true,
     };
     return reply.code(200).send(vue);
+  });
+
+  /**
+   * Les produits déjà vus dans les commandes de l'espace (segments Shopify enrichis, lot 3), pour le sélecteur du volet
+   * Shopify : jamais le catalogue, 20 au plus, les plus achetés d'abord. `q` cherche dans le titre et le SKU (80
+   * caractères au plus, au-delà coupé).
+   */
+  app.get('/tenants/:tenantId/contacts/segments/produits', opts, async (req, reply) => {
+    const q = (req.query as Record<string, unknown>).q;
+    const recherche = typeof q === 'string' ? q.slice(0, 80) : undefined;
+    const produits = await deps.contacts.produitsVus(espaceVerifie(req), recherche, 20);
+    return reply.code(200).send({ produits });
   });
 
   // Compteur seul (rapide) : « N contacts correspondent » avant de fixer le débit / lancer.

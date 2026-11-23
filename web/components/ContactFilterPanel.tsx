@@ -260,7 +260,7 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
       {/* Achats et activité, puis le volet Shopify : offerts seulement si l'API les a annoncés (`useSegments`) ; un
           critère posé reste visible. Chacun reçoit TOUS les critères de segment et ne remplace que les siens. */}
       <FiltresAchatsActivite segments={segmentRows} onChange={(s) => ecrireFiltres(fieldRows, analyseRows, emailRow, s)} suivi={suivi} />
-      <FiltresShopify segments={segmentRows} onChange={(s) => ecrireFiltres(fieldRows, analyseRows, emailRow, s)} suivi={suivi} ouvert={voletShopifyOuvert} />
+      <FiltresShopify tenantId={tenantId} segments={segmentRows} onChange={(s) => ecrireFiltres(fieldRows, analyseRows, emailRow, s)} suivi={suivi} ouvert={voletShopifyOuvert} />
 
       <div className="flex justify-end border-t border-ink-100 pt-2">
         <button type="button" onClick={onClear} className="text-xs text-ink-500 hover:text-danger">{t('Réinitialiser les filtres', 'Reset filters')}</button>

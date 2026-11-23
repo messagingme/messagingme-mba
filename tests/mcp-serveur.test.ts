@@ -116,6 +116,7 @@ function app(
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
       suiviSegments: async () => ({ boutique: null }),
+      produitsVus: async () => [],
       ...contacts,
     },
     // Le VRAI module de pose, sur de faux dépôts : c'est lui que l'outil appelle en production.

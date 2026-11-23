@@ -12,6 +12,21 @@ import {
 } from '../shopify/gestion';
 import { reglerAttestation, type EtatLigne } from '../shopify/lignes-gestion';
 import type { MessageBranche } from '../shopify/store.pg';
+import { messageDe } from '../lib/erreur';
+
+/**
+ * Les produits vus des commandes (segments Shopify enrichis, lot 3), pour les critères produit de l'assistant. AU MIEUX :
+ * une panne (la table pas encore créée, migration 0311 non bloquante) rend une liste vide, jamais un outil en échec.
+ */
+async function produitsVusAuMieux(deps: DepsMcp, tenantId: string): Promise<Array<{ product_id: string | null; sku: string | null; title: string; variant: string | null; orders: number }>> {
+  try {
+    return (await deps.contacts.produitsVus(tenantId, undefined, 20))
+      .map((p) => ({ product_id: p.produitId, sku: p.sku, title: p.titre, variant: p.varianteTitre, orders: p.commandes }));
+  } catch (err) {
+    journaliser('warn', 'mcp_produits_vus_illisibles', { tenantId, erreur: messageDe(err) });
+    return [];
+  }
+}
 
 /**
  * LE CONNECTEUR SHOPIFY DEPUIS CLAUDE CODE (plan 2026-10-21, lot 1) : la skill `shopify` du plugin pilote la CLI de
@@ -222,7 +237,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'three counted on the checkouts opened in those days), and, by reminder date, the reminders that went out and those '
       + 'recovered (reminded then paid, test orders excluded) with their amount per currency: compare these two together. '
       + 'The revenue attributed to WhatsApp over any period: get_revenue_stats. messages: the setting from before automations '
-      + 'became scenarios, kept for older plugins; it no longer sends.',
+      + 'became scenarios, kept for older plugins; it no longer sends. products_seen: the 20 products found most often in '
+      + 'paid orders (product_id, sku, title), gift cards left out: the ids and SKUs for bought, not_bought and '
+      + 'days_since_product.',
     annotations: { title: 'Get the Shopify connection', readOnlyHint: true, openWorldHint: false },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
@@ -247,6 +264,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
           recovered_amount_last_7_days: e.paniers.montantsRecuperes.map((m) => ({ currency: m.devise, amount: m.montant })),
         },
         store_apps_page: e.pageApps,
+        products_seen: await produitsVusAuMieux(deps, tenantId),
       };
     },
   },

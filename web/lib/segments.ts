@@ -1,5 +1,5 @@
 import { request } from './http';
-import { BORNES_SEGMENTS, type PlageSurJours, type SuiviSegmentsVue } from './partage/segments';
+import { BORNES_SEGMENTS, type PlageSurJours, type ProduitVuVue, type SuiviSegmentsVue } from './partage/segments';
 
 /**
  * Ce que l'API sait cibler en segments (`GET /tenants/:id/contacts/segments`, spec du 2026-10-31). 🔴 `null` quand la
@@ -10,7 +10,9 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   if (typeof o.activiteCompleteDepuis !== 'string') return null;
-  if (o.boutique === null) return { boutique: null, activiteCompleteDepuis: o.activiteCompleteDepuis };
+  // Les critères produit (lot 3) : seulement si l'API le dit, en toutes lettres.
+  const produits = o.produits === true ? { produits: true } : {};
+  if (o.boutique === null) return { boutique: null, activiteCompleteDepuis: o.activiteCompleteDepuis, ...produits };
   const b = o.boutique as Record<string, unknown> | undefined;
   if (!b || typeof b !== 'object' || typeof b.commandesDepuis !== 'string') return null;
   return {
@@ -20,7 +22,34 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
       coupeeLe: typeof b.coupeeLe === 'string' ? b.coupeeLe : null,
     },
     activiteCompleteDepuis: o.activiteCompleteDepuis,
+    ...produits,
   };
+}
+
+/** Les produits vus rendus par l'API (lot 3), lus défensivement : une entrée qui ne se lit pas est écartée seule. */
+export function produitsVusDe(v: unknown): ProduitVuVue[] | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v) || !Array.isArray((v as Record<string, unknown>).produits)) return null;
+  const texte = (x: unknown): string | null => (typeof x === 'string' && x !== '' ? x : null);
+  return ((v as { produits: unknown[] }).produits).flatMap((p): ProduitVuVue[] => {
+    if (!p || typeof p !== 'object') return [];
+    const o = p as Record<string, unknown>;
+    const produitId = texte(o.produitId);
+    const sku = texte(o.sku);
+    const titre = texte(o.titre);
+    if (titre === null || (produitId === null && sku === null)) return [];
+    const commandes = typeof o.commandes === 'number' && Number.isInteger(o.commandes) && o.commandes >= 0 ? o.commandes : 0;
+    return [{ produitId, sku, titre, varianteTitre: texte(o.varianteTitre), commandes }];
+  });
+}
+
+/** Cherche parmi les produits déjà vus dans les commandes de l'espace ; `null` si la route ne répond pas. */
+export async function chercherProduitsVus(tenantId: string, recherche: string): Promise<ProduitVuVue[] | null> {
+  try {
+    const q = recherche.trim() === '' ? '' : `?q=${encodeURIComponent(recherche.trim().slice(0, 80))}`;
+    return produitsVusDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/produits${q}`));
+  } catch {
+    return null;
+  }
 }
 
 const enCours = new Map<string, Promise<SuiviSegmentsVue | null>>();

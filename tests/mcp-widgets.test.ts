@@ -126,6 +126,7 @@ function monter(o: { widgets?: WidgetRow[]; liens?: string[]; scenarios?: Array<
       isBlockedByWaId: jamais('isBlockedByWaId'),
       analysesEtResumes: jamais('analysesEtResumes'),
       suiviSegments: jamais('suiviSegments'),
+      produitsVus: jamais('produitsVus'),
     },
     listerMembres: jamais('listerMembres'),
     scenariosApi: scenariosApiInerte,

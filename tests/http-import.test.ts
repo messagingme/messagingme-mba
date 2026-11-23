@@ -63,7 +63,10 @@ class FakeFields implements UserFieldStore {
 
 // Capture des appels de requête filtrée (pour asserter le parsing des query params -> ContactFilters + le
 // routage query vs list). Partagé par les tests qui en ont besoin via un objet passé à inject.
-type QueryCapture = { queryFilters: unknown[]; countFilters: unknown[]; idsFilters: unknown[] };
+type QueryCapture = {
+  queryFilters: unknown[]; countFilters: unknown[]; idsFilters: unknown[];
+  produits?: Array<{ t: string; recherche: string | undefined; limite: number }>;
+};
 
 /** Trace d'audit telle que la route l'écrit. `journal` est fourni par les tests qui l'observent. */
 interface Trace { action: string; target: { kind: string; id: string }; detail: Record<string, unknown>; actor: { userId: string | null } }
@@ -83,6 +86,10 @@ function inject(contacts: ContactStore, userFields: UserFieldStore, cap?: QueryC
         count: async (_t: string, filters: ContactFilters) => { cap?.countFilters.push(filters); return 3; },
         idsForFilters: async (_t: string, filters: ContactFilters) => { cap?.idsFilters.push(filters); return ['c2', 'c3']; },
         suiviSegments: async () => ({ boutique: { devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null } }),
+        produitsVus: async (t: string, recherche: string | undefined, limite: number) => {
+          cap?.produits?.push({ t, recherche, limite });
+          return [{ produitId: '8801', sku: 'SER-30', titre: 'Sérum vitamine C', varianteTitre: '30 ml', commandes: 4 }];
+        },
       }),
       userFields,
       audit: journalMuet,
@@ -197,8 +204,24 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
+      // 🔴 L'annonce des critères produit (lot 3) : sans elle, la console ne les propose pas.
+      produits: true,
     });
     expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments' })).statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('GET des produits vus : la recherche de l’espace, 20 au plus, la requête bornée à 80 caractères ; 401 sans session', async () => {
+    const cap: QueryCapture = { queryFilters: [], countFilters: [], idsFilters: [], produits: [] };
+    const app = inject(new FakeContacts(), new FakeFields(), cap);
+    const url = `/tenants/t1/contacts/segments/produits?q=${encodeURIComponent(`sérum${'x'.repeat(100)}`)}`;
+    const res = await app.inject({ method: 'GET', url, headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ produits: [{ produitId: '8801', sku: 'SER-30', titre: 'Sérum vitamine C', varianteTitre: '30 ml', commandes: 4 }] });
+    expect(cap.produits).toEqual([{ t: 't1', recherche: `sérum${'x'.repeat(75)}`, limite: 20 }]);
+    await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/produits', headers: { authorization: `Bearer ${token}` } });
+    expect(cap.produits?.[1]).toEqual({ t: 't1', recherche: undefined, limite: 20 });
+    expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/produits' })).statusCode).toBe(401);
     await app.close();
   });
 

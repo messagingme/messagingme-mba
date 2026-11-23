@@ -1,7 +1,7 @@
 ---
 description: Launch a WhatsApp or RCS campaign in five steps: the name, the channel, the content, the audience, then the summary and sending.
 slug: launch-a-campaign
-traduit_de: d5a5f3
+traduit_de: 6b1d52
 ---
 # Launch a campaign
 
@@ -77,7 +77,8 @@ several tags, marketing consent, the start or part of the number, the value of a
 disengagement risk level, what the latest analysis says). A counter tells you live how many contacts match.
 
 The “Purchases and activity” part of the filters adds the contacts active or inactive for a number of days, in every
-workspace. The number of orders, the amount spent and the date of the last order are in the **Shopify** section of
+workspace. The number of orders, the amount spent, the date of the last order and the products bought are in the
+**Shopify** section of
 the filters, which needs a **connected Shopify store**; the audience’s **Shopify** button shows the same list, with
 that section open. Without a store, neither appears (see the “Connect my Shopify store” page).
 

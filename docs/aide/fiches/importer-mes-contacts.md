@@ -1,7 +1,7 @@
 ---
 ecran: contacts
 source_section: Contacts & CRM
-source_empreinte: 340919
+source_empreinte: f424fb
 publique: oui
 rubrique: parler-aux-clients
 rang: 4
@@ -55,7 +55,8 @@ campagne qu'il vous faut.
 
 La partie « Achats et activité » des filtres marche dans tous les espaces : les contacts actifs (qui vous ont écrit ou
 ont cliqué un lien suivi) dans les derniers jours, ou inactifs depuis un nombre de jours, ceux qui n'ont jamais rien
-fait compris. Les critères de commande (nombre de commandes payées, montant dépensé, date de la dernière commande) sont
+fait compris. Les critères de commande (nombre de commandes payées, montant dépensé, date de la dernière commande,
+produits achetés) sont
 dans le volet **Shopify** des filtres, replié tant que vous ne l'ouvrez pas. Il demande une **boutique Shopify
 branchée** (Tools > Intégrations) : nous ne connaissons une commande que parce que Shopify nous l'envoie. Sans
 boutique, il n'apparaît pas. Avec, ses critères comptent les commandes payées depuis le branchement de la boutique,

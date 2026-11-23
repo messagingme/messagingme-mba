@@ -123,6 +123,22 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
                       </span>
                       : t('Non attribuée à WhatsApp', 'Not attributed to WhatsApp')}
                   </span>
+                  {/* Ses produits (lot 3) : rien n'est dit d'une commande reçue avant, ni d'une API qui ne les envoie pas. */}
+                  {c.lignes && c.lignes.length > 0 && (
+                    <ul className="w-full space-y-0.5 pl-1 text-xs text-ink-600" data-testid="fiche-shopify-lignes">
+                      {c.lignes.map((l, i) => (
+                        <li key={i} data-testid="fiche-shopify-ligne">
+                          {l.quantite} × {l.titre}{l.varianteTitre && ` · ${l.varianteTitre}`}{l.sku && <span className="text-ink-400"> ({l.sku})</span>}
+                          {l.carteCadeau && <span className="text-ink-400"> · {t('carte cadeau', 'gift card')}</span>}
+                        </li>
+                      ))}
+                      {c.lignesTronquees && (
+                        <li className="text-ink-400" data-testid="fiche-shopify-lignes-tronquees">
+                          {t('Liste incomplète : seules les 250 premières lignes de la commande sont gardées.', 'Incomplete list: only the first 250 lines of the order are kept.')}
+                        </li>
+                      )}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>

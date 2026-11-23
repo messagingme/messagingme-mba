@@ -22,6 +22,14 @@ describe('lireAchatsShopify', () => {
     expect(lireAchatsShopify(COMPLET)).toEqual(COMPLET);
   });
 
+  it('les lignes d’une commande (lot 3) se lisent ; une ligne illisible s’écarte seule ; absentes, elles restent absentes', () => {
+    const ligne = { titre: 'Sérum', varianteTitre: '30 ml', sku: 'SER-30', quantite: 2, carteCadeau: false };
+    const avec = { ...COMPLET, commandes: [{ ...COMPLET.commandes[0], lignes: [ligne, { titre: '', quantite: 1 }, { titre: 'Cadeau', quantite: 0 }], lignesTronquees: true }] };
+    expect(lireAchatsShopify(avec)?.commandes[0]).toEqual({ ...COMPLET.commandes[0], lignes: [ligne], lignesTronquees: true });
+    // Une API d'avant le lot 3 : aucune clé `lignes`, l'écran n'en dit rien (jamais « aucun produit »).
+    expect(lireAchatsShopify(COMPLET)?.commandes[0]).not.toHaveProperty('lignes');
+  });
+
   it('un espace sans boutique se lit tel quel', () => {
     expect(lireAchatsShopify({ ...COMPLET, boutique: null, commandes: [], paniers: [] })?.boutique).toBeNull();
   });

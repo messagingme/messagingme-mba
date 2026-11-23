@@ -1,4 +1,4 @@
-import { montantBoutique, telephoneDeCommande, type CommandeShopify } from './donnees';
+import { lignesDeCommande, montantBoutique, telephoneDeCommande, type CommandeShopify } from './donnees';
 import { DELAI_PREUVE_MS } from './preuve-utm';
 import type { BoutiqueRecue, DepsTraitementShopify } from './traitement';
 import type { DetailsCommande } from './store.pg';
@@ -96,6 +96,9 @@ export function detailsDeCommande(c: CommandeShopify, b: Pick<BoutiqueRecue, 'de
   return {
     payeeLe: new Date(Number.isNaN(traitee) ? maintenant() : traitee),
     montant: montant?.montant ?? null, devise: montant?.devise ?? null, test: c.test === true,
+    // Les lignes voyagent avec le détail : les DEUX écritures de la commande (ici et après la confirmation) les portent,
+    // sinon le premier achat d'un client neuf, connu seulement après la confirmation, resterait sans produits.
+    lignes: lignesDeCommande(c),
   };
 }
 

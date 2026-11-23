@@ -375,6 +375,22 @@ describe('l’état et la coupure', () => {
     });
   });
 
+  it('get_shopify_state rend les produits vus des commandes (lot 3) ; une lecture en panne rend une liste vide, jamais un outil en échec', async () => {
+    const { deps } = monter();
+    const outil = OUTILS.find((x) => x.nom === 'get_shopify_state')!;
+    const lus: Array<[string, string | undefined, number]> = [];
+    const avec = { ...mcpDe(deps), contacts: { produitsVus: async (t: string, r: string | undefined, n: number) => {
+      lus.push([t, r, n]);
+      return [{ produitId: '8801', sku: 'SER-30', titre: 'Sérum vitamine C', varianteTitre: '30 ml', commandes: 4 }];
+    } } } as unknown as DepsMcp;
+    expect(await outil.executer(avec, T, {}, PERSONNE)).toMatchObject({
+      products_seen: [{ product_id: '8801', sku: 'SER-30', title: 'Sérum vitamine C', variant: '30 ml', orders: 4 }],
+    });
+    expect(lus).toEqual([[T, undefined, 20]]);
+    const enPanne = { ...mcpDe(deps), contacts: { produitsVus: async () => { throw new Error('relation "shopify_commande_lignes" does not exist'); } } } as unknown as DepsMcp;
+    expect(await outil.executer(enPanne, T, {}, PERSONNE)).toMatchObject({ store: 'b.myshopify.com', products_seen: [] });
+  });
+
   it('couper est idempotent et rend la page d’où désinstaller l’app', async () => {
     const { deps } = monter();
     expect(await couperShopify(deps, T)).toEqual({ ok: true, valeur: { dejaCoupee: false, pageApps: 'https://admin.shopify.com/store/b/settings/apps' } });

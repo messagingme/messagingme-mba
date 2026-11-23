@@ -4,7 +4,8 @@ import { champFiche } from './champs-fiche';
 import { estCleFiltrable, estOperateurFicheSeul, lireFiltreFiche } from './filtre-fiche';
 import { paysConnu, paysPrincipalDe } from './segments';
 import {
-  BORNES_SEGMENTS, CLES_SEGMENT, OP_SEGMENT, estCleSegment, type CleSegment, type PlageSurJours,
+  BORNES_SEGMENTS, CLES_SEGMENT, OP_SEGMENT, estCleSegment,
+  type AchatsVises, type CleSegment, type PlageSurJours, type ProduitVise, type Reassort,
 } from '../../web/lib/partage/segments';
 
 /**
@@ -49,7 +50,7 @@ export function normalizeFieldFilters(raw: unknown[]): ContactFieldFilter[] {
   if (lus.length > MAX_FIELD_FILTERS && lus.some((f) => estCleSegment(f.key))) {
     throw new FiltreContactInvalide(`${MAX_FIELD_FILTERS} filtres de champ au plus, critères d’achats et d’activité compris`);
   }
-  return lus
+  const filtres = lus
     .slice(0, MAX_FIELD_FILTERS)
     .map((f): ContactFieldFilter => {
       const key = String(f.key).slice(0, MAX_FIELD_KEY);
@@ -75,11 +76,17 @@ export function normalizeFieldFilters(raw: unknown[]): ContactFieldFilter[] {
         value: typeof f.value === 'string' ? String(f.value).slice(0, MAX_FIELD_VALUE) : '',
       };
     });
+  // 🔴 « N'a pas acheté » SEUL viserait presque tout l'espace (spec, chantier 1) : refusé, comme « au moins 0 commande ».
+  if (filtres.some((f) => f.key === CLES_SEGMENT.pasAchete) && !filtres.some((f) => f.key === CLES_SEGMENT.achete)) {
+    throw new FiltreContactInvalide('filtre « n’a pas acheté » : seulement avec « a acheté » ; seul, il viserait presque tout l’espace');
+  }
+  return filtres;
 }
 
 /** Le nom d'un critère de segment dans la phrase d'un refus. */
 const NOMS_SEGMENT: Record<CleSegment, string> = {
   [CLES_SEGMENT.commandes]: 'commandes', [CLES_SEGMENT.depense]: 'dépense', [CLES_SEGMENT.derniereCommande]: 'dernière commande',
+  [CLES_SEGMENT.achete]: 'a acheté', [CLES_SEGMENT.pasAchete]: 'n’a pas acheté', [CLES_SEGMENT.reassort]: 'réassort',
   [CLES_SEGMENT.actif]: 'actif', [CLES_SEGMENT.inactif]: 'inactif', [CLES_SEGMENT.pays]: 'pays',
 };
 
@@ -88,7 +95,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
  * ignorée : JSON illisible, clé inconnue, borne hors plage, minimum au-dessus du maximum, pays inconnu, et pour le nombre
  * de commandes et la dépense « au moins 0 » sans maximum, qui viserait tout l'espace.
  */
-export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | number | string[] {
+export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | number | string[] | AchatsVises | Reassort {
   const nom = NOMS_SEGMENT[cle];
   let v: unknown;
   try { v = typeof brut === 'string' ? JSON.parse(brut) as unknown : undefined; } catch { v = undefined; }
@@ -97,10 +104,60 @@ export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | num
     case CLES_SEGMENT.commandes: return lirePlage(v, nom, { max: BORNES_SEGMENTS.commandesMax, entier: true, avecJours: true, restreint: true });
     case CLES_SEGMENT.depense: return lirePlage(v, nom, { max: BORNES_SEGMENTS.depenseMax, entier: false, avecJours: true, restreint: true });
     case CLES_SEGMENT.derniereCommande: return lirePlage(v, nom, { max: BORNES_SEGMENTS.joursMax, entier: true, avecJours: false, restreint: false });
+    case CLES_SEGMENT.achete:
+    case CLES_SEGMENT.pasAchete: return lireAchats(v, nom);
+    case CLES_SEGMENT.reassort: return lireReassort(v, nom);
     case CLES_SEGMENT.actif:
     case CLES_SEGMENT.inactif: return lireJours(v, nom);
     case CLES_SEGMENT.pays: return lirePays(v);
   }
+}
+
+/** Un produit visé : `{ produit }` (son identifiant Shopify, des chiffres) OU `{ sku }`, jamais les deux ni rien d'autre. */
+function lireProduitVise(v: unknown, nom: string): ProduitVise {
+  const refus = (raison: string): never => { throw new FiltreContactInvalide(`filtre « ${nom} » : ${raison}`); };
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return refus('un produit { produit } ou { sku } est attendu');
+  const o = v as Record<string, unknown>;
+  const cles = Object.keys(o);
+  if (cles.length !== 1 || (cles[0] !== 'produit' && cles[0] !== 'sku')) {
+    return refus('chaque produit porte « produit » (son identifiant Shopify) ou « sku », l’un des deux seulement');
+  }
+  if (cles[0] === 'produit') {
+    const p = typeof o.produit === 'number' && Number.isSafeInteger(o.produit) && o.produit > 0 ? String(o.produit) : o.produit;
+    if (typeof p !== 'string' || !/^\d{1,30}$/.test(p.trim())) return refus('« produit » : l’identifiant Shopify du produit, en chiffres');
+    return { produit: p.trim() };
+  }
+  const sku = typeof o.sku === 'string' ? o.sku.trim() : '';
+  if (sku === '' || sku.length > BORNES_SEGMENTS.skuMax) return refus(`« sku » : un texte de 1 à ${BORNES_SEGMENTS.skuMax} caractères`);
+  return { sku };
+}
+
+/** « A acheté » ou « n'a pas acheté » : `{ produits, jours? }`, de 1 à `produitsMax` produits, dédupliqués. */
+function lireAchats(v: unknown, nom: string): AchatsVises {
+  const refus = (raison: string): never => { throw new FiltreContactInvalide(`filtre « ${nom} » : ${raison}`); };
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return refus('un objet { produits, jours } est attendu');
+  const o = v as Record<string, unknown>;
+  const inconnues = Object.keys(o).filter((k) => k !== 'produits' && k !== 'jours');
+  if (inconnues.length > 0) refus(`clé inconnue (${inconnues.join(', ')}) ; seules produits, jours`);
+  if (!Array.isArray(o.produits) || o.produits.length === 0) refus('au moins un produit');
+  const liste = o.produits as unknown[];
+  if (liste.length > BORNES_SEGMENTS.produitsMax) refus(`${BORNES_SEGMENTS.produitsMax} produits au plus`);
+  const produits = [...new Map(liste.map((p) => lireProduitVise(p, nom)).map((p) => [JSON.stringify(p), p] as const)).values()];
+  const jours = o.jours !== undefined && o.jours !== null ? lireJours(o.jours, nom) : undefined;
+  return { produits, ...(jours !== undefined ? { jours } : {}) };
+}
+
+/** Le réassort : un produit (ou un SKU) et sa plage de jours depuis le dernier achat, au moins une borne. */
+function lireReassort(v: unknown, nom: string): Reassort {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) {
+    throw new FiltreContactInvalide(`filtre « ${nom} » : un objet { produit ou sku, min, max } est attendu`);
+  }
+  const { min, max, ...produit } = v as Record<string, unknown>;
+  const p = lireProduitVise(produit, nom);
+  const plage = lirePlage({ ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) }, nom, {
+    max: BORNES_SEGMENTS.joursMax, entier: true, avecJours: false, restreint: false,
+  });
+  return { ...p, ...plage };
 }
 
 /** Un nombre de jours : entier de 1 à `joursMax`. */

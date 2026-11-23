@@ -3116,7 +3116,9 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   un taux proche de 0 % des semaines durant. Une commande payée à la livraison entre à son `orders/paid`. `lire` range
   chaque commande expédiée de la période dans la première part qui s'applique, sur `campaign_recipients` joint par une
   campagne DE L'ESPACE : livrée (`delivered` ou `read`), supprimée (`failed` 131026 d'une ligne que la purge a
-  anonymisée, `to_e164 = 'anonyme'` : un 131026 dont la fiche est gardée reste en attente), puis le classement. Le
+  anonymisée, `to_e164 = 'anonyme'`), puis le classement, puis « en attente » (un message encore en vol : pas parti, ou
+  un simple `sent`) et enfin « pas de message livrable » (aucun message relié, ou tous en échec, un 131026 dont la fiche
+  est gardée compris ; la sixième part, décidée par Julien le 2026-11-23 et livrée avec le lot 3). Le
   filtre d'espace du lien et celui de la campagne ont chacun leur cas dans l'intégration : l'un masquait l'autre.
   🔴 **Tout s'écrit au mieux**, pour que 0310 ne soit pas bloquante : `joignabiliteAuMieux` dans le traitement, la garde
   de `envoyerShopify` autour du rappel ; une commande se classe ligne éteinte et pause comprises, jamais pour une
@@ -3131,7 +3133,25 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   `GET /tenants/:tenantId/stats/joignabilite` (fonction `statistiques`) rend `JoignabiliteShopify`
   (`web/lib/partage/joignabilite-shopify.ts`) ; la console cache la carte sur un 404 ou un corps illisible
   (`lireJoignabilite` refuse des parts qui ne font pas le total), et l'arrondi n'y produit jamais un faux « 0 % » ni un
-  faux « 100 % » (`pourcentLisible`) ;
+  faux « 100 % » (`pourcentLisible`) ; une réponse à cinq parts (API d'avant le lot 3) se lit encore, sans sixième ligne ;
+- 🔴 **les lignes des commandes payées s'écrivent avec la commande, au mieux** (segments Shopify enrichis, lot 3,
+  migration 0311). `lignesDeCommande` (`src/shopify/donnees.ts`) lit `line_items` sans jamais refuser la commande (une
+  ligne illisible s'écarte seule ; 250 au plus, dans l'ordre du corps, `shopify_commandes.lignes_tronquees` au-delà ;
+  ni prix ni montant). Elles voyagent dans `DetailsCommande`, et `lierCommande` les écrit après la commande, aux DEUX
+  appels (l'attribution et la confirmation), par une instruction à part dont la panne se journalise
+  (`shopify_lignes_non_notees`) : 🔴 une erreur de `lierCommande` rendrait 503 à Shopify sur le chemin de la
+  confirmation, et le webhook se rejouerait jusqu'au désabonnement. `shopify_commande_lignes` pointe sa commande par
+  une clé étrangère en cascade : la purge d'une fiche, `customers/redact` et l'effacement du branchement l'emportent.
+  Les critères « a acheté » (TOUS les produits, une sous-requête chacun), « n'a pas acheté » (AUCUN ; refusé seul par
+  `normalizeFieldFilters`, il viserait presque tout l'espace) et « réassort » (le DERNIER achat d'un produit, un achat
+  connu exigé) vivent dans `src/crm/segments.ts` ; une carte cadeau n'y entre jamais (décision de Julien du
+  2026-11-23). 🔴 `ligneVisee` reprend MOT POUR MOT le prédicat des deux index partiels (`tests/contact-where.test.ts`
+  le tient, et `tests/integration/shopify-produits.integration.test.ts` vérifie l'index servi). La console ne les
+  propose que sur `produits: true` de `GET .../contacts/segments` ; `GET .../contacts/segments/produits` cherche les
+  produits DÉJÀ VUS (jamais le catalogue, 20 au plus, `%` et `_` à la lettre), et `get_shopify_state` en rend les 20
+  plus achetés à l'assistant, au mieux. L'onglet Shopify de la fiche lit les lignes par une requête à part, au mieux :
+  il existait avant elles et ne doit pas tomber avec elles. Les collections attendent le lot 6 et son droit
+  `read_products` (décision de Julien du 2026-11-23) ;
 - **le secret qui vérifie doit être celui de la boutique relue** : le cache d'une minute ne laisse pas passer un
   webhook de l'ancienne app après une reconnexion, et `shop/redact` n'efface jamais une boutique `connectee` ;
 - 🔴 **la relance de panier est balayée DANS L'API** (`src/shopify/relance.ts`, la minuterie d'une minute de

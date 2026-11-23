@@ -1,6 +1,6 @@
 import { request } from './http';
 import { SOURCES_VENTES, type SourceVente } from './ventes';
-import type { AchatsShopifyVue, CommandeShopifyVue, PanierShopifyVue } from './partage/achats-shopify';
+import type { AchatsShopifyVue, CommandeShopifyVue, LigneCommandeVue, PanierShopifyVue } from './partage/achats-shopify';
 
 /**
  * L'onglet « Shopify » de la fiche contact (plan 2026-11-16) : la réponse de `GET .../contacts/:id/shopify`, lue
@@ -21,7 +21,19 @@ function lireCommande(v: unknown): CommandeShopifyVue | null {
   const attribution = estObjet(a) && (SOURCES_VENTES as readonly unknown[]).includes(a.source)
     ? { source: a.source as SourceVente, campagne: texte(a.campagne), preuve: a.preuve === 'panier' ? 'panier' as const : a.preuve === 'utm' ? 'utm' as const : null }
     : null;
-  return { commandeId: v.commandeId, payeeLe: v.payeeLe, montant: decimal(v.montant), devise: texte(v.devise), test: v.test === true, attribution };
+  // Les lignes (lot 3) : absentes d'une API plus ancienne, ou illisibles en base ; l'écran n'en dit alors rien.
+  const lignes = Array.isArray(v.lignes) ? liste(v.lignes, lireLigne) : undefined;
+  return {
+    commandeId: v.commandeId, payeeLe: v.payeeLe, montant: decimal(v.montant), devise: texte(v.devise), test: v.test === true, attribution,
+    ...(lignes === undefined ? {} : { lignes, lignesTronquees: v.lignesTronquees === true }),
+  };
+}
+
+/** Une ligne de commande lisible, ou `null` (écartée seule) : un titre, une quantité entière d'au moins 1. */
+function lireLigne(v: unknown): LigneCommandeVue | null {
+  if (!estObjet(v) || typeof v.titre !== 'string' || v.titre === '') return null;
+  if (typeof v.quantite !== 'number' || !Number.isInteger(v.quantite) || v.quantite < 1) return null;
+  return { titre: v.titre, varianteTitre: texte(v.varianteTitre), sku: texte(v.sku), quantite: v.quantite, carteCadeau: v.carteCadeau === true };
 }
 
 function lirePanier(v: unknown): PanierShopifyVue | null {

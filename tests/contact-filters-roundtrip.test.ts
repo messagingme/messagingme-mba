@@ -209,3 +209,56 @@ describe('les critères de segment : dans fieldFilters, refusés au moindre déf
     expect(() => parCorps([...vingt, { key: 'champ20', op: 'eq', value: 'x' }])).not.toThrow();
   });
 });
+
+/**
+ * LES CRITÈRES PRODUIT (segments Shopify enrichis, lot 3) : « a acheté », « n'a pas acheté », « réassort ». Même règle
+ * que les autres critères : refusés au moindre défaut, par les deux portes. 🔴 « N'a pas acheté » seul viserait presque
+ * tout l'espace : il est refusé sans « a acheté ».
+ */
+describe('les critères produit : formes canoniques et refus', () => {
+  const S = CLES_SEGMENT;
+  const brut = (key: string, value: unknown) => ({ key, op: 'segment', value: JSON.stringify(value) });
+  const parGet = (champs: unknown[]): unknown => parseFilters({ fields: JSON.stringify(champs) });
+  const parCorps = (champs: unknown[]): unknown => parseBulkTarget({ filters: { fieldFilters: champs } });
+
+  it('chaque critère survit au round-trip sous sa forme canonique', () => {
+    const tous: ContactFilters = { fieldFilters: [
+      filtreSegment(S.achete, { produits: [{ produit: '8801' }, { sku: 'SER-30' }], jours: 90 }),
+      filtreSegment(S.pasAchete, { produits: [{ sku: 'SER-60' }] }),
+      filtreSegment(S.reassort, { produit: '8801', min: 60, max: 120 }),
+    ] };
+    expect(roundTrip(tous)).toEqual(tous);
+  });
+
+  it('la valeur est ramenée à sa forme : identifiant numérique en texte, espaces retirés, doublons fusionnés', () => {
+    expect(parCorps([brut(S.achete, { produits: [{ produit: 8801 }, { produit: ' 8801 ' }, { sku: ' SER-30 ' }] })]))
+      .toEqual({ filters: { fieldFilters: [filtreSegment(S.achete, { produits: [{ produit: '8801' }, { sku: 'SER-30' }] })] }, excludeIds: [] });
+  });
+
+  const malformes: Array<[string, unknown]> = [
+    ['aucun produit', brut(S.achete, { produits: [] })],
+    ['produits absents', brut(S.achete, { jours: 30 })],
+    ['21 produits', brut(S.achete, { produits: Array.from({ length: 21 }, (_, i) => ({ produit: String(i + 1) })) })],
+    ['produit ET sku sur la même entrée', brut(S.achete, { produits: [{ produit: '1', sku: 'A' }] })],
+    ['identifiant qui n’est pas en chiffres', brut(S.achete, { produits: [{ produit: 'gid://shopify/Product/1' }] })],
+    ['sku vide', brut(S.achete, { produits: [{ sku: '  ' }] })],
+    ['sku au-delà de 255 caractères', brut(S.achete, { produits: [{ sku: 'x'.repeat(256) }] })],
+    ['clé inconnue', brut(S.achete, { produits: [{ produit: '1' }], depuis: 3 })],
+    ['jours à 0', brut(S.achete, { produits: [{ produit: '1' }], jours: 0 })],
+    ['réassort sans borne', brut(S.reassort, { produit: '1' })],
+    ['réassort sans produit', brut(S.reassort, { min: 30 })],
+    ['réassort, minimum au-dessus du maximum', brut(S.reassort, { sku: 'A', min: 90, max: 30 })],
+    ['réassort, clé inconnue', brut(S.reassort, { sku: 'A', min: 30, jours: 7 })],
+  ];
+  it.each(malformes)('🔴 refusé par les deux portes : %s', (_nom, champ) => {
+    expect(() => parCorps([champ])).toThrow(FiltreContactInvalide);
+    expect(() => parGet([champ])).toThrow(FiltreContactInvalide);
+  });
+
+  it('🔴 « n’a pas acheté » seul est refusé par les deux portes ; avec « a acheté », il passe', () => {
+    const seul = brut(S.pasAchete, { produits: [{ sku: 'SER-60' }] });
+    expect(() => parCorps([seul])).toThrow('seulement avec « a acheté »');
+    expect(() => parGet([seul])).toThrow(FiltreContactInvalide);
+    expect(() => parCorps([brut(S.achete, { produits: [{ sku: 'SER-30' }] }), seul])).not.toThrow();
+  });
+});

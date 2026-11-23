@@ -5,7 +5,9 @@ import { ficheActive } from '../crm/contact-store.pg';
 import { BOUNDS_CTE, STATS_TZ, type DateRange } from '../stats/range';
 import { LIGNE_RELANCE_PANIER, PREFIXE_LIGNE_SHOPIFY, type SourceVente, type Touche, type VenteAttribuee } from './attribution';
 import { campagneLevier, ligneDuMessage, origineLevier, sourceDeCampagne, sourceDeLaLigne, sourceDeLOrigine } from './perimetre-leviers';
-import { BORNES_ACHATS, type AchatsShopifyVue } from '../../web/lib/partage/achats-shopify';
+import { BORNES_ACHATS, type AchatsShopifyVue, type LigneCommandeVue } from '../../web/lib/partage/achats-shopify';
+import { journaliser } from '../lib/journal';
+import { messageDe } from '../lib/erreur';
 
 /**
  * Ce que la base somme pour une période (plan 2026-10-30, lot 2) : les montants sont des décimaux en TEXTE, additionnés
@@ -351,6 +353,7 @@ export class PgVentesStore {
         ),
     ]);
     const r = resume.rows[0];
+    const lignes = await this.lignesDesCommandes(tenantId, commandes.rows.map((x) => x.commande_id));
     return {
       boutique: {
         nom: b.nom, domaine: b.domaine, devise: b.devise, commandesDepuis: b.commandes_depuis.toISOString(), coupeeLe: b.coupee_le?.toISOString() ?? null,
@@ -362,11 +365,52 @@ export class PgVentesStore {
       commandes: commandes.rows.map((x) => ({
         commandeId: x.commande_id, payeeLe: x.payee_le.toISOString(), montant: x.montant, devise: x.devise, test: x.test,
         attribution: x.source === null ? null : { source: x.source, campagne: x.campagne, preuve: x.preuve },
+        ...(lignes === null ? {} : { lignes: lignes.get(x.commande_id)?.lignes ?? [], lignesTronquees: lignes.get(x.commande_id)?.tronquees ?? false }),
       })),
       paniers: paniers.rows.map((x) => ({
         ouvertLe: x.ouvert_le.toISOString(), relanceLe: x.relance_le?.toISOString() ?? null, fermeLe: x.ferme_le?.toISOString() ?? null, issue: x.issue,
       })),
     };
+  }
+
+  /**
+   * 🔴 LES LIGNES DES COMMANDES AFFICHÉES (segments Shopify enrichis, lot 3), AU MIEUX : l'onglet existait avant elles, il
+   * ne doit pas tomber avec elles. Une panne (la table pas encore créée, migration 0311 non bloquante) rend `null`, et
+   * l'onglet reste celui d'avant, sans lignes. Dans l'ordre de Shopify (l'identifiant de ligne croît), dans l'espace.
+   */
+  private async lignesDesCommandes(
+    tenantId: string, commandeIds: readonly string[],
+  ): Promise<Map<string, { lignes: LigneCommandeVue[]; tronquees: boolean }> | null> {
+    if (commandeIds.length === 0) return new Map();
+    try {
+      const [lignes, tronquees] = await Promise.all([
+        this.pool.query<{ commande_id: string; titre: string; variante_titre: string | null; sku: string | null; quantite: number; carte_cadeau: boolean }>(
+          `select commande_id, titre, variante_titre, sku, quantite, carte_cadeau
+             from shopify_commande_lignes
+            where tenant_id = $1 and commande_id = any($2::text[])
+            order by commande_id, length(ligne_id), ligne_id`,
+          [tenantId, commandeIds],
+        ),
+        this.pool.query<{ commande_id: string }>(
+          `select commande_id from shopify_commandes where tenant_id = $1 and commande_id = any($2::text[]) and lignes_tronquees`,
+          [tenantId, commandeIds],
+        ),
+      ]);
+      const parCommande = new Map(commandeIds.map((id) => [id, { lignes: [] as LigneCommandeVue[], tronquees: false }]));
+      for (const l of lignes.rows) {
+        parCommande.get(l.commande_id)?.lignes.push({
+          titre: l.titre, varianteTitre: l.variante_titre, sku: l.sku, quantite: l.quantite, carteCadeau: l.carte_cadeau,
+        });
+      }
+      for (const t of tronquees.rows) {
+        const c = parCommande.get(t.commande_id);
+        if (c) c.tronquees = true;
+      }
+      return parCommande;
+    } catch (err) {
+      journaliser('warn', 'shopify_lignes_illisibles', { tenantId, erreur: messageDe(err) });
+      return null;
+    }
   }
 
   private async lire(

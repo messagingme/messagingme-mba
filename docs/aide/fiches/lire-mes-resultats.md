@@ -1,7 +1,7 @@
 ---
 ecran: perf-synthese
 source_section: Analytics (menu Analytics)
-source_empreinte: e8e538
+source_empreinte: 50e0d8
 ---
 # Lire mes résultats dans le Performance Lab
 
@@ -54,8 +54,9 @@ campagnes qui n'ont rien vendu.
 En bas de la même page, la carte **Joignabilité WhatsApp** dit combien de vos **commandes expédiées** ont reçu au
 moins un WhatsApp **livré** (la confirmation ou l'avis d'expédition, reçu par le téléphone et pas seulement accepté
 par Meta). Le taux se compte en commandes : une commande qui a reçu ses deux messages compte une fois. Les autres
-commandes se rangent en quatre lignes : sans numéro, numéro invalide ou fixe, échec avec contact supprimé (le numéro
-ne recevait pas WhatsApp), et en attente d'accusé. Sans commande expédiée sur la période, la carte ne donne pas de
+commandes se rangent en cinq lignes : sans numéro, numéro invalide ou fixe, échec avec contact supprimé (le numéro
+ne recevait pas WhatsApp), en attente d'accusé (un message parti, pas encore reçu), et pas de message livrable (aucun
+message n'est parti, par exemple une automation éteinte ou un STOP, ou il a échoué). Sans commande expédiée sur la période, la carte ne donne pas de
 pourcentage. Les commandes de test sont annoncées à part, hors du taux. La carte compte les commandes payées depuis
 sa mise en service, le 23 novembre 2026.
 

@@ -17,8 +17,11 @@ export function lireJoignabilite(brut: unknown): JoignabiliteVue | null {
   const o = brut as Record<string, unknown>;
   const cles = ['expediees', 'messagesLivres', 'livrees', 'supprimees', 'sansNumero', 'invalides', 'enAttente', 'testExpediees'] as const;
   if (!cles.every((k) => entier(o[k]))) return null;
+  // La sixième part (lot 3) : absente d'une API plus ancienne, qui comptait ces commandes en attente ; présente, un entier.
+  if (o.pasLivrable !== undefined && !entier(o.pasLivrable)) return null;
   const v = Object.fromEntries(cles.map((k) => [k, o[k] as number])) as unknown as JoignabiliteVue;
-  if (v.livrees + v.supprimees + v.sansNumero + v.invalides + v.enAttente !== v.expediees) return null;
+  if (o.pasLivrable !== undefined) v.pasLivrable = o.pasLivrable as number;
+  if (v.livrees + v.supprimees + v.sansNumero + v.invalides + v.enAttente + (v.pasLivrable ?? 0) !== v.expediees) return null;
   return v;
 }
 

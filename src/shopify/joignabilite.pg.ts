@@ -92,7 +92,7 @@ export class PgJoignabiliteStore {
   async lire(tenantId: string, range: DateRange): Promise<JoignabiliteShopify> {
     const res = await this.pool.query<{
       test: boolean; expediees: number; messages: number; livrees: number; supprimees: number; sans_numero: number;
-      invalides: number; en_attente: number;
+      invalides: number; en_attente: number; pas_livrable: number;
     }>(
       `with ${BOUNDS_CTE},
        expediees as (
@@ -103,7 +103,10 @@ export class PgJoignabiliteStore {
        messages as (
          select e.commande_id,
                 count(*) filter (where r.delivery_status in ('delivered', 'read')) as livres,
-                bool_or(r.delivery_status = 'failed' and r.error_code = $5::integer and r.to_e164 = 'anonyme') as supprimee
+                bool_or(r.delivery_status = 'failed' and r.error_code = $5::integer and r.to_e164 = 'anonyme') as supprimee,
+                -- Encore en vol : pas encore parti, ou parti sans accusé définitif (un simple « sent »).
+                bool_or(r.status in ('pending', 'sending')
+                        or (r.status = 'sent' and (r.delivery_status is null or r.delivery_status = 'sent'))) as en_vol
            from shopify_envois e
            join campaigns c on c.id = e.campaign_id and c.tenant_id = $1
            join campaign_recipients r on r.campaign_id = e.campaign_id
@@ -116,7 +119,8 @@ export class PgJoignabiliteStore {
                      when coalesce(m.supprimee, false) then 'supprimee'
                      when x.classement = 'sans_numero' then 'sans_numero'
                      when x.classement = 'invalide' then 'invalide'
-                     else 'en_attente' end as issue
+                     when coalesce(m.en_vol, false) then 'en_attente'
+                     else 'pas_livrable' end as issue
            from expediees x left join messages m on m.commande_id = x.commande_id
        )
        select test,
@@ -126,7 +130,8 @@ export class PgJoignabiliteStore {
               count(*) filter (where issue = 'supprimee')::int as supprimees,
               count(*) filter (where issue = 'sans_numero')::int as sans_numero,
               count(*) filter (where issue = 'invalide')::int as invalides,
-              count(*) filter (where issue = 'en_attente')::int as en_attente
+              count(*) filter (where issue = 'en_attente')::int as en_attente,
+              count(*) filter (where issue = 'pas_livrable')::int as pas_livrable
          from issues
         group by test`,
       [tenantId, range.from, range.to, STATS_TZ, CODE_SANS_WHATSAPP],
@@ -141,6 +146,7 @@ export class PgJoignabiliteStore {
       sansNumero: reel?.sans_numero ?? 0,
       invalides: reel?.invalides ?? 0,
       enAttente: reel?.en_attente ?? 0,
+      pasLivrable: reel?.pas_livrable ?? 0,
       testExpediees: test?.expediees ?? 0,
     };
   }

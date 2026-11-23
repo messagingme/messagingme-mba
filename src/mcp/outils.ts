@@ -2,6 +2,7 @@ import { ficheOutilMcp, MAX_MESSAGES_MCP as LIMITE_MESSAGES_MCP, type ScopeMcp }
 import type { ConversationSummary, ConversationMessage, ListConversationsOptions, ControlOwner } from '../inbox/store.pg';
 import type { AnalyseEtResume, BulkEdits, BulkTarget, ContactRow, ContactFilters, IssueActionEnMasse } from '../crm/contact-store.pg';
 import type { SuiviSegments } from '../crm/segments';
+import type { ProduitVuVue } from '../../web/lib/partage/segments';
 import {
   repondreAvecUnMessage, repondreDansLaFenetre,
   type ConversationsRepondre, type DepsRepondre, type RefusReponse, type ResultatReponse,
@@ -98,6 +99,8 @@ export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp {
     contactIdsForTarget(tenantId: string, target: BulkTarget, limite?: number): Promise<string[]>;
     /** La boutique et ses dates de suivi : un critère de commande sans boutique est refusé (`lireCibleMcp`). */
     suiviSegments(tenantId: string): Promise<SuiviSegments>;
+    /** Les produits déjà vus dans les commandes de l'espace (`get_shopify_state`, lot 3) : de quoi viser un critère produit. */
+    produitsVus(tenantId: string, recherche: string | undefined, limite: number): Promise<ProduitVuVue[]>;
     /** L'action en masse du mini-CRM (`tag_contacts`) : la MÊME écriture que la route, qui n'émet rien. */
     applyEditsMany(tenantId: string, target: BulkTarget, edits: BulkEdits): Promise<IssueActionEnMasse>;
     findByPhone(tenantId: string, phoneE164: string): Promise<ContactRow | null>;

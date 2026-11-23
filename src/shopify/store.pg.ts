@@ -1,8 +1,10 @@
 import type { Pool, PoolClient } from 'pg';
 import { decryptSecret, encryptSecret } from '../crypto/secretbox';
 import { enTransaction } from '../db/transaction';
-import { estDonneeShopify, type DonneeShopify, type EvenementShopify } from './donnees';
+import { estDonneeShopify, type DonneeShopify, type EvenementShopify, type LignesDeCommande } from './donnees';
 import { effacerJoignabiliteDuBranchement } from './joignabilite.pg';
+import { journaliser } from '../lib/journal';
+import { messageDe } from '../lib/erreur';
 import type { LigneShopify } from './lignes';
 import { LIGNES_DU_PANIER, autreRelanceDuPanier, lignesDe, type AutomationShopify } from '../../web/lib/partage/shopify-messages';
 
@@ -124,6 +126,8 @@ export interface DetailsCommande {
   montant: string | null;
   devise: string | null;
   test: boolean;
+  /** Les lignes du paiement (segments Shopify enrichis, lot 3), écrites au mieux avec la commande. */
+  lignes?: LignesDeCommande;
 }
 
 /** Un panier réclamé pour sa relance : le scénario de la ligne du panier dit ce qui part (`./premier-bloc.ts`). */
@@ -674,6 +678,39 @@ export class PgShopifyStore {
          test = case when $8::boolean is null then shopify_commandes.test else excluded.test end`,
       [tenantId, commandeId, clientId, contactId, details?.payeeLe ?? null, details?.montant ?? null, details?.devise ?? null, details?.test ?? null],
     );
+    if (details?.lignes) await this.noterLignes(tenantId, commandeId, details.lignes);
+  }
+
+  /**
+   * 🔴 LES LIGNES D'UNE COMMANDE NOTÉE, AU MIEUX, JAMAIS UNE PANNE DE `lierCommande` (segments Shopify enrichis, lot 3) :
+   * sur le chemin de la confirmation, une erreur de `lierCommande` fait rendre 503 à Shopify, qui réessaierait (et
+   * finirait par désabonner le webhook) tant que la table manque. Une panne ici se journalise : la commande reste notée,
+   * ses critères de nombre et de dépense comptent, seules ses lignes manquent. Rejouée, elle réécrit les mêmes lignes.
+   */
+  private async noterLignes(tenantId: string, commandeId: string, l: LignesDeCommande): Promise<void> {
+    try {
+      if (l.lignes.length > 0) {
+        await this.pool.query(
+          `insert into shopify_commande_lignes
+             (tenant_id, commande_id, ligne_id, produit_id, variante_id, sku, titre, variante_titre, quantite, carte_cadeau)
+           select $1, $2, x.ligne_id, x.produit_id, x.variante_id, x.sku, x.titre, x.variante_titre, x.quantite, x.carte_cadeau
+             from jsonb_to_recordset($3::jsonb) as x(ligne_id text, produit_id text, variante_id text, sku text, titre text,
+                                                     variante_titre text, quantite integer, carte_cadeau boolean)
+           on conflict (tenant_id, commande_id, ligne_id) do update set
+             produit_id = excluded.produit_id, variante_id = excluded.variante_id, sku = excluded.sku, titre = excluded.titre,
+             variante_titre = excluded.variante_titre, quantite = excluded.quantite, carte_cadeau = excluded.carte_cadeau`,
+          [tenantId, commandeId, JSON.stringify(l.lignes.map((x) => ({
+            ligne_id: x.ligneId, produit_id: x.produitId, variante_id: x.varianteId, sku: x.sku, titre: x.titre,
+            variante_titre: x.varianteTitre, quantite: x.quantite, carte_cadeau: x.carteCadeau,
+          })))],
+        );
+      }
+      if (l.tronquees) {
+        await this.pool.query(`update shopify_commandes set lignes_tronquees = true where tenant_id = $1 and commande_id = $2`, [tenantId, commandeId]);
+      }
+    } catch (err) {
+      journaliser('warn', 'shopify_lignes_non_notees', { tenantId, erreur: messageDe(err) });
+    }
   }
 
   /** Les fiches liées à ces commandes ou à ce client Shopify, dans l'espace. */

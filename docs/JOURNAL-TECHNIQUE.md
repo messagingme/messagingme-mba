@@ -5,6 +5,38 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : segments Shopify, lot 3 : les produits achetés, le réassort, la sixième part
+
+Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-3-produits.md`, implémenteur par lot et revue humaine du
+diff. Les lignes de chaque commande payée sont gardées depuis `orders/paid` (0311, `shopify_commande_lignes` : produit,
+variante, SKU, titres, quantité, carte cadeau ; ni téléphone, ni nom, ni adresse ; 250 lignes au plus, au-delà la
+commande porte `lignes_tronquees`). Trois critères de segment en sortent, dans le volet Shopify des filtres (Contacts,
+Audience d'une campagne) et dans le MCP (`bought`, `not_bought`, `days_since_product`) : « a acheté » (TOUS les produits
+choisis, par produit ou par SKU, sur N jours si posé), « n'a pas acheté » (AUCUN, et seulement avec « a acheté » : seul,
+il viserait presque tout l'espace) et le réassort (le DERNIER achat d'un produit dans une plage de jours). La console
+cherche parmi les produits déjà vus dans les commandes (`GET /contacts/segments/produits`, les plus achetés d'abord) et
+ne propose ces critères que si l'API annonce `produits: true`. L'onglet Shopify de la fiche montre les lignes de chaque
+commande, `get_shopify_state` les produits vus. Les deux index partiels de 0311 reprennent mot pour mot le prédicat des
+requêtes (`ligneVisee`), tenu par un test du texte et par un plan d'exécution sur le banc. Hors des critères neufs, tout
+ce qui écrit ou lit les lignes le fait au mieux (la commande s'enregistre, l'onglet s'affiche, le MCP répond même sans
+la table) : la migration n'est pas bloquante. La sixième part de la carte Joignabilité, « pas de message livrable »
+(automation éteinte, STOP ou échec), sort de « en attente » ce qui n'a plus rien en vol ; la console lit encore une API
+qui ne la donne pas.
+Arbitrages de Julien, en questions fermées : les collections attendront le lot 6 ; une carte cadeau reste sur sa
+commande (elle compte dans les commandes et la dépense) mais aucun critère de produit ne la vise ; la demande
+`customers/data_request` par e-mail sera un lot RGPD à part (`todo.md`).
+Douze mutations, toutes rouges, dont une restée VERTE au premier passage : le réassort calculé sur le PREMIER achat
+passait, aucun client du jeu n'ayant acheté deux fois le même produit ; un achat ancien du même sérum, ajouté à A, la
+fait rougir. La relecture : aucun rouge, six jaunes. La description de `find_contacts` cite désormais les critères
+produit ; la date écrite dans la fiche d'aide de la boutique (« depuis le 23 novembre 2026 ») se vérifie au
+déploiement ; quatre au `todo.md` (la recherche des produits vus relit toutes les lignes de l'espace, une panne
+passagère de `noterLignes` perd les lignes de sa commande, le nom d'un produit absent d'un brouillon rechargé, un rejeu
+qui ne retire pas de ligne). Vérifié : suite racine (un délai dépassé dans un test de l'agent IA pendant une
+construction de la console, rejoué seul et vert), typage, lint, auto-attaque ; console (lint, types, suite entière,
+les 27 e2e des trois pages sur la build de production) ; sur le banc PGlite, l'intégration, les douze mutations et la
+sonde de relecture de la 0311 (lecture seule, le vrai code). Au passage, `todo.md` portait depuis le 21 novembre un
+octet nul (un « \0 » écrit littéralement) qui le faisait lire comme un fichier binaire : remplacé.
+
 ## 2026-11-23 : segments Shopify, lot 2b : la carte « Joignabilité WhatsApp »
 
 Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-2-numeros.md`, implémenteur par lot et revue humaine du

@@ -439,6 +439,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
       suiviSegments: async () => ({ boutique: null }),
+      produitsVus: async () => [],
     },
     listerMembres: async () => [],
     scenariosApi: scenariosApiInerte,
