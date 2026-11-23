@@ -24,6 +24,11 @@ export interface CommandeShopifyVue {
   montant: string | null;
   devise: string | null;
   test: boolean;
+  /**
+   * Sa première expédition (`shopify_joignabilite.expediee_le`, segments Shopify lot 2b), lue aussi par l'agent IA
+   * (`mba_lire_contact`, 2026-11-23). Nul : pas encore expédiée, ou expédiée avant que l'expédition soit notée.
+   */
+  expedieeLe?: string | null;
   /** Ce que WhatsApp a rapporté de cette commande, ou `null` si elle ne lui est pas attribuée. */
   attribution: { source: SourceVenteVue; campagne: string | null; preuve: 'panier' | 'utm' | null } | null;
   /**

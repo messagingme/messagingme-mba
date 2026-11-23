@@ -2,7 +2,7 @@
 description: Créer un agent IA WhatsApp, le régler en parlant à l'assistant ou onglet par onglet, l'activer, puis le faire répondre à vos clients.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 3f44cd
+source_empreinte: d3f96d
 publique: oui
 rubrique: parler-aux-clients
 rang: 10
@@ -60,6 +60,9 @@ réponses de fond : ses pages sont lues et découpées en fiches pendant que vou
   n'est pas relu, pour ne pas écraser vos corrections.
 - Le trombone « Joindre un fichier » ajoute un document ou une photo à la base : voir « Remplir la base de connaissance
   d'un agent IA ».
+- Si Shopify ou HubSpot est branché, il demande ensuite si l'agent doit se servir de ce que vos fiches clients
+  reçoivent : les commandes et le lien de suivi pour Shopify, les champs importés pour HubSpot. Répondez oui, et la
+  proposition active « Lire la fiche du contact » : l'agent pourra répondre à « où en est ma commande ? ».
 
 **5. Avec l'assistant : garder, corriger ou jeter chaque ligne.** Le tour du sujet fait, il affiche « Ce que ça
 changerait » : chaque réglage proposé, la valeur d'avant barrée. Relisez, puis « Enregistrer ».

@@ -58,6 +58,7 @@ function lesDeux(fiches: FicheTrouvee[]) {
     poserTag: async () => {},
     ecrireChamp: async () => {},
     lireAnalyse: async () => null,
+    lireAchatsShopify: async () => null,
     connaissance,
   };
   return { production: creerResolveurMba(prod), simulation: creerResolveurSimulation({ connaissance }) };

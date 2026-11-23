@@ -119,7 +119,7 @@ import type { ModelesDeBlocDep } from './http/workflows';
 import { importContacts } from './crm/import';
 import type { DepsGestionShopify } from './shopify/gestion';
 import { FILE_OUBLI_MODELE } from './shopify/preparation';
-import { traiterWebhookShopify, type DepsTraitementShopify } from './shopify/traitement';
+import { CHAMP_LIEN_SUIVI, traiterWebhookShopify, type DepsTraitementShopify } from './shopify/traitement';
 import { relancerPaniers, type DepsRelance } from './shopify/relance';
 import { effacerContacts } from './crm/effacement';
 import { signalDeLAccuse, signalDuClic } from './signaux/emetteur';
@@ -1776,6 +1776,12 @@ async function main(): Promise<void> {
     // L'exécuteur ENTIER : la fermeture d'un panier arrête son parcours, la relance laisse la place au panier le plus récent.
     parcours: workflowRuntime.executor,
     ficheParTelephone: async (tenant, e164) => (await contactStore.findByPhone(tenant, e164))?.id ?? null,
+    // Le lien de suivi du dernier colis (agent IA, 2026-11-23) : le champ se déclare au premier lien de l'espace, puis
+    // s'écrit par `ecrireChampsFiche`, qui n'émet aucun événement d'automation.
+    ecrireLienDeSuivi: async (tenant, contactId, lien) => {
+      await ensureFieldByKey(fieldStore, tenant, CHAMP_LIEN_SUIVI, 'Lien de suivi (Shopify)', 'url');
+      await contactStore.ecrireChampsFiche(tenant, contactId, { poser: { [CHAMP_LIEN_SUIVI]: lien }, retirer: [] });
+    },
     // Le chiffre d'affaires attribué (plan 2026-10-28) : le store partagé avec sa lecture.
     ventes: ventesStore,
     // Sa preuve par UTM, relue par le worker 30 minutes après la commande (tâche 6b).
@@ -2826,7 +2832,7 @@ async function main(): Promise<void> {
       etatCourant: async (tenant, agentId) => {
         const fiche = await agentStore.complet(tenant, agentId);
         if (!fiche) return null;
-        const [outils, fiches, sources, catalogue, offrables] = await Promise.all([
+        const [outils, fiches, sources, catalogue, offrables, boutique, champsDeclares] = await Promise.all([
           toolCatalog.listToutes(tenant, agentId),
           knowledgeStore.lister(tenant, agentId),
           // Les sources déclarées de l'espace, branchées sur cet agent ou non, pour répondre « vous avez
@@ -2839,9 +2845,20 @@ async function main(): Promise<void> {
           // Ce que le catalogue permet de lui offrir : la règle unique, que l'assistant ne recalcule pas. Il écarte
           // seulement ce que le catalogue marque `nomPris` (0211).
           toolCatalog.offrablesPour(tenant, consommateurAgent(agentId)),
+          // Les intégrations qui écrivent sur les fiches (point `donnees_client`, 2026-11-23) : la boutique Shopify, et
+          // les champs HubSpot importés (leur clé commence par `hs_`, `cleChampHubspot`). AU MIEUX : une donnée annexe
+          // illisible retire la question, elle ne coûte pas le tour d'entretien.
+          shopifyStore.lire(tenant).catch(() => null),
+          fieldStore.list(tenant).catch(() => []),
         ]);
         return {
           label: fiche.label,
+          integrations: {
+            shopify: boutique !== null && boutique.etat !== 'coupee',
+            hubspot: champsDeclares
+              .filter((c) => /^hs_(contact|deal|calc)_/.test(c.key))
+              .map((c) => c.label.replace(/\s*\(HubSpot\)\s*$/, '')),
+          },
           // Nommé dans le bloc « Pour finir » de l'entretien (`blocDeFin`) : le modèle est posé à la création.
           modele: fiche.modele,
           // Le régime d'annonce d'IA, que l'entretien pose : il vient de l'espace, pas de la fiche (la

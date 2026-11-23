@@ -1,7 +1,8 @@
 import type { ChatMessage } from '../llm/chat-client';
 import { neutraliserDelimiteurs } from '../bloc-donnees';
 import {
-  momentDuPoint, ordreDuJour, pointsSansContenu, prochainsPoints, pistesDe, type EtatEntretien, type Inventaire,
+  momentDuPoint, ordreDuJour, pointsSansContenu, prochainsPoints, pistesDe, type EtatEntretien, type IntegrationsFiche,
+  type Inventaire,
 } from './couverture';
 import { LIBELLES_MENTION, OUTILS_PROPOSABLES, dureeEnClair, type EtatCourant } from './proposition';
 
@@ -238,6 +239,11 @@ export interface ContexteConstruction extends EtatCourant {
   /** Les scénarios EN LIGNE de l'espace (`scenariosAPoser`) : listés par la question du moyen, et seuls à pouvoir
    *  être visés par l'outil que l'entretien propose. Absent = aucun. */
   scenarios?: Array<{ id: string; nom: string }>;
+  /**
+   * Les intégrations qui écrivent sur les fiches clients (Shopify branché, champs HubSpot importés) : elles ouvrent le point
+   * `donnees_client` de l'entretien, qui ne nomme qu'elles. Absent = aucune.
+   */
+  integrations?: IntegrationsFiche;
 }
 
 /**
@@ -256,6 +262,7 @@ export function inventaireDe(ctx: ContexteConstruction): Inventaire {
     outilsApi,
     outilsMcp,
     ...(ctx.scenarios && ctx.scenarios.length > 0 ? { scenarios: ctx.scenarios.map((s) => s.nom) } : {}),
+    ...(ctx.integrations ? { integrations: ctx.integrations } : {}),
     /** Un système déjà branché n'est pas reproposé « à relier ». Par `sourceId` : le titre d'un outil et le
      *  libellé de son système n'ont aucune raison d'être égaux. */
     systemesApi: actives

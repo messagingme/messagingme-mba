@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { traiterWebhookShopify, type BoutiqueRecue, type DepsTraitementShopify } from '../src/shopify/traitement';
+import { lienDeSuivi, traiterWebhookShopify, type BoutiqueRecue, type DepsTraitementShopify } from '../src/shopify/traitement';
 import { envoyerShopify, noterIssueShopify, pontDuPremierBloc, variablesDuDestinataire, type EnvoyerPublic } from '../src/shopify/envoi';
 import type { Reservation } from '../src/shopify/store.pg';
 import type { Emission } from '../src/emails-produit/emission';
@@ -186,6 +186,8 @@ function monter(o: {
   /** L'arrêt des parcours en panne. */
   arretLeve?: boolean;
   joignabilite?: FauxJoignabilite;
+  /** L'écriture du lien de suivi en panne. */
+  lienLeve?: boolean;
 } = {}) {
   const journal = {
     reserve: [] as string[], issues: [] as Array<[string, string]>, liberes: [] as string[], liees: [] as unknown[],
@@ -194,6 +196,8 @@ function monter(o: {
     paniers: [] as unknown[], fermes: [] as string[], fermesExistants: [] as string[], fermesParNumero: [] as string[],
     paniersEffaces: [] as string[],
     preuves: [] as Array<{ job: JobPreuve; quand: Date }>,
+    /** Les liens de suivi écrits sur une fiche : espace, fiche, lien. */
+    liens: [] as Array<[string, string, string]>,
     /** L'ordre des arrêts de parcours et des envois. */
     ordre: [] as string[],
   };
@@ -244,6 +248,10 @@ function monter(o: {
       journal.preuves.push({ job, quand });
     },
     joignabilite,
+    ecrireLienDeSuivi: async (t, fiche, lien) => {
+      if (o.lienLeve) throw new Error('champ indisponible');
+      journal.liens.push([t, fiche, lien]);
+    },
   };
   return { deps, journal, offres, parcours, joignabilite };
 }
@@ -973,5 +981,48 @@ describe('la joignabilité des commandes (lot 2b)', () => {
     await traiterWebhookShopify(deps, BOUTIQUE, 'customers/redact', { customer: { id: 77 }, orders_to_redact: [1002, 1003] });
     await traiterWebhookShopify(deps, BOUTIQUE, 'customers/redact', { customer: { id: 78 } });
     expect(joignabilite.effacees).toEqual([['1002', '1003'], []]);
+  });
+});
+
+/**
+ * 🔴 LE LIEN DE SUIVI SUR LA FICHE (agent IA, 2026-11-23). L'agent le lit avec la fiche pour répondre « où en est ma
+ * commande ? ». Écrit à chaque expédition, ligne éteinte et pause comprises (une donnée, pas un envoi), jamais sur une
+ * fiche créée pour l'occasion, et jamais au prix du message d'expédition.
+ */
+describe('le lien de suivi sur la fiche (agent IA)', () => {
+  const EXPEDIEE: MessageDeTest = { ...MESSAGE, evenement: 'order_fulfilled', modele: 'colis_parti', variables: [] };
+
+  it('🔴 il s’écrit sur la fiche du numéro de l’expédition, ligne éteinte et pause comprises', async () => {
+    const { deps, journal } = monter({ messages: [] });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', expedition);
+    await traiterWebhookShopify(deps, { ...BOUTIQUE, pause: true }, 'fulfillments/create', { ...expedition, id: 5002, tracking_url: 'https://suivi/6A2' });
+    expect(journal.liens).toEqual([[T, 'fiche-1', 'https://suivi/6A1'], [T, 'fiche-1', 'https://suivi/6A2']]);
+    expect(journal.envois).toEqual([]);
+  });
+
+  it('rien sans fiche, sans lien, ou avec un lien qui n’est pas une adresse http(s) entière ; rien pour une boutique coupée', async () => {
+    const { deps, journal } = monter({ messages: [] });
+    const autre = { ...expedition.destination, phone: '+33611111111' };
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', { ...expedition, destination: autre });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', { ...expedition, tracking_url: null });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', { ...expedition, tracking_url: 'javascript:alert(1)' });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', { ...expedition, tracking_url: 'https://suivi/6A1 et la suite' });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', { ...expedition, tracking_url: `https://suivi/${'x'.repeat(1000)}` });
+    await traiterWebhookShopify(deps, { ...BOUTIQUE, etat: 'coupee' }, 'fulfillments/create', expedition);
+    expect(journal.liens).toEqual([]);
+  });
+
+  it('🔴 une écriture en panne ne coûte ni le message d’expédition, ni son issue, ni la réponse à Shopify', async () => {
+    const { deps, journal } = monter({ messages: [EXPEDIEE], lienLeve: true });
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', expedition)).toEqual({ statut: 200 });
+    expect(journal.envois).toHaveLength(1);
+    expect(journal.issues.map(([, issue]) => issue)).toEqual(['envoye']);
+    expect(journal.liberes).toEqual([]);
+  });
+
+  it('le lien se lit entier, jamais coupé à la borne d’une variable de message', () => {
+    const long = `https://suivi.example/${'a'.repeat(400)}`;
+    expect(lienDeSuivi({ ...expedition, tracking_url: long })).toBe(long);
+    expect(lienDeSuivi({ ...expedition, tracking_url: '  http://suivi/6A1  ' })).toBe('http://suivi/6A1');
   });
 });

@@ -55,6 +55,19 @@ export interface Inventaire {
   /** Les outils MCP déjà branchés sur cet agent, par leur nom exposé : séparés des connecteurs API, pour ne
    *  pas promettre un appel API sur un outil MCP. */
   outilsMcp: string[];
+  /** Les intégrations qui écrivent sur les fiches clients (`pointDonneesClient`). Absent = aucune. */
+  integrations?: IntegrationsFiche;
+}
+
+/**
+ * Les intégrations branchées dont la fiche client reçoit des données que l'agent peut lire (`mba_lire_contact`,
+ * 2026-11-23).
+ */
+export interface IntegrationsFiche {
+  /** Une boutique Shopify branchée (non coupée) : les commandes du contact et le lien de suivi de son dernier colis. */
+  shopify: boolean;
+  /** Les libellés des champs HubSpot importés sur les fiches (Tools > Intégrations). Vide : rien d'importé. */
+  hubspot: string[];
 }
 
 export const INVENTAIRE_VIDE: Inventaire = { outilsApi: [], systemesApi: [], mcp: [], outilsMcp: [] };
@@ -204,8 +217,55 @@ export const AGENDA: Point[] = [
 
 const PAR_CODE = new Map(AGENDA.map((p) => [p.code, p]));
 
+/**
+ * 🔴 LE POINT DES DONNÉES DE LA FICHE (2026-11-23, décision de Julien) : n'existe que si une intégration écrit sur les
+ * fiches clients, et sa question ne nomme QUE celles qui le font (`pointDonneesClient`). Hors de `AGENDA`, qui reste
+ * l'ordre du jour de tous les espaces ; son code est connu partout où une réponse se range.
+ */
+export const CODE_DONNEES_CLIENT = 'donnees_client';
+/** Le point après lequel il se pose : on vient de parler de l'origine des réponses de fond. */
+const APRES_DONNEES_CLIENT = 'connaissance';
+/** L'ordre dans lequel les réponses se rangent : celui de l'ordre du jour, le point conditionnel à sa place. */
+const ORDRE_DES_CODES = AGENDA.flatMap((p) => (p.code === APRES_DONNEES_CLIENT ? [p.code, CODE_DONNEES_CLIENT] : [p.code]));
+
 /** Les codes valables, pour l'énumération du schéma montré au modèle. */
-export const CODES_POINTS = AGENDA.map((p) => p.code) as [string, ...string[]];
+export const CODES_POINTS = [...ORDRE_DES_CODES] as [string, ...string[]];
+const CODES_CONNUS: ReadonlySet<string> = new Set(ORDRE_DES_CODES);
+
+/** Combien de champs HubSpot la question nomme ; au-delà, « et N autres ». */
+const CHAMPS_HUBSPOT_NOMMES = 6;
+
+/**
+ * La question des données de la fiche, ou `null` sans intégration qui en écrive. Elle ne parle QUE de ce qui est
+ * branché : Shopify seul, HubSpot seul, ou les deux. Sur un oui, l'assistant propose l'outil `lire_contact`, avec les
+ * mots qui disent à l'agent QUAND le lire.
+ */
+export function pointDonneesClient(inv: Inventaire): Point | null {
+  const i = inv.integrations;
+  const shopify = i?.shopify === true;
+  const hubspot = (i?.hubspot ?? []).map((l) => l.replace(/\s+/g, ' ').trim().slice(0, 60)).filter((l) => l !== '');
+  if (!shopify && hubspot.length === 0) return null;
+  const nommes = hubspot.slice(0, CHAMPS_HUBSPOT_NOMMES);
+  const reste = hubspot.length - nommes.length;
+  const sources = [
+    ...(shopify ? ['de Shopify : les commandes du client (paiement, produits, expédition) et le lien de suivi de son dernier colis'] : []),
+    ...(hubspot.length > 0 ? [`de HubSpot : ${enumerer(nommes)}${reste > 0 ? ` et ${reste} autre${reste > 1 ? 's' : ''}` : ''}`] : []),
+  ];
+  const exemple = shopify
+    ? 'répondre à « où en est ma commande ? » en donnant le lien de suivi'
+    : 'personnaliser ses réponses avec ce que HubSpot sait du client';
+  return {
+    code: CODE_DONNEES_CLIENT,
+    sujet: 'l’usage des données de la fiche client',
+    question: `Vos fiches clients reçoivent des données ${sources.join(', et ')}. Votre agent doit-il s’en servir pour répondre, par exemple pour ${exemple} ?`,
+    aObtenir: `si l’agent doit lire la fiche du client pour répondre avec les données ${sources.join(', et ')}. `
+      + 'S’il dit oui, propose l’outil `lire_contact` dans `outils`, avec une description qui dit QUAND l’appeler (par '
+      + `exemple : avant de répondre à une question ${shopify ? 'sur une commande ou une livraison' : 'qui touche à son dossier'}) `
+      + 'et un « ne pas utiliser » qui interdit d’inventer une donnée absente de la fiche. S’il dit non, ne le propose pas. '
+      + 'Ne parle d’aucune intégration qui n’est pas nommée ici',
+    pistes: ['oui, pour répondre sur ses commandes et sa livraison', 'oui, pour personnaliser les réponses', 'non, pas pour l’instant'],
+  };
+}
 
 /** Une réponse retenue par l'assistant, rattachée à un point de l'ordre du jour. */
 export interface Reponse {
@@ -239,7 +299,7 @@ export interface EtatEntretien {
 /** Une réponse est retenue si elle porte un code connu et un contenu. Le reste vient d'un modèle, donc d'une
  *  source non fiable : inventer un code ne doit rien débloquer, et ne doit rien casser non plus. */
 function retenues(reponses: readonly Reponse[]): Reponse[] {
-  return reponses.filter((r) => PAR_CODE.has(r.point) && r.valeur.trim() !== '');
+  return reponses.filter((r) => CODES_CONNUS.has(r.point) && r.valeur.trim() !== '');
 }
 
 /** Les bascules réellement exploitables : un moment non vide. Le reste vient d'un modèle. */
@@ -281,9 +341,11 @@ export function agendaEffectif(etat: EtatEntretien, inv: Inventaire = INVENTAIRE
       });
     }
   });
+  const donnees = pointDonneesClient(inv);
   const out: Point[] = [];
   for (const p of AGENDA) {
     out.push(p);
+    if (p.code === APRES_DONNEES_CLIENT && donnees) out.push(donnees);
     if (p.collecteDesMoments) out.push(...engendres);
   }
   return out;
@@ -424,7 +486,7 @@ export function fusionner(etat: readonly Reponse[], nouvelles: readonly Reponse[
   const par = new Map(etat.map((r) => [r.point, r]));
   for (const r of retenues(nouvelles)) par.set(r.point, r);
   // Ordre de l'agenda, pas d'arrivée : l'état se relit comme le questionnaire.
-  return AGENDA.map((p) => par.get(p.code)).filter((r): r is Reponse => r !== undefined);
+  return ORDRE_DES_CODES.map((code) => par.get(code)).filter((r): r is Reponse => r !== undefined);
 }
 
 /**

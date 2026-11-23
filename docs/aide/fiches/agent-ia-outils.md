@@ -2,7 +2,7 @@
 description: Donner des outils à un agent IA : les gestes toujours là, puis un tag, une information, un bloc, un scénario, une action ou des étapes.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 3f44cd
+source_empreinte: d3f96d
 publique: oui
 rubrique: parler-aux-clients
 rang: 15
@@ -26,7 +26,9 @@ IA : cliquez sur « Activer » pour chacun de ceux dont il a besoin.
   n'a répondu ; le parcours sort par « Transfert à un humain ». L'agent ne reprend jamais la parole tout seul.
 - « Chercher dans la base de connaissance » : à appeler avant toute question de fond.
 - « Lire la fiche du contact » : son nom, ses champs et sa dernière analyse (sentiment, satisfaction, urgence, sujet).
-  Jamais la fiche de quelqu'un d'autre.
+  Ses champs comprennent ceux que HubSpot importe et le lien de suivi de son dernier colis Shopify. Si une boutique
+  Shopify est branchée, ses commandes récentes aussi : paiement, montant, produits, expédition. Jamais la fiche de
+  quelqu'un d'autre.
 - « Marquer la conversation urgente » : elle passe dans le dossier « Urgent » de l'Inbox, et l'agent continue de répondre.
 - Sans aucun outil actif, l'agent peut parler, mais ne peut rien faire, pas même terminer.
 

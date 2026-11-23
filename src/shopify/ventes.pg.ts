@@ -330,13 +330,14 @@ export class PgVentesStore {
       ),
       this.pool.query<{
         commande_id: string; payee_le: Date; montant: string | null; devise: string | null; test: boolean;
-        source: SourceVente | null; campagne: string | null; preuve: 'panier' | 'utm' | null;
+        source: SourceVente | null; campagne: string | null; preuve: 'panier' | 'utm' | null; expediee_le: Date | null;
       }>(
         `select o.commande_id, o.payee_le, trim_scale(o.montant)::text as montant, o.devise, o.test,
-                v.source, k.name as campagne, v.preuve
+                v.source, k.name as campagne, v.preuve, j.expediee_le
            from shopify_commandes o
            left join ventes_attribuees v on v.tenant_id = o.tenant_id and v.commande_id = o.commande_id
            left join campaigns k on k.id = v.campaign_id and k.tenant_id = o.tenant_id
+           left join shopify_joignabilite j on j.tenant_id = o.tenant_id and j.commande_id = o.commande_id
           where o.tenant_id = $1 and o.contact_id = $2
           order by o.payee_le desc, o.commande_id desc
           limit ${BORNES_ACHATS.commandes}`,
@@ -365,6 +366,7 @@ export class PgVentesStore {
       commandes: commandes.rows.map((x) => ({
         commandeId: x.commande_id, payeeLe: x.payee_le.toISOString(), montant: x.montant, devise: x.devise, test: x.test,
         attribution: x.source === null ? null : { source: x.source, campagne: x.campagne, preuve: x.preuve },
+        expedieeLe: x.expediee_le?.toISOString() ?? null,
         ...(lignes === null ? {} : { lignes: lignes.get(x.commande_id)?.lignes ?? [], lignesTronquees: lignes.get(x.commande_id)?.tronquees ?? false }),
       })),
       paniers: paniers.rows.map((x) => ({

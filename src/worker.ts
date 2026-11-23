@@ -2407,6 +2407,8 @@ export async function demarrerWorker(): Promise<void> {
     // Les vrais outils maison, à comparer à `resolvers/simulation.ts` (bac à sable) : ici chaque dépendance
     // touche le monde réel.
     const actionsAgent = new PgActionsAgent(pool);
+    // La lecture de l'onglet Shopify de la fiche, que `mba_lire_contact` rend aussi à l'agent (2026-11-23).
+    const ventesDeLaFiche = new PgVentesStore(pool);
     const resolveurMba = creerResolveurMba({
       // Les actions de l'agent (plan du 2026-10-13) : une fois par jour, par contact et par action, puis le webhook
       // `agent.action` (la distribution d'espace, comme `template.status_changed`), la frise et l'automation
@@ -2446,6 +2448,12 @@ export async function demarrerWorker(): Promise<void> {
       ecrireChamp: async (t, waId, cle, valeur) => { await contactStore.mergeFieldsByPhone(t, waId, { [cle]: valeur }); },
       // `mba_lire_contact` : la dernière analyse et son résumé, lus pour le contact du tour seulement.
       lireAnalyse: (t, waId) => contactStore.analyseEtResumeParWaId(t, waId),
+      // `mba_lire_contact` (2026-11-23) : les achats Shopify de la MÊME lecture que l'onglet de la fiche, pour le contact
+      // du tour seulement. Le store est appelé sur son objet (ses méthodes lisent `this.pool`).
+      lireAchatsShopify: async (t, waId) => {
+        const fiche = await contactStore.findIdByWaId(t, waId);
+        return fiche === null ? null : ventesDeLaFiche.achatsDuContact(t, fiche);
+      },
       connaissance: knowledgeStore,
       // Le rappel vectoriel et le verdict du reranker. `null` sans clé du Gateway : la recherche retombe sur le
       // plein texte.

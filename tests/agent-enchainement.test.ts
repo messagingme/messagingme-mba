@@ -55,6 +55,7 @@ function harnais(over: Partial<DepsResolveurMba> = {}) {
     poserTag: async (_t, _w, tag) => { journal.push(`tag:${tag}`); },
     ecrireChamp: async (_t, _w, cle, valeur) => { journal.push(`champ:${cle}=${valeur}`); },
     lireAnalyse: async () => null,
+    lireAchatsShopify: async () => null,
     connaissance: { chercher: async () => [] },
     ...over,
   };

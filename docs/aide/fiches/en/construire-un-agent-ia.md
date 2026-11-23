@@ -1,6 +1,6 @@
 ---
 slug: build-an-ai-agent
-traduit_de: da8b12
+traduit_de: afe40a
 description: Create a WhatsApp AI agent, set it up by talking to the assistant or tab by tab, activate it, then have it answer your customers.
 ---
 # Build an AI agent
@@ -52,6 +52,9 @@ answers come from: its pages are read and split into entries while you carry on.
 - The entries wait for you in the Knowledge base tab, to reread and fix. A site already imported by hand is not read
   again, so as not to overwrite your fixes.
 - The “Attach a file” paperclip adds a document or a photo to the base: see “Fill an AI agent’s knowledge base”.
+- If Shopify or HubSpot is connected, it then asks whether the agent should use what your customer records receive:
+  the orders and the tracking link for Shopify, the imported fields for HubSpot. Answer yes, and the proposal
+  activates “Read the contact record”: the agent will be able to answer “where is my order?”.
 
 **5. With the assistant: keep, edit or drop each line.** Once the topic is covered, it shows “What this would change”:
 each proposed setting, with the previous value struck through. Reread, then “Save”.

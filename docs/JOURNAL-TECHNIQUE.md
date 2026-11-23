@@ -5,6 +5,29 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : l'agent IA lit ce que Shopify et HubSpot écrivent sur la fiche
+
+Demande de Julien : un agent créé après le branchement de Shopify ou de HubSpot doit pouvoir répondre avec ce que ces
+intégrations écrivent sur la fiche (« où en est ma commande ? » → le lien de suivi), et « Construire en parlant » doit
+le proposer. Constat avant le lot : l'outil « Lire la fiche du contact » rendait déjà les champs HubSpot importés, rien
+de Shopify (les commandes vivent à part, le lien de suivi était lu pour le message d'expédition puis jeté), et
+l'entretien ignorait les intégrations. Décisions de Julien, en questions fermées : une question dédiée, posée seulement
+si une intégration est branchée, qui ne nomme que celle-là ; le dernier lien de suivi seul, sur la fiche, sans
+rattrapage. Plan `docs/superpowers/plans/2026-11-23-agent-donnees-de-fiche.md`, méthode en direct, sans migration.
+Trois pièces : le lien de suivi écrit au mieux dans le champ `shopify_lien_suivi` à chaque expédition (ligne éteinte et
+pause comprises, jamais une fiche créée, aucun événement d'automation) ; les commandes récentes rendues par l'outil
+(la lecture de l'onglet Shopify, qui gagne la date d'expédition, réduite à paiement, montant, produits, expédition :
+ni attribution ni chiffre rapporté) ; le point `donnees_client` de l'entretien, hors de `AGENDA`, inséré après
+`connaissance` quand une intégration écrit sur les fiches. Le piège du lot : le point vivait d'abord dans `AGENDA`,
+ce qui changeait l'ordre du jour de TOUS les espaces et les attentes de dizaines de tests ; hors de `AGENDA`, son code
+doit quand même être connu du schéma et de la fusion des réponses, sinon sa réponse est jetée et la question revient.
+Fiches d'aide publiques retouchées (outils de l'agent, construire un agent), leurs versions anglaises et la vitrine
+régénérée. Neuf mutations scriptées, toutes rouges, fichiers restaurés à l'empreinte. La relecture : aucun rouge, six jaunes ; un corrigé dans le lot (la lecture des intégrations est au mieux : illisible,
+elle retire la question au lieu de coûter le tour d'entretien), cinq au `todo.md`. Vérifié : typage (racine et console),
+lint, auto-attaque (2 179 sondes, aucune trouvaille), suite racine entière (18 633 tests, 0 échec), tests d'aide et de
+vitrine. Non mesuré : le vrai modèle d'entretien devant la nouvelle question, et un vrai colis ; l'essai réel du plan
+clôt le lot.
+
 ## 2026-11-23 : segments Shopify, lot 4 : « A écrit sans commander » et « A cliqué sans commander »
 
 Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-4-sans-commander.md`, implémenteur par lot et revue

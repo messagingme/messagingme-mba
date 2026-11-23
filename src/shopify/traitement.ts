@@ -8,7 +8,7 @@ import {
   donneesDeCommande, donneesDExpedition, schemaCommande, schemaDemandeDonnees,
   schemaEffacementClient, schemaExpedition, telephoneDeCommande, telephoneDExpedition, telephoneE164,
   avecPrenomDeSecours, estObjetSimple, numeroDeCommandeDExpedition, prenomDeCheckout, schemaCheckout, telephoneDeCheckout, valeurDeVariable,
-  classementDeCommande, type CommandeShopify, type DonneeShopify, type EvenementShopify,
+  classementDeCommande, type CommandeShopify, type DonneeShopify, type EvenementShopify, type ExpeditionShopify,
 } from './donnees';
 import type { PgJoignabiliteStore } from './joignabilite.pg';
 import { envoyerPremierBloc, pontSelonLOffre, type DepsEnvoiShopify, type IssueShopify } from './envoi';
@@ -89,6 +89,51 @@ export interface DepsTraitementShopify {
    * au mieux (`joignabiliteAuMieux`), jamais un frein pour la confirmation.
    */
   joignabilite: Pick<PgJoignabiliteStore, 'noterCommande' | 'noterExpedition' | 'noterEnvoi' | 'effacerCommandes'>;
+  /**
+   * Écrit le lien de suivi du dernier colis dans le champ `CHAMP_LIEN_SUIVI` de la fiche, déclaré au besoin (agent IA,
+   * 2026-11-23) : l'agent le lit avec la fiche pour répondre à « où en est ma commande ? ». N'émet AUCUN événement
+   * d'automation : un champ écrit par un webhook n'est pas un geste du contact.
+   */
+  ecrireLienDeSuivi(tenantId: string, contactId: string, lien: string): Promise<void>;
+}
+
+/** La clé du champ de fiche qui porte le lien de suivi du dernier colis expédié. */
+export const CHAMP_LIEN_SUIVI = 'shopify_lien_suivi';
+/** La borne d'une valeur de champ de fiche : au-delà, le lien n'est pas écrit (coupé, il mènerait ailleurs). */
+const LIEN_SUIVI_MAX = 1000;
+
+/**
+ * Le lien de suivi d'une expédition, s'il est utilisable : une adresse http(s) entière. Lu BRUT, pas par
+ * `valeurDeVariable` qui coupe à la borne d'une variable de message : un lien coupé mènerait ailleurs.
+ */
+export function lienDeSuivi(f: ExpeditionShopify): string | null {
+  const brut = typeof f.tracking_url === 'string' ? f.tracking_url.trim() : '';
+  if (brut === '' || brut.length > LIEN_SUIVI_MAX || /\s/.test(brut)) return null;
+  try {
+    const u = new URL(brut);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? brut : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 🔴 LE LIEN DE SUIVI SUR LA FICHE, AU MIEUX (2026-11-23). À chaque expédition, ligne allumée ou non et pause comprise
+ * (c'est une donnée, pas un envoi), et seulement sur une fiche qui existe déjà : jamais une fiche créée pour l'écrire.
+ * Le dernier colis remplace le précédent. Une panne se journalise et ne lève pas : le message d'expédition attendu par
+ * le client compte plus que ce champ.
+ */
+async function lienDeSuiviAuMieux(deps: DepsTraitementShopify, b: BoutiqueRecue, f: ExpeditionShopify): Promise<void> {
+  const lien = lienDeSuivi(f);
+  if (lien === null) return;
+  const telephone = telephoneDExpedition(f, b.pays);
+  if (telephone === null) return;
+  try {
+    const fiche = await deps.ficheParTelephone(b.tenantId, telephone);
+    if (fiche !== null) await deps.ecrireLienDeSuivi(b.tenantId, fiche, lien);
+  } catch (err) {
+    journaliser('warn', 'shopify_lien_suivi_en_echec', { tenantId: b.tenantId, erreur: messageDe(err) });
+  }
 }
 
 /** 200 : traité ou délibérément ignoré. 503 : Shopify doit réessayer plus tard. */
@@ -146,6 +191,7 @@ export async function traiterWebhookShopify(
       // La PREMIÈRE expédition de la commande (un second colis ne la déplace pas), ligne allumée ou non. Une commande dont
       // le paiement n'a pas été vu (payée avant la mise en service) naît ici sans classement : la carte l'ignore.
       await joignabiliteAuMieux(b, 'expedition', () => deps.joignabilite.noterExpedition(b.tenantId, String(f.data.order_id)));
+      await lienDeSuiviAuMieux(deps, b, f.data);
       return servir(deps, b, {
         evenement: 'order_fulfilled', reference: String(f.data.id), sujet,
         commandeId: String(f.data.order_id), clientId: null,

@@ -1700,6 +1700,20 @@ leurs derniers, une action inconnue ou une adresse hors borne s'oublient. Le con
 échoue affiche « Réessayer », jamais un entretien vierge avec ses exemples cliquables : un exemple envoyé ainsi entrait
 dans le réglage de l'agent. Un envoi coupé (pas une `ApiError`) relit le fil : reçu par le serveur, sa réponse
 s'affiche ; pas reçu, le message revient dans la zone de saisie.
+🔴 **Le point des données de la fiche n'existe que si une intégration écrit sur les fiches** (`pointDonneesClient`,
+décision de Julien du 2026-11-23). Le contexte de construction porte les intégrations (`integrations` : une boutique
+Shopify non coupée, les libellés des champs HubSpot importés, clés `hs_contact_`, `hs_deal_`, `hs_calc_`) ; sans
+elles, l'ordre du jour est celui de tous les espaces. Avec, le point `donnees_client` se pose juste après
+`connaissance`, et sa question ne nomme QUE ce qui est branché. Il vit hors de `AGENDA`, mais son code est connu du
+schéma (`CODES_POINTS`) et de la fusion des réponses (`ORDRE_DES_CODES`), sinon sa réponse serait jetée et la
+question reviendrait. ⚠️ Un entretien déjà fini dans un espace qui branche ensuite une intégration rouvre ce seul
+point au tour suivant.
+🔴 **Le lien de suivi du dernier colis s'écrit sur la fiche** (`lienDeSuiviAuMieux`, `src/shopify/traitement.ts`).
+À chaque `fulfillments/create`, AVANT `servir` (qui s'arrête tout de suite sans ligne allumée), pause comprise, le
+`tracking_url` lu BRUT (une adresse http(s) entière, jamais coupée à la borne d'une variable) va dans le champ
+`shopify_lien_suivi` (type `url`, déclaré au premier lien) de la fiche du téléphone de l'expédition, si elle existe :
+jamais une fiche créée pour l'écrire. Par `ecrireChampsFiche`, qui n'émet aucun événement d'automation. Au mieux : une
+panne se journalise (`shopify_lien_suivi_en_echec`) et ne coûte pas le message d'expédition.
 
 🔴 **Le site donné pendant l'entretien s'importe en TÂCHE DE FOND** (décision de Julien, 2026-10-12). Au tour où
 l'adresse retenue change, la route lance `importerLeSiteDeLEntretien` sans l'attendre (un parcours prend jusqu'à 30 s),
@@ -1894,7 +1908,11 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   requête par page (`PgContactStore.analysesEtResumes`, l'espace filtré sur les deux tables). L'outil
   `mba_lire_contact` de l'agent IA rend `derniere_analyse` et `resume` par `analyseEtResumeParWaId`, pour le
   contact du TOUR seulement, une dépendance REQUISE du résolveur et HORS de `projectionPourTiers` : les
-  connecteurs, qui reçoivent cette projection, ne voient rien de plus. Les signaux lisent ses huit valeurs avec
+  connecteurs, qui reçoivent cette projection, ne voient rien de plus. Il rend aussi, depuis le 2026-11-23, les
+  achats Shopify du même contact (`lireAchatsShopify`, dépendance requise, la lecture de l'onglet Shopify de la fiche,
+  `achatsDuContact`), réduits par `achatsPourLeModele` aux commandes récentes (paiement, montant, produits, expédition)
+  et à leur nombre : ni attribution, ni chiffre rapporté, ni paniers, et aucune clé sans boutique. Une lecture ratée
+  rend `shopify_indisponible` avec le reste de la fiche. Les signaux lisent ses huit valeurs avec
   la fiche (`COLONNES_FICHE`, aucune requête de plus) et les envoient avec CHAQUE signal (`attributsRelus`) : un
   signal d'analyse rejoué après une analyse plus récente ne réécrit donc pas un état périmé chez l'outil.
 - 🔴 **La liste unique des champs de la fiche est `src/crm/champs-fiche.ts`** : les données envoyées d'un

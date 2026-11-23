@@ -46,6 +46,7 @@ function harnais(rendu: FicheTrouvee[] | (() => never)) {
     poserTag: async () => {},
     ecrireChamp: async () => {},
     lireAnalyse: async () => null,
+    lireAchatsShopify: async () => null,
     connaissance: {
       chercher: async (tenantId, agentId, requete, limite) => {
         vues.push({ tenantId, agentId, requete, limite });

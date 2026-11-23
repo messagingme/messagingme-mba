@@ -2,6 +2,7 @@ import type { EntreeResolveur, ResolveurOutil, SortieResolveur } from '../execut
 import type { KnowledgeStore } from '../knowledge';
 import { chercherConnaissance, type RechercheSemantique } from './connaissance';
 import type { AnalyseEtResume } from '../../crm/contact-store.pg';
+import type { AchatsShopifyVue } from '../../../web/lib/partage/achats-shopify';
 import { lireCibleOutilAgent, type CibleOutilAgent, type HandlerACible } from '../outils-maison';
 import { valeursDesChamps, type IssueAction, type ValeursAction } from '../actions';
 import {
@@ -75,6 +76,13 @@ export interface DepsResolveurMba {
    * La projection du contact n'en porte rien : les connecteurs, qui la reçoivent aussi, n'ont pas à voir l'analyse.
    */
   lireAnalyse(tenantId: string, waId: string): Promise<AnalyseEtResume | null>;
+
+  /**
+   * Ce que la boutique Shopify sait du contact du TOUR (`mba_lire_contact`, 2026-11-23) : la lecture de l'onglet Shopify
+   * de la fiche (`achatsDuContact`), dont l'agent ne reçoit qu'une projection (`achatsPourLeModele`). `null` : contact
+   * inconnu. Requise, comme `lireAnalyse` : un câblage qui l'oublierait ne compile pas.
+   */
+  lireAchatsShopify(tenantId: string, waId: string): Promise<AchatsShopifyVue | null>;
 
   /** La base de connaissance de l'agent (`mba_chercher_connaissance`). */
   connaissance: KnowledgeStore;
@@ -164,6 +172,44 @@ async function analyseOuIndisponible(deps: DepsResolveurMba, ctx: { tenantId: st
   }
 }
 
+/** Combien de commandes l'agent reçoit, les plus récentes : de quoi répondre sur la dernière, sans tout l'historique. */
+export const COMMANDES_POUR_LE_MODELE = 5;
+
+/**
+ * 🔴 CE QUE L'AGENT VOIT DES ACHATS SHOPIFY (2026-11-23) : de quoi répondre à « où en est ma commande ? ». Les commandes
+ * récentes (paiement, montant, produits, expédition) et leur nombre. Ni l'attribution, ni le chiffre que WhatsApp a
+ * rapporté, ni les paniers : de l'interne marchand, qui ne sert pas à répondre au client et partirait chez le fournisseur
+ * du modèle. Sans boutique dans l'espace : rien, pas même une clé vide. Le lien de suivi du dernier colis est un champ de
+ * la fiche (`shopify_lien_suivi`), rendu avec les autres.
+ */
+export function achatsPourLeModele(a: AchatsShopifyVue | null): Record<string, unknown> {
+  if (a === null || a.boutique === null) return {};
+  return {
+    shopify: {
+      commandes_en_tout: a.resume.commandes,
+      commandes: a.commandes.slice(0, COMMANDES_POUR_LE_MODELE).map((c) => ({
+        payee_le: c.payeeLe,
+        montant: c.montant === null ? null : c.devise === null ? c.montant : `${c.montant} ${c.devise}`,
+        expediee_le: c.expedieeLe ?? null,
+        // Absentes : on ne sait pas lire ses produits ; on ne les annonce pas vides pour autant.
+        ...(c.lignes === undefined ? {} : {
+          produits: c.lignes.map((l) => `${l.quantite} × ${l.titre}${l.varianteTitre ? ` (${l.varianteTitre})` : ''}`),
+        }),
+      })),
+    },
+  };
+}
+
+/** Une lecture ratée rend `shopify_indisponible` et laisse le reste de la fiche, comme l'analyse. */
+async function achatsOuIndisponibles(deps: DepsResolveurMba, ctx: { tenantId: string; waId: string }): Promise<Record<string, unknown>> {
+  try {
+    return achatsPourLeModele(await deps.lireAchatsShopify(ctx.tenantId, ctx.waId));
+  } catch (e) {
+    console.warn('mba_lire_contact: achats Shopify illisibles, fiche rendue sans eux:', e instanceof Error ? e.message : e);
+    return { shopify_indisponible: true };
+  }
+}
+
 const HANDLERS: Record<string, Handler> = {
   terminer: async ({ args }) => terminerAvec(args),
 
@@ -204,7 +250,11 @@ const HANDLERS: Record<string, Handler> = {
   /** 🔴 La fiche contact telle que le tour l'a déjà lue : aucun moyen de désigner la fiche de quelqu'un
    *  d'autre, puisque le modèle ne fournit pas d'identifiant ici. */
   lire_contact: async ({ ctx }, deps) => (
-    ctx.contact === null ? { contenu: { connu: false } } : { contenu: { connu: true, champs: ctx.contact, ...await analyseOuIndisponible(deps, ctx) } }
+    ctx.contact === null ? { contenu: { connu: false } } : {
+      contenu: {
+        connu: true, champs: ctx.contact, ...await analyseOuIndisponible(deps, ctx), ...await achatsOuIndisponibles(deps, ctx),
+      },
+    }
   ),
 
   /** Le bloc FIXÉ (RC4) : son scénario et son code viennent de la cible, jamais du modèle ni du parcours en cours. */

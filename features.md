@@ -4579,7 +4579,11 @@ un gros bouton « Ajouter un outil », et la liste des outils posés.
   - **Chercher dans la base de connaissance** (lecture) : à appeler avant toute question de fond.
   - **Lire la fiche du contact** (lecture) : ce qu'on sait déjà de lui, son nom, ses champs, et (2026-10-02) sa
     dernière analyse avec son résumé : sentiment, satisfaction, urgence, sujet, résolue ou non. L'agent sait
-    ainsi qu'il parle à un client mécontent. Jamais la fiche de quelqu'un d'autre.
+    ainsi qu'il parle à un client mécontent. Jamais la fiche de quelqu'un d'autre. Ses champs comprennent ceux que
+    HubSpot importe (Tools > Intégrations) et, depuis le 2026-11-23, le **lien de suivi** de son dernier colis
+    Shopify, écrit sur la fiche à chaque expédition (champ « Lien de suivi (Shopify) »), automation d'expédition
+    allumée ou non. Quand une boutique Shopify est branchée, elle rend aussi ses **commandes récentes** (paiement,
+    montant, produits, expédition) : l'agent peut répondre à « où en est ma commande ? ».
   - **Marquer la conversation urgente** (écriture, 2026-10-06) : la conversation passe dans le dossier « Urgent »
     de l'Inbox (et en tête de « À traiter » dès que l'équipe la tient), et **l'agent continue de répondre** (ce
     n'est pas un transfert). Il ne marque jamais que la conversation en cours. Un assistant branché par MCP ne
@@ -4744,6 +4748,11 @@ un gros bouton « Ajouter un outil », et la liste des outils posés.
   lâche un contact qui ne répond plus, quand un humain reprend, **sous quel nom il se présente**, s'il annonce
   qu'il est une IA, et comment il parle. Une question à la fois, avec des possibilités à choisir plutôt qu'une
   page blanche.
+- ✅ **Si Shopify ou HubSpot est branché, une question de plus** (2026-11-23), juste après celle des réponses de fond :
+  l'agent doit-il se servir de ce que vos fiches clients reçoivent ? Elle ne nomme que l'intégration branchée :
+  Shopify (les commandes et le lien de suivi, par exemple pour « où en est ma commande ? »), HubSpot (les champs
+  importés, nommés), ou les deux. Sur un oui, la proposition active l'outil « Lire la fiche du contact » avec les mots
+  qui disent à l'agent quand le lire.
 - ✅ **Chaque moment cité est repris un par un** (2026-10-12). Citer deux moments dans la même phrase (« quand le
   client veut parler à un conseiller, quand il a une question sur son dossier ») ouvre une question pour chacun :
   le second n'est plus perdu. Une réponse à la liste des choix (« 4 », « passer la main à un humain ») est retenue

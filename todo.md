@@ -1,5 +1,22 @@
 # todo.md : backlog
 
+## 🟡 L'agent IA lit les données Shopify et HubSpot de la fiche : la relecture (2026-11-23, aucun rouge)
+
+- Un entretien déjà fini dans un espace qui branche ENSUITE Shopify ou HubSpot rouvre le point `donnees_client` : la
+  demande suivante du client (changer le ton) n'a sa proposition qu'après avoir répondu à cette question (« non »
+  suffit), et la refermeture relance une synthèse payée sur notre clé. Ne rouvrir que si l'entretien n'avait jamais été
+  fini, ou poser la question sans geler la proposition.
+- Les commandes de test sont rendues à l'agent comme les autres (choix assumé : les essais sur une boutique de test
+  doivent montrer quelque chose). Les écarter, ou les marquer, quand une vraie boutique arrive.
+- Un `fulfillments/create` rejoué ou arrivé en retard remplace le lien du colis le plus récent par un plus ancien :
+  comparer la date de l'expédition avant d'écrire.
+- L'écriture du lien de suivi ajoute jusqu'à quatre requêtes avant `servir`, sans délai maximal : une base lente
+  retarde la réponse à Shopify. Borner l'appel (au mieux, comme le reste).
+- Les libellés des champs HubSpot entrent dans la consigne de l'entretien, ramenés à une ligne de 60 caractères, sans
+  passer par la neutralisation des délimiteurs du bloc de données. Seul le marchand les écrit.
+- La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
+  dire « expédiée le … ».
+
 ## 🟡 Segments Shopify, lot 4 (boutons « a écrit » et « a cliqué » sans commander)
 
 - 🔵 **DÉCIDÉ par Julien le 2026-11-23 : une période réglable à côté des boutons, plus tard** (question 22 de la

@@ -745,7 +745,7 @@ describe('runTurn : la sortie et son dernier message', () => {
   };
   const RESOLVEUR_MBA = creerResolveurMba({
     envoyerBloc: async () => ({ ok: true }), lancerScenario: async () => ({ ok: true }), escaladerVersHumain: async () => true, marquerUrgente: async () => true, declencherAction: async () => 'declenchee', poserTag: async () => {},
-    ecrireChamp: async () => {}, lireAnalyse: async () => null, connaissance: { chercher: async () => [] },
+    ecrireChamp: async () => {}, lireAnalyse: async () => null, lireAchatsShopify: async () => null, connaissance: { chercher: async () => [] },
   });
 
   function tour(argumentsJson: string) {
@@ -814,7 +814,7 @@ describe('runTurn : marquer la conversation urgente, puis continuer', () => {
       envoyerBloc: async () => ({ ok: true }), lancerScenario: async () => ({ ok: true }), escaladerVersHumain: async () => true, poserTag: async () => {},
       marquerUrgente: async (i) => { journal.push(`urgent:${i.tenantId}:${i.waId}:${i.agentId}`); return true; },
       declencherAction: async () => 'declenchee',
-      ecrireChamp: async () => {}, lireAnalyse: async () => null, connaissance: { chercher: async () => [] },
+      ecrireChamp: async () => {}, lireAnalyse: async () => null, lireAchatsShopify: async () => null, connaissance: { chercher: async () => [] },
     });
     let n = 0;
     const brain = creerCerveauGateway({
@@ -873,7 +873,7 @@ describe('runTurn : lancer un scénario, puis se taire', () => {
     const resolveur = creerResolveurMba({
       envoyerBloc: async () => ({ ok: true }), escaladerVersHumain: async () => true, marquerUrgente: async () => true,
       declencherAction: async () => 'declenchee',
-      poserTag: async () => {}, ecrireChamp: async () => {}, lireAnalyse: async () => null, connaissance: { chercher: async () => [] },
+      poserTag: async () => {}, ecrireChamp: async () => {}, lireAnalyse: async () => null, lireAchatsShopify: async () => null, connaissance: { chercher: async () => [] },
       lancerScenario: async (i) => { journal.push(`lance:${i.workflowId}:${i.runId}:${i.sessionId}:${i.waId}`); return lancement; },
     });
     let appelsModele = 0;

@@ -2,7 +2,7 @@
 description: Le modèle d'un agent IA et son tarif, les plafonds de chaque conversation, le crédit IA qui le paie et la mention qui annonce une IA.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 3f44cd
+source_empreinte: d3f96d
 publique: oui
 rubrique: parler-aux-clients
 rang: 17

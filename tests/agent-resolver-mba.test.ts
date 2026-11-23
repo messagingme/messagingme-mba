@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerResolveurMba, type DepsResolveurMba, BLOC_DEJA_ENVOYE } from '../src/agent/resolvers/mba';
+import { COMMANDES_POUR_LE_MODELE, creerResolveurMba, type DepsResolveurMba, BLOC_DEJA_ENVOYE } from '../src/agent/resolvers/mba';
 import type { ContexteAppel } from '../src/agent/executor';
 import type { OutilDefini } from '../src/agent/catalog';
 import { SANS_MCP } from './outils-mcp';
@@ -42,6 +42,8 @@ function harnais(over: Partial<DepsResolveurMba> = {}) {
     poserTag: async (_t, _w, tag) => { journal.push(`tag:${tag}`); },
     ecrireChamp: async (_t, _w, cle, valeur) => { journal.push(`champ:${cle}=${valeur}`); },
     lireAnalyse: async (t, w) => { journal.push(`analyse:${t}:${w}`); return null; },
+    // Un espace sans boutique par défaut : la fiche se lit comme avant le 2026-11-23.
+    lireAchatsShopify: async () => null,
     // La recherche a sa propre suite (`tests/agent-knowledge.test.ts`) : ici elle ne rend rien.
     connaissance: { chercher: async () => [] },
     ...over,
@@ -188,6 +190,61 @@ describe('résolveur maison (tâche 16)', () => {
     const { resolveur } = harnais({ lireAnalyse: async () => { throw new Error('connexion perdue'); } });
     const r = await resolveur(appel('lire_contact'));
     expect(r.contenu).toEqual({ connu: true, champs: { wa_id: '33600', prenom: 'Julien' }, analyse_indisponible: true });
+  });
+
+  /**
+   * 🔴 LES ACHATS SHOPIFY DANS LA FICHE (2026-11-23) : de quoi répondre « où en est ma commande ? ». Les commandes
+   * récentes, jamais ce que WhatsApp a rapporté ni les paniers (de l'interne marchand, qui partirait chez le fournisseur).
+   */
+  const commandeVue = (i: number, over: Record<string, unknown> = {}) => ({
+    commandeId: String(1000 + i), payeeLe: `2026-11-${String(10 + i).padStart(2, '0')}T10:00:00.000Z`, montant: '49.9', devise: 'EUR',
+    test: false, attribution: { source: 'campagne' as const, campagne: 'Soldes', preuve: 'utm' as const },
+    lignes: [{ titre: 'Sérum', varianteTitre: '30 ml', sku: 'SER-30', quantite: 2, carteCadeau: false }], lignesTronquees: false,
+    expedieeLe: null, ...over,
+  });
+  const achats = (commandes: unknown[], avecBoutique = true) => ({
+    boutique: !avecBoutique ? null : { nom: 'Demo', domaine: 'demo.myshopify.com', devise: 'EUR', commandesDepuis: '2026-11-01T00:00:00.000Z', coupeeLe: null },
+    resume: { commandes: 7, commandesTest: 0, depense: '349.3', derniereLe: '2026-11-17T10:00:00.000Z' },
+    rapporte: [{ devise: 'EUR', montant: '49.9', prouve: '49.9', commandes: 1 }],
+    commandes, paniers: [{ ouvertLe: '2026-11-10T10:00:00.000Z', relanceLe: null, fermeLe: null, issue: null }],
+  }) as never;
+
+  it('🔴 « lire_contact » rend les commandes Shopify récentes du contact : paiement, montant, produits, expédition', async () => {
+    const commandes = [
+      commandeVue(7, { expedieeLe: '2026-11-18T08:00:00.000Z' }),
+      commandeVue(6, { montant: null, devise: null, lignes: undefined }),
+      commandeVue(5, { devise: null }),
+      commandeVue(4), commandeVue(3), commandeVue(2),
+    ];
+    const lus: string[] = [];
+    const { resolveur } = harnais({ lireAchatsShopify: async (t, w) => { lus.push(`${t}:${w}`); return achats(commandes); } });
+    const r = await resolveur(appel('lire_contact'));
+    expect(lus).toEqual(['t1:33600']); // le contact du TOUR, jamais un autre
+    const shopify = (r.contenu as { shopify: { commandes_en_tout: number; commandes: unknown[] } }).shopify;
+    expect(shopify.commandes_en_tout).toBe(7);
+    expect(shopify.commandes).toHaveLength(COMMANDES_POUR_LE_MODELE);
+    expect(shopify.commandes.slice(0, 3)).toEqual([
+      { payee_le: '2026-11-17T10:00:00.000Z', montant: '49.9 EUR', expediee_le: '2026-11-18T08:00:00.000Z', produits: ['2 × Sérum (30 ml)'] },
+      // Des lignes qu'on ne sait pas lire ne s'annoncent pas vides.
+      { payee_le: '2026-11-16T10:00:00.000Z', montant: null, expediee_le: null },
+      { payee_le: '2026-11-15T10:00:00.000Z', montant: '49.9', expediee_le: null, produits: ['2 × Sérum (30 ml)'] },
+    ]);
+    // Ni l'attribution, ni le rapporté, ni les paniers.
+    expect(JSON.stringify(r.contenu)).not.toMatch(/Soldes|utm|rapporte|paniers|attribution/);
+  });
+
+  it('« lire_contact » sans boutique dans l’espace : aucune clé Shopify, pas même vide', async () => {
+    const { resolveur } = harnais({ lireAchatsShopify: async () => achats([], false) });
+    const r = await resolveur(appel('lire_contact'));
+    expect(r.contenu).toEqual({ connu: true, champs: { wa_id: '33600', prenom: 'Julien' }, derniere_analyse: null, resume: null });
+  });
+
+  it('⚠️ « lire_contact » : des achats illisibles rendent la fiche et le disent', async () => {
+    const { resolveur } = harnais({ lireAchatsShopify: async () => { throw new Error('connexion perdue'); } });
+    const r = await resolveur(appel('lire_contact'));
+    expect(r.contenu).toEqual({
+      connu: true, champs: { wa_id: '33600', prenom: 'Julien' }, derniere_analyse: null, resume: null, shopify_indisponible: true,
+    });
   });
 
   it('🔴 « escalader » appelle la dep d escalade et rend « rendu » : le tour doit s arreter', async () => {
