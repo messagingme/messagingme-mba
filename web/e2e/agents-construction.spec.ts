@@ -34,7 +34,11 @@ const PROPOSITION = {
 
 type Appel = { method: string; url: string; body: unknown };
 
-async function mock(page: import('@playwright/test').Page, appels: Appel[], opts: { setup?: { status: number; body: unknown }; activation?: { status: number; body: unknown }; outilsEnEchec?: boolean; pieceJointe?: unknown; manques?: unknown[]; avertissements?: unknown[]; outilsAppels?: Appel[] } = {}) {
+async function mock(page: import('@playwright/test').Page, appels: Appel[], opts: { setup?: { status: number; body: unknown }; activation?: { status: number; body: unknown }; outilsEnEchec?: boolean; pieceJointe?: unknown; manques?: unknown[]; avertissements?: unknown[]; outilsAppels?: Appel[];
+  /** Les réponses successives du GET de l'entretien ; « coupure » = la connexion tombe. Épuisées, le fil vide. */
+  lectures?: Array<'coupure' | unknown>;
+  /** Le POST de l'entretien tombe en coupure (le serveur l'a peut-être traité, le navigateur n'en sait rien). */
+  postCoupe?: boolean } = {}) {
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
     const req = route.request();
@@ -49,9 +53,14 @@ async function mock(page: import('@playwright/test').Page, appels: Appel[], opts
       // Depuis le 2026-08-31 l'entretien est TENU PAR LE SERVEUR : le GET l'hydrate à l'ouverture de
       // l'onglet, le POST envoie UN message, le DELETE recommence. Sans ce GET, l'écran resterait bloqué sur
       // « Chargement… » et rien ne serait cliquable.
-      if (method === 'GET') return json({ messages: [], couverture: { manquants: [], total: 9, pointOuvert: null } });
+      if (method === 'GET') {
+        const lecture = opts.lectures?.shift();
+        if (lecture === 'coupure') return route.abort('failed');
+        return json(lecture ?? { messages: [], couverture: { manquants: [], total: 9, pointOuvert: null } });
+      }
       if (method === 'DELETE') return json({ efface: true, couverture: { manquants: [], total: 9, pointOuvert: null } });
       appels.push({ method, url, body: req.postDataJSON() });
+      if (opts.postCoupe) return route.abort('failed');
       const r = opts.setup ?? { status: 200, body: PROPOSITION };
       return json(r.body, r.status);
     }
@@ -547,5 +556,75 @@ test.describe('Agents IA : construire en parlant', () => {
     await page.getByTestId(`agent-supprimer-${AG}`).click();
     await repondre(page, true);
     await expect.poll(() => appels.some((a) => a.method === 'DELETE')).toBe(true);
+  });
+
+  /**
+   * 🔴 LES COUPURES DU 2026-11-23 (agent de test de Julien, SANDBOX). « Failed to fetch » sur un message que le serveur
+   * avait enregistré ; puis, au retour, une relecture coupée que l'écran affichait comme un entretien vierge, avec ses
+   * exemples à cliquer. Le fil était intact en base. Le GET est rejoué une fois par `request` : une relecture coupée
+   * coûte donc DEUX coupures.
+   */
+  const FIL = {
+    messages: [
+      { role: 'user', content: 'chaleureux et pro' },
+      { role: 'assistant', content: 'Parfait. Comment Muti parle-t-il au contact ?' },
+    ],
+    couverture: { manquants: ['ton'], total: 9, pointOuvert: 'ton' },
+  };
+
+  test('🔴 une relecture coupée dit « Réessayer », jamais un entretien vierge à cliquer', async ({ page }) => {
+    await mock(page, [], { lectures: ['coupure', 'coupure', FIL] });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+
+    await expect(page.getByTestId('setup-relecture-echec')).toBeVisible();
+    await expect(page.getByTestId('setup-vide')).toHaveCount(0);
+    await expect(page.getByTestId('setup-exemple')).toHaveCount(0);
+    await expect(page.getByTestId('setup-saisie')).toBeDisabled();
+
+    await page.getByTestId('setup-relecture-reessayer').click();
+    await expect(page.getByTestId('setup-tour-assistant')).toContainText('Comment Muti parle-t-il');
+    await expect(page.getByTestId('setup-relecture-echec')).toHaveCount(0);
+    await expect(page.getByTestId('setup-saisie')).toBeEnabled();
+  });
+
+  test('🔴 un envoi coupé relit le fil : le serveur l’avait reçu, sa réponse s’affiche sans erreur', async ({ page }) => {
+    const appels: Appel[] = [];
+    await mock(page, appels, { postCoupe: true, lectures: [{ messages: [], couverture: { manquants: ['ton'], total: 9 } }, FIL] });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('chaleureux et pro');
+    await page.getByTestId('setup-envoyer').click();
+
+    await expect(page.getByTestId('setup-tour-assistant')).toContainText('Comment Muti parle-t-il');
+    await expect(page.getByTestId('setup-tour-user')).toHaveCount(1);
+    await expect(page.getByTestId('setup-erreur')).toHaveCount(0);
+    expect(appels.filter((a) => a.method === 'POST')).toHaveLength(1);
+  });
+
+  test('un envoi coupé que le serveur n’a pas reçu revient dans la zone de saisie', async ({ page }) => {
+    await mock(page, [], { postCoupe: true });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('chaleureux et pro');
+    await page.getByTestId('setup-envoyer').click();
+
+    await expect(page.getByTestId('setup-erreur')).toContainText('zone de saisie');
+    await expect(page.getByTestId('setup-saisie')).toHaveValue('chaleureux et pro');
+    await expect(page.getByTestId('setup-tour-user')).toHaveCount(0);
+  });
+
+  test('un second « oui » coupé n’est pas pris pour le premier, déjà répondu', async ({ page }) => {
+    // La relecture finit par « oui » et sa réponse, mais c'est l'ANCIEN « oui » : le fil n'a pas grandi.
+    const dejaOui = {
+      messages: [{ role: 'user', content: 'oui' }, { role: 'assistant', content: 'Noté. Et le ton ?' }],
+      total: 2,
+      couverture: { manquants: ['ton'], total: 9 },
+    };
+    await mock(page, [], { postCoupe: true, lectures: [dejaOui, dejaOui] });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('oui');
+    await page.getByTestId('setup-envoyer').click();
+
+    await expect(page.getByTestId('setup-erreur')).toContainText('zone de saisie');
+    await expect(page.getByTestId('setup-saisie')).toHaveValue('oui');
+    await expect(page.getByTestId('setup-tour-user')).toHaveCount(1);
   });
 });

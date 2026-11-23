@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '@/lib/i18n';
 import { cardCls, inputCls } from '@/lib/ui';
 import { MbaNotice } from '@/components/MbaNotice';
+import { ApiError, estAnnulation } from '@/lib/http';
 import {
   parlerAuConstructeur, lireEntretien, effacerEntretien, joindrePiece, restreindreProposition,
   type Changement, type ManqueFiche, type PropositionConstruction, type TourConstruction,
@@ -85,6 +86,33 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
   const [enregistre, setEnregistre] = useState(false);
   const filRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * 🔴 LA RELECTURE A ÉCHOUÉ : ON LE DIT, ON N'AFFICHE PAS UN ENTRETIEN VIERGE. Vécu par Julien le 2026-11-23 : au
+   * retour sur l'onglet, la relecture a rencontré une coupure ; l'écran l'avalait et montrait un fil vide avec ses
+   * exemples à cliquer. Il a cru sa conversation perdue (elle était intacte en base), et l'exemple envoyé (« Il répond
+   * aux questions sur nos séjours… ») est entré dans le réglage de son agent. Un entretien illisible en base n'arrive
+   * plus jusqu'ici : le serveur le relit au mieux et rend un fil, vide au pire. Une erreur ici est donc une panne de
+   * transport, et la réparation est de réessayer.
+   */
+  const [lectureEchouee, setLectureEchouee] = useState(false);
+  /** Incrémenté par « Réessayer » : relance la relecture. */
+  const [tentative, setTentative] = useState(0);
+
+  /** Le fil tel que le serveur le tient. Défensif sur la FORME : un corps inattendu ne doit pas casser l'écran. */
+  /**
+   * Combien de messages le fil compte EN BASE, tenu à jour à chaque relecture et à chaque tour réussi : c'est à lui
+   * qu'on compare la relecture d'après une coupure. Pas `tours.length` : l'écran y ajoute des bulles à lui (« C'est
+   * enregistré. ») et n'en montre que les derniers.
+   */
+  const filEnBase = useRef(0);
+  const appliquerFil = useCallback((r: Awaited<ReturnType<typeof lireEntretien>> | null | undefined) => {
+    filEnBase.current = typeof r?.total === 'number' ? r.total : Array.isArray(r?.messages) ? r.messages.length : 0;
+    setTours(Array.isArray(r?.messages) ? r.messages : []);
+    setAuteurs(Array.isArray(r?.auteurs) ? r.auteurs : []);
+    setResteACouvrir(r?.couverture?.manquants?.length ?? 0);
+    setTotal(r?.couverture?.total ?? 0);
+  }, []);
+
   /** L'entretien déjà tenu. Sans cette relecture, changer d'onglet effacerait la conversation. */
   useEffect(() => {
     let vivant = true;
@@ -92,21 +120,51 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
       try {
         const r = await lireEntretien(tenantId, agentId);
         if (!vivant) return;
-        // Défensif sur la FORME : cette réponse traverse un proxy et un cache, et un corps inattendu ne doit
-        // pas casser l'écran là où une page blanche suffit.
-        setTours(Array.isArray(r?.messages) ? r.messages : []);
-        setAuteurs(Array.isArray(r?.auteurs) ? r.auteurs : []);
-        setResteACouvrir(r?.couverture?.manquants?.length ?? 0);
-        setTotal(r?.couverture?.total ?? 0);
+        appliquerFil(r);
+        setCharge(true);
       } catch {
-        // Un entretien illisible n'est pas une panne d'écran : on repart d'une page blanche, l'assistant
-        // reposera ses questions. Bloquer ici priverait le client du seul chemin de réparation.
-      } finally {
-        if (vivant) setCharge(true);
+        if (vivant) setLectureEchouee(true);
       }
     })();
     return () => { vivant = false; };
-  }, [tenantId, agentId]);
+  }, [tenantId, agentId, tentative, appliquerFil]);
+
+  /**
+   * 🔴 UNE COUPURE N'EST PAS UN REFUS. Vécu par Julien le 2026-11-23 : « Failed to fetch » sur « chaleureux et pro »,
+   * que le serveur avait pourtant reçu, traité et enregistré avec sa réponse. Après une coupure, on ne suppose rien :
+   * on relit le fil. Reçu, il porte la réponse ; pas reçu, le message revient dans la zone de saisie, pour qu'il ne
+   * soit pas envoyé deux fois et qu'il ne reste pas affiché comme s'il était parti.
+   */
+  const apresCoupure = useCallback(async (envoye: string, nbAvant: number) => {
+    let relu: Awaited<ReturnType<typeof lireEntretien>> | null = null;
+    try {
+      relu = await lireEntretien(tenantId, agentId);
+    } catch {
+      relu = null;
+    }
+    if (!relu || !Array.isArray(relu.messages)) {
+      setErreur(t(
+        'La connexion a été coupée : impossible de savoir si votre message est arrivé. Votre conversation reste enregistrée ; rechargez la page dans un instant pour la retrouver.',
+        'The connection dropped: there is no way to know whether your message arrived. Your conversation is still saved; reload the page in a moment to get it back.',
+      ));
+      return;
+    }
+    // Reçu = le fil a GRANDI et finit par ce message et sa réponse. Le texte seul ne suffit pas : un second « oui »
+    // coupé ressemblerait au « oui » d'avant, déjà répondu, et serait perdu sans un mot.
+    const n = relu.messages.length;
+    const recu = (typeof relu.total === 'number' ? relu.total : n) > nbAvant && relu.messages[n - 2]?.role === 'user' && relu.messages[n - 2]?.content === envoye
+      && relu.messages[n - 1]?.role === 'assistant';
+    appliquerFil(relu);
+    if (!recu) {
+      // ⚠️ Le serveur n'écrit le tour qu'une fois la réponse prête : s'il était encore en train de répondre, elle
+      // n'est pas encore dans le fil. On le dit plutôt que d'affirmer que le message n'est pas arrivé.
+      setSaisie(envoye);
+      setErreur(t(
+        'La connexion a été coupée et votre message n’apparaît pas dans la conversation. Il est remis dans la zone de saisie. Si l’assistant était en train de répondre, sa réponse peut encore arriver : rechargez la page dans une minute avant de le renvoyer.',
+        'The connection dropped and your message is not in the conversation. It is back in the input box. If the assistant was answering, its reply may still arrive: reload the page in a minute before sending it again.',
+      ));
+    }
+  }, [tenantId, agentId, appliquerFil, t]);
 
   // Le fil descend tout seul, comme dans n'importe quel tchat : sans ça, la réponse arrive HORS DE L'ÉCRAN et
   // on croit que rien ne s'est passé.
@@ -117,6 +175,7 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
   const envoyer = useCallback(async (texte: string) => {
     const propre = texte.trim();
     if (propre === '' || busy) return;
+    const nbAvant = filEnBase.current;
     setTours((avant) => [...avant, { role: 'user', content: propre }]);
     // ⚠️ L'AUTEUR SUIT LE MESSAGE, sinon les deux tableaux se décalent et chaque tour affiche le nom du
     // précédent. `null` pour l'optimiste : le serveur rendra notre adresse à la relecture, et l'afficher tout
@@ -130,6 +189,8 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
     setProposition(null);
     try {
       const r = await parlerAuConstructeur(tenantId, agentId, propre);
+      // Le tour est écrit en base, sauf quand le plafond de dépense répond à la place de l'assistant (`budgetEpuise`).
+      if (!r.budgetEpuise) filEnBase.current += 2;
       setTours((avant) => [...avant, { role: 'assistant', content: r.message }]);
       setAuteurs((avant) => [...avant, null]);
       setProposition(r.proposition);
@@ -138,13 +199,17 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
       setTotal(r.couverture?.total ?? 0);
       setLot((n) => n + 1);
     } catch (err) {
-      // Le message du client reste affiché : le serveur ne l'a pas enregistré (l'écriture n'a lieu qu'après
-      // une réponse valide du modèle), donc le retirer de l'écran ferait croire qu'il est parti quelque part.
-      setErreur(err instanceof Error ? err.message : t('L’assistant n’a pas répondu', 'The assistant did not answer'));
+      if (err instanceof ApiError || estAnnulation(err)) {
+        // Un REFUS du serveur : il n'a rien enregistré (l'écriture n'a lieu qu'après une réponse valide du modèle).
+        // Le message reste affiché, avec la raison, pour que le client voie ce qui n'a pas abouti.
+        setErreur(err instanceof Error ? err.message : t('L’assistant n’a pas répondu', 'The assistant did not answer'));
+      } else {
+        await apresCoupure(propre, nbAvant);
+      }
     } finally {
       setBusy(false);
     }
-  }, [busy, tenantId, agentId, t]);
+  }, [busy, tenantId, agentId, t, apresCoupure]);
 
   /**
    * Joint un document ou une image. Le serveur en tire du texte et l'écrit en fiches de connaissance ; on
@@ -200,6 +265,7 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
     setErreur(null);
     try {
       const r = await effacerEntretien(tenantId, agentId);
+      filEnBase.current = 0;
       setTours([]);
     setAuteurs([]);
       setChangements(null);
@@ -267,7 +333,26 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
         </div>
 
         <div ref={filRef} className="flex h-[420px] flex-col gap-3 overflow-y-auto bg-ink-50/40 px-4 py-4">
-          {!charge && <Squelette forme="carte" />}
+          {!charge && !lectureEchouee && <Squelette forme="carte" />}
+
+          {lectureEchouee && (
+            <div data-testid="setup-relecture-echec" className="flex flex-col items-start gap-3">
+              <MbaNotice kind="error">
+                {t(
+                  'La conversation n’a pas pu être relue : la connexion a été coupée. Elle est toujours enregistrée, rien n’est perdu.',
+                  'The conversation could not be loaded: the connection dropped. It is still saved, nothing is lost.',
+                )}
+              </MbaNotice>
+              <Bouton
+                variante="secondaire"
+                taille="petite"
+                data-testid="setup-relecture-reessayer"
+                onClick={() => { setLectureEchouee(false); setTentative((n) => n + 1); }}
+              >
+                {t('Réessayer', 'Try again')}
+              </Bouton>
+            </div>
+          )}
 
           {charge && tours.length === 0 && (
             <div data-testid="setup-vide" className="flex flex-col gap-3">

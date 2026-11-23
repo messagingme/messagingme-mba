@@ -42,10 +42,20 @@ export interface EntretienComplet {
 /** Un entretien vierge. C'est aussi ce qu'on rend d'un état illisible : on ne bloque jamais l'écran. */
 export const ENTRETIEN_VIERGE: EntretienComplet = { messages: [], reponses: [], poses: [], bascules: [], auteurs: [] };
 
+/**
+ * 🔴 AUCUNE BORNE DE LONGUEUR SUR UN MESSAGE RELU. `MAX_CARACTERES_MESSAGE` borne ce que le CLIENT envoie, pas ce
+ * que l'assistant écrit : sa réponse (jusqu'à `BORNES_PROPOSITION.message`) reçoit en plus la relance du serveur,
+ * l'annonce d'import et le bloc de fin. Une borne ici rendait illisible tout le fil dès qu'un message la dépassait,
+ * donc vierge à l'écran, puis écrasé par le message suivant. Ce que le modèle reçoit reste borné par
+ * `bornerPourModele`.
+ */
 const tourSchema = z.object({
   role: z.enum(['user', 'assistant']),
-  content: z.string().max(MAX_CARACTERES_MESSAGE),
+  content: z.string(),
 });
+
+/** Une chaîne RAMENÉE à sa borne, plutôt que refusée : une borne dépassée ne doit jamais coûter tout le fil. */
+const texteBorne = (max: number) => z.string().transform((s) => s.slice(0, max));
 
 /** Plafond du nombre de moments de bascule. Chacun engendre deux questions : au-delà, l'entretien cesserait
  *  d'être un entretien. */
@@ -57,26 +67,32 @@ export const MAX_BASCULES = 12;
  */
 export const MAX_TOURS_CONSERVES = 4000;
 
+/**
+ * 🔴 LES BORNES SE RAMÈNENT, ELLES NE SE REFUSENT PAS. Ce jsonb est écrit par notre serveur ; une borne dépassée y
+ * est de l'HYGIÈNE, pas une frontière. Refusée, elle faisait retomber tout l'entretien sur le vierge (cf. `lireEtat`),
+ * et le tour suivant écrasait le fil en base : une seule valeur trop longue coûtait toute la conversation. Les listes
+ * gardent leurs premiers éléments, le fil et ses auteurs leurs derniers.
+ */
 const etatSchema = z.object({
   /**
-   * Plafonné large, pas à la taille du contexte : une relecture qui rejette un fil plus long que ce qu'on
-   * envoie au modèle le ferait retomber sur l'entretien vierge, donc perdre.
+   * Plafonné large, pas à la taille du contexte : ce qu'on envoie au modèle est borné ailleurs.
    */
-  messages: z.array(tourSchema).max(MAX_TOURS_CONSERVES).default([]),
+  messages: z.array(tourSchema).default([]).transform((m) => m.slice(-MAX_TOURS_CONSERVES)),
   reponses: z.array(z.object({
-    point: z.string().max(64),
-    valeur: z.string().max(2000),
-  })).max(64).default([]),
-  poses: z.array(z.string().max(64)).max(64).default([]),
+    point: texteBorne(64),
+    valeur: texteBorne(2000),
+  })).default([]).transform((r) => r.slice(0, 64)),
+  poses: z.array(texteBorne(64)).default([]).transform((p) => p.slice(0, 64)),
   bascules: z.array(z.object({
-    moment: z.string().max(400),
-    action: z.enum(ACTIONS).optional(),
-    moyen: z.string().max(2000).optional(),
-  })).max(MAX_BASCULES).default([]),
-  auteurs: z.array(z.string().max(320).nullable()).max(MAX_TOURS_CONSERVES).default([]),
+    moment: texteBorne(400),
+    action: z.enum(ACTIONS).optional().catch(undefined),
+    moyen: texteBorne(2000).optional(),
+  })).default([]).transform((b) => b.slice(0, MAX_BASCULES)),
+  auteurs: z.array(z.string().max(320).nullable().catch(null)).default([]).transform((a) => a.slice(-MAX_TOURS_CONSERVES)),
   // Sans `.default()`, contrairement au reste : « absente » et « vide » ne disent pas la même chose, et un
-  // défaut écrirait une chaîne vide dans le jsonb de chaque entretien existant.
-  connaissanceUrl: z.string().max(2000).optional(),
+  // défaut écrirait une chaîne vide dans le jsonb de chaque entretien existant. Une adresse hors borne est
+  // oubliée plutôt que tronquée : coupée, elle désignerait une autre page.
+  connaissanceUrl: z.string().max(2000).optional().catch(undefined),
 });
 
 

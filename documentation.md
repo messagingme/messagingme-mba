@@ -1676,6 +1676,30 @@ d'un moyen. Au tour qui demande l'action du moment N, si le modèle n'a rien ren
 `actionChoisie` lit le numéro ou le mot du choix dans le message du client. Une liste de moments remplie répond au
 point qui les recueille, même sans réponse texte (2026-10-12, agent SMATIS : trois fois la même question, un moment
 en double).
+🔴 **Le numéro se lit dans la liste que le client a VUE** (2026-11-23, entretien de Julien). Le modèle réordonne
+parfois les choix ; `actionChoisie` cherche donc le numéro dans la dernière liste numérotée du dernier message de
+l'assistant et lit cette ligne par ses mots, et ne retombe sur `CHOIX_ACTION` que si aucune ligne ne porte ce numéro.
+Un chiffre est lu s'il ouvre le message (« 1 aussi ») ; plus loin, c'est souvent un nom (« Relance J+3 »), et les mots
+décident. Chiffre et mots en désaccord : rien n'est retenu. La consigne demande en plus de recopier la liste telle quelle.
+🔴 **Au tour qui recueille les moments, le modèle ne pose pas le point d'après.** Ce point est calculé avant la réponse,
+donc sans les moments, et c'était le délai de silence : le modèle sautait les questions d'action, et le délai, répondu
+hors de son tour, revenait à la fin. S'il cite des moments, le modèle se tait et la relance du serveur pose l'action du
+premier, avec la liste canonique (`consigneDuTour`).
+🔴 **La relance d'un point déjà répondu fait confirmer, elle ne repose pas la question** (`questionDeRelance`). Un
+point n'est couvert que posé par le serveur ET répondu ; une réponse donnée pendant qu'on parlait d'autre chose est
+notée sans être posée. Quand la relance tombe sur un tel point, elle montre la réponse notée (« J'ai déjà noté, pour
+<sujet> : … C'est bien ça ? ») : le point passe devant le client, qui corrige une réponse inventée par le modèle, sans
+s'entendre reposer une question à laquelle il a répondu. Un seul point par relance : un modèle qui rend toutes les
+réponses d'un coup ne couvre toujours rien.
+🔴 **La relecture de l'entretien ramène les bornes, elle ne refuse plus l'état** (`lireEtat`). Le serveur écrit
+lui-même au-delà de certaines bornes (une réponse d'assistant reçoit la relance, l'annonce d'import et le bloc de fin) ;
+refusées, elles rendaient l'entretien vierge, et le tour suivant écrasait le fil en base. Les textes se coupent à leur
+borne, les listes gardent leurs premiers éléments (les moments, plafonnés aussi à l'écriture), le fil et ses auteurs
+leurs derniers, une action inconnue ou une adresse hors borne s'oublient. Le contenu d'un message relu n'a plus de borne.
+🔴 **La console distingue une coupure d'un refus** (`web/components/AgentConstruction.tsx`). Une relecture du fil qui
+échoue affiche « Réessayer », jamais un entretien vierge avec ses exemples cliquables : un exemple envoyé ainsi entrait
+dans le réglage de l'agent. Un envoi coupé (pas une `ApiError`) relit le fil : reçu par le serveur, sa réponse
+s'affiche ; pas reçu, le message revient dans la zone de saisie.
 
 🔴 **Le site donné pendant l'entretien s'importe en TÂCHE DE FOND** (décision de Julien, 2026-10-12). Au tour où
 l'adresse retenue change, la route lance `importerLeSiteDeLEntretien` sans l'attendre (un parcours prend jusqu'à 30 s),

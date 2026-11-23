@@ -5,6 +5,40 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : « Construire en parlant », les questions reposées et la conversation « perdue »
+
+Signalé par Julien sur un agent de test de la SANDBOX (« Muti ») : des « Failed to fetch », puis, au retour sur l'onglet,
+une conversation vide et des questions reposées (« 30 minutes je t'ai déjà dit »). Diagnostic sur son fil collé et le
+code (la lecture de l'état en base a été refusée par le garde-fou du mode automatique) : rien n'était perdu en base, cinq
+défauts distincts. (1) Le message « chaleureux et pro » avait été reçu, traité et enregistré, mais la réponse n'est pas
+arrivée au navigateur (cause de la coupure non mesurée ; trois déploiements de l'API ce jour-là). (2) Au retour, la
+relecture du fil a été coupée elle aussi, et l'écran avalait l'erreur en affichant un entretien vierge avec ses exemples :
+l'exemple « Il répond aux questions sur nos séjours et prend des rendez-vous. » est parti et s'est retrouvé dans le
+réglage de Muti. (3) Le modèle avait écrit SA liste de choix (1 = humain) que le serveur lisait dans la sienne
+(1 = scénario), et « 1 aussi » n'était pas lu : le second moment restait ouvert, le serveur y restait bloqué pendant que
+le modèle passait à la suite. (4) Au tour des moments, la consigne annonçait comme point suivant le délai de silence
+(calculé avant les moments) : le modèle l'a posé en sautant les actions, et le délai, répondu hors de son tour, n'était
+pas couvert. (5) La relance du serveur reposait mot pour mot une question déjà répondue. Et un défaut latent, pas survenu
+ici : la relecture rendait l'entretien vierge dès qu'une valeur dépassait sa borne (une réponse d'assistant de plus de
+4 000 caractères, plus de 12 moments, deux valeurs que le serveur écrit lui-même), et le tour suivant écrasait le fil.
+Méthode : en direct dans une copie à jour d'origin (le dossier partagé avait 520 commits de retard), tests vérifiés dans
+les deux sens, une relecture indépendante. Correctifs : la console relit le fil après un envoi coupé et dit « Réessayer »
+sur une relecture coupée ; le chiffre se lit dans la liste vue ; le modèle se tait au tour des moments et la relance pose
+l'action du premier ; la relance d'un point déjà répondu fait confirmer la réponse notée (champ `sujet` des points) ; la
+relecture ramène les bornes au lieu de tout refuser, et les moments sont plafonnés à l'écriture. Les douze nouveaux tests
+du serveur échouent tous sur le code d'avant (mutation par script, empreintes restaurées).
+La relecture (aucun rouge, 9 jaunes) : quatre corrigés dans le lot (un second « oui » coupé pris pour le premier,
+déjà répondu : la console compare désormais la longueur du fil en base ; un message encore en cours de traitement annoncé
+« pas arrivé » : le message le dit ; le point des moments jamais confirmé, sa liste ouvrant les questions d'action ; un
+numéro absent de la liste montrée ne désigne plus rien), les autres au `todo.md`. Vérifié : typage et lint (racine et
+console), auto-attaque (2 176 sondes, aucune trouvaille), suite racine (3 rouges sous la charge de deux builds de la
+console, verts seuls : agent-connaissance-texte, api-usage-guard, plafonds-partages ; la CI tranche), les 1 372 tests de
+la console, les 26 e2e de l'onglet sur la build de production ; les 4 nouveaux e2e échouent sur la console d'avant
+(construite à part, source restaurée et vérifiée par empreinte). Non mesuré : le comportement du vrai modèle d'entretien
+devant la nouvelle consigne (se taire au tour des moments, recopier la liste) ; l'essai réel clôt le lot : refaire un
+entretien sur un agent de la SANDBOX, citer deux moments, répondre « 1 » puis « 1 aussi », recharger la page en cours.
+
+
 ## 2026-11-21 au 23 : les incidents de santé analysés
 
 - **Le 21, deux alertes reconstituées après coup** dans `pgboss.job` : `push-analysis` en retard à 10:33 (vingt jobs de

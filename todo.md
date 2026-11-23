@@ -1,5 +1,24 @@
 # todo.md : backlog
 
+## 🟡 « Construire en parlant » : coupures et questions reposées, la relecture (2026-11-23, aucun rouge)
+
+- Un envoi coupé sur le tour qui TERMINE l'entretien : le serveur l'a traité, mais la relecture du fil ne rend ni la
+  proposition ni le diff, donc pas de bouton « Enregistrer ». Le client doit renvoyer un message (« montre-moi la
+  proposition ») ; le dire dans le message de la coupure, ou faire rendre la dernière proposition par le GET.
+- La confirmation d'une réponse notée marque le point couvert AVANT la réponse du client : un « non, plutôt 45 minutes »
+  n'est retenu que si le modèle réécrit la réponse du point d'avant. Garder le point « à confirmer » ouvert un tour.
+- Au tour des moments, la consigne n'a pas de branche pour une réponse qui ne cite rien sans dire « aucun » (une
+  question du client) ; et un « ? » que le modèle écrit malgré la consigne bloque la relance, la liste du premier moment
+  n'est alors pas montrée. La ligne « déjà dit, demande-lui de confirmer » contredit « ne pose aucune question » quand
+  le point des moments a déjà une réponse notée.
+- Un chiffre qui ouvre une phrase sans rapport avec un choix (« 3 jours après… ») au tour d'une action est lu comme un
+  numéro ; et si le modèle paraphrase ses libellés au point qu'aucun mot-clé ne ressort, le numéro ne désigne rien et
+  la question revient.
+- Le 13e moment cité est coupé sans que le client le sache : le dire dans le message du tour.
+- Test manquant : la relecture d'un fil dont `auteurs` est plus court que `messages`, coupé à 4 000.
+- Non mesuré sur le vrai modèle d'entretien : qu'il se taise au tour des moments et recopie la liste dans l'ordre. Les
+  gardes du serveur (liste vue, confirmation) tiennent même s'il ne le fait pas ; l'essai réel le dira.
+
 ## 🟡 Segments Shopify, lot 3 (produits achetés, réassort, sixième part) : la relecture (2026-11-23, aucun rouge)
 
 - 🔵 **DÉCIDÉ par Julien le 2026-11-23 : un lot RGPD à part pour `customers/data_request`** (question 14 de la spec).

@@ -1176,3 +1176,151 @@ describe('conversation de construction', () => {
     expect((await srv.inject({ method: 'DELETE', url: url('t1'), ...h(agentTok) })).statusCode).toBe(403);
   });
 });
+
+/**
+ * 🔴 L'ENTRETIEN DE JULIEN DU 2026-11-23, REJOUÉ (agent de test « Muti », SANDBOX).
+ *
+ * Trois défauts du moteur, enchaînés : au tour des moments, le modèle a posé le délai de silence (le point « suivant »
+ * qu'on lui annonçait, calculé sans les moments) ; il a ensuite écrit SA liste de choix, où « 1 » était l'humain, que le
+ * serveur lisait dans la sienne (1 = scénario), et « 1 aussi » n'était pas lu ; enfin, en concluant sans question, le
+ * serveur a reposé mot pour mot des questions déjà répondues. Réponses de Julien : « 30 minutes je t'ai déjà dit »,
+ * « je t'ai déjà dit : il s'appelle Muti ».
+ */
+describe('l’entretien du 2026-11-23, rejoué', () => {
+  const MOMENTS = [
+    { moment: 'le client demande à parler à un conseiller' },
+    { moment: 'le client pose une question que l’agent ne maîtrise pas' },
+  ];
+  const jusquAuxMoments = BASE.slice(0, BASE.indexOf('bascules') + 1);
+  const listeDuModele = (moment: string) => [
+    `Quand ${moment}, que doit faire l’agent ?`,
+    '',
+    '1) **Passer la main à un humain** : votre service client prend directement la conversation',
+    '2) **Appeler un outil branché par API** : un connecteur vers votre système',
+    '3) **Créer et lancer un scénario** : enchaîner sur une séquence automatisée',
+    '4) **Continuer à répondre** : l’agent gère la demande sans bascule',
+    '5) **Autre chose**',
+    '',
+    'Qu’en préférez-vous ?',
+  ].join('\n');
+  const sansRien = (message: string) => reponse(JSON.stringify({ message, reponses: [], fiche: {} }));
+
+  it('🔴 « 1 » dans la liste du MODÈLE est l’humain, pas le scénario du serveur', async () => {
+    const a = app({
+      reponse: sansRien('Noté. Et quand il pose une question hors sujet ?'),
+      entretien: {
+        messages: [{ role: 'assistant', content: listeDuModele(MOMENTS[0]!.moment) }], auteurs: [],
+        poses: [...jusquAuxMoments, 'bascule_1_action'],
+        reponses: toutesLesReponses().slice(0, jusquAuxMoments.length),
+        bascules: MOMENTS.map((m) => ({ ...m })),
+      },
+    });
+    await a.executer('1');
+    expect(a.entretiens.ecrits.at(-1)!.bascules[0]!.action).toBe('humain');
+  });
+
+  it('🔴 « 1 aussi » ferme le second moment : sa question ne revient pas', async () => {
+    const a = app({
+      reponse: sansRien('Parfait. Sous quel nom votre agent se présente-t-il ?'),
+      entretien: {
+        messages: [{ role: 'assistant', content: listeDuModele(MOMENTS[1]!.moment) }], auteurs: [],
+        poses: [...jusquAuxMoments, 'bascule_1_action', 'bascule_2_action'],
+        reponses: toutesLesReponses().slice(0, jusquAuxMoments.length),
+        bascules: [{ ...MOMENTS[0]!, action: 'humain' }, { ...MOMENTS[1]! }],
+      },
+    });
+    const res = await a.executer('1 aussi');
+    expect(a.entretiens.ecrits.at(-1)!.bascules[1]!.action).toBe('humain');
+    expect(res.couverture.manquants).not.toContain('bascule_2_action');
+  });
+
+  it('🔴 un point déjà répondu se fait CONFIRMER par la relance, il n’est pas reposé', async () => {
+    const silence = AGENDA.find((p) => p.code === 'silence')!;
+    const a = app({
+      reponse: sansRien('Muti est prêt.'),
+      entretien: {
+        messages: [], auteurs: [],
+        // Le serveur en est au second moment ; le délai a été répondu pendant qu'on parlait d'autre chose : noté, pas
+        // posé. La réponse du client ferme le moment, et la relance tombe sur le délai.
+        poses: [...jusquAuxMoments, 'bascule_1_action', 'bascule_2_action'],
+        reponses: [...toutesLesReponses().slice(0, jusquAuxMoments.length), { point: 'silence', valeur: '30 minutes' }],
+        bascules: [{ ...MOMENTS[0]!, action: 'humain' }, { ...MOMENTS[1]! }],
+      },
+    });
+    const res = await a.executer('je t’ai déjà répondu 4, il doit transférer à un humain');
+    expect(res.message).toContain(`J’ai déjà noté, pour ${silence.sujet} : « 30 minutes ». C’est bien ça ?`);
+    expect(res.message).not.toContain(silence.question);
+    // Le point est passé devant le client : il compte, et la relance suivante portera sur le point d'après.
+    expect(a.entretiens.ecrits.at(-1)!.poses).toContain('silence');
+    expect(res.couverture.manquants).not.toContain('silence');
+  });
+
+  it('le point des MOMENTS ne se confirme pas : sans liste, il repose sa question', async () => {
+    // Une réponse texte sans liste (moments cités hors de leur tour) : confirmée, elle couvrirait le point, et aucune
+    // question d'action ne naîtrait.
+    const moments = AGENDA.find((p) => p.collecteDesMoments)!;
+    const a = app({
+      reponse: sansRien('Noté.'),
+      entretien: {
+        messages: [], auteurs: [], poses: BASE.slice(0, BASE.indexOf('bascules') - 1),
+        reponses: [
+          ...toutesLesReponses().slice(0, BASE.indexOf('bascules')),
+          { point: 'bascules', valeur: 'quand le client veut un conseiller' },
+        ],
+        bascules: [],
+      },
+    });
+    const res = await a.executer('une conversation réussie, c’est un rendez-vous pris');
+    expect(res.message).toContain(moments.question);
+    expect(res.message).not.toContain('J’ai déjà noté');
+  });
+
+  it('un point jamais répondu garde sa question, comme avant', async () => {
+    const silence = AGENDA.find((p) => p.code === 'silence')!;
+    const a = app({
+      reponse: sansRien('Noté.'),
+      entretien: {
+        messages: [], auteurs: [],
+        poses: [...jusquAuxMoments, 'bascule_1_action', 'bascule_2_action'],
+        reponses: toutesLesReponses().slice(0, jusquAuxMoments.length),
+        bascules: MOMENTS.map((m) => ({ ...m, action: 'humain' as const })),
+      },
+    });
+    const res = await a.executer('humain aussi');
+    expect(res.message).toContain(silence.question);
+  });
+
+  it('🔴 au tour des moments, le modèle ne pose PAS le point d’après : le serveur enchaîne sur le premier moment', async () => {
+    const a = app({
+      reponse: reponse(JSON.stringify({
+        message: 'Noté. Deux moments : quand le client demande un conseiller, et quand il pose une question hors sujet.',
+        reponses: [], fiche: {}, bascules: MOMENTS,
+      })),
+      entretien: {
+        messages: [], auteurs: [], poses: [...jusquAuxMoments],
+        reponses: toutesLesReponses().slice(0, BASE.indexOf('bascules')), bascules: [],
+      },
+    });
+    const res = await a.executer('le client demande à parler à un conseiller, le client pose une question hors sujet');
+    const consigne = a.cap.appels[0]!.messages[0]!.content ?? '';
+    expect(consigne).toContain('NE POSE AUCUNE QUESTION');
+    // Le point d'après (le délai) n'est annoncé que pour le cas où il ne cite aucun moment.
+    expect(consigne).toContain('S’il n’en cite AUCUN');
+    expect(consigne).not.toContain('SI son dernier message répond au point ouvert');
+    // Et c'est la liste du SERVEUR qui part, celle qu'`actionChoisie` sait lire.
+    expect(res.message).toContain('1) créer et lancer un scénario');
+    expect(a.entretiens.ecrits.at(-1)!.poses).toContain('bascule_1_action');
+  });
+
+  it('une liste de choix se recopie dans l’ordre : la consigne le dit au tour d’une action', async () => {
+    const a = app({
+      reponse: sansRien('Noté ?'),
+      entretien: {
+        messages: [], auteurs: [], poses: [...jusquAuxMoments, 'bascule_1_action'],
+        reponses: toutesLesReponses().slice(0, jusquAuxMoments.length), bascules: MOMENTS.map((m) => ({ ...m })),
+      },
+    });
+    await a.executer('je réfléchis');
+    expect(a.cap.appels[0]!.messages[0]!.content ?? '').toContain('se recopie TELLE QUELLE');
+  });
+});

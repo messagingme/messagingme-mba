@@ -1,7 +1,7 @@
 import type { ChatMessage } from '../llm/chat-client';
 import { neutraliserDelimiteurs } from '../bloc-donnees';
 import {
-  ordreDuJour, pointsSansContenu, prochainsPoints, pistesDe, type EtatEntretien, type Inventaire,
+  momentDuPoint, ordreDuJour, pointsSansContenu, prochainsPoints, pistesDe, type EtatEntretien, type Inventaire,
 } from './couverture';
 import { LIBELLES_MENTION, OUTILS_PROPOSABLES, dureeEnClair, type EtatCourant } from './proposition';
 
@@ -179,10 +179,36 @@ export function consigneDuTour(
       + 'ses mots (« le client veut prendre rendez-vous »), et pas dans `reponses`. S’il en cite deux, tu rends deux '
       + 'entrées : c’est cette liste que le serveur reprend un par un.');
   }
+  /**
+   * 🔴 Le client répond à une liste par un CHIFFRE. Vécu par Julien le 2026-11-23 : le modèle avait réordonné les
+   * choix (« 1) Passer la main à un humain »), et « 1 » désignait autre chose pour le serveur. Le serveur lit
+   * désormais le chiffre dans la liste réellement montrée (`actionChoisie`) ; garder l'ordre évite en plus qu'un même
+   * chiffre change de sens d'un moment à l'autre.
+   */
+  if (momentDuPoint(ouvert.code)?.quoi === 'action' || momentDuPoint(suivant?.code)?.quoi === 'action') {
+    lignes.push('La liste numérotée des choix se recopie TELLE QUELLE : mêmes choix, même ordre, mêmes numéros.');
+  }
   const deja = etat.reponses.find((r) => r.point === ouvert.code && r.valeur.trim() !== '');
   if (deja) {
     lignes.push(`Il a DÉJÀ dit quelque chose là-dessus : « ${deja.valeur} ». Ne repose pas la question : `
       + 'reformule-la en une phrase et demande-lui de confirmer ou de corriger.');
+  }
+  if (ouvert.collecteDesMoments) {
+    /**
+     * 🔴 LE POINT SUIVANT D'ICI DÉPEND DE SA RÉPONSE, et le serveur l'a calculé avant de la lire. Vécu par Julien le
+     * 2026-11-23 : deux moments cités, et le modèle, à qui l'on annonçait le délai de silence comme point suivant
+     * (calculé sans les moments), l'a posé en sautant les deux questions d'action ; le délai, répondu hors de son
+     * tour, est revenu à la fin. Quand des moments sont cités, le modèle se tait et le serveur pose lui-même
+     * l'action du premier, avec la liste numérotée de `CHOIX_ACTION`.
+     */
+    lignes.push('S’il cite un ou plusieurs moments : note-les dans `bascules`, redis-les-lui en une ligne, et NE POSE '
+      + 'AUCUNE QUESTION, pas même un point d’interrogation : le serveur enchaîne lui-même sur le premier moment, '
+      + 'avec ses choix numérotés.');
+    lignes.push(suivant
+      ? `S’il n’en cite AUCUN (« aucun », « rien ») : dis-le-lui en une ligne et pose le point SUIVANT, ${suivant.code} -> `
+        + `${suivant.aObtenir}. Sa question : « ${suivant.question} » (exemples à traduire : ${pistesDe(suivant)}).`
+      : 'S’il n’en cite aucun, l’entretien est fini.');
+    return lignes.join('\n');
   }
   if (suivant) {
     lignes.push(`SI son dernier message répond au point ouvert : note la réponse, dis-le-lui en une ligne, et `

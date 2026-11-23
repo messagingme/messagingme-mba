@@ -10,10 +10,10 @@ import { avancementEntretien, type AvancementEntretien } from './avancement';
 import { construireMessages, inventaireDe, type ContexteConstruction } from './conversation';
 import {
   actionChoisie, basculesDuTour, fusionner, fusionnerBascules, momentDuPoint, momentsDesReponses,
-  poseUneQuestion, prochainPoint, urlDeConnaissance,
+  poseUneQuestion, prochainPoint, questionDeRelance, urlDeConnaissance,
 } from './couverture';
 import {
-  bornerPourModele, ENTRETIEN_VIERGE, type EntretienComplet, type EntretienStore, type TourEntretien,
+  bornerPourModele, ENTRETIEN_VIERGE, MAX_BASCULES, type EntretienComplet, type EntretienStore, type TourEntretien,
 } from './entretien-store';
 import { blocDeFin } from './fin';
 import {
@@ -191,12 +191,17 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       const basculesProposees = reprendreDesReponses
         ? momentsDesReponses(propose.data.reponses)
         : basculesDuTour(avant.bascules ?? [], propose.data.bascules ?? [], pointDuTour);
-      const listeBascules = fusionnerBascules(avant.bascules ?? [], basculesProposees);
+      // Plafonnée À L'ÉCRITURE comme à la relecture (`MAX_BASCULES`) : une liste plus longue que ce que la relecture
+      // accepte ferait annoncer au client des moments qui disparaîtraient au tour suivant.
+      const listeBascules = fusionnerBascules(avant.bascules ?? [], basculesProposees).slice(0, MAX_BASCULES);
 
       const vise = momentDuPoint(pointDuTour?.code);
       const momentVise = vise?.quoi === 'action' ? listeBascules[vise.index] : undefined;
       if (momentVise && !momentVise.action) {
-        const choisie = actionChoisie(commande.message);
+        // Le numéro se lit dans la liste que le client a VUE : le dernier message de l'assistant, que la liste soit
+        // celle du modèle ou celle du serveur.
+        const vue = [...avant.messages].reverse().find((m) => m.role === 'assistant')?.content ?? '';
+        const choisie = actionChoisie(commande.message, vue);
         if (choisie) momentVise.action = choisie;
       }
 
@@ -243,7 +248,7 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       const enEntretien = suivi.manquants.length > 0;
 
       let propositionFinale = propose.data;
-      let message = relance ? `${propose.data.message}\n\n${relance.question}` : propose.data.message;
+      let message = relance ? `${propose.data.message}\n\n${questionDeRelance(relance, etatApres)}` : propose.data.message;
       let tokensIn = reponse.usage.tokensIn;
       let tokensOut = reponse.usage.tokensOut;
       const vientDeFinir = !enEntretien && avancementEntretien(avant, contexte).manquants.length > 0;

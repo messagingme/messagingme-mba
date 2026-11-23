@@ -78,6 +78,12 @@ export function questionnaireAction(moment: string): string {
 
 export interface Point {
   code: string;
+  /**
+   * Ce dont parle le point, en quelques mots, pour la relance qui fait CONFIRMER une réponse déjà notée
+   * (`questionDeRelance`) : « J'ai déjà noté, pour <sujet> : … ». Reposer la question entière à quelqu'un qui y a
+   * répondu lui fait dire « je t'ai déjà dit » (Julien, 2026-11-23).
+   */
+  sujet: string;
   /** Ce que l'assistant doit avoir obtenu. Part dans le prompt, telle quelle. */
   aObtenir: string;
   /**
@@ -102,18 +108,21 @@ export interface Point {
 export const AGENDA: Point[] = [
   {
     code: 'mission',
+    sujet: 'le but de votre agent',
     question: 'Au-delà de répondre aux questions, quel est le but de votre agent ?',
     aObtenir: 'ce que l’agent est là pour faire, au-delà de répondre',
     pistes: ['répondre et orienter', 'qualifier une demande', 'prendre un rendez-vous', 'faire un suivi de commande'],
   },
   {
     code: 'perimetre',
+    sujet: 'ce qu’il ne doit jamais dire ni faire',
     question: 'Y a-t-il des choses dont il ne doit jamais parler, ou qu’il ne doit jamais faire ?',
     aObtenir: 'ce dont il ne parle pas, ce qu’il ne fait jamais',
     pistes: ['rien de tarifaire', 'aucun engagement contractuel', 'pas de conseil technique'],
   },
   {
     code: 'connaissance',
+    sujet: 'l’origine de ses réponses de fond',
     question: 'D’où viendront ses réponses de fond : des pages de votre site, un document que vous me joignez, des fiches que vous écrirez, ou rien pour l’instant ?',
     /** « Mon site » ne suffit pas : une source qu'on ne sait pas nommer laisse la base de connaissance vide. */
     aObtenir: 'D’OÙ viennent ses réponses de fond : une base de connaissance à remplir, des pages de son site '
@@ -124,12 +133,14 @@ export const AGENDA: Point[] = [
   },
   {
     code: 'aboutissements',
+    sujet: 'une conversation réussie',
     question: 'À quoi ressemble une conversation réussie, celle après laquelle vous êtes content ?',
     aObtenir: 'à quoi ressemble une conversation qui finit bien ; il peut y en avoir plusieurs',
     pistes: ['rendez-vous pris', 'demande qualifiée', 'question résolue', 'transmis à un humain'],
   },
   {
     code: 'bascules',
+    sujet: 'les moments où il fait autre chose que répondre',
     question: 'À quels moments votre agent doit-il faire autre chose que répondre ? Citez-les, on les prendra un par un.',
     aObtenir: 'la LISTE des moments où il doit faire autre chose que répondre. Ne demande PAS encore ce qu’il '
       + 'y fait : on prendra chaque moment un par un juste après',
@@ -143,6 +154,7 @@ export const AGENDA: Point[] = [
      * `aboutissements` et `humain` : ce qui réussit, ce qui se passe sans réponse, puis qui reprend.
      */
     code: 'silence',
+    sujet: 'le délai avant de lâcher une conversation sans réponse',
     question: 'Si le contact ne répond plus, au bout de combien de temps votre agent doit-il lâcher la conversation ?',
     aObtenir: 'au bout de combien de temps SANS réponse du contact l’agent cesse d’attendre, EN MINUTES. '
       + 'Convertis toi-même ce qu’il dit (« une demi-heure » = 30, « deux heures » = 120, « une journée » = 1440). '
@@ -151,12 +163,14 @@ export const AGENDA: Point[] = [
   },
   {
     code: 'humain',
+    sujet: 'le moment où un humain reprend la conversation',
     question: 'Quand un humain doit-il reprendre la conversation ? « Jamais » est une réponse valable.',
     aObtenir: 'quand un humain reprend la conversation ; « jamais » est une réponse valable',
     pistes: ['sur demande explicite', 'quand l’agent bloque', 'sur un sujet sensible', 'jamais'],
   },
   {
     code: 'identite',
+    sujet: 'son nom et ses traits',
     question: 'Sous quel nom votre agent se présente-t-il, et quels traits doit-il avoir ?',
     aObtenir: 'sous quel NOM l’agent se présente au contact (ou aucun), et les deux ou trois traits qui le '
       + 'caractérisent',
@@ -169,6 +183,7 @@ export const AGENDA: Point[] = [
      * dans `aObtenir`, comme pour `connaissance`.
      */
     code: 'annonce_ia',
+    sujet: 'l’annonce qu’il est une IA',
     question: 'Votre agent doit-il annoncer qu’il est une IA ? Si oui, à chaque message ou une seule fois par conversation ?',
     aObtenir: 'SI l’agent annonce qu’il est une IA, et si oui À QUELLE FRÉQUENCE : à chaque message, ou une '
       + 'seule fois par conversation. S’il répond oui sans préciser, DEMANDE-LUI la fréquence avant de passer '
@@ -180,6 +195,7 @@ export const AGENDA: Point[] = [
   },
   {
     code: 'ton',
+    sujet: 'sa façon de parler',
     question: 'Comment doit-il parler : vouvoiement ou tutoiement, phrases courtes ou développées, emoji ou non ?',
     aObtenir: 'comment il parle : vouvoiement ou tutoiement, phrases courtes ou développées, emoji ou non',
     pistes: ['vouvoiement, phrases courtes, sans emoji', 'tutoiement, chaleureux', 'formel et détaillé'],
@@ -252,12 +268,14 @@ export function agendaEffectif(etat: EtatEntretien, inv: Inventaire = INVENTAIRE
   liste.forEach((b, i) => {
     engendres.push({
       code: codeAction(i),
+      sujet: `ce que fait l’agent quand « ${b.moment} »`,
       question: questionnaireAction(b.moment),
       aObtenir: `ce que l’agent fait quand « ${b.moment} », parmi les choix proposés`,
     });
     if (b.action && DEMANDE_UN_MOYEN.has(b.action)) {
       engendres.push({
         code: codeMoyen(i),
+        sujet: `le moyen, quand « ${b.moment} »`,
         question: `Pour « ${b.moment} » : ${moyenDemande(b.action, inv)}`,
         aObtenir: `le moyen CONCRET pour « ${b.moment} » (${libelleAction(b.action)})`,
       });
@@ -469,17 +487,56 @@ const MOTS_DES_ACTIONS: ReadonlyArray<{ action: Action; motif: RegExp }> = [
   { action: 'autre', motif: /^\s*autre\b/i },
 ];
 
-/**
- * 🔴 L'action que le client a choisie, lue dans SON message, au tour où le serveur lui a posé la liste numérotée de
- * `questionnaireAction`. Mesuré le 2026-10-12 : à ce tour, le modèle ne renvoie rien dans `bascules` 3 fois sur 4, et
- * la réponse du client (« passer la main à un humain ») était perdue, donc la question reposée. Le numéro seul, ou le
- * mot qui distingue un choix ; `null` si rien ne ressort, ou si deux choix se disputent le message.
- */
-export function actionChoisie(message: string): Action | null {
-  const numero = /^\s*([1-9])\s*[).]?\s*$/.exec(message);
-  if (numero) return CHOIX_ACTION[Number(numero[1]) - 1]?.action ?? null;
-  const trouvees = MOTS_DES_ACTIONS.filter((m) => m.motif.test(message)).map((m) => m.action);
+/** Le choix qu'un texte désigne par ses mots ; `null` s'il n'en désigne aucun, ou plusieurs. */
+function choixDesMots(texte: string): Action | null {
+  const trouvees = MOTS_DES_ACTIONS.filter((m) => m.motif.test(texte)).map((m) => m.action);
   return trouvees.length === 1 ? trouvees[0]! : null;
+}
+
+/** Une ligne de liste numérotée, telle qu'un modèle l'écrit : « 1) », « 1. », « **1)** », gras ou pas. */
+const LIGNE_NUMEROTEE = /^\s*[*_]*\s*(\d{1,2})\s*[*_]*\s*[).]\s*(.*)$/;
+
+/**
+ * Le choix que porte le numéro `n` dans la DERNIÈRE liste du message `liste` ; `undefined` si aucune ligne de ce
+ * message ne porte ce numéro. La dernière, parce que c'est la liste juste au-dessus de la réponse du client (une
+ * relance du serveur s'ajoute SOUS le texte du modèle).
+ */
+function choixDuNumero(n: number, liste: string): Action | null | undefined {
+  let texte: string | undefined;
+  let uneListe = false;
+  for (const ligne of liste.split('\n')) {
+    const m = LIGNE_NUMEROTEE.exec(ligne);
+    if (!m) continue;
+    uneListe = true;
+    if (Number(m[1]) === n) texte = m[2]!;
+  }
+  // Un numéro absent d'une liste montrée ne désigne rien : on ne le lit pas dans une autre liste que le client n'a pas vue.
+  if (texte === undefined) return uneListe ? null : undefined;
+  return choixDesMots(texte.replace(/[*_]/g, ''));
+}
+
+/**
+ * 🔴 L'action que le client a choisie, lue dans SON message, au tour où on lui a montré une liste numérotée. Mesuré
+ * le 2026-10-12 : à ce tour, le modèle ne renvoie rien dans `bascules` 3 fois sur 4, et la réponse du client (« passer
+ * la main à un humain ») était perdue, donc la question reposée. Le numéro, ou le mot qui distingue un choix ; `null`
+ * si rien ne ressort, si deux choix se disputent le message, ou si le numéro et les mots disent deux choses.
+ *
+ * 🔴 LE NUMÉRO SE LIT DANS LA LISTE QUE LE CLIENT A VUE (`listeVue`, le dernier message de l'assistant), pas dans
+ * `CHOIX_ACTION`. Vécu par Julien le 2026-11-23 : le modèle avait écrit SA liste (« 1) Passer la main à un humain…
+ * 3) Créer et lancer un scénario »), le serveur lisait « 1 » dans la sienne (1 = scénario) ; et « 1 aussi » n'était
+ * pas lu du tout, donc le moment restait sans réponse et sa question revenait à la fin. `CHOIX_ACTION` ne sert plus
+ * qu'à défaut d'une ligne portant ce numéro. Le numéro doit OUVRIR le message (« 1 aussi », « 4, un humain ») : un
+ * chiffre plus loin est le plus souvent un nom (« le scénario Relance J+3 »), et les mots le disent mieux.
+ */
+export function actionChoisie(message: string, listeVue = ''): Action | null {
+  const dits = choixDesMots(message);
+  const numero = /^\s*([1-9])(?!\d|[,.]\d)/.exec(message);
+  if (!numero) return dits;
+  const n = Number(numero[1]);
+  const vu = choixDuNumero(n, listeVue);
+  const parNumero = vu === undefined ? CHOIX_ACTION[n - 1]?.action ?? null : vu;
+  if (parNumero && dits && parNumero !== dits) return null;
+  return parNumero ?? dits;
 }
 
 /** Une réponse au point des moments qui dit qu'il n'y en a pas : elle couvre le point, elle n'est pas un moment. */
@@ -502,18 +559,41 @@ export function momentsDesReponses(reponses: readonly Reponse[]): Bascule[] {
 }
 
 /**
+ * Ce qu'on sait déjà de chaque point, par code. Ce qu'on sait des points engendrés vit sur la bascule : reprojeté
+ * ici, pour que l'ordre du jour du prompt et la relance du serveur lisent la même chose.
+ */
+function reponsesConnues(etat: EtatEntretien): Map<string, string> {
+  const gardees = new Map(retenues(etat.reponses).map((r) => [r.point, r.valeur]));
+  bascules(etat).forEach((b, i) => {
+    if (b.action) gardees.set(codeAction(i), libelleAction(b.action));
+    if (b.moyen && b.moyen.trim() !== '') gardees.set(codeMoyen(i), b.moyen);
+  });
+  return gardees;
+}
+
+/**
+ * Ce que le SERVEUR ajoute quand le modèle n'a rien demandé : la question du point ouvert, ou, si le client y a déjà
+ * répondu (« répondu d'avance », pendant qu'on parlait d'autre chose), la réponse notée à CONFIRMER. Le point passe
+ * toujours devant le client, qui peut corriger une réponse que le modèle aurait inventée, sans qu'on lui repose une
+ * question à laquelle il a répondu. Vécu par Julien le 2026-11-23 : « 30 minutes je t'ai déjà dit ».
+ */
+export function questionDeRelance(point: Point, etat: EtatEntretien): string {
+  const su = reponsesConnues(etat).get(point.code);
+  // Le point des moments n'est jamais confirmé ainsi : c'est la LISTE qui ouvre les questions d'action, et un texte noté
+  // sans liste (moments cités hors de leur tour) les ferait disparaître une fois le point couvert.
+  return su === undefined || point.collecteDesMoments
+    ? point.question
+    : `J’ai déjà noté, pour ${point.sujet} : « ${su} ». C’est bien ça ? Sinon, dites-moi ce qu’il faut changer.`;
+}
+
+/**
  * L'ordre du jour tel qu'il part dans le prompt, entier et avec ce qui est déjà su : le modèle doit voir
  * qu'une réponse donnée rend une question inutile à reposer telle quelle, et revenir sur un point contredit.
  */
 export function ordreDuJour(
   etat: EtatEntretien, inv: Inventaire = INVENTAIRE_VIDE, vides: readonly string[] = [],
 ): string {
-  const gardees = new Map(retenues(etat.reponses).map((r) => [r.point, r.valeur]));
-  // Ce qu'on sait des points engendrés vit sur la bascule : reprojeté ici, pour un ordre du jour d'un seul bloc.
-  bascules(etat).forEach((b, i) => {
-    if (b.action) gardees.set(codeAction(i), libelleAction(b.action));
-    if (b.moyen && b.moyen.trim() !== '') gardees.set(codeMoyen(i), b.moyen);
-  });
+  const gardees = reponsesConnues(etat);
   const poses = new Set(etat.poses);
   const effectif = agendaEffectif(etat, inv);
   const large = Math.max(...effectif.map((p) => p.code.length));

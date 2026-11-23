@@ -84,6 +84,8 @@ export interface ReponseConstruction {
   /** Les points de l'ordre du jour encore à couvrir. Non vide = l'assistant est ENCORE EN ENTRETIEN, et le
    *  serveur a volontairement retenu le diff : on discute avant d'afficher ce qu'il a compris. */
   couverture?: Couverture;
+  /** Le plafond de dépense a répondu à la place de l'assistant : rien n'a été écrit dans l'entretien. */
+  budgetEpuise?: boolean;
   usage: { tokensIn: number; tokensOut: number };
 }
 
@@ -216,7 +218,13 @@ export async function parlerAuConstructeur(
  */
 export async function lireEntretien(
   tenantId: string, agentId: string,
-): Promise<{ messages: TourConstruction[]; auteurs?: Array<string | null>; couverture: Couverture }> {
+): Promise<{
+  messages: TourConstruction[];
+  auteurs?: Array<string | null>;
+  /** Combien de messages le fil compte en base : `messages` n'en porte que les derniers. */
+  total?: number;
+  couverture: Couverture;
+}> {
   return request(`/tenants/${tenantId}/agents/${agentId}/setup`);
 }
 

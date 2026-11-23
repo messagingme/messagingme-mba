@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  bornerPourModele, lireEtat, MAX_TOURS_CONSERVES,
+  bornerPourModele, lireEtat, MAX_BASCULES, MAX_TOURS_CONSERVES,
 } from '../src/agent/setup/entretien-store';
 import { MAX_TOURS_HISTORIQUE } from '../src/agent/setup/conversation';
 
@@ -38,10 +38,55 @@ describe('le fil conserve tout, le prompt reste borné', () => {
     expect(borne[borne.length - 1]?.content).toBe(`tour ${MAX_TOURS_HISTORIQUE * 2 + 2}`);
   });
 
-  it('⚠️ un plafond de sécurité demeure : un jsonb ne grossit pas sans fin', () => {
+  it('⚠️ un plafond de sécurité demeure : un jsonb ne grossit pas sans fin, et le dépasser ne coûte que l’ancien', () => {
     const enorme = fil(MAX_TOURS_CONSERVES + 10);
-    // Au-delà, on retombe sur l'entretien vierge plutôt que d'écrire un document sans limite.
-    expect(lireEtat({ messages: enorme }).messages).toHaveLength(0);
+    // Au-delà, on garde les DERNIERS tours : le tour suivant réécrit le fil ramené, le jsonb ne grossit donc plus.
+    // Avant le 2026-11-23, le dépasser faisait retomber sur l'entretien vierge, donc perdre toute la conversation.
+    const relu = lireEtat({ messages: enorme }).messages;
+    expect(relu).toHaveLength(MAX_TOURS_CONSERVES);
+    expect(relu.at(-1)?.content).toBe(`tour ${MAX_TOURS_CONSERVES + 9}`);
+  });
+});
+
+/**
+ * 🔴 UNE BORNE DÉPASSÉE NE COÛTE PLUS TOUT LE FIL (2026-11-23).
+ *
+ * La relecture refusait l'état entier dès qu'UNE valeur dépassait sa borne, et rendait l'entretien vierge : l'écran se
+ * vidait, et le tour suivant écrasait le fil en base. Or le serveur écrit lui-même des valeurs au-delà : la réponse de
+ * l'assistant (jusqu'à 4 000 caractères) reçoit encore la relance, l'annonce d'import et le bloc de fin, et la liste
+ * des moments n'était plafonnée qu'à la relecture.
+ */
+describe('une borne dépassée se ramène, le fil reste', () => {
+  const tours = [
+    { role: 'user' as const, content: 'il répond aux questions sur mon offre' },
+    { role: 'assistant' as const, content: 'x'.repeat(5_000) },
+  ];
+
+  it('🔴 une réponse de l’assistant plus longue que la borne d’un message client se relit entière', () => {
+    const relu = lireEtat({ messages: tours, reponses: [], poses: [], bascules: [] });
+    expect(relu.messages).toHaveLength(2);
+    expect(relu.messages[1]!.content).toHaveLength(5_000);
+  });
+
+  it('🔴 trop de moments : les premiers sont gardés, et la conversation avec', () => {
+    const moments = Array.from({ length: MAX_BASCULES + 3 }, (_, i) => ({ moment: `moment ${i}` }));
+    const relu = lireEtat({ messages: tours, reponses: [], poses: [], bascules: moments });
+    expect(relu.bascules.map((b) => b.moment)).toEqual(moments.slice(0, MAX_BASCULES).map((b) => b.moment));
+    expect(relu.messages).toHaveLength(2);
+  });
+
+  it('une valeur trop longue est ramenée, une action inconnue oubliée, une adresse hors borne aussi', () => {
+    const relu = lireEtat({
+      messages: tours,
+      reponses: [{ point: 'mission', valeur: 'v'.repeat(3_000) }],
+      poses: ['mission'],
+      bascules: [{ moment: 'le client veut un conseiller', action: 'teleporter' }],
+      connaissanceUrl: `https://exemple.fr/${'p'.repeat(2_100)}`,
+    });
+    expect(relu.messages).toHaveLength(2);
+    expect(relu.reponses[0]!.valeur).toHaveLength(2_000);
+    expect(relu.bascules).toEqual([{ moment: 'le client veut un conseiller' }]);
+    expect(relu.connaissanceUrl).toBeUndefined();
   });
 });
 
