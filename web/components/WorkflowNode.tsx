@@ -208,7 +208,7 @@ function TexteDuBloc({ texte, lignes, libelles, testid, onModifier }: {
   lignes: 1 | 2 | 3;
   libelles?: ReadonlyMap<number, string>;
   testid: string;
-  /** Le message déplié d'un template modifiable : « Modifier » ouvre son formulaire (`ModifierModeleCtx`). */
+  /** Un template modifiable : « Modifier », toujours visible, ouvre son formulaire (`ModifierModeleCtx`). */
   onModifier?: () => void;
 }) {
   const t = useT();
@@ -233,8 +233,10 @@ function TexteDuBloc({ texte, lignes, libelles, testid, onModifier }: {
             ? <span key={i} className="rounded-full bg-brand-50 px-1 font-medium text-brand-700">{libelles.get(m.position)}</span>
             : <span key={i}>{`{{${m.position}}}`}</span>))}
       </span>
-      {((!enEntier && (coupe || deplie)) || (entier && onModifier)) && (
-        <span className="mt-0.5 flex items-center gap-3">
+      {/* « Modifier » TOUJOURS là, en bas à droite, en gras sur un fond (Julien, 2026-11-23) : le client doit le voir au
+          premier coup d'œil dans le bloc, le bouton du panneau de droite ne se trouve pas. « Voir tout » reste à gauche. */}
+      {(onModifier || (!enEntier && (coupe || deplie))) && (
+        <span className="mt-1 flex items-center gap-2">
           {!enEntier && (coupe || deplie) && (
             <button
               type="button"
@@ -246,15 +248,15 @@ function TexteDuBloc({ texte, lignes, libelles, testid, onModifier }: {
               {deplie ? t('Réduire', 'Show less') : t('Voir tout', 'Show all')}
             </button>
           )}
-          {entier && onModifier && (
+          {onModifier && (
             <button
               type="button"
               data-testid={`${testid}-modifier`}
-              className="nodrag block text-[9px] font-medium text-brand-600 hover:underline"
+              className="nodrag ml-auto inline-flex items-center gap-0.5 rounded-controle bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-800 hover:underline"
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onModifier(); }}
             >
-              {t('Modifier', 'Edit')}
+              <Icone nom="modifier" taille="mini" />{t('Modifier', 'Edit')}
             </button>
           )}
         </span>

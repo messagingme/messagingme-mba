@@ -126,14 +126,21 @@ test.describe('Éditeur : écrire ou modifier le template d’un bloc (lot 3)', 
     await expect.poll(() => flechesDeN1(recus.graphes), { timeout: 10_000 }).toEqual(['btn:0>n2', 'btn:1>n3']);
   });
 
-  test('🔴 « Modifier » sur le message déplié du bloc : le même formulaire que « Modifier ce template » (2026-11-20)', async ({ page }) => {
+  test('🔴 « Modifier » dans le bloc, TOUJOURS visible, en bas à droite : le même formulaire que « Modifier ce template » (2026-11-23)', async ({ page }) => {
     await monter(page, etatDeDepart());
     await page.goto('/workflows?open=wf1');
     const bloc = page.locator('.react-flow__node').first();
-    // Replié, pas de « Modifier » ; déplié (l'interrupteur de la barre), il est là.
-    await expect(bloc.getByTestId('node-apercu-texte-modifier')).toHaveCount(0);
+    // Sans rien déplier (Julien, 2026-11-23 : le client doit le voir du premier coup d'œil) ; et toujours là, déplié.
+    const modifier = bloc.getByTestId('node-apercu-texte-modifier');
+    await expect(modifier).toBeVisible();
+    await expect(modifier).toHaveCSS('font-weight', '700');
+    // En bas à DROITE du message : son bord droit au bord droit de l'aperçu, à 2 px près.
+    const bulle = await bloc.getByTestId('node-apercu-texte').evaluate((el) => (el.parentElement as HTMLElement).getBoundingClientRect().right);
+    const bouton = await modifier.evaluate((el) => el.getBoundingClientRect().right);
+    expect(Math.abs(bulle - bouton)).toBeLessThan(12);
     await page.getByTestId('workflow-messages-en-entier').check();
-    await bloc.getByTestId('node-apercu-texte-modifier').click();
+    await expect(modifier).toBeVisible();
+    await modifier.click();
     const modale = page.getByTestId('modele-du-bloc');
     await expect(modale).toBeVisible();
     await expect(modale.getByTestId('template-nom')).toHaveCount(0);

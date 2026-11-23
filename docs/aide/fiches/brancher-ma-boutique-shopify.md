@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: c3555c
+source_empreinte: 065187
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8

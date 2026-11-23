@@ -3174,8 +3174,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   le replie, Ctrl ou Cmd + clic l'ouvre dans un autre onglet, d'où l'éditeur ramène ici par « ← Retour aux
   automations Shopify » ; de même sur la page HubSpot). Une automation qui n'a pas encore de ligne la reçoit à son
   premier allumage, qui déplie son scénario sous la liste ; éteindre arrête ses parcours en cours. Le premier bloc, marqué « premier message », ne se supprime pas et
-  rien ne mène à lui ; il porte le message standard, que « Modifier ce template » (ou « Modifier » sous le message déplié du
-  bloc, sur le canevas) retouche en gardant ses données Shopify, ou un autre template choisi ou écrit sur place (« Écrire un nouveau template »), et chaque variable se relie
+  rien ne mène à lui ; il porte le message standard, que « Modifier ce template » (ou « Modifier », en bas à droite du message dans le
+  bloc sur le canevas) retouche en gardant ses données Shopify, ou un autre template choisi ou écrit sur place (« Écrire un nouveau template »), et chaque variable se relie
   à une donnée Shopify dans le panneau du bloc. Un nouveau
   template publié prend la place de l'ancien à l'approbation de Meta, et l'ancien part jusque-là. Le template remplacé,
   s'il a été écrit depuis un bloc d'une automation, est supprimé chez Meta un quart d'heure après (plus tard si une
