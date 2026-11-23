@@ -36,6 +36,17 @@ construction de la console, rejoué seul et vert), typage, lint, auto-attaque ; 
 les 27 e2e des trois pages sur la build de production) ; sur le banc PGlite, l'intégration, les douze mutations et la
 sonde de relecture de la 0311 (lecture seule, le vrai code). Au passage, `todo.md` portait depuis le 21 novembre un
 octet nul (un « \0 » écrit littéralement) qui le faisait lire comme un fichier binaire : remplacé.
+CI verte job par job sur `eb6978186` (dont `integration`, le vrai Postgres). Déployé le même jour par le run
+45207678162, lancé et approuvé par Julien (`migration=avant`, « 0311_shopify_commande_lignes.sql ... ok », seule
+migration de l'image), fumée et fiches OAuth conformes, `/contacts/segments/produits` en 401 sans session.
+Relu en base par Julien, par le vrai code de l'image en lecture seule : aucune transaction de plus de 5 s ;
+`shopify_commande_lignes` conforme (colonnes, types, nullabilité, défauts ; la clé étrangère `(tenant_id,
+commande_id)` en `ON DELETE CASCADE`, `confdeltype` c ; les trois CHECK sous leur nom ; les deux index partiels
+valides, prédicats exacts), vide ; `shopify_commandes.lignes_tronquees` en booléen non nul, défaut faux ; 0311 en
+tête des migrations. Sur la dernière boutique branchée : les trois critères se comptent, les produits vus et la carte
+(sixième part comprise) se lisent, et les deux écritures des lignes sont refusées par la lecture seule (25006), donc
+leur SQL colle au schéma de production. L'onglet de la fiche n'a pas pu être lu, cette boutique n'ayant encore aucune
+commande : l'essai réel 284 (étapes 5 et 6) le couvre. `aide:charger` sur l'image eb6978186 : 360 lignes, 0 retirée.
 
 ## 2026-11-23 : segments Shopify, lot 2b : la carte « Joignabilité WhatsApp »
 
