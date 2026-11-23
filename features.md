@@ -5903,15 +5903,48 @@ mais elle donne ce pouvoir à QUICONQUE la détient : elle peut changer ce que l
 depuis un assistant : elle reste un geste de la console.
 
 **Ce qu'il ne fait PAS, et c'est délibéré.**
-- **Aucune campagne.** Ouvrir l'envoi de masse à un modèle, c'est lui donner un mégaphone facturé sur un numéro
-  dont Meta note la qualité. Un assistant répond dans une conversation ouverte, et envoie un modèle approuvé à
-  UNE personne à la fois (`send_template_to_contact`, réservé à une personne connectée, compté dans les envois du
-  jour) ; il ne lance pas d'envoi de masse.
-- **Hors de la fenêtre de 24 h, seul un modèle approuvé part.** Un message libre est refusé, avec la raison.
-- **Les automations ne se déclenchent pas.** Un tag posé par un assistant classe le contact, il ne réveille
-  pas les automations qui écoutent ce tag : un agent qui boucle sur 500 fils déclencherait 500 envois. Comme
-  ailleurs dans la console, le tag est coupé à 64 caractères et déclaré dans Contenu > Bibliothèque >
-  Étiquettes (2026-10-04).
+- **Une campagne ne part jamais d'un seul appel, ni par une clé d'API.** Ouvrir l'envoi de masse à un modèle,
+  c'est lui donner un mégaphone facturé sur un numéro dont Meta note la qualité : depuis le 2026-10-20 (dès l'offre
+  Pro), l'assistant prépare une campagne, puis la lance sur un code. Il trouve les contacts d'une cible
+  (`find_contacts`), en fait un segment en les étiquetant (`tag_contacts`), puis prépare une campagne d'un modèle
+  approuvé (`prepare_campaign`), pour tout de suite ou pour une date : un brouillon visible dans Campagnes, rien ne
+  part. Le récapitulatif dit combien de contacts sont visés, combien partiront, les écartés par motif (sans
+  consentement pour un modèle marketing, STOP, variable manquante, autre : bloqué, supprimé ou sans numéro), cinq noms,
+  le numéro qui envoie, qui répondra aux contacts et le nombre de messages facturables, sans montant sauf quand la
+  ligne de crédit paie le numéro, hors Entreprise (le coût estimé, le solde, ce qui manque). Il porte un code de six
+  caractères, valable 30 minutes et une seule fois : l'outil demande de montrer le récapitulatif et d'attendre un oui
+  explicite, et `launch_campaign` exige ce code, qui ne lance que la campagne telle qu'elle a été montrée. Changée
+  entre-temps, dans la console comprise, elle se prépare à nouveau, et l'ancien brouillon disparaît. Le lancement est
+  celui du bouton « Lancer » de la console : tout de suite, ou programmé à la date préparée. Sur toute campagne de
+  l'espace, `control_campaign` met en pause une campagne qui envoie (ce qui est parti reste parti, les autres
+  attendent) ou déprogramme une campagne programmée, sans code ; pour une campagne en pause, il prépare la reprise
+  (les destinataires restants, la raison de la pause, un nouveau code), que `launch_campaign` fait partir aussitôt.
+  À UNE personne, hors campagne, il envoie un modèle approuvé (`send_template_to_contact`, réservé lui aussi à une
+  personne connectée, compté dans les envois du jour). Le détail : « Claude prépare une campagne, et ne la lance
+  qu'après votre oui » (section « API publique `/v1` ») et « Les freins d'une campagne » (plus bas). Ce qu'il ne
+  fait toujours pas :
+  - **agir avec une clé d'API** : ces outils sont réservés à une personne connectée (OAuth, un administrateur), et
+    une clé, même `mcp:write`, ne les voit pas ; seules les lectures (`find_contacts`, `get_campaign_stats`)
+    s'ouvrent aussi à une clé `mcp:read`. En Free, ils restent listés et refusent avec le lien de l'offre ;
+  - **viser tout l'espace** : une cible sans critère est refusée ; les filtres par analyse demandent l'Entreprise ;
+  - **choisir la catégorie** : c'est celle du modèle chez Meta, et un modèle marketing ne part qu'à qui a consenti ;
+  - **lancer un brouillon créé dans la console** : seul un brouillon qu'il a préparé porte un code ;
+  - **supprimer une campagne ou en changer le contenu** : il ne retire que son propre brouillon jamais lancé, quand
+    un nouveau le remplace ;
+  - **reprendre une pause qu'un autre geste lève** (numéro délié, abonnement du numéro impayé ou terminé, ligne de
+    crédit épuisée ou arrêtée), et aucun de ses refus ne renvoie vers une nouvelle préparation d'une campagne en
+    pause, qui écrirait à tous ses destinataires, déjà servis compris ;
+  - **les autres campagnes de l'écran** : RCS, à scénario, en chaîne avec repli ou au fil de l'eau, à débit réglé ou
+    aux seules heures ouvrées, elles se préparent dans Campagnes.
+- **Hors de la fenêtre de 24 h, seul un modèle approuvé part.** Un message libre est refusé, avec la raison. Seule
+  exception, un numéro encore relié par QR code (filière application, plus proposée, voir plus bas) : la réponse à
+  un client qui a écrit n'y est pas refusée, elle est mise en file et part plus tard.
+- **Les automations ne se déclenchent pas.** Un tag posé par un assistant, sur un fil (`tag_conversation`) comme
+  sur une cible (`tag_contacts`, l'action en masse de la console), classe le contact, il ne réveille pas les
+  automations qui écoutent ce tag : un agent qui boucle sur 500 fils déclencherait 500 envois. Comme ailleurs dans
+  la console, le tag est coupé à 64 caractères ; posé sur un fil, il est aussi déclaré dans Contenu > Bibliothèque >
+  Étiquettes (2026-10-04), posé sur une cible, il n'y figure que tant qu'une fiche le porte, comme après l'action en
+  masse.
 - **Une clé de lecture ne VOIT même pas les outils qui écrivent** : ils ne sont pas listés.
 
 ### Connecter Claude à votre espace, sans clé (2026-10-03)
