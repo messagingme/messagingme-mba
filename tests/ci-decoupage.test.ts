@@ -59,11 +59,10 @@ describe('les deux moitiés de la CI', () => {
   it('🔴 les contrôles hors E2E tournent sur UNE seule moitié, et chacun sur une moitié', () => {
     // Sur les deux, on paierait deux fois ; sur aucune (une condition fausse, `moitie == 3`), ils sauteraient en vert.
     const condition = (etape: string) => new RegExp(`- name: ${etape}\\n\\s+if: matrix\\.moitie == ([12])\\n`).exec(ciWeb)?.[1];
+    // Toutes sur la moitié 2 : la 1 tire la part d'e2e la plus lourde (mesure dans `ci-web.yml`).
     for (const etape of ['Build Next \\(type-check \\+ lint inclus\\)', 'Lint \\(next/core-web-vitals\\)', 'Type-check exhaustif',
-      'Tests unitaires front \\(vitest\\)']) {
-      expect(condition(etape), etape).toBe('1');
-    }
-    for (const etape of ['Build avec l adresse d API de production', 'La base d API est scellee dans le bundle, et la CSP l autorise']) {
+      'Tests unitaires front \\(vitest\\)', 'Build avec l adresse d API de production',
+      'La base d API est scellee dans le bundle, et la CSP l autorise']) {
       expect(condition(etape), etape).toBe('2');
     }
   });

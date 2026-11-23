@@ -58,8 +58,10 @@ jobs:
     # chaque test tourne une fois, sur une seule machine. Le job est rouge si l'une des deux moities l'est.
     # ⚠️ LE PIEGE EST UNE REPARTITION FAUSSE (deux fois `1/2`) : la moitie des tests ne tournerait jamais, en vert.
     # `tests/ci-decoupage.test.ts` exige exactement `[1, 2]` et `--shard=${{ matrix.moitie }}/2`.
-    # Ce qui ne depend pas des e2e ne tourne que sur UNE machine : les controles (build, lint, tsc, vitest) sur la
-    # moitie 1, le build de production et sa verification sur la moitie 2, pour equilibrer les deux.
+    # Ce qui ne depend pas des e2e ne tourne que sur UNE machine, la moitie 2 : les controles (build, lint, tsc,
+    # vitest), le build de production et sa verification. Mesure du premier run (2026-11-21) : la moitie 1 tire la
+    # part d'e2e la plus lourde (7,6 min contre 5,9) ; avec les controles en plus, elle finissait a 11,4 min contre
+    # 8,1. Tout sur la 2 les ramene l'une vers l'autre. Si l'equilibre bouge (des specs ajoutes), on remesure ici.
     name: web (${{ matrix.moitie }}/2)
     strategy:
       fail-fast: false
@@ -101,18 +103,18 @@ jobs:
       # tsc plante sur des types fantômes. Le build fait déjà le type-check ET la passe ESLint de Next
       # (qui n'échoue que sur des erreurs, pas des warnings). Aucun BACKEND_URL requis (fallback next.config.mjs).
       - name: Build Next (type-check + lint inclus)
-        if: matrix.moitie == 1
+        if: matrix.moitie == 2
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
       - name: Lint (next/core-web-vitals)
-        if: matrix.moitie == 1
+        if: matrix.moitie == 2
         run: npm run lint
       - name: Type-check exhaustif
-        if: matrix.moitie == 1
+        if: matrix.moitie == 2
         run: npx tsc --noEmit
       - name: Tests unitaires front (vitest)
-        if: matrix.moitie == 1
+        if: matrix.moitie == 2
         run: npm test
       # E2E : les appels /api/backend/* sont mockés par page.route -> aucun backend ni base requis. Le webServer
       # de Playwright build + sert le Next ; on installe juste le navigateur (avec ses deps système).
