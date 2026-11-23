@@ -28,6 +28,11 @@ masquaient sur le même cas ; un second lien forgé, dans l'autre sens, donne à
 typage, lint, auto-attaque ; console (lint, types, tests unitaires, les 12 e2e de la page sur la build de production) ;
 sur le banc PGlite, l'intégration et quatorze mutations, toutes rouges, et la sonde de relecture de la 0310 (lecture
 seule, le vrai code). Un test des paniers (`skip locked`) ne se joue pas sur la session unique du banc : la CI tranche.
+CI verte job par job sur `0e8aea731` (dont `integration`, le vrai Postgres). Déployé le même jour par le run
+45181227910, lancé et approuvé par Julien (`migration=avant`, « 0310_shopify_joignabilite.sql ... ok »), fumée et fiches
+OAuth conformes, la route répond 401 sans session (une route absente, 404). Arbitrages de Julien, posés en questions
+fermées : les commandes payées avant la mise en service restent hors de la carte (le correctif du rouge) ; une sixième
+part, « pas de message livrable », sortira de « en attente d'accusé » avec le lot 3.
 
 ## 2026-11-23 : segments Shopify, lot 2a : le numéro utilisable, la fiche supprimée au premier 131026
 
