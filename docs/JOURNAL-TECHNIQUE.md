@@ -5,6 +5,27 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-21 au 23 : les incidents de santé analysés
+
+- **Le 21, deux alertes reconstituées après coup** dans `pgboss.job` : `push-analysis` en retard à 10:33 (vingt jobs de
+  0 s, jusqu'à 539 s d'attente, la rafale de pg-boss ne s'engageant qu'au-delà de 20 prêts) et « entrants » orange à
+  10:53 (aucun message n'avait attendu, un seul traitement de 20 s faisait le p95 de sept messages). Lot 0 :
+  `push-analysis` vidée en continu et les entrants jugés sur l'attente avec 20 messages au moins (690b39ae4).
+- **Lots 1 à 4** : la capture de l'instantané (0307), le réveil de la tâche cloud, la route du rapport et la décision par
+  Telegram (0308). La relecture du lot 1 a trouvé un rouge, corrigé avant le push : sept lectures de `pgboss.job` en
+  parallèle et sans délai, par capture, au moment même où la base sature. 0307 et 0308 relues conformes en base ;
+  l'instantané lu par le vrai code en production en 175 ms.
+- **Le déploiement des lots 3 et 4 a échoué** sur `Artifact not found` : l'image avait expiré pendant deux jours
+  d'attente d'approbation. Relancé sur la tête de `main` (run 45137005789).
+- **Activation le 23** : routine créée par l'API (`trig_01359K3ohBxtbVuN4DptXe6n`), son jeton de déclenchement et
+  l'environnement « Incidents » (secret réseau vers `api.messagingme.app`) posés par Julien dans claude.ai, faute
+  d'API. La commande de pose a d'abord voulu renvoyer la table entière des secrets du conteneur : arrêtée par sa
+  propre vérification (des secrets posés à la main n'existent qu'au conteneur), réécrite pour ne compléter que les
+  variables en clair. Node ne joint pas Telegram depuis le poste (ECONNRESET) : webhook déclaré depuis la machine.
+- **Incident 1, le 23 à 16:18** : « base saturée » sur une copie de l'API (22 % d'attentes, 271 ms). Instantané, réveil
+  et rapport en 1 min 43 s, classé « base », issue 1. Mais Telegram a refusé le message, marqué rendu donc perdu, motif
+  seulement dans les journaux de l'API : correctif bcfb00681 (502 avec le motif, rapport renvoyable).
+
 ## 2026-11-23 : segments Shopify, lot 3 : les produits achetés, le réassort, la sixième part
 
 Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-3-produits.md`, implémenteur par lot et revue humaine du

@@ -158,6 +158,10 @@ ce qui casse la production), la CI lue avant le déploiement, la migration AVANT
 Runbook et retour arrière : [DEPLOY.md](DEPLOY.md). **LIVE (`DRY_RUN=false`)**, numéro Zadarma réel.
 Auth **JWT (login)** + **RBAC** (écritures réservées aux admins).
 
+🔴 **UN DÉPLOIEMENT SE LANCE QUAND JULIEN PEUT L'APPROUVER** : l'image construite par le workflow expire pendant
+qu'il attend l'approbation, et le job `deployer` échoue alors sur `Artifact not found` (vécu le 2026-11-23, deux jours
+d'attente). Rien n'est touché en production ; on relance le workflow sur la tête de `main`.
+
 ⚠️ **Migrations NON auto-appliquées** : chaque lancement du workflow CHOISIT (`aucune`, `avant`, `apres`), et une migration
 qui ajoute une colonne écrite par le code part en `avant` (`DEPLOY.md`).
 

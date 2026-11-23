@@ -6627,6 +6627,24 @@ arrivant sur un autre onglet, et Santé rend elle-même la révision affichée s
   ne se note pas : le passage suivant réessaie. La veille de charge du worker garde ses propres alertes : une file en
   retard ou une base saturée peut donc envoyer DEUX messages, chacun avec son délai. Le battement et la 2e copie d'API
   ne jouent que sur l'écran.
+- **Les incidents de santé** (plan `docs/superpowers/plans/2026-11-21-incidents-sante.md`). Chaque alerte PARTIE (veille
+  de santé de l'API, veille de charge du worker) ouvre une ligne `incidents` (`src/ops/incidents.ts`) ; le retour au
+  vert clôt la dernière ouverte de son signal. La capture n'est jamais attendue et n'empêche jamais l'alerte. Son
+  instantané (`PgIncidentsStore.lireInstantane`) se lit sur UNE connexion, en transaction en lecture seule, chaque
+  requête plafonnée à 3 s, et un seul instantané sert toutes les alertes d'une minute : il part souvent quand la base
+  sature. Il ne garde ni `group_id` de pg-boss ni texte de requête (données personnelles possibles), et se borne à
+  60 000 caractères. L'incident inscrit réveille la tâche cloud Claude « Incidents de santé » (`incidents-declencheur.ts`,
+  `INCIDENTS_DECLENCHEUR_URL` et `_TOKEN`) en UNE tentative : le déclencheur n'a pas de clé d'idempotence. La tâche n'a
+  aucun accès à la production ; sa consigne vit dans le dépôt privé `messagingme-incidents` (`CONSIGNE.md`). Elle rend
+  son rapport à `POST /internes/incidents/:id/rapport` (`INCIDENTS_RAPPORT_TOKEN` en en-tête, comparé en temps
+  constant) : les secrets réseau des tâches claude.ai ne s'injectent qu'en en-tête, et Telegram veut son jeton dans
+  l'adresse, donc c'est NOTRE serveur qui envoie sur Telegram. Un rapport s'inscrit une fois ; refusé par Telegram, il
+  rend 502 avec le motif de Telegram et n'est pas marqué rendu, pour être renvoyé. Les clics arrivent par le webhook
+  du bot, `POST /internes/telegram/webhook` (déclaré réduit aux `callback_query`) : jeton `TELEGRAM_WEBHOOK_SECRET`,
+  puis l'auteur du clic doit être `TELEGRAM_CHAT_ID` ; la décision s'inscrit une fois, sur une issue 2 seulement, et
+  réveille la tâche. Routes montées seulement avec leur jeton. ⚠️ Ces quatre variables vivent dans les variables EN
+  CLAIR de `mba-api` et dans le `.env.prod` de la machine : la table des secrets du conteneur porte des secrets posés à
+  la main dont l'API ne rend que l'empreinte, on ne la renvoie jamais (`docs/prive/incidents/poser-incidents.cjs`).
 - Les briques de Santé du lot 2, et leurs seuils par défaut (`SEUILS_DEFAUT`, ceux de la spec, réglables) : mémoire
   des workers (le plus chargé, 70 et 85 % de sa limite), machine des workers (processeur sur 15 min, 60 et 80 %),
   processeur de la base (60 et 80 %, rouge : DB-DEV-L), porte HubSpot (éveillée ou endormie, jamais une panne). La jauge compte aussi le

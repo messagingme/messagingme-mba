@@ -4163,6 +4163,12 @@ boîte par sous-menu.
   qu'il faut facturer à chaque Entreprise, le mois en cours et le précédent, et la somme de leurs plafonds IA face au
   budget d'équipe de Vercel. **Réglages** : les seuils, la grille de prix, les numéros fournis, les adresses
   d'exploitation. **Dupliquer** : la copie d'un scénario dans un autre espace (ci-dessous).
+- ✅ **Incidents de santé analysés** (activé le 2026-11-23). Chaque alerte de santé ou de charge fige l'état du système
+  au moment où elle part, puis réveille une tâche Claude dans le cloud qui l'analyse et la classe sur une de quatre
+  issues : pas d'action (avec la raison), approbation demandée, correction faite d'urgence, ou problème d'archi à
+  traiter. Le rapport arrive sur Telegram ; pour une approbation, trois boutons (Approuver, Refuser, Plus tard), et un
+  clic réveille la tâche qui exécute la décision (jusqu'au déploiement, que GitHub fait encore approuver). Chaque
+  rapport et le recueil de tous les incidents vivent dans le dépôt privé `messagingme-incidents`.
 - ✅ **Retrouver un espace par son code** (2026-11-19) : la table des espaces de l'onglet **Clients** montre le code
   d'espace à côté du nom, et un champ filtre la liste sur le nom ou le code, sans tenir compte des majuscules. Les
   alertes Telegram qui citent un espace par son identifiant le citent aussi par son nom et son code.

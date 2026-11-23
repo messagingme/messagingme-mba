@@ -61,6 +61,14 @@
   Shopify arrive après le premier rendu.
 - `formatDate(..., 'fr')` en dur dans l'aide du bouton coupé : à passer par `t()` le jour où l'écran est traduit.
 
+## Les incidents de santé : ce qui reste après l'activation (2026-11-23)
+
+- Lire le motif du refus Telegram de l'incident 1 : la prochaine alerte le rendra dans l'historique de la tâche (502).
+- Changer CODE 1 ou CODE 2 s'il s'agit du code de 64 caractères collé en clair dans une conversation (même commande,
+  `docs/prive/incidents/poser-incidents.cjs`, plus le secret réseau de l'environnement « Incidents » si c'est CODE 1).
+- Si l'alerte « base saturée » du pool de l'API revient plus d'une fois par jour : `DB_POOL_MAX` de 10 à 15, après
+  lecture de `max_connections` en production.
+
 ## 🟡 Les incidents de santé, lots 3 et 4 : la relecture (2026-11-21, aucun rouge)
 
 - Un réveil de la tâche cloud qui échoue après une décision inscrite : Julien lit « approuvé » et rien ne s'exécute,
