@@ -401,8 +401,9 @@ depuis deux jours. Un pointeur qui décrit un ÉTAT vieillit ; un pointeur qui d
   0,92 €), `cle_en_preparation` (la clé s'ouvre, quelques secondes) et `cle` (l'espace a du crédit, sa clé n'a
   pas pu s'ouvrir, ou elle est illisible en base).
 - **La console a trois rayons, deux largeurs, une modale, une famille d'icônes** (refonte visuelle, 2026-09-25).
-  `tests/web-formes.test.ts` et `tests/web-icones.test.ts` refusent le reste. Un e2e qui confirmait par
-  `page.on('dialog')` passe par `e2e/aide/confirmation.ts`.
+  `tests/web-formes.test.ts` et `tests/web-icones.test.ts` refusent le reste. Seule exception de largeur : une page qui
+  déplie un scénario (automations Shopify et HubSpot) passe `pleineLargeur` à `AppShell`, jamais une troisième
+  classe. Un e2e qui confirmait par `page.on('dialog')` passe par `e2e/aide/confirmation.ts`.
 - **Discipline anti-tailor-made** : inbox minimal borné, pas de multicanal/segments avancés/A-B testing.
   (Un **constructeur de Flow** riche EXISTE désormais, cf `features.md` : formulaires de collecte, pas un
   workflow builder générique.)

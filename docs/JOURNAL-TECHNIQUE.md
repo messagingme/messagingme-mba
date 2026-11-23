@@ -5,6 +5,21 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-21 : deux retouches de la console : l'aperçu HTML des modèles d'email, la pleine largeur des automations
+
+En direct, console seule (publiée par Vercel au push, aucun déploiement d'API). **6ecc15c72** (poussé le 20 au soir) :
+dans Contenu > Modèles d'email, au format HTML, le mail se rend sous son code à chaque frappe, dans une iframe
+`sandbox=""` (ni script ni même origine : un HTML collé ne lit pas la session du `localStorage`). Un document `srcdoc`
+hérite de la CSP de la console : images https et styles en ligne passent, une police Google Fonts retombe sur la police
+de secours dans l'aperçu seulement. `features.md` et la fiche « Envoyer un e-mail depuis un scénario » le disent
+(empreinte `ad27cd`). **71208af60** : les pages Automations Shopify et HubSpot prennent toute la largeur sur ordinateur
+(`AppShell pleineLargeur`), demande de Julien, « ça fait vraiment petit » ; un e2e à 1920 px l'exige. Vérifié sur une
+build de production locale (rendu, script bloqué, image chargée ; canevas pleine largeur), e2e des écrans touchés verts,
+CI racine verte job par job sur les deux commits ; CI front rouge sur `mobile-debordement` seul (déjà rouge avant, voir
+`todo.md`) et `agents-connaissance` instable une fois. ⚠️ Pendant le premier lot, le `fetch` d'un pair a avancé
+`origin/main` sous une extraction : le commit reconstruit défaisait sa section Shopify de `features.md`, vu au
+`diff --stat` avant le push et refait. Reste : `aide:charger` pour la fiche, l'essai de Julien sur son modèle J-10.
+
 ## 2026-11-20 (suite) : Make, n8n, Zapier, les fiches chargées et deux tests rouges
 
 Les trois fiches chargées en production le soir même, après le déploiement de e0000cb7 (le lot d'un pair juste
