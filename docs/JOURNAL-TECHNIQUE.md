@@ -5,6 +5,14 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 (suite) : Make, n8n, Zapier, les fiches chargées et deux tests rouges
+
+Les trois fiches chargées en production le soir même, après le déploiement de e0000cb7 (le lot d'un pair juste
+dessous, pour ne pas faire parler le bot de son code avant qu'il soit servi), par montage du `docs/aide` de 7b3f0c610
+sur l'image en service : 360 lignes, 0 retirée. Deux tests prenaient Tools > Webhooks pour exemple d'écran SANS page
+« Comment faire », ce qu'il n'était plus : `web/lib/comment-faire.test.ts` (0a8907304) et `web/e2e/comment-faire.spec.ts`
+(1463ae969) prennent désormais Connecteurs API. Signalés par la session voisine, qui les voyait rouges sur main.
+
 ## 2026-11-23 : segments Shopify, lot 1 : le volet Shopify des filtres et l'onglet Shopify de l'audience
 
 Spec `docs/superpowers/specs/2026-11-21-segments-shopify-enrichis.md` (étude du 2026-11-21, arrivée sur `main` avec ce
