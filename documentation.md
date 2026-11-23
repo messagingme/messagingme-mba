@@ -4497,7 +4497,7 @@ côtés.
 l'origine de `NEXT_PUBLIC_API_URL` quand elle est absolue (Vercel : `https://api.messagingme.app`), comme `BASE`
 dans `web/lib/http.ts` ; sans elle (console du VPS), `'self'` couvre le rewrite `/api/backend`. Trois contrôles la
 tiennent : chaque e2e échoue si une page viole la politique (`web/e2e/aide/test.ts`, une fixture automatique,
-imposée à tous les specs par `tests/e2e-garde-csp.test.ts`), et la CI front joue la suite dans les DEUX topologies
+imposée à tous les specs par `tests/e2e-garde-csp.test.ts`), et la CI front joue la suite dans la topologie livrée
 (`E2E_TOPOLOGIE=vercel` : API absolue sur une autre origine, `web/playwright.config.ts`) ;
 `web/scripts/verifier-base-api.mjs` vérifie que le build de production scelle l'adresse ET que sa CSP autorise son
 origine. ⚠️ Playwright ne vérifie pas le CORS d'une réponse interceptée : celui-là ne tient qu'à `CORS_ORIGINS`.
@@ -4542,7 +4542,11 @@ chaque lot qui touche aux dépendances.
   (`scripts/audit-production.ts`, une étape par dossier), les failles critiques avec correctif des images de l'API et
   de la console (trivy épinglé par empreinte), et l'uid des deux images.
 - **Laissent une trace** : gitleaks, semgrep, l'audit complet (développement compris), les failles hautes des images,
-  et CodeQL (`security-extended`, alertes dans l'onglet Security de GitHub).
+  et CodeQL (`security-extended`, alertes dans l'onglet Security de GitHub), chaque nuit et après chaque déploiement
+  réussi, plus à chaque push (`.github/workflows/codeql.yml`). ⚠️ `workflow_run` désigne le déploiement par son NOM :
+  renommer « Deploiement Scaleway (API et workers) » la ferait taire sans erreur (`tests/ci-decoupage.test.ts`).
+  La CI front joue la topologie `vercel` en deux moitiés (`--shard`), avec le cache de compilation de Next
+  (`.github/workflows/ci-web.yml`, dont les commentaires portent les raisons et les mesures).
 - **Une faille sans correctif accessible** (une version majeure à franchir, un paquet embarqué par un autre) s'inscrit
   dans `scripts/audit-exceptions.json` : l'identifiant GHSA de l'avis, le dossier, le paquet, la raison (pourquoi elle
   n'est pas exploitable chez nous) et une échéance, deux mois au plus. Passé ce jour, l'avis bloque de nouveau : on

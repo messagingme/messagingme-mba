@@ -13,6 +13,32 @@ sur l'image en service : 360 lignes, 0 retirée. Deux tests prenaient Tools > We
 « Comment faire », ce qu'il n'était plus : `web/lib/comment-faire.test.ts` (0a8907304) et `web/e2e/comment-faire.spec.ts`
 (1463ae969) prennent désormais Connecteurs API. Signalés par la session voisine, qui les voyait rouges sur main.
 
+## 2026-11-23 : la CI allégée, sans contrôle perdu
+
+Point de départ (2026-11-21) : la question de repasser le dépôt en privé. Mesure sur les 7 jours précédents : 882 jobs,
+environ 6 000 minutes, soit environ 26 000 par mois. En privé, à 0,006 $ la minute Linux, environ 150 à 200 $ par mois ;
+un runner auto-hébergé chez Scaleway (8 cœurs, 32 Go) coûterait autant (environ 140 € par mois) plus la maintenance,
+et GitHub a seulement REPORTÉ sa taxe de 0,002 $ la minute sur ces runners. Ouvrir le dépôt « le temps d'une
+publication » a été écarté : la CI tourne à chaque push, et une copie clonée pendant l'ouverture ne se reprend pas.
+
+Ce qui a été fait, du plus sûr au moins sûr, chaque fois avec un test dans `tests/ci-decoupage.test.ts` vérifié dans les
+deux sens :
+- **la jambe e2e `proxy` retirée** (f314932ef) : elle testait la console du VPS, `mba.` supprimé depuis le 2026-10-26 ;
+  1 230 minutes par semaine ; le build, le lint, tsc et vitest qu'elle seule portait sont passés dans le job restant ;
+- **CodeQL la nuit et après chaque déploiement réussi** (290788599), plus à chaque push : 910 minutes par semaine pour
+  un contrôle qui ne bloque rien. Premier essai réel le jour même : à la fin d'un déploiement, il a reconnu le commit
+  déployé (690b39ae4), déjà analysé, et ne l'a pas refait. Le déploiement ne le réclame pas lui-même :
+  `tests/deploy-scaleway.test.ts` y refuse toute permission d'écriture ;
+- **le cache de compilation de Next** (0cf611886, 2659d3731) : 14,5 puis 13,2 minutes sur deux passages mesurés. Le
+  premier montage n'enregistrait rien sur un job rouge, et la CI front l'était depuis le 2026-11-20 (le builder de
+  scénario débordait à 390 px, réparé par 53d2cff79 dans une session à part) ;
+- **les e2e en deux moitiés** (47590fb97) : 1 023 et 1 022 tests, 11,4 minutes d'attente. L'équilibrage (7458d3647)
+  n'a rien gagné (11,5) : les contrôles hors e2e pesaient environ 3 minutes, pas 1 min 30 comme estimé. Le build de
+  contrôle retiré (865a1c94e), tsc tournant sur le build du `webServer` après les e2e : 8,8 minutes sur le run mesuré,
+  dont une part de variation (la même moitié d'e2e varie d'environ une minute d'un run à l'autre).
+
+Bilan : la CI front passe d'environ 15 minutes d'attente et 28 minutes facturées par run à environ 9-10 et 16.
+
 ## 2026-11-23 : segments Shopify, lot 1 : le volet Shopify des filtres et l'onglet Shopify de l'audience
 
 Spec `docs/superpowers/specs/2026-11-21-segments-shopify-enrichis.md` (étude du 2026-11-21, arrivée sur `main` avec ce
