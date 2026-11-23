@@ -7,7 +7,7 @@ import { inputClsAuto } from '@/lib/ui';
 import { formatDate } from '@/lib/day';
 import {
   BORNES_SEGMENTS, CLES_COMMANDES, CLES_SEGMENT, filtreSegment, valeurSegment,
-  type CleSegment, type PlageSurJours, type SuiviSegmentsVue,
+  type BoutonsSansCommandeVue, type CleSegment, type PlageSurJours, type SuiviSegmentsVue,
 } from '@/lib/partage/segments';
 import { lirePlageSaisie, saisieDePlage, type SaisiePlage } from '@/lib/segments';
 import { Icone } from '@/components/Icone';
@@ -85,6 +85,7 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
         />
         {/* Les critères produit (lot 3) : annoncés par l'API, ou déjà posés (un brouillon les garde visibles pour les retirer). */}
         {(suivi?.produits === true || produitPose) && <FiltresProduitsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
+        <BoutonsSansCommande segments={segments} onChange={onChange} comptes={suivi?.boutons ?? null} />
         {boutique && (
           <p className="text-xs text-ink-500" data-testid="filtres-achats-suivi">
             {t(
@@ -96,6 +97,54 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
         )}
       </div>
     </details>
+  );
+}
+
+/**
+ * LES DEUX BOUTONS PRÊTS (lot 4, décision de Julien du 2026-11-22) : « A écrit sans commander » et « A cliqué sans
+ * commander ». Un clic pose le critère, un second le retire, aucun réglage. La pastille est le compte du bouton SEUL
+ * (décision du 2026-11-23), lu à l'ouverture du panneau ; le total de la liste, lui, suit tous les filtres posés.
+ * 🔴 Un bouton sans compte (la réponse tarde, une API plus ancienne) ou à zéro n'est pas montré, masqué plutôt que grisé ;
+ * un bouton déjà posé l'est toujours, pour qu'on puisse le retirer.
+ */
+function BoutonsSansCommande({ segments, onChange, comptes }: {
+  segments: ContactFieldFilter[];
+  onChange: (segments: ContactFieldFilter[]) => void;
+  comptes: BoutonsSansCommandeVue | null;
+}) {
+  const t = useT();
+  const boutons = [
+    { cle: CLES_SEGMENT.ecritSansCommande, nom: 'ecrit', compte: comptes?.ecritSansCommande, libelle: t('A écrit sans commander', 'Wrote without ordering') },
+    { cle: CLES_SEGMENT.clicSansCommande, nom: 'clic', compte: comptes?.clicSansCommande, libelle: t('A cliqué sans commander', 'Clicked without ordering') },
+  ].map((b) => ({ ...b, pose: segments.some((s) => s.key === b.cle) }));
+  const visibles = boutons.filter((b) => b.pose || (b.compte ?? 0) > 0);
+  if (visibles.length === 0) return null;
+  const basculer = (cle: CleSegment, pose: boolean) =>
+    onChange(pose ? segments.filter((s) => s.key !== cle) : [...segments, filtreSegment(cle, true)]);
+  return (
+    <div className="flex flex-col gap-1 border-t border-ink-100 pt-2" data-testid="filtres-boutons-sans-commande">
+      <div className="flex flex-wrap items-center gap-2">
+        {visibles.map((b) => (
+          <button
+            key={b.cle}
+            type="button"
+            onClick={() => basculer(b.cle, b.pose)}
+            aria-pressed={b.pose}
+            className={`rounded-controle px-3 py-1 text-sm font-medium transition-colors duration-150 ${b.pose ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-700 hover:bg-ink-200'}`}
+            data-testid={`filtre-bouton-${b.nom}`}
+          >
+            {b.libelle}
+            {b.compte !== undefined && <span data-testid={`filtre-bouton-${b.nom}-compte`}> · {b.compte}</span>}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-ink-500" data-testid="filtres-boutons-legende">
+        {t(
+          '« A écrit » : au moins un message reçu encore connu (une réaction, un bouton touché comptent). « A cliqué » : au moins un clic sur un lien suivi. « Sans commander » : aucune commande enregistrée pour ce contact.',
+          '"Wrote": at least one message still known (a reaction or a button tap counts). "Clicked": at least one tracked link click. "Without ordering": no order recorded for this contact.',
+        )}
+      </p>
+    </div>
   );
 }
 

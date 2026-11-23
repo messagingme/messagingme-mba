@@ -1,5 +1,7 @@
 import { request } from './http';
-import { BORNES_SEGMENTS, type PlageSurJours, type ProduitVuVue, type SuiviSegmentsVue } from './partage/segments';
+import {
+  BORNES_SEGMENTS, type BoutonsSansCommandeVue, type PlageSurJours, type ProduitVuVue, type SuiviSegmentsVue,
+} from './partage/segments';
 
 /**
  * Ce que l'API sait cibler en segments (`GET /tenants/:id/contacts/segments`, spec du 2026-10-31). 🔴 `null` quand la
@@ -15,6 +17,7 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
   if (o.boutique === null) return { boutique: null, activiteCompleteDepuis: o.activiteCompleteDepuis, ...produits };
   const b = o.boutique as Record<string, unknown> | undefined;
   if (!b || typeof b !== 'object' || typeof b.commandesDepuis !== 'string') return null;
+  const boutons = boutonsDe(o.boutons);
   return {
     boutique: {
       devise: typeof b.devise === 'string' ? b.devise : null,
@@ -23,7 +26,21 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
     },
     activiteCompleteDepuis: o.activiteCompleteDepuis,
     ...produits,
+    ...(boutons ? { boutons } : {}),
   };
+}
+
+/**
+ * Le compte des deux boutons prêts (lot 4), lu défensivement : les DEUX entiers positifs ou nuls, sinon rien. Absent ou
+ * illisible, la console ne montre aucun bouton, plutôt qu'un nombre faux en pastille.
+ */
+function boutonsDe(v: unknown): BoutonsSansCommandeVue | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const entier = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0;
+  return entier(o.ecritSansCommande) && entier(o.clicSansCommande)
+    ? { ecritSansCommande: o.ecritSansCommande, clicSansCommande: o.clicSansCommande }
+    : null;
 }
 
 /** Les produits vus rendus par l'API (lot 3), lus défensivement : une entrée qui ne se lit pas est écartée seule. */

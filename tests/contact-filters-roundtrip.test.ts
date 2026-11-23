@@ -262,3 +262,28 @@ describe('les critères produit : formes canoniques et refus', () => {
     expect(() => parCorps([brut(S.achete, { produits: [{ sku: 'SER-30' }] }), seul])).not.toThrow();
   });
 });
+
+/** Les deux boutons prêts (lot 4) : la valeur `true` et rien d'autre ; aucun réglage ne s'y glisse. */
+describe('les boutons « sans commander » : true et rien d’autre', () => {
+  const S = CLES_SEGMENT;
+  const brut = (key: string, value: unknown) => ({ key, op: 'segment', value: JSON.stringify(value) });
+  const parGet = (champs: unknown[]): unknown => parseFilters({ fields: JSON.stringify(champs) });
+  const parCorps = (champs: unknown[]): unknown => parseBulkTarget({ filters: { fieldFilters: champs } });
+
+  it('les deux boutons, seuls ou ensemble, survivent au round-trip', () => {
+    const tous: ContactFilters = { fieldFilters: [filtreSegment(S.ecritSansCommande, true), filtreSegment(S.clicSansCommande, true)] };
+    expect(roundTrip(tous)).toEqual(tous);
+  });
+
+  const malformes: Array<[string, unknown]> = [
+    ['false', brut(S.ecritSansCommande, false)],
+    ['un objet, même vide', brut(S.ecritSansCommande, {})],
+    ['une période glissée dans la valeur', brut(S.clicSansCommande, { jours: 30 })],
+    ['le texte "true"', brut(S.clicSansCommande, 'true')],
+    ['1', brut(S.ecritSansCommande, 1)],
+  ];
+  it.each(malformes)('🔴 refusé par les deux portes : %s', (_nom, champ) => {
+    expect(() => parCorps([champ])).toThrow('la valeur true est attendue');
+    expect(() => parGet([champ])).toThrow(FiltreContactInvalide);
+  });
+});

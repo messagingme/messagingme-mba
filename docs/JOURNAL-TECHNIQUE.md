@@ -5,6 +5,24 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : segments Shopify, lot 4 : « A écrit sans commander » et « A cliqué sans commander »
+
+Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-4-sans-commander.md`, implémenteur par lot et revue
+humaine du diff. Deux boutons prêts dans le volet Shopify des filtres (donc aussi dans l'onglet Shopify de l'audience
+d'une campagne), sans aucun réglage : un message reçu encore connu (ou un clic attribué), et aucune commande
+enregistrée pour la fiche dans l'espace. Un clic pose le critère, un second le retire, les deux se cumulent ; la
+pastille compte le bouton seul (deux `count` dans `GET .../contacts/segments`, au mieux), un bouton à zéro ne se montre
+pas, sauf déjà posé. Le MCP les annonce `enum: [true]` (`wrote_without_order`, `clicked_without_order`). Les deux
+dates viennent de la migration 0312 (`contacts.derniere_reponse_le`, `contacts.dernier_clic_le`), remplie depuis les
+messages encore conservés et les clics, par espace, jamais sur une fiche purgée (ses clics la désignent encore : la clé
+étrangère ne joue qu'à la suppression d'une ligne), puis écrite par le message entrant et le clic dans la même
+instruction au mieux que `derniere_activite_le`, par `greatest`. Arbitrages de Julien, en questions fermées : la
+pastille compte le bouton seul ; une période réglable viendra plus tard (`todo.md`).
+🔴 La purge d'une fiche nomme les deux colonnes : la 0312 est partie SEULE (`8544b8737`), avant le code. D'autres
+sessions ont poussé trois fois pendant la préparation : un script a attendu la fin de chaque CI, refait le commit de la migration
+par patch sur la tête d'origin (index temporaire, l'arbre et le code en cours intacts) et n'a poussé qu'une fois
+origin stable et la CI de sa tête verte. Six mutations du remplissage, toutes rouges sur le banc PGlite.
+
 ## 2026-11-23 : « Construire en parlant », les questions reposées et la conversation « perdue »
 
 Signalé par Julien sur un agent de test de la SANDBOX (« Muti ») : des « Failed to fetch », puis, au retour sur l'onglet,

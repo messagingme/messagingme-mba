@@ -87,6 +87,7 @@ export function normalizeFieldFilters(raw: unknown[]): ContactFieldFilter[] {
 const NOMS_SEGMENT: Record<CleSegment, string> = {
   [CLES_SEGMENT.commandes]: 'commandes', [CLES_SEGMENT.depense]: 'dépense', [CLES_SEGMENT.derniereCommande]: 'dernière commande',
   [CLES_SEGMENT.achete]: 'a acheté', [CLES_SEGMENT.pasAchete]: 'n’a pas acheté', [CLES_SEGMENT.reassort]: 'réassort',
+  [CLES_SEGMENT.ecritSansCommande]: 'a écrit sans commander', [CLES_SEGMENT.clicSansCommande]: 'a cliqué sans commander',
   [CLES_SEGMENT.actif]: 'actif', [CLES_SEGMENT.inactif]: 'inactif', [CLES_SEGMENT.pays]: 'pays',
 };
 
@@ -95,7 +96,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
  * ignorée : JSON illisible, clé inconnue, borne hors plage, minimum au-dessus du maximum, pays inconnu, et pour le nombre
  * de commandes et la dépense « au moins 0 » sans maximum, qui viserait tout l'espace.
  */
-export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | number | string[] | AchatsVises | Reassort {
+export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | number | string[] | AchatsVises | Reassort | true {
   const nom = NOMS_SEGMENT[cle];
   let v: unknown;
   try { v = typeof brut === 'string' ? JSON.parse(brut) as unknown : undefined; } catch { v = undefined; }
@@ -107,6 +108,11 @@ export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | num
     case CLES_SEGMENT.achete:
     case CLES_SEGMENT.pasAchete: return lireAchats(v, nom);
     case CLES_SEGMENT.reassort: return lireReassort(v, nom);
+    case CLES_SEGMENT.ecritSansCommande:
+    case CLES_SEGMENT.clicSansCommande:
+      // Un bouton prêt : `true` et rien d'autre (spec, « Les deux boutons prêts ») ; aucun réglage ne s'y glisse.
+      if (v !== true) throw new FiltreContactInvalide(`filtre « ${nom} » : la valeur true est attendue, et rien d’autre`);
+      return true;
     case CLES_SEGMENT.actif:
     case CLES_SEGMENT.inactif: return lireJours(v, nom);
     case CLES_SEGMENT.pays: return lirePays(v);

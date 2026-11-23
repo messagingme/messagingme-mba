@@ -143,12 +143,15 @@ export class PgTrackedLinkStore {
       [code, tenantId, contactId ?? null],
     );
     if (!contactId) return;
-    // Un clic attribué est une activité de la fiche (segments, spec du 2026-10-31), dans l'espace du lien, sur une fiche
-    // vivante (le jeton a pu être résolu juste avant une purge), sans reculer. Au mieux : le clic est déjà compté.
+    // Un clic attribué est une activité de la fiche (segments, spec du 2026-10-31) et son dernier clic (`dernier_clic_le`,
+    // 0312, le bouton « A cliqué sans commander »), dans l'espace du lien, sur une fiche vivante (le jeton a pu être résolu
+    // juste avant une purge), sans reculer (`greatest` ignore le nul). Au mieux : le clic est déjà compté.
     await this.pool.query(
-      `update contacts set derniere_activite_le = now()
+      `update contacts set derniere_activite_le = greatest(derniere_activite_le, now()),
+                           dernier_clic_le = greatest(dernier_clic_le, now())
         where id = $1 and tenant_id = $2 and deleted_at is null
-          and (derniere_activite_le is null or derniere_activite_le < now())`,
+          and (derniere_activite_le is null or derniere_activite_le < now()
+               or dernier_clic_le is null or dernier_clic_le < now())`,
       [contactId, tenantId],
     ).catch((err: unknown) => {
       journaliser('warn', 'activite_non_notee', { tenantId, erreur: messageDe(err) });

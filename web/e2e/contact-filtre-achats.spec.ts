@@ -212,3 +212,45 @@ test.describe('Contacts : les critères produit du volet Shopify', () => {
     await expect(page.getByTestId('filtres-produits')).toHaveCount(0);
   });
 });
+
+/**
+ * LES DEUX BOUTONS PRÊTS DU VOLET (segments Shopify enrichis, lot 4) : un clic pose le critère, un second le retire ; la
+ * pastille compte le bouton seul. 🔴 Masqués à zéro, et tous absents sans compte (une API plus ancienne).
+ */
+test.describe('Contacts : les boutons « sans commander » du volet Shopify', () => {
+  test.use({ viewport: TREIZE_POUCES });
+  const dernier = (requetes: URLSearchParams[]) => segments(requetes.at(-1) ?? new URLSearchParams());
+
+  test('🔴 un clic pose le bouton, un second le retire ; les deux se cumulent ; la pastille compte le bouton seul', async ({ page }) => {
+    const requetes = await mock(page, { ...AVEC_BOUTIQUE, boutons: { ecritSansCommande: 12, clicSansCommande: 4 } });
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-bouton-ecrit')).toHaveText('A écrit sans commander · 12');
+    await expect(page.getByTestId('filtre-bouton-clic')).toHaveText('A cliqué sans commander · 4');
+    await expect(page.getByTestId('filtres-boutons-legende')).toContainText('message reçu encore connu');
+    await page.getByTestId('filtre-bouton-ecrit').click();
+    await expect(page.getByTestId('filtre-bouton-ecrit')).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => dernier(requetes).segment_ecrit_sans_commande).toBe('true');
+    await page.getByTestId('filtre-bouton-clic').click();
+    await expect.poll(() => [dernier(requetes).segment_ecrit_sans_commande, dernier(requetes).segment_clic_sans_commande]).toEqual(['true', 'true']);
+    await page.getByTestId('filtre-bouton-ecrit').click();
+    await expect(page.getByTestId('filtre-bouton-ecrit')).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(() => [dernier(requetes).segment_ecrit_sans_commande, dernier(requetes).segment_clic_sans_commande]).toEqual([undefined, 'true']);
+  });
+
+  test('🔴 un bouton à zéro n’est pas montré, l’autre l’est', async ({ page }) => {
+    await mock(page, { ...AVEC_BOUTIQUE, boutons: { ecritSansCommande: 0, clicSansCommande: 7 } });
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-bouton-clic')).toHaveText('A cliqué sans commander · 7');
+    await expect(page.getByTestId('filtre-bouton-ecrit')).toHaveCount(0);
+  });
+
+  test('🔴 une API qui ne rend pas les comptes : aucun bouton, le reste du volet est là', async ({ page }) => {
+    await mock(page, AVEC_BOUTIQUE);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-commandes-min')).toBeVisible();
+    await expect(page.getByTestId('filtres-boutons-sans-commande')).toHaveCount(0);
+  });
+});

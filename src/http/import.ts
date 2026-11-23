@@ -11,7 +11,11 @@ import type { Guard, PreHandler } from '../auth/middleware';
 import { espaceVerifie } from './scope';
 import { buildContactFilters, normalizeFieldFilters } from '../crm/contact-filters';
 import { ACTIVITE_COMPLETE_DEPUIS, type SuiviSegments } from '../crm/segments';
-import type { ProduitVuVue, SuiviSegmentsVue } from '../../web/lib/partage/segments';
+import {
+  CLES_SEGMENT, filtreSegment, type BoutonsSansCommandeVue, type ProduitVuVue, type SuiviSegmentsVue,
+} from '../../web/lib/partage/segments';
+import { journaliser } from '../lib/journal';
+import { messageDe } from '../lib/erreur';
 import { nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite } from '../offres/refus';
@@ -83,6 +87,25 @@ export function mappingFromHeaders(headers: string[]): ColumnMapping {
 }
 
 /**
+ * Le compte de chaque bouton prêt (segments Shopify enrichis, lot 4), le bouton SEUL, jamais croisé avec les autres
+ * filtres du panneau (décision de Julien du 2026-11-23) : deux `count` par le même `buildContactWhere` que la liste, à
+ * l'ouverture du panneau, jamais en cache. 🔴 Au mieux : une panne les omet (la console ne montre alors aucun bouton)
+ * plutôt que de faire tomber cette réponse, qui est la garde de TOUS les critères de segment.
+ */
+async function comptesDesBoutons(contacts: ContactsListeDep, tenantId: string): Promise<BoutonsSansCommandeVue | undefined> {
+  try {
+    const [ecritSansCommande, clicSansCommande] = await Promise.all([
+      contacts.count(tenantId, { fieldFilters: [filtreSegment(CLES_SEGMENT.ecritSansCommande, true)] }),
+      contacts.count(tenantId, { fieldFilters: [filtreSegment(CLES_SEGMENT.clicSansCommande, true)] }),
+    ]);
+    return { ecritSansCommande, clicSansCommande };
+  } catch (err) {
+    journaliser('warn', 'segments_boutons_illisibles', { tenantId, erreur: messageDe(err) });
+    return undefined;
+  }
+}
+
+/**
  * POST /tenants/:tenantId/contacts/import : parse un CSV brut, reconnaît les colonnes (sans mapping fourni),
  * upsert les contacts. Rend un ImportReport.
  */
@@ -126,7 +149,10 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
    * rendrait tout l'espace à « au moins deux commandes ».
    */
   app.get('/tenants/:tenantId/contacts/segments', opts, async (req, reply) => {
-    const { boutique } = await deps.contacts.suiviSegments(espaceVerifie(req));
+    const tenantId = espaceVerifie(req);
+    const { boutique } = await deps.contacts.suiviSegments(tenantId);
+    // Les pastilles des deux boutons prêts (lot 4) : seulement avec une boutique, sans quoi le volet n'est pas là.
+    const boutons = boutique === null ? undefined : await comptesDesBoutons(deps.contacts, tenantId);
     const vue: SuiviSegmentsVue = {
       boutique: boutique === null ? null : {
         devise: boutique.devise, commandesDepuis: boutique.commandesDepuis.toISOString(), coupeeLe: boutique.coupeeLe?.toISOString() ?? null,
@@ -134,6 +160,7 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
       activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
       // Les critères produit (lot 3) : la console ne les propose qu'à une API qui le dit ici.
       produits: true,
+      ...(boutons ? { boutons } : {}),
     };
     return reply.code(200).send(vue);
   });

@@ -131,4 +131,37 @@ describe.skipIf(!url)('les critères de segment (Postgres)', () => {
     expect(s.boutique?.commandesDepuis).toBeInstanceOf(Date);
     expect(await store.suiviSegments(ailleurs)).toEqual({ boutique: null });
   });
+
+  // Dernier du fichier : il pose des gestes et ajoute des fiches sans commande, que les critères ci-dessus compteraient.
+  it('🔴 les boutons « sans commander » (lot 4) : un geste connu, aucune commande ICI (de test comprise), rien d’un autre espace', async () => {
+    const poser = (phone: string, reponseIlYA: number | null, clicIlYA: number | null) => pool.query(
+      `update contacts set derniere_reponse_le = case when $3::int is null then null else now() - $3::int * interval '1 day' end,
+                           dernier_clic_le = case when $4::int is null then null else now() - $4::int * interval '1 day' end
+        where tenant_id = $1 and phone_e164 = $2`,
+      [ici, phone, reponseIlYA, clicIlYA],
+    );
+    // C3 n'a aucune commande ICI (la ligne incohérente de l'autre espace le désigne) : il a écrit et cliqué.
+    await poser(C3, 30, 2);
+    // C5 a une commande (sans montant) et a écrit ; C2 a des commandes et a cliqué : exclus.
+    await poser(C5, 1, null);
+    await poser(C2, null, 1);
+    const C6 = '+33600300006'; // a écrit seulement, aucune commande
+    const C7 = '+33600300007'; // a cliqué seulement, aucune commande
+    const C8 = '+33600300008'; // a écrit, une commande DE TEST seulement
+    await fiche(ici, C6, null);
+    await fiche(ici, C7, null);
+    const c8 = await fiche(ici, C8, null);
+    await poser(C6, 3, null);
+    await poser(C7, null, 3);
+    await poser(C8, 3, null);
+    await pool.query(
+      `insert into shopify_commandes (tenant_id, commande_id, contact_id, payee_le, test) values ($1, 'itest-test', $2, now(), true)`,
+      [ici, c8],
+    );
+    expect(await qui(F(seg(S.ecritSansCommande, true)))).toEqual([C3, C6].sort());
+    expect(await qui(F(seg(S.clicSansCommande, true)))).toEqual([C3, C7].sort());
+    // Les deux boutons ne s'excluent pas : posés ensemble, ceux qui ont fait les deux.
+    expect(await qui(F(seg(S.ecritSansCommande, true), seg(S.clicSansCommande, true)))).toEqual([C3]);
+    expect(await qui(F(seg(S.ecritSansCommande, true)), ailleurs)).toEqual([]);
+  });
 });

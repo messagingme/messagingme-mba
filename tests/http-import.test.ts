@@ -11,6 +11,7 @@ import { journalMuet } from './routes-inertes';
 import { csvLent, retardPendant } from './boucle';
 import { LimiteOffreError } from '../src/offres/refus';
 import { ACTIVITE_COMPLETE_DEPUIS } from '../src/crm/segments';
+import { CLES_SEGMENT, filtreSegment } from '../web/lib/partage/segments';
 
 const SECRET = 'test-secret';
 let token = '';
@@ -206,8 +207,40 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
       boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
       // 🔴 L'annonce des critères produit (lot 3) : sans elle, la console ne les propose pas.
       produits: true,
+      // Les pastilles des deux boutons prêts (lot 4) : le faux compte rend 3.
+      boutons: { ecritSansCommande: 3, clicSansCommande: 3 },
     });
     expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments' })).statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('🔴 GET des segments : chaque pastille compte le bouton SEUL ; aucune sans boutique ; une panne les omet, la réponse reste', async () => {
+    const cap: QueryCapture = { queryFilters: [], countFilters: [], idsFilters: [] };
+    const contacts = new FakeContacts();
+    const app = inject(contacts, new FakeFields(), cap);
+    const lire = () => app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments', headers: { authorization: `Bearer ${token}` } });
+    expect((await lire()).json()).toMatchObject({ boutons: { ecritSansCommande: 3, clicSansCommande: 3 } });
+    // Deux comptes, chacun avec le seul filtre de son bouton : jamais croisés avec d'autres filtres.
+    expect(cap.countFilters).toEqual([
+      { fieldFilters: [filtreSegment(CLES_SEGMENT.ecritSansCommande, true)] },
+      { fieldFilters: [filtreSegment(CLES_SEGMENT.clicSansCommande, true)] },
+    ]);
+    // Sans boutique, le volet n'est pas là : ni pastille, ni compte.
+    cap.countFilters.length = 0;
+    Object.assign(contacts, { suiviSegments: async () => ({ boutique: null }) });
+    const sans = await lire();
+    expect(sans.statusCode).toBe(200);
+    expect(sans.json()).not.toHaveProperty('boutons');
+    expect(cap.countFilters).toEqual([]);
+    // Une panne des comptes : la réponse, garde de TOUS les critères de segment, reste ; seules les pastilles partent.
+    Object.assign(contacts, {
+      suiviSegments: async () => ({ boutique: { devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null } }),
+      count: async () => { throw new Error('délai dépassé'); },
+    });
+    const panne = await lire();
+    expect(panne.statusCode).toBe(200);
+    expect(panne.json()).toMatchObject({ produits: true, boutique: { devise: 'EUR' } });
+    expect(panne.json()).not.toHaveProperty('boutons');
     await app.close();
   });
 

@@ -26,6 +26,18 @@ describe('suiviSegmentsDe', () => {
       expect(suiviSegmentsDe({ ...base, produits }), String(produits)).toEqual(base);
     }
   });
+
+  it('🔴 les pastilles des boutons prêts (lot 4) : les deux entiers, sinon aucune (jamais un nombre faux)', () => {
+    const base = { boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: '2026-11-03' };
+    expect(suiviSegmentsDe({ ...base, boutons: { ecritSansCommande: 12, clicSansCommande: 0 } }))
+      .toEqual({ ...base, boutons: { ecritSansCommande: 12, clicSansCommande: 0 } });
+    for (const boutons of [
+      undefined, null, [], { ecritSansCommande: 12 }, { ecritSansCommande: '12', clicSansCommande: 3 },
+      { ecritSansCommande: 1.5, clicSansCommande: 3 }, { ecritSansCommande: -1, clicSansCommande: 3 },
+    ]) {
+      expect(suiviSegmentsDe({ ...base, boutons }), JSON.stringify(boutons)).toEqual(base);
+    }
+  });
 });
 
 describe('produitsVusDe', () => {

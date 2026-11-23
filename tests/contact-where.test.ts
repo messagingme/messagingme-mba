@@ -347,3 +347,34 @@ describe('buildContactWhere : les critères produit', () => {
     }
   });
 });
+
+/**
+ * LES DEUX BOUTONS PRÊTS EN SQL (segments Shopify enrichis, lot 4) : la date du geste non nulle, et aucune commande
+ * enregistrée pour la fiche DANS L'ESPACE (🔴 la sous-requête nomme `$1`), sans fenêtre de jours. Une valeur autre que
+ * `true` vise PERSONNE.
+ */
+describe('buildContactWhere : les boutons « sans commander »', () => {
+  const S = CLES_SEGMENT;
+  const ou = (...f: ReturnType<typeof filtreSegment>[]) => buildContactWhere('t1', { fieldFilters: f });
+
+  it('🔴 « a écrit sans commander » : une réponse connue, aucune commande de l’espace', () => {
+    const { where, params } = ou(filtreSegment(S.ecritSansCommande, true));
+    expect(where.replace(/\s+/g, ' '))
+      .toContain('(derniere_reponse_le is not null and id not in (select o.contact_id from shopify_commandes o where o.tenant_id = $1))');
+    expect(params).toEqual(['t1']);
+  });
+
+  it('🔴 « a cliqué sans commander » : un clic attribué connu, aucune commande de l’espace', () => {
+    const { where } = ou(filtreSegment(S.clicSansCommande, true));
+    expect(where.replace(/\s+/g, ' '))
+      .toContain('(dernier_clic_le is not null and id not in (select o.contact_id from shopify_commandes o where o.tenant_id = $1))');
+  });
+
+  it('🔴 une valeur autre que true vise personne, jamais tout l’espace', () => {
+    for (const value of ['false', '{}', '1', '"true"', '{pas du json']) {
+      for (const key of [S.ecritSansCommande, S.clicSansCommande]) {
+        expect(buildContactWhere('t1', { fieldFilters: [{ key, op: 'segment', value }] }).where.split(' and '), `${key} ${value}`).toContain('false');
+      }
+    }
+  });
+});

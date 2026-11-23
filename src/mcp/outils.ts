@@ -204,7 +204,8 @@ export type CablageMcp = Omit<DepsMcp, 'couteux' | 'quotaEnvois'>;
 export interface ProprieteEntree {
   type: string | string[];
   description: string;
-  enum?: Array<string | null>;
+  /** Les valeurs permises ; `[true]` pour un drapeau qui ne se pose qu'à vrai (un bouton prêt des segments). */
+  enum?: Array<string | boolean | null>;
   format?: string;
   pattern?: string;
   minLength?: number;

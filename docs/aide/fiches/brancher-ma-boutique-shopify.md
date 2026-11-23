@@ -164,6 +164,11 @@ Et les produits : ceux qui ont acheté un produit (ou une seule variante, par so
 (toujours avec un produit acheté, jamais seul), et le réassort, le dernier achat d'un produit il y a tant de jours.
 Vous les choisissez parmi les produits déjà commandés dans votre boutique ; les cartes cadeaux ne se ciblent pas.
 
+Et deux boutons prêts, sans réglage : « A écrit sans commander » (au moins un message reçu encore connu) et « A cliqué
+sans commander » (au moins un clic sur un lien suivi), pour les contacts sans aucune commande enregistrée. Un clic pose
+le bouton, un second le retire ; le nombre sur chaque bouton dit combien de contacts il trouve, et un bouton qui ne
+trouve personne ne s'affiche pas.
+
 **Bon à savoir.** Les commandes ne comptent que depuis le branchement de la boutique : l'historique de Shopify n'est
 pas repris, et un client importé arrive sans ses commandes passées. Juste après le branchement, « au moins 2 commandes »
 ne trouve donc personne ; le volet dit la date du début du suivi. Seules comptent les commandes d'un numéro déjà dans

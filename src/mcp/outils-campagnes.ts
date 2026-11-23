@@ -182,7 +182,8 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
     description:
       'Finds the contacts of a target, the way the console\'s contact list filters them: tags (all or any), marketing '
       + 'consent, Shopify orders (count, amount spent, days since the last one), Shopify products (bought, not bought, '
-      + 'days since the last purchase of one product), activity (wrote or clicked a tracked link '
+      + 'days since the last purchase of one product), the one-click "wrote without ordering" and "clicked without '
+      + 'ordering", activity (wrote or clicked a tracked link '
       + 'within N days, or not for N days), country by phone calling code, and on the Enterprise plan the fields of the '
       + 'latest conversation analysis (intent, sentiment, satisfaction, urgency, resolved...). Criteria combine: "customers '
       + 'with two orders in 90 days" is orders {"min":2,"within_days":90}; "Belgian customers inactive for 3 months" is '

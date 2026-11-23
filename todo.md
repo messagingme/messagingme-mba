@@ -1,5 +1,16 @@
 # todo.md : backlog
 
+## 🟡 Segments Shopify, lot 4 (boutons « a écrit » et « a cliqué » sans commander)
+
+- 🔵 **DÉCIDÉ par Julien le 2026-11-23 : une période réglable à côté des boutons, plus tard** (question 22 de la
+  spec). Le lot 4 part sans réglage : « a écrit » veut dire un message reçu encore connu, « sans commander » aucune
+  commande enregistrée. Un lot suivant ajoute à côté de chaque bouton une fenêtre de jours (« a écrit dans les 30
+  derniers jours »), sans toucher au geste en un clic ; la pastille reste le compte du bouton seul.
+- La relecture (2026-11-23, aucun rouge) : les deux comptes des pastilles (`comptesDesBoutons`, `src/http/import.ts`)
+  n'ont pas de délai maximal, et `GET .../contacts/segments` est la garde de TOUS les critères de segment : sur un gros
+  espace et une base chargée, le volet s'ouvre lentement. Les borner (2 à 3 s, puis « aucun bouton »), par une course
+  contre une minuterie ou un `statement_timeout`, quand le volume viendra.
+
 ## 🟡 « Construire en parlant » : coupures et questions reposées, la relecture (2026-11-23, aucun rouge)
 
 - Un envoi coupé sur le tour qui TERMINE l'entretien : le serveur l'a traité, mais la relecture du fil ne rend ni la

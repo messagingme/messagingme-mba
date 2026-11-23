@@ -289,4 +289,35 @@ describe('les segments de l’assistant', () => {
       expect(Object.keys(OUTILS.find((o) => o.nom === nom)!.entree.properties), nom).toEqual(expect.arrayContaining(['bought', 'not_bought', 'days_since_product']));
     }
   });
+
+  it('les deux boutons prêts (lot 4), traduits dans le contrat commun', async () => {
+    const { d } = deps({ boutique: BOUTIQUE });
+    expect(await lireCibleMcp({ wrote_without_order: true, clicked_without_order: true }, PRO, d, T, { identifiants: true })).toEqual({
+      filters: { fieldFilters: [filtreSegment(S.ecritSansCommande, true), filtreSegment(S.clicSansCommande, true)] },
+      excludeIds: [],
+    });
+  });
+
+  it('🔴 un bouton prêt sans boutique est refusé avant toute lecture des contacts', async () => {
+    for (const args of [{ wrote_without_order: true }, { clicked_without_order: true }]) {
+      const { d, lus } = deps();
+      await expect(lireCibleMcp(args, PRO, d, T, { identifiants: false }), JSON.stringify(args)).rejects.toThrow(/aucune boutique Shopify/);
+      expect(lus.map((l) => l.quoi)).toEqual(['suivi']);
+    }
+  });
+
+  it.each([{ wrote_without_order: false }, { clicked_without_order: 'true' }, { wrote_without_order: { within_days: 30 } }])(
+    '🔴 un bouton prêt autre que true est refusé, jamais ignoré : %j',
+    async (args) => {
+      const { d } = deps({ boutique: BOUTIQUE });
+      await expect(lireCibleMcp(args, PRO, d, T, { identifiants: true })).rejects.toThrow('la valeur true est attendue');
+    },
+  );
+
+  it('🔴 « true seul » est annoncé dans le schéma, sur chaque outil de la cible', () => {
+    for (const nom of ['find_contacts', 'tag_contacts', 'prepare_campaign', 'set_contact_field']) {
+      const p = OUTILS.find((o) => o.nom === nom)!.entree.properties;
+      for (const cle of ['wrote_without_order', 'clicked_without_order']) expect(p[cle], `${nom} ${cle}`).toMatchObject({ type: 'boolean', enum: [true] });
+    }
+  });
 });

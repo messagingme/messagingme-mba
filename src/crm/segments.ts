@@ -169,6 +169,15 @@ export function clauseSegment(cle: CleSegment, valeur: string, add: (v: unknown)
       ];
       return `id in (${fichesAyantAchete(lignes, undefined, add)} group by o.contact_id having ${bornes.join(' and ')})`;
     }
+    case CLES_SEGMENT.ecritSansCommande:
+    case CLES_SEGMENT.clicSansCommande: {
+      // Un bouton prêt (lot 4) : un message reçu (ou un clic attribué) connu, et AUCUNE commande enregistrée pour la
+      // fiche dans l'espace, sans fenêtre de jours. Une commande de test ou remboursée compte (décisions déjà prises).
+      // `contact_id` n'est jamais nul dans `shopify_commandes` : le `not in` ne bute pas sur un nul.
+      if (v !== true) return 'false';
+      const date = cle === CLES_SEGMENT.ecritSansCommande ? 'derniere_reponse_le' : 'dernier_clic_le';
+      return `(${date} is not null and id not in (select o.contact_id from shopify_commandes o where o.tenant_id = $1))`;
+    }
     case CLES_SEGMENT.actif: {
       const n = jours(v);
       return n === null ? 'false' : `derniere_activite_le >= ${ilYA(add(n))}`;

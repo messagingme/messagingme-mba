@@ -22,6 +22,12 @@ export const CLES_SEGMENT = {
   achete: 'segment_achete',
   pasAchete: 'segment_pas_achete',
   reassort: 'segment_reassort',
+  /**
+   * Segments Shopify enrichis, lot 4 : les deux boutons prêts, valeur `true` et rien d'autre. Un message reçu (ou un
+   * clic attribué) connu, et aucune commande enregistrée pour la fiche dans l'espace.
+   */
+  ecritSansCommande: 'segment_ecrit_sans_commande',
+  clicSansCommande: 'segment_clic_sans_commande',
   actif: 'segment_actif',
   inactif: 'segment_inactif',
   pays: 'segment_pays',
@@ -37,6 +43,7 @@ export function estCleSegment(cle: unknown): cle is CleSegment {
 export const CLES_COMMANDES: readonly CleSegment[] = [
   CLES_SEGMENT.commandes, CLES_SEGMENT.depense, CLES_SEGMENT.derniereCommande,
   CLES_SEGMENT.achete, CLES_SEGMENT.pasAchete, CLES_SEGMENT.reassort,
+  CLES_SEGMENT.ecritSansCommande, CLES_SEGMENT.clicSansCommande,
 ];
 export const CLES_ACTIVITE: readonly CleSegment[] = [CLES_SEGMENT.actif, CLES_SEGMENT.inactif];
 
@@ -70,7 +77,16 @@ export interface SuiviSegmentsVue {
    * produit, qu'une telle API chercherait dans les champs perso, où il n'est jamais (personne ne serait trouvé).
    */
   produits?: boolean;
+  /**
+   * Le compte de chaque bouton prêt (lot 4), le bouton SEUL, jamais croisé avec les autres filtres (décision de Julien du
+   * 2026-11-23). Présent seulement avec une boutique et quand les deux comptes ont pu se lire : absent, la console ne
+   * montre aucun bouton (sauf un bouton déjà posé, pour qu'on puisse le retirer).
+   */
+  boutons?: BoutonsSansCommandeVue;
 }
+
+/** Le compte des deux boutons prêts : les fiches qui ont écrit (ou cliqué) sans aucune commande enregistrée. */
+export interface BoutonsSansCommandeVue { ecritSansCommande: number; clicSansCommande: number }
 
 /** Un produit déjà vu dans les commandes de l'espace, pour choisir un critère (`GET .../contacts/segments/produits`). */
 export interface ProduitVuVue {
@@ -88,8 +104,11 @@ export function plagePosee(p: Plage | undefined): boolean {
   return p !== undefined && (p.min !== undefined || p.max !== undefined);
 }
 
-/** Un critère de segment dans la forme du fil : sa valeur en JSON (une plage, des jours, des pays, des produits). */
-export function filtreSegment(cle: CleSegment, valeur: PlageSurJours | number | string[] | AchatsVises | Reassort): ContactFieldFilter {
+/**
+ * Un critère de segment dans la forme du fil : sa valeur en JSON (une plage, des jours, des pays, des produits, ou `true`
+ * pour un bouton prêt).
+ */
+export function filtreSegment(cle: CleSegment, valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | true): ContactFieldFilter {
   return { key: cle, op: OP_SEGMENT, value: JSON.stringify(valeur) };
 }
 

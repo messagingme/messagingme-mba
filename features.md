@@ -714,7 +714,13 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     produit, il y a au moins ou au plus N jours, un achat connu exigé). Un produit se vise entier (toutes ses
     variantes) ou par variante (son SKU), choisi parmi ceux déjà commandés dans l'espace, jamais le catalogue ; une
     carte cadeau ne se cible jamais, sa commande comptant toujours. Claude Code a les mêmes (`bought`, `not_bought`,
-    `days_since_product`), et `get_shopify_state` lui donne les produits vus. Chaque commande payée d'un contact connu compte, message de confirmation
+    `days_since_product`), et `get_shopify_state` lui donne les produits vus. Depuis le lot 4, deux **boutons prêts**,
+    sans aucun réglage : « **A écrit sans commander** » (au moins un message reçu encore connu, une réaction ou un
+    bouton touché comptent) et « **A cliqué sans commander** » (au moins un clic sur un lien suivi), avec, pour les
+    deux, aucune commande enregistrée pour le contact. Un clic pose le bouton, un second le retire, les deux se
+    cumulent ; le nombre sur chaque bouton compte ses contacts à lui seul, et un bouton qui ne trouve personne ne
+    s'affiche pas (sauf déjà posé, pour être retiré). Claude Code a les mêmes (`wrote_without_order`,
+    `clicked_without_order`). Chaque commande payée d'un contact connu compte, message de confirmation
     branché ou non, commandes de test comprises, remboursements non déduits ; le volet dit depuis quand elles sont
     suivies, et la date de coupure d'une boutique coupée, dont l'historique reste filtrable. Une saisie impossible (un
     minimum au-dessus du maximum, « au moins 0 commande ») est signalée, et le dernier critère valide reste appliqué :

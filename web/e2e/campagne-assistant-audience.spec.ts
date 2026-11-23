@@ -46,6 +46,8 @@ interface Options {
    * route (le comportement d'avant les segments, celui de tous les autres cas de ce fichier).
    */
   boutique?: { coupeeLe: string | null } | null;
+  /** Le compte des deux boutons prêts (lot 4) que `/contacts/segments` rend ; absent, une API qui ne les compte pas. */
+  boutons?: { ecritSansCommande: number; clicSansCommande: number };
   /** L'audience d'un brouillon repris (`?brouillon=d1`), au format de l'assistant. */
   brouillon?: Record<string, unknown>;
 }
@@ -68,6 +70,7 @@ async function monter(page: Page, sur: Options = {}): Promise<void> {
       return json({
         boutique: sur.boutique === null ? null : { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: sur.boutique.coupeeLe },
         activiteCompleteDepuis: '2026-11-03',
+        ...(sur.boutons ? { boutons: sur.boutons } : {}),
       });
     }
     if (chemin.endsWith('/campaign-drafts') && sur.brouillon) {
@@ -314,6 +317,21 @@ test.describe('l onglet Shopify de l audience', () => {
     await expect(page.getByTestId('filtres-shopify')).toHaveAttribute('open', '', { timeout: 15_000 });
     await expect(page.getByTestId('filtre-commandes-min')).toHaveValue('2');
     await expect(page.getByTestId('audience-source-shopify')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  // 🔴 Un brouillon qui porte un bouton prêt (lot 4) le garde visible, même à zéro : sinon on ne pourrait plus le retirer.
+  test('un brouillon qui porte un bouton pret le montre meme a zero, et un clic le retire', async ({ page }) => {
+    const ECRIT = { key: 'segment_ecrit_sans_commande', op: 'segment', value: 'true' };
+    await monter(page, {
+      boutique: { coupeeLe: null }, boutons: { ecritSansCommande: 0, clicSansCommande: 0 },
+      brouillon: { source: 'shopify', webhookId: '', filtres: { fieldFilters: [ECRIT] }, toutFiltre: true, selected: [], exclus: [] },
+    });
+    await expect(page.getByTestId('filtre-bouton-ecrit')).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+    await expect(page.getByTestId('filtre-bouton-ecrit-compte')).toHaveText(/·\s*0$/);
+    await expect(page.getByTestId('filtre-bouton-clic')).toHaveCount(0);
+    // Retiré et à zéro, il disparaît : un bouton à zéro ne se montre pas.
+    await page.getByTestId('filtre-bouton-ecrit').click();
+    await expect(page.getByTestId('filtre-bouton-ecrit')).toHaveCount(0);
   });
 
   test('un brouillon repris sous l onglet Shopify y revient', async ({ page }) => {

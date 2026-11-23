@@ -29,6 +29,12 @@ describe.skipIf(!url)('la dernière activité d’une fiche (Postgres)', () => {
 
   const activite = async (id: string): Promise<Date | null> =>
     (await pool.query<{ le: Date | null }>('select derniere_activite_le as le from contacts where id = $1', [id])).rows[0]!.le;
+  /** La dernière réponse et le dernier clic (0312, segments Shopify, lot 4), que les boutons « sans commander » lisent. */
+  const gestes = async (id: string): Promise<{ reponse: Date | null; clic: Date | null }> =>
+    (await pool.query<{ reponse: Date | null; clic: Date | null }>(
+      'select derniere_reponse_le as reponse, dernier_clic_le as clic from contacts where id = $1', [id],
+    )).rows[0]!;
+  const recente = (d: Date | null): boolean => d instanceof Date && Date.now() - d.getTime() < 60_000;
   const entrant = (type: string, body: string | null) => ({
     phoneNumberId: 'pn-itest', waId: WA_ID, messageId: `wamid.itest-activite-${randomUUID()}`, type, body, buttonPayload: null,
     profileName: null, field: 'messages',
@@ -59,6 +65,11 @@ describe.skipIf(!url)('la dernière activité d’une fiche (Postgres)', () => {
     expect(le).toBeInstanceOf(Date);
     expect(Date.now() - le!.getTime()).toBeLessThan(60_000);
     expect(await activite(ficheAilleurs)).toBeNull();
+    // 🔴 Le message pose aussi la dernière RÉPONSE, jamais le dernier clic, et jamais sur la fiche d'un autre espace.
+    const g = await gestes(ficheIci);
+    expect(recente(g.reponse)).toBe(true);
+    expect(g.clic).toBeNull();
+    expect(await gestes(ficheAilleurs)).toEqual({ reponse: null, clic: null });
   });
 
   it('une réaction compte, et la date ne recule jamais', async () => {
@@ -87,25 +98,54 @@ describe.skipIf(!url)('la dernière activité d’une fiche (Postgres)', () => {
        values ($1, $2, 'itest', 'fr', 0, 'https://client.fr')`,
       [code, ici],
     );
-    await pool.query(`update contacts set derniere_activite_le = null where id = any($1::uuid[])`, [[ficheIci, ficheAilleurs]]);
+    await pool.query(
+      `update contacts set derniere_activite_le = null, derniere_reponse_le = null, dernier_clic_le = null where id = any($1::uuid[])`,
+      [[ficheIci, ficheAilleurs]],
+    );
     await liens.recordClick(code, ici);
     expect(await activite(ficheIci)).toBeNull();
+    expect(await gestes(ficheIci)).toEqual({ reponse: null, clic: null });
     await liens.recordClick(code, ici, ficheIci);
     expect(await activite(ficheIci)).toBeInstanceOf(Date);
+    // 🔴 Le clic attribué pose le dernier CLIC, jamais la dernière réponse.
+    const g = await gestes(ficheIci);
+    expect(recente(g.clic)).toBe(true);
+    expect(g.reponse).toBeNull();
     // Un contact d'un autre espace présenté avec le lien d'ici n'est jamais daté.
     await liens.recordClick(code, ici, ficheAilleurs);
     expect(await activite(ficheAilleurs)).toBeNull();
+    expect(await gestes(ficheAilleurs)).toEqual({ reponse: null, clic: null });
     // Une fiche supprimée entre la lecture du jeton et le clic n'est pas datée.
     const supprimee = (await pool.query<{ id: string }>(
       `insert into contacts (tenant_id, phone_e164, deleted_at) values ($1, '+33600400099', now()) returning id`, [ici],
     )).rows[0]!.id;
     await liens.recordClick(code, ici, supprimee);
     expect(await activite(supprimee)).toBeNull();
+    expect(await gestes(supprimee)).toEqual({ reponse: null, clic: null });
+  });
+
+  it('🔴 la réponse et le clic ne reculent jamais, même quand l’activité, elle, avance', async () => {
+    const code = (await pool.query<{ code: string }>('select code from tracked_links where tenant_id = $1 limit 1', [ici])).rows[0]!.code;
+    await pool.query(
+      `update contacts set derniere_activite_le = now() - interval '10 days', derniere_reponse_le = now() + interval '1 day',
+                           dernier_clic_le = now() + interval '1 day' where id = $1`,
+      [ficheIci],
+    );
+    const avant = await gestes(ficheIci);
+    await inbox.recordInbound(ici, entrant('text', 'plus tard'));
+    expect(recente(await activite(ficheIci))).toBe(true);
+    expect((await gestes(ficheIci)).reponse).toEqual(avant.reponse);
+    await pool.query(`update contacts set derniere_activite_le = now() - interval '10 days' where id = $1`, [ficheIci]);
+    await liens.recordClick(code, ici, ficheIci);
+    expect(recente(await activite(ficheIci))).toBe(true);
+    expect((await gestes(ficheIci)).clic).toEqual(avant.clic);
   });
 
   it('🔴 la purge de la fiche efface sa date', async () => {
     expect(await activite(ficheIci)).not.toBeNull();
     await contacts.purgeMany(ici, [ficheIci]);
     expect(await activite(ficheIci)).toBeNull();
+    // 🔴 Et la dernière réponse et le dernier clic avec elle (0312) : des dates de gestes de la personne.
+    expect(await gestes(ficheIci)).toEqual({ reponse: null, clic: null });
   });
 });

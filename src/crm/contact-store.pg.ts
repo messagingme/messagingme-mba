@@ -1985,6 +1985,8 @@ export class PgContactStore implements ContactStore {
                 analyse_intention = null, analyse_sentiment = null, analyse_satisfaction = null, analyse_urgence = null,
                 analyse_resolue = null, analyse_sujet = null, analyse_traitee_par = null, analyse_action = null,
                 analyse_le = null, analyse_fenetre_fin = null, analyse_conversation_id = null, derniere_activite_le = null,
+                -- La DERNIERE REPONSE et le DERNIER CLIC partent (0312), comme la derniere activite qu ils detaillent.
+                derniere_reponse_le = null, dernier_clic_le = null,
                 -- RESTENT, deliberement : le statut d opt-in et sa date (0138), la date du blocage, le STOP RCS
                 -- (0057). Sans numero, un refus n identifie personne, et l effacer est la seule des deux erreurs
                 -- qui ne se rattrape pas. Ce ne sont plus eux qui protegent un run de campagne en cours (il tient

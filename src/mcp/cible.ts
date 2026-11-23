@@ -130,6 +130,18 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
     description: 'Restock: the last paid purchase of ONE product ({"product_id"} or {"sku"}) between min and max days ago, '
       + 'e.g. {"sku":"SER-30","min":60,"max":120}; requires a known purchase of it, at least one bound. Needs the Shopify store.',
   },
+  wrote_without_order: {
+    type: 'boolean', enum: [true],
+    description: 'One-click segment, the console button "Wrote without ordering": contacts who sent at least one message '
+      + 'still known (a reaction or a button tap counts) and have no order recorded since the store was connected. true '
+      + 'only, no period; omit it otherwise. Needs the Shopify store.',
+  },
+  clicked_without_order: {
+    type: 'boolean', enum: [true],
+    description: 'One-click segment, the console button "Clicked without ordering": contacts who clicked a tracked link at '
+      + 'least once and have no order recorded. Both buttons can match the same contact. true only, no period; omit it '
+      + 'otherwise. Needs the Shopify store.',
+  },
   active_within_days: {
     ...JOURS,
     description: `Contacts who wrote to the workspace or clicked a tracked link in the last N days (1 to ${joursMax}).`,
@@ -172,7 +184,8 @@ export const CHAMPS_CIBLE_FILTRES: Record<string, ProprieteEntree> = {
     },
     description: `Enterprise plan only. Filters on each contact's latest conversation analysis: ${AIDE_ANALYSE}. `
       + `${MAX_FIELD_FILTERS} filters at most in all, the orders, spent, days_since_last_order, bought, not_bought, `
-      + 'days_since_product, active_within_days, inactive_for_days and countries criteria included.',
+      + 'days_since_product, wrote_without_order, clicked_without_order, active_within_days, inactive_for_days and '
+      + 'countries criteria included.',
   },
   ...CHAMPS_CIBLE_SEGMENTS,
 };
@@ -271,9 +284,13 @@ export async function lireCibleMcp(
 }
 
 const CLES_SEGMENTS = [
-  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'active_within_days', 'inactive_for_days', 'countries',
+  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'wrote_without_order',
+  'clicked_without_order', 'active_within_days', 'inactive_for_days', 'countries',
 ] as const;
-const CLES_COMMANDES_MCP = ['orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product'] as const;
+const CLES_COMMANDES_MCP = [
+  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'wrote_without_order',
+  'clicked_without_order',
+] as const;
 
 /**
  * Les critères de segment de l'outil, dans la forme du fil : des `fieldFilters` sous clé réservée, opérateur `segment`
@@ -324,7 +341,8 @@ async function lireSegmentsMcp(
   };
   if (CLES_COMMANDES_MCP.some((k) => present(args[k])) && (await deps.contacts.suiviSegments(tenantId)).boutique === null) {
     throw new RefusOutil('aucune boutique Shopify dans cet espace : les critères de commande (orders, spent, days_since_last_order, '
-      + 'bought, not_bought, days_since_product) n’ont rien à compter. get_shopify_state dit comment la brancher');
+      + 'bought, not_bought, days_since_product, wrote_without_order, clicked_without_order) n’ont rien à compter. '
+      + 'get_shopify_state dit comment la brancher');
   }
   const pays = args.countries;
   if (present(pays) && (!Array.isArray(pays) || pays.length === 0)) throw new RefusOutil('paramètre « countries » : une liste non vide de codes ISO est attendue');
@@ -335,6 +353,9 @@ async function lireSegmentsMcp(
     ...(present(args.bought) ? [entree(CLES_SEGMENT.achete, achats('bought'))] : []),
     ...(present(args.not_bought) ? [entree(CLES_SEGMENT.pasAchete, achats('not_bought'))] : []),
     ...(present(args.days_since_product) ? [entree(CLES_SEGMENT.reassort, reassort())] : []),
+    // Les boutons prêts passent tels quels : `lireSegment` refuse tout ce qui n'est pas `true`, en le nommant.
+    ...(present(args.wrote_without_order) ? [entree(CLES_SEGMENT.ecritSansCommande, args.wrote_without_order)] : []),
+    ...(present(args.clicked_without_order) ? [entree(CLES_SEGMENT.clicSansCommande, args.clicked_without_order)] : []),
     ...(present(args.active_within_days) ? [entree(CLES_SEGMENT.actif, args.active_within_days)] : []),
     ...(present(args.inactive_for_days) ? [entree(CLES_SEGMENT.inactif, args.inactive_for_days)] : []),
     ...(present(pays) ? [entree(CLES_SEGMENT.pays, pays)] : []),

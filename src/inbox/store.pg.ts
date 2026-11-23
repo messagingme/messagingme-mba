@@ -981,17 +981,20 @@ export class PgInboxStore implements InboxStore {
   }
 
   /**
-   * La dernière activité de la fiche du fil (segments, spec du 2026-10-31) : tout message du contact compte, réaction
-   * comprise. Elle survit à la purge des conversations, que la conservation de l'espace efface. Ne recule jamais.
+   * La dernière activité de la fiche du fil (segments, spec du 2026-10-31) et sa dernière réponse (`derniere_reponse_le`,
+   * 0312, le bouton « A écrit sans commander ») : tout message du contact compte, réaction comprise. Elles survivent à la
+   * purge des conversations, que la conservation de l'espace efface. Ne reculent jamais (`greatest` ignore le nul).
    * 🔴 Au mieux : une instruction À PART, après le message, et sans lever. Une panne ici ne doit ni perdre le message ni
-   * faire rejouer le webhook ; la fiche rattrape sa date au message ou au clic suivant.
+   * faire rejouer le webhook ; la fiche rattrape ses dates au message suivant.
    */
   private async noterActivite(tenantId: string, conversationId: string): Promise<void> {
     await this.pool.query(
-      `update contacts c set derniere_activite_le = now()
+      `update contacts c set derniere_activite_le = greatest(c.derniere_activite_le, now()),
+                             derniere_reponse_le = greatest(c.derniere_reponse_le, now())
          from conversations v
-        where v.id = $1 and v.tenant_id = $2 and c.id = v.contact_id and c.tenant_id = $2
-          and c.deleted_at is null and (c.derniere_activite_le is null or c.derniere_activite_le < now())`,
+        where v.id = $1 and v.tenant_id = $2 and c.id = v.contact_id and c.tenant_id = $2 and c.deleted_at is null
+          and (c.derniere_activite_le is null or c.derniere_activite_le < now()
+               or c.derniere_reponse_le is null or c.derniere_reponse_le < now())`,
       [conversationId, tenantId],
     ).catch((err: unknown) => {
       journaliser('warn', 'activite_non_notee', { tenantId, erreur: messageDe(err) });

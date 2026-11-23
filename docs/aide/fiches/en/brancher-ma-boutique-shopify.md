@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 45f715
+traduit_de: a2cc9a
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -153,6 +153,11 @@ campaign, the audience’s Shopify button opens it. Paid orders, spend, last ord
 And products: those who bought a product (or a single variant, by its SKU), those who did not buy it (always together
 with a bought product, never alone), and restock, the last purchase of a product so many days ago. You pick them among
 the products already ordered in your store; gift cards cannot be targeted.
+
+And two ready-made buttons, with no setting: “Wrote without ordering” (at least one message still known) and “Clicked
+without ordering” (at least one tracked link click), for contacts with no order recorded. One click sets the button, a
+second removes it; the number on each button says how many contacts it finds, and a button that finds nobody is not
+shown.
 
 **Good to know.** Orders only count from the moment the store was connected: Shopify’s history is not taken over, and
 an imported customer arrives without their past orders. Right after connecting, “at least 2 orders” therefore finds

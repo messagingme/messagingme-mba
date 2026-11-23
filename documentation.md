@@ -2090,6 +2090,10 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   à nul : elle dit quand la personne a agi. Ses deux seuls écrivains sont `recordInbound` (une instruction à part,
   après le message, qui ne lève jamais : une panne ne perd pas le message) et `recordClick` avec un contact, scopés par
   l'espace, et elle ne recule jamais ; elle survit à la purge des conversations, que la conservation de l'espace efface.
+  Ses deux détails (migration 0312, segments Shopify, lot 4) suivent les mêmes règles et partent avec elle :
+  `derniere_reponse_le` (le dernier message reçu, réaction et bouton compris) et `dernier_clic_le` (le dernier clic
+  attribué), écrites dans la MÊME instruction au mieux que `derniere_activite_le` par chacun des deux chemins, par
+  `greatest`, qui ignore le nul et ne fait jamais reculer une date.
   🔴 **Toute colonne ajoutée à `contacts` décide son sort dans l'`update` de `purgeMany`**, où chaque colonne
   porte sa raison ; et un écrivain qui vise une fiche par son identifiant filtre `deleted_at is null`
   (l'identifiant survit à la purge, dans `campaign_recipients.contact_id` entre autres).
@@ -3176,6 +3180,15 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   plus achetés à l'assistant, au mieux. L'onglet Shopify de la fiche lit les lignes par une requête à part, au mieux :
   il existait avant elles et ne doit pas tomber avec elles. Les collections attendent le lot 6 et son droit
   `read_products` (décision de Julien du 2026-11-23) ;
+- **les deux boutons prêts du volet Shopify** (segments Shopify enrichis, lot 4) : « a écrit sans commander »
+  (`segment_ecrit_sans_commande`) et « a cliqué sans commander » (`segment_clic_sans_commande`), valeur `true` et rien
+  d'autre (`lireSegment` refuse le reste), réservés aux espaces à boutique (`CLES_COMMANDES`). La date du geste non
+  nulle, et aucune ligne de `shopify_commandes` pour la fiche DANS L'ESPACE, sans fenêtre (une commande de test ou
+  remboursée compte). Leur pastille compte le bouton SEUL, jamais croisé avec les autres filtres (décision de Julien du
+  2026-11-23) : deux `count` dans `GET .../contacts/segments` (`boutons`), avec une boutique seulement, au mieux. 🔴 Une
+  panne les omet sans faire tomber cette réponse, qui est la garde de TOUS les critères de segment. La console masque un
+  bouton à zéro ou sans compte, sauf déjà posé. Le MCP les annonce `enum: [true]` (`wrote_without_order`,
+  `clicked_without_order`) : la borne appliquée est annoncée ;
 - **le secret qui vérifie doit être celui de la boutique relue** : le cache d'une minute ne laisse pas passer un
   webhook de l'ancienne app après une reconnexion, et `shop/redact` n'efface jamais une boutique `connectee` ;
 - 🔴 **la relance de panier est balayée DANS L'API** (`src/shopify/relance.ts`, la minuterie d'une minute de
