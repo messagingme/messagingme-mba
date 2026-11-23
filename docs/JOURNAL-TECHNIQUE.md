@@ -33,6 +33,13 @@ CI verte job par job sur `0e8aea731` (dont `integration`, le vrai Postgres). Dé
 OAuth conformes, la route répond 401 sans session (une route absente, 404). Arbitrages de Julien, posés en questions
 fermées : les commandes payées avant la mise en service restent hors de la carte (le correctif du rouge) ; une sixième
 part, « pas de message livrable », sortira de « en attente d'accusé » avec le lot 3.
+Relu en base par Julien (les sondes de production restent refusées à Claude par le garde-fou du mode automatique) :
+les deux tables conformes (colonnes, types, nullabilité, défauts ; `shopify_joignabilite_classement_check` validée ;
+les trois clés étrangères en `ON DELETE CASCADE`, `confdeltype` c ; les index `(tenant_id, expediee_le)` et
+`(tenant_id, commande_id)`), vides, 0310 en tête des migrations, aucune transaction de plus de 5 s. Par le vrai code de
+l'image, en lecture seule : la carte se lit, les cinq écritures sont refusées par la lecture seule (leur SQL colle au
+schéma de production), et l'effacement avec le branchement rend la main par son point de reprise. `aide:charger` sur
+l'image 0e8aea731 : 360 lignes, 0 retirée. Reste l'essai réel 284.
 
 ## 2026-11-23 : segments Shopify, lot 2a : le numéro utilisable, la fiche supprimée au premier 131026
 
