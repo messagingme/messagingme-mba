@@ -9,8 +9,9 @@ import { journaliser } from '../../lib/journal';
 import { avancementEntretien, type AvancementEntretien } from './avancement';
 import { construireMessages, inventaireDe, type ContexteConstruction } from './conversation';
 import {
-  actionChoisie, basculesDuTour, fusionner, fusionnerBascules, momentDuPoint, momentsDesReponses,
-  poseUneQuestion, prochainPoint, questionDeRelance, urlDeConnaissance,
+  accordDonneesClient, actionChoisie, basculesDuTour, CODE_DONNEES_CLIENT, fusionner, fusionnerBascules, momentDuPoint,
+  momentsDesReponses, ouiOuNon, outilLireFiche, poseUneQuestion, prochainPoint, questionDeRelance, questionOuiOuNonMontree,
+  urlDeConnaissance,
 } from './couverture';
 import {
   bornerPourModele, ENTRETIEN_VIERGE, MAX_BASCULES, type EntretienComplet, type EntretienStore, type TourEntretien,
@@ -44,6 +45,11 @@ export interface PropositionAffichee {
   outilsBranches: string[];
   outilsDebranches: string[];
   scenarios?: ScenarioAPoser[];
+  /**
+   * Les outils que l'enregistrement ACTIVE (la lecture de la fiche posée sur un oui, \`outilLireFiche\`), par handler.
+   * Décidé par le serveur, jamais par le modèle ; leur ligne \`outil.<handler>.actif\` du diff se garde ou se jette.
+   */
+  outilsAActiver?: string[];
 }
 
 export interface ReponseTourEntretien {
@@ -183,7 +189,20 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
         return { issue: 'proposition_hors_format' };
       }
 
-      const reponses = fusionner(avant.reponses, propose.data.reponses);
+      /**
+       * 🔴 LE POINT DES DONNÉES DE LA FICHE N'A QU'UN JUGE, LE SERVEUR. Le oui ou le non se lit dans le message du CLIENT,
+       * sans le modèle (comme `actionChoisie`), et seulement si la dernière question de l'assistant portait la marque
+       * (`MARQUE_OUI_OU_NON`) : un « ok merci » après « C'est enregistré » n'est pas un oui à une question jamais posée.
+       * Ce que le modèle range pour ce point est IGNORÉ : il couvrirait le point sans qu'aucun outil ne suive. Sans
+       * réponse lisible, le point reste ouvert, et la question revient.
+       */
+      const derniereQuestion = [...avant.messages].reverse().find((m) => m.role === 'assistant')?.content ?? '';
+      const accordLu = pointDuTour?.code === CODE_DONNEES_CLIENT && questionOuiOuNonMontree(derniereQuestion)
+        ? ouiOuNon(commande.message) : null;
+      const reponses = fusionner(avant.reponses, [
+        ...propose.data.reponses.filter((r) => r.point !== CODE_DONNEES_CLIENT),
+        ...(accordLu ? [{ point: CODE_DONNEES_CLIENT, valeur: accordLu }] : []),
+      ]);
       // Le modèle range parfois les moments dans les réponses. On ne les reprend qu'au tour qui les demande,
       // et seulement si aucune liste n'existe encore, sinon une reformulation ferait naître des doublons.
       const reprendreDesReponses = pointDuTour?.collecteDesMoments === true
@@ -235,7 +254,14 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
         : avant.poses;
 
       const ouvertApres = prochainPoint({ poses, reponses, bascules: listeBascules }, inventaireDe(contexte));
-      const relance = ouvertApres && !poseUneQuestion(propose.data.message) ? ouvertApres : null;
+      /**
+       * 🔴 Le point des données de la fiche ne tourne pas en rond : si la réponse du client n'a pas été lue et que le modèle
+       * repose la question SANS la marque, le serveur ajoute la sienne, qui la porte. Sinon un modèle qui oublie la marque
+       * ferait répondre « oui » sans fin, sans que rien ne se range. Une question de trop au pire, une seule fois.
+       */
+      const forcerLaMarque = ouvertApres?.code === CODE_DONNEES_CLIENT && pointDuTour?.code === CODE_DONNEES_CLIENT
+        && accordLu === null && !questionOuiOuNonMontree(propose.data.message);
+      const relance = ouvertApres && (!poseUneQuestion(propose.data.message) || forcerLaMarque) ? ouvertApres : null;
       const posesApres = relance && !poses.includes(relance.code) ? [...poses, relance.code] : poses;
       const etatApres: EntretienComplet = {
         messages: filComplet,
@@ -314,8 +340,22 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       )));
       const desMoments = enEntretien ? [] : scenariosDesMoments(listeBascules, contexte.scenarios ?? [], vises);
       const aPoser = scenariosAPoser(desMoments);
+      /**
+       * 🔴 SUR UN OUI, LE SERVEUR POSE LA LECTURE DE LA FICHE, AVEC SES MOTS, ET LA FAIT ACTIVER À L'ENREGISTREMENT (décision
+       * de Julien du 2026-11-23 : « poser des questions si ce n'est pas suivi de la mise en place d'un outil, ça ne sert à
+       * rien »). Laissé au modèle, un oui pouvait finir sans outil, ou avec un outil inactif et muet sur où regarder.
+       * Ce que le modèle aurait proposé pour le même outil est remplacé : la carte du serveur dit ce qui est branché.
+       */
+      const outilFiche = enEntretien || accordDonneesClient(reponses) !== 'oui' ? null : outilLireFiche(inventaireDe(contexte));
+      if (outilFiche) {
+        propositionFinale = {
+          ...propositionFinale,
+          outils: [...(propositionFinale.outils ?? []).filter((o) => o.handler !== outilFiche.handler), outilFiche],
+        };
+      }
+      const outilsAActiver = outilFiche ? [outilFiche.handler] : [];
       const changements = enEntretien ? [] : [
-        ...differences(contexte, propositionFinale),
+        ...differences(contexte, propositionFinale, outilsAActiver),
         ...aPoser.map((s) => ({
           champ: champScenario(s.workflowId),
           label: `Outil « Lancer un scénario » : ${s.nom}, dès que le contact…`,
@@ -373,6 +413,7 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
             outilsBranches: brancheables(contexte.catalogue, propositionFinale.outilsBranches, false),
             outilsDebranches: brancheables(contexte.catalogue, propositionFinale.outilsDebranches, true),
             scenarios: aPoser,
+            outilsAActiver,
           },
           changements,
           usage: { tokensIn, tokensOut },

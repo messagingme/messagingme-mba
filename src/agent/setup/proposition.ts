@@ -480,7 +480,9 @@ export interface EtatCourant {
   /** Les outils déjà posés sur l'agent, par handler, avec leurs mots actuels. */
   outils: Array<{ handler: string; description: string; nePasUtiliser: string;
     /** Le scénario qu'un outil `lancer_scenario` vise (RC4), pour ne pas en reproposer un second. */
-    workflowId?: string }>;
+    workflowId?: string;
+    /** Actif sur cet agent : une activation demandée par le serveur ne fait une ligne de diff que s'il ne l'est pas. */
+    actif?: boolean }>;
   /**
    * Les connecteurs déjà déclarés, par leur nom exposé : l'assistant ne peut proposer que leurs mots.
    * `origine` est requise : la liste porte connecteurs API et outils MCP, qui ne doivent pas se confondre.
@@ -536,7 +538,12 @@ export function dureeEnClair(minutes: number): string {
   return `${minutes} minutes`;
 }
 
-export function differences(courant: EtatCourant, proposition: Omit<Proposition, 'reponses' | 'bascules'>): Changement[] {
+export function differences(
+  courant: EtatCourant,
+  proposition: Omit<Proposition, 'reponses' | 'bascules'>,
+  /** Les outils que le SERVEUR fait activer à l'enregistrement (`outilLireFiche`), jamais le modèle. */
+  aActiver: readonly string[] = [],
+): Changement[] {
   const out: Changement[] = [];
 
   for (const [cle, valeur] of Object.entries(proposition.fiche ?? {})) {
@@ -625,6 +632,22 @@ export function differences(courant: EtatCourant, proposition: Omit<Proposition,
         apres: o.nePasUtiliser,
       });
     }
+  }
+
+  /**
+   * L'activation d'un outil a SA ligne : le client la garde ou la jette comme les autres, et un outil dont les mots
+   * sont déjà les bons mais qui est inactif a quand même une ligne, sinon rien ne s'enregistrerait et il resterait muet.
+   */
+  for (const handler of aActiver) {
+    const deja = courant.outils.find((x) => x.handler === handler);
+    if (deja?.actif) continue;
+    const nom = OUTILS_MAISON.find((m) => m.handler === handler)?.titre.fr ?? handler;
+    out.push({
+      champ: `outil.${handler}.actif`,
+      label: `${nom}${deja ? '' : ' (à ajouter)'} : activé dès l’enregistrement`,
+      avant: deja ? 'inactif' : 'absent',
+      apres: 'actif',
+    });
   }
 
   // Les connecteurs : seulement ceux qui existent. Un nom inconnu est ignoré, sans faire échouer la

@@ -66,8 +66,12 @@ export interface Inventaire {
 export interface IntegrationsFiche {
   /** Une boutique Shopify branchée (non coupée) : les commandes du contact et le lien de suivi de son dernier colis. */
   shopify: boolean;
-  /** Les libellés des champs HubSpot importés sur les fiches (Tools > Intégrations). Vide : rien d'importé. */
-  hubspot: string[];
+  /**
+   * Les champs HubSpot importés sur les fiches (Tools > Intégrations), par leur clé de fiche (`hs_contact_…`,
+   * `hs_deal_…`, `hs_calc_…`) et leur libellé. La clé est ce que l'agent lit dans la fiche, le libellé ce qu'on dit au
+   * client. Vide : rien d'importé.
+   */
+  hubspot: Array<{ cle: string; libelle: string }>;
 }
 
 export const INVENTAIRE_VIDE: Inventaire = { outilsApi: [], systemesApi: [], mcp: [], outilsMcp: [] };
@@ -235,35 +239,125 @@ const CODES_CONNUS: ReadonlySet<string> = new Set(ORDRE_DES_CODES);
 /** Combien de champs HubSpot la question nomme ; au-delà, « et N autres ». */
 const CHAMPS_HUBSPOT_NOMMES = 6;
 
+/** Un texte venu d'une intégration, ramené à une ligne courte avant d'entrer dans une consigne ou une description. */
+const uneLigne = (t: string, max: number): string => t.replace(/\s+/g, ' ').trim().slice(0, max);
+
+/** Les intégrations qui écrivent sur les fiches, nettoyées ; `null` s'il n'y en a aucune. */
+function integrationsUtiles(inv: Inventaire): { shopify: boolean; hubspot: Array<{ cle: string; libelle: string }> } | null {
+  const shopify = inv.integrations?.shopify === true;
+  const hubspot = (inv.integrations?.hubspot ?? [])
+    .map((c) => ({ cle: uneLigne(c.cle, 64), libelle: uneLigne(c.libelle, 60) }))
+    .filter((c) => c.cle !== '' && c.libelle !== '');
+  return shopify || hubspot.length > 0 ? { shopify, hubspot } : null;
+}
+
+/** « a, b et c », et « et N autres » au-delà de `CHAMPS_HUBSPOT_NOMMES`. */
+function enumererBorne(noms: readonly string[]): string {
+  const nommes = noms.slice(0, CHAMPS_HUBSPOT_NOMMES);
+  const reste = noms.length - nommes.length;
+  return `${enumerer(nommes)}${reste > 0 ? ` et ${reste} autre${reste > 1 ? 's' : ''}` : ''}`;
+}
+
 /**
  * La question des données de la fiche, ou `null` sans intégration qui en écrive. Elle ne parle QUE de ce qui est
- * branché : Shopify seul, HubSpot seul, ou les deux. Sur un oui, l'assistant propose l'outil `lire_contact`, avec les
- * mots qui disent à l'agent QUAND le lire.
+ * branché : Shopify seul, HubSpot seul, ou les deux. C'est un oui ou un non (`MARQUE_OUI_OU_NON`), lu par le serveur ;
+ * sur un oui, c'est le serveur qui pose l'outil (`outilLireFiche`).
  */
 export function pointDonneesClient(inv: Inventaire): Point | null {
-  const i = inv.integrations;
-  const shopify = i?.shopify === true;
-  const hubspot = (i?.hubspot ?? []).map((l) => l.replace(/\s+/g, ' ').trim().slice(0, 60)).filter((l) => l !== '');
-  if (!shopify && hubspot.length === 0) return null;
-  const nommes = hubspot.slice(0, CHAMPS_HUBSPOT_NOMMES);
-  const reste = hubspot.length - nommes.length;
+  const i = integrationsUtiles(inv);
+  if (i === null) return null;
   const sources = [
-    ...(shopify ? ['de Shopify : les commandes du client (paiement, produits, expédition) et le lien de suivi de son dernier colis'] : []),
-    ...(hubspot.length > 0 ? [`de HubSpot : ${enumerer(nommes)}${reste > 0 ? ` et ${reste} autre${reste > 1 ? 's' : ''}` : ''}`] : []),
+    ...(i.shopify ? ['de Shopify : les commandes du client (paiement, produits, expédition) et le lien de suivi de son dernier colis'] : []),
+    ...(i.hubspot.length > 0 ? [`de HubSpot : ${enumererBorne(i.hubspot.map((c) => c.libelle))}`] : []),
   ];
-  const exemple = shopify
+  const exemple = i.shopify
     ? 'répondre à « où en est ma commande ? » en donnant le lien de suivi'
     : 'personnaliser ses réponses avec ce que HubSpot sait du client';
   return {
     code: CODE_DONNEES_CLIENT,
     sujet: 'l’usage des données de la fiche client',
-    question: `Vos fiches clients reçoivent des données ${sources.join(', et ')}. Votre agent doit-il s’en servir pour répondre, par exemple pour ${exemple} ?`,
-    aObtenir: `si l’agent doit lire la fiche du client pour répondre avec les données ${sources.join(', et ')}. `
-      + 'S’il dit oui, propose l’outil `lire_contact` dans `outils`, avec une description qui dit QUAND l’appeler (par '
-      + `exemple : avant de répondre à une question ${shopify ? 'sur une commande ou une livraison' : 'qui touche à son dossier'}) `
-      + 'et un « ne pas utiliser » qui interdit d’inventer une donnée absente de la fiche. S’il dit non, ne le propose pas. '
-      + 'Ne parle d’aucune intégration qui n’est pas nommée ici',
-    pistes: ['oui, pour répondre sur ses commandes et sa livraison', 'oui, pour personnaliser les réponses', 'non, pas pour l’instant'],
+    question: `Vos fiches clients reçoivent des données ${sources.join(', et ')}. Votre agent doit-il s’en servir pour `
+      + `répondre, par exemple pour ${exemple} ? ${MARQUE_OUI_OU_NON}`,
+    /**
+     * 🔴 Le modèle ne pose PAS l'outil : c'est le serveur qui le fait sur un oui (`outilLireFiche`), avec des mots
+     * qu'il écrit lui-même. Laissé au modèle, un oui pouvait finir sans outil, ou avec un outil qui ne disait pas où
+     * regarder (2026-11-23).
+     */
+    aObtenir: `OUI ou NON : l’agent doit-il lire la fiche du client pour répondre avec les données ${sources.join(', et ')}. `
+      + `Termine ta question par « ${MARQUE_OUI_OU_NON} » : c’est à cette phrase que le serveur sait qu’elle a été posée, et `
+      + 'c’est lui qui lit la réponse. Sur un oui, il active lui-même la lecture de la fiche, avec ses mots : ne propose pas '
+      + '`lire_contact` pour ce point, et ne range rien dans `reponses` pour lui. Ne parle d’aucune intégration qui n’est pas '
+      + 'nommée ici',
+    pistes: ['oui', 'non'],
+  };
+}
+
+/**
+ * 🔴 LA PHRASE QUI DIT QUE LA QUESTION A ÉTÉ MONTRÉE. Le oui du client ne se lit qu'au tour qui suit un message de
+ * l'assistant qui la porte : sinon, un « ok merci » écrit après « C'est enregistré » (un entretien fini, rouvert parce
+ * qu'une intégration a été branchée depuis) passerait pour un oui à une question jamais posée.
+ */
+export const MARQUE_OUI_OU_NON = 'Répondez oui ou non.';
+
+/** La dernière question de l'assistant porte-t-elle la marque du oui ou non ? Insensible à la casse et aux espaces. */
+export function questionOuiOuNonMontree(dernierMessageAssistant: string): boolean {
+  return /r[ée]pondez\s+oui\s+ou\s+non/i.test(dernierMessageAssistant);
+}
+
+/**
+ * Un oui ou un non au début d'une réponse, ou `null` : la réponse du client au point des données de la fiche, lue
+ * SANS le modèle (comme `actionChoisie`). `null` quand rien ne ressort : la question revient, plutôt que de deviner.
+ */
+export function ouiOuNon(texte: string): 'oui' | 'non' | null {
+  const t = texte.trim().toLowerCase().replace(/[«»"“”]/g, '').trim();
+  // Un chiffre SEUL : la liste des pistes, 1 = oui, 2 = non. Un nombre en tête d'une phrase ne décide rien.
+  if (/^[12]\s*[).]?$/.test(t)) return t.startsWith('1') ? 'oui' : 'non';
+  // Avant le « pas » du non : « pas de souci » est un oui.
+  if (/^(pas de (souci|soucis|probl[eè]me)|sans probl[eè]me|je veux bien|pourquoi pas|ah oui|oh oui)\b/.test(t)) return 'oui';
+  if (/^(non|nan|no|nope|pas|jamais|surtout pas|aucun|aucune)\b/.test(t)) return 'non';
+  if (/^(oui|ouais|yes|ok|okay|d['’]accord|bien s[uû]r|volontiers|absolument|carr[ée]ment|tout [àa] fait|exactement|[ée]videmment|avec plaisir|parfait|super|go)\b/.test(t)) return 'oui';
+  return null;
+}
+
+/** L'accord du client sur l'usage des données de la fiche, tel qu'il est rangé, ou `null` s'il n'a rien dit. */
+export function accordDonneesClient(reponses: readonly Reponse[]): 'oui' | 'non' | null {
+  const r = retenues(reponses).find((x) => x.point === CODE_DONNEES_CLIENT);
+  return r ? ouiOuNon(r.valeur) : null;
+}
+
+/** Le handler de l'outil que le serveur pose sur un oui. */
+export const HANDLER_LIRE_FICHE = 'lire_contact';
+/** La clé du champ de fiche qui porte le lien de suivi Shopify (`CHAMP_LIEN_SUIVI`, `src/shopify/traitement.ts`). */
+const CLE_LIEN_SUIVI = 'shopify_lien_suivi';
+
+/**
+ * 🔴 L'OUTIL « LIRE LA FICHE DU CONTACT » QUE LE SERVEUR POSE SUR UN OUI (décision de Julien du 2026-11-23). UN seul
+ * outil, généraliste : il rend toute la fiche, et sa description sert de CARTE (quand l'appeler, où regarder pour quelle
+ * question), écrite d'après ce qui est branché. Plusieurs outils de lecture ajouteraient des appels et un choix de plus
+ * au modèle, sans rien lui apprendre. `null` sans intégration qui écrive sur les fiches.
+ */
+export function outilLireFiche(inv: Inventaire): { handler: string; description: string; nePasUtiliser: string } | null {
+  const i = integrationsUtiles(inv);
+  if (i === null) return null;
+  const sujets = [
+    ...(i.shopify ? ['une commande, une livraison ou un colis'] : []),
+    ...(i.hubspot.length > 0 ? ['son dossier ou son suivi'] : []),
+  ];
+  const ouRegarder = [
+    ...(i.shopify
+      ? [`pour une livraison, le champ \`${CLE_LIEN_SUIVI}\` (le lien de suivi de son dernier colis, à donner tel quel) et, `
+        + 'dans `shopify.commandes`, la date d’expédition (`expediee_le`), la date de paiement et les produits']
+      : []),
+    ...(i.hubspot.length > 0
+      ? [`les champs venus de HubSpot : ${enumererBorne(i.hubspot.map((c) => `\`${c.cle}\` (${c.libelle})`))}`]
+      : []),
+  ];
+  return {
+    handler: HANDLER_LIRE_FICHE,
+    description: `À appeler AVANT de répondre à une question sur ${sujets.join(', ou sur ')}. La fiche rend ce que l’on sait `
+      + `du client. Où regarder : ${ouRegarder.join(' ; ')}.`,
+    nePasUtiliser: 'Ne jamais inventer une date, un statut ou un lien absent de la fiche : s’il n’y est pas, dis-le au '
+      + 'client et propose de passer la main.',
   };
 }
 

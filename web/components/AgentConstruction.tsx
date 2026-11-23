@@ -572,7 +572,8 @@ function Diff({ changements, busy, onGarder, onJeter }: {
   const [gardees, setGardees] = useState<Map<string, string>>(
     () => new Map(changements.map((c) => [c.champ, c.apres])),
   );
-  const editable = (champ: string) => champ !== 'fiche.sorties';
+  // Ni les règles d'arrêt (une liste), ni une activation (un état) ne se corrigent en texte : elles se gardent ou se jettent.
+  const editable = (champ: string) => champ !== 'fiche.sorties' && !champ.endsWith('.actif');
 
   if (changements.length === 0) {
     return (

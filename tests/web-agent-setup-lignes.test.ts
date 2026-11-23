@@ -92,7 +92,49 @@ describe('garder, corriger ou jeter ligne par ligne', () => {
     const r = restreindreProposition(PROPOSITION, CHANGEMENTS, new Map());
     // ⚠️ Le branchement suit la même règle : une ligne jetée ne part pas, donc « tout jeter » ne laisse
     // rien, y compris sur les deux listes ajoutées le 2026-09-15, et les scénarios à poser du 2026-10-12.
-    expect(r).toEqual({ fiche: {}, outils: [], connecteurs: [], outilsBranches: [], outilsDebranches: [], scenarios: [] });
+    // Et l'activation du 2026-11-23 aussi.
+    expect(r).toEqual({ fiche: {}, outils: [], connecteurs: [], outilsBranches: [], outilsDebranches: [], scenarios: [], outilsAActiver: [] });
+  });
+
+  /**
+   * 🔴 L'ACTIVATION DEMANDÉE PAR LE SERVEUR (la lecture de la fiche, 2026-11-23) suit la même règle : sa ligne jetée,
+   * rien n'est activé ; et jeter les mots d'un outil à ajouter, c'est refuser l'outil, donc son activation aussi.
+   */
+  describe('l’activation de la lecture de la fiche', () => {
+    const lire = { handler: 'lire_contact', description: 'Avant une commande.', nePasUtiliser: 'Ne rien inventer.' };
+    const p: PropositionConstruction = { fiche: {}, outils: [lire], outilsAActiver: ['lire_contact'] };
+    const lignes = [
+      { champ: 'outil.lire_contact.description', label: 'quand', avant: '', apres: lire.description },
+      { champ: 'outil.lire_contact.nePasUtiliser', label: 'ne pas', avant: '', apres: lire.nePasUtiliser },
+      { champ: 'outil.lire_contact.actif', label: 'activé', avant: 'absent', apres: 'actif' },
+    ];
+    const toutGarde = new Map(lignes.map((l) => [l.champ, l.apres]));
+
+    it('🔴 tout gardé : l’outil part avec ses mots, et son activation', () => {
+      const r = restreindreProposition(p, lignes, toutGarde);
+      expect(r.outils).toEqual([lire]);
+      expect(r.outilsAActiver).toEqual(['lire_contact']);
+    });
+
+    it('🔴 la ligne d’activation jetée : l’outil part, inactif', () => {
+      const garde = new Map(toutGarde);
+      garde.delete('outil.lire_contact.actif');
+      const r = restreindreProposition(p, lignes, garde);
+      expect(r.outils).toEqual([lire]);
+      expect(r.outilsAActiver).toEqual([]);
+    });
+
+    it('les mots d’un outil à ajouter jetés : ni outil, ni activation, même la ligne d’activation gardée', () => {
+      const r = restreindreProposition(p, lignes, new Map([['outil.lire_contact.actif', 'actif']]));
+      expect(r.outils).toEqual([]);
+      expect(r.outilsAActiver).toEqual([]);
+    });
+
+    it('un outil déjà là avec les bons mots : seule la ligne d’activation décide', () => {
+      const seule = [lignes[2]!];
+      expect(restreindreProposition(p, seule, new Map([['outil.lire_contact.actif', 'actif']])).outilsAActiver).toEqual(['lire_contact']);
+      expect(restreindreProposition(p, seule, new Map()).outilsAActiver).toEqual([]);
+    });
   });
 
   it('un champ SANS ligne de diff est envoyé tel quel : il est déjà identique à l’existant', () => {

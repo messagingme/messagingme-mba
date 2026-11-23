@@ -1702,12 +1702,26 @@ dans le réglage de l'agent. Un envoi coupé (pas une `ApiError`) relit le fil :
 s'affiche ; pas reçu, le message revient dans la zone de saisie.
 🔴 **Le point des données de la fiche n'existe que si une intégration écrit sur les fiches** (`pointDonneesClient`,
 décision de Julien du 2026-11-23). Le contexte de construction porte les intégrations (`integrations` : une boutique
-Shopify non coupée, les libellés des champs HubSpot importés, clés `hs_contact_`, `hs_deal_`, `hs_calc_`) ; sans
+Shopify non coupée, les champs HubSpot importés par clé et libellé, clés `hs_contact_`, `hs_deal_`, `hs_calc_`) ; sans
 elles, l'ordre du jour est celui de tous les espaces. Avec, le point `donnees_client` se pose juste après
 `connaissance`, et sa question ne nomme QUE ce qui est branché. Il vit hors de `AGENDA`, mais son code est connu du
 schéma (`CODES_POINTS`) et de la fusion des réponses (`ORDRE_DES_CODES`), sinon sa réponse serait jetée et la
 question reviendrait. ⚠️ Un entretien déjà fini dans un espace qui branche ensuite une intégration rouvre ce seul
 point au tour suivant.
+🔴 **Sur un oui, c'est le SERVEUR qui pose la lecture de la fiche, et « Enregistrer » l'active** (décision de Julien du
+2026-11-23 : une question non suivie d'un outil en place ne sert à rien). Ce point n'a qu'UN juge, le serveur : le oui
+ou le non se lit dans le message du client (`ouiOuNon`, sans le modèle, comme `actionChoisie`), et seulement si la
+dernière question de l'assistant portait la marque « Répondez oui ou non. » (`MARQUE_OUI_OU_NON`), sinon un « ok
+merci » vaudrait oui à une question jamais posée ; ce que le modèle range pour ce point est ignoré, et sans réponse
+lisible la question revient : si le modèle la repose sans la marque, le serveur ajoute la sienne, qui la porte, pour ne
+jamais tourner en rond. Sur un oui, l'entretien fini, le serveur met dans la
+proposition l'outil `lire_contact` avec des mots qu'il écrit lui-même (`outilLireFiche`) : UN outil généraliste, qui rend
+toute la fiche, et une description qui sert de CARTE (quand l'appeler, où regarder : `shopify_lien_suivi` et
+`expediee_le` pour une livraison, chaque champ HubSpot par sa clé et son libellé), plus un « ne pas utiliser » qui
+interdit d'inventer. Ce que le modèle avait proposé pour cet outil est remplacé. Le serveur en demande l'activation
+(`outilsAActiver`) : une ligne `outil.lire_contact.actif` du diff, même quand ses mots sont déjà les bons, qui se garde
+ou se jette et ne se réécrit pas. C'est la SEULE exception à « tout outil ajouté par l'assistant naît inactif »
+(`appliquerProposition`, `web/lib/api-agent-setup.ts`) : un outil en lecture seule, que le client vient de relire.
 🔴 **Le lien de suivi du dernier colis s'écrit sur la fiche** (`lienDeSuiviAuMieux`, `src/shopify/traitement.ts`).
 À chaque `fulfillments/create`, AVANT `servir` (qui s'arrête tout de suite sans ligne allumée), pause comprise, le
 `tracking_url` lu BRUT (une adresse http(s) entière, jamais coupée à la borne d'une variable) va dans le champ

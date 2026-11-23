@@ -298,6 +298,54 @@ test.describe('Agents IA : construire en parlant', () => {
     expect((outilsAppels[1]!.body as { description: string }).description).toContain('dès que le contact demande un devis de toiture');
   });
 
+  /**
+   * 🔴 LE OUI AUX DONNÉES DE LA FICHE FINIT EN OUTIL ACTIF (2026-11-23, Julien : « poser des questions si ce n'est pas
+   * concrètement suivi de la mise en place d'un outil, ça ne sert à rien »). Le serveur pose « Lire la fiche du contact »
+   * et en demande l'activation ; « Enregistrer » l'ajoute, écrit ses mots, puis l'ACTIVE. Ligne d'activation jetée :
+   * l'outil reste inactif.
+   */
+  const AVEC_LECTURE_DE_FICHE = (description: string) => ({
+    ...PROPOSITION,
+    proposition: {
+      fiche: {}, outils: [{ handler: 'lire_contact', description, nePasUtiliser: 'Ne jamais inventer.' }],
+      outilsAActiver: ['lire_contact'],
+    },
+    changements: [
+      { champ: 'outil.lire_contact.description', label: 'Lire la fiche du contact (à ajouter) : quand l’appeler', avant: '', apres: description },
+      { champ: 'outil.lire_contact.actif', label: 'Lire la fiche du contact (à ajouter) : activé dès l’enregistrement', avant: 'absent', apres: 'actif' },
+    ],
+  });
+
+  test('🔴 « Enregistrer » ajoute « Lire la fiche du contact », écrit sa carte, puis l’ACTIVE', async ({ page }) => {
+    const outilsAppels: Appel[] = [];
+    await mock(page, [], { outilsAppels, setup: { status: 200, body: AVEC_LECTURE_DE_FICHE('Avant une question sur une commande : `shopify_lien_suivi`.') } });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('oui');
+    await page.getByTestId('setup-envoyer').click();
+    // L'activation se garde ou se jette, elle ne se réécrit pas.
+    await expect(page.getByTestId('setup-diff-outil.lire_contact.actif')).toContainText('activé dès l’enregistrement');
+    await expect(page.getByTestId('setup-texte-outil.lire_contact.actif')).toHaveCount(0);
+    await page.getByTestId('setup-garder').click();
+
+    await expect.poll(() => outilsAppels.some((a) => a.method === 'PUT' && /\/activation$/.test(a.url)), { timeout: 5000 }).toBe(true);
+    expect(outilsAppels[0]).toMatchObject({ method: 'POST', body: { handler: 'lire_contact' } });
+    expect(outilsAppels.find((a) => a.method === 'PATCH')?.body).toMatchObject({ description: 'Avant une question sur une commande : `shopify_lien_suivi`.' });
+    expect(outilsAppels.find((a) => a.method === 'PUT')?.body).toEqual({ valeur: true });
+  });
+
+  test('la ligne d’activation jetée : l’outil est ajouté avec ses mots, et reste inactif', async ({ page }) => {
+    const outilsAppels: Appel[] = [];
+    await mock(page, [], { outilsAppels, setup: { status: 200, body: AVEC_LECTURE_DE_FICHE('Avant une question sur une commande.') } });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('oui');
+    await page.getByTestId('setup-envoyer').click();
+    await page.getByTestId('setup-jeter-outil.lire_contact.actif').click();
+    await page.getByTestId('setup-garder').click();
+
+    await expect.poll(() => outilsAppels.filter((a) => a.method === 'PATCH').length, { timeout: 5000 }).toBe(1);
+    expect(outilsAppels.some((a) => a.method === 'PUT')).toBe(false);
+  });
+
   test('🔴 un agent incomplet ne s active pas, et l écran DIT ce qui manque', async ({ page }) => {
     // Un refus sans mode d'emploi laisserait le client chercher. Chaque manque est un lien vers l'onglet où
     // il se comble.

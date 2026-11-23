@@ -92,7 +92,9 @@ function app(opts: {
   depensesEchouent?: boolean;
   /** Les scénarios en ligne de l'espace, et les outils maison de l'agent (pour un scénario déjà visé). */
   scenarios?: Array<{ id: string; nom: string }>;
-  outils?: Array<{ handler: string; description: string; nePasUtiliser: string; workflowId?: string }>;
+  outils?: Array<{ handler: string; description: string; nePasUtiliser: string; workflowId?: string; actif?: boolean }>;
+  /** Les intégrations qui écrivent sur les fiches (point `donnees_client`, 2026-11-23). */
+  integrations?: { shopify: boolean; hubspot: Array<{ cle: string; libelle: string }> };
 } = {}) {
   const cap = {
     appels: [] as Array<{ modele: string; messages: Array<ChatMessage | ChatMessageImage>; toolChoice: string }>,
@@ -110,6 +112,7 @@ function app(opts: {
         fiche: { ...ficheVide(), objectif: 'Aider.' },
         outils: opts.outils ?? [],
         titresConnaissance: ['La piscine'],
+        ...(opts.integrations ? { integrations: opts.integrations } : {}),
       }
       : null),
     scenariosEnLigne: async () => { cap.scenarios += 1; return opts.scenarios ?? []; },
@@ -1322,5 +1325,88 @@ describe('l’entretien du 2026-11-23, rejoué', () => {
     });
     await a.executer('je réfléchis');
     expect(a.cap.appels[0]!.messages[0]!.content ?? '').toContain('se recopie TELLE QUELLE');
+  });
+});
+
+/**
+ * 🔴 LA CHAÎNE ENTIÈRE, DU OUI À L'OUTIL ACTIVÉ (2026-11-23, Julien : « poser des questions si ce n'est pas concrètement
+ * suivi de la mise en place d'un outil, ça ne sert à rien »). Le modèle ne propose RIEN pour l'outil ni ne range le oui :
+ * c'est le serveur qui lit le oui dans le message du client, pose l'outil avec sa carte, et en demande l'activation.
+ */
+describe('le oui aux données de la fiche pose l’outil', () => {
+  const SHOPIFY = { shopify: true, hubspot: [] };
+  /** Tout est couvert, sauf le point des données de la fiche, ouvert par l'intégration. */
+  const QUESTION = { role: 'assistant' as const, content: 'Votre agent doit-il se servir des commandes Shopify ? Répondez oui ou non.' };
+  const AVANT_LE_DERNIER: EntretienComplet = { messages: [QUESTION], auteurs: [], poses: [...BASE], reponses: toutesLesReponses(), bascules: [] };
+  const muet = reponse(JSON.stringify({ message: 'Parfait.', reponses: [], fiche: {} }));
+
+  it('🔴 « oui » : l’outil « Lire la fiche du contact » est dans la proposition, avec la carte, et son activation a sa ligne', async () => {
+    const a = app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] });
+    const res = await a.executer('oui');
+    expect(res.couverture.manquants).toEqual([]);
+    const outil = res.proposition.outils.find((o: { handler: string }) => o.handler === 'lire_contact');
+    expect(outil?.description).toContain('`shopify_lien_suivi`');
+    expect(res.proposition.outilsAActiver).toEqual(['lire_contact']);
+    expect(res.changements.map((c: { champ: string }) => c.champ)).toEqual(expect.arrayContaining([
+      'outil.lire_contact.description', 'outil.lire_contact.nePasUtiliser', 'outil.lire_contact.actif',
+    ]));
+    // Le oui est rangé par le serveur, le modèle n'en a rien dit.
+    expect(a.entretiens.ecrits.at(-1)!.reponses).toContainEqual({ point: 'donnees_client', valeur: 'oui' });
+  });
+
+  it('🔴 la carte du serveur remplace les mots que le modèle aurait proposés pour le même outil', async () => {
+    const bavard = reponse(JSON.stringify({
+      message: 'Parfait.', reponses: [], fiche: {},
+      outils: [{ handler: 'lire_contact', description: 'Lis la fiche quand tu veux.', nePasUtiliser: '' }],
+    }));
+    const res = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [bavard, bavard] }).executer('oui, bien sûr');
+    const outils = res.proposition.outils.filter((o: { handler: string }) => o.handler === 'lire_contact');
+    expect(outils).toHaveLength(1);
+    expect(outils[0]!.description).not.toBe('Lis la fiche quand tu veux.');
+  });
+
+  it('« non » : aucun outil posé par le serveur, aucune activation', async () => {
+    const res = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] }).executer('non merci');
+    expect(res.couverture.manquants).toEqual([]);
+    expect(res.proposition.outils.some((o: { handler: string }) => o.handler === 'lire_contact')).toBe(false);
+    expect(res.proposition.outilsAActiver).toEqual([]);
+  });
+
+  it('🔴 un « ok merci » qui ne répond à aucune question posée n’est pas un oui : le point reste ouvert, aucun outil', async () => {
+    const apresEnregistre: EntretienComplet = { ...AVANT_LE_DERNIER, messages: [{ role: 'assistant', content: 'C’est fait, autre chose ?' }] };
+    const res = await app({ entretien: apresEnregistre, integrations: SHOPIFY, suite: [muet, muet] }).executer('ok merci');
+    expect(res.couverture.manquants).toEqual(['donnees_client']);
+    expect(res.proposition.outils.some((o: { handler: string }) => o.handler === 'lire_contact')).toBe(false);
+  });
+
+  it('🔴 ce que le modèle range pour ce point est ignoré : seul le message du client décide', async () => {
+    const zele = reponse(JSON.stringify({ message: 'Parfait.', reponses: [{ point: 'donnees_client', valeur: 'oui' }], fiche: {} }));
+    const a = app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [zele, zele] });
+    const res = await a.executer('je ne sais pas encore');
+    expect(res.couverture.manquants).toEqual(['donnees_client']);
+    expect(a.entretiens.ecrits.at(-1)!.reponses.some((r) => r.point === 'donnees_client')).toBe(false);
+  });
+
+  it('🔴 un modèle qui repose la question sans la marque ne fait pas tourner en rond : le serveur ajoute la sienne', async () => {
+    const sansMarque: EntretienComplet = { ...AVANT_LE_DERNIER, messages: [{ role: 'assistant', content: 'On s’en sert ?' }] };
+    const oublieux = reponse(JSON.stringify({ message: 'Je vous repose la question : on s’en sert ?', reponses: [], fiche: {} }));
+    const a = app({ entretien: sansMarque, integrations: SHOPIFY, suite: [oublieux, muet] });
+    const premier = await a.executer('oui');
+    expect(premier.couverture.manquants).toEqual(['donnees_client']);
+    expect(premier.message).toContain('Répondez oui ou non.');
+    // Le tour d'après, la marque est montrée : le oui se lit, et l'outil suit.
+    const second = await a.executer('oui');
+    expect(second.couverture.manquants).toEqual([]);
+    expect(second.proposition.outilsAActiver).toEqual(['lire_contact']);
+  });
+
+  it('déjà actif avec les bons mots : rien à enregistrer pour lui', async () => {
+    const premier = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] }).executer('oui');
+    const carte = premier.proposition.outils.find((o: { handler: string }) => o.handler === 'lire_contact')!;
+    const res = await app({
+      entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet],
+      outils: [{ handler: 'lire_contact', description: carte.description, nePasUtiliser: carte.nePasUtiliser, actif: true }],
+    }).executer('oui');
+    expect(res.changements.filter((c: { champ: string }) => c.champ.startsWith('outil.lire_contact'))).toEqual([]);
   });
 });

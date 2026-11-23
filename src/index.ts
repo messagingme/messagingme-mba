@@ -2857,7 +2857,7 @@ async function main(): Promise<void> {
             shopify: boutique !== null && boutique.etat !== 'coupee',
             hubspot: champsDeclares
               .filter((c) => /^hs_(contact|deal|calc)_/.test(c.key))
-              .map((c) => c.label.replace(/\s*\(HubSpot\)\s*$/, '')),
+              .map((c) => ({ cle: c.key, libelle: c.label.replace(/\s*\(HubSpot\)\s*$/, '') })),
           },
           // Nommé dans le bloc « Pour finir » de l'entretien (`blocDeFin`) : le modèle est posé à la création.
           modele: fiche.modele,
@@ -2871,6 +2871,8 @@ async function main(): Promise<void> {
           outils: outils.filter((o) => o.origin === 'mba')
             .map((o) => ({
               handler: String(o.binding.handler ?? ''), description: o.description, nePasUtiliser: o.nePasUtiliser,
+              // Actif ou non : une activation demandée par le serveur (lecture de la fiche) ne se propose que s'il ne l'est pas.
+              actif: o.actif,
               // Le scénario visé (RC4) : l'entretien ne repropose pas un outil pour un scénario que l'agent lance déjà.
               ...(typeof o.binding.workflowId === 'string' ? { workflowId: o.binding.workflowId } : {}),
             })),

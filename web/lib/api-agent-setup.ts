@@ -1,7 +1,7 @@
 import { request } from './http';
 import { patchAgent, type PatchAgent, type SortieAgent } from './api-agent';
 import { setPolitiqueMentionIa } from './api';
-import { ajouterOutil, getBibliothequeOutils, listOutils, patchOutil, rattacherOutil } from './api-agent-tools';
+import { activerOutil, ajouterOutil, getBibliothequeOutils, listOutils, patchOutil, rattacherOutil } from './api-agent-tools';
 import { normaliserNomOutil, MAX_NOM_OUTIL } from './agent-outils';
 import { PLACEHOLDER, textesDuType } from './mba-outils';
 
@@ -36,6 +36,12 @@ export interface PropositionConstruction {
     sorties?: SortieAgent[];
   };
   outils: Array<{ handler: string; description: string; nePasUtiliser: string }>;
+  /**
+   * 🔴 Les outils que « Enregistrer » ACTIVE, par handler (la lecture de la fiche posée par le serveur sur un oui,
+   * 2026-11-23, décision de Julien). Décidé par le serveur, jamais par le modèle ; leur ligne `outil.<handler>.actif`
+   * se garde ou se jette comme les autres. Tout autre outil ajouté naît inactif.
+   */
+  outilsAActiver?: string[];
   /** Les MOTS de connecteurs DÉJÀ déclarés. L'assistant n'en crée jamais : voir l'application ci-dessous. */
   connecteurs?: Array<{ nom: string; description: string; nePasUtiliser: string }>;
   /**
@@ -160,6 +166,14 @@ export function restreindreProposition(
       && (!avantDe.has('inactiviteMinutes') || gardees.has('inactiviteMinutes'))
       ? { inactiviteMinutes: proposition.inactiviteMinutes }
       : {}),
+    /**
+     * L'activation suit la même règle : sa ligne jetée, l'outil n'est pas activé. Et seulement pour un outil qui part :
+     * jeter les mots d'un outil à ajouter, c'est refuser l'outil, donc son activation aussi.
+     */
+    outilsAActiver: (proposition.outilsAActiver ?? []).filter((h) => (
+      (!avantDe.has(`outil.${h}.actif`) || gardees.has(`outil.${h}.actif`))
+      && garde(proposition.outils, (o) => [`outil.${o.handler}.description`, `outil.${o.handler}.nePasUtiliser`]).some((o) => o.handler === h)
+    )),
     outils: garde(proposition.outils, (o) => [`outil.${o.handler}.description`, `outil.${o.handler}.nePasUtiliser`])
       .map((o) => ({
         handler: o.handler,
@@ -346,6 +360,11 @@ export async function appliquerProposition(
         description: propose.description,
         nePasUtiliser: propose.nePasUtiliser,
       });
+      // 🔴 Seule exception à « ajouté inactif » : un outil que le SERVEUR demande d'activer (la lecture de la fiche, sur un
+      // oui). Sans ce geste, l'agent ne le verrait jamais : poser la question n'aurait servi à rien.
+      if ((proposition.outilsAActiver ?? []).includes(propose.handler) && !cible.actif) {
+        await activerOutil(tenantId, agentId, cible.id, true);
+      }
     }
     // 🔴 LES CONNECTEURS SE PATCHENT, ILS NE SE CRÉENT PAS. Un nom inconnu est IGNORÉ, jamais créé : déclarer
     // un connecteur, c'est écrire une adresse réseau et un secret, et cela reste un geste d'administrateur.

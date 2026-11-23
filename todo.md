@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 Le oui aux données de la fiche pose l'outil : la relecture (2026-11-23, aucun rouge)
+
+- Tant que « Lire la fiche du contact » n'est pas actif, sa ligne d'activation revient dans le diff à chaque message
+  d'un entretien fini (avec sa carte, qui écrase des mots retouchés à la main si on garde la ligne) : un refus ou une
+  ligne jetée n'est pas mémorisé.
+- Outil existant inactif : jeter ses deux lignes de mots et garder la ligne d'activation n'active rien, et l'écran dit
+  quand même « C'est enregistré » sans le signaler.
+- Le serveur range « oui » ou « non » à la place de la réponse du client : la nuance (« oui, mais Shopify seulement »)
+  est perdue.
+
 ## 🟡 L'agent IA lit les données Shopify et HubSpot de la fiche : la relecture (2026-11-23, aucun rouge)
 
 - Un entretien déjà fini dans un espace qui branche ENSUITE Shopify ou HubSpot rouvre le point `donnees_client` : la

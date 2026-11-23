@@ -5,6 +5,30 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-23 : le oui aux données de la fiche pose vraiment l'outil, et l'active
+
+Julien, en relisant le lot précédent : « poser des questions si ce n'est pas concrètement suivi de la mise en place d'un
+outil, ça ne sert à rien ». Trois trous vérifiés dans le code : après un oui, l'outil « Lire la fiche du contact » ne
+venait que si le modèle pensait à le proposer ; sa description, écrite librement par le modèle, n'avait pas à dire où
+regarder ; et « Enregistrer » l'ajoutait INACTIF sans que la liste « Pour finir » le dise. Décisions de Julien : l'outil
+actif dès « Enregistrer » ; un seul outil généraliste plutôt qu'un par champ (il rend toute la fiche ; plusieurs outils
+ajouteraient des appels et un choix au modèle), avec une description qui sert de carte. Correctif : le oui ou le non se
+lit dans le message du client (`ouiOuNon`) ; sur un oui, le serveur pose lui-même l'outil (`outilLireFiche`) avec la
+carte (`shopify_lien_suivi`, `expediee_le`, chaque champ HubSpot par sa clé et son libellé, rien d'inventé) ; il en
+demande l'activation (`outilsAActiver`), qui a sa ligne dans le diff, gardée ou jetée, jamais réécrite ; « Enregistrer »
+appelle la route d'activation. Seule exception à « tout outil ajouté par l'assistant naît inactif ». Méthode : en
+direct, une relecture indépendante. Six mutations du serveur, toutes rouges ; deux de plus pour les
+gardes ajoutées après la relecture, rouges aussi ; côté console, sans l'appel d'activation, l'e2e « active » échoue
+(console construite à part, source restaurée et vérifiée par empreinte). La relecture : aucun rouge, cinq jaunes ; deux
+corrigés dans le lot, parce qu'ils rouvraient le trou même (un « ok merci » après un enregistrement lu comme un oui à une
+question jamais posée, et une réponse illisible rangée par le modèle qui couvrait le point sans outil : ce point n'a plus
+qu'un juge, le serveur, qui ne lit la réponse qu'après une question portant « Répondez oui ou non. ») ; plus deux faux
+non (« pas de souci », « 2 000 commandes, oui ») et un commentaire orphelin ; le reste au `todo.md`. Vérifié : typage
+et lint (racine et console), auto-attaque, suite racine, les 1 378 tests de la console, les 28 e2e de l'onglet sur la
+build de production. En écrivant ce journal, un trou de la garde elle-même : un modèle qui repose la question sans la
+marque aurait fait répondre « oui » sans fin ; le serveur ajoute alors sa question marquée (une de trop au pire, une
+fois), test et mutation à l'appui. Non mesuré : le vrai modèle d'entretien devant la consigne de la marque.
+
 ## 2026-11-23 : l'agent IA lit ce que Shopify et HubSpot écrivent sur la fiche
 
 Demande de Julien : un agent créé après le branchement de Shopify ou de HubSpot doit pouvoir répondre avec ce que ces
