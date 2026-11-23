@@ -22,6 +22,19 @@ pastille compte le bouton seul ; une période réglable viendra plus tard (`todo
 sessions ont poussé trois fois pendant la préparation : un script a attendu la fin de chaque CI, refait le commit de la migration
 par patch sur la tête d'origin (index temporaire, l'arbre et le code en cours intacts) et n'a poussé qu'une fois
 origin stable et la CI de sa tête verte. Six mutations du remplissage, toutes rouges sur le banc PGlite.
+La relecture : aucun rouge, trois jaunes. Une constante morte (`CLES_BOUTONS`) retirée ; le délai maximal des deux
+comptes des pastilles au `todo.md` ; la fenêtre entre la migration et le code (un geste fait entre les deux n'est pas
+daté) refermée par un rattrapage après le déploiement. Treize mutations du code, toutes rouges. Vérifié : suite racine,
+typage, lint, auto-attaque ; console (lint, types, suite entière, les 34 e2e des filtres et de l'audience sur la build
+de production). CI verte job par job sur `8544b8737` puis sur `24f6d40d7`. Déployé le même jour en deux runs lancés et
+approuvés par Julien : 45224144192 (`migration=avant`, « 0312_contacts_reponse_clic.sql ... ok », seule migration ; un
+lancement en double, 45224087978, a cédé sa place dans la file sans rien faire), puis 45228811724 (`migration=aucune`) ;
+fumée et fiches OAuth conformes après chacun. Relu en base par Julien, en lecture seule : les deux colonnes conformes
+(`timestamptz`, nullables, sans défaut), 0312 en tête, 265 fiches datées d'une réponse et 45 d'un clic, aucune fiche
+purgée datée ni date dans le futur, et un seul écart avec les messages (un message reçu entre la migration et le code),
+comblé par le rattrapage (1 réponse datée, 0 clic). Par le vrai code de l'image : plus aucun écart, les deux boutons
+comptés sur la dernière boutique branchée (4 et 0), l'écriture du message entrant refusée par la lecture seule (son SQL
+colle au schéma). `aide:charger` sur l'image 24f6d40d7 : 360 lignes, 0 retirée. Reste l'essai réel 284.
 
 ## 2026-11-23 : « Construire en parlant », les questions reposées et la conversation « perdue »
 
