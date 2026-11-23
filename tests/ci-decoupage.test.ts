@@ -58,13 +58,22 @@ describe('les deux moitiés de la CI', () => {
 
   it('🔴 les contrôles hors E2E tournent sur UNE seule moitié, et chacun sur une moitié', () => {
     // Sur les deux, on paierait deux fois ; sur aucune (une condition fausse, `moitie == 3`), ils sauteraient en vert.
-    const condition = (etape: string) => new RegExp(`- name: ${etape}\\n\\s+if: matrix\\.moitie == ([12])\\n`).exec(ciWeb)?.[1];
+    const condition = (etape: string) =>
+      new RegExp(`- name: ${etape}\\n\\s+if: matrix\\.moitie == ([12])( && !cancelled\\(\\))?\\n`).exec(ciWeb)?.[1];
     // Toutes sur la moitié 2 : la 1 tire la part d'e2e la plus lourde (mesure dans `ci-web.yml`).
-    for (const etape of ['Build Next \\(type-check \\+ lint inclus\\)', 'Lint \\(next/core-web-vitals\\)', 'Type-check exhaustif',
+    for (const etape of ['Lint \\(next/core-web-vitals\\)', 'Type-check exhaustif',
       'Tests unitaires front \\(vitest\\)', 'Build avec l adresse d API de production',
       'La base d API est scellee dans le bundle, et la CSP l autorise']) {
       expect(condition(etape), etape).toBe('2');
     }
+  });
+
+  it('🔴 tsc tourne APRÈS les e2e, sur le build de leur serveur, et le build de contrôle a disparu (2026-11-23)', () => {
+    // Avant les e2e, sans aucun build, tsc planterait sur `next-env.d.ts` et `.next/types` absents.
+    expect(ciWeb).not.toContain('- name: Build Next (type-check + lint inclus)');
+    expect(ciWeb.indexOf('- name: Type-check exhaustif')).toBeGreaterThan(ciWeb.indexOf('- name: Tests E2E (Playwright)'));
+    // Et un e2e rouge ne le fait pas sauter : une erreur de type resterait sinon cachée derrière lui.
+    expect(ciWeb).toMatch(/- name: Type-check exhaustif\n\s+if: matrix\.moitie == 2 && !cancelled\(\)\n/);
   });
 
   it('🔴 les trois autres jobs sont restés, aucun n’a disparu dans le déménagement', () => {

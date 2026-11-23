@@ -99,20 +99,14 @@ jobs:
           restore-keys: |
             next-${{ runner.os }}-${{ hashFiles('web/package-lock.json', 'web/next.config.*', 'web/tsconfig.json', 'web/postcss.config.*', 'web/tailwind.config.*') }}-
       - run: npm ci
-      # Build AVANT tsc : next build régénère next-env.d.ts (gitignore) et .next/types, sans lesquels
-      # tsc plante sur des types fantômes. Le build fait déjà le type-check ET la passe ESLint de Next
-      # (qui n'échoue que sur des erreurs, pas des warnings). Aucun BACKEND_URL requis (fallback next.config.mjs).
-      - name: Build Next (type-check + lint inclus)
-        if: matrix.moitie == 2
-        run: npm run build
-        env:
-          NEXT_TELEMETRY_DISABLED: '1'
+      # 🔴 PLUS DE BUILD DE CONTROLE AVANT LES E2E (2026-11-23). Il ne servait qu'a produire `next-env.d.ts`
+      # (gitignore) et `.next/types`, sans lesquels tsc plante sur des types fantomes, alors que le `webServer` de
+      # Playwright refait un `next build` complet juste apres (type-check et passe ESLint de Next compris). tsc tourne
+      # donc APRES les e2e, sur ce build-la : 81 s de moins par run (mesure du run 45137226911), aucun controle perdu.
+      # Le lint et vitest n'ont besoin d'aucun build : ils restent avant, pour un verdict rapide.
       - name: Lint (next/core-web-vitals)
         if: matrix.moitie == 2
         run: npm run lint
-      - name: Type-check exhaustif
-        if: matrix.moitie == 2
-        run: npx tsc --noEmit
       - name: Tests unitaires front (vitest)
         if: matrix.moitie == 2
         run: npm test
@@ -128,6 +122,11 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: '1'
           E2E_TOPOLOGIE: vercel
+      # Sur le build du `webServer` (voir plus haut). `!cancelled()` : un e2e rouge ne doit pas taire une erreur de
+      # type. Si c'est le build lui-meme qui a echoue, tsc parlera de types manquants : le job est deja rouge.
+      - name: Type-check exhaustif
+        if: matrix.moitie == 2 && !cancelled()
+        run: npx tsc --noEmit
       # 🔴 LA VALEUR REELLEMENT LIVREE. Les E2E de la topologie `vercel` exercent une adresse d'API absolue, mais
       # factice (`127.0.0.1`). Ce build-ci pose celle de la production, et le script verifie qu'elle est scellee
       # dans le bundle ET que la CSP servie autorise son origine.
