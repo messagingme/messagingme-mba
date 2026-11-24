@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DROITS, contactsToutesOrigines, droitsDe, FONCTIONS, limiteContactsDe, type Fonction, type Limites, type Offre } from '../src/offres/offres';
 import { corpsRefusFonction, phraseLimite } from '../src/offres/refus';
+import { config } from '../src/config';
 
 const MO = 1024 * 1024;
 
@@ -135,6 +136,22 @@ describe('les refus nomment l’offre qui lève la limite ou ouvre la fonction (
       expect(p, limite).toMatch(/Passez en Business/);
     }
     expect(phraseLimite('utilisateurs', 3, { offre: 'pro' })).toMatch(/Passez en Business/);
+  });
+
+  it('🔴 les contacts d’un Pro (2026-11-24) : le pack de 1 000 contacts quand il est en vente, sinon le Business ; jamais « contactez-nous » pour un Pro qui a des packs', () => {
+    const avant = { cle: config.STRIPE_SECRET_KEY, mois: config.STRIPE_PRIX_PACK_CONTACTS_MOIS, an: config.STRIPE_PRIX_PACK_CONTACTS_AN };
+    try {
+      config.STRIPE_SECRET_KEY = '';
+      expect(phraseLimite('contacts', 2000, { offre: 'pro' })).toMatch(/2.000 contacts.*Passez en Business/);
+      Object.assign(config, { STRIPE_SECRET_KEY: 'rk_test_x', STRIPE_PRIX_PACK_CONTACTS_MOIS: 'price_pack_mois', STRIPE_PRIX_PACK_CONTACTS_AN: 'price_pack_an' });
+      const p = phraseLimite('contacts', 1000, { offre: 'pro' });
+      expect(p).toMatch(/1.000 contacts, ceux qui vous écrivent compris\. Ajoutez 1.000 contacts depuis la page Offre \(20 € HT par mois, 240 € HT par an/);
+      expect(p).toMatch(/ou passez en Business : https?:\/\/.*\/offre$/);
+      // Le Business n'a pas de packs : sa phrase ne change pas.
+      expect(phraseLimite('contacts', 5000, { offre: 'business' })).toMatch(/Passez en Entreprise/);
+    } finally {
+      Object.assign(config, { STRIPE_SECRET_KEY: avant.cle, STRIPE_PRIX_PACK_CONTACTS_MOIS: avant.mois, STRIPE_PRIX_PACK_CONTACTS_AN: avant.an });
+    }
   });
 
   it('🔴 spec Business : l’agent de Meta, l’assistant d’aide et le widget personnalisable renvoient au Business', () => {

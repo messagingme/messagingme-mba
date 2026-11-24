@@ -5306,6 +5306,14 @@ du 2026-10-27.
   d'une Free dit aussi ce prix sous le Pro.
   ⚠️ Tant que le Pro n'est pas en vente (prix pas posés), le bouton « Passer en Pro » ouvre le Support, sujet
   prérempli. Tant que les sièges ne le sont pas, une invitation au-delà des trois utilisateurs renvoie à l'Entreprise.
+  ✅ **1 000 contacts de plus que ceux du Pro se paient, par pack** (décision de Julien du 2026-11-24) : sur la page
+  Offre, « Ajouter 1 000 contacts » dit le prix de la formule du Pro (20 € HT par mois, 240 € HT par an, sans remise) ;
+  l'administrateur confirme, le prorata jusqu'à la fin de la période est facturé tout de suite sur la carte du Pro, et la
+  limite monte une fois ce paiement accepté. Un paiement refusé ne change rien et laisse la facture à régler sur sa page.
+  « Retirer 1 000 contacts » ne rembourse rien et n'efface rien : il est refusé tant que les contacts ne tiennent pas dans
+  la limite qui reste, et la phrase dit combien en supprimer d'abord. Une création refusée faute de place, en Pro,
+  propose le pack. Le Pro seulement : le Business n'a pas de packs. Claude lit les packs et leur prix (`get_plan`).
+  ⚠️ Tant que les deux prix du pack ne sont pas posés chez Stripe, la page Offre dit « pas encore en vente ».
 - ✅ **Le numéro fourni est inclus dans le Pro, le Business et l'Entreprise** (livraison B2b, puis spec Business) : un
   espace en Pro obtient son numéro sans payer, depuis
   la page « Connecter WhatsApp » ou le lien que donne Claude (qui ne lui annonce alors aucun prix). Si la réserve ne

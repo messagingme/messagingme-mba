@@ -172,6 +172,13 @@ describe('gardes de config en production', () => {
     expect(schema.safeParse({ ...prodEnv, STRIPE_PRIX_SIEGE_MOIS: 'price_siege_mois', STRIPE_PRIX_SIEGE_AN: 'price_siege_an' }).success).toBe(true);
   });
 
+  it('🔴 les deux prix du pack de contacts se posent ensemble (2026-11-24) : un Pro de l’autre formule n’aurait pas le sien', () => {
+    asProd();
+    expect(errPaths(schema.safeParse({ ...prodEnv, STRIPE_PRIX_PACK_CONTACTS_MOIS: 'price_pack_mois' }))).toContain('STRIPE_PRIX_PACK_CONTACTS_AN');
+    expect(errPaths(schema.safeParse({ ...prodEnv, STRIPE_PRIX_PACK_CONTACTS_AN: 'price_pack_an' }))).toContain('STRIPE_PRIX_PACK_CONTACTS_MOIS');
+    expect(schema.safeParse({ ...prodEnv, STRIPE_PRIX_PACK_CONTACTS_MOIS: 'price_pack_mois', STRIPE_PRIX_PACK_CONTACTS_AN: 'price_pack_an' }).success).toBe(true);
+  });
+
   it('🔴 les quatre prix du Crédit WhatsApp se posent ensemble (lot 2) : une offre sans prix serait un bouton en 503', () => {
     asProd();
     const quatre = { STRIPE_PRIX_WA_50: 'price_50', STRIPE_PRIX_WA_100: 'price_100', STRIPE_PRIX_WA_250: 'price_250', STRIPE_PRIX_WA_500: 'price_500' };

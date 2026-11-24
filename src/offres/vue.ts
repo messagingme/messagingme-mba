@@ -1,6 +1,6 @@
 import {
   DROITS, ESSAI_PRO_JOURS, FONCTIONS, PRIX_BUSINESS_HT_CENTIMES, PRIX_PRO_HT_CENTIMES, PRIX_SIEGE_BUSINESS_HT_CENTIMES,
-  PRIX_SIEGE_HT_CENTIMES, contactsToutesOrigines, type Fonction, type Limites, type Offre,
+  PRIX_SIEGE_HT_CENTIMES, CONTACTS_PAR_PACK, PRIX_PACK_CONTACTS_HT_CENTIMES, contactsToutesOrigines, type Fonction, type Limites, type Offre,
 } from './offres';
 import type { SourceOffres } from './offre.pg';
 import type { ResumePro } from './abonnements-offre.pg';
@@ -93,6 +93,13 @@ export interface VueOffre {
   /** Le prix HT d'un siège, en centimes (`PRIX_SIEGE_HT_CENTIMES`) ; `null` tant que les sièges ne sont pas en vente. */
   prixSiege: { moisCentimes: number; anCentimes: number } | null;
   /**
+   * Les packs de contacts du Pro vivant (2026-11-24) : les contacts inclus, les packs achetés (déjà comptés dans
+   * `limites.contacts`), les contacts d'un pack et la formule, qui fixe le prix du suivant. `null` hors Pro.
+   */
+  packsContacts: { inclus: number; achetes: number; contactsParPack: number; periodicite: 'mois' | 'an' } | null;
+  /** Le prix HT d'un pack, en centimes (`PRIX_PACK_CONTACTS_HT_CENTIMES`) ; `null` tant que les packs ne sont pas en vente. */
+  prixPackContacts: { moisCentimes: number; anCentimes: number } | null;
+  /**
    * L'abonnement Pro de l'espace, dit en clair (2026-10-26, demande de Julien : « quand commence-t-il, quand s'arrête-t-il,
    * son statut ») : le vivant, sinon le dernier fini ; `null` si l'espace n'a jamais eu de Pro. Le statut se calcule ici
    * (`statutDuPro`), la console et Claude le lisent sans refaire la règle.
@@ -169,6 +176,8 @@ export interface DepsVueOffre {
   suiteDuNumero(tenantId: string): Promise<{ finPrevueLe: Date | null; rendreNumero: boolean } | null>;
   /** Les sièges se paient-ils en ligne ? (Stripe câblé et `STRIPE_PRIX_SIEGE_MOIS` et `_AN` posés). */
   siegesEnVente: boolean;
+  /** Les packs de contacts se paient-ils en ligne ? (Stripe câblé et `STRIPE_PRIX_PACK_CONTACTS_MOIS` et `_AN` posés). */
+  packsContactsEnVente: boolean;
   /**
    * Le Pro de l'espace, vivant ou dernier fini (`PgAbonnementsOffreStore.resume`) ; `null` s'il n'en a jamais eu. L'essai
    * s'en déduit aussi (déjà eu un Pro, fin de l'essai qui court) : une seule lecture de la table pour toute la vue.
@@ -214,6 +223,12 @@ export function creerVueOffre(d: DepsVueOffre): (tenantId: string) => Promise<Vu
         ? { inclus: DROITS.pro.limites.utilisateurs ?? 0, achetes: pro.sieges, periodicite: pro.periodicite }
         : null,
       prixSiege: d.siegesEnVente ? { moisCentimes: PRIX_SIEGE_HT_CENTIMES.mois, anCentimes: PRIX_SIEGE_HT_CENTIMES.an } : null,
+      packsContacts: offre === 'pro' && pro
+        ? { inclus: DROITS.pro.limites.contacts ?? 0, achetes: pro.packsContacts, contactsParPack: CONTACTS_PAR_PACK, periodicite: pro.periodicite }
+        : null,
+      prixPackContacts: d.packsContactsEnVente
+        ? { moisCentimes: PRIX_PACK_CONTACTS_HT_CENTIMES.mois, anCentimes: PRIX_PACK_CONTACTS_HT_CENTIMES.an }
+        : null,
       abonnement: vueAbonnement,
       upgradeUrl: adresseOffre(),
       ongletCreditWhatsapp,

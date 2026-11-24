@@ -714,7 +714,7 @@ export const mcpOffreInerte: Pick<DepsMcp, 'offre' | 'offres' | 'cles'> = {
       offre: 'entreprise', fonctions: [...FONCTIONS], limites: (({ commissionPct: _marge, ...l }) => l)(DROITS.entreprise.limites),
       usage: { envoisModelesMois: null, contacts: 0, automations: 0, membres: 0 }, contactsToutesOrigines: false, contactsEnTrop: 0,
       grille: grilleDesOffres(), prixPro: { moisCentimes: 4900, anCentimes: 49000 }, prixBusiness: { moisCentimes: 34900, siegeMoisCentimes: 1000 },
-      suiteDuNumero: null, essai: { jours: 14, possible: false, finLe: null }, sieges: null, prixSiege: null, abonnement: null,
+      suiteDuNumero: null, essai: { jours: 14, possible: false, finLe: null }, sieges: null, prixSiege: null, packsContacts: null, prixPackContacts: null, abonnement: null,
       upgradeUrl: 'https://console.inerte.test/offre',
       ongletCreditWhatsapp: false,
     }),
@@ -854,6 +854,7 @@ export const stripeProInerte: StripeWebhookRouteDeps['pro'] = {
   surPassageEnPro: neDevraitPasEtreAppelee('stripe.pro.surPassageEnPro'),
   surFinDuPro: neDevraitPasEtreAppelee('stripe.pro.surFinDuPro'),
   siegesChezStripe: neDevraitPasEtreAppelee('stripe.pro.siegesChezStripe'),
+  packsContactsChezStripe: neDevraitPasEtreAppelee('stripe.pro.packsContactsChezStripe'),
   finPrevueChezStripe: neDevraitPasEtreAppelee('stripe.pro.finPrevueChezStripe'),
 };
 

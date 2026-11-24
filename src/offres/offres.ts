@@ -226,6 +226,16 @@ export const ESSAI_PRO_JOURS = 14;
 export const PRIX_SIEGE_HT_CENTIMES: Readonly<{ mois: number; an: number }> = { mois: 1500, an: 15000 };
 
 /**
+ * LES PACKS DE CONTACTS DU PRO (décision de Julien du 2026-11-24, plan
+ * `docs/superpowers/plans/2026-11-24-contacts-packs-et-remplacement.md`) : un pack ajoute 1 000 contacts à la limite du Pro,
+ * 20 € HT par mois sur un Pro mensuel, 240 € HT par an sur un Pro annuel (sans remise), en quantité sur son abonnement
+ * Stripe (`src/stripe/packs-contacts.ts`). La route d'achat recoupe ces prix avec ceux posés chez Stripe ; la vue de
+ * l'offre, le refus de limite et la vitrine les montrent : jamais recopiés ailleurs. Le Pro seulement.
+ */
+export const CONTACTS_PAR_PACK = 1000;
+export const PRIX_PACK_CONTACTS_HT_CENTIMES: Readonly<{ mois: number; an: number }> = { mois: 2000, an: 24000 };
+
+/**
  * Les prix HT du Business, en centimes (spec du 2026-10-27) : 349 € par mois, et 10 € par mois l'utilisateur au-delà des 5
  * inclus. Aucun prix Stripe : Julien pose le Business dans `/ops` et le facture lui-même. La vue de l'offre les montre, la
  * vitrine les recopie sous le contrôle de `tests/vitrine-pages.test.ts` : jamais écrits ailleurs.
@@ -238,13 +248,17 @@ export const PRIX_SIEGE_BUSINESS_HT_CENTIMES: Readonly<{ mois: number }> = { moi
  * neuve.
  * 🔴 `sieges` : les sièges payés du Pro vivant (`abonnements_offre.sieges`, livraison 7), ajoutés aux utilisateurs du Pro
  * ICI SEULEMENT, pour que l'invitation et le gel lisent la même limite (un membre payé n'est jamais gelé).
+ * 🔴 `packsContacts` : de même, les packs payés du Pro vivant (`abonnements_offre.packs_contacts`), 1 000 contacts chacun,
+ * ajoutés ICI SEULEMENT à sa limite de contacts : les gardes de création et l'usage lisent cette limite. Seule la porte de
+ * l'espace plein relit les packs en base (`PgContactStore.inconnusRefuses`), avec l'offre, et les ajoute par le même calcul.
  * 🔴 Le Business ne prend de `/ops` que sa limite d'utilisateurs, et `null` y veut dire « les 5 de la grille », jamais
  * « sans limite » comme pour l'Entreprise : le reste de sa grille ne se négocie pas.
  */
-export function droitsDe(offre: Offre, surcharge: SurchargeEntreprise | null, sieges = 0): Droits {
+export function droitsDe(offre: Offre, surcharge: SurchargeEntreprise | null, sieges = 0, packsContacts = 0): Droits {
   const d = DROITS[offre];
   const limites: Limites = { ...d.limites };
   if (offre === 'pro' && limites.utilisateurs !== null) limites.utilisateurs += Math.max(0, sieges);
+  if (offre === 'pro' && limites.contacts !== null) limites.contacts += CONTACTS_PAR_PACK * Math.max(0, packsContacts);
   if (offre === 'business' && surcharge?.utilisateurs != null) limites.utilisateurs = surcharge.utilisateurs;
   if (offre === 'entreprise' && surcharge !== null) {
     limites.utilisateurs = surcharge.utilisateurs;

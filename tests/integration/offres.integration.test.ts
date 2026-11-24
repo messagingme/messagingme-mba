@@ -785,7 +785,7 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     expect(await pros.noterSieges('sub_siegesA', 2)).toEqual({ tenantId: t });
     const o = await offres.offreDe(t);
     expect(o.droits.limites.utilisateurs).toBe(5);
-    expect(o.pro).toEqual({ sieges: 2, periodicite: 'an' });
+    expect(o.pro).toEqual({ sieges: 2, packsContacts: 0, periodicite: 'an' });
     // Le webhook relit les sièges ; une modification qui ne les porte pas les garde.
     expect((await pros.modifier('sub_siegesA', { finPrevueLe: null, periodicite: null, sieges: 1 }))!.sieges).toBe(1);
     expect((await pros.modifier('sub_siegesA', { finPrevueLe: null, periodicite: null }))!.sieges).toBe(1);
@@ -796,5 +796,34 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     const fini = await offres.offreDe(t);
     expect(fini.offre).toBe('base');
     expect(fini.pro).toBeNull();
+  });
+
+  it('🔴 0321 : les packs de contacts du Pro, notés puis relus ; la limite de contacts les compte, et la porte les relit EN BASE', async () => {
+    const t = await espace('itest-packs-contacts');
+    const pros = new PgAbonnementsOffreStore(pool);
+    await pros.enregistrer({ tenantId: t, abonnementId: 'sub_packsA', periodicite: 'mois', livemode: false, periodeFin: null });
+    expect((await pros.deLEspace(t))!.packsContacts).toBe(0);
+    expect((await offres.offreDe(t)).droits.limites.contacts).toBe(1000);
+    // 1 000 fiches actives : le Pro sans pack est plein.
+    await pool.query(
+      `insert into contacts (tenant_id, phone_e164) select $1, '+3369992' || lpad(g::text, 4, '0') from generate_series(1, 1000) g`,
+      [t],
+    );
+    // La porte lit le cache de l'offre (ici figé à 1 000, comme une copie qui n'a pas vu l'achat) ET les packs en base.
+    const porte = new PgContactStore(pool, undefined, async () => ({ max: 1000, offre: 'pro' }));
+    expect(await porte.inconnusRefuses(t, ['33600000001'])).toEqual({ waIds: new Set(['33600000001']), limite: 1000 });
+    expect(await pros.noterPacksContacts('sub_packsA', 1)).toEqual({ tenantId: t });
+    expect(await porte.inconnusRefuses(t, ['33600000001'])).toBeNull();
+    const o = await offres.offreDe(t);
+    expect(o.droits.limites.contacts).toBe(2000);
+    expect(o.pro).toEqual({ sieges: 0, packsContacts: 1, periodicite: 'mois' });
+    // Le webhook relit les packs ; une modification qui ne les porte pas les garde.
+    expect((await pros.modifier('sub_packsA', { finPrevueLe: null, periodicite: null, packsContacts: 2 }))!.packsContacts).toBe(2);
+    expect((await pros.modifier('sub_packsA', { finPrevueLe: null, periodicite: null, sieges: 1 }))!.packsContacts).toBe(2);
+    await expect(pros.noterPacksContacts('sub_packsA', -1)).rejects.toMatchObject({ code: '23514', constraint: 'abonnements_offre_packs_contacts_chk' });
+    await pros.finir('sub_packsA', 'resiliation', new Date('2026-12-01T00:00:00Z'));
+    expect(await pros.noterPacksContacts('sub_packsA', 4)).toBeNull();
+    // Fini, l'espace revient en Free : ses packs ne comptent plus nulle part.
+    expect((await offres.offreDe(t)).droits.limites.contacts).toBe(100);
   });
 });

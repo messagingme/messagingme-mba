@@ -47,6 +47,7 @@ function monter(o: { reponses?: Array<ReponseStripe | Error>; stripe?: null; pay
     proVivant: async () => (o.pro === null ? null : { abonnementId: 'sub_1' }),
     noterFinPrevue: async (abonnementId, finPrevueLe) => { notes.push({ abonnementId, finPrevueLe }); },
     prixSiege: ['price_siege_mois', 'price_siege_an'],
+    prixPacksContacts: ['price_pack_mois', 'price_pack_an'],
     prixAchats: { creditIa: ['price_refill_50'], ligneCredit: ['price_wa_100'] },
   };
   return { d, transport, notes };
@@ -252,6 +253,15 @@ describe('tarifDuPro : le prix de l’abonné, pas la grille (2026-10-26)', () =
       { id: 'si_siege', quantity: 2, price: { id: 'price_siege_ancien', unit_amount: 1200 } },
     ] })] });
     expect(await tarifDuPro(ancien.d, 't1', 'u1')).toMatchObject({ ok: true, valeur: { proHtCentimes: null } });
+  });
+
+  it('🔴 un pack de contacts (2026-11-24) ne fait perdre ni le prix du Pro ni celui du siège : sa ligne est mise à part', async () => {
+    const avecPack = monter({ reponses: [lu({ lignes: [
+      { id: 'si_pro', quantity: 1, price: { id: 'price_pro_mois', unit_amount: 3900 } },
+      { id: 'si_siege', quantity: 1, price: { id: 'price_siege_mois', unit_amount: 1200 } },
+      { id: 'si_pack', quantity: 2, price: { id: 'price_pack_mois', unit_amount: 2000 } },
+    ] })] });
+    expect(await tarifDuPro(avecPack.d, 't1', 'u1')).toEqual({ ok: true, valeur: { proHtCentimes: 3900, siegeHtCentimes: 1200, remise: false } });
   });
 
   it('sans Pro vivant : 409 ; Stripe absent ou payeur refusé : 503 ; un refus de Stripe : 422, sans son message', async () => {

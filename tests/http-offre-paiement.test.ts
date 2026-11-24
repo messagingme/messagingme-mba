@@ -21,11 +21,15 @@ beforeAll(async () => {
 });
 const personne: UserAuthStore = { findIdentity: async (): Promise<EmailIdentity | null> => null };
 
-function monter(o: { ouvrir?: OffrePaiementRouteDeps['ouvrir']; portail?: OffrePaiementRouteDeps['portail']; proVivant?: boolean; sieges?: OffrePaiementRouteDeps['sieges']; resiliation?: OffrePaiementRouteDeps['resiliation']; demarrerPro?: OffrePaiementRouteDeps['demarrerPro'] } = {}) {
+function monter(o: {
+  ouvrir?: OffrePaiementRouteDeps['ouvrir']; portail?: OffrePaiementRouteDeps['portail']; proVivant?: boolean; sieges?: OffrePaiementRouteDeps['sieges'];
+  packsContacts?: OffrePaiementRouteDeps['packsContacts']; resiliation?: OffrePaiementRouteDeps['resiliation']; demarrerPro?: OffrePaiementRouteDeps['demarrerPro'];
+} = {}) {
   const cap = {
     ouvertures: [] as Array<{ tenantId: string; periodicite: PeriodicitePro; payeur: string }>, portails: [] as string[],
     rendus: [] as Array<{ tenantId: string; rendre: boolean }>,
     sieges: [] as Array<{ tenantId: string; depuis: number; cible: number; payeur: string }>,
+    packs: [] as Array<{ tenantId: string; depuis: number; cible: number; payeur: string }>,
     resiliations: [] as Array<{ tenantId: string; resilier: boolean; payeur: string }>, factures: [] as Array<{ tenantId: string; payeur: string }>,
     demarrages: [] as Array<{ tenantId: string; payeur: string }>,
   };
@@ -39,6 +43,7 @@ function monter(o: { ouvrir?: OffrePaiementRouteDeps['ouvrir']; portail?: OffreP
       portail: o.portail ?? (async (tenantId) => { cap.portails.push(tenantId); return { ok: true, valeur: { url: 'https://billing.stripe.com/p/session/x' } }; }),
       rendreLeNumero: async (tenantId, rendre) => { cap.rendus.push({ tenantId, rendre }); return o.proVivant ?? true; },
       sieges: o.sieges ?? (async (tenantId, demande, payeur) => { cap.sieges.push({ tenantId, ...demande, payeur }); return { ok: true, valeur: { sieges: demande.cible } }; }),
+      packsContacts: o.packsContacts ?? (async (tenantId, demande, payeur) => { cap.packs.push({ tenantId, ...demande, payeur }); return { ok: true, valeur: { packs: demande.cible } }; }),
       resiliation: o.resiliation ?? (async (tenantId, resilier, payeur) => {
         cap.resiliations.push({ tenantId, resilier, payeur });
         return { ok: true, valeur: { finPrevueLe: resilier ? '2026-11-12T08:00:00.000Z' : null } };
@@ -255,5 +260,40 @@ describe('POST /tenants/:tenantId/offre/pro/demarrer', () => {
       expect([r.statusCode, r.json()], code).toMatchObject([statut, { code }]);
       await server.close();
     }
+  });
+});
+
+describe('POST /tenants/:tenantId/offre/packs-contacts (2026-11-24)', () => {
+  it('🔴 un administrateur porte les packs d’un état de départ à la cible ; le payeur est l’utilisateur de la session', async () => {
+    const { server, cap } = monter();
+    const r = await poster(server, '/tenants/t1/offre/packs-contacts', admin, { depuis: 0, cible: 1 });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ packs: 1 });
+    expect(cap.packs).toEqual([{ tenantId: 't1', depuis: 0, cible: 1, payeur: 'u1' }]);
+    await server.close();
+  });
+
+  it('🔴 un membre non administrateur : 403 ; un saut, un prix, un corps vide : 400 ; rien n’est acheté', async () => {
+    const refuse = monter();
+    expect((await poster(refuse.server, '/tenants/t1/offre/packs-contacts', agent, { depuis: 0, cible: 1 })).statusCode).toBe(403);
+    expect(refuse.cap.packs).toEqual([]);
+    await refuse.server.close();
+    // Un serveur par cas : le plafond des opérations coûteuses compterait les refus.
+    for (const corps of [{}, { depuis: 0, cible: 2 }, { depuis: 1, cible: 1 }, { depuis: 0, cible: 1, prix: 'price_x' }, { depuis: 0, cible: 1001 }]) {
+      const { server, cap } = monter();
+      expect((await poster(server, '/tenants/t1/offre/packs-contacts', admin, corps)).statusCode, JSON.stringify(corps)).toBe(400);
+      expect(cap.packs).toEqual([]);
+      await server.close();
+    }
+  });
+
+  it('un refus garde son statut, sa phrase et sa cause (les contacts en trop pour un retrait)', async () => {
+    const { server } = monter({
+      packsContacts: async () => refus(409, 'Votre espace compte 1 500 contacts : supprimez-en d’abord 500, pour tenir dans 1 000 contacts.', { code: 'contacts_en_trop' }),
+    });
+    const r = await poster(server, '/tenants/t1/offre/packs-contacts', admin, { depuis: 1, cible: 0 });
+    expect(r.statusCode).toBe(409);
+    expect(r.json()).toMatchObject({ code: 'contacts_en_trop' });
+    await server.close();
   });
 });

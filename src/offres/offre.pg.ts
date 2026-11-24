@@ -18,10 +18,10 @@ export interface OffreEspace {
   /** La fin effective du dernier Pro d'un espace revenu en Base (le gel, le délai de la conservation) ; `null` sinon. */
   retourEnBaseLe: Date | null;
   /**
-   * Le Pro vivant (livraison 7) : ses sièges payés, déjà comptés dans `droits`, et sa formule, qui fixe le prix du siège
-   * suivant. `null` ou absent hors Pro.
+   * Le Pro vivant (livraison 7) : ses sièges payés et ses packs de contacts (2026-11-24), déjà comptés dans `droits`, et sa
+   * formule, qui fixe le prix du siège et du pack suivants. `null` ou absent hors Pro.
    */
-  pro?: { sieges: number; periodicite: 'mois' | 'an' } | null;
+  pro?: { sieges: number; packsContacts: number; periodicite: 'mois' | 'an' } | null;
 }
 
 export interface SourceOffres {
@@ -38,7 +38,7 @@ export class PgOffresStore implements SourceOffres {
     const r = await this.pool.query<{
       offre: string; entreprise_utilisateurs: number | null; entreprise_contacts: number | null;
       entreprise_commission_pct: number | null; conservation: number | null; dernier_fini: Date | null;
-      sieges: number | null; periodicite: 'mois' | 'an' | null; business_utilisateurs: number | null;
+      sieges: number | null; packs_contacts: number | null; periodicite: 'mois' | 'an' | null; business_utilisateurs: number | null;
     }>(
       `select offre_de_l_espace($1::uuid) as offre,
               (select t.entreprise_utilisateurs from tenants t where t.id = $1::uuid) as entreprise_utilisateurs,
@@ -48,13 +48,16 @@ export class PgOffresStore implements SourceOffres {
               (select s.conversation_retention_days from tenant_settings s where s.tenant_id = $1::uuid) as conservation,
               (select max(a.fini_le) from abonnements_offre a where a.tenant_id = $1::uuid) as dernier_fini,
               (select a.sieges from abonnements_offre a where a.tenant_id = $1::uuid and a.fini_le is null) as sieges,
+              (select a.packs_contacts from abonnements_offre a where a.tenant_id = $1::uuid and a.fini_le is null) as packs_contacts,
               (select a.periodicite from abonnements_offre a where a.tenant_id = $1::uuid and a.fini_le is null) as periodicite`,
       [tenantId],
     );
     const l = r.rows[0];
     const offre: Offre = l && OFFRES.has(l.offre) ? (l.offre as Offre) : 'base';
-    // Les sièges ne comptent qu'en Pro : une Entreprise qui garde un Pro vivant a ses propres limites (/ops).
-    const pro = offre === 'pro' && l?.periodicite ? { sieges: l.sieges ?? 0, periodicite: l.periodicite } : null;
+    // Les sièges et les packs ne comptent qu'en Pro : une Entreprise qui garde un Pro vivant a ses propres limites (/ops).
+    const pro = offre === 'pro' && l?.periodicite
+      ? { sieges: l.sieges ?? 0, packsContacts: l.packs_contacts ?? 0, periodicite: l.periodicite }
+      : null;
     return {
       offre,
       droits: droitsDe(offre, offre === 'entreprise'
@@ -63,7 +66,8 @@ export class PgOffresStore implements SourceOffres {
           contacts: l?.entreprise_contacts ?? null, commissionPct: l?.entreprise_commission_pct ?? null,
         }
         // Le Business ne prend de /ops que sa limite d'utilisateurs (`droitsDe`) : vide, les 5 de la grille.
-        : offre === 'business' ? { utilisateurs: l?.business_utilisateurs ?? null, conservationJours: null } : null, pro?.sieges ?? 0),
+        : offre === 'business' ? { utilisateurs: l?.business_utilisateurs ?? null, conservationJours: null } : null,
+      pro?.sieges ?? 0, pro?.packsContacts ?? 0),
       retourEnBaseLe: offre === 'base' ? (l?.dernier_fini ?? null) : null,
       pro,
     };

@@ -15,6 +15,7 @@ import { OngletCreditWhatsapp } from '@/components/OngletCreditWhatsapp';
 import { AbonnementPro } from '@/components/AbonnementPro';
 import { FacturesEspace } from '@/components/FacturesEspace';
 import { AbonnementNumeroOffre } from '@/components/AbonnementNumeroOffre';
+import { PacksContactsPro } from '@/components/PacksContactsPro';
 import type { Session } from '@/lib/session';
 import { useT } from '@/lib/i18n';
 import { oublierOffre, relireOffre, useOffre } from '@/lib/use-offre';
@@ -478,6 +479,9 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
           </section>
         );
       })()}
+
+      {/* Les packs de 1 000 contacts du Pro (2026-11-24) : rien hors Pro, ni sur une API plus ancienne. */}
+      <PacksContactsPro tenantId={session.tenantId} vue={vue} />
 
       {/* L'ancien bloc, pour une API qui ne rend pas encore l'abonnement (la console part avant l'API). */}
       {vue.offre === 'pro' && abonnement === null && (

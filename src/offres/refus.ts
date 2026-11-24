@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { DROITS, PRIX_SIEGE_BUSINESS_HT_CENTIMES, contactsToutesOrigines, type Fonction, type Limites, type Offre } from './offres';
+import { CONTACTS_PAR_PACK, DROITS, PRIX_PACK_CONTACTS_HT_CENTIMES, PRIX_SIEGE_BUSINESS_HT_CENTIMES, contactsToutesOrigines, type Fonction, type Limites, type Offre } from './offres';
 import { refus, type Refus } from '../lib/issue';
 
 /**
@@ -67,6 +67,11 @@ const LIBELLE_LIMITE: Record<NomLimite, (max: number, contexte: ContexteLimite) 
   clesApi: (m) => `${m} clés d’API actives (révoquez-en une pour en créer une autre ; la clé de l’agent de Meta ne compte pas)`,
 };
 
+/** Les packs de contacts du Pro se paient-ils en ligne ? Les mêmes conditions que la page de l'offre (`src/index.ts`). */
+function packsContactsEnVente(): boolean {
+  return config.STRIPE_SECRET_KEY !== '' && config.STRIPE_PRIX_PACK_CONTACTS_MOIS !== '' && config.STRIPE_PRIX_PACK_CONTACTS_AN !== '';
+}
+
 /** La page de l'offre dans la console. */
 export function adresseOffre(): string {
   return `${config.APP_URL.replace(/\/+$/, '')}/offre`;
@@ -105,6 +110,15 @@ export function phraseLimite(limite: NomLimite, max: number, contexte: ContexteL
     const s = contexte.siege;
     const suite = s
       ? `Ajoutez un utilisateur (${nb(s.prixHtCentimes / 100)} € HT par ${s.periodicite}) en invitant le membre depuis « Compte & équipe », ou passez en Business`
+      : 'Passez en Business pour la lever';
+    return `Limite de votre offre atteinte : ${LIBELLE_LIMITE[limite](max, contexte)}. ${suite} : ${adresseOffre()}`;
+  }
+  // Les contacts d'un Pro (2026-11-24) : un pack de 1 000 les lève, au prix de sa formule, quand les packs sont en vente ;
+  // sinon le Business. La limite d'un Pro qui a des packs n'est dans aucune grille : c'est l'offre connue qui décide.
+  if (limite === 'contacts' && contexte.offre === 'pro') {
+    const suite = packsContactsEnVente()
+      ? `Ajoutez ${nb(CONTACTS_PAR_PACK)} contacts depuis la page Offre (${nb(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100)} € HT par mois, `
+        + `${nb(PRIX_PACK_CONTACTS_HT_CENTIMES.an / 100)} € HT par an avec la formule Pro annuelle), ou passez en Business`
       : 'Passez en Business pour la lever';
     return `Limite de votre offre atteinte : ${LIBELLE_LIMITE[limite](max, contexte)}. ${suite} : ${adresseOffre()}`;
   }

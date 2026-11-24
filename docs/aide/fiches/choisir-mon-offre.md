@@ -2,7 +2,7 @@
 description: Free, Pro, Business ou Entreprise : ce que chaque offre de Messaging Me ouvre, ses limites, et comment changer d'offre ou gérer l'abonnement.
 ecran: offre
 source_section: Offres (menu « Paramètres » > Offre)
-source_empreinte: 1b7ee7
+source_empreinte: 75d885
 publique: oui
 rubrique: demarrer-console
 rang: 1
@@ -68,6 +68,11 @@ client qui vous écrit n'entre pas dans Messaging Me : son message n'est pas enr
 pas. Un e-mail vous prévient, une fois par jour au plus. Vos contacts déjà présents vous écrivent comme avant, et un
 contact supprimé libère sa place : demandez à Claude de supprimer ceux dont vous n'avez plus besoin. En Entreprise, le
 nombre de contacts se règle avec vous, et un contact qui vous écrit le premier n'est jamais refusé.
+
+**Ajouter 1 000 contacts en formule Pro.** Sur la page Offre, « Ajouter 1 000 contacts » coûte 20 € HT par mois avec
+la formule mensuelle, 240 € HT par an avec l'annuelle. Le prorata jusqu'à la fin de votre période est facturé tout de
+suite sur la carte de la formule Pro, et votre limite monte dès que ce paiement est accepté. « Retirer 1 000 contacts »
+ne rembourse rien et n'efface aucun contact : supprimez d'abord ceux en trop.
 
 **Les widgets WhatsApp.** Un en formule Free, cinq en formule Pro, sans limite en Business et en Entreprise. Un espace
 qui en a plus que son offre n'en permet garde les siens, qui continuent de marcher : seule la création d'un nouveau est

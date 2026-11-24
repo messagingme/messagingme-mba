@@ -63,6 +63,11 @@ export interface DepsTraitementAbonnements {
      */
     siegesChezStripe(abonnementId: string): Promise<number | null>;
     /**
+     * 🔴 Les packs de contacts du Pro, RELUS CHEZ STRIPE de même (`packsContactsChezStripe`, 2026-11-24) : un nombre trop
+     * bas ferait refuser des créations et des entrants à un espace qui a payé. `null` : pas en vente, ceux notés restent.
+     */
+    packsContactsChezStripe(abonnementId: string): Promise<number | null>;
+    /**
      * 🔴 La fin prévue du Pro, RELUE CHEZ STRIPE (`finPrevueChezStripe`, 2026-10-26) : un événement en retard ne remet pas
      * une fin que la console vient de retirer. `undefined` : rien de relu, la charge de l'événement sert. Une panne de
      * Stripe lève : le webhook échoue, Stripe rejouera.
@@ -470,6 +475,7 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       }
       const intervalle = lignes.map((l) => l.price?.recurring?.interval).find((v): v is string => typeof v === 'string');
       const sieges = await deps.pro.siegesChezStripe(lu.data.id);
+      const packsContacts = await deps.pro.packsContactsChezStripe(lu.data.id);
       // La fin RELUE chez Stripe, l'état de maintenant : un événement en retard ne remet pas une fin retirée depuis. Lue en
       // DERNIER, au plus près de l'écriture. Sans relecture, la charge, par le même calcul que la résiliation de la console.
       const relue = await deps.pro.finPrevueChezStripe(lu.data.id);
@@ -478,6 +484,7 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         finPrevueLe: finPrevue,
         periodicite: intervalle ? (PERIODICITE_DE_STRIPE[intervalle] ?? null) : null,
         ...(sieges !== null ? { sieges } : {}),
+        ...(packsContacts !== null ? { packsContacts } : {}),
         // La fin de l'essai, quel que soit le statut : un essai écourté (par la console ou au tableau de bord) rend un
         // abonnement actif dont la fin d'essai a avancé (révision du 2026-11-04, décision 6). Une fin déjà passée en base
         // ne recule plus : un avis en retard, encore « en essai », ne rouvre pas l'essai (`PgAbonnementsOffreStore.modifier`).

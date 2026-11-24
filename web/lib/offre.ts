@@ -106,6 +106,13 @@ export interface VueOffre {
   /** Le prix HT d'un siège, en centimes ; `null` tant que les sièges ne sont pas en vente, ou sur une API plus ancienne. */
   prixSiege: { moisCentimes: number; anCentimes: number } | null;
   /**
+   * Les packs de contacts du Pro vivant (2026-11-24) : les contacts inclus, les packs achetés, les contacts d'un pack, la
+   * formule. `null` hors Pro, ou sur une API plus ancienne : la page n'en parle pas.
+   */
+  packsContacts: { inclus: number; achetes: number; contactsParPack: number; periodicite: 'mois' | 'an' } | null;
+  /** Le prix HT d'un pack, en centimes ; `null` tant que les packs ne sont pas en vente, ou sur une API plus ancienne. */
+  prixPackContacts: { moisCentimes: number; anCentimes: number } | null;
+  /**
    * Le prix HT du Business et d'un utilisateur de plus, en centimes (spec Business) : affichés, jamais payés en ligne (le
    * Business se demande au Support). `null` sur une API d'avant lui.
    */
@@ -214,6 +221,8 @@ export function lireVueOffre(brut: unknown): VueOffre | null {
     essai: lireEssai(brut.essai),
     sieges: lireSieges(brut.sieges),
     prixSiege: lirePrixPro(brut.prixSiege),
+    packsContacts: lirePacksContacts(brut.packsContacts),
+    prixPackContacts: lirePrixPro(brut.prixPackContacts),
     prixBusiness: lirePrixBusiness(brut.prixBusiness),
     abonnement: lireAbonnement(brut.abonnement),
     upgradeUrl: brut.upgradeUrl,
@@ -243,6 +252,12 @@ function lireAbonnement(v: unknown): VueOffre['abonnement'] {
 function lireSieges(v: unknown): VueOffre['sieges'] {
   if (!estObjet(v) || !entier(v.inclus) || !entier(v.achetes) || !estPeriodicite(v.periodicite)) return null;
   return { inclus: v.inclus, achetes: v.achetes, periodicite: v.periodicite };
+}
+
+/** Des packs absents ou illisibles ne rendent pas la vue illisible : la page n'en parle pas. */
+function lirePacksContacts(v: unknown): VueOffre['packsContacts'] {
+  if (!estObjet(v) || !entier(v.inclus) || !entier(v.achetes) || !entier(v.contactsParPack) || !estPeriodicite(v.periodicite)) return null;
+  return { inclus: v.inclus, achetes: v.achetes, contactsParPack: v.contactsParPack, periodicite: v.periodicite };
 }
 
 /** Le siège qu'un refus d'invitation propose d'acheter (livraison 7) : le nombre visé, la formule et le prix HT. */

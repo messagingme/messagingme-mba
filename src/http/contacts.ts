@@ -382,8 +382,11 @@ export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, 
       ...(typeof b.bsuid === 'string' && b.bsuid.trim() !== '' ? { bsuid: b.bsuid.trim().slice(0, 200) } : {}),
     });
     // La limite de contacts de l'offre (lot 6) : 402, la phrase et le lien vers l'offre, jamais un 400 de saisie.
+    // La phrase est celle du magasin, qui connaît l'offre (le pack de contacts d'un Pro, 2026-11-24) : une limite hors
+    // grille, celle d'un Pro qui a des packs, ne se devine pas ici.
     if (res.status === 'error' && res.limite !== undefined) {
-      return reply.code(STATUT_REFUS_OFFRE).send(corpsRefusLimite(new LimiteOffreError(tenant, 'contacts', res.limite)));
+      const corps = corpsRefusLimite(new LimiteOffreError(tenant, 'contacts', res.limite));
+      return reply.code(STATUT_REFUS_OFFRE).send(res.reason ? { ...corps, error: res.reason } : corps);
     }
     if (res.status === 'error') return reply.code(400).send({ error: res.reason ?? 'contact invalide' });
     // Le détail dit `updated` quand le numéro était déjà connu : sans ça, l'historique laisserait croire à une

@@ -4698,6 +4698,19 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   prochain achat. Un nouveau tarif se fait en passant chaque abonnement au nouveau prix chez Stripe AVANT de changer
   `.env.prod`. ⚠️ **Retour arrière des sièges** : une image antérieure à la livraison 7 ignore `sieges` et gèlerait les
   membres payés ; compter d'abord `select count(*) from abonnements_offre where sieges > 0 and fini_le is null`.
+  🔴 **Les packs de contacts du Pro** (décision de Julien du 2026-11-24, `src/stripe/packs-contacts.ts`, migration 0321
+  `abonnements_offre.packs_contacts`) : la même mécanique que les sièges, sur deux autres prix (`STRIPE_PRIX_PACK_CONTACTS_MOIS`
+  et `_AN`, ensemble ; `PRIX_PACK_CONTACTS_HT_CENTIMES`, 20 € par mois, 240 € par an), une autre route
+  (`POST /tenants/:tenantId/offre/packs-contacts`), une autre clé d'idempotence (`pack-contacts-…`) et d'autres causes
+  (`packs_contacts_*`, `paiement_pack_contacts_incomplet`). La limite de contacts du Pro vaut 1 000 plus 1 000 par pack, dans
+  `droitsDe` SEULEMENT ; la porte de l'espace plein (`inconnusRefuses`) relit les packs EN BASE dans sa requête, pour qu'un
+  pack acheté sur une copie vaille tout de suite à la réception ; les créations, elles, lisent l'offre en cache (30 s au
+  plus sur une autre copie, comme les sièges). 🔴 Les deux prix se posent APRÈS le déploiement de l'API ET des workers
+  qui portent les packs : un ancien code lirait un Pro qui en a payé à 1 000 et refuserait ses entrants. Un retrait est refusé (409 `contacts_en_trop`) tant que les
+  contacts comptés (`PgOffresStore.usage`) dépassent 1 000 plus 1 000 fois la cible : rien n'est jamais effacé pour faire
+  de la place. Le tarif réel du Pro (`tarifDuPro`) met les lignes de pack à part, comme celles des sièges. Les mêmes
+  avertissements valent : les lignes de pack se reconnaissent à leur prix, et une image antérieure ignore les packs (elle
+  refuserait les créations et les entrants d'un Pro qui en a payé : compter `packs_contacts > 0 and fini_le is null`).
   ⚠️ **Le compte Stripe est partagé avec d'autres activités** : tout code promo actif sans restriction de produit
   s'applique au Pro, au numéro fourni, et à la recharge, qui crédite le montant AVANT remise. Restreindre chaque code à ses produits se
   fait chez Stripe.

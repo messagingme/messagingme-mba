@@ -233,6 +233,20 @@ describe('les prix du Pro dans la vue (lot 6, B1)', () => {
   });
 });
 
+describe('les packs de contacts du Pro (2026-11-24)', () => {
+  it('lus quand l’API les porte ; absents (API plus ancienne) ou illisibles, null, et la vue reste lisible', () => {
+    const packs = { inclus: 1000, achetes: 2, contactsParPack: 1000, periodicite: 'mois' };
+    const v = lireVueOffre({ ...BASE, packsContacts: packs, prixPackContacts: { moisCentimes: 2000, anCentimes: 24000 } })!;
+    expect(v.packsContacts).toEqual(packs);
+    expect(v.prixPackContacts).toEqual({ moisCentimes: 2000, anCentimes: 24000 });
+    for (const p of [undefined, null, { ...packs, achetes: -1 }, { ...packs, contactsParPack: '1000' }, { ...packs, periodicite: 'semaine' }]) {
+      const w = lireVueOffre({ ...BASE, packsContacts: p, prixPackContacts: { moisCentimes: 2000 } });
+      expect(w, JSON.stringify(p)).not.toBeNull();
+      expect([w!.packsContacts, w!.prixPackContacts]).toEqual([null, null]);
+    }
+  });
+});
+
 describe('les sièges du Pro (spec offres v2, livraison 7)', () => {
   it('lus quand l’API les porte ; absents ou illisibles, null, et la vue reste lisible', () => {
     const v = lireVueOffre({ ...BASE, sieges: { inclus: 3, achetes: 2, periodicite: 'an' }, prixSiege: { moisCentimes: 1500, anCentimes: 15000 } })!;

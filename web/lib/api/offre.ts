@@ -41,6 +41,16 @@ export function changerSieges(tenantId: string, depuis: number, cible: number): 
   return request(`/tenants/${tenantId}/offre/sieges`, { method: 'POST', body: JSON.stringify({ depuis, cible }) });
 }
 
+/**
+ * Porte les packs de contacts du Pro de `depuis` (ce que l'écran a lu) à `cible`, un pack à la fois (2026-11-24) : un ajout
+ * facture le prorata sur la carte du Pro et ne s'applique que s'il est payé (sinon un 402 `paiement_pack_contacts_incomplet`
+ * avec la facture à régler) ; un retrait ne rembourse rien et est refusé tant que les contacts comptés ne tiennent pas
+ * (409 `contacts_en_trop`). Rend les packs que Stripe a appliqués.
+ */
+export function changerPacksContacts(tenantId: string, depuis: number, cible: number): Promise<{ packs: number }> {
+  return request(`/tenants/${tenantId}/offre/packs-contacts`, { method: 'POST', body: JSON.stringify({ depuis, cible }) });
+}
+
 /** Rendre le numéro fourni à la fin du Pro, ou revenir sur ce choix (lot 6, B2b). */
 export function rendreNumero(tenantId: string, rendre: boolean): Promise<{ rendreNumero: boolean }> {
   return request(`/tenants/${tenantId}/offre/numero`, { method: 'PUT', body: JSON.stringify({ rendre }) });

@@ -31,6 +31,8 @@ export interface AbonnementOffre {
   essaiFinLe: Date | null;
   /** Les sièges payés en plus des 3 utilisateurs (0244, livraison 7), relus chez Stripe ; 0 sans siège. */
   sieges: number;
+  /** Les packs de 1 000 contacts payés en plus (0321, 2026-11-24), relus chez Stripe ; 0 sans pack. */
+  packsContacts: number;
 }
 
 /** Ce que la vue de l'offre dit du Pro (2026-10-26) : l'abonnement, plus sa souscription (`cree_le`). */
@@ -59,13 +61,15 @@ interface Ligne {
   suite_annoncee_le: Date | null;
   essai_fin_le: Date | null;
   sieges: number;
+  packs_contacts: number;
 }
 const COLONNES = 'stripe_subscription_id, tenant_id, periodicite, livemode, statut, periode_fin, fin_prevue_le, fini_le, fin_raison, '
-  + 'rendre_numero, suite_annoncee_le, essai_fin_le, sieges';
+  + 'rendre_numero, suite_annoncee_le, essai_fin_le, sieges, packs_contacts';
 const versAbonnement = (l: Ligne): AbonnementOffre => ({
   abonnementId: l.stripe_subscription_id, tenantId: l.tenant_id, periodicite: l.periodicite, livemode: l.livemode, statut: l.statut,
   periodeFin: l.periode_fin, finPrevueLe: l.fin_prevue_le, finiLe: l.fini_le, finRaison: l.fin_raison,
   rendreNumero: l.rendre_numero, suiteAnnonceeLe: l.suite_annoncee_le, essaiFinLe: l.essai_fin_le, sieges: l.sieges,
+  packsContacts: l.packs_contacts,
 });
 
 export class PgAbonnementsOffreStore {
@@ -168,17 +172,19 @@ export class PgAbonnementsOffreStore {
       finPrevueLe: Date | null; periodicite: PeriodiciteOffre | null; essaiFinLe?: Date | null;
       /** Les sièges relus chez Stripe (livraison 7) ; absents, ceux déjà notés restent. */
       sieges?: number;
+      /** Les packs de contacts relus chez Stripe (2026-11-24) ; absents, ceux déjà notés restent. */
+      packsContacts?: number;
     },
   ): Promise<AbonnementOffre | null> {
     const res = await this.pool.query<Ligne>(
       `update abonnements_offre
           set fin_prevue_le = $2, periodicite = coalesce($3, periodicite),
               essai_fin_le = case when essai_fin_le is not null and essai_fin_le <= now() then essai_fin_le else coalesce($4, essai_fin_le) end,
-              sieges = coalesce($5, sieges),
+              sieges = coalesce($5, sieges), packs_contacts = coalesce($6, packs_contacts),
               suite_annoncee_le = case when $2::timestamptz is null then null else suite_annoncee_le end, maj_le = now()
         where stripe_subscription_id = $1 and fini_le is null
         returning ${COLONNES}`,
-      [abonnementId, m.finPrevueLe, m.periodicite, m.essaiFinLe ?? null, m.sieges ?? null],
+      [abonnementId, m.finPrevueLe, m.periodicite, m.essaiFinLe ?? null, m.sieges ?? null, m.packsContacts ?? null],
     );
     return res.rows[0] ? versAbonnement(res.rows[0]) : null;
   }
@@ -208,6 +214,17 @@ export class PgAbonnementsOffreStore {
         where stripe_subscription_id = $1 and fini_le is null
         returning tenant_id`,
       [abonnementId, sieges],
+    );
+    return res.rows[0] ? { tenantId: res.rows[0].tenant_id } : null;
+  }
+
+  /** Les packs de contacts du Pro (2026-11-24), comme `noterSieges` : la limite suit sans attendre le webhook. */
+  async noterPacksContacts(abonnementId: string, packs: number): Promise<{ tenantId: string } | null> {
+    const res = await this.pool.query<{ tenant_id: string }>(
+      `update abonnements_offre set packs_contacts = $2, maj_le = now()
+        where stripe_subscription_id = $1 and fini_le is null
+        returning tenant_id`,
+      [abonnementId, packs],
     );
     return res.rows[0] ? { tenantId: res.rows[0].tenant_id } : null;
   }

@@ -54,6 +54,7 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
+import { changerPacksContacts, packsContactsChezStripe, type DepsPacksContacts } from './stripe/packs-contacts';
 import { formuleEnRetard, formuleEtPrise, optionPrenable, repriseOuverte } from './offres/formule-payee';
 import { connexionParLaLigne, fenetreRefuseeParLaLigne, numeroAvecCarte, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
 import { poserLaLigne, type DepsPose } from './credit-whatsapp/pose';
@@ -1325,6 +1326,21 @@ async function main(): Promise<void> {
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
   };
   /**
+   * Les packs de contacts du Pro (2026-11-24, `src/stripe/packs-contacts.ts`) : le MÊME Stripe, le MÊME Pro vivant (un
+   * espace EN PRO) et la même conduite que les sièges. Un retrait se mesure aux contacts que la limite compte.
+   */
+  const packsContactsDeLaConsole: DepsPacksContacts = {
+    stripe: paiementDeLaConsole.stripe,
+    prixPackMois: config.STRIPE_PRIX_PACK_CONTACTS_MOIS,
+    prixPackAn: config.STRIPE_PRIX_PACK_CONTACTS_AN,
+    payeurAutorise: (payeur) => paiementDeLaConsole.payeurAutorise(payeur),
+    proVivant: (tenant) => siegesDeLaConsole.proVivant(tenant),
+    contacts: async (tenant) => (await offresStore.usage(tenant)).contacts,
+    noterPacks: (abonnementId, packs) => abonnementsOffre.noterPacksContacts(abonnementId, packs),
+    invalider: (tenant) => offres.invalider(tenant),
+    alerter: (texte) => siegesDeLaConsole.alerter(texte),
+  };
+  /**
    * Sa fin de droit (spec du 2026-10-30, « Fin ») : après la fin d'un Pro (le webhook) et le retrait d'une offre posée à
    * la main (`/ops`). L'offre est relue SANS cache : elle vient de changer.
    */
@@ -1362,6 +1378,7 @@ async function main(): Promise<void> {
     },
     // Les prix d'un siège, pour séparer le Pro de ses sièges dans son tarif réel.
     prixSiege: [config.STRIPE_PRIX_SIEGE_MOIS, config.STRIPE_PRIX_SIEGE_AN].filter((p) => p !== ''),
+    prixPacksContacts: [config.STRIPE_PRIX_PACK_CONTACTS_MOIS, config.STRIPE_PRIX_PACK_CONTACTS_AN].filter((p) => p !== ''),
     // Les prix des achats ponctuels, pour nommer leurs factures (onglet Facturation, 2026-11-16).
     prixAchats: {
       creditIa: [config.STRIPE_PRIX_REFILL_5, config.STRIPE_PRIX_REFILL_10, config.STRIPE_PRIX_REFILL_50, config.STRIPE_PRIX_REFILL_100]
@@ -1396,6 +1413,8 @@ async function main(): Promise<void> {
     // La suite du numéro fourni que le Pro annonce (lot 6, B2b).
     suiteDuNumero: (tenant) => abonnementsOffre.suiteDuNumero(tenant),
     siegesEnVente,
+    packsContactsEnVente: packsContactsDeLaConsole.stripe !== null && packsContactsDeLaConsole.prixPackMois !== ''
+      && packsContactsDeLaConsole.prixPackAn !== '',
     // L'abonnement Pro dit en clair (2026-10-26) : statut, souscription, renouvellement ou fin. L'essai s'en déduit (déjà
     // consommé par un Pro, même fini ; la fin de celui qui court) : une seule lecture de la table.
     abonnement: (tenant) => abonnementsOffre.resume(tenant),
@@ -2172,6 +2191,8 @@ async function main(): Promise<void> {
       rendreLeNumero: (tenant, rendre) => abonnementsOffre.rendreLeNumero(tenant, rendre),
       // Les utilisateurs en plus du Pro (livraison 7).
       sieges: (tenant, demande, payeur) => changerSieges(siegesDeLaConsole, tenant, demande, payeur),
+      // Les packs de 1 000 contacts du Pro (2026-11-24).
+      packsContacts: (tenant, demande, payeur) => changerPacksContacts(packsContactsDeLaConsole, tenant, demande, payeur),
       // Résilier le Pro, annuler la résiliation, et les factures de l'espace (2026-10-26).
       resiliation: (tenant, resilier, payeur) => changerResiliationPro(gestionProDeLaConsole, tenant, resilier, payeur),
       // Démarrer la formule Pro avant la fin de l'essai (révision du Crédit WhatsApp, 2026-11-04).
@@ -2586,6 +2607,8 @@ async function main(): Promise<void> {
           surFinDuPro: (f) => surFinDuPro(numeroInclus, f),
           // Les sièges (livraison 7) : relus chez Stripe à chaque modification ; `null` tant qu'ils ne sont pas en vente.
           siegesChezStripe: (abonnementId) => siegesChezStripe(siegesDeLaConsole, abonnementId),
+          // Les packs de contacts (2026-11-24), relus de même.
+          packsContactsChezStripe: (abonnementId) => packsContactsChezStripe(packsContactsDeLaConsole, abonnementId),
           // La fin prévue relue chez Stripe (2026-10-26) : un événement en retard ne remet pas une fin retirée depuis.
           finPrevueChezStripe: (abonnementId) => finPrevueChezStripe(gestionProDeLaConsole, abonnementId),
         },

@@ -196,6 +196,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /offre/paiement': outil('subscribe_pro'),
   'POST /offre/portail': aFaire('B10', 'offre : ouvrir le portail Stripe de l’offre (carte, factures) ; la personne y agit'),
   'POST /offre/sieges': aFaire('B10', 'offre : ajouter un utilisateur payant ; le paiement reste à la personne'),
+  'POST /offre/packs-contacts': aFaire('B10', 'offre : ajouter ou retirer un pack de 1 000 contacts du Pro ; le paiement reste à la personne'),
   'POST /offre/resiliation': aFaire('B10', 'offre : résilier, au clic'),
   'POST /offre/pro/demarrer': aFaire('B10', 'offre : démarrer le Pro avant la fin de l’essai, au clic (la carte est prélevée)'),
   'GET /offre/factures': aFaire('B10', 'offre : lister les factures'),

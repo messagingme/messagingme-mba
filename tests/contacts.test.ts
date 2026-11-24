@@ -555,6 +555,15 @@ describe('POST /tenants/:t/contacts (ajout a la main)', () => {
     await server.close();
   });
 
+  it('🔴 la limite de contacts -> 402 avec la phrase du magasin, qui connait l’offre (le pack d’un Pro a 2 000, 2026-11-24)', async () => {
+    const phrase = 'Limite de votre offre atteinte : 2 000 contacts, ceux qui vous écrivent compris. Ajoutez 1 000 contacts depuis la page Offre (…), ou passez en Business : https://x/offre';
+    const { server } = avecCreation({ createOneContact: async () => ({ status: 'error', reason: phrase, limite: 2000 }) });
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/contacts', ...h(adminTok), payload: JSON.stringify({ phone: '0612345678' }) });
+    expect(res.statusCode).toBe(402);
+    expect(res.json()).toMatchObject({ code: 'plan_limit_reached', limite: 'contacts', max: 2000, error: phrase });
+    await server.close();
+  });
+
   it('🔴 BSUID et plusieurs tags arrivent a l’upsert, et restent OPTIONNELS', async () => {
     // Le BSUID identifie un client qui n'a pas partage son numero. Il ne doit pas devenir une seconde identite
     // obligatoire : le numero reste la cle de ce chemin, et une saisie sans BSUID marche comme avant.

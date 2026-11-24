@@ -18,7 +18,7 @@ import { FiltreContactInvalide } from './contact-filters';
 import { refusDesCollections } from '../shopify/collections.pg';
 import { COLONNES_ANALYSE_FICHE, analyseDeLaLigne, type AnalyseDeFiche, type LigneAnalyseFiche } from '../analysis/fiche';
 import { LimiteOffreError } from '../offres/refus';
-import { DROITS, contactsToutesOrigines, estOffre, type LimiteContacts } from '../offres/offres';
+import { DROITS, contactsToutesOrigines, droitsDe, estOffre, type LimiteContacts } from '../offres/offres';
 import {
   affectationsDUpsert, ecritureDuConsentement, issueDeLaTransition, type AutoriteParWaId, type CompteDeLEcriture,
   type FicheDeLEcriture,
@@ -353,8 +353,9 @@ export class PgContactStore implements ContactStore {
     const limite = await this.limiteContacts(tenantId);
     if (limite === null || !contactsToutesOrigines(limite.offre)) return null;
     const uniques = [...new Set(waIds)];
-    const r = await this.pool.query<{ offre: string | null; comptees: number; connus: string[] | null }>(
+    const r = await this.pool.query<{ offre: string | null; packs: number | null; comptees: number; connus: string[] | null }>(
       `select offre_de_l_espace($1::uuid) as offre,
+              (select a.packs_contacts from abonnements_offre a where a.tenant_id = $1::uuid and a.fini_le is null) as packs,
               (select count(*) from contacts x where x.tenant_id = $1 and ${ficheComptee('x', true)})::int as comptees,
               (select array_agg(w.wa_id) from unnest($2::text[]) as w(wa_id)
                 where exists (select 1 from contacts x
@@ -369,9 +370,12 @@ export class PgContactStore implements ContactStore {
     const offreLue = estOffre(ligne?.offre) ? ligne.offre : 'base';
     if (!contactsToutesOrigines(offreLue)) return null;
     // 🔴 ET LA LIMITE DE CETTE OFFRE-LÀ (2026-11-13) : depuis que le Pro et le Business refusent aussi, garder celle du
-    // cache ferait refuser à 100 un espace qui vient de passer en Pro. Elle se lit dans la grille : ni la Free, ni le Pro,
-    // ni le Business n'ont de limite de contacts réglée sur devis (`droitsDe`).
-    const max = offreLue === limite.offre ? limite.max : DROITS[offreLue].limites.contacts;
+    // cache ferait refuser à 100 un espace qui vient de passer en Pro. Ni la Free ni le Business n'ont de limite de contacts
+    // réglée sur devis : la grille. Le Pro a ses packs (2026-11-24), relus dans la MÊME requête et ajoutés par `droitsDe` :
+    // un pack acheté sur une copie de l'API vaut tout de suite à la réception, que le cache de l'offre retarde de 30 s.
+    const max = offreLue === 'pro'
+      ? droitsDe('pro', null, 0, ligne?.packs ?? 0).limites.contacts
+      : offreLue === limite.offre ? limite.max : DROITS[offreLue].limites.contacts;
     if (max === null) return null;
     const connus = new Set(ligne?.connus ?? []);
     const refuses = uniques.filter((w) => !connus.has(w)).slice(Math.max(0, max - (ligne?.comptees ?? 0)));

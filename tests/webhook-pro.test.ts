@@ -21,15 +21,18 @@ const FIN = 1_792_600_000;
 function ligne(abonnementId: string, over: Partial<AbonnementOffre> = {}): AbonnementOffre {
   return {
     abonnementId, tenantId: T1, periodicite: 'mois', livemode: true, statut: 'actif', periodeFin: null, finPrevueLe: null, finiLe: null, finRaison: null,
-    rendreNumero: false, suiteAnnonceeLe: null, essaiFinLe: null, sieges: 0, ...over,
+    rendreNumero: false, suiteAnnonceeLe: null, essaiFinLe: null, sieges: 0, packsContacts: 0, ...over,
   };
 }
 
-function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: unknown; rendre?: boolean; sieges?: number | null | Error; relue?: Date | null | Error } = {}) {
+function monter(o: {
+  connus?: string[]; issue?: IssueEnregistrementPro; panne?: unknown; rendre?: boolean; sieges?: number | null | Error; packs?: number | null | Error;
+  relue?: Date | null | Error;
+} = {}) {
   const cap = {
     enregistres: [] as Array<{ tenantId: string; abonnementId: string; periodicite: PeriodiciteOffre; livemode: boolean; periodeFin: Date | null; essaiFinLe?: Date | null }>,
     statuts: [] as Array<{ abonnementId: string; statut: string; periodeFin: Date | null; finEchouee: Date | null }>,
-    modifs: [] as Array<{ abonnementId: string; finPrevueLe: Date | null; periodicite: PeriodiciteOffre | null; essaiFinLe?: Date | null; sieges?: number }>,
+    modifs: [] as Array<{ abonnementId: string; finPrevueLe: Date | null; periodicite: PeriodiciteOffre | null; essaiFinLe?: Date | null; sieges?: number; packsContacts?: number }>,
     /** Les abonnements relus chez Stripe pour leurs sièges (livraison 7). */
     relus: [] as string[],
     fins: [] as Array<{ abonnementId: string; raison: RaisonFinOffre; finiLe: Date }>,
@@ -89,6 +92,10 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
         cap.relus.push(abonnementId);
         if (o.sieges instanceof Error) throw o.sieges;
         return o.sieges ?? null;
+      },
+      packsContactsChezStripe: async () => {
+        if (o.packs instanceof Error) throw o.packs;
+        return o.packs ?? null;
       },
       // Sans `relue`, rien n'est relu chez Stripe (`undefined`) : la charge de l'événement sert, comme avant.
       finPrevueChezStripe: async () => {
@@ -502,6 +509,18 @@ describe('les sièges payants (spec offres v2, livraison 7)', () => {
     const { srv, cap } = monter({ connus: ['sub_pro'], sieges: new Error('stripe : siege impossible (reseau)') });
     expect((await envoyer(srv, evenement(abonnementPro(), 'customer.subscription.updated'))).statusCode).toBeGreaterThanOrEqual(500);
     expect(cap.modifs).toEqual([]);
+  });
+
+  it('🔴 les packs de contacts (2026-11-24) aussi : relus CHEZ STRIPE ; pas en vente, ceux notés restent ; Stripe en panne, rien n’est écrit', async () => {
+    const lus = monter({ connus: ['sub_pro'], sieges: 1, packs: 3 });
+    expect((await envoyer(lus.srv, evenement(abonnementPro(), 'customer.subscription.updated'))).statusCode).toBe(200);
+    expect(lus.cap.modifs).toEqual([expect.objectContaining({ abonnementId: 'sub_pro', sieges: 1, packsContacts: 3 })]);
+    const absents = monter({ connus: ['sub_pro'], packs: null });
+    await envoyer(absents.srv, evenement(abonnementPro(), 'customer.subscription.updated'));
+    expect(absents.cap.modifs[0]).not.toHaveProperty('packsContacts');
+    const panne = monter({ connus: ['sub_pro'], packs: new Error('stripe : packs impossibles (reseau)') });
+    expect((await envoyer(panne.srv, evenement(abonnementPro(), 'customer.subscription.updated'))).statusCode).toBeGreaterThanOrEqual(500);
+    expect(panne.cap.modifs).toEqual([]);
   });
 
   it('🔴 le prorata PAYÉ d’un siège sur un abonnement marqué essai n’arrête jamais le numéro payé à part, même non nul', async () => {

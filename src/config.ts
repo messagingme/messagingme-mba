@@ -700,6 +700,13 @@ export const schema = z.object({
   STRIPE_PRIX_SIEGE_MOIS: z.string().default(''),
   STRIPE_PRIX_SIEGE_AN: z.string().default(''),
   /**
+   * Les prix du pack de contacts du Pro (2026-11-24, `src/stripe/packs-contacts.ts`) : 1 000 contacts de plus, 20 € HT par
+   * mois et 240 € HT par an, relus chez Stripe avant chaque achat (`PRIX_PACK_CONTACTS_HT_CENTIMES`). Posés ensemble ou pas
+   * du tout (garde plus bas) ; vides : les packs ne sont pas en vente, la page de l'offre le dit et la route rend 503.
+   */
+  STRIPE_PRIX_PACK_CONTACTS_MOIS: z.string().default(''),
+  STRIPE_PRIX_PACK_CONTACTS_AN: z.string().default(''),
+  /**
    * Le stockage objet des fichiers de la médiathèque (lot A des médias, `src/lib/magasin-objets.ts`) : le point d'accès
    * S3 de la région (`https://s3.nl-ams.scw.cloud`), la région (`nl-ams`), le bucket, et la clé d'une application
    * limitée à CE bucket. 🔴 Côté serveur uniquement, posées par Julien. Les cinq ensemble ou aucune (garde plus bas) :
@@ -917,6 +924,10 @@ export const schema = z.object({
     // Les deux prix du siège vont ensemble : un Pro annuel ne pourrait pas acheter le sien, ou un mensuel le sien.
     if ((c.STRIPE_PRIX_SIEGE_MOIS === '') !== (c.STRIPE_PRIX_SIEGE_AN === '')) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [c.STRIPE_PRIX_SIEGE_MOIS === '' ? 'STRIPE_PRIX_SIEGE_MOIS' : 'STRIPE_PRIX_SIEGE_AN'], message: 'STRIPE_PRIX_SIEGE_MOIS et STRIPE_PRIX_SIEGE_AN se posent ensemble (ou aucun des deux)' });
+    }
+    // Les deux prix du pack de contacts vont ensemble, pour la même raison que ceux du siège.
+    if ((c.STRIPE_PRIX_PACK_CONTACTS_MOIS === '') !== (c.STRIPE_PRIX_PACK_CONTACTS_AN === '')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [c.STRIPE_PRIX_PACK_CONTACTS_MOIS === '' ? 'STRIPE_PRIX_PACK_CONTACTS_MOIS' : 'STRIPE_PRIX_PACK_CONTACTS_AN'], message: 'STRIPE_PRIX_PACK_CONTACTS_MOIS et STRIPE_PRIX_PACK_CONTACTS_AN se posent ensemble (ou aucun des deux)' });
     }
     // Le stockage objet : un réglage partiel (le bucket sans la clé, ou l'inverse) ferait échouer chaque dépôt et
     // chaque lecture d'un fichier au bucket ; il est refusé au démarrage plutôt qu'en plein service.

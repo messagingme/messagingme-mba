@@ -25,6 +25,11 @@ export type DepsGestionPro = Pick<DepsPaiement, 'stripe' | 'payeurAutorise'> & {
   /** Les identifiants Stripe des prix d'un siège (`STRIPE_PRIX_SIEGE_MOIS`, `_AN`) : le tarif sépare le Pro de ses sièges. */
   prixSiege: readonly string[];
   /**
+   * Les identifiants Stripe des prix d'un pack de contacts (`STRIPE_PRIX_PACK_CONTACTS_MOIS`, `_AN`, 2026-11-24) : le tarif
+   * sépare aussi le Pro de ses packs, sinon un Pro qui en a un n'aurait plus de prix lu (deux lignes hors sièges).
+   */
+  prixPacksContacts: readonly string[];
+  /**
    * Les identifiants Stripe des prix des achats PONCTUELS (`STRIPE_PRIX_REFILL_*`, `STRIPE_PRIX_WA_*`) : leur facture ne porte
    * pas d'abonnement, c'est le prix de sa ligne qui dit si elle recharge le crédit IA ou la ligne de crédit.
    */
@@ -96,9 +101,9 @@ export async function tarifDuPro(d: DepsGestionPro, tenantId: string, payeur: st
   try {
     const a = await lireAbonnementStripe(s.transport, { cle: s.cle, abonnementId: pro.abonnementId });
     const estSiege = (prix: string): boolean => d.prixSiege.includes(prix);
-    const lignesPro = a.lignes.filter((l) => !estSiege(l.prix));
+    const lignesPro = a.lignes.filter((l) => !estSiege(l.prix) && !d.prixPacksContacts.includes(l.prix));
     const siege = a.lignes.find((l) => estSiege(l.prix) && l.quantite > 0);
-    // UNE seule ligne hors sièges, sinon pas de prix : après un changement de tarif, un siège à l'ancien prix n'est plus
+    // UNE seule ligne hors sièges et packs, sinon pas de prix : après un changement de tarif, un siège à l’ancien prix n’est plus
     // reconnu et s'ajouterait au Pro (relecture du 2026-10-26). La console garde alors la grille.
     const seule = lignesPro.length === 1 ? lignesPro[0]! : null;
     const proHtCentimes = seule !== null && seule.montantCentimes !== null ? seule.montantCentimes * seule.quantite : null;

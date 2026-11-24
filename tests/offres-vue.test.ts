@@ -26,6 +26,7 @@ function vue(
     proEnVente,
     suiteDuNumero: async () => suite,
     siegesEnVente: true,
+    packsContactsEnVente: true,
     abonnement: async () => abonnement,
     ongletCreditWhatsapp: async () => false,
   });
@@ -69,7 +70,7 @@ describe('creerVueOffre', () => {
       offres: { offreDe: async () => ({ offre, droits: DROITS[offre], retourEnBaseLe: null }) },
       usage: async () => ({ contacts, automations: 0, membres: 1 }),
       modelesDuMois: { etatDuMois: async () => null },
-      proEnVente: true, suiteDuNumero: async () => null, siegesEnVente: true,
+      proEnVente: true, suiteDuNumero: async () => null, siegesEnVente: true, packsContactsEnVente: true,
       abonnement: async () => null,
       ongletCreditWhatsapp: async () => false,
     })('t1');
@@ -165,13 +166,21 @@ describe('l’essai du Pro dans la vue', () => {
 });
 
 describe('les sièges du Pro dans la vue (spec offres v2, livraison 7)', () => {
-  const avecSieges = (offre: Offre, pro: { sieges: number; periodicite: 'mois' | 'an' } | null, siegesEnVente = true) => creerVueOffre({
-    offres: { offreDe: async () => ({ offre, droits: droitsDe(offre, null, pro?.sieges ?? 0), retourEnBaseLe: null, pro }) },
+  const avecSieges = (
+    offre: Offre, pro: { sieges: number; packsContacts?: number; periodicite: 'mois' | 'an' } | null, siegesEnVente = true, packsContactsEnVente = true,
+  ) => creerVueOffre({
+    offres: {
+      offreDe: async () => ({
+        offre, droits: droitsDe(offre, null, pro?.sieges ?? 0, pro?.packsContacts ?? 0), retourEnBaseLe: null,
+        pro: pro && { ...pro, packsContacts: pro.packsContacts ?? 0 },
+      }),
+    },
     usage: async () => ({ contacts: 0, automations: 0, membres: 4 }),
     modelesDuMois: { etatDuMois: async () => null },
     proEnVente: true,
     suiteDuNumero: async () => null,
     siegesEnVente,
+    packsContactsEnVente,
     abonnement: async () => null,
     ongletCreditWhatsapp: async () => false,
   });
@@ -188,6 +197,19 @@ describe('les sièges du Pro dans la vue (spec offres v2, livraison 7)', () => {
     expect(free.sieges).toBeNull();
     expect(free.prixSiege).toEqual({ moisCentimes: 1500, anCentimes: 15000 });
     expect((await avecSieges('pro', { sieges: 0, periodicite: 'mois' }, false)('t1')).prixSiege).toBeNull();
+  });
+
+  it('🔴 les packs de contacts (2026-11-24) : un Pro mensuel avec deux packs compte 3 000 contacts, le prix de sa formule lisible', async () => {
+    const v = await avecSieges('pro', { sieges: 0, packsContacts: 2, periodicite: 'mois' })('t1');
+    expect(v.packsContacts).toEqual({ inclus: 1000, achetes: 2, contactsParPack: 1000, periodicite: 'mois' });
+    expect(v.limites.contacts).toBe(3000);
+    expect(v.prixPackContacts).toEqual({ moisCentimes: 2000, anCentimes: 24000 });
+  });
+
+  it('hors Pro : aucun pack (le Business n’en reçoit pas) ; packs pas en vente : aucun prix', async () => {
+    expect((await avecSieges('business', null)('t1')).packsContacts).toBeNull();
+    expect((await avecSieges('base', null)('t1')).packsContacts).toBeNull();
+    expect((await avecSieges('pro', { sieges: 0, periodicite: 'an' }, true, false)('t1')).prixPackContacts).toBeNull();
   });
 });
 

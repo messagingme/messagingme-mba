@@ -5,6 +5,7 @@ import { espaceVerifie } from './scope';
 import { corpsDuRefus, type Issue } from '../lib/issue';
 import type { PeriodicitePro } from '../stripe/pro';
 import type { DemandeSieges } from '../stripe/sieges';
+import type { DemandePacks } from '../stripe/packs-contacts';
 import type { FactureEspace, TarifPro } from '../stripe/gestion-pro';
 
 /**
@@ -29,6 +30,11 @@ export interface OffrePaiementRouteDeps {
    * ensuite, et un ajout seulement si son prorata est payé.
    */
   sieges(tenantId: string, demande: DemandeSieges, payeur: string): Promise<Issue<{ sieges: number }>>;
+  /**
+   * Les packs de 1 000 contacts du Pro (2026-11-24, `changerPacksContacts`, `src/stripe/packs-contacts.ts`) : les mêmes
+   * règles que les sièges, et un retrait refusé tant que les contacts comptés ne tiennent pas dans ce qui reste.
+   */
+  packsContacts(tenantId: string, demande: DemandePacks, payeur: string): Promise<Issue<{ packs: number }>>;
   /** Résilier le Pro à la fin de sa période, ou annuler cette résiliation (`changerResiliationPro`, `src/stripe/gestion-pro.ts`). */
   resiliation(tenantId: string, resilier: boolean, payeur: string): Promise<Issue<{ finPrevueLe: string | null }>>;
   /**
@@ -50,6 +56,10 @@ export const corpsSchema = z.object({ periodicite: z.enum(['mois', 'an']) }).str
  * Stripe), et jamais un saut (une requête ne charge pas mille sièges sur la carte, Y7 de la relecture).
  */
 const corpsSiegesSchema = z.object({ depuis: z.number().int().min(0).max(1000), cible: z.number().int().min(0).max(1000) })
+  .strict()
+  .refine((c) => Math.abs(c.cible - c.depuis) === 1);
+/** Un pack de contacts à la fois, sur le même modèle : ni prix ni montant, jamais un saut. */
+const corpsPacksSchema = z.object({ depuis: z.number().int().min(0).max(1000), cible: z.number().int().min(0).max(1000) })
   .strict()
   .refine((c) => Math.abs(c.cible - c.depuis) === 1);
 /** Rendre le numéro : un booléen, rien d'autre. */
@@ -85,6 +95,19 @@ export function registerOffrePaiement(app: FastifyInstance, deps: OffrePaiementR
     const lu = corpsSiegesSchema.safeParse(req.body ?? {});
     if (!lu.success) return reply.code(400).send({ error: 'depuis et cible requis : un siège de plus ou de moins à la fois' });
     const r = await deps.sieges(tenant, lu.data, req.auth?.userId ?? '');
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
+    return reply.code(200).send(r.valeur);
+  });
+
+  /**
+   * Les packs de 1 000 contacts du Pro (2026-11-24) : un administrateur, sous le plafond coûteux (chaque ajout écrit chez
+   * Stripe et facture un prorata). La page Offre l'appelle : « Ajouter 1 000 contacts » et « Retirer ».
+   */
+  app.post('/tenants/:tenantId/offre/packs-contacts', couteux, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const lu = corpsPacksSchema.safeParse(req.body ?? {});
+    if (!lu.success) return reply.code(400).send({ error: 'depuis et cible requis : un pack de plus ou de moins à la fois' });
+    const r = await deps.packsContacts(tenant, lu.data, req.auth?.userId ?? '');
     if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
     return reply.code(200).send(r.valeur);
   });
