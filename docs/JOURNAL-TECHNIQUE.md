@@ -5,6 +5,28 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-20 au 23 : la relance avec agent IA en production, le scénario déplié, « Modifier » dans le bloc
+
+**Relance de panier avec agent IA (suite de l'entrée du 2026-11-20).** Le serveur (da17a5f31) est parti dans le
+déploiement lancé par une autre session pour la sortie « En cas d'échec » (run 44778932796, `migration=aucune`, approuvé
+par Julien) : sa propre CI avait été annulée par les pushs suivants, celle de 925312a33, qui le contenait, était verte.
+La sonde de Julien a relu 0306 conforme (quatre valeurs dans `shopify_lignes_evenement_check`) et compté les blocs Agent
+IA publiés : les dix visaient un agent actif, aucune session en cours sur un agent inactif, donc le changement de
+`runTurn` ne touchait personne. Console, aide et plugin 0.3.60 en 81b54b0f1. Relecture sans rouge, jaunes au `todo.md`.
+
+**Le scénario d'une automation se déplie sous sa liste (2af74f04e, demande de Julien : « les gens ne voient pas le
+bouton en haut à gauche pour revenir »).** Shopify et HubSpot : « Ouvrir le scénario » déplie le builder sur la même
+page, le premier allumage et la création d'une ligne HubSpot aussi. Le panneau d'édition de la page des scénarios est
+devenu `ScenarioOuvert` et le lien de test `useTestDeScenario`, partagés. Relecture sans rouge ; deux jaunes corrigés
+dans le lot (l'écran descend jusqu'au scénario ouvert, il se replie quand on supprime sa ligne HubSpot), le reste au
+`todo.md`.
+
+**« Modifier » dans le bloc template (2af74f04e, puis fc9505574).** D'abord sous le message déplié, puis, à la demande
+de Julien, toujours visible, en bas à droite du message, en gras sur un fond bleu clair : le bouton du panneau de droite
+n'est pas trouvé par les clients. Même règle que « Modifier ce template » (ni carrousel, ni en-tête média). Les e2e de
+l'éditeur et des automations passent ; les deux rouges de la CI front de ces jours (le canevas à 390 px, l'écran sans
+page « Comment faire ») venaient d'autres lots.
+
 ## 2026-11-23 : segments Shopify, lot 5 : le rattrapage des commandes des 60 derniers jours
 
 Plan `docs/superpowers/plans/2026-11-23-segments-shopify-lot-5-rattrapage.md`, implémenteur par lot et revue humaine du
