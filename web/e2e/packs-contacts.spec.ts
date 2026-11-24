@@ -14,9 +14,12 @@ const limites = (o: 'free' | 'pro', contacts: number) => ({
   journalWebhooksJours: o === 'free' ? 3 : 30, conservationJours: o === 'free' ? 30 : 90, commissionPct: o === 'free' ? 50 : 20,
   badge: o === 'free', numeroInclus: o !== 'free',
 });
+// La grille entière : une vue sans la ligne de l'Entreprise est illisible pour la console (`lireVueOffre`), qui la lit
+// alors « offre inconnue » et ne montre pas le bloc.
 const GRILLE = {
   free: { fonctions: [], limites: limites('free', 100) },
   pro: { fonctions: PRO, limites: limites('pro', 1000) },
+  entreprise: { fonctions: [...PRO, 'analyse', 'publicites', 'chaines', 'crm', 'rcs', 'performance_lab'], limites: { ...limites('pro', 1000), utilisateurs: null, contacts: null } },
 };
 const PRIX_PACK = { moisCentimes: 2000, anCentimes: 24000 };
 const vuePro = (achetes: number, o: { periodicite?: 'mois' | 'an'; enVente?: boolean } = {}) => ({
