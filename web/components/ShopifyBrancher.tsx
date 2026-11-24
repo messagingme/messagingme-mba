@@ -20,8 +20,11 @@ import { TEXTE_ATTESTATION_SHOPIFY } from '@/lib/partage/shopify-messages';
  * celle de Claude Code dit « revenez dans Claude Code ».
  */
 
-/** Les droits de l'app, ceux de `shopify.app.toml` (la skill du plugin) : la même app, créée sans la CLI. */
-export const DROITS_SHOPIFY = 'read_customers,read_orders,read_checkouts,read_fulfillments';
+/**
+ * Les droits de l'app, ceux de `shopify.app.toml` (la skill du plugin) : la même app, créée sans la CLI. `read_products`
+ * depuis le 2026-11-24 : le rattrapage des commandes en a besoin (le produit d'une ligne, par l'API).
+ */
+export const DROITS_SHOPIFY = 'read_customers,read_orders,read_checkouts,read_fulfillments,read_products';
 
 /**
  * LA CASE DE L'ATTESTATION (Julien, 2026-11-20) : le marchand atteste que les clients de sa boutique consentent à recevoir
@@ -152,8 +155,8 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
         <span className="mt-1 block">{t('3. Décochez « Intégrer l’appli dans l’interface administrateur Shopify ».', '3. Untick “Embed app in Shopify admin”.')}</span>
         <span className="mt-1 block">
           {t(
-            '4. Portées : appuyez sur « Sélectionner dans la liste » et cochez read_customers, read_orders, read_checkouts et read_fulfillments (ou collez la liste dans le champ).',
-            '4. Scopes: click “Select from list” and tick read_customers, read_orders, read_checkouts and read_fulfillments (or paste the list in the field).',
+            '4. Portées : appuyez sur « Sélectionner dans la liste » et cochez read_customers, read_orders, read_checkouts, read_fulfillments et read_products (ou collez la liste dans le champ).',
+            '4. Scopes: click “Select from list” and tick read_customers, read_orders, read_checkouts, read_fulfillments and read_products (or paste the list in the field).',
           )}
         </span>
         {ligneCopiable(DROITS_SHOPIFY, t('Droits de l’appli', 'App scopes'), 'shopify-copier-droits')}

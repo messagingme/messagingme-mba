@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   apercuReprise, cablerReprise, debutDeFenetre, etatReprise, FENETRE_REPRISE_JOURS, lancerReprise, PAR_PAGE_REPRISE, rattacher,
-  traiterReprise, vueReprise, type JobReprise,
+  SANS_READ_PRODUCTS, traiterReprise, vueReprise, type JobReprise,
 } from '../src/shopify/reprise';
 import { BAIL_REPRISE_SECONDES, ERREUR_ABANDON, type PgReprisesStore, type Reprise } from '../src/shopify/reprises.pg';
 import type { PgShopifyStore } from '../src/shopify/store.pg';
@@ -129,6 +129,16 @@ describe('l’aperçu', () => {
     expect(jamais.trace.lectures.map((l) => l.parPage)).toEqual([5, 2, 1]);
   });
 
+  it('🔴 sans le droit read_products, un refus qui dit comment l’ajouter, sans rien lire chez Shopify (mesuré le 2026-11-24)', async () => {
+    const { deps, trace } = monterReprise({ droits: ['read_customers', 'read_orders', 'read_checkouts', 'read_fulfillments'] });
+    expect(await apercuReprise(deps, T)).toEqual({ ok: false, statut: 409, message: SANS_READ_PRODUCTS });
+    expect(SANS_READ_PRODUCTS).toMatch(/read_products.*réinstallez-la/);
+    expect(trace.lectures).toEqual([]);
+    // Les droits illisibles : Shopify absent (503), ou l'app refusée (409).
+    expect(await apercuReprise(monterReprise({ droits: { ok: false, code: 'passager', message: 'droits illisibles' } }).deps, T)).toEqual({ ok: false, statut: 503, message: 'droits illisibles' });
+    expect(await apercuReprise(monterReprise({ droits: { ok: false, code: 'acces_refuse', message: 'app refusée' } }).deps, T)).toEqual({ ok: false, statut: 409, message: 'app refusée' });
+  });
+
   it('les refus : aucune boutique, boutique coupée, app refusée (409), Shopify absent (503)', async () => {
     expect(await apercuReprise(monterReprise({ boutique: null }).deps, T)).toMatchObject({ ok: false, statut: 409, message: expect.stringMatching(/Aucune boutique Shopify/) });
     expect(await apercuReprise(monterReprise({ boutique: { ...BOUTIQUE_REPRISE, etat: 'coupee' } }).deps, T)).toMatchObject({ ok: false, statut: 409, message: expect.stringMatching(/coupée/) });
@@ -169,6 +179,13 @@ describe('le lancement', () => {
     expect(lignes[0]!.r).toMatchObject({ statut: 'erreur', erreur: expect.stringMatching(/n’a pas pu démarrer.*file indisponible/) });
     deps.enfiler = async () => undefined;
     expect((await lancerReprise(deps, T, null)).ok).toBe(true);
+  });
+
+  it('🔴 sans le droit read_products, le lancement est refusé avec la même phrase, sans rien inscrire ni enfiler', async () => {
+    const { deps, trace, lignes } = monterReprise({ droits: ['read_orders'] });
+    expect(await lancerReprise(deps, T, null)).toEqual({ ok: false, statut: 409, message: SANS_READ_PRODUCTS });
+    expect(lignes).toEqual([]);
+    expect(trace.jobs).toEqual([]);
   });
 
   it('refusé sans boutique ou boutique coupée, sans rien inscrire', async () => {
@@ -278,11 +295,14 @@ describe('le job', () => {
     await traiterReprise(coupee.deps, coupee.job);
     expect(coupee.ligne().r).toMatchObject({ statut: 'erreur', erreur: expect.stringMatching(/coupée/) });
 
-    const refusee = await lance({ jeton: { ok: false, code: 'app_non_installee', message: 'app désinstallée' } });
+    // Lancées avec une app valide, puis l'app refusée ou Shopify absent au passage du job.
+    const refusee = await lance();
+    refusee.deps.jeton = async () => ({ ok: false, code: 'app_non_installee', message: 'app désinstallée' });
     await traiterReprise(refusee.deps, refusee.job);
     expect(refusee.ligne().r).toMatchObject({ statut: 'refuse', erreur: 'app désinstallée' });
 
-    const absent = await lance({ jeton: { ok: false, code: 'passager', message: 'Shopify ne répond pas' } });
+    const absent = await lance();
+    absent.deps.jeton = async () => ({ ok: false, code: 'passager', message: 'Shopify ne répond pas' });
     await expect(traiterReprise(absent.deps, absent.job)).rejects.toThrow('Shopify ne répond pas');
     expect(absent.ligne().r.statut).toBe('en_cours');
     expect(absent.ligne().bail).toBeNull();
@@ -335,6 +355,14 @@ describe('le job', () => {
     await traiterReprise(deps, job);
     expect(trace.lectures).toHaveLength(1);
     expect(ligne().r).toMatchObject({ statut: 'en_cours', curseur: null });
+  });
+
+  it('🔴 le droit read_products retiré après le lancement : la reprise se clôt en « refuse » avec sa phrase, rien n’est lu', async () => {
+    const { deps, trace, job, ligne } = await lance({ pages: { '': page([commandeLue(1)], null) } });
+    deps.droits = async () => ({ ok: true, droits: ['read_orders'] });
+    await traiterReprise(deps, job);
+    expect(ligne().r).toMatchObject({ statut: 'refuse', erreur: SANS_READ_PRODUCTS });
+    expect(trace.lectures).toEqual([]);
   });
 
   it('un job illisible est journalisé et ne prend rien', async () => {

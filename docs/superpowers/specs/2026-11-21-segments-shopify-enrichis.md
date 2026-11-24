@@ -650,6 +650,10 @@ Ce n'est pas notre chemin.
 L'objet GraphQL [Order](https://shopify.dev/docs/api/admin-graphql/latest/objects/Order) répète la fenêtre de 60 jours
 et renvoie vers cette page. Il expose `lineItems`, une connexion paginée. Les collections n'y sont pas. Le lot 1a a
 donc de quoi remplir `shopify_commande_lignes` pendant la reprise, sans `read_products`.
+**Démenti par la mesure le 2026-11-24** (lot 5, en production) : `product` et `variant` d'une ligne rendent ACCESS_DENIED
+sans `read_products` (« Required access: `read_products` access scope »), quand le webhook, lui, porte leurs
+identifiants sans ce droit. Décision de Julien : demander `read_products` dès le lot 5 ; le rattrapage refuse, en le
+disant, une app qui ne l'a pas.
 
 Un fil du forum (janvier 2026, réponse d'un employé Shopify) dit qu'une app d'organisation marchande lirait tout
 l'historique avec `read_orders` seul. Ce n'est pas ce que la page des scopes écrit. La spec suit la page. Le premier

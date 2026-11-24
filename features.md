@@ -3260,7 +3260,9 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   les très grandes ; la carte et `get_shopify_order_history` disent où il en est. Une commande déjà connue garde sa
   fiche et reçoit ses produits s'il lui en manque ; une commande sans fiche à son numéro, ou sans numéro utilisable, est
   comptée, jamais gardée. Aucune fiche n'est créée, aucun message ne part, le chiffre rapporté par WhatsApp n'en change
-  pas. Un seul rattrapage à la fois par espace ; relancé, il relit la fenêtre sans doublon ; une boutique coupée ou
+  pas. Il demande à l'app de la boutique le droit `read_products` (dans la liste des droits depuis le 2026-11-24 : une
+  app plus ancienne l'ajoute à ses portées, publie sa nouvelle version et se réinstalle ; l'aperçu et le lancement le
+  disent). Un seul rattrapage à la fois par espace ; relancé, il relit la fenêtre sans doublon ; une boutique coupée ou
   remplacée pendant qu'il tourne l'arrête. Ensuite, le volet des achats et `find_contacts` (`orders_backfilled_since`)
   disent depuis quand les commandes ont été relues, tant qu'aucune coupure n'a suivi. Outils :
   `preview_shopify_order_history`, `import_shopify_order_history`, `get_shopify_order_history`.

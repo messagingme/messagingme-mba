@@ -13,6 +13,8 @@ import { schemaCommande } from '../src/shopify/donnees';
  * PGlite (`tests/integration/shopify-reprises.integration.test.ts`).
  */
 
+/** Les droits d'une app à jour (2026-11-24) : ceux d'avant, plus `read_products`. */
+export const DROITS_A_JOUR = ['read_customers', 'read_orders', 'read_checkouts', 'read_fulfillments', 'read_products'];
 export const BOUTIQUE_REPRISE = { domaine: 'b.myshopify.com', clientId: 'cid', secret: 'shpss_x', pays: 'FR', devise: 'EUR', etat: 'connectee' };
 /** Le 2026-11-23 à midi (UTC) : la fenêtre commence le 2026-09-24 à minuit. */
 export const MIDI_REPRISE = Date.UTC(2026, 10, 23, 12);
@@ -43,6 +45,8 @@ interface LigneFaux { r: Reprise; tenantId: string; jeton: string | null; bail: 
 export function monterReprise(o: {
   boutique?: typeof BOUTIQUE_REPRISE | null;
   jeton?: IssueJeton;
+  /** Les droits de l'app, ou le refus de leur lecture ; par défaut, une app à jour. */
+  droits?: string[] | { ok: false; code: 'acces_refuse' | 'passager'; message: string };
   /** Les pages par curseur (`''` : la première). Une liste se sert dans l'ordre, sa dernière ensuite ; aucune : page vide et finale. */
   pages?: Record<string, PageCommandes | PageCommandes[]>;
   /** Les commandes déjà notées. */
@@ -61,6 +65,7 @@ export function monterReprise(o: {
     connues: [] as string[][],
     numeros: [] as string[][],
     jetons: 0,
+    droits: 0,
   };
   const tenue = (l: LigneFaux) => l.bail !== null && l.bail > horloge.t;
   const vue = (l: LigneFaux): Reprise => ({ ...l.r, comptes: { ...l.r.comptes }, tenue: tenue(l) });
@@ -136,6 +141,11 @@ export function monterReprise(o: {
     reprises,
     boutique: async () => (o.boutique === undefined ? BOUTIQUE_REPRISE : o.boutique),
     jeton: async () => { trace.jetons += 1; return o.jeton ?? { ok: true, jeton: 'jeton-de-test' }; },
+    droits: async () => {
+      trace.droits += 1;
+      if (o.droits !== undefined && !Array.isArray(o.droits)) return o.droits;
+      return { ok: true, droits: o.droits ?? DROITS_A_JOUR };
+    },
     lirePage: async (_acces, p) => {
       trace.lectures.push({ apres: p.apres, parPage: p.parPage, depuis: p.depuis.toISOString(), delaiMs: p.delaiMs });
       horloge.t += o.msParPage ?? 0;

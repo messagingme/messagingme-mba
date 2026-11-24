@@ -226,8 +226,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Rattrape mes commandes Shopify des 60 derniers jours.', en: 'Catch up my Shopify orders of the last 60 days.' },
         outils: ['preview_shopify_order_history', 'import_shopify_order_history', 'get_shopify_order_history'],
         reponse: {
-          fr: 'Claude compte d’abord, sans rien écrire, les commandes payées des 60 derniers jours : déjà connues, à rattacher à une fiche, sans fiche ou sans numéro. Avec votre accord, il lance le rattrapage, quelques minutes pour la plupart des boutiques : chaque commande rejoint la fiche de son numéro, avec ses produits. Aucune fiche n’est créée, aucun message ne part.',
-          en: 'Claude counts first, writing nothing, the paid orders of the last 60 days: already known, to attach to a record, without a record or without a phone. With your go-ahead, it starts the catch-up, a few minutes for most stores: each order joins the record of its phone, with its products. No record is created, no message goes out.',
+          fr: 'Claude vérifie que votre app Shopify a le droit read_products, et l’y ajoute s’il manque (une nouvelle version, puis le lien pour l’accepter). Il compte ensuite, sans rien écrire, les commandes payées des 60 derniers jours : déjà connues, à rattacher à une fiche, sans fiche ou sans numéro. Avec votre accord, il lance le rattrapage, quelques minutes pour la plupart des boutiques : chaque commande rejoint la fiche de son numéro, avec ses produits. Aucune fiche n’est créée, aucun message ne part.',
+          en: 'Claude checks that your Shopify app has the read_products scope, and adds it if missing (a new version, then the link to accept it). It then counts, writing nothing, the paid orders of the last 60 days: already known, to attach to a record, without a record or without a phone. With your go-ahead, it starts the catch-up, a few minutes for most stores: each order joins the record of its phone, with its products. No record is created, no message goes out.',
         },
       },
       {

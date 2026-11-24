@@ -3226,8 +3226,8 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   propose que sur `produits: true` de `GET .../contacts/segments` ; `GET .../contacts/segments/produits` cherche les
   produits DÉJÀ VUS (jamais le catalogue, 20 au plus, `%` et `_` à la lettre), et `get_shopify_state` en rend les 20
   plus achetés à l'assistant, au mieux. L'onglet Shopify de la fiche lit les lignes par une requête à part, au mieux :
-  il existait avant elles et ne doit pas tomber avec elles. Les collections attendent le lot 6 et son droit
-  `read_products` (décision de Julien du 2026-11-23) ;
+  il existait avant elles et ne doit pas tomber avec elles. Les collections attendent le lot 6 ; son droit
+  `read_products` est demandé dès le lot 5, pour le rattrapage (décision de Julien du 2026-11-24) ;
 - **les deux boutons prêts du volet Shopify** (segments Shopify enrichis, lot 4) : « a écrit sans commander »
   (`segment_ecrit_sans_commande`) et « a cliqué sans commander » (`segment_clic_sans_commande`), valeur `true` et rien
   d'autre (`lireSegment` refuse le reste), réservés aux espaces à boutique (`CLES_COMMANDES`). La date du geste non
@@ -3242,7 +3242,11 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   GraphQL (`lirePageCommandes`, `src/shopify/commandes-lues.ts`, par `fetchPublic`), reformées en corps du webhook
   `orders/paid` puis validées par `schemaCommande` : le même numéro (`telephoneDeCommande`), le même montant et les
   mêmes lignes (`detailsDeCommande`) qu'une commande reçue. Seules les payées comptent (`PAID`, `PARTIALLY_REFUNDED`,
-  `REFUNDED`). Une commande DÉJÀ notée garde sa fiche ; elle ne reçoit ses lignes que si elle n'en a aucune et que sa
+  `REFUNDED`). 🔴 Avant toute lecture, les droits de l'app (`lireDroitsDeLApp`, `currentAppInstallation.accessScopes`) :
+  sans `read_products`, refus (`SANS_READ_PRODUCTS`), au lancement comme au passage du job, car `product` et `variant`
+  d'une ligne n'existent par l'API qu'avec ce droit (mesuré le 2026-11-24 ; le webhook, lui, porte leurs identifiants
+  sans lui). Un champ refusé se dit par le message de Shopify, jamais par une cause devinée. Une commande DÉJÀ notée
+  garde sa fiche ; elle ne reçoit ses lignes que si elle n'en a aucune et que sa
   fiche est active (`commandesConnues`, `aCompleter`) : réécrire une commande complète la dirait tronquée à tort, le
   rattrapage lisant 50 lignes par commande quand le webhook en garde 250. Une inconnue rejoint la fiche ACTIVE de son
   numéro (`fichesParNumeros`, celle que `findByPhone` donnerait au webhook) ; sinon elle est comptée, jamais gardée.

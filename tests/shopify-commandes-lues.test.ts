@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LIGNES_PAR_COMMANDE, lirePageCommandes } from '../src/shopify/commandes-lues';
+import { LIGNES_PAR_COMMANDE, lireDroitsDeLApp, lirePageCommandes } from '../src/shopify/commandes-lues';
 import { API_VERSION_SHOPIFY } from '../src/shopify/connexion';
 import { lignesDeCommande, telephoneDeCommande } from '../src/shopify/donnees';
 import { detailsDeCommande } from '../src/shopify/attribution';
@@ -143,11 +143,19 @@ describe('les refus de Shopify', () => {
     expect(s.requetes).toHaveLength(3);
   });
 
-  it('accès refusé : 401, 403, ou les données client protégées (ACCESS_DENIED)', async () => {
+  it('accès refusé : 401, 403, ou un champ refusé (ACCESS_DENIED)', async () => {
     for (const r of [{ statut: 401, corps: '' }, { statut: 403, corps: '' }, { corps: erreur('ACCESS_DENIED', 'Access denied for orders field.') }]) {
       const s = servir(r);
       expect(await lirePageCommandes(ACCES, PARAMS, s.appeler, s.attendre)).toMatchObject({ ok: false, code: 'acces_refuse' });
     }
+  });
+
+  it('🔴 un champ refusé se dit par le message de Shopify, jamais par une cause devinée (2026-11-24 : read_products, pas les données protégées)', async () => {
+    const message = 'Access denied for product field. Required access: `read_products` access scope.';
+    const s = servir({ corps: { ...reponse([noeud(1)]), ...erreur('ACCESS_DENIED', message) } });
+    const p = await lirePageCommandes(ACCES, PARAMS, s.appeler, s.attendre);
+    expect(p).toMatchObject({ ok: false, code: 'acces_refuse', message: expect.stringContaining(message) });
+    expect(p.ok === false && p.message).not.toMatch(/données client protégées/);
   });
 
   it('page trop lourde : un 5xx, MAX_COST_EXCEEDED, INTERNAL_SERVER_ERROR, un corps démesuré', async () => {
@@ -167,6 +175,27 @@ describe('les refus de Shopify', () => {
     ]) {
       const s = servir(r);
       expect(await lirePageCommandes(ACCES, PARAMS, s.appeler, s.attendre)).toMatchObject({ ok: false, code: 'passager' });
+    }
+  });
+});
+
+describe('les droits de l’app', () => {
+  it('🔴 lit les droits accordés à l’app de la boutique, par la même adresse et le même jeton', async () => {
+    const s = servir({ corps: { data: { currentAppInstallation: { accessScopes: [{ handle: 'read_orders' }, { handle: 'read_products' }] } } } });
+    expect(await lireDroitsDeLApp(ACCES, s.appeler)).toEqual({ ok: true, droits: ['read_orders', 'read_products'] });
+    expect(s.requetes[0]!.url).toBe(`https://b.myshopify.com/admin/api/${API_VERSION_SHOPIFY}/graphql.json`);
+    expect(new Headers(s.requetes[0]!.init.headers).get('x-shopify-access-token')).toBe('jeton');
+    expect(s.requetes[0]!.corps.query).toContain('currentAppInstallation { accessScopes { handle } }');
+  });
+
+  it('une app refusée (401, 403) se dit ; une réponse illisible ou une panne réseau est passagère', async () => {
+    for (const statut of [401, 403]) {
+      const s = servir({ statut, corps: '' });
+      expect(await lireDroitsDeLApp(ACCES, s.appeler)).toMatchObject({ ok: false, code: 'acces_refuse' });
+    }
+    for (const r of [{ corps: 'pas du json' }, { corps: { data: null } }, { statut: 500, corps: '' }, new Error('délai dépassé')]) {
+      const s = servir(r);
+      expect(await lireDroitsDeLApp(ACCES, s.appeler)).toMatchObject({ ok: false, code: 'passager' });
     }
   });
 });

@@ -5,6 +5,29 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : segments Shopify, lot 5 (suite) : le rattrapage demande le droit read_products
+
+Le lot 5 est parti en production par le run 45345072980 (`migration=avant`, « 0313_shopify_reprises.sql ... ok »,
+seule migration ; fumée et fiches OAuth conformes), lancé et approuvé par Julien. Relu en base par Julien, en lecture
+seule et par le vrai code de l'image : les dix-neuf colonnes, les contraintes sous leur nom, la clé étrangère en
+cascade, les trois index valides (l'index partiel « une reprise vivante » à son prédicat exact), le suivi des segments
+qui lit la table, les quatre écritures du bail refusées par la lecture seule après l'analyse de leur SQL. `aide:charger`
+sur l'image 8a99652a0 : 361 lignes, 0 retirée.
+🔴 Mais l'aperçu réel était refusé. Une sonde de diagnostic, champ par champ, a mesuré la cause : `product` et `variant`
+d'une ligne rendent ACCESS_DENIED sans `read_products` (« Required access: `read_products` access scope »), quand le
+webhook, lui, porte leurs identifiants sans ce droit ; ni le téléphone, ni les adresses, ni le client ne posaient
+problème. Aucune boutique n'avait ce droit (les apps ont `read_customers`, `read_orders`, `read_checkouts`,
+`read_fulfillments`) : le rattrapage se refusait partout, sans rien casser, et son message accusait à tort l'accès aux
+données client protégées. La spec affirmait le contraire (« de quoi remplir les lignes pendant la reprise, sans
+`read_products` ») : elle est annotée en place. Aucun faux ne pouvait le voir : le mécanisme n'avait pas tourné sur de
+vraies données. Arbitrage de Julien, en question fermée : demander `read_products` dès maintenant, plutôt qu'au lot 6.
+Les droits de l'app se lisent avant toute lecture (`lireDroitsDeLApp`) : sans `read_products`, l'aperçu, le lancement
+et le job refusent avec la phrase qui dit comment l'ajouter, sans rien lire ; un champ refusé se dit par le message de
+Shopify, jamais par une cause devinée. Le droit entre dans le gabarit de l'app de la skill et dans la liste copiable de
+la console ; la skill sait l'ajouter à une app déjà installée (portées, `app deploy`, lien d'installation pour
+l'accepter). La fiche « Brancher ma boutique Shopify » (français et anglais) et la page « Depuis Claude » le disent ; la
+capture de l'étape 2 est refaite. Quatre mutations de plus, toutes rouges, chacune sur le test qui la vise.
+
 ## 2026-11-24 : « Enregistrer et activer » à la fin de l'entretien
 
 Julien : à la fin de « Construire en parlant », à côté de « Enregistrer », « un bouton Enregistrer et Activer, comme ça

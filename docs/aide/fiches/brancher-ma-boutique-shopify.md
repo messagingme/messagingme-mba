@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 78c5cb
+source_empreinte: 72c0cf
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -176,6 +176,10 @@ ou sans numéro. « Lancer le rattrapage » les relit toutes en arrière-plan, e
 Chaque commande rejoint la fiche de son numéro, avec son montant et ses produits ; une commande sans fiche est
 comptée, jamais gardée. Aucune fiche n'est créée, aucun message ne part, et le chiffre rapporté par WhatsApp n'en
 change pas. Comptez quelques minutes pour la plupart des boutiques, plus d'une heure pour les très grandes.
+
+**Bon à savoir.** Le rattrapage demande à votre app Shopify le droit read_products. Une app créée avant le 24 novembre
+2026 ne l'a pas : ajoutez-le à ses portées sur le tableau de bord développeur de Shopify, publiez sa nouvelle version,
+puis réinstallez-la sur votre boutique pour l'accepter. Tant qu'il manque, l'aperçu le dit et rien n'est lu.
 
 **Bon à savoir.** Les commandes comptent depuis le branchement de la boutique ; un rattrapage ajoute celles des 60 jours
 qui le précèdent, Shopify ne laissant pas lire plus loin. Sans rattrapage, juste après le branchement, « au moins 2

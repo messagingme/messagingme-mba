@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: f801d8
+traduit_de: 311fea
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -166,6 +166,10 @@ phone. “Start the catch-up” reads them all again in the background, and the 
 Each order joins the record of its phone, with its amount and products; an order without a record is counted, never
 kept. No record is created, no message goes out, and the revenue brought in by WhatsApp does not change. Allow a few
 minutes for most stores, over an hour for the largest.
+
+**Good to know.** The catch-up needs the read_products scope on your Shopify app. An app created before November 24,
+2026 does not have it: add it to its scopes on the Shopify developer dashboard, release its new version, then install
+it again on your store to accept it. As long as it is missing, the preview says so and nothing is read.
 
 **Good to know.** Orders count from the moment the store was connected; a catch-up adds those of the 60 days before
 it, as Shopify lets no one read further back. Without a catch-up, right after connecting, “at least 2 orders”

@@ -344,7 +344,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'adds their products), how many would join a record of the workspace (the same phone choice as a live order), how '
       + 'many have no record with that phone or no usable phone (counted, never kept: a catch-up creates no record), and how '
       + 'many were never paid (left out). Writes nothing. complete is false when the 25 seconds of the preview were not '
-      + 'enough to read every order: the counts are then partial, never a total. Counts toward the workspace\'s heavy operations.',
+      + 'enough to read every order: the counts are then partial, never a total. Needs the read_products scope on the store '
+      + 'app (an app created before 2026-11-24 must add it: the shopify skill does); without it, it refuses and says so. '
+      + 'Counts toward the workspace\'s heavy operations.',
     annotations: { title: 'Count the Shopify orders to catch up', readOnlyHint: true, openWorldHint: true },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
@@ -368,7 +370,8 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'message and attributes no revenue: find_contacts (orders, products, amount spent) then sees these orders. It runs in '
       + 'the background, a few minutes for most stores and over an hour for the largest: get_shopify_order_history follows '
       + 'it. Refused while another '
-      + 'catch-up of the workspace is running. Counts toward the workspace\'s heavy operations.',
+      + 'catch-up of the workspace is running, or when the store app lacks the read_products scope. Counts toward the '
+      + 'workspace\'s heavy operations.',
     annotations: { title: 'Catch up the Shopify orders', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId, _args, personne) {

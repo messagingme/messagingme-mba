@@ -159,7 +159,7 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     const carte = page.getByTestId('integration-shopify');
     await expect(carte.getByTestId('shopify-mode-operatoire')).toContainText('Applis > Créer une appli > Créer l’appli manuellement');
     await expect(carte.getByTestId('shopify-mode-operatoire')).toContainText('https://app.messagingme.fr/shopify/console/');
-    await expect(carte.getByTestId('shopify-mode-operatoire')).toContainText('read_customers,read_orders,read_checkouts,read_fulfillments');
+    await expect(carte.getByTestId('shopify-mode-operatoire')).toContainText('read_customers,read_orders,read_checkouts,read_fulfillments,read_products');
     const valider = carte.getByTestId('shopify-brancher-valider');
     await expect(valider).toBeDisabled();
     await carte.getByTestId('shopify-boutique').fill(' https://admin.shopify.com/store/ma-boutique ');

@@ -66,3 +66,21 @@ les routes, elle ne montre pas le bouton. La vitrine, `web/public` et le README 
 le déploiement de l'API suit le vert de la CI, pour garder cette fenêtre courte. Après lui : `aide:charger` (la fiche
 publique « Brancher ma boutique Shopify » est retouchée), puis le plugin (README régénéré, version montée), publié à
 la main par Julien.
+
+## Suite du 2026-11-24 : le droit `read_products`
+
+La relecture en base après le déploiement (run 45345072980) a mesuré, sur la boutique d'essai, ce qu'aucun faux ne
+voyait : la requête des commandes rend ACCESS_DENIED sur `product` et `variant` des lignes, qui exigent
+`read_products` (le webhook, lui, porte leurs identifiants sans ce droit). Aucune boutique ne l'avait. Décision de
+Julien, en question fermée : le demander dès maintenant plutôt qu'au lot 6.
+
+1. **Les droits lus avant toute lecture** (`lireDroitsDeLApp`, `currentAppInstallation.accessScopes`) : sans
+   `read_products`, l'aperçu, le lancement et le job refusent avec la phrase qui dit comment l'ajouter, sans rien lire.
+   Un champ refusé se dit par le message de Shopify, jamais par une cause devinée.
+2. **`read_products` dans les deux listes de droits** : le gabarit de l'app de la skill et la liste copiable de la
+   console ; la skill sait l'ajouter à une app déjà installée (portées, `app deploy`, lien d'installation).
+3. **Aide** : la fiche (français et anglais), la page « Depuis Claude », la capture de l'étape 2 refaite.
+
+Tests : les droits lus, le refus sans eux (aperçu, lancement, job), le message de Shopify rendu tel quel ; e2e de la
+liste copiable. Déploiement : `migration=aucune`. Puis l'app de la boutique d'essai reçoit `read_products`, et
+l'essai réel du lot reprend.

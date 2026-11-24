@@ -995,6 +995,7 @@ export const repriseInerte: DepsReprise = {
   },
   boutique: async () => null,
   jeton: neDevraitPasEtreAppelee('shopify.reprise.jeton'),
+  droits: neDevraitPasEtreAppelee('shopify.reprise.droits'),
   lirePage: neDevraitPasEtreAppelee('shopify.reprise.lirePage'),
   commandesConnues: neDevraitPasEtreAppelee('shopify.reprise.commandesConnues'),
   fichesParNumeros: neDevraitPasEtreAppelee('shopify.reprise.fichesParNumeros'),

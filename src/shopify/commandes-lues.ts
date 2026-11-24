@@ -129,6 +129,41 @@ export function versCorpsWebhook(n: z.infer<typeof schemaNoeud>): unknown {
 
 const pause = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+const schemaDroits = z.object({
+  data: z.object({ currentAppInstallation: z.object({ accessScopes: z.array(z.object({ handle: z.string() })) }) }).nullish(),
+});
+const DROITS_PASSAGER = 'Shopify n’a pas rendu les droits de l’app : réessayez dans un instant.';
+
+/**
+ * LES DROITS ACCORDÉS À L'APP DE LA BOUTIQUE (`currentAppInstallation.accessScopes`), lus avant tout rattrapage :
+ * les lignes d'une commande ne portent leur produit et leur variante qu'avec `read_products` (mesuré le 2026-11-24 sur la
+ * boutique d'essai, où il manquait : la requête rendait ACCESS_DENIED sur `product` et `variant`), quand le webhook, lui,
+ * les porte sans ce droit.
+ */
+export async function lireDroitsDeLApp(
+  acces: { domaine: string; jeton: string }, appeler: typeof fetch = fetchPublic,
+): Promise<{ ok: true; droits: string[] } | { ok: false; code: 'acces_refuse' | 'passager'; message: string }> {
+  try {
+    const res = await appeler(`https://${acces.domaine}/admin/api/${API_VERSION_SHOPIFY}/graphql.json`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json', 'x-shopify-access-token': acces.jeton },
+      body: JSON.stringify({ query: '{ currentAppInstallation { accessScopes { handle } } }' }),
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, code: 'acces_refuse', message: `Shopify refuse l’app de la boutique (statut ${res.status}) : réinstallez-la sur la boutique.` };
+    }
+    const corps = await lireCorpsBorne(res, 100_000);
+    if (corps.trop_gros || corps.casse || res.status !== 200) return { ok: false, code: 'passager', message: DROITS_PASSAGER };
+    const lu = schemaDroits.safeParse(JSON.parse(corps.texte));
+    if (!lu.success || !lu.data.data) return { ok: false, code: 'passager', message: DROITS_PASSAGER };
+    return { ok: true, droits: lu.data.data.currentAppInstallation.accessScopes.map((s) => s.handle) };
+  } catch {
+    return { ok: false, code: 'passager', message: DROITS_PASSAGER };
+  }
+}
+
 export async function lirePageCommandes(
   acces: { domaine: string; jeton: string },
   p: { depuis: Date; apres: string | null; parPage: number; delaiMs: number },
@@ -154,7 +189,7 @@ export async function lirePageCommandes(
       });
       statut = res.status;
       if (statut === 401 || statut === 403) {
-        return { ok: false, code: 'acces_refuse', message: `Shopify refuse la lecture des commandes (statut ${statut}) : l’app doit avoir l’accès read_orders, et sur une boutique en production l’accès aux données client protégées.` };
+        return { ok: false, code: 'acces_refuse', message: `Shopify refuse la lecture des commandes (statut ${statut}) : l’app doit avoir les droits read_orders et read_products.` };
       }
       if (statut >= 500) return { ok: false, code: 'trop_lourd', message: `Shopify n’a pas rendu la page de commandes (statut ${statut}).` };
       const corps = await lireCorpsBorne(res, CORPS_MAX);
@@ -180,9 +215,9 @@ export async function lirePageCommandes(
       continue;
     }
     if (codes.length > 0) {
-      if (codes.includes('ACCESS_DENIED') || (page.errors ?? []).some((e) => /access denied/i.test(e.message))) {
-        return { ok: false, code: 'acces_refuse', message: 'Shopify refuse la lecture des commandes : sur une boutique en production, l’app doit déclarer l’accès aux données client protégées (nom, téléphone, adresse).' };
-      }
+      // Le message de Shopify dit le champ et le droit qui manquent : il est rendu tel quel, jamais deviné.
+      const refus = (page.errors ?? []).find((e) => e.extensions?.code === 'ACCESS_DENIED' || /access denied/i.test(e.message));
+      if (refus) return { ok: false, code: 'acces_refuse', message: `Shopify refuse la lecture des commandes (${refus.message.slice(0, 300)}).` };
       if (codes.includes('MAX_COST_EXCEEDED') || codes.includes('INTERNAL_SERVER_ERROR')) {
         return { ok: false, code: 'trop_lourd', message: `Shopify trouve la page de commandes trop lourde (${codes.join(', ')}).` };
       }

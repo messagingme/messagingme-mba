@@ -3,7 +3,7 @@ import { telephoneDeCommande, type CommandeShopify } from './donnees';
 import { detailsDeCommande } from './attribution';
 import { BUDGET_LECTURE_MS } from './clients';
 import { demanderJeton, type IssueJeton } from './connexion';
-import { lirePageCommandes } from './commandes-lues';
+import { lireDroitsDeLApp, lirePageCommandes } from './commandes-lues';
 import type { DetailsCommande, PgShopifyStore } from './store.pg';
 import { BAIL_REPRISE_SECONDES, REPRISE_ABANDONNEE_MINUTES, type ComptesReprise, type PgReprisesStore, type Reprise } from './reprises.pg';
 import type { PgContactStore } from '../crm/contact-store.pg';
@@ -65,6 +65,8 @@ export interface DepsReprise {
   /** La boutique de l'espace, son secret déchiffré et sa devise ; `null` sans boutique. */
   boutique(tenantId: string): Promise<{ domaine: string; clientId: string; secret: string; pays: string | null; devise: string | null; etat: string } | null>;
   jeton(domaine: string, clientId: string, secret: string): Promise<IssueJeton>;
+  /** Les droits accordés à l'app de la boutique : sans `read_products`, les lignes ne portent pas leur produit. */
+  droits(acces: { domaine: string; jeton: string }): Promise<{ ok: true; droits: string[] } | { ok: false; code: 'acces_refuse' | 'passager'; message: string }>;
   /** Une page ; `delaiMs` borne l'appel ENTIER, attentes du frein de Shopify comprises. */
   lirePage(acces: { domaine: string; jeton: string }, p: { depuis: Date; apres: string | null; parPage: number; delaiMs: number }): Promise<PageCommandes>;
   /** Les commandes déjà notées dans l'espace, leur fiche, et s'il faut leur ajouter leurs lignes. */
@@ -96,6 +98,7 @@ export function cablerReprise(o: {
       return { ...a, devise: v?.devise ?? null };
     },
     jeton: (domaine, clientId, secret) => demanderJeton(domaine, clientId, secret),
+    droits: (acces) => lireDroitsDeLApp(acces),
     lirePage: (acces, p) => lirePageCommandes(acces, p),
     commandesConnues: (tenantId, ids) => o.boutiques.commandesConnues(tenantId, ids),
     fichesParNumeros: (tenantId, numeros) => o.contacts.fichesParNumeros(tenantId, numeros),
@@ -116,6 +119,10 @@ const DELAI_PAGE_MS = 20_000;
 const AUCUNE_BOUTIQUE = 'Aucune boutique Shopify n’est branchée dans cet espace : branchez-la avant de rattraper ses commandes.';
 const BOUTIQUE_COUPEE = 'La boutique Shopify est coupée : rebranchez-la avant de rattraper ses commandes.';
 const BOUTIQUE_CHANGEE = 'La boutique Shopify a changé depuis le lancement du rattrapage : relancez-le.';
+/** Le droit qui manque à une app créée avant le 2026-11-24 (décision de Julien : le demander dès le rattrapage). */
+export const SANS_READ_PRODUCTS = 'Pour rattraper les commandes avec leurs produits, l’app Messaging Me de la boutique doit avoir le droit '
+  + 'read_products : ajoutez-le à ses portées, publiez sa nouvelle version, puis réinstallez-la sur la boutique pour l’accepter '
+  + '(depuis Claude Code, la skill shopify le fait). Rien n’a été lu.';
 
 const refus = (statut: 409 | 503, message: string) => ({ ok: false as const, statut, message });
 const zero = (): ComptesReprise => ({ lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0 });
@@ -175,10 +182,11 @@ export async function rattacher(
 }
 
 /**
- * La boutique branchée et son jeton, ou ce qui l'empêche : `boutique` (absente ou coupée), `refus` (Shopify refuse
- * l'app : identifiants, app désinstallée), `passager` (Shopify n'a pas répondu, réessayer).
+ * La boutique branchée, son jeton et les droits de son app, ou ce qui l'empêche : `boutique` (absente ou coupée),
+ * `refus` (Shopify refuse l'app : identifiants, app désinstallée, droit `read_products` absent), `passager` (Shopify
+ * n'a pas répondu, réessayer).
  */
-async function ouvrir(deps: Pick<DepsReprise, 'boutique' | 'jeton'>, tenantId: string): Promise<
+async function ouvrir(deps: Pick<DepsReprise, 'boutique' | 'jeton' | 'droits'>, tenantId: string): Promise<
   | { ok: true; boutique: { domaine: string; pays: string | null; devise: string | null }; jeton: string }
   | { ok: false; nature: 'boutique' | 'refus' | 'passager'; statut: 409 | 503; message: string }
 > {
@@ -187,6 +195,9 @@ async function ouvrir(deps: Pick<DepsReprise, 'boutique' | 'jeton'>, tenantId: s
   if (b.etat !== 'connectee') return { ...refus(409, BOUTIQUE_COUPEE), nature: 'boutique' };
   const j = await deps.jeton(b.domaine, b.clientId, b.secret);
   if (!j.ok) return j.code === 'passager' ? { ...refus(503, j.message), nature: 'passager' } : { ...refus(409, j.message), nature: 'refus' };
+  const d = await deps.droits({ domaine: b.domaine, jeton: j.jeton });
+  if (!d.ok) return d.code === 'passager' ? { ...refus(503, d.message), nature: 'passager' } : { ...refus(409, d.message), nature: 'refus' };
+  if (!d.droits.includes('read_products')) return { ...refus(409, SANS_READ_PRODUCTS), nature: 'refus' };
   return { ok: true, boutique: { domaine: b.domaine, pays: b.pays, devise: b.devise }, jeton: j.jeton };
 }
 
@@ -233,16 +244,16 @@ function vueApercu(fenetre: Date, t: ComptesReprise & { ecartees: number }, comp
 }
 
 /**
- * LE LANCEMENT : la boutique branchée, une reprise inscrite (refusée si une autre vit), puis son job enfilé. Le job
- * relit tout : rien de l'aperçu n'est gardé. 🔴 Un job qui n'a pas pu être enfilé clôt sa reprise : vivante sans job, elle
- * refuserait tout lancement pendant 15 minutes.
+ * LE LANCEMENT : la boutique branchée et les droits de son app (le même contrôle que l'aperçu, pour ne rien inscrire
+ * qui se refuserait aussitôt), une reprise inscrite (refusée si une autre vit), puis son job enfilé. Le job relit tout :
+ * rien de l'aperçu n'est gardé. 🔴 Un job qui n'a pas pu être enfilé clôt sa reprise : vivante sans job, elle refuserait
+ * tout lancement pendant 15 minutes.
  */
 export async function lancerReprise(deps: DepsReprise, tenantId: string, par: string | null): Promise<Issue<RepriseShopifyVue>> {
-  const b = await deps.boutique(tenantId);
-  if (!b) return refus(409, AUCUNE_BOUTIQUE);
-  if (b.etat !== 'connectee') return refus(409, BOUTIQUE_COUPEE);
+  const o = await ouvrir(deps, tenantId);
+  if (!o.ok) return { ok: false, statut: o.statut, message: o.message };
   const maintenant = deps.maintenant ?? Date.now;
-  const l = await deps.reprises.lancer(tenantId, debutDeFenetre(maintenant()), b.domaine, par);
+  const l = await deps.reprises.lancer(tenantId, debutDeFenetre(maintenant()), o.boutique.domaine, par);
   if (!l.ok) {
     return refus(409, `Un rattrapage est déjà en cours dans cet espace (lancé le ${l.vivante.commenceLe.toISOString().slice(0, 10)}) : attendez sa fin.`);
   }

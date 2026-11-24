@@ -35,6 +35,8 @@
 - La taille des pages (`PAR_PAGE_REPRISE`, 5) est une estimation du coût GraphQL : la régler sur `shopify_reprise_cout`
   (coût demandé et réel de la première page de chaque passage), relevé dans les journaux après le premier rattrapage.
 - La raison d'un arrêt (`erreur` de la reprise) est écrite en français, et s'affiche telle quelle dans la console anglaise.
+- `read_products` est demandé depuis le 2026-11-24 (lot 5, suite) : le lot 6 (collections) n'a plus à l'ajouter aux
+  listes de droits, seulement à s'en servir ; les apps branchées avant doivent l'ajouter (la fiche et la skill le disent).
 - La vitrine dit « vos clients choisis par leurs commandes depuis le branchement de votre boutique »
   (`scripts/vitrine/boutique-textes.ts`) : incomplet depuis le rattrapage, pas faux. À reprendre avec un lot de la vitrine.
 
