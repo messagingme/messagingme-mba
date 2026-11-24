@@ -18,7 +18,7 @@ import { FiltreContactInvalide } from './contact-filters';
 import { refusDesCollections } from '../shopify/collections.pg';
 import { COLONNES_ANALYSE_FICHE, analyseDeLaLigne, type AnalyseDeFiche, type LigneAnalyseFiche } from '../analysis/fiche';
 import { LimiteOffreError } from '../offres/refus';
-import { DROITS, contactsToutesOrigines, droitsDe, estOffre, type LimiteContacts } from '../offres/offres';
+import { DROITS, contactsToutesOrigines, droitsDe, estOffre, offreRemplaceLesAnciens, type LimiteContacts } from '../offres/offres';
 import {
   affectationsDUpsert, ecritureDuConsentement, issueDeLaTransition, type AutoriteParWaId, type CompteDeLEcriture,
   type FicheDeLEcriture,
@@ -130,6 +130,35 @@ export type CreationFiche = (FicheIdentite & { created: boolean }) | 'conflit';
  * 131026 ne supprime que les fiches nées de Shopify et jamais écrites.
  */
 export type NeeDe = 'shopify';
+
+/** Ce que rend une purge (`purgeMany`) ; `listeAgent` : les lignes de la liste de l'agent de Meta, à retirer chez Meta. */
+export interface BilanPurge {
+  purges: number; conversations: number; messages: number; analyses: number; listeAgent: LigneDeLaListe[];
+}
+
+/**
+ * Le chemin d'une création qui a fait remplacer des contacts (lot 2 du 2026-11-24) : la trace le signe, sans jamais le
+ * numéro ni le nom. `api` couvre l'API publique, Claude (MCP) et les connecteurs, qui partagent la même création de fiche.
+ */
+export type CheminCreation = 'entrant' | 'import' | 'console' | 'api';
+
+/** Ce qu'un remplacement a purgé, rendu APRÈS le `commit` au câblage : la trace d'audit, puis le retrait chez Meta. */
+export interface RemplacementFait {
+  tenantId: string;
+  /** Les identifiants internes des fiches purgées : jamais leur numéro ni leur nom, sinon la trace défait la purge. */
+  contactIds: string[];
+  chemin: CheminCreation;
+  listeAgent: LigneDeLaListe[];
+}
+
+/** Les fiches qu'une création vise : par numéro (les gardes de création) ou par `wa_id` (la porte de l'entrant). */
+type CiblesDePlace = { numeros: readonly string[] } | { waIds: readonly string[] };
+
+/** Un remplacement à la fois par espace (`faireDeLaPlace`), le temps de sa transaction. */
+const VERROU_PLACE_SQL = `select pg_advisory_xact_lock(hashtext('contacts-place:' || $1::text))`;
+
+/** L'option, relue en base dans la requête qui compte (jamais du cache de l'offre : un clic dans Réglages vaut tout de suite). */
+const REMPLACER_SQL = '(select s.contacts_remplacer_anciens from tenant_settings s where s.tenant_id = $1) as remplacer';
 
 /** Tout ce que `GET /v1/contacts/{contactId}` rend, lu en une requête. Dates en ISO. */
 export interface FicheApiLigne {
@@ -291,6 +320,12 @@ export class PgContactStore implements ContactStore {
      * HubSpot, pour que la case du désabonnement se décoche (plan `2026-11-12-stop-vers-hubspot.md`).
      */
     private readonly annoncerReabonnement?: (tenantId: string, waIds: string[]) => Promise<void>,
+    /**
+     * Ce qui suit un remplacement des plus anciens (lot 2 du 2026-11-24), APRÈS son `commit` : la trace d'audit de l'espace
+     * (`contacts.remplaces`) et le retrait chez Meta des lignes de la liste de l'agent. Ce qu'elle lève est absorbé et
+     * journalisé : la purge est faite, la création suit. Absente : aucune trace (scripts et tests).
+     */
+    private readonly apresRemplacement?: (r: RemplacementFait) => Promise<void>,
   ) {}
 
   /**
@@ -298,21 +333,33 @@ export class PgContactStore implements ContactStore {
    * de contacts de l'offre. Un numéro déjà porté par une fiche active n'est pas une création. Sans limite : rien n'est lu.
    * ⚠️ Lecture puis écriture, sans verrou : deux créations simultanées à la dernière place peuvent passer toutes les
    * deux. Une limite commerciale tolère ce dépassement d'une ou deux fiches.
-   * `q` : le client d'une transaction de l'appelant (le rattrapage Shopify, lot 5b), qui voit ses propres écritures.
+   * 🔴 L'OPTION « LE PLUS ANCIEN LAISSE SA PLACE » (lot 2 du 2026-11-24) : un Business ou une Entreprise qui l'a cochée ne
+   * refuse pas, il purge les plus anciens (`faireDeLaPlace`), puis l'appelant crée. Le chemin (`chemin`) signe la trace.
+   * `q` : le client d'une transaction de l'appelant (le rattrapage Shopify, lot 5b), qui voit ses propres écritures. Il
+   * n'y a alors JAMAIS de remplacement : la purge se ferait dans une autre transaction, retirée chez Meta et tracée même si
+   * celle de l'appelant était annulée. Le rattrapage compte ces commandes « au-delà du plafond », comme avant.
    */
-  async verifierPlaceContacts(tenantId: string, numeros: readonly string[], sansNumero = 0, q: Pick<PoolClient, 'query'> = this.pool): Promise<void> {
+  async verifierPlaceContacts(
+    tenantId: string, numeros: readonly string[], sansNumero = 0,
+    { q = this.pool, chemin = 'api' }: { q?: Pick<PoolClient, 'query'>; chemin?: CheminCreation } = {},
+  ): Promise<void> {
     if (!this.limiteContacts) return;
     const limite = await this.limiteContacts(tenantId);
     if (limite === null) return;
-    const r = await q.query<{ crees: number; nouveaux: number }>(
+    const r = await q.query<{ crees: number; nouveaux: number; remplacer: boolean | null }>(
       `select (select count(*) from contacts x where x.tenant_id = $1 and ${ficheComptee('x', contactsToutesOrigines(limite.offre))})::int as crees,
               (select count(*) from unnest($2::text[]) as p(numero)
                 where not exists (select 1 from contacts x
-                                  where x.tenant_id = $1 and x.phone_e164 = p.numero and ${FICHE_ACTIVE}))::int as nouveaux`,
+                                  where x.tenant_id = $1 and x.phone_e164 = p.numero and ${FICHE_ACTIVE}))::int as nouveaux,
+              ${REMPLACER_SQL}`,
       [tenantId, [...new Set(numeros)]],
     );
-    const { crees, nouveaux } = r.rows[0] ?? { crees: 0, nouveaux: 0 };
+    const { crees, nouveaux, remplacer } = r.rows[0] ?? { crees: 0, nouveaux: 0, remplacer: false };
     if (nouveaux + sansNumero > 0 && crees + nouveaux + sansNumero > limite.max) {
+      if (remplacer === true && offreRemplaceLesAnciens(limite.offre) && q === this.pool) {
+        await this.faireDeLaPlace(tenantId, limite, { numeros }, sansNumero, chemin);
+        return;
+      }
       throw new LimiteOffreError(tenantId, 'contacts', limite.max, { offre: limite.offre });
     }
   }
@@ -323,20 +370,26 @@ export class PgContactStore implements ContactStore {
    * le dit AVANT d'écrire, pour que le marchand choisisse ; les MÊMES prédicats, pour que l'annonce et le refus
    * comptent pareil. `toutesOrigines` : l'offre compte aussi les fiches nées d'un message entrant, donc pleine, elle
    * refuse un inconnu qui écrit le premier (`inconnusRefuses`) ; l'aperçu du rattrapage (lot 5b) le dit avant de la remplir.
+   * `remplacer` (lot 2 du 2026-11-24) : plein, l'espace fait de la place au lieu de refuser (`verifierPlaceContacts`) ; les
+   * aperçus des imports annoncent alors combien des plus anciens seront effacés.
    */
   async placesContacts(tenantId: string, numeros: readonly string[]): Promise<{
-    limite: number | null; comptees: number; presents: Set<string>; toutesOrigines: boolean;
+    limite: number | null; comptees: number; presents: Set<string>; toutesOrigines: boolean; remplacer: boolean;
   }> {
     const limite = this.limiteContacts ? await this.limiteContacts(tenantId) : null;
     const toutesOrigines = limite !== null && contactsToutesOrigines(limite.offre);
-    const r = await this.pool.query<{ comptees: number; presents: string[] | null }>(
+    const r = await this.pool.query<{ comptees: number; presents: string[] | null; remplacer: boolean | null }>(
       `select (select count(*) from contacts x where x.tenant_id = $1 and ${ficheComptee('x', toutesOrigines)})::int as comptees,
               (select array_agg(x.phone_e164) from contacts x
-                where x.tenant_id = $1 and x.phone_e164 = any($2::text[]) and ${FICHE_ACTIVE}) as presents`,
+                where x.tenant_id = $1 and x.phone_e164 = any($2::text[]) and ${FICHE_ACTIVE}) as presents,
+              ${REMPLACER_SQL}`,
       [tenantId, [...new Set(numeros)]],
     );
     const ligne = r.rows[0];
-    return { limite: limite?.max ?? null, comptees: ligne?.comptees ?? 0, presents: new Set(ligne?.presents ?? []), toutesOrigines };
+    return {
+      limite: limite?.max ?? null, comptees: ligne?.comptees ?? 0, presents: new Set(ligne?.presents ?? []), toutesOrigines,
+      remplacer: limite !== null && ligne?.remplacer === true && offreRemplaceLesAnciens(limite.offre),
+    };
   }
 
   /**
@@ -347,14 +400,20 @@ export class PgContactStore implements ContactStore {
    * inconnus du lot, dans l'ordre reçu. En Entreprise ou sans limite, rien n'est lu. Lu par la réception (`src/webhooks/espace-plein.ts`),
    * AVANT `upsertFromInbound`, qui ne refuse jamais rien. ⚠️ Sans verrou, comme `verifierPlaceContacts` : deux inconnus
    * simultanés à la dernière place peuvent entrer tous les deux.
+   * 🔴 UN BUSINESS QUI A COCHÉ « LE PLUS ANCIEN LAISSE SA PLACE » (lot 2 du 2026-11-24) ne refuse personne : il purge
+   * autant des plus anciens que d'inconnus refusés (`faireDeLaPlace`), et tous entrent. Un échec du remplacement les laisse
+   * entrer aussi : une limite commerciale ne coupe jamais la réception.
    */
   async inconnusRefuses(tenantId: string, waIds: readonly string[]): Promise<{ waIds: ReadonlySet<string>; limite: number } | null> {
     if (!this.limiteContacts || waIds.length === 0) return null;
     const limite = await this.limiteContacts(tenantId);
     if (limite === null || !contactsToutesOrigines(limite.offre)) return null;
     const uniques = [...new Set(waIds)];
-    const r = await this.pool.query<{ offre: string | null; packs: number | null; comptees: number; connus: string[] | null }>(
+    const r = await this.pool.query<{
+      offre: string | null; packs: number | null; comptees: number; connus: string[] | null; remplacer: boolean | null;
+    }>(
       `select offre_de_l_espace($1::uuid) as offre,
+              ${REMPLACER_SQL},
               (select a.packs_contacts from abonnements_offre a where a.tenant_id = $1::uuid and a.fini_le is null) as packs,
               (select count(*) from contacts x where x.tenant_id = $1 and ${ficheComptee('x', true)})::int as comptees,
               (select array_agg(w.wa_id) from unnest($2::text[]) as w(wa_id)
@@ -379,7 +438,17 @@ export class PgContactStore implements ContactStore {
     if (max === null) return null;
     const connus = new Set(ligne?.connus ?? []);
     const refuses = uniques.filter((w) => !connus.has(w)).slice(Math.max(0, max - (ligne?.comptees ?? 0)));
-    return refuses.length === 0 ? null : { waIds: new Set(refuses), limite: max };
+    if (refuses.length === 0) return null;
+    // Le Business seul : l'Entreprise ne refuse jamais l'entrant (plus haut), le Pro et la Free n'ont pas l'option.
+    if (ligne?.remplacer === true && offreLue === 'business') {
+      try {
+        await this.faireDeLaPlace(tenantId, { max, offre: offreLue }, { waIds: uniques }, 0, 'entrant');
+      } catch (err) {
+        journaliser('error', 'contacts_remplacement_entrant_impossible', { tenantId, inconnus: refuses.length, erreur: messageDe(err) });
+      }
+      return null;
+    }
+    return { waIds: new Set(refuses), limite: max };
   }
 
   /**
@@ -416,7 +485,7 @@ export class PgContactStore implements ContactStore {
    * L'API publique passe par `resoudreFiche` et `creerFicheApi`.
    */
   async upsertByPhoneReturningId(c: ContactUpsert): Promise<{ id: string; created: boolean }> {
-    await this.verifierPlaceContacts(c.tenantId, [c.phoneE164]);
+    await this.verifierPlaceContacts(c.tenantId, [c.phoneE164], 0, { chemin: c.chemin ?? 'api' });
     const leve = issueDeLaTransition('opted_out', c.optInStatus, 'webhook_ou_saisie') === 'ecrit';
     const neuf = colonnesNeuves('refus', '$5::text', '$6::text', '$10');
     // Index unique partiel contacts_tenant_phone_uidx (where phone_e164 is not null) : le ON CONFLICT doit répéter
@@ -480,7 +549,7 @@ export class PgContactStore implements ContactStore {
   async upsertManyByPhone(lot: LotContacts, q: Pick<PoolClient, 'query'> = this.pool): Promise<Array<'created' | 'updated'>> {
     if (lot.contacts.length === 0) return [];
     // Le filet du lot ; l'import vérifie TOUT le fichier avant son premier lot (`importContacts`).
-    await this.verifierPlaceContacts(lot.tenantId, lot.contacts.map((c) => c.phoneE164), 0, q);
+    await this.verifierPlaceContacts(lot.tenantId, lot.contacts.map((c) => c.phoneE164), 0, { q, chemin: 'import' });
 
     const fusion = new Map<string, ContactDeLot>();
     const premiereApparition = new Map<string, number>();
@@ -1961,11 +2030,17 @@ export class PgContactStore implements ContactStore {
    * L'identifiant de remplacement est aléatoire, pas une empreinte du numéro (réversible en quelques minutes).
    * Transactionnel : une purge à moitié faite laisserait du contenu sans moyen de le retrouver.
    */
-  async purgeMany(tenantId: string, ids: readonly string[]): Promise<{
-    purges: number; conversations: number; messages: number; analyses: number; listeAgent: LigneDeLaListe[];
-  }> {
+  async purgeMany(tenantId: string, ids: readonly string[]): Promise<BilanPurge> {
     if (ids.length === 0) return { purges: 0, conversations: 0, messages: 0, analyses: 0, listeAgent: [] };
-    return enTransaction(this.pool, async (client) => {
+    return enTransaction(this.pool, (client) => this.purgerDans(client, tenantId, ids));
+  }
+
+  /**
+   * La purge, dans la transaction de l'appelant : `purgeMany`, et le remplacement des plus anciens (`faireDeLaPlace`,
+   * 2026-11-24), qui choisit les fiches et les purge sous le même verrou, avec le même client.
+   */
+  private async purgerDans(client: PoolClient, tenantId: string, ids: readonly string[]): Promise<BilanPurge> {
+    const purger = async (): Promise<BilanPurge> => {
       // Numéros des contacts visés, lus avant l'anonymisation : le cache RCS est indexé en E.164 (`+33…`), pas en wa_id.
       const cibles = await client.query<{
         phone_e164: string | null; bsuid: string | null; opt_in_status: string; opt_out_at: Date | null; rcs_optout_at: Date | null;
@@ -2210,8 +2285,70 @@ export class PgContactStore implements ContactStore {
         [tenantId, ids],
       );
       return { purges: res.rowCount ?? 0, conversations: convIds.length, messages, analyses, listeAgent };
-    });
+    };
+    return purger();
   }
+
+  /**
+   * 🔴 LE PLUS ANCIEN LAISSE SA PLACE (décision de Julien du 2026-11-24, plan
+   * `docs/superpowers/plans/2026-11-24-contacts-packs-et-remplacement.md`, lot 2). Un Business ou une Entreprise qui a
+   * coché l'option, plein : chaque nouveau contact compté fait purger le contact compté le premier créé (`created_at`, puis
+   * `id`), autant de fois qu'il faut, par la purge existante, irréversible. Aucun contact n'est protégé.
+   *
+   * Sous un verrou d'avis PAR ESPACE et dans UNE transaction, avec toutes les requêtes passées par le client qui tient le
+   * verrou : recompter (le compte d'avant le verrou peut être périmé), choisir les plus anciens, les purger. Deux créations
+   * simultanées à la dernière place ne purgent donc pas deux fois : la seconde recompte après la purge de la première. Elle
+   * peut encore créer en même temps qu'elle, et l'espace dépasser d'une fiche, comme sans l'option ; la création suivante
+   * purge alors une fiche de plus. Les fiches visées par la création (`cibles`) ne sont jamais choisies : un import qui
+   * met à jour un vieux contact ne le purge pas pour le recréer. Ce qui ne tient même pas une fois tout purgé est refusé.
+   * Après le `commit`, la trace et le retrait chez Meta (`apresRemplacement`), sans jamais lever.
+   */
+  private async faireDeLaPlace(
+    tenantId: string, limite: LimiteContacts, cibles: CiblesDePlace, sansNumero: number, chemin: CheminCreation,
+  ): Promise<number> {
+    const toutesOrigines = contactsToutesOrigines(limite.offre);
+    const uniques = [...new Set('numeros' in cibles ? cibles.numeros : cibles.waIds)];
+    const nouveaux = 'numeros' in cibles
+      ? `(select count(*) from unnest($2::text[]) as p(numero)
+           where not exists (select 1 from contacts x where x.tenant_id = $1 and x.phone_e164 = p.numero and ${FICHE_ACTIVE}))::int`
+      : `(select count(*) from unnest($2::text[]) as w(wa_id)
+           where not exists (select 1 from contacts x where x.tenant_id = $1 and ${FICHE_ACTIVE} and ${matchWaIdPredicat('x.', 'w.wa_id')}))::int`;
+    const horsCibles = 'numeros' in cibles
+      ? 'not (x.phone_e164 is not null and x.phone_e164 = any($2::text[]))'
+      : `not exists (select 1 from unnest($2::text[]) as w(wa_id) where ${matchWaIdPredicat('x.', 'w.wa_id')})`;
+    const fait = await enTransaction(this.pool, async (client) => {
+      await client.query(VERROU_PLACE_SQL, [tenantId]);
+      const r = await client.query<{ comptees: number; nouveaux: number }>(
+        `select (select count(*) from contacts x where x.tenant_id = $1 and ${ficheComptee('x', toutesOrigines)})::int as comptees,
+                ${nouveaux} as nouveaux`,
+        [tenantId, uniques],
+      );
+      const { comptees, nouveaux: n } = r.rows[0] ?? { comptees: 0, nouveaux: 0 };
+      const exces = comptees + n + sansNumero - limite.max;
+      if (exces <= 0) return { ids: [] as string[], listeAgent: [] as LigneDeLaListe[] };
+      if (n + sansNumero > limite.max) throw new LimiteOffreError(tenantId, 'contacts', limite.max, { offre: limite.offre });
+      const choisies = await client.query<{ id: string }>(
+        `select x.id from contacts x
+          where x.tenant_id = $1 and ${ficheComptee('x', toutesOrigines)} and ${horsCibles}
+          order by x.created_at, x.id
+          limit $3`,
+        [tenantId, uniques, exces],
+      );
+      const ids = choisies.rows.map((l) => l.id);
+      if (ids.length < exces) throw new LimiteOffreError(tenantId, 'contacts', limite.max, { offre: limite.offre });
+      const { listeAgent } = await this.purgerDans(client, tenantId, ids);
+      return { ids, listeAgent };
+    });
+    if (fait.ids.length > 0 && this.apresRemplacement) {
+      try {
+        await this.apresRemplacement({ tenantId, contactIds: fait.ids, chemin, listeAgent: fait.listeAgent });
+      } catch (err) {
+        journaliser('error', 'contacts_remplaces_suite_impossible', { tenantId, nombre: fait.ids.length, chemin, erreur: messageDe(err) });
+      }
+    }
+    return fait.ids.length;
+  }
+
 }
 
 /**

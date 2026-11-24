@@ -35,6 +35,13 @@ class FakeContacts implements ContactStore {
   readonly autorites: Array<LotContacts['autorite']> = [];
   /** La limite de contacts de l'offre (lot 6) : sans limite ici, sauf si le test la pose. */
   refuserPlace = false;
+  /** Les places de l'offre (lot 2 du 2026-11-24) : sans limite ici, sauf si le test les pose. */
+  places = { limite: null as number | null, comptees: 0, presents: new Set<string>(), remplacer: false };
+  readonly placesLues: number[] = [];
+  lirePlaces(numeros: readonly string[]) {
+    this.placesLues.push(numeros.length);
+    return { ...this.places, presents: new Set(numeros.filter((n) => this.places.presents.has(n))) };
+  }
   async verifierPlaceContacts(tenantId: string): Promise<void> {
     if (this.refuserPlace) throw new LimiteOffreError(tenantId, 'contacts', 100);
   }
@@ -90,6 +97,8 @@ function inject(contacts: ContactStore, userFields: UserFieldStore, cap?: QueryC
         count: async (_t: string, filters: ContactFilters) => { cap?.countFilters.push(filters); return 3; },
         idsForFilters: async (_t: string, filters: ContactFilters) => { cap?.idsFilters.push(filters); return ['c2', 'c3']; },
         suiviSegments: async () => ({ boutique: { devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null } }),
+        placesContacts: async (_t: string, numeros: readonly string[]) => (contacts instanceof FakeContacts
+          ? contacts.lirePlaces(numeros) : { limite: null, comptees: 0, presents: new Set<string>(), remplacer: false }),
         produitsVus: async (t: string, recherche: string | undefined, limite: number) => {
           cap?.produits?.push({ t, recherche, limite });
           return [{ produitId: '8801', sku: 'SER-30', titre: 'Sérum vitamine C', varianteTitre: '30 ml', commandes: 4 }];
@@ -159,6 +168,28 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     expect(b.mapping.columns['Nom']?.target).toBe('name');
     expect(b.mapping.columns['Ville']?.target).toBe('custom');
     expect(contacts.upserts).toHaveLength(0); // aperçu = zéro écriture
+    // Sans l'option « le plus ancien laisse sa place » : aucun effacement annoncé, et le fichier n'est pas relu.
+    expect(b).not.toHaveProperty('remplacement');
+    expect(contacts.placesLues).toEqual([0]);
+    await app.close();
+  });
+
+  it('🔴 POST /import/preview, « le plus ancien laisse sa place » (lot 2 du 2026-11-24) : les effacements annoncés, déjà-là non comptés', async () => {
+    const contacts = new FakeContacts();
+    // Plein (5 sur 5), l'option cochée ; un des trois numéros du fichier est déjà une fiche active.
+    contacts.places = { limite: 5, comptees: 5, presents: new Set(['+33611111111']), remplacer: true };
+    const app = inject(contacts, new FakeFields());
+    const res = await app.inject({
+      method: 'POST', url: '/tenants/t1/contacts/import/preview', ...auth(),
+      payload: { csv: ['Nom,Téléphone', 'Julie,+33611111111', 'Marc,06 12 34 56 78', 'Lou,+33622222222', 'Bis,+33622222222', 'Vide,'].join('\n') },
+    });
+    expect(res.statusCode).toBe(200);
+    // Deux numéros nouveaux (le doublon et la ligne vide ne comptent pas), aucune place libre : deux effacements.
+    expect(res.json()).toMatchObject({ remplacement: { nouveaux: 2, placesLibres: 0 } });
+    expect(contacts.upserts).toHaveLength(0);
+    // Sans colonne de téléphone, rien n'est compté.
+    const sans = await app.inject({ method: 'POST', url: '/tenants/t1/contacts/import/preview', ...auth(), payload: { csv: 'Nom,Ville\nJulie,Lyon' } });
+    expect(sans.json()).not.toHaveProperty('remplacement');
     await app.close();
   });
 

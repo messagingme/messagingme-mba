@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { sansPortailHubspot, avecPortailHubspot } from './hubspot';
+import { remplacementInerte, sansPortailHubspot, avecPortailHubspot } from './hubspot';
 import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import { signSession } from '../src/auth/token';
@@ -40,6 +40,7 @@ function reglages(o: { portail?: SettingsRouteDeps['hubspotPortalConnecte']; ini
   const settings: SettingsRouteDeps = {
     ...reglagesInertes,
     hubspotPortalConnecte: o.portail ?? sansPortailHubspot,
+    remplacement: remplacementInerte,
     choixHubspot: async () => ({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, stop: true, valideLe: null }),
     reglages: {
       ...reglagesDepInertes,

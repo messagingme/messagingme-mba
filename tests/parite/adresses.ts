@@ -346,6 +346,9 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'PATCH /settings/transfert-agent': outil('set_transfer_mode'),
   'GET /settings/agents-peuvent-prendre': aFaire('B10', 'Inbox : lire qui peut prendre une conversation'),
   'PATCH /settings/agents-peuvent-prendre': aFaire('B10', 'Inbox : régler qui peut prendre une conversation'),
+  // Le plus ancien laisse sa place (lot 2 du 2026-11-24) : le handler refuse le Pro (409).
+  'GET /settings/contacts-remplacer-anciens': lot7('Contacts : le plus ancien laisse sa place'),
+  'PATCH /settings/contacts-remplacer-anciens': lot7('Contacts : le plus ancien laisse sa place'),
   'PATCH /settings/control-handback': aFaire('B10', 'Inbox : le délai de reprise'),
   'PATCH /settings/mba-handoff': lot7('l’agent de Meta'),
   'PATCH /settings/timezone': aFaire('B10', 'compte : le fuseau horaire'),

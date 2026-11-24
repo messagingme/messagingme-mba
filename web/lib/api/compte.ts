@@ -1001,6 +1001,8 @@ export interface OffreEntrepriseOps {
    * API d'avant lui : lu comme `null`). Son Crédit IA est illimité, l'IA s'arrête à ce plafond (Entreprise illimitée, lot B).
    */
   plafondIaMoisEuros?: number | null;
+  /** L'option « le plus ancien laisse sa place » (lot 2 du 2026-11-24) ; absente sur une API d'avant elle : lue décochée. */
+  remplacerAnciens?: boolean;
   /**
    * Ce que l'exploitant doit savoir avant de poser ou de retirer une offre à la main. Absent sur une API plus ancienne ;
    * `ligneCreditWhatsappSansCredit` aussi sur une API d'avant l'Entreprise illimitée.
@@ -1035,6 +1037,8 @@ export function ecrireOffreOps(sessionOps: string, tenantId: string, corps: {
   commissionMessagesPct?: number | null;
   /** Absent = inchangé, `null` = le défaut de l'instance ; sans effet hors Entreprise. */
   plafondIaMoisEuros?: number | null;
+  /** Le plus ancien laisse sa place (lot 2 du 2026-11-24) : absent = inchangé ; coché hors Business et Entreprise : 400. */
+  remplacerAnciens?: boolean;
 }): Promise<OffreEntrepriseOps> {
   return appelOps(sessionOps, `/ops/offre/${encodeURIComponent(tenantId)}`, { method: 'PUT', corps });
 }

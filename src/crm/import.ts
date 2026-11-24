@@ -6,7 +6,7 @@ import type { UserFieldStore } from './fields';
 import type { ColumnMapping, ImportReport, UserFieldDef } from './types';
 import type { CountryCode } from 'libphonenumber-js';
 import type { AutoriteImport } from './transition-consentement';
-import type { NeeDe } from './contact-store.pg';
+import type { CheminCreation, NeeDe } from './contact-store.pg';
 
 export interface ContactUpsert {
   tenantId: string;
@@ -22,6 +22,8 @@ export interface ContactUpsert {
    * upsert. Absent -> le BSUID en base est préservé, sinon un import CSV effacerait celui d'un contact entrant.
    */
   bsuid?: string | null;
+  /** Le chemin qui crée (lot 2 du 2026-11-24) : signe la trace d'un remplacement des plus anciens. Absent : `api`. */
+  chemin?: CheminCreation;
 }
 
 /**
@@ -67,8 +69,9 @@ export interface ContactStore {
   /**
    * La limite de contacts de l'offre (lot 6) : refuse (`LimiteOffreError`) si ces numéros feraient dépasser la limite.
    * L'import la vérifie sur TOUT le fichier avant son premier lot : un fichier qui ne tient pas n'est pas écrit à moitié.
+   * L'option « le plus ancien laisse sa place » (lot 2 du 2026-11-24) y fait la place du fichier entier, en une fois.
    */
-  verifierPlaceContacts(tenantId: string, numeros: readonly string[]): Promise<void>;
+  verifierPlaceContacts(tenantId: string, numeros: readonly string[], sansNumero?: number, o?: { chemin?: CheminCreation }): Promise<void>;
 }
 
 /**
@@ -215,7 +218,7 @@ export async function importContacts(input: ImportInput, deps: ImportDeps): Prom
     autorite: input.autorite,
   };
   // La limite de contacts de l'offre (lot 6), sur tout le fichier et avant le premier lot : refusé en entier.
-  await deps.contacts.verifierPlaceContacts(input.tenantId, aEcrire.map((c) => c.phoneE164));
+  await deps.contacts.verifierPlaceContacts(input.tenantId, aEcrire.map((c) => c.phoneE164), 0, { chemin: 'import' });
   for (let d = 0; d < aEcrire.length; d += TAILLE_LOT) {
     const res = await deps.contacts.upsertManyByPhone({ ...commun, contacts: aEcrire.slice(d, d + TAILLE_LOT) });
     for (const r of res) {

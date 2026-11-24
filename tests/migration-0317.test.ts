@@ -46,16 +46,20 @@ describe('migration 0317', () => {
   });
 
   it('🔴 BLOQUANTE : la purge l’écrit dans sa transaction, pour toute fiche qui avait un numéro, par la même empreinte que la liste de refus', () => {
+    // Depuis le lot 2 du 2026-11-24 (le plus ancien laisse sa place), le corps de la purge vit dans `purgerDans`, que
+    // `purgeMany` appelle dans SA transaction, comme le remplacement dans la sienne : la même écriture, le même client.
     const debut = MAGASIN.indexOf('async purgeMany(');
-    const transaction = MAGASIN.indexOf('enTransaction(this.pool, async (client) =>', debut);
-    const ecriture = MAGASIN.indexOf('insert into numeros_effaces', debut);
-    const anonymisation = MAGASIN.indexOf("set phone_e164 = 'anon:' || gen_random_uuid()", debut);
+    const transaction = MAGASIN.indexOf('enTransaction(this.pool, (client) => this.purgerDans(client, tenantId, ids))', debut);
+    const corps = MAGASIN.indexOf('private async purgerDans(client: PoolClient', debut);
+    const ecriture = MAGASIN.indexOf('insert into numeros_effaces', corps);
+    const anonymisation = MAGASIN.indexOf("set phone_e164 = 'anon:' || gen_random_uuid()", corps);
     expect(debut).toBeGreaterThan(-1);
     expect(transaction).toBeGreaterThan(debut);
-    expect(ecriture).toBeGreaterThan(transaction);
+    expect(corps).toBeGreaterThan(transaction);
+    expect(ecriture).toBeGreaterThan(corps);
     // Avant l'anonymisation : après elle, le numéro n'est plus lisible.
     expect(ecriture).toBeLessThan(anonymisation);
-    expect(MAGASIN.slice(debut, anonymisation)).toContain('const effaces = [...new Set(e164)].map((tel) => empreinteRefus(tenantId, { tel }));');
+    expect(MAGASIN.slice(corps, anonymisation)).toContain('const effaces = [...new Set(e164)].map((tel) => empreinteRefus(tenantId, { tel }));');
     expect(MAGASIN.slice(ecriture - 120, ecriture)).toContain('await client.query(');
   });
 

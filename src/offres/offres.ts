@@ -168,6 +168,13 @@ export function contactsToutesOrigines(offre: Offre): boolean {
   return offre !== 'entreprise';
 }
 
+/**
+ * Les offres où l'option « le plus ancien laisse sa place » joue (décision de Julien du 2026-11-24, lot 2) : le Business et
+ * l'Entreprise. Lue avec l'offre : un espace redescendu en Pro ou en Free garde la case cochée en base, sans effet. Le
+ * magasin des contacts (`PgContactStore.faireDeLaPlace`), la route de Réglages et la fiche d'offre de `/ops` la lisent ici.
+ */
+export const offreRemplaceLesAnciens = (offre: Offre): boolean => offre === 'business' || offre === 'entreprise';
+
 /** La limite de contacts d'un espace, et l'offre qui la fixe : c'est elle qui dit ce qu'on compte (`contactsToutesOrigines`). */
 export interface LimiteContacts {
   max: number;

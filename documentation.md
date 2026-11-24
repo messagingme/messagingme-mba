@@ -4510,6 +4510,26 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   L'écart est journalisé `entrant_ecarte_espace_plein`, sans le numéro ni le texte. La porte ne lève jamais : une lecture
   en échec laisse entrer. Requise dans `WebhookJobDeps` et `DepsEntrantApplication` (`aucunEspacePlein` dans les tests).
   ⚠️ Un message tapé sur le téléphone d'un numéro relié par QR code (`deMoi`) n'est pas un entrant : il garde son chemin.
+- 🔴 **Le plus ancien laisse sa place** (décision de Julien du 2026-11-24, migration 0322
+  `tenant_settings.contacts_remplacer_anciens`) : en Business et en Entreprise (`offreRemplaceLesAnciens`), l'option cochée
+  remplace le refus d'un espace plein par la purge des plus anciens. Un seul mécanisme, `PgContactStore.faireDeLaPlace` :
+  une transaction, un verrou d'avis par espace (`contacts-place:<espace>`), le recompte SOUS le verrou (`ficheComptee`),
+  les `n` plus anciens par `created_at` puis `id` hors des fiches que la création vise (un import ne purge pas une fiche
+  qu'il met à jour, l'entrant ne purge pas qui écrit dans le même lot), puis `purgeMany` par le même client
+  (`purgerDans`). L'appelant crée ensuite, hors du verrou : deux créations simultanées ne purgent jamais deux fois la même
+  place, mais l'espace peut dépasser d'une fiche, que la création suivante résorbe. Ce qui ne tient pas une fois tout
+  purgé est refusé (`LimiteOffreError`), sans rien purger. L'option se relit EN BASE dans la requête qui compte
+  (`verifierPlaceContacts`, `placesContacts`, `inconnusRefuses`), jamais dans le cache de l'offre. Les trois gardes de
+  création la suivent ; la porte de l'entrant, en Business seulement, purge puis laisse entrer, et un échec du
+  remplacement laisse entrer aussi. 🔴 Jamais dans la transaction d'un appelant (`q`, le rattrapage Shopify) : la purge y
+  serait tracée et retirée chez Meta même si l'appelant annulait ; le rattrapage compte alors « au-delà du plafond ».
+  Après le `commit`, `apresRemplacement` (`src/socle.ts`) retire chez Meta les lignes de la liste de l'agent, puis écrit
+  `contacts.remplaces` au journal de l'espace : le nombre, les identifiants internes et le chemin (`entrant`, `import`,
+  `console`, `api`), jamais un numéro ni un nom. Le quota des suppressions du jour ne s'applique pas (il ne vaut qu'en
+  Free, où l'option n'existe pas). Réglée par `PATCH /tenants/:tenantId/settings/contacts-remplacer-anciens` (un
+  administrateur, 409 `offre_business_requise` hors Business et Entreprise, décocher passe toujours) et par la fiche
+  d'offre de `/ops` (`remplacerAnciens`, tracée). Les aperçus le disent : l'import CSV rend `remplacement { nouveaux,
+  placesLibres }` (la console extrapole sur la tête d'un gros fichier), les clients Shopify `effacements`.
 - **Les limites se comptent là où l'on crée** : contacts dans `PgContactStore` (les trois insertions, sur le prédicat de
   l'offre ; `upsertFromInbound` ne vérifie rien, la porte passe avant lui), automations allumées sans propriétaire
   (`src/offres/automations.ts`, webhooks entrants compris), membres actifs et invitations (`src/offres/membres.ts`),

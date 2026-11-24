@@ -107,10 +107,12 @@ export class PgOffresStore implements SourceOffres {
       entreprise_contacts: number | null; entreprise_commission_pct: number | null;
       offre_business: boolean; business_utilisateurs: number | null; offre_business_essai_fin_le: Date | null;
       entreprise_commission_messages_pct: number | null; entreprise_plafond_ia_micro_eur: string | null;
+      contacts_remplacer_anciens: boolean | null;
     }>(
       `select t.offre_entreprise, t.entreprise_utilisateurs, s.conversation_retention_days,
               t.entreprise_contacts, t.entreprise_commission_pct, t.offre_business, t.business_utilisateurs,
-              t.offre_business_essai_fin_le, t.entreprise_commission_messages_pct, t.entreprise_plafond_ia_micro_eur
+              t.offre_business_essai_fin_le, t.entreprise_commission_messages_pct, t.entreprise_plafond_ia_micro_eur,
+              s.contacts_remplacer_anciens
          from tenants t left join tenant_settings s on s.tenant_id = t.id
         where t.id = $1`,
       [tenantId],
@@ -122,6 +124,7 @@ export class PgOffresStore implements SourceOffres {
         contacts: l.entreprise_contacts, commissionPct: l.entreprise_commission_pct,
         business: l.offre_business, utilisateursBusiness: l.business_utilisateurs, businessEssaiFinLe: l.offre_business_essai_fin_le,
         commissionMessagesPct: l.entreprise_commission_messages_pct,
+        remplacerAnciens: l.contacts_remplacer_anciens === true,
         // En euros entiers à l'écran, en micro-euros en base (0268) : la colonne n'accepte que des euros ronds d'ici.
         plafondIaMoisEuros: l.entreprise_plafond_ia_micro_eur === null ? null : Math.round(Number(l.entreprise_plafond_ia_micro_eur) / 1_000_000),
       }
@@ -196,6 +199,13 @@ export class PgOffresStore implements SourceOffres {
         ],
       );
       if ((maj.rowCount ?? 0) === 0) return false;
+      if (r.remplacerAnciens !== undefined) {
+        await client.query(
+          `insert into tenant_settings (tenant_id, contacts_remplacer_anciens, updated_at) values ($1, $2, now())
+           on conflict (tenant_id) do update set contacts_remplacer_anciens = excluded.contacts_remplacer_anciens, updated_at = now()`,
+          [tenantId, r.remplacerAnciens],
+        );
+      }
       if (r.conservationJours === undefined) return true;
       await client.query(
         `insert into tenant_settings (tenant_id, conversation_retention_days, updated_at) values ($1, $2, now())
@@ -232,6 +242,11 @@ export interface EcritureEntreprise {
   commissionMessagesPct?: number | null;
   /** Le plafond de sécurité de l'IA du mois, en euros entiers : absent = inchangé, `null` = le défaut de l'instance. */
   plafondIaMoisEuros?: number | null;
+  /**
+   * L'option « le plus ancien laisse sa place » (0322, lot 2 du 2026-11-24) : absente = inchangée. Elle ne joue qu'en
+   * Business et en Entreprise (`offreRemplaceLesAnciens`), cochée ici comme dans Réglages.
+   */
+  remplacerAnciens?: boolean;
 }
 
 /** Ce que l'exploitant doit voir avant de poser ou de retirer une offre à la main (`PgOffresStore.alertes`). */
@@ -272,4 +287,6 @@ export interface ReglageEntreprise {
    * de l'instance (`ENTREPRISE_PLAFOND_IA_EUROS_MOIS`). Sans effet hors Entreprise.
    */
   plafondIaMoisEuros: number | null;
+  /** L'option « le plus ancien laisse sa place » (0322, lot 2 du 2026-11-24), lue dans les réglages de l'espace. */
+  remplacerAnciens: boolean;
 }

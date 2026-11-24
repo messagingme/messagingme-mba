@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { sansPortailHubspot } from './hubspot';
+import { remplacementInerte, sansPortailHubspot } from './hubspot';
 import { GRILLE_DEFAUT } from '../src/stats/prix';
 import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
@@ -130,6 +130,7 @@ describe('le mode de transfert de l’agent IA', () => {
       const settings: SettingsRouteDeps = {
         ...reglagesInertes,
         hubspotPortalConnecte: sansPortailHubspot,
+        remplacement: remplacementInerte,
         choixHubspot: async () => ({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, stop: true, valideLe: null }),
         reglages: {
           ...reglagesDepInertes,

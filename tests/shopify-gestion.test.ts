@@ -583,7 +583,7 @@ describe('l’import des clients abonnés (lot 3)', () => {
   ];
   function monterImport(o: {
     acces?: AccesBoutique | null; jeton?: IssueJeton; lecture?: LectureClients; limite?: number | null; comptees?: number;
-    importerLeve?: Error;
+    importerLeve?: Error; remplacer?: boolean;
   } = {}) {
     const journal = { imports: [] as ImportInput[], lectures: [] as unknown[] };
     const { deps } = monter();
@@ -598,7 +598,7 @@ describe('l’import des clients abonnés (lot 3)', () => {
       lireClients: async (acces, plafond) => { journal.lectures.push({ acces, plafond }); return o.lecture ?? { ok: true, abonnes: ABONNES, sansTelephone: 2, complet: true }; },
       places: async (_t, numeros) => ({
         limite: o.limite === undefined ? 100 : o.limite, comptees: o.comptees ?? 90,
-        presents: new Set(numeros.filter((n) => n === '+33600000002')),
+        presents: new Set(numeros.filter((n) => n === '+33600000002')), remplacer: o.remplacer ?? false,
       }),
       importer: async (input) => {
         journal.imports.push(input);
@@ -612,7 +612,7 @@ describe('l’import des clients abonnés (lot 3)', () => {
   it('compte sans rien écrire : abonnés, déjà là, nouveaux, places libres, importables ; le jeton sert à la lecture', async () => {
     const { deps, journal } = monterImport();
     expect(await apercuImportClients(deps, T)).toEqual({ ok: true, valeur: {
-      abonnes: 4, sansTelephone: 2, dejaDansLEspace: 1, nouveaux: 3, placesLibres: 10, importables: 3, complet: true,
+      abonnes: 4, sansTelephone: 2, dejaDansLEspace: 1, nouveaux: 3, placesLibres: 10, importables: 3, effacements: 0, complet: true,
     } });
     expect(journal.imports).toEqual([]);
     expect(journal.lectures).toEqual([{ acces: { domaine: 'b.myshopify.com', jeton: 'jeton', pays: 'FR' }, plafond: CLIENTS_LUS_MAX }]);
@@ -666,6 +666,20 @@ describe('l’import des clients abonnés (lot 3)', () => {
     // Deux écritures à la dernière place : le refus de l'import est rendu, pas une panne.
     const course = monterImport({ importerLeve: new LimiteOffreError(T, 'contacts', 100) });
     expect(await importerClients(course.deps, T, 1, null)).toMatchObject({ ok: false, statut: 402 });
+  });
+
+  it('🔴 « le plus ancien laisse sa place » (lot 2 du 2026-11-24) : l’aperçu annonce les effacements, l’import passe dans la limite entière', async () => {
+    // Plein (100 sur 100), l'option cochée : les 3 nouveaux s'importent, en effaçant les 3 plus anciens.
+    const plein = monterImport({ comptees: 100, remplacer: true });
+    expect(await apercuImportClients(plein.deps, T)).toMatchObject({ ok: true, valeur: { placesLibres: 0, importables: 3, effacements: 3 } });
+    expect(await importerClients(plein.deps, T, 3, null)).toMatchObject({ ok: true, valeur: { importes: 3 } });
+    expect(plein.journal.imports).toHaveLength(1);
+    // Une place libre sur deux nouveaux importés : un seul effacé. Jamais au-delà de la limite entière.
+    expect(await apercuImportClients(monterImport({ comptees: 99, remplacer: true }).deps, T)).toMatchObject({ ok: true, valeur: { importables: 3, effacements: 2 } });
+    expect(await apercuImportClients(monterImport({ limite: 2, comptees: 2, remplacer: true }).deps, T)).toMatchObject({ ok: true, valeur: { importables: 2, effacements: 2 } });
+    const trop = monterImport({ limite: 2, comptees: 2, remplacer: true });
+    expect(await importerClients(trop.deps, T, 3, null)).toMatchObject({ ok: false, statut: 402 });
+    expect(trop.journal.imports).toEqual([]);
   });
 
   it('le nombre choisi est un entier de 1 à la borne d’un appel ; rien à importer ne lance rien', async () => {

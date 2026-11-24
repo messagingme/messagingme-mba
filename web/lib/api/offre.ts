@@ -51,6 +51,17 @@ export function changerPacksContacts(tenantId: string, depuis: number, cible: nu
   return request(`/tenants/${tenantId}/offre/packs-contacts`, { method: 'POST', body: JSON.stringify({ depuis, cible }) });
 }
 
+/**
+ * L'option « le plus ancien laisse sa place » (lot 2 du 2026-11-24) : sa valeur, et si l'offre de l'espace la permet
+ * (Business et Entreprise). Une API qui ne connaît pas la route rend 404 : la section ne s'affiche pas.
+ */
+export function lireRemplacementContacts(tenantId: string): Promise<{ actif: boolean; possible: boolean }> {
+  return request(`/tenants/${tenantId}/settings/contacts-remplacer-anciens`);
+}
+export function reglerRemplacementContacts(tenantId: string, actif: boolean): Promise<{ actif: boolean }> {
+  return request(`/tenants/${tenantId}/settings/contacts-remplacer-anciens`, { method: 'PATCH', body: JSON.stringify({ actif }) });
+}
+
 /** Rendre le numéro fourni à la fin du Pro, ou revenir sur ce choix (lot 6, B2b). */
 export function rendreNumero(tenantId: string, rendre: boolean): Promise<{ rendreNumero: boolean }> {
   return request(`/tenants/${tenantId}/offre/numero`, { method: 'PUT', body: JSON.stringify({ rendre }) });

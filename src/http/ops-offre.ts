@@ -105,6 +105,8 @@ const corpsSchema = z.object({
   // Le plafond de sécurité de l'IA d'une Entreprise, en euros ENTIERS par mois (Entreprise illimitée, lot B) : absent =
   // inchangé, `null` = le défaut de l'instance. Jamais 0 : la clé Vercel garde ce plafond d'avance, il lui faut un nombre.
   plafondIaMoisEuros: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  // Le plus ancien laisse sa place (lot 2 du 2026-11-24) : absent = inchangé. Cochable en Business et en Entreprise.
+  remplacerAnciens: z.boolean().optional(),
   note: z.string(),
 }).strict();
 
@@ -150,6 +152,11 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
     if (lu.data.businessEssaiFinLe != null && !businessApres) {
       return reply.code(400).send({ error: 'une date d’essai du Business demande un espace en Business' });
     }
+    // Le remplacement des plus anciens ne se coche que sur un Business ou une Entreprise, jugé de même sur l'état effectif ;
+    // le décocher passe partout.
+    if (lu.data.remplacerAnciens === true && !lu.data.entreprise && !businessApres) {
+      return reply.code(400).send({ error: 'le remplacement des contacts les plus anciens demande un espace en Business ou en Entreprise' });
+    }
     const ecriture: EcritureEntreprise = {
       entreprise: lu.data.entreprise, utilisateurs: lu.data.utilisateurs,
       ...(lu.data.conservationJours !== undefined ? { conservationJours: lu.data.conservationJours } : {}),
@@ -161,6 +168,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
         ? { businessEssaiFinLe: lu.data.businessEssaiFinLe === null ? null : new Date(lu.data.businessEssaiFinLe) } : {}),
       ...(lu.data.commissionMessagesPct !== undefined ? { commissionMessagesPct: lu.data.commissionMessagesPct } : {}),
       ...(lu.data.plafondIaMoisEuros !== undefined ? { plafondIaMoisEuros: lu.data.plafondIaMoisEuros } : {}),
+      ...(lu.data.remplacerAnciens !== undefined ? { remplacerAnciens: lu.data.remplacerAnciens } : {}),
     };
     if (!(await deps.store.ecrireEntreprise(tenantId, ecriture))) return reply.code(404).send({ error: 'espace inconnu' });
     // L'état RELU, pour la réponse et la trace : un réglage absent n'a pas été écrit.
@@ -177,6 +185,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
       businessEssaiFinLe: apres.businessEssaiFinLe, businessEssaiFinLeAvant: avant.businessEssaiFinLe,
       commissionMessagesPct: apres.commissionMessagesPct, commissionMessagesPctAvant: avant.commissionMessagesPct,
       plafondIaMoisEuros: apres.plafondIaMoisEuros, plafondIaMoisEurosAvant: avant.plafondIaMoisEuros,
+      remplacerAnciens: apres.remplacerAnciens, remplacerAnciensAvant: avant.remplacerAnciens,
     });
     const gestes = await jouerLesGestes(deps, tenantId, avant, apres);
     const alertes = await deps.store.alertes(tenantId);

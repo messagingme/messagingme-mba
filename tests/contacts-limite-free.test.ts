@@ -64,11 +64,11 @@ describe('🔴 le compte de la limite dépend de l’offre (`contactsToutesOrigi
     const { p } = pool();
     // `toutesOrigines` : pleine, l'offre refuse un inconnu qui écrit le premier (l'aperçu du rattrapage le dit, lot 5b).
     expect(await new PgContactStore(p, undefined, limite({ max: 100, offre: 'base' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 100, comptees: 100, presents: new Set(), toutesOrigines: true });
+      .toEqual({ limite: 100, comptees: 100, presents: new Set(), toutesOrigines: true, remplacer: false });
     expect(await new PgContactStore(p, undefined, limite({ max: 1000, offre: 'pro' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 1000, comptees: 100, presents: new Set(), toutesOrigines: true });
+      .toEqual({ limite: 1000, comptees: 100, presents: new Set(), toutesOrigines: true, remplacer: false });
     expect(await new PgContactStore(p, undefined, limite({ max: 5000, offre: 'entreprise' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 5000, comptees: 60, presents: new Set(), toutesOrigines: false });
+      .toEqual({ limite: 5000, comptees: 60, presents: new Set(), toutesOrigines: false, remplacer: false });
   });
 
   it('sans limite, rien n’est lu ni refusé', async () => {

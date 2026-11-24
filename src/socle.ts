@@ -88,6 +88,7 @@ import { buildWorkflowRuntime } from './workflow/wiring';
 import { PgWorkflowRunStore } from './workflow/run-store.pg';
 import { creerControleDuFil } from './inbox/fil';
 import { creerListeDeLAgent } from './mba/liste';
+import { tenter } from './lib/tenter';
 import { PgListeStore } from './mba/liste.pg';
 import { PgVerrousCourts } from './db/verrous-courts.pg';
 import { PgCompteurDebit } from './db/debit.pg';
@@ -245,6 +246,16 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     // par les trois chemins de création, et lue par la porte d'un espace plein (`inconnusRefuses`), jamais par l'entrant.
     async (tenant) => limiteContactsDe(await offres.offreDe(tenant)),
     annonceHubspotStop ?? undefined,
+    // Le plus ancien laisse sa place (lot 2 du 2026-11-24), après le `commit` de sa purge : le retrait chez Meta des lignes
+    // de la liste de l'agent, puis la trace de l'espace, chacun isolé. `listeDeLAgent` et `auditStore` naissent plus bas,
+    // cette fonction ne s'appelle qu'en service.
+    async (r) => {
+      if (r.listeAgent.length > 0) await tenter('remplacement : retrait chez Meta en échec', () => listeDeLAgent.oublierChezMeta(r.tenantId, r.listeAgent));
+      await tenter('remplacement : trace ignorée', () => auditStore.record(
+        r.tenantId, { userId: null, email: null }, 'contacts.remplaces', { kind: 'tenant', id: r.tenantId },
+        { nombre: r.contactIds.length, contactIds: r.contactIds, chemin: r.chemin },
+      ));
+    },
   );
   // Les définitions de champs : l'API les écrit (import, API publique), le worker déclare les champs « Pub » la
   // première fois qu'un contact arrive par une publicité (sans définition, la valeur serait invisible du CRM).

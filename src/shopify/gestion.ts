@@ -42,7 +42,7 @@ export interface DepsGestionShopify {
   jeton(domaine: string, clientId: string, secret: string): Promise<IssueJeton>;
   lireClients(acces: AccesClients, plafond: number): Promise<LectureClients>;
   /** Les places de l'offre et les numéros déjà présents (`placesContacts`), comptés comme la limite les compte. */
-  places(tenantId: string, numeros: readonly string[]): Promise<{ limite: number | null; comptees: number; presents: Set<string> }>;
+  places(tenantId: string, numeros: readonly string[]): Promise<{ limite: number | null; comptees: number; presents: Set<string>; remplacer: boolean }>;
   /** `importContacts` lié aux magasins de la fiche : le chemin de l'import HubSpot, aucun événement d'automation. */
   importer(input: ImportInput): Promise<ImportReport>;
   /** Le branchement par la console (conception 2026-10-22) : `abonnerWebhooks` lié à `fetchPublic` par le câblage. */
@@ -340,13 +340,23 @@ export interface ApercuImport {
   nouveaux: number;
   /** Les places que l'offre laisse ; `null` : sans limite. */
   placesLibres: number | null;
-  /** Ce qu'un import écrirait au plus : les nouveaux, dans les places libres et la borne d'un appel. */
+  /**
+   * Ce qu'un import écrirait au plus : les nouveaux, dans les places libres et la borne d'un appel. Avec l'option « le plus
+   * ancien laisse sa place » (lot 2 du 2026-11-24), dans la limite entière : les plus anciens font la place.
+   */
   importables: number;
+  /** Les contacts les plus anciens qu'importer les `importables` effacerait (0 sans l'option, ou s'il reste la place). */
+  effacements: number;
   /** `false` : la lecture s'est arrêtée au plafond, il reste des abonnés plus anciens. */
   complet: boolean;
 }
 
-interface Lecture { nouveaux: ClientAbonne[]; dejaDansLEspace: number; sansTelephone: number; libres: number | null; complet: boolean }
+interface Lecture {
+  nouveaux: ClientAbonne[]; dejaDansLEspace: number; sansTelephone: number; libres: number | null; complet: boolean;
+  /** L'option « le plus ancien laisse sa place » est active : `plafond` est alors la limite entière, au lieu des places libres. */
+  remplacer: boolean;
+  plafond: number | null;
+}
 
 /**
  * Les abonnés de la boutique de l'espace, et ce que l'offre permet d'en importer. Décisions de Julien du 2026-10-22 :
@@ -368,6 +378,8 @@ async function lireAbonnes(deps: DepsGestionShopify, tenantId: string): Promise<
     valeur: {
       nouveaux, dejaDansLEspace: lecture.abonnes.length - nouveaux.length, sansTelephone: lecture.sansTelephone,
       libres: places.limite === null ? null : Math.max(0, places.limite - places.comptees), complet: lecture.complet,
+      remplacer: places.remplacer,
+      plafond: places.limite === null ? null : places.remplacer ? places.limite : Math.max(0, places.limite - places.comptees),
     },
   };
 }
@@ -376,12 +388,13 @@ async function lireAbonnes(deps: DepsGestionShopify, tenantId: string): Promise<
 export async function apercuImportClients(deps: DepsGestionShopify, tenantId: string): Promise<Issue<ApercuImport>> {
   const l = await lireAbonnes(deps, tenantId);
   if (!l.ok) return l;
-  const { nouveaux, dejaDansLEspace, sansTelephone, libres, complet } = l.valeur;
+  const { nouveaux, dejaDansLEspace, sansTelephone, libres, complet, plafond } = l.valeur;
+  const importables = Math.min(nouveaux.length, plafond ?? Infinity, IMPORT_MAX);
   return {
     ok: true,
     valeur: {
       abonnes: nouveaux.length + dejaDansLEspace, sansTelephone, dejaDansLEspace, nouveaux: nouveaux.length, placesLibres: libres,
-      importables: Math.min(nouveaux.length, libres ?? Infinity, IMPORT_MAX), complet,
+      importables, effacements: libres === null ? 0 : Math.max(0, importables - libres), complet,
     },
   };
 }
@@ -415,10 +428,12 @@ export async function importerClients(
   }
   const l = await lireAbonnes(deps, tenantId);
   if (!l.ok) return l;
-  const { nouveaux, libres, complet } = l.valeur;
+  const { nouveaux, libres, complet, plafond } = l.valeur;
   // Ce qui serait ÉCRIT, et non le nombre demandé (relecture du lot 3) : 100 demandés pour 3 nouveaux et 50 places passent.
-  if (libres !== null && Math.min(maximum, nouveaux.length) > libres) {
-    return refus(402, `L’offre ne laisse que ${libres} place${libres > 1 ? 's' : ''} de contacts : importez au plus ${libres} clients, ou passez à l’offre supérieure.`);
+  // Avec l'option « le plus ancien laisse sa place » (lot 2 du 2026-11-24), le plafond est la limite entière : l'import
+  // fait purger les plus anciens, comme l'aperçu l'a annoncé.
+  if (plafond !== null && Math.min(maximum, nouveaux.length) > plafond) {
+    return refus(402, `L’offre ne laisse que ${plafond} place${plafond > 1 ? 's' : ''} de contacts : importez au plus ${plafond} clients, ou passez à l’offre supérieure.`);
   }
   const choisis = nouveaux.slice(0, maximum);
   let rapport: ImportReport = { created: 0, updated: 0, skipped: 0, errors: [] };

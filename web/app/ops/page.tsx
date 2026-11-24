@@ -1550,6 +1550,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   // WhatsApp reste fermée ; décoché = confirmé.
   const [businessEssai, setBusinessEssai] = useState(false);
   const [businessEssaiFin, setBusinessEssaiFin] = useState('');
+  // Le plus ancien laisse sa place (lot 2 du 2026-11-24) : la même case que dans les Paramètres de l'espace.
+  const [remplacerAnciens, setRemplacerAnciens] = useState(false);
   const [retraitConfirme, setRetraitConfirme] = useState(false);
   const [note, setNote] = useState('');
   const [envoi, setEnvoi] = useState(false);
@@ -1570,6 +1572,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
     setUtilisateursBusiness(r.utilisateursBusiness == null ? '' : String(r.utilisateursBusiness));
     setBusinessEssai(r.businessEssaiFinLe != null);
     setBusinessEssaiFin(r.businessEssaiFinLe ? r.businessEssaiFinLe.slice(0, 10) : '');
+    setRemplacerAnciens(r.remplacerAnciens === true);
     setRetraitConfirme(false);
   };
 
@@ -1645,6 +1648,9 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
         ...(business !== (etat?.business === true) ? { business } : {}),
         ...(business && nouveauxUtilisateursBusiness !== undefined ? { utilisateursBusiness: nouveauxUtilisateursBusiness } : {}),
         ...(finEssaiChange && finEssaiSaisie !== 'invalide' ? { businessEssaiFinLe: finEssaiSaisie } : {}),
+        // Ne part que s'il change, et décoché hors Business et Entreprise (le serveur refuserait la case cochée).
+        ...((entreprise || business ? remplacerAnciens : false) !== (etat?.remplacerAnciens === true)
+          ? { remplacerAnciens: entreprise || business ? remplacerAnciens : false } : {}),
         note: note.trim(),
       });
       remplir(r);
@@ -1771,6 +1777,15 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
                   </label>
               </div>
             </div>
+          )}
+          {(entreprise || business) && (
+            <label className="flex items-start gap-2 text-sm" data-testid="offre-remplacer-anciens-ligne">
+              <input type="checkbox" checked={remplacerAnciens} onChange={(e) => setRemplacerAnciens(e.target.checked)} data-testid="offre-remplacer-anciens" className="mt-0.5 h-4 w-4" />
+              <span>
+                {t('Espace plein : le contact le plus ancien laisse sa place (purge irréversible : conversation, messages, analyse).',
+                  'Full workspace: the oldest contact makes room (irreversible purge: conversation, messages, analysis).')}
+              </span>
+            </label>
           )}
           {coupeLeNumero && (
             <label className="flex items-start gap-2 rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700" data-testid="offre-retrait-numero">

@@ -5259,6 +5259,16 @@ du 2026-10-27.
   l'application WhatsApp Business reliée par QR code.
 - ✅ **En Entreprise, seuls les contacts créés comptent** (leur nombre se règle sur devis) : un client qui écrit le
   premier n'y est jamais compté (même complété ensuite), ni jamais refusé.
+- ✅ **En Business et en Entreprise, le plus ancien peut laisser sa place** (décision de Julien du 2026-11-24) : une option,
+  décochée par défaut, qu'un administrateur coche dans Paramètres (après une confirmation qui dit l'irréversible) ou que
+  nous cochons dans la fiche d'offre de `/ops`. Cochée, un espace plein ne refuse plus : chaque nouveau contact compté
+  efface définitivement le contact compté le plus ancien en création (sa conversation, ses messages, son analyse), autant
+  de fois qu'il faut, imports compris. Aucun contact n'est protégé, ni en plein scénario, ni visé par une campagne
+  programmée ; un contact qui avait dit STOP le reste s'il revient, et un numéro effacé n'est jamais recréé par le
+  rattrapage Shopify. En Business, un nouveau client qui écrit entre donc toujours ; en Entreprise, l'option ne joue que
+  sur les créations. L'aperçu d'un import CSV ou des clients Shopify dit combien des plus anciens seront effacés avant la
+  confirmation, et chaque remplacement entre au journal des actions de l'espace (le nombre et les identifiants internes,
+  jamais un numéro ni un nom). Un espace redescendu en Pro ou en Free garde la case, sans effet.
 - ✅ **Les widgets WhatsApp suivent l'offre** (décision de Julien, 2026-11-13) : un en formule Free, cinq en formule Pro, sans limite en
   Business et en Entreprise. Un espace qui en a plus que son offre n'en permet garde les siens, qui continuent de marcher ;
   seule la création d'un nouveau est refusée, avec le lien de l'offre qui la lève. La grille de la page Offre le montre.

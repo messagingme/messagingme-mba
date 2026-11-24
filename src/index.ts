@@ -2710,6 +2710,12 @@ async function main(): Promise<void> {
        * Consentement a besoin de nommer un appel, pas de connaître son adresse, ses en-têtes ni ce qu'il envoie.
        */
       listerRequetesConnecteur: async (tenant) => (await agentRequetes.lister(tenant)).map((r) => ({ id: r.id, label: r.label })),
+      // Le plus ancien laisse sa place (lot 2 du 2026-11-24) : l'offre relue SANS cache, un Business tout juste posé coche.
+      remplacement: {
+        lire: (tenant) => settingsStore.contactsRemplacerAnciens(tenant),
+        ecrire: (tenant, actif) => settingsStore.setContactsRemplacerAnciens(tenant, actif),
+        offreDe: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
+      },
       agents: agentStore,
     },
     // Import de listes HubSpot (3e source de campagne) : monté seulement si le canal service est configuré.
@@ -3185,7 +3191,9 @@ async function main(): Promise<void> {
       // Les suppressions de contacts du jour de l'offre (lot 6), sur le compteur partagé des copies.
       suppressionsDuJour: quotaSuppressions,
       createOneContact: async (tenant, input) => {
-        const [r] = await upsertContactsFromApi(tenant, [input], { contacts: contactStore, fields: fieldStore, defaultCountry: config.DEFAULT_COUNTRY as CountryCode });
+        const [r] = await upsertContactsFromApi(tenant, [input], {
+          contacts: contactStore, fields: fieldStore, defaultCountry: config.DEFAULT_COUNTRY as CountryCode, chemin: 'console',
+        });
         return r
           ? { status: r.status, ...(r.contactId ? { contactId: r.contactId } : {}), ...(r.reason ? { reason: r.reason } : {}), ...(r.limite !== undefined ? { limite: r.limite } : {}) }
           : { status: 'error', reason: 'aucun résultat' };

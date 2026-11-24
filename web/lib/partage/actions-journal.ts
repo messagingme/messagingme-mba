@@ -8,6 +8,10 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'contact.created': ['Contact ajouté', 'Contact added'],
   'contact.imported': ['Import de contacts', 'Contact import'],
   'contact.purged': ['Contact supprimé', 'Contact deleted'],
+  // L'option « le plus ancien laisse sa place » (lot 2 du 2026-11-24) : les plus anciens purgés pour faire de la place, le
+  // détail porte leur nombre, leurs identifiants internes et le chemin qui créait, jamais un numéro ni un nom.
+  'contacts.remplaces': ['Contacts les plus anciens remplacés', 'Oldest contacts replaced'],
+  'settings.contacts_remplacer_anciens': ['Remplacement des contacts les plus anciens réglé', 'Oldest contacts replacement set'],
   'contact.optin': ['Passage en opt-in', 'Marked as opted in'],
   'contact.optout': ['Passage en opt-out', 'Marked as opted out'],
   'workflow.published': ['Scénario mis en ligne', 'Scenario published'],

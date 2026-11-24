@@ -303,6 +303,17 @@ export function CsvImport({ tenantId, requireTag = false, onImported, onBusyChan
         </div>
       )}
 
+      {/* Le plus ancien laisse sa place (lot 2 du 2026-11-24) : l'espace plein efface ses plus anciens pour faire entrer le
+          fichier, et le dit AVANT la confirmation. */}
+      {preview.effacements !== undefined && preview.effacements > 0 && (
+        <p className="mt-4 text-sm text-danger" data-testid="import-effacements">
+          {t(
+            `Votre espace est plein : cet import effacera définitivement ${preview.estime ? 'environ ' : ''}${preview.effacements} de vos contacts les plus anciens (leur conversation, leurs messages et leur analyse).`,
+            `Your workspace is full: this import will permanently delete ${preview.estime ? 'about ' : ''}${preview.effacements} of your oldest contacts (their conversation, messages and analysis).`,
+          )}
+        </p>
+      )}
+
       <Bouton enCours={busy}
         onClick={submit}
         disabled={busy || !hasPhone || tagsMissing}

@@ -1,5 +1,20 @@
 # todo.md : backlog
 
+## 🟡 Le plus ancien laisse sa place (lot 2 du plan `2026-11-24-contacts-packs-et-remplacement`) : la relecture (aucun rouge)
+
+- La porte de l'entrant d'un Business coché purge un client par inconnu qui écrit, sans plafond : un tiers qui écrit depuis
+  N numéros en efface N, et le STOP d'un inconnu en purge un aussi. Un plafond par heure et par espace, ou le STOP seul
+  exclu, est une décision de Julien.
+- La purge est validée avant la création, hors verrou : une création qui échoue ensuite (`creerFicheApi` en « conflit »
+  sur une fiche supprimée qui porte un autre identifiant externe, un envoi refusé après la création de sa fiche, un import
+  qui plante après sa garde) a purgé pour rien, une fiche par tentative.
+- Une fiche supprimée puis rétablie garde son ancien `created_at` : elle redevient la plus ancienne et part à la création
+  suivante.
+- Un gros import purge dans UNE transaction, sous le verrou de l'espace : les autres créations de l'espace attendent.
+- `/ops` envoie `remplacerAnciens` à une API d'avant le lot (schéma strict) : 400 le temps entre le push et le déploiement.
+- Le test de concurrence tolère une ou deux purges, sans distinguer le dépassement d'une fiche voulu.
+- `verifierPlaceContacts` lit l'offre du cache : un Business tout juste redescendu peut encore purger 30 s.
+
 ## 🟡 Packs de contacts du Pro (lot 1 du plan `2026-11-24-contacts-packs-et-remplacement`) : la relecture (aucun rouge)
 
 - La phrase du refus (`refus.ts`, `packsContactsEnVente`) lit la seule configuration ; la page de l'offre exige en plus un

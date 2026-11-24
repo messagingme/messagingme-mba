@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { apercuCsvHorsBoucle, parseCsvHorsBoucle } from '../crm/csv';
 import { recognizeColumns } from '../crm/recognize';
 import { importContacts } from '../crm/import';
+import { normalizePhone } from '../crm/phone';
 import type { ContactStore, ImportDeps } from '../crm/import';
 import type { ColumnMapping } from '../crm/types';
 import type { ContactRow, ContactFilters, ContactFieldFilter } from '../crm/contact-store.pg';
@@ -34,6 +35,10 @@ export interface ContactsListeDep extends ContactStore {
   suiviSegments(tenantId: string): Promise<SuiviSegments>;
   /** Les produits déjà vus dans les commandes de l'espace, pour choisir un critère produit (lot 3). */
   produitsVus(tenantId: string, recherche: string | undefined, limite: number): Promise<ProduitVuVue[]>;
+  /** Les places de l'offre (`PgContactStore.placesContacts`) : l'aperçu annonce les effacements du remplacement (lot 2). */
+  placesContacts(tenantId: string, numeros: readonly string[]): Promise<{
+    limite: number | null; comptees: number; presents: Set<string>; remplacer: boolean;
+  }>;
 }
 
 export interface ImportRouteDeps extends ImportDeps {
@@ -83,6 +88,30 @@ export function parseFilters(q: Record<string, unknown>): ContactFilters {
 }
 
 /** Construit un mapping par défaut depuis la reconnaissance de colonnes. */
+/**
+ * LE PLUS ANCIEN LAISSE SA PLACE (décision de Julien du 2026-11-24, lot 2) : de quoi dire combien des plus anciens contacts
+ * l'import effacerait, selon la colonne de téléphone détectée, avant la confirmation : les numéros nouveaux du texte reçu
+ * et les places libres (négatives au-delà de la limite). Les effacements valent `nouveaux - placesLibres` ; la console,
+ * qui n'envoie que la tête d'un gros fichier, extrapole les nouveaux comme elle extrapole les lignes. Les mêmes comptes que
+ * la garde de l'import (`placesContacts`, `verifierPlaceContacts`). Rien (aucune clé) sans l'option, sans limite, ou
+ * sans colonne de téléphone : le fichier n'est alors pas relu.
+ */
+async function effacementsDeLImport(
+  deps: ImportRouteDeps, tenantId: string, csv: string, mapping: ColumnMapping,
+): Promise<{ remplacement?: { nouveaux: number; placesLibres: number } }> {
+  const colonne = Object.entries(mapping.columns).find(([, c]) => c.target === 'phone')?.[0];
+  if (colonne === undefined) return {};
+  const vide = await deps.contacts.placesContacts(tenantId, []);
+  if (!vide.remplacer || vide.limite === null) return {};
+  const { rows } = await parseCsvHorsBoucle(csv);
+  const numeros = [...new Set(rows
+    .map((r) => normalizePhone(r[colonne] ?? '', deps.defaultCountry ?? 'FR').e164)
+    .filter((n): n is string => typeof n === 'string' && n !== ''))];
+  const p = await deps.contacts.placesContacts(tenantId, numeros);
+  if (p.limite === null) return {};
+  return { remplacement: { nouveaux: numeros.filter((n) => !p.presents.has(n)).length, placesLibres: p.limite - p.comptees } };
+}
+
 export function mappingFromHeaders(headers: string[]): ColumnMapping {
   const columns: ColumnMapping['columns'] = {};
   for (const s of recognizeColumns(headers)) {
@@ -227,7 +256,8 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
     }
     const apercu = await apercuCsvHorsBoucle(body.csv);
     if (apercu.headers.length === 0) return reply.code(400).send({ error: 'aucune colonne détectée (1re ligne = en-têtes)' });
-    return reply.code(200).send({ ...apercu, mapping: mappingFromHeaders(apercu.headers) });
+    const mapping = mappingFromHeaders(apercu.headers);
+    return reply.code(200).send({ ...apercu, mapping, ...(await effacementsDeLImport(deps, effectiveTenant, body.csv, mapping)) });
   });
 
   app.post('/tenants/:tenantId/contacts/import', optsImportCouteux, async (req, reply) => {

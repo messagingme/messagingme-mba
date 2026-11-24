@@ -152,7 +152,7 @@ export type MbaHandoffMode = 'always' | 'business_hours' | 'never';
 type ColonneReglage =
   | 'hubspot_actif' | 'salesforce_actif' | 'mba_relais_cle_id' | 'agents_peuvent_prendre' | 'mention_ia_frequence'
   | 'optout_request_id' | 'mba_handoff_mode' | 'agent_transfert_mode' | 'timezone' | 'business_hours'
-  | 'control_handback_seconds' | 'hubspot_lists_enabled';
+  | 'control_handback_seconds' | 'hubspot_lists_enabled' | 'contacts_remplacer_anciens';
 
 /**
  * Le choix de « Qui répond au client », tel que `PgTenantSettingsStore.setRepondeur` l'écrit : une cible par mode, et
@@ -396,6 +396,21 @@ export class PgTenantSettingsStore {
   /** Autorise (ou non) les agents à prendre une conversation du pot commun. */
   async setAgentsPeuventPrendre(tenantId: string, actif: boolean): Promise<void> {
     await this.poser(tenantId, 'agents_peuvent_prendre', actif);
+  }
+
+  /**
+   * L'option « le plus ancien laisse sa place » (0322, lot 2 du 2026-11-24) : lue à part de `get`, par sa route et par
+   * `/ops`. Le magasin des contacts la relit dans ses propres requêtes, au moment de créer.
+   */
+  async contactsRemplacerAnciens(tenantId: string): Promise<boolean> {
+    const r = await this.pool.query<{ v: boolean }>(
+      'select contacts_remplacer_anciens as v from tenant_settings where tenant_id = $1', [tenantId],
+    );
+    return r.rows[0]?.v === true;
+  }
+
+  async setContactsRemplacerAnciens(tenantId: string, actif: boolean): Promise<void> {
+    await this.poser(tenantId, 'contacts_remplacer_anciens', actif);
   }
 
   /**

@@ -26,6 +26,7 @@ import { Squelette } from '@/components/Squelette';
 /** Rouge pour ce qui détruit, ambre pour ce qui coupe les envois, vert pour ce qui les ouvre. */
 const TONS: Record<string, string> = {
   'contact.purged': 'bg-danger-50 text-danger-700',
+  'contacts.remplaces': 'bg-danger-50 text-danger-700',
   'contact.optout': 'bg-alerte-50 text-alerte-800',
   'contact.optin': 'bg-succes-50 text-succes-800',
 };

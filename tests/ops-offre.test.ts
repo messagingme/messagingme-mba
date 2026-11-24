@@ -22,8 +22,11 @@ const SANS_ALERTE: AlertesOffreManuelle = {
   proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: false,
   optionCreditWhatsappSansDroit: false, optionCreditWhatsappVivante: false,
 };
-/** Les champs du Business (spec du 2026-10-27) d'un espace qui ne l'a jamais eu. */
-const SANS_BUSINESS = { business: false, utilisateursBusiness: null, businessEssaiFinLe: null } as const;
+/**
+ * Les champs du Business (spec du 2026-10-27) d'un espace qui ne l'a jamais eu, et l'option « le plus ancien laisse sa
+ * place » décochée (lot 2 du 2026-11-24).
+ */
+const SANS_BUSINESS = { business: false, utilisateursBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false } as const;
 /**
  * Les réglages de crédit du devis d'une Entreprise qui n'en a négocié aucun : la commission des messages WhatsApp (plan du
  * 2026-10-30, tâche 8) et le plafond de sécurité de l'IA (Entreprise illimitée, lot B).
@@ -69,6 +72,7 @@ class MagasinMemoire {
               : r.businessEssaiFinLe === undefined ? avant.businessEssaiFinLe : r.businessEssaiFinLe,
             commissionMessagesPct: r.commissionMessagesPct === undefined ? avant.commissionMessagesPct : r.commissionMessagesPct,
             plafondIaMoisEuros: r.plafondIaMoisEuros === undefined ? avant.plafondIaMoisEuros : r.plafondIaMoisEuros,
+            remplacerAnciens: r.remplacerAnciens === undefined ? avant.remplacerAnciens : r.remplacerAnciens,
           });
           return true;
         },
@@ -248,6 +252,23 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     await server.close();
   });
 
+  it('🔴 le plus ancien laisse sa place (lot 2 du 2026-11-24) : coché sur un Business ou une Entreprise, écrit et tracé ; refusé ailleurs', async () => {
+    const { server, magasin } = monter();
+    // Une Entreprise (l'état de départ du magasin) : cochée, écrite, avant et après dans la trace, la note facultative.
+    const ok = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, remplacerAnciens: true, note: '' } });
+    expect(ok.statusCode).toBe(200);
+    expect(magasin.ecritures.at(-1)!.reglage).toMatchObject({ remplacerAnciens: true });
+    expect(magasin.reglages.get(T1)).toMatchObject({ remplacerAnciens: true });
+    expect(magasin.audits.at(-1)!.detail).toMatchObject({ remplacerAnciens: true, remplacerAnciensAvant: false });
+    // Ramené en Base avec la case cochée : 400, rien d'écrit ; décochée, elle passe.
+    const avant = magasin.ecritures.length;
+    expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { ...BASE, remplacerAnciens: true } })).statusCode).toBe(400);
+    expect(magasin.ecritures).toHaveLength(avant);
+    expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { ...BASE, remplacerAnciens: false } })).statusCode).toBe(200);
+    expect(magasin.reglages.get(T1)).toMatchObject({ remplacerAnciens: false });
+    await server.close();
+  });
+
   it('🔴 PUT pose le Business : écrit, cache vidé, puis les avis du numéro oubliés et le complément du crédit, dans cet ordre', async () => {
     const { server, magasin } = monter();
     magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: false });
@@ -319,7 +340,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
       expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload })).statusCode, payload.note).toBe(400);
     }
     // Un Business que l'Entreprise demandée fait tomber : la date n'a plus de Business où s'écrire.
-    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null });
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
     const versEntreprise = { entreprise: true, utilisateurs: null, businessEssaiFinLe: FIN, note: 'Entreprise et essai sur un Business' };
     expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: versEntreprise })).statusCode).toBe(400);
     expect(magasin.ecritures).toEqual([]);
@@ -334,7 +355,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
 
   it('🔴 PUT retire le Business : la fin du numéro fourni est demandée, à la date du retrait', async () => {
     const { server, magasin } = monter();
-    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null });
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
     const avant = Date.now();
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: false, note: 'fin de l’essai' } });
     expect(res.statusCode).toBe(200);
@@ -357,7 +378,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
 
   it('PUT pose l’Entreprise sur un Business : le Business tombe, sans geste de fin (l’Entreprise couvre le numéro)', async () => {
     const { server, magasin } = monter();
-    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: 6, businessEssaiFinLe: null });
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: 6, businessEssaiFinLe: null, remplacerAnciens: false });
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: 20, note: 'devis Entreprise signé' } });
     expect(res.statusCode).toBe(200);
     expect(magasin.reglages.get(T1)).toMatchObject({ entreprise: true, business: false });
@@ -442,6 +463,7 @@ describe('l’offre posée par l’exploitation, au journal des actions de l’e
         businessEssaiFinLe: null, businessEssaiFinLeAvant: null,
         commissionMessagesPct: null, commissionMessagesPctAvant: null,
         plafondIaMoisEuros: null, plafondIaMoisEurosAvant: null,
+        remplacerAnciens: false, remplacerAnciensAvant: false,
       },
     }]);
     expect(JSON.stringify(magasin.audits)).not.toContain(BASE.note);

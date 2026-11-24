@@ -10,6 +10,7 @@ import { TIMEZONES, timezoneLabel, DEFAULT_TIMEZONE } from '@/lib/timezones';
 import { inputClsAuto } from '@/lib/ui';
 import { BlockedContacts } from '@/components/BlockedContacts';
 import { Toggle } from '@/components/Toggle';
+import { RemplacementContacts } from '@/components/RemplacementContacts';
 import { Bouton } from '@/components/Bouton';
 import { IntroPage, TitrePage } from '@/components/TitrePage';
 import { Squelette } from '@/components/Squelette';
@@ -318,6 +319,9 @@ function Parametres({ tenantId }: { tenantId: string }) {
 
           {/* La prise d'une conversation par un agent : la même section que celle du manager. */}
           <SectionPriseAgents tenantId={tenantId} />
+
+          {/* L'espace plein, en Business et en Entreprise : le plus ancien laisse sa place (lot 2 du 2026-11-24). */}
+          <RemplacementContacts tenantId={tenantId} />
 
           {/* « VOS PRIX » A QUITTE CET ECRAN LE 2026-09-23 (lot 8, migration 0168). Il y a desormais UNE
               grille pour tous les espaces, reglee dans /ops : le client ne fixe plus, et ne voit plus, ce

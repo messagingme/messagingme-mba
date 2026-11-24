@@ -82,6 +82,14 @@ export function ShopifyImport({ tenantId, onClose, onFini }: {
                   type="number" min={1} max={apercu.importables} value={nombre} data-testid="shopify-import-nombre"
                   onChange={(e) => setNombre(Number(e.target.value))} className={`${inputCls} mt-1`}
                 />
+                {/* Le plus ancien laisse sa place (lot 2 du 2026-11-24) : au-delà des places libres, l'espace efface ses plus
+                    anciens contacts, ce qui n'arrive que quand l'option est cochée (sinon on ne peut pas choisir au-delà). */}
+                {valide && apercu.placesLibres !== null && nombre > apercu.placesLibres && (
+                  <span className="mt-1 block text-danger" data-testid="shopify-import-effacements">
+                    {t(`Votre espace est plein : importer ${nombre} clients effacera définitivement vos ${nombre - apercu.placesLibres} contacts les plus anciens (leur conversation, leurs messages et leur analyse).`,
+                      `Your workspace is full: importing ${nombre} customers will permanently delete your ${nombre - apercu.placesLibres} oldest contacts (their conversation, messages and analysis).`)}
+                  </span>
+                )}
               </label>
             ) : (
               <p className="text-ink-900">

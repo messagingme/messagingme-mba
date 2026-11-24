@@ -10,6 +10,7 @@ import { corpsDuRefus } from '../lib/issue';
 import { valideGrille, BORNES_GRILLE } from '../stats/prix';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { ConnecteurEnReveil } from '../crm/hubspot-service';
+import { offreRemplaceLesAnciens, type Offre } from '../offres/offres';
 
 /** Ce que les routes lisent et écrivent des réglages de l'espace. */
 export interface ReglagesDep {
@@ -66,6 +67,15 @@ export interface SettingsRouteDeps {
   choixHubspot(tenantId: string): Promise<ChoixHubspot>;
   /** Les requêtes de connecteur de l'espace (Tools > Connecteurs API), réduites à ce que l'écran affiche. */
   listerRequetesConnecteur(tenantId: string): Promise<Array<{ id: string; label: string }>>;
+  /**
+   * L'option « le plus ancien laisse sa place » (lot 2 du 2026-11-24) : sa valeur, son écriture, et l'offre de l'espace,
+   * relue SANS cache (un Business tout juste posé coche la case). Le Business et l'Entreprise seulement.
+   */
+  remplacement: {
+    lire(tenantId: string): Promise<boolean>;
+    ecrire(tenantId: string, actif: boolean): Promise<void>;
+    offreDe(tenantId: string): Promise<Offre>;
+  };
   agents: {
     /**
      * Les agents de l'espace et la phrase que chacun dit. Le régime dit quand on annonce, pas ce qu'on
@@ -286,6 +296,34 @@ export function registerSettings(
     const tenant = espaceVerifie(req);
     const { agentsPeuventPrendre } = await deps.reglages.get(tenant);
     return reply.code(200).send({ actif: agentsPeuventPrendre });
+  });
+
+  /**
+   * « LE PLUS ANCIEN LAISSE SA PLACE » (décision de Julien du 2026-11-24, lot 2) : espace plein, chaque nouveau contact fait
+   * purger le plus ancien, irréversiblement (`PgContactStore.faireDeLaPlace`). Un administrateur, le Business et
+   * l'Entreprise seulement ; décocher reste toujours possible. `possible` dit à l'écran s'il peut proposer la case.
+   */
+  app.get('/tenants/:tenantId/settings/contacts-remplacer-anciens', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const [actif, offre] = await Promise.all([deps.remplacement.lire(tenant), deps.remplacement.offreDe(tenant)]);
+    return reply.code(200).send({ actif, possible: offreRemplaceLesAnciens(offre) });
+  });
+
+  app.patch('/tenants/:tenantId/settings/contacts-remplacer-anciens', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const actif = (req.body as { actif?: unknown } | null)?.actif;
+    if (typeof actif !== 'boolean') return reply.code(400).send({ error: 'actif (booléen) requis' });
+    if (actif && !offreRemplaceLesAnciens(await deps.remplacement.offreDe(tenant))) {
+      return reply.code(409).send({
+        error: 'Le remplacement des contacts les plus anciens est réservé aux offres Business et Entreprise.', code: 'offre_business_requise',
+      });
+    }
+    const avant = await deps.remplacement.lire(tenant);
+    await deps.remplacement.ecrire(tenant, actif);
+    if (avant !== actif) {
+      await makeJournal(deps.audit)(tenant, req, 'settings.contacts_remplacer_anciens', { kind: 'tenant', id: tenant }, { actif, actifAvant: avant });
+    }
+    return reply.code(200).send({ actif });
   });
 
   app.patch('/tenants/:tenantId/settings/agents-peuvent-prendre', optsEncadrement, async (req, reply) => {

@@ -2,7 +2,7 @@
 description: Free, Pro, Business ou Entreprise : ce que chaque offre de Messaging Me ouvre, ses limites, et comment changer d'offre ou gérer l'abonnement.
 ecran: offre
 source_section: Offres (menu « Paramètres » > Offre)
-source_empreinte: 75d885
+source_empreinte: 369141
 publique: oui
 rubrique: demarrer-console
 rang: 1
@@ -68,6 +68,11 @@ client qui vous écrit n'entre pas dans Messaging Me : son message n'est pas enr
 pas. Un e-mail vous prévient, une fois par jour au plus. Vos contacts déjà présents vous écrivent comme avant, et un
 contact supprimé libère sa place : demandez à Claude de supprimer ceux dont vous n'avez plus besoin. En Entreprise, le
 nombre de contacts se règle avec vous, et un contact qui vous écrit le premier n'est jamais refusé.
+
+**En Business et en Entreprise : effacer le plus ancien plutôt que refuser.** Dans Paramètres, la case « Quand l'espace
+est plein, le contact le plus ancien laisse sa place » fait entrer chaque nouveau contact en effaçant définitivement votre
+contact le plus ancien, avec sa conversation, ses messages et son analyse. Aucun contact n'est protégé. Avant un import,
+l'aperçu dit combien des plus anciens seront effacés.
 
 **Ajouter 1 000 contacts en formule Pro.** Sur la page Offre, « Ajouter 1 000 contacts » coûte 20 € HT par mois avec
 la formule mensuelle, 240 € HT par an avec l'annuelle. Le prorata jusqu'à la fin de votre période est facturé tout de

@@ -5,7 +5,7 @@ import { validateFieldValue, canonicalizeFieldValue, ensureFieldByKey, refusSais
 import { normaliserDate, raisonDateLisible } from '../crm/date-iso';
 import { resolveFieldKey } from '../ids/resolve';
 import type { FieldLister } from '../ids/resolve';
-import type { PgContactStore } from '../crm/contact-store.pg';
+import type { CheminCreation, PgContactStore } from '../crm/contact-store.pg';
 import type { PgUserFieldStore } from '../crm/field-store.pg';
 import type { UserFieldDef } from '../crm/types';
 import type { CountryCode } from 'libphonenumber-js';
@@ -226,6 +226,8 @@ export async function upsertContactsFromApi(
     contacts: PgContactStore;
     fields: PgUserFieldStore;
     defaultCountry?: CountryCode;
+    /** Le chemin qui crée (lot 2 du 2026-11-24), signé dans la trace d'un remplacement des plus anciens ; absent : `api`. */
+    chemin?: CheminCreation;
     /**
      * Combien de définitions de champs un espace peut porter ; défaut `API_MAX_CHAMPS_PAR_ESPACE`, 0 désactive.
      * Injectable pour que les tests fassent varier la borne.
@@ -290,6 +292,7 @@ export async function upsertContactsFromApi(
         ...(item.optIn === true ? { optInSource: item.optInSource ?? 'api' } : {}),
         ...(normalizeTags(item.tags).length > 0 ? { tags: normalizeTags(item.tags) } : {}),
         ...(bsuid !== null ? { bsuid } : {}),
+        ...(deps.chemin ? { chemin: deps.chemin } : {}),
       },
       champsRefuses,
     });

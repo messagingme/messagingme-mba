@@ -336,7 +336,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'SMS) and have a valid phone: how many are already in the workspace, how many are new, how many free places the '
       + 'plan leaves (null when unlimited), and how many an import would write (importable, newest first). Writes nothing: '
       + 'the numbers the merchant chooses from (up to the free places, or a higher plan) before import_shopify_customers. '
-      + 'Counts toward the workspace\'s heavy operations.',
+      + 'When the workspace replaces its oldest contacts once full (a Business or Entreprise option), importable goes up to '
+      + 'the whole limit and oldest_deleted tells how many of the oldest contacts the import would permanently delete: say it '
+      + 'before importing. Counts toward the workspace\'s heavy operations.',
     annotations: { title: 'Count the Shopify customers to import', readOnlyHint: true, openWorldHint: true },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
@@ -345,7 +347,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       const a = valeur(await apercuImportClients(deps.shopify, tenantId));
       return {
         subscribed_with_phone: a.abonnes, subscribed_without_phone: a.sansTelephone, already_in_workspace: a.dejaDansLEspace,
-        new: a.nouveaux, free_places: a.placesLibres, importable: a.importables, complete: a.complet,
+        new: a.nouveaux, free_places: a.placesLibres, importable: a.importables, oldest_deleted: a.effacements, complete: a.complet,
       };
     },
   },

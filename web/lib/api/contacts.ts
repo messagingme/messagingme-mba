@@ -345,18 +345,29 @@ export interface ImportPreview {
   mapping: ColumnMapping;
   /** `rowCount` est-il une ESTIMATION ? (fichier trop gros pour être analysé en entier, cf. `teteCsv`). */
   estime: boolean;
+  /**
+   * L'option « le plus ancien laisse sa place » (lot 2 du 2026-11-24) : les contacts les plus anciens que l'import
+   * effacera, extrapolés comme les lignes sur un gros fichier. Absent : l'espace refuse au lieu d'effacer, ou n'a pas de
+   * limite, ou l'API ne le dit pas encore.
+   */
+  effacements?: number;
 }
 
 /** Aperçu : renvoie les colonnes détectées + un mapping suggéré (même parsing que l'import), sur la seule
  *  TÊTE du fichier. Le nombre de lignes est alors extrapolé au prorata des caractères, et signalé comme tel. */
 export async function previewImport(tenantId: string, csv: string): Promise<ImportPreview> {
   const tete = teteCsv(csv);
-  const p = await request<Omit<ImportPreview, 'estime'>>(`/tenants/${tenantId}/contacts/import/preview`, {
+  const { remplacement, ...p } = await request<Omit<ImportPreview, 'estime' | 'effacements'> & {
+    remplacement?: { nouveaux: number; placesLibres: number };
+  }>(`/tenants/${tenantId}/contacts/import/preview`, {
     method: 'POST',
     body: JSON.stringify({ csv: tete }),
   });
-  if (tete.length === csv.length) return { ...p, estime: false };
-  return { ...p, estime: true, rowCount: Math.round(p.rowCount * (csv.length / tete.length)) };
+  const ratio = csv.length / tete.length;
+  const effacements = remplacement && Number.isInteger(remplacement.nouveaux) && Number.isInteger(remplacement.placesLibres)
+    ? { effacements: Math.max(0, Math.round(remplacement.nouveaux * ratio) - remplacement.placesLibres) } : {};
+  if (tete.length === csv.length) return { ...p, estime: false, ...effacements };
+  return { ...p, estime: true, rowCount: Math.round(p.rowCount * ratio), ...effacements };
 }
 
 export function importCsv(

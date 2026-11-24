@@ -1,7 +1,7 @@
 ---
 description: Free, Pro, Business or Enterprise: what each Messaging Me plan opens, its limits, and how to change plan or manage the subscription.
 slug: choose-my-plan
-traduit_de: 6fd0fc
+traduit_de: c62bfb
 ---
 # Choose my plan
 
@@ -62,6 +62,11 @@ does not get into Messaging Me: their message is not recorded and your AI agent 
 you know, at most once a day. Your existing contacts write to you as before, and a deleted contact frees its place: ask
 Claude to delete the ones you no longer need. On Enterprise, the number of contacts is agreed with you, and a contact
 who writes to you first is never refused.
+
+**On Business and Enterprise: delete the oldest instead of refusing.** In Settings, the box "When the workspace is full,
+the oldest contact makes room" lets each new contact in by permanently deleting your oldest contact, with its
+conversation, messages and analysis. No contact is protected. Before an import, the preview says how many of the oldest
+will be deleted.
 
 **Add 1,000 contacts on Pro.** On the Plan page, "Add 1,000 contacts" costs €20 excl. VAT a month with the monthly
 plan, €240 excl. VAT a year with the yearly one. The prorated amount until the end of your period is charged right away

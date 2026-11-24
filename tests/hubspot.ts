@@ -16,3 +16,13 @@ export const sansPortailHubspot = async (): Promise<boolean> => false;
 
 /** L'espace a un portail lié : les fonctions HubSpot sont offertes (l'interrupteur décide ensuite). */
 export const avecPortailHubspot = async (): Promise<boolean> => true;
+
+/**
+ * L'option « le plus ancien laisse sa place » des réglages (lot 2 du 2026-11-24), pour les tests de la route des réglages
+ * qui ne parlent pas d'elle : décochée, sur une Free, rien n'est écrit.
+ */
+export const remplacementInerte = {
+  lire: async (): Promise<boolean> => false,
+  ecrire: async (): Promise<void> => {},
+  offreDe: async (): Promise<'base'> => 'base',
+};
