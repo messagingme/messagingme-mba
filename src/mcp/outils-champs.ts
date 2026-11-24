@@ -8,6 +8,7 @@ import { defPourEcriture } from '../crm/fields';
 import { MAX_OCTETS_CHAMP_JSON, USER_FIELD_TYPES, canonicalizeFieldValue, validateFieldValue } from '../crm/fields';
 import type { UserFieldDef } from '../crm/types';
 import { SOCLE_FIELDS } from '../../web/lib/partage/champs';
+import { LISTES } from './ecran';
 
 /**
  * LES CHAMPS DEPUIS L'ASSISTANT (plan docs/superpowers/plans/2026-10-20-champs-depuis-claude.md) : les lister (une
@@ -69,6 +70,7 @@ export const OUTILS_CHAMPS: OutilMcp[] = [
       },
       required: ['label', 'type'],
     },
+    ecran: () => LISTES.champs,
     async executer(deps, tenantId, args, personne) {
       signataire(personne);
       const label = texteObligatoire(args, 'label', LONGUEUR_MAX_LIBELLE_CHAMP);
@@ -96,6 +98,7 @@ export const OUTILS_CHAMPS: OutilMcp[] = [
       },
       required: ['key', 'value'],
     },
+    ecran: () => LISTES.contacts,
     async executer(deps, tenantId, args, personne) {
       signataire(personne);
       const key = texteObligatoire(args, 'key', LONGUEUR_MAX_CLE_CHAMP);

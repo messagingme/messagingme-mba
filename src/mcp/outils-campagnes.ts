@@ -1,6 +1,6 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, DepsMcp, OutilMcp } from './outils';
-import { RefusOutil, dateAvecFuseau, entierBorne, familleDuRefus, refusDuCoeur, texteObligatoire } from './saisie';
+import { RefusOutil, dateAvecFuseau, entierBorne, refusDuCoeur, texteObligatoire } from './saisie';
 import { CHAMPS_CIBLE_FILTRES, CHAMPS_CIBLE_IDENTIFIANTS, lireCibleMcp } from './cible';
 import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
 import type { AnalyseEtResume, ContactFilters } from '../crm/contact-store.pg';
@@ -20,6 +20,7 @@ import { validateParamMapping } from '../crm/template';
 import type { PhoneNumberRow } from '../campaign/store.pg';
 import { messageDePause, type MotifDePause } from '../campaign/pause';
 import { REPONDEURS_ETAGE } from '../campaign/etages';
+import { LISTES } from './ecran';
 
 /**
  * Ce que les outils de campagne lisent et écrivent, en plus des contacts et de l'Inbox du MCP. 🔴 Les MÊMES objets que
@@ -129,10 +130,7 @@ function refusDe(
 ): never {
   if ('refus' in r) throw refusDuCoeur(r.refus);
   const { error, code, upgradeUrl } = r.body;
-  throw new RefusOutil(error, familleDuRefus(r.status, code), {
-    ...(code === undefined ? {} : { cause: code }),
-    ...(upgradeUrl === undefined ? {} : { action: upgradeUrl }),
-  });
+  throw refusDuCoeur({ statut: r.status, message: error, ...(code === undefined ? {} : { code }), ...(upgradeUrl === undefined ? {} : { upgradeUrl }) });
 }
 
 /**
@@ -262,6 +260,7 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       },
       required: ['add_tags'],
     },
+    ecran: () => LISTES.contacts,
     async executer(deps, tenantId, args, personne) {
       signataire(personne);
       const addTags = etiquettesAPoser(args.add_tags);
@@ -338,6 +337,7 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       },
       required: ['template_name', 'template_language'],
     },
+    ecran: () => LISTES.campagnes,
     async executer(deps, tenantId, args, personne) {
       signataire(personne);
       const c = deps.campagnes;
@@ -475,6 +475,7 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       },
       required: ['campaign_id', 'confirmation_code'],
     },
+    ecran: () => LISTES.campagnes,
     async executer(deps, tenantId, args, personne) {
       signataire(personne);
       const c = deps.campagnes;
@@ -505,9 +506,12 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       if (!issue.ok) {
         // Refusé après la réclamation : le code redevient utilisable, rien n'est parti.
         await c.confirmations.rendre(tenantId, campaignId);
-        throw new RefusOutil(issue.raison === 'limite'
-          ? corpsRefusLimite(new LimiteOffreError(tenantId, 'envoisModelesMois', issue.max)).error
-          : issue.raison === 'credit_whatsapp' ? messageManqueCredit(issue.manqueMicroEur) : REFUS_DU_LANCEMENT[issue.raison], issue.raison === 'limite' ? 'plan_limit' : issue.raison === 'credit_whatsapp' ? 'credit_required' : 'conflict');
+        if (issue.raison === 'limite') {
+          const limite = corpsRefusLimite(new LimiteOffreError(tenantId, 'envoisModelesMois', issue.max));
+          throw new RefusOutil(limite.error, 'plan_limit', { cause: limite.code, action: limite.upgradeUrl });
+        }
+        if (issue.raison === 'credit_whatsapp') throw new RefusOutil(messageManqueCredit(issue.manqueMicroEur), 'credit_required');
+        throw new RefusOutil(REFUS_DU_LANCEMENT[issue.raison], issue.raison === 'inconnue' ? 'not_found' : 'conflict');
       }
       return 'programmee' in issue
         ? { campaign_id: campaignId, status: 'scheduled', scheduled_for: { iso: issue.programmee.toISOString(), paris: dateDeParis(issue.programmee) } }
@@ -545,6 +549,7 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       },
       required: ['campaign_id', 'action'],
     },
+    ecran: () => LISTES.campagnes,
     async executer(deps, tenantId, args, personne) {
       signataire(personne);
       const c = deps.campagnes;

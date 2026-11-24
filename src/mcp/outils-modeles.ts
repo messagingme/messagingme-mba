@@ -14,6 +14,7 @@ import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
 import { LOURDE, plafondCouteux, signataire } from './outils-agent';
 import type { GrilleMeta } from '../credit-whatsapp/grille';
 import { categorieDePrix, prixMetaFrance, type PrixMeta } from './prix-meta';
+import { LISTES } from './ecran';
 
 /**
  * LES MODÈLES DEPUIS CLAUDE (lot 13, domaine 3, spec § 5) : créer un modèle au format de Meta, suivre sa validation,
@@ -135,7 +136,9 @@ export async function envoyerAUnePersonne(
   if (rapport.recipientCount === 0) {
     // La clé est consommée : l'envoi vide est scellé, et le même appel rejouerait ce refus.
     throw new RefusOutil(`rien n’est parti : la personne est écartée (${rapport.skipped[0]?.reason ?? 'motif inconnu'})`
-      + `${rapport.created > 0 ? ' ; sa fiche a été créée' : ''} ; une fois la cause levée, réessayer avec une NOUVELLE idempotency_key`, rapport.skipped[0]?.reason === 'opted_out' ? 'opted_out' : 'conflict');
+      + `${rapport.created > 0 ? ' ; sa fiche a été créée' : ''} ; une fois la cause levée, réessayer avec une NOUVELLE idempotency_key`,
+    // Le motif de l'écart est un code de l'API (`opted_out`, `window_closed`, `plan_limit_reached`...) : il donne la famille.
+    familleDuRefus(409, rapport.skipped[0]?.reason), rapport.skipped[0]?.reason ? { cause: rapport.skipped[0].reason } : {});
   }
   // La trace de la personne qui a envoyé : la campagne, elle, porte le préfixe des envois de l'API.
   journaliser('info', evenement, { tenantId, userId: personne?.userId ?? null, sendId: rapport.sendId });
@@ -149,11 +152,15 @@ function phraseDeRefus(r: ReponseEnvoi): string {
   return typeof c?.code === 'string' ? `${phrase} (${c.code})` : phrase;
 }
 
-/** Le refus d'un envoi : sa phrase (`phraseDeRefus`), sa famille et sa cause, lues dans le statut et le code de l'API. */
+/** Le refus d'un envoi : sa phrase (`phraseDeRefus`), sa famille, sa cause et l'adresse de l'offre, lues dans la réponse de l'API. */
 function refusDEnvoi(r: ReponseEnvoi): RefusOutil {
-  const code = (r.corps as { code?: unknown } | null)?.code;
-  const cause = typeof code === 'string' ? code : undefined;
-  return new RefusOutil(phraseDeRefus(r), familleDuRefus(r.statut, cause), cause === undefined ? {} : { cause });
+  const c = r.corps as { code?: unknown; upgradeUrl?: unknown } | null;
+  return refusDuCoeur({
+    statut: r.statut,
+    message: phraseDeRefus(r),
+    ...(typeof c?.code === 'string' ? { code: c.code } : {}),
+    ...(typeof c?.upgradeUrl === 'string' ? { upgradeUrl: c.upgradeUrl } : {}),
+  });
 }
 
 const NOM = { type: 'string' as const, minLength: 1, maxLength: BORNES_MODELE.nom, pattern: '^[a-z0-9_]+$', description: 'The template name (lowercase letters, digits and _).' };
@@ -261,6 +268,7 @@ export const OUTILS_MODELES: OutilMcp[] = [
       required: ['template'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.modeles,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const lu = schemaModeleMeta.safeParse(args.template);
       if (!lu.success) throw new RefusOutil(`modèle invalide : ${messageDeForme(lu.error)}`, 'invalid_args');
@@ -317,6 +325,7 @@ export const OUTILS_MODELES: OutilMcp[] = [
       required: ['name', 'language', 'idempotency_key'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.inbox,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       return envoyerAUnePersonne(deps, tenantId, args, personne, { target: { template: { name: args.name, language: args.language } } }, 'mcp_modele_envoye');
     },
@@ -355,6 +364,7 @@ export const OUTILS_MODELES: OutilMcp[] = [
       required: ['template'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.modeles,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const lu = schemaModeleMeta.safeParse(args.template);
       if (!lu.success) throw new RefusOutil(`modèle invalide : ${messageDeForme(lu.error)}`, 'invalid_args');
@@ -402,6 +412,7 @@ export const OUTILS_MODELES: OutilMcp[] = [
       required: ['name'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.modeles,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const name = typeof args.name === 'string' ? args.name : '';
       if (!estNomDeModele(name)) throw new RefusOutil('name : un nom de modèle, en lettres minuscules, chiffres et _', 'invalid_args');

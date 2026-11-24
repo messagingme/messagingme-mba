@@ -213,7 +213,7 @@ export const OUTILS_CHIFFRES: OutilMcp[] = [
         if (range.from < premier) {
           throw new RefusOutil(
             `Votre offre lit les ${jours} derniers jours (du ${premier} au ${aujourdhui}). `
-            + `Passez en Pro pour remonter plus loin : ${adresseOffre()}`, 'plan_limit',
+            + `Passez en Pro pour remonter plus loin : ${adresseOffre()}`, 'plan_limit', { action: adresseOffre() },
           );
         }
       }

@@ -7,6 +7,7 @@ import { RefusOutil, refusDuPlafond, valeurOuRefus } from './saisie';
 import type { Issue } from '../lib/issue';
 import type { EtatConnexion } from '../otp/etat-connexion';
 import type { EtatDeLEspace } from '../stripe/abonnements.pg';
+import { LISTES } from './ecran';
 import {
   DELAI_ATTENTE_MS, type AccompagnementConnexionNumeroMcp,
 } from './connexion-numero';
@@ -108,6 +109,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       required: ['rendre'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.offre,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       signataire(personne);
       if (typeof args.rendre !== 'boolean') throw new RefusOutil('paramètre « rendre » requis : true ou false', 'invalid_args');
@@ -154,6 +156,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
     // répertoire de Claude (voir `AnnotationsMcp`).
     annotations: { title: 'Manage the number subscription', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     entree: { type: 'object', properties: {}, additionalProperties: false },
+    ecran: () => LISTES.offre,
     async executer(deps: DepsMcp, tenantId, _args, personne) {
       const payeur = signataire(personne);
       const c = await deps.couteux.consommer(tenantId);
@@ -172,6 +175,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
     // Monde ouvert : une session est créée chez Stripe. Destructrice pour la règle du répertoire de Claude.
     annotations: { title: 'Renew the number subscription', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     entree: { type: 'object', properties: {}, additionalProperties: false },
+    ecran: () => LISTES.offre,
     async executer(deps: DepsMcp, tenantId, _args, personne) {
       const payeur = signataire(personne);
       const a = await deps.numero.abonnement(tenantId);
@@ -256,6 +260,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       required: ['mode'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.numero,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const userId = signataire(personne);
       return deps.numero.connexion.demarrer(tenantId, userId, {
@@ -295,6 +300,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       },
       additionalProperties: false,
     },
+    ecran: () => LISTES.numero,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const userId = signataire(personne);
       return deps.numero.connexion.suivre(tenantId, userId, {

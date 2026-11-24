@@ -49,12 +49,19 @@ export class RefusOutil extends Error {
 /** La famille d'un refus venu d'une fonction partagée : sa cause fine d'abord, quand elle la dit, sinon son statut HTTP. */
 const FAMILLE_DE_LA_CAUSE: Readonly<Record<string, CodeRefus>> = {
   plan_feature_unavailable: 'plan_required',
+  credit_whatsapp_hors_offre: 'plan_required',
   plan_limit_reached: 'plan_limit',
+  whatsapp_credit_exhausted: 'credit_required',
+  whatsapp_credit_line_inactive: 'conflict',
   quota_exceeded: 'quota_exceeded',
   rate_limited: 'rate_limited',
   opted_out: 'opted_out',
   contact_desabonne: 'opted_out',
   window_closed: 'window_closed',
+  // Passagers : Stripe ou Meta n'ont pas répondu ce qu'on attendait, la phrase dit « réessayez ».
+  prix_incoherent: 'unavailable',
+  paiement_impossible: 'unavailable',
+  template_category_unknown: 'unavailable',
 };
 const FAMILLE_DU_STATUT: Readonly<Record<StatutRefus | 429, CodeRefus>> = {
   400: 'invalid_args', 402: 'plan_required', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 413: 'too_large',
@@ -62,20 +69,25 @@ const FAMILLE_DU_STATUT: Readonly<Record<StatutRefus | 429, CodeRefus>> = {
 };
 
 export function familleDuRefus(statut: number, cause?: string): CodeRefus {
-  const parCause = cause === undefined ? undefined : FAMILLE_DE_LA_CAUSE[cause];
-  if (parCause !== undefined) return parCause;
+  // `Object.hasOwn` : une cause « constructor » ou « __proto__ » rendrait sinon une propriété héritée de l'objet.
+  if (cause !== undefined && Object.hasOwn(FAMILLE_DE_LA_CAUSE, cause)) return FAMILLE_DE_LA_CAUSE[cause]!;
   if (Object.hasOwn(FAMILLE_DU_STATUT, statut)) return FAMILLE_DU_STATUT[statut as StatutRefus | 429];
   return statut >= 500 ? 'unavailable' : 'invalid_args';
 }
 
 /**
- * Un refus d'une fonction partagée avec l'API publique (`{ statut, code, message, reessayerDansS }`, celui d'un modèle,
- * d'un envoi, de Meta) devient un refus d'outil, avec sa phrase, sa famille, sa cause et son délai.
+ * Un refus d'une fonction partagée avec l'API publique (`{ statut, code, message, reessayerDansS, upgradeUrl }`, celui
+ * d'un modèle, d'un envoi, de Meta, d'une préparation de campagne) devient un refus d'outil, avec sa phrase, sa famille,
+ * sa cause, son délai et l'adresse de l'offre à proposer. 🔴 LE point de passage : une traduction écrite à côté finit
+ * par lire un sous-ensemble de ces champs, et ce qu'elle oublie (l'adresse de l'offre) ne parvient pas à l'agent.
  */
-export function refusDuCoeur(r: { readonly statut: number; readonly code?: string; readonly message: string; readonly reessayerDansS?: number }): RefusOutil {
+export function refusDuCoeur(r: {
+  readonly statut: number; readonly code?: string; readonly message: string; readonly reessayerDansS?: number; readonly upgradeUrl?: string;
+}): RefusOutil {
   return new RefusOutil(r.message, familleDuRefus(r.statut, r.code), {
     ...(r.code === undefined ? {} : { cause: r.code }),
     ...(r.reessayerDansS === undefined ? {} : { reessayerDansS: r.reessayerDansS }),
+    ...(r.upgradeUrl === undefined ? {} : { action: r.upgradeUrl }),
   });
 }
 

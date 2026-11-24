@@ -27,7 +27,8 @@ import { filiereApiSeule, aucunPremierMessage } from './gardes';
 import { porteEnMemoire } from './aide/porte-premier';
 import { PHRASE_PREMIER_CONTACT } from '../src/application/envoi';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
-import { refusDesClesInconnues } from '../src/mcp/serveur';
+import { refusDesClesInconnues, rendreRefus } from '../src/mcp/serveur';
+import { adresseEcran } from '../src/mcp/ecran';
 import { FiltreContactInvalide } from '../src/crm/contact-filters';
 
 /**
@@ -172,7 +173,7 @@ describe('serveur MCP : le rappel de l’abonnement du numéro (lot 4)', () => {
   };
   const avecAbonnement = (lire: () => Promise<typeof suspendu | null>) => ({ numero: { ...mcpNumeroInerte.numero, abonnement: lire } });
 
-  it('🔴 suspendu : chaque réponse d’outil porte le rappel, en second bloc, refus compris', async () => {
+  it('🔴 suspendu : chaque réponse d’outil porte le rappel, en DERNIER bloc, refus compris (après la cause d’un refus, B0a)', async () => {
     const { server } = app(avecAbonnement(async () => suspendu));
     const ok = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_conversations') });
     const blocs = ok.json<{ result: { content: Array<{ text: string }> } }>().result.content;
@@ -1535,6 +1536,20 @@ describe('serveur MCP : un refus dit sa cause, pas seulement sa phrase (lot 1 du
     const r = rendu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_conversations') }));
     expect(r.isError).toBe(false);
     expect(r.structuredContent).toBeUndefined();
+    await server.close();
+  });
+});
+
+describe('serveur MCP : une écriture rend l’écran de ce qu’elle a fait (lot 1 du CSM virtuel, B0b)', () => {
+  it('🔴 le résultat d’abord, inchangé, puis l’adresse de son écran ; une lecture n’en a pas', async () => {
+    const { server } = app();
+    const ecrit = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('tag_conversation', { conversation_id: 'cv1', tags: ['chaud'] }) });
+    const blocs = ecrit.json<{ result: { content: Array<{ text: string }>; isError: boolean } }>().result;
+    expect(blocs.isError).toBe(false);
+    expect(JSON.parse(blocs.content[0]!.text)).toMatchObject({ conversation_id: 'cv1' });
+    expect(JSON.parse(blocs.content[1]!.text)).toEqual({ ecran: adresseEcran('/inbox?c=cv1') });
+    const lu = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_conversations') });
+    expect(lu.json<{ result: { content: unknown[] } }>().result.content).toHaveLength(1);
     await server.close();
   });
 });

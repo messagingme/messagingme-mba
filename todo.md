@@ -1,9 +1,22 @@
 # todo.md : backlog
 
+## 🟡 CSM virtuel, B0a (les refus codés, `1c3d919f9`) : ce qui reste de la relecture (2026-11-24, aucun rouge)
+
+Passés avec B0b : les causes manquantes, `Object.hasOwn`, la campagne inconnue, les motifs d’écart, le format non pris
+en charge, la suppression trop large, une traduction unique (`refusDuCoeur`) avec l’adresse de l’offre, le rendu
+testé (`rendreRefus`) et la règle de l’`outputSchema`. Reste, avec le prochain lot qui touche ces fichiers :
+- Le bac à sable (`src/agent/essai.ts`) : solde épuisé en `credit_required`, plafond IA du mois en `quota_exceeded`
+  (il faut un code dans le détail de l’issue) ; la limite d’import Shopify en `plan_limit` ; « aucun WABA » (`conflict`)
+  et l’édition non supportée d’un modèle (`unsupported`) ; les collections pas encore lues (`conflict`).
+- Le délai du quota du jour (`quotaEnvois` le perd) ; `unsupported` (filière application) lu au serveur.
+- L’essai réel doit voir si Claude Code donne au modèle le bloc JSON de la cause.
+
 ## 🟡 CSM virtuel, lot 1 : trois défauts relevés en passant (2026-11-24, non corrigés)
 
 Ils partent avec le premier lot de fonctionnalité du lot 1 (plan `2026-11-24-csm-lot1-b1-parite`), pas en lot à part.
 - `web/app/securite/ia/page.tsx` (vers la ligne 194) : le lien vers un agent est `/agents?a=` au lieu de `?id=`.
+- `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
+  contacts ne lisant aucun paramètre (relevé en B0b).
 - `web/components/AgentConnaissance.tsx` : le sélecteur d'import de la connaissance propose `.doc`, que le serveur ne
   lit pas (seul `.docx` l'est).
 - `features.md` (§ des outils de l'assistant) dit encore « Aucune campagne », périmé depuis `prepare_campaign` et

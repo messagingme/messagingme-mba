@@ -5,6 +5,7 @@ import { corpsRefusFonction } from '../offres/refus';
 import { phraseOutilSansObjet, sansObjetSurApplication } from '../application/garde-outils';
 import { FiltreContactInvalide } from '../crm/contact-filters';
 import type { CodeRefus, PrecisionsRefus } from './saisie';
+import { adresseEcran } from './ecran';
 
 /**
  * Le transport MCP : du JSON-RPC 2.0 sur un seul POST, sans état.
@@ -152,22 +153,11 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
         deps.numero.abonnement(ctx.tenantId).then(rappelDeLAbonnement).catch(() => null),
         deps.numero.suiteDuPro(ctx.tenantId).then(rappelDeLaSuiteDuPro).catch(() => null),
       ])).filter((r): r is string => r !== null);
-      const blocs = (texte: string) => [{ type: 'text', text: texte }, ...rappels.map((r) => ({ type: 'text', text: r }))];
-      /**
-       * Un refus (lot 1 du CSM virtuel, B0a) : la phrase d'abord, telle qu'avant (un client qui ne lit qu'elle ne voit
-       * aucune différence), puis sa cause dans `structuredContent` (MCP 2025-06-18) et, comme la spécification le
-       * recommande, la même chose en JSON dans un bloc texte : un agent choisit quoi faire selon `code`, pas selon une phrase.
-       */
+      const blocsRappels = rappels.map((r) => ({ type: 'text', text: r }));
+      const blocs = (texte: string) => [{ type: 'text', text: texte }, ...blocsRappels];
       const refuser = (message: string, code: CodeRefus, p: PrecisionsRefus = {}) => {
-        const cause = {
-          code,
-          message,
-          ...(p.reessayerDansS === undefined ? {} : { retry_after_s: p.reessayerDansS }),
-          ...(p.action === undefined ? {} : { action: p.action }),
-          ...(p.cause === undefined ? {} : { cause: p.cause }),
-        };
-        const [phrase, ...suite] = blocs(message);
-        return ok(id, { content: [phrase!, { type: 'text', text: JSON.stringify(cause) }, ...suite], structuredContent: cause, isError: true });
+        const r = rendreRefus(message, code, p);
+        return ok(id, { content: [...r.content, ...blocsRappels], structuredContent: r.structuredContent, isError: true });
       };
       // Le gel de l'offre (lot 6, B2a) : l'outil reste listé, et refuse avec la phrase et le lien de l'offre.
       if (outil.fonction !== null && !(await deps.offres.offreDe(ctx.tenantId)).droits.fonctions.has(outil.fonction)) {
@@ -184,7 +174,10 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
         const refus = refusDesClesInconnues(outil, (outil.selonInstance?.(deps) ?? outil).entree, args);
         if (refus !== null) return refuser(refus, 'invalid_args');
         const resultat = await outil.executer(deps, ctx.tenantId, args, ctx.personne);
-        return ok(id, { content: blocs(JSON.stringify(resultat, null, 2)), isError: false });
+        // L'écran de ce qui vient d'être fait (B0b), entre le résultat et les rappels : le résultat lui-même ne change pas.
+        const ecran = outil.ecran?.(args, resultat);
+        const blocEcran = ecran === undefined ? [] : [{ type: 'text', text: JSON.stringify({ ecran: adresseEcran(ecran) }) }];
+        return ok(id, { content: [{ type: 'text', text: JSON.stringify(resultat, null, 2) }, ...blocEcran, ...blocsRappels], isError: false });
       } catch (err) {
         // Un filtre de contacts refusé par le magasin (un critère de collection sans lecture aboutie, segments Shopify
         // enrichis, lot 6a) est un refus, avec sa phrase, comme sur les routes (400), jamais une « panne ».
@@ -199,6 +192,28 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
     default:
       return ko(id, ERREUR.METHODE_INCONNUE, `méthode inconnue : ${methode || '(vide)'}`);
   }
+}
+
+/**
+ * Un refus d'outil tel que le client le reçoit (lot 1 du CSM virtuel, B0a), avant les rappels de l'espace : la phrase
+ * d'abord, telle qu'avant (un client qui ne lit qu'elle ne voit aucune différence), puis sa cause en JSON dans un bloc
+ * texte (que lit un modèle) et dans `structuredContent` (MCP 2025-06-18, que lit un client) : un agent choisit quoi faire
+ * selon `code`, pas selon une phrase.
+ * 🔴 AUCUN OUTIL NE DÉCLARE D'`outputSchema` SANS QU'IL ADMETTE CETTE FORME : le SDK TypeScript valide
+ * `structuredContent` contre lui, refus compris, et chaque refus deviendrait chez ces clients une erreur de schéma.
+ */
+export function rendreRefus(message: string, code: CodeRefus, p: PrecisionsRefus = {}): {
+  content: Array<{ type: 'text'; text: string }>;
+  structuredContent: Record<string, unknown>;
+} {
+  const cause = {
+    code,
+    message,
+    ...(p.reessayerDansS === undefined ? {} : { retry_after_s: p.reessayerDansS }),
+    ...(p.action === undefined ? {} : { action: p.action }),
+    ...(p.cause === undefined ? {} : { cause: p.cause }),
+  };
+  return { content: [{ type: 'text', text: message }, { type: 'text', text: JSON.stringify(cause) }], structuredContent: cause };
 }
 
 /** Erreur de parsing du corps, à renvoyer telle quelle avec un HTTP 200 (le protocole veut du JSON-RPC). */

@@ -15,6 +15,7 @@ import { apercuReprise, etatReprise, lancerReprise } from '../shopify/reprise';
 import { lireCollections } from '../shopify/collections';
 import type { RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
 import { messageDe } from '../lib/erreur';
+import { LISTES } from './ecran';
 
 /**
  * Les produits vus des commandes (segments Shopify enrichis, lot 3), pour les critères produit de l'assistant. AU MIEUX :
@@ -166,6 +167,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       required: ['store', 'client_id', 'client_secret'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.integrations,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const c = await deps.couteux.consommer(tenantId);
       if (!c.accepte) throw refusDuPlafond(c.attenteMs);
@@ -234,6 +236,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       required: ['event', 'language'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.messagesShopify,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       // Un plugin d'avant le 2026-10-26 envoie encore `customers_consented` : hors schéma, le serveur la refuse avant
       // l'outil depuis le 2026-11-04 (`refusDesClesInconnues`), avec le refus générique (`todo.md`).
@@ -348,6 +351,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       required: ['max_contacts'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.integrations,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const c = await deps.couteux.consommer(tenantId);
       if (!c.accepte) throw refusDuPlafond(c.attenteMs);
@@ -400,6 +404,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'workspace\'s heavy operations.',
     annotations: { title: 'Catch up the Shopify orders', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     entree: { type: 'object', properties: {} },
+    ecran: () => LISTES.integrations,
     async executer(deps: DepsMcp, tenantId, _args, personne) {
       const c = await deps.couteux.consommer(tenantId);
       if (!c.accepte) throw refusDuPlafond(c.attenteMs);
@@ -433,6 +438,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'connect_shopify reconnects it.',
     annotations: { title: 'Disconnect the Shopify store', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     entree: { type: 'object', properties: {} },
+    ecran: () => LISTES.integrations,
     async executer(deps: DepsMcp, tenantId, _args, personne) {
       const r = valeur(await couperShopify(deps.shopify, tenantId));
       journaliser('info', 'mcp_shopify_coupee', { tenantId, userId: personne?.userId ?? null });

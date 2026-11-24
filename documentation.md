@@ -4984,7 +4984,15 @@ l'activer, et d'ouvrir une recharge du crédit.
   `cause`) et la même chose en JSON dans le bloc suivant. Un refus d'une fonction partagée prend sa famille par UNE
   traduction (`familleDuRefus` : la cause fine de l'API publique d'abord, sinon le statut ; `refusDuCoeur`,
   `valeurOuRefus`), le plafond des opérations lourdes son délai (`refusDuPlafond`). Une famille de plus se décide dans
-  `CODES_REFUS`, jamais à un site (`tests/mcp-refus-codes.test.ts`, `tests/mcp-serveur.test.ts`).
+  `CODES_REFUS`, jamais à un site (`tests/mcp-refus-codes.test.ts`, `tests/mcp-serveur.test.ts`). 🔴 Aucun outil ne
+  déclare d'`outputSchema` qui n'admette la forme d'un refus : le SDK TypeScript valide `structuredContent` contre lui,
+  refus compris (`rendreRefus`, `src/mcp/serveur.ts`).
+- 🔴 **Une écriture rend l'écran de ce qu'elle a fait** (lot 1 du CSM virtuel, B0b) : chaque outil d'écriture déclare
+  `ecran` (un chemin de la console, `src/mcp/ecran.ts` : la fiche d'un agent et son onglet, un scénario, une conversation,
+  sinon la liste de l'objet), et le serveur ajoute `{ "ecran": <adresse sur APP_URL> }` dans un bloc entre le résultat,
+  inchangé, et les rappels. `tests/mcp-ecran.test.ts` exige l'écran de chaque écriture, relie chaque chemin à une page
+  de `web/app` et chaque paramètre au code de sa page. ⚠️ La fiche d'un contact n'a pas d'adresse : la page des contacts
+  ne lit aucun paramètre.
 - 🔴 **Le plafond des opérations coûteuses est celui de la console** : `buildServer` construit UN `PlafondPartage`
   (`Gardes.plafondCouteux`), dont dérive `limiteCouteuse`, et le pose dans les dépendances du MCP au montage
   (`DepsMcp.couteux` ; le câblage fournit `CablageMcp`, sans lui). Même instance, même clé (l'espace) : les outils

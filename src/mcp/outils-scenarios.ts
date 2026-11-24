@@ -3,12 +3,13 @@ import {
   MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE,
 } from '../../web/lib/partage/message-rapide';
 import type { AnnotationsMcp, OutilMcp, ProprieteEntree } from './outils';
-import { RefusOutil, familleDuRefus, texteObligatoire } from './saisie';
+import { RefusOutil, refusDuCoeur, texteObligatoire } from './saisie';
 import { ecriture, signataire } from './outils-agent';
 import { envoyerAUnePersonne } from './outils-modeles';
 import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
 import { CLE_IDEMPOTENCE_MAX } from '../api/idempotence';
 import { MAX_NODES } from '../workflow/graph';
+import { ECRANS, LISTES, lire } from './ecran';
 import {
   LONGUEUR_CHAMP_MAX, LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX,
   PROFONDEUR_MAX_RECETTE,
@@ -37,7 +38,8 @@ function valeurOuRefus<T>(r: ResultatScenario<T>): T {
   if (r.ok) return r.valeur;
   const chemin = typeof r.details?.chemin === 'string' ? ` (à ${r.details.chemin})` : '';
   const id = typeof r.details?.id === 'string' ? ` Scénario existant : ${r.details.id}.` : '';
-  throw new RefusOutil(`${r.message}${chemin}.${id}`, familleDuRefus(r.statut, r.code), { cause: r.code });
+  const upgradeUrl = typeof r.details?.upgradeUrl === 'string' ? r.details.upgradeUrl : undefined;
+  throw refusDuCoeur({ statut: r.statut, code: r.code, message: `${r.message}${chemin}.${id}`, ...(upgradeUrl === undefined ? {} : { upgradeUrl }) });
 }
 
 /**
@@ -90,6 +92,7 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
       + 'entreeCode (the nod_ code of the first step), empreinte (to replace it later) and ouverture. ' + PUBLIE,
     annotations: ecriture('Create a scenario', false, false),
     entree: { type: 'object', properties: RECETTE, required: ['nom', 'entree'], additionalProperties: false },
+    ecran: (_args, r) => ECRANS.scenario(lire(r, 'id')),
     async executer(deps, tenantId, args, personne) {
       const auteur = { userId: signataire(personne), acces: null };
       return valeurOuRefus(await creerScenario(deps.scenariosApi, tenantId, args, 'mcp', auteur));
@@ -124,6 +127,7 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
       required: ['scenario', 'nom', 'entree', 'empreinte'],
       additionalProperties: false,
     },
+    ecran: (_args, r) => ECRANS.scenario(lire(r, 'id')),
     async executer(deps, tenantId, args, personne) {
       const auteur = { userId: signataire(personne), acces: null };
       const ref = texteObligatoire(args, 'scenario', 100);
@@ -140,6 +144,7 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
       + 'the default responder, a scheduled campaign, an ad, a widget, a "Go to" step): the refusal names it.',
     annotations: ecriture('Delete a scenario', true, false),
     entree: { type: 'object', properties: { scenario: SCENARIO }, required: ['scenario'], additionalProperties: false },
+    ecran: () => LISTES.scenarios,
     async executer(deps, tenantId, args, personne) {
       const auteur = { userId: signataire(personne), acces: null };
       return valeurOuRefus(await supprimerScenario(deps.scenariosApi, tenantId, texteObligatoire(args, 'scenario', 100), 'mcp', auteur));
@@ -193,6 +198,7 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
       required: ['scenario', 'idempotency_key'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.inbox,
     async executer(deps, tenantId, args, personne) {
       let scenario = texteObligatoire(args, 'scenario', 200);
       // Le chemin public ne connaît que le code `scn_` et le nom (`resolveScenario`) : l'id que rend `list_scenarios` y

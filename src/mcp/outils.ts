@@ -14,7 +14,7 @@ import { messageDeForme } from '../api/forme';
 import { MetaApiError } from '../meta/errors';
 import { parCause, type AuteurDuChangement } from '../inbox/evenements';
 import { NumeroBloqueError } from '../meta/numero-delie';
-import { CreditWhatsappRefus } from '../credit-whatsapp/refus';
+import { CODE_REFUS_CREDIT, CreditWhatsappRefus } from '../credit-whatsapp/refus';
 import { e164DepuisSaisie } from '../crm/phone';
 import { LONGUEUR_MAX_ETIQUETTE, nettoyerEtiquettes, type PoseEtiquette } from '../crm/poser-etiquette';
 import {
@@ -49,6 +49,7 @@ import type { SourceOffres } from '../offres/offre.pg';
 import { DROITS, type Fonction } from '../offres/offres';
 import { OUTILS_DE_L_ETAPE, lireMiseEnService } from './mise-en-service';
 import type { Rayon } from '../workflow/rayon';
+import { ECRANS, LISTES } from './ecran';
 
 export { RefusOutil } from './saisie';
 // Les bornes d'un fichier d'outils que `tests/mcp-serveur.test.ts` relit dans les schémas : exportées d'ici.
@@ -290,6 +291,12 @@ export interface OutilMcp {
    * agent ou ouvrir un paiement (spec du lot 8a, section 2).
    */
   exigePersonne?: true;
+  /**
+   * L'écran de la console où voir et retoucher ce que l'outil vient de faire (lot 1 du CSM virtuel, B0b) : un chemin
+   * (`src/mcp/ecran.ts`), lu dans les arguments ou dans le résultat. 🔴 Tout outil d'écriture le déclare
+   * (`tests/mcp-ecran.test.ts`) ; le serveur en fait une adresse et l'ajoute au résultat.
+   */
+  ecran?(args: Record<string, unknown>, resultat: unknown): string;
   /**
    * Rend l'objet à sérialiser pour l'agent, ou lève `RefusOutil` pour un refus explicable. `personne` : qui signe
    * une écriture faite avec un jeton OAuth, `null` avec une clé. Seuls les outils qui écrivent au nom de quelqu'un
@@ -707,6 +714,7 @@ export const OUTILS: OutilMcp[] = [
       required: ['blocked'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.contacts,
     async executer(deps, tenantId, args, personne) {
       const phone = typeof args.phone === 'string' ? args.phone : undefined;
       const fiche = typeof args.contact_id === 'string' ? args.contact_id : undefined;
@@ -775,6 +783,7 @@ export const OUTILS: OutilMcp[] = [
       },
       required: ['conversation_id', 'text'],
     },
+    ecran: (args) => ECRANS.conversation(args.conversation_id),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'conversation_id', 100);
       const texte = texteObligatoire(args, 'text', 4096);
@@ -811,6 +820,7 @@ export const OUTILS: OutilMcp[] = [
       },
       required: ['conversation_id', 'message'],
     },
+    ecran: (args) => ECRANS.conversation(args.conversation_id),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'conversation_id', 100);
       const lu = schemaContenuMeta.safeParse(args.message);
@@ -841,6 +851,7 @@ export const OUTILS: OutilMcp[] = [
       },
       required: ['conversation_id', 'tags'],
     },
+    ecran: (args) => ECRANS.conversation(args.conversation_id),
     async executer(deps, tenantId, args) {
       const id = texteObligatoire(args, 'conversation_id', 100);
       const bruts = Array.isArray(args.tags) ? args.tags : [args.tags];
@@ -870,6 +881,7 @@ export const OUTILS: OutilMcp[] = [
       },
       required: ['conversation_id', 'member_id'],
     },
+    ecran: (args) => ECRANS.conversation(args.conversation_id),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'conversation_id', 100);
       const brut = args.member_id;
@@ -918,6 +930,7 @@ export const OUTILS: OutilMcp[] = [
       },
       required: ['conversation_id', 'action'],
     },
+    ecran: (args) => ECRANS.conversation(args.conversation_id),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'conversation_id', 100);
       const action = args.action;
@@ -1061,6 +1074,7 @@ export const OUTILS: OutilMcp[] = [
     // Claude (voir `AnnotationsMcp`).
     annotations: { title: 'Create a widget', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     entree: { type: 'object', properties: CHAMPS_WIDGET, required: ['nom', 'phrase'], additionalProperties: false },
+    ecran: () => LISTES.widgets,
     async executer(deps, tenantId, args) {
       // La vue AVANT l'écriture, comme la route : une panne de la lecture du numéro après coup rendrait une erreur
       // sur un widget créé, et l'assistant qui réessaierait se ferait refuser sa propre phrase.
@@ -1089,6 +1103,7 @@ export const OUTILS: OutilMcp[] = [
       required: ['widget_id'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.widgets,
     async executer(deps, tenantId, args) {
       const id = texteObligatoire(args, 'widget_id', 100);
       // Le reste est la saisie de la route, telle quelle : une clé inconnue y est refusée, `tenantId` compris.
@@ -1215,7 +1230,10 @@ async function reponseOuRefus(envoi: () => Promise<ResultatReponse>): Promise<Ex
   } catch (err) {
     if (err instanceof NumeroBloqueError) throw new RefusOutil(err.message, 'conflict');
     // Le Crédit WhatsApp a refusé : la phrase dit quoi faire (recharger), l'agent ne réessaie pas.
-    if (err instanceof CreditWhatsappRefus) throw new RefusOutil(err.message, 'credit_required');
+    // Une ligne inactive ou une place manquante ne se règle pas en rechargeant : c'est un état de l'option.
+    if (err instanceof CreditWhatsappRefus) {
+      throw new RefusOutil(err.message, err.motif === 'solde' ? 'credit_required' : 'conflict', { cause: CODE_REFUS_CREDIT[err.motif] });
+    }
     // Meta refuse le contenu : un refus lisible, sinon l'agent lirait une panne et renverrait le même message.
     if (err instanceof MetaApiError && err.httpStatus >= 400 && err.httpStatus < 500 && !err.retryable) {
       throw new RefusOutil(`Meta a refusé le message : ${(err.userMessage ?? err.message).slice(0, 300)}`, 'invalid_args', { cause: 'meta_rejected' });
@@ -1226,7 +1244,7 @@ async function reponseOuRefus(envoi: () => Promise<ResultatReponse>): Promise<Ex
   if (res.refus.motif === 'conversation_inconnue') throw new RefusOutil('conversation inconnue dans cet espace', 'not_found');
   if (res.refus.motif === 'aucun_numero') throw new RefusOutil('aucun numéro WhatsApp rattaché à cet espace', 'conflict');
   if (res.refus.motif === 'application_indisponible') throw new RefusOutil(phraseApplicationIndisponible(res.refus.raison), 'unavailable');
-  if (res.refus.motif === 'format_non_pris_en_charge') throw new RefusOutil(`${PHRASE_FORMAT_APPLICATION} : utilisez reply_in_open_window`, 'invalid_args');
+  if (res.refus.motif === 'format_non_pris_en_charge') throw new RefusOutil(`${PHRASE_FORMAT_APPLICATION} : utilisez reply_in_open_window`, 'unsupported');
   // Hors des 24 heures sur la filière application : la porte « écrire en premier » a refusé, sa phrase dit pourquoi.
   if (res.refus.motif === 'premier_message') throw new RefusOutil(phrasePremierMessage(res.refus.refus, 'mcp'), 'window_closed');
   // 🔴 Une machine ne parle pas à quelqu'un qui a dit STOP. Le message donne la raison et l'issue (un opérateur peut

@@ -41,6 +41,7 @@ import type { CreditWhatsappRouteDeps } from '../http/credit-whatsapp';
 import { LIGNES_HISTORIQUE } from '../http/agents';
 import { estUuid } from '../http/scope';
 import { choisirRepondeur, choixDeLAncienneFormeSousLOffre, type ChoixRepondeur, type DepsReglageRepondeur } from '../repondeur/reglage';
+import { ECRANS, LISTES, lire } from './ecran';
 import {
   DELAI_SCENARIO_HEURES_DEFAUT, DELAI_SCENARIO_HEURES_MAX, DELAI_SCENARIO_HEURES_MIN, MODES_REPONDEUR, estModeRepondeur, modeEffectif,
 } from '../repondeur/mode';
@@ -411,6 +412,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['label'],
     },
+    ecran: (_args, r) => ECRANS.agent(lire(r, 'agent', 'id')),
     async executer(deps, tenantId, args) {
       const langue = langueSaisie(args);
       // Le modèle des agents de Claude Code, pas le défaut du serveur que garde la console (`MODELE_AGENT_CLAUDE_CODE`).
@@ -486,6 +488,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       additionalProperties: false,
     },
     phraseClesInconnues: champsNonModifiables,
+    ecran: (args) => ECRANS.agent(args.agent_id),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'agent_id', 100);
       // Le serveur refuse déjà ces clés (même phrase) ; le filtre reste ici, devant la porte de l'administrateur.
@@ -538,6 +541,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       required: ['agent_id'],
       additionalProperties: false,
     },
+    ecran: (args) => ECRANS.agent(args.agent_id),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'agent_id', 100);
       const corps = {
@@ -578,6 +582,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'outils'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id, 'outils'),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'agent_id', 100);
       const actifs = valeurOuRefus(await ajouterOutilsSurs(deps.agentIa.outils, tenantId, id, args.outils, signataire(personne)));
@@ -642,6 +647,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'nom'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id, 'outils'),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'agent_id', 100);
       const actionId = typeof args.action_id === 'string' && args.action_id.trim() !== '' ? args.action_id.trim() : undefined;
@@ -667,6 +673,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'action_id'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id, 'outils'),
     async executer(deps, tenantId, args) {
       const id = texteObligatoire(args, 'agent_id', 100);
       const actionId = texteObligatoire(args, 'action_id', 100);
@@ -692,6 +699,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'active'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'agent_id', 100);
       if (typeof args.active !== 'boolean') throw new RefusOutil('paramètre « active » requis (true pour activer, false pour désactiver)', 'invalid_args');
@@ -754,6 +762,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
         },
       },
     },
+    ecran: () => LISTES.agents,
     async executer(deps, tenantId, args, personne) {
       const auteur = { userId: signataire(personne), origine: 'mcp' as const };
       const reglage = deps.agentIa.repondeur;
@@ -822,6 +831,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'messages'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id),
     async executer(deps, tenantId, args) {
       const id = texteObligatoire(args, 'agent_id', 100);
       await plafondCouteux(deps, tenantId);
@@ -891,6 +901,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'fiches'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id, 'connaissance'),
     async executer(deps, tenantId, args) {
       const id = texteObligatoire(args, 'agent_id', 100);
       await plafondCouteux(deps, tenantId);
@@ -917,6 +928,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'ids'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id, 'connaissance'),
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'agent_id', 100);
       // Le plafond de la route de suppression en masse de la console, qui en est une opération lourde.
@@ -973,6 +985,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'url'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id, 'connaissance'),
     async executer(deps, tenantId, args) {
       const id = texteObligatoire(args, 'agent_id', 100);
       await plafondCouteux(deps, tenantId);
@@ -999,6 +1012,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['agent_id', 'nom', 'texte'],
     },
+    ecran: (args) => ECRANS.agent(args.agent_id, 'connaissance'),
     async executer(deps, tenantId, args) {
       const id = texteObligatoire(args, 'agent_id', 100);
       await plafondCouteux(deps, tenantId);
@@ -1019,6 +1033,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       properties: { mode: { type: 'string', enum: [...MODES_TRANSFERT], description: 'always, business_hours or never.' } },
       required: ['mode'],
     },
+    ecran: () => LISTES.parametres,
     async executer(deps, tenantId, args) {
       return { mode: valeurOuRefus(await reglerModeTransfert(deps.agentIa.reglages, tenantId, args.mode)) };
     },
@@ -1058,6 +1073,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       },
       required: ['hours'],
     },
+    ecran: () => LISTES.parametres,
     async executer(deps, tenantId, args) {
       return valeurOuRefus(await reglerHeuresOuverture(deps.agentIa.reglages, tenantId, args.hours, args.timezone));
     },
@@ -1149,6 +1165,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
     },
     // Monde ouvert : elle crée une session chez Stripe. Non idempotente : une session de plus à chaque appel.
     annotations: ecriture('Open a credit purchase', false, true),
+    ecran: () => LISTES.offre,
     async executer(deps, tenantId, args, personne) {
       const payeur = signataire(personne);
       const lu = saisieBuyCredit.safeParse(args);

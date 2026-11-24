@@ -9,6 +9,7 @@ import {
 } from '../evenements/gestion';
 import { deliveryV1, webhookV1 } from '../http/v1-webhooks';
 import { journaliser } from '../lib/journal';
+import { LISTES } from './ecran';
 
 /**
  * LES WEBHOOKS SORTANTS DEPUIS CLAUDE CODE (lot 12, livraison A, décision de Julien du 2026-10-08 : la console, plus un
@@ -57,6 +58,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       required: ['url'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.webhooks,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const p = personneRequise(personne);
       const r = valeurOuRefus(await creerAdresse(deps.evenements.gestion, tenantId, args, p.autorisationId));
@@ -90,6 +92,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       required: ['adresse_id'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.webhooks,
     async executer(deps: DepsMcp, tenantId, args) {
       const id = typeof args.adresse_id === 'string' ? args.adresse_id : '';
       const c = await deps.couteux.consommer(tenantId);
@@ -172,6 +175,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       required: ['envoi_id'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.webhooks,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const id = typeof args.envoi_id === 'string' ? args.envoi_id : '';
       valeurOuRefus(await rejouerEnvoi(deps.evenements.gestion, tenantId, id));
@@ -221,6 +225,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       : 'l’adresse d’un webhook ne se modifie pas : supprimez-la (delete_webhook_endpoint) puis recréez-la '
         + '(create_webhook_endpoint), qui rend un nouveau secret ; si elle répondait aux clients (set_default_responder, '
         + 'mode « application »), désignez la nouvelle aussitôt créée, sinon leurs messages vont à l’équipe, sans réponse automatique'),
+    ecran: () => LISTES.webhooks,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const id = typeof args.adresse_id === 'string' ? args.adresse_id : '';
       // Seuls les champs donnés partent à la gestion, qui refuse toute autre clé (`saisieModification`, stricte).
@@ -285,6 +290,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       required: ['adresse_id'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.webhooks,
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const id = typeof args.adresse_id === 'string' ? args.adresse_id : '';
       // 🔴 L'adresse du répondeur (mode « application ») : sa suppression remet le réglage à nul (`on delete set null`,

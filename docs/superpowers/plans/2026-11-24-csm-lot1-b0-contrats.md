@@ -66,7 +66,9 @@ Claude Code (`plugin/`) se republie après l'API, version montée, quand sa FAQ 
 
 ## Méthode de livraison
 
-Implémenteur par lot, puis UNE relecture indépendante du diff en fin de sous-lot : chaque réponse d'outil que lisent
+Implémenteur par lot, puis une relecture indépendante du diff : une pour B0a (faite, aucun rouge, ses jaunes partis avec
+B0b), une pour B0b, B0c et B0d ensemble, avant le déploiement de l'API (une relecture par lot, jamais par bloc). Chaque
+réponse d'outil que lisent
 déjà les clients qui pilotent par Claude Code change de forme (ajouts seulement, mais sur un chemin que la production
 emprunte), et le code touche un invariant invisible (un refus n'est jamais une panne, et une panne ne rend jamais son
 message d'origine). L'essai réel qui clôt chaque sous-lot : depuis Claude Code, sur l'espace de test, un outil qui

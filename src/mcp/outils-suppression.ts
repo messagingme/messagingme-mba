@@ -10,6 +10,7 @@ import { makeJournal, type AuditSink } from '../audit/journal';
 import { LimiteOffreError, corpsRefusLimite } from '../offres/refus';
 import { DROITS, type Fonction } from '../offres/offres';
 import { numeroMasque } from '../emails-produit/alertes';
+import { LISTES } from './ecran';
 
 /**
  * LA SUPPRESSION DE CONTACTS EN MASSE DEPUIS CLAUDE (plan `docs/superpowers/plans/2026-10-26-free-au-dela-de-100-contacts.md`,
@@ -115,7 +116,7 @@ async function resoudreSelection(deps: DepsMcp, tenantId: string, s: SelectionLu
   const fiches = await deps.suppression.selection(tenantId, cible, s.plusAnciennes ?? MAX_FICHES_PAR_SUPPRESSION + 1);
   if (fiches.length > MAX_FICHES_PAR_SUPPRESSION) {
     throw new RefusOutil(`cette sélection compte plus de ${MAX_FICHES_PAR_SUPPRESSION} contacts : resserrez-la (oldest, tags), `
-      + `${MAX_FICHES_PAR_SUPPRESSION} au plus par appel`, 'invalid_args');
+      + `${MAX_FICHES_PAR_SUPPRESSION} au plus par appel`, 'too_large');
   }
   return fiches;
 }
@@ -147,6 +148,7 @@ export const OUTILS_SUPPRESSION: OutilMcp[] = [
     // règle du répertoire de Claude (une écriture du scope `mcp:write`, voir `AnnotationsMcp`), comme `prepare_campaign`.
     annotations: ecriture('Prepare a contact deletion', false, false),
     entree: { type: 'object', properties: { ...CHAMPS_DE_SELECTION }, additionalProperties: false },
+    ecran: () => LISTES.contacts,
     async executer(deps, tenantId, args, personne) {
       signataire(personne);
       const selection = lireSelection(args);
@@ -193,6 +195,7 @@ export const OUTILS_SUPPRESSION: OutilMcp[] = [
       required: ['confirmation_code'],
       additionalProperties: false,
     },
+    ecran: () => LISTES.contacts,
     async executer(deps, tenantId, args, personne) {
       const userId = signataire(personne);
       const code = texteObligatoire(args, 'confirmation_code', LONGUEUR_MAX_CODE_SUPPRESSION);
@@ -211,7 +214,10 @@ export const OUTILS_SUPPRESSION: OutilMcp[] = [
       if (verdict !== 'ok') throw new RefusOutil(REFUS_DU_CODE[verdict], 'conflict');
       // L'effacement partagé : la limite du jour d'abord, tout ou rien (levée au-delà de la limite de contacts), puis la purge.
       const e = await effacerContacts(deps.suppression.effacement, tenantId, ids);
-      if (!e.ok) throw new RefusOutil(corpsRefusLimite(new LimiteOffreError(tenantId, 'suppressionsJour', e.max)).error, 'plan_limit');
+      if (!e.ok) {
+        const limite = corpsRefusLimite(new LimiteOffreError(tenantId, 'suppressionsJour', e.max));
+        throw new RefusOutil(limite.error, 'plan_limit', { cause: limite.code, action: limite.upgradeUrl });
+      }
       // L'audit de la purge de la console, signé de la personne, au mieux : un journal en panne ne défait pas l'effacement.
       const journal = makeJournal(deps.suppression.audit);
       for (const id of ids) await journal(tenantId, { auth: { userId } }, 'contact.purged', { kind: 'contact', id }, { lot: ids.length, via: 'mcp' });

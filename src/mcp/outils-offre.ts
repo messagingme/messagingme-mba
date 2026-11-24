@@ -9,6 +9,7 @@ import type { PeriodicitePro, RetourPro } from '../stripe/pro';
 import { PLACES_OPTION_MAX, PRIX_OPTION_WA_HT_CENTIMES } from '../stripe/option-credit-whatsapp';
 import type { StatutOption } from '../credit-whatsapp/options.pg';
 import type { Issue } from '../lib/issue';
+import { LISTES } from './ecran';
 
 /**
  * CE QU'UNE FREE FAIT DEPUIS CLAUDE CODE PLUTÔT QUE DANS LA CONSOLE (spec offres v2, livraison 4) : créer la clé de son
@@ -68,6 +69,7 @@ export const OUTILS_OFFRE: OutilMcp[] = [
       },
       required: ['name'],
     },
+    ecran: () => LISTES.cles,
     async executer(deps, tenantId, args, personne) {
       const p = personneRequise(personne);
       const nom = texteObligatoire(args, 'name', 100);
@@ -103,6 +105,7 @@ export const OUTILS_OFFRE: OutilMcp[] = [
       properties: { periodicite: { type: 'string', enum: [...PERIODICITES], description: 'mois (monthly) or an (yearly).' } },
       required: ['periodicite'],
     },
+    ecran: () => LISTES.offre,
     async executer(deps, tenantId, args, personne) {
       const payeur = signataire(personne);
       const periodicite = args.periodicite;
@@ -151,6 +154,7 @@ export const OUTILS_OFFRE: OutilMcp[] = [
         },
       },
     },
+    ecran: () => LISTES.offre,
     async executer(deps, tenantId, args, personne) {
       const payeur = signataire(personne);
       const places = args.places ?? 1;
