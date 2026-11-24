@@ -306,6 +306,29 @@ CI racine verte job par job sur les deux commits ; CI front rouge sur `mobile-de
 `origin/main` sous une extraction : le commit reconstruit défaisait sa section Shopify de `features.md`, vu au
 `diff --stat` avant le push et refait. Reste : `aide:charger` pour la fiche, l'essai de Julien sur son modèle J-10.
 
+## 2026-11-20 : la sortie « En cas d'échec » du bloc template d'un scénario
+
+Demande de Julien, plan `docs/superpowers/plans/2026-11-20-sortie-echec-template.md`, implémenteur par lot et revue
+humaine du diff. Décisions du jour : la suite attend « livré » quand la sortie est reliée ; seuls les échecs de Meta la
+prennent (jamais un STOP ni un accord marketing absent) ; jamais deux rattrapages pour un même échec. Mesuré à
+l'implémentation : un message est soit un message de campagne (sa chaîne de repli), soit l'envoi d'un bloc (la sortie) ;
+seul le parcours d'événement Shopify ou HubSpot recoupe les deux, d'où `cederAuScenario`. Écart assumé : un refus
+synchrone de Meta (modèle en pause, variables refusées) ne la prend pas, c'est une erreur de réglage.
+
+Lot 1, moteur (a76c0bcdc) : poignée `non_livre`, puits en tête de `processStatuses`, `templateNonLivre` et
+`templateLivre` par `advance` (le bloc du message tient lieu de message cité). Relecture sans rouge, neuf jaunes.
+Déployé par le run 44778932796 (épinglé sur 925312a33) : le run précédent, affiché sous a76c0bcdc, avait construit
+0e6c640a9, et j'ai annoncé à tort le lot en production sur son titre.
+
+Lot 2, console, recette et aide (e0000cb70) : la ligne rouge sur chaque bloc template, `si_echec` dans la recette (API,
+`create_scenario`) relue à l'identique, contrat du SDK, fiche « Le bloc Envoi template » étape 8 et captures 3 à 6 et 8
+(console construite sur le port 3100, le 3000 était pris), miroirs des analyses de fenêtre. Trois jaunes du lot 1
+corrigés, dont la garde de l'outil d'agent, d'abord posée dans `envoyerBlocDepuisAgent` où le vrai chemin ne l'atteignait
+jamais (le graphe y arrive réduit au bloc) : déplacée dans `blocSeul`, relevée par la relecture. Poussé après le
+déploiement du lot 1, déployé par le run 44788385859 (sans migration). La ligne ajoutée a fait passer le bloc carousel
+de l'e2e à 389 px pour une borne de 380 : borne à 410 (630d36df6). Restent l'essai réel sur la SANDBOX et les jaunes du
+`todo.md`.
+
 ## 2026-11-20 (suite) : Make, n8n, Zapier, les fiches chargées et deux tests rouges
 
 Les trois fiches chargées en production le soir même, après le déploiement de e0000cb7 (le lot d'un pair juste

@@ -549,6 +549,17 @@ plafond que la Question) ne vaut que si un template part (`actionOf` non nul) ; 
 de Meta (spec du menu « Scénario », décision 25). Sans délai, un template se comporte exactement comme avant, et une
 flèche `timeout` résiduelle n'est jamais suivie comme « suite » (`nextNodeHorsTimeout`).
 
+🔴 **La sortie « En cas d'échec » d'un template (poignée `non_livre`, `SORTIE_NON_LIVRE`) n'est prise QUE par l'accusé
+`failed` de Meta.** Aucune suite libre ne la prend (`nextNode` et `nextNodeHorsTimeout` l'excluent) : la prendre pour une
+suite enverrait un contact bien servi dans la branche d'échec. Reliée, elle fait attendre le template là où il
+continuait sans attendre (agent de Meta actif, parcours d'événement) ; ailleurs il attendait déjà la réponse. L'accusé
+passe EN PREMIER dans `processStatuses` (`creerLivraisonTemplates`, `src/workflow/livraison-template.ts`), avant la
+livraison et la remise du fil : `failed` prend la sortie (`templateNonLivre`), `delivered` ou `read` la suite libre là
+où le parcours n'attendait que lui (`templateLivre`). Un parcours d'événement qui la prend fait sortir son destinataire
+de campagne des relances AVANT d'envoyer (`cederAuScenario`), un parcours ordinaire dont le fil est à un opérateur ne
+fait rien. Un refus SYNCHRONE de Meta (erreur de réglage) ne la prend pas. L'outil d'un agent refuse d'envoyer seul un
+tel template (`blocSeul`), et la recette d'un scénario l'écrit `si_echec`.
+
 🔴 **La reprise d'une échéance réserve le tour, comme `advance`.** La réclamation du balayage ne pose qu'un bail sur
 `resume_at` et le parcours reste `waiting` : sans réservation, une réponse du contact arrivée pendant que le lot attend
 sa reprise passait par `advance`, puis la reprise rejouait l'instantané réclamé et envoyait la relance EN PLUS de la
