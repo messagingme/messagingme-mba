@@ -1400,6 +1400,39 @@ describe('le oui aux données de la fiche pose l’outil', () => {
     expect(second.proposition.outilsAActiver).toEqual(['lire_contact']);
   });
 
+  it('🔴 la question recopiée puis « => Oui » : le oui se lit (Maison Saint-Honoré, 2026-11-24)', async () => {
+    const a = app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] });
+    const res = await a.executer('Votre agent doit-il se servir des commandes Shopify ? Répondez oui ou non. => Oui');
+    expect(res.couverture.manquants).toEqual([]);
+    expect(res.proposition.outilsAActiver).toEqual(['lire_contact']);
+  });
+
+  it('🔴 la question du serveur part SEULE : celles du modèle sont retirées, son accusé de réception reste', async () => {
+    const ailleurs = reponse(JSON.stringify({
+      message: 'Parfait, vouvoiement noté.\n\nPhrases courtes ou développées ? Et emoji ou non ?', reponses: [], fiche: {},
+    }));
+    const res = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [ailleurs, muet] }).executer('Vouvoiement');
+    expect(res.couverture.manquants).toEqual(['donnees_client']);
+    expect(res.message).toContain('Parfait, vouvoiement noté.');
+    expect(res.message).toContain('Répondez oui ou non.');
+    expect(res.message).not.toContain('emoji');
+  });
+
+  it('🔴 dès que le point s’ouvre, juste après la connaissance, sa question remplace celle du modèle', async () => {
+    const i = BASE.indexOf('connaissance');
+    const entretien: EntretienComplet = {
+      messages: [{ role: 'assistant', content: 'D’où viendront ses réponses de fond ?' }], auteurs: [],
+      poses: BASE.slice(0, i + 1), reponses: toutesLesReponses().slice(0, i), bascules: [],
+    };
+    const saute = reponse(JSON.stringify({
+      message: 'D’accord, votre site. À quoi ressemble une conversation réussie ?',
+      reponses: [{ point: 'connaissance', valeur: 'le site' }], fiche: {},
+    }));
+    const res = await app({ entretien, integrations: SHOPIFY, suite: [saute, muet] }).executer('Le site Shopify');
+    expect(res.message).toContain('Répondez oui ou non.');
+    expect(res.message).not.toContain('conversation réussie');
+  });
+
   it('déjà actif avec les bons mots : rien à enregistrer pour lui', async () => {
     const premier = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] }).executer('oui');
     const carte = premier.proposition.outils.find((o: { handler: string }) => o.handler === 'lire_contact')!;

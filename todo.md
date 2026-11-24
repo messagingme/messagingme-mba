@@ -1,5 +1,14 @@
 # todo.md : backlog
 
+## 🟡 Le oui aux données de la fiche lu dans tout le message : la relecture (2026-11-24, aucun rouge)
+
+- Sans marque recopiée, chaque ligne du message se lit : une ligne d'accusé recopiée (« Parfait, … ») vaut oui, une
+  ligne « Pas d'emoji » vaut non. Ne lire que le premier et le dernier morceau quand la marque n'est pas recopiée.
+- `sansSesQuestions` retire une phrase entière pour un « ? » dans un exemple entre guillemets ou une adresse, et laisse
+  orphelines les puces qui suivaient une phrase finie par « : ».
+- Une réponse `donnees_client` rangée avant le 2026-11-23 sans que le point ait été posé : la confirmation « J'ai déjà
+  noté… » ne porte pas la marque, et le point se couvre sans lecture du oui (probablement aucun entretien concerné).
+
 ## 🟡 CSM virtuel, B0b à B0d (`871f9bd06`, `5877b47a8`, `ca7ecb841`) : la relecture (2026-11-24, aucun rouge)
 
 Partent avec B2 (lot de fonctionnalité qui ajoute des outils et leurs écrans), pas en lot à part.

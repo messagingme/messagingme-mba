@@ -1724,8 +1724,11 @@ point au tour suivant.
 ou le non se lit dans le message du client (`ouiOuNon`, sans le modèle, comme `actionChoisie`), et seulement si la
 dernière question de l'assistant portait la marque « Répondez oui ou non. » (`MARQUE_OUI_OU_NON`), sinon un « ok
 merci » vaudrait oui à une question jamais posée ; ce que le modèle range pour ce point est ignoré, et sans réponse
-lisible la question revient : si le modèle la repose sans la marque, le serveur ajoute la sienne, qui la porte, pour ne
-jamais tourner en rond. Sur un oui, l'entretien fini, le serveur met dans la
+lisible la question revient. La réponse se cherche dans TOUT le message (`reponseOuiOuNon`) : seul compte ce qui suit la
+dernière marque recopiée, coupé aux lignes, aux flèches et aux « ? », et un oui avec un non ne décide rien. Tant que le
+point est ouvert, c'est le serveur qui pose sa question, SEULE : elle remplace celles du modèle, dont il ne garde que
+l'accusé de réception (`sansSesQuestions`) ; deux questions dans un message, le client répond à l'autre et l'entretien ne
+finit jamais. Sur un oui, l'entretien fini, le serveur met dans la
 proposition l'outil `lire_contact` avec des mots qu'il écrit lui-même (`outilLireFiche`) : UN outil généraliste, qui rend
 toute la fiche, et une description qui sert de CARTE (quand l'appeler, où regarder : `shopify_lien_suivi` et
 `expediee_le` pour une livraison, chaque champ HubSpot par sa clé et son libellé), plus un « ne pas utiliser » qui

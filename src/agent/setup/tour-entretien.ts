@@ -10,7 +10,8 @@ import { avancementEntretien, type AvancementEntretien } from './avancement';
 import { construireMessages, inventaireDe, type ContexteConstruction } from './conversation';
 import {
   accordDonneesClient, actionChoisie, basculesDuTour, CODE_DONNEES_CLIENT, fusionner, fusionnerBascules, momentDuPoint,
-  momentsDesReponses, ouiOuNon, outilLireFiche, poseUneQuestion, prochainPoint, questionDeRelance, questionOuiOuNonMontree,
+  momentsDesReponses, outilLireFiche, poseUneQuestion, prochainPoint, questionDeRelance, questionOuiOuNonMontree,
+  reponseOuiOuNon, sansSesQuestions,
   urlDeConnaissance,
 } from './couverture';
 import {
@@ -194,11 +195,12 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
        * sans le modèle (comme `actionChoisie`), et seulement si la dernière question de l'assistant portait la marque
        * (`MARQUE_OUI_OU_NON`) : un « ok merci » après « C'est enregistré » n'est pas un oui à une question jamais posée.
        * Ce que le modèle range pour ce point est IGNORÉ : il couvrirait le point sans qu'aucun outil ne suive. Sans
-       * réponse lisible, le point reste ouvert, et la question revient.
+       * réponse lisible, le point reste ouvert, et la question revient. La réponse se cherche dans TOUT le message
+       * (`reponseOuiOuNon`) : le client recopie la question avant d'y répondre, ou répond à deux questions d'un coup.
        */
       const derniereQuestion = [...avant.messages].reverse().find((m) => m.role === 'assistant')?.content ?? '';
       const accordLu = pointDuTour?.code === CODE_DONNEES_CLIENT && questionOuiOuNonMontree(derniereQuestion)
-        ? ouiOuNon(commande.message) : null;
+        ? reponseOuiOuNon(commande.message) : null;
       const reponses = fusionner(avant.reponses, [
         ...propose.data.reponses.filter((r) => r.point !== CODE_DONNEES_CLIENT),
         ...(accordLu ? [{ point: CODE_DONNEES_CLIENT, valeur: accordLu }] : []),
@@ -255,12 +257,12 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
 
       const ouvertApres = prochainPoint({ poses, reponses, bascules: listeBascules }, inventaireDe(contexte));
       /**
-       * 🔴 Le point des données de la fiche ne tourne pas en rond : si la réponse du client n'a pas été lue et que le modèle
-       * repose la question SANS la marque, le serveur ajoute la sienne, qui la porte. Sinon un modèle qui oublie la marque
-       * ferait répondre « oui » sans fin, sans que rien ne se range. Une question de trop au pire, une seule fois.
+       * 🔴 LE POINT DES DONNÉES DE LA FICHE, C'EST LE SERVEUR QUI LE POSE, SEUL dans son message. Tant que le oui ou le non
+       * n'est pas lu, sa question (qui porte la marque) remplace celles du modèle, dont il ne garde que l'accusé de
+       * réception (`sansSesQuestions`). Avant le 2026-11-24, elle s'AJOUTAIT à la question du modèle : chez Maison
+       * Saint-Honoré, des messages à deux questions, le client répondait à l'autre, et l'entretien ne finissait jamais.
        */
-      const forcerLaMarque = ouvertApres?.code === CODE_DONNEES_CLIENT && pointDuTour?.code === CODE_DONNEES_CLIENT
-        && accordLu === null && !questionOuiOuNonMontree(propose.data.message);
+      const forcerLaMarque = ouvertApres?.code === CODE_DONNEES_CLIENT && accordLu === null;
       const relance = ouvertApres && (!poseUneQuestion(propose.data.message) || forcerLaMarque) ? ouvertApres : null;
       const posesApres = relance && !poses.includes(relance.code) ? [...poses, relance.code] : poses;
       const etatApres: EntretienComplet = {
@@ -274,7 +276,10 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       const enEntretien = suivi.manquants.length > 0;
 
       let propositionFinale = propose.data;
-      let message = relance ? `${propose.data.message}\n\n${questionDeRelance(relance, etatApres)}` : propose.data.message;
+      const avantRelance = forcerLaMarque ? sansSesQuestions(propose.data.message) : propose.data.message;
+      let message = relance
+        ? [avantRelance, questionDeRelance(relance, etatApres)].filter(Boolean).join('\n\n')
+        : propose.data.message;
       let tokensIn = reponse.usage.tokensIn;
       let tokensOut = reponse.usage.tokensOut;
       const vientDeFinir = !enEntretien && avancementEntretien(avant, contexte).manquants.length > 0;

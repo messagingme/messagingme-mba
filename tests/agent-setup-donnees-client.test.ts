@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AGENDA, CODE_DONNEES_CLIENT, CODES_POINTS, INVENTAIRE_VIDE, accordDonneesClient, agendaEffectif, fusionner,
   manquesDeCouverture, MARQUE_OUI_OU_NON, ouiOuNon, outilLireFiche, questionOuiOuNonMontree,
-  pointDonneesClient, type Inventaire,
+  pointDonneesClient, reponseOuiOuNon, sansSesQuestions, type Inventaire,
 } from '../src/agent/setup/couverture';
 import { consigneDuTour, inventaireDe, type ContexteConstruction } from '../src/agent/setup/conversation';
 import { BORNES_PROPOSITION, differences, type EtatCourant } from '../src/agent/setup/proposition';
@@ -114,6 +114,28 @@ describe('le oui se lit sans le modèle', () => {
     for (const t of ['non', 'Non merci', 'pas pour l’instant', 'jamais', 'nope', '2']) expect(ouiOuNon(t), t).toBe('non');
     // Un nombre en tête d'une phrase ne décide rien.
     for (const t of ['je ne sais pas', 'nous verrons', 'okapi', 'peut-être', '', '2 000 commandes par mois, oui']) expect(ouiOuNon(t), t).toBeNull();
+  });
+
+  it('🔴 le oui se cherche dans TOUT le message : les réponses réelles de Maison Saint-Honoré (2026-11-24)', () => {
+    const question = pointDonneesClient(SHOPIFY)!.question;
+    // Le client recopie la question, puis répond : quatre « Oui » jamais lus avant le correctif.
+    expect(reponseOuiOuNon('votre agent doit-il utiliser les commandes du client et le lien de suivi de son colis pour répondre à « où en est ma commande ? » par exemple ? Oui')).toBe('oui');
+    expect(reponseOuiOuNon(`Conseiller virtuel Maison Saint-Honoré Paris => Courtois, professionnel\n${question} => Oui`)).toBe('oui');
+    expect(reponseOuiOuNon(`${question} => Oui`)).toBe('oui');
+    expect(reponseOuiOuNon(`Phrases courtes\nNon`)).toBe('non');
+    // Une réponse à une AUTRE question ne décide rien.
+    for (const t of ['Vouvoiement', 'phrases courtes et directes et emojis oui',
+      'Maintenant, parlons de son comportement. Au bout de combien de temps SANS réponse du contact l’agent doit-il arrêter d’attendre, en minutes ? 2 heures',
+      '2 000 commandes par mois, oui', 'oui\nnon']) expect(reponseOuiOuNon(t), t).toBeNull();
+    // Ce qui précède la DERNIÈRE marque recopiée ne compte pas.
+    expect(reponseOuiOuNon(`non, pas d’emoji\n${question} => oui`)).toBe('oui');
+  });
+
+  it('🔴 la question du serveur part seule : le modèle garde son accusé de réception, pas ses questions', () => {
+    const modele = 'Noté. Pour la demande de contact : l’agent donne l’email.\n\nMaintenant, sur chacun de ces moments, dites-moi ce que l’agent doit FAIRE exactement :\n\n**Pour « demande de contact » :** doit-il simplement répondre avec l’email ?\n\nQuel ton ? Répondez oui ou non.';
+    const reste = sansSesQuestions(modele);
+    expect(reste).toBe('Noté. Pour la demande de contact : l’agent donne l’email.');
+    expect(sansSesQuestions('Quel ton ? Vouvoiement ?')).toBe('');
   });
 
   it('l’accord se relit dans la réponse rangée, quelle que soit sa tournure', () => {

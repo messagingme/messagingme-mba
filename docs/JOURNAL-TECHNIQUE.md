@@ -5,6 +5,18 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : le oui aux données de la fiche, jamais lu chez Maison Saint-Honoré
+
+L'entretien de Maison Saint-Honoré (« Construire en parlant », Shopify branché) a reposé quatre fois la question des
+données de la fiche, et ne s'est jamais fini : pas de diff, donc pas d'« Enregistrer », alors que le modèle annonçait
+« Votre agent est prêt ». Deux causes, toutes deux dans le serveur. Le oui ne se lisait qu'en DÉBUT de message
+(`ouiOuNon`) : le client recopiait la question puis écrivait « => Oui », ou répondait à deux questions dans le même
+message. Et le serveur AJOUTAIT sa question à celle du modèle : chaque message en portait deux, le client répondait à
+l'autre. Correctif : la réponse se cherche dans tout le message, après la dernière marque recopiée, coupée aux lignes,
+aux flèches et aux « ? », un oui avec un non ne décidant rien (`reponseOuiOuNon`) ; tant que le point est ouvert, la
+question du serveur part SEULE, celles du modèle retirées, son accusé de réception gardé (`sansSesQuestions`), dès le
+tour où le point s'ouvre et plus seulement au tour d'après. Méthode : en direct, une relecture indépendante. Tests sur
+les messages réels du client ; quatre mutations, toutes rouges sur le test visé.
 ## 2026-11-24 : guide de démarrage, la fiche « Bien démarrer » et son film
 
 Julien a choisi une fiche à part pour le film de bienvenue (une fiche ne porte qu'un film, et « Me repérer dans la

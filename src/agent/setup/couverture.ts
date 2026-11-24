@@ -319,6 +319,32 @@ export function ouiOuNon(texte: string): 'oui' | 'non' | null {
   return null;
 }
 
+/**
+ * 🔴 LE OUI OU LE NON DANS UN MESSAGE ENTIER, pas seulement à son début (Maison Saint-Honoré, 2026-11-24 : quatre
+ * « Oui » jamais lus). Le client recopie souvent la question avant d'y répondre (« … Répondez oui ou non. => Oui »), ou
+ * répond à deux questions d'un coup, une par ligne. Seul compte ce qui suit la DERNIÈRE marque recopiée ; le reste se
+ * coupe aux lignes, aux flèches et aux points d'interrogation, et chaque morceau se lit par `ouiOuNon`. Un seul verdict
+ * ou rien : un oui et un non dans le même message ne décident pas.
+ */
+export function reponseOuiOuNon(message: string): 'oui' | 'non' | null {
+  const apres = message.split(/r[ée]pondez\s+oui\s+ou\s+non\s*\.?/i).pop() ?? '';
+  const lus = new Set(apres.split(/\n|=>|->|→|\?/).map((m) => ouiOuNon(m)).filter((v) => v !== null));
+  return lus.size === 1 ? [...lus][0]! : null;
+}
+
+/**
+ * Le message du modèle sans ses questions : ce que le serveur garde quand il pose LA SIENNE à la place (le point des
+ * données de la fiche). Une phrase qui porte un « ? », la marque, ou qui finit sur « : » (elle annonçait une question)
+ * part ; l'accusé de réception reste. Deux questions dans un message, c'est une réponse qui n'en lit qu'une.
+ */
+export function sansSesQuestions(message: string): string {
+  return message.split('\n')
+    .map((ligne) => ligne.split(/(?<=[.!?…])\s+/)
+      .filter((p) => !p.includes('?') && !questionOuiOuNonMontree(p) && !/:\s*$/.test(p))
+      .join(' ').trimEnd())
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** L'accord du client sur l'usage des données de la fiche, tel qu'il est rangé, ou `null` s'il n'a rien dit. */
 export function accordDonneesClient(reponses: readonly Reponse[]): 'oui' | 'non' | null {
   const r = retenues(reponses).find((x) => x.point === CODE_DONNEES_CLIENT);
