@@ -114,6 +114,27 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 5b (« Rattraper » fait entrer les acheteurs) : la relecture (2026-11-24, un rouge corrigé)
+
+- La trace des numéros effacés ne bloque que la CRÉATION : une commande d'avant l'effacement rejoint une fiche qui
+  existe (recréée par une commande d'après, ou dans la même page). Faut-il qu'elle bloque aussi ce rattachement ?
+  (décision de Julien à prendre)
+- Le numéro `phone` de la commande compte comme numéro de l'acheteur (avec celui du client et de la facturation) : à
+  confirmer à l'essai réel.
+- Lot 7 (24 mois) : la trace des numéros effacés devra durer plus de 731 jours, à arbitrer pour la minimisation.
+- `commandesSansWhatsapp` ne garde plus seul que les suppressions d'avant la 0317 : le retirer 90 jours après le
+  déploiement de la 0317.
+- `PHRASE_ATTESTATION_REQUISE` (automations) montre encore des noms d'outils dans la console.
+- `tests/integration/sans-whatsapp.integration.test.ts` (lot 2a) simule encore une suppression par `update deleted_at`.
+- Les données client protégées de Shopify (prénom, nom) : à vérifier à l'essai réel ; un ACCESS_DENIED y ferait
+  refuser tout le rattrapage.
+- L'aperçu MCP refuse sans attestation (la skill pose d'abord la question et lit les places par `get_plan`) ; les
+  comptes d'une page sont perdus si `avancer` échoue après l'écriture (recomptés « déjà connues ») ; un onglet ouvert
+  avant le push dit « aucune fiche n'est créée » ; au plafond, les commandes les plus anciennes prennent les places.
+- Essai réel : Maison Saint-Honoré (l'aperçu annonce les fiches à créer et les places ; les fiches créées ont la bonne
+  source et le bon nom ; une fiche montre sa commande et ses produits ; relancé, rien de plus), puis un contact
+  supprimé, un cadeau, une offre presque pleine.
+
 ## 🟡 Segments Shopify, lot 6a (« a acheté dans la collection ») : la relecture (2026-11-24, aucun rouge)
 
 - Un produit que Shopify refuse seul, à chaque fois (`INTERNAL_SERVER_ERROR` sur un lot réduit à lui), bloque la

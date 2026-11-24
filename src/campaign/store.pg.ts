@@ -1858,7 +1858,8 @@ export class PgRecipientStore implements RecipientStore, DeliveryStore {
    *     sur cette fiche, ou un injoignable déjà traité par le balayage (`markUnreachableDone`) ;
    *   - pas de repli (`SANS_REPLI_SQL`) : un étage RCS ou e-mail rattrape ce contact sur la même fiche ;
    *   - pas déjà purgé (`NON_PURGE_SQL`), fiche vivante ;
-   *   - `nee_de = 'shopify'` : une fiche importée, saisie, ou née d'un entrant n'est jamais visée ;
+   *   - `nee_de = 'shopify'` : une fiche importée, saisie, ou née d'un entrant n'est jamais visée ; celle que le
+   *     rattrapage des commandes Shopify a créée (lot 5b) l'est, comme celle née d'un envoi Shopify ;
    *   - jamais écrit : ni activité (`derniere_activite_le`, message reçu ou clic, complète depuis 0273, donc pour toute
    *     fiche marquée), ni message entrant encore conservé (au cas où la date aurait manqué une écriture « au mieux ») ;
    *   - jamais rien reçu : aucun message livré ou lu, ni sur une ligne de campagne (gardée sans limite de durée), ni dans

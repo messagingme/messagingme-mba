@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 709304
+traduit_de: 8a99bf
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -32,9 +32,9 @@ the read_all_orders scope, remove it from the list and release again: only readi
 website's public address: the “?” bubble says where to read it), the Client ID and the Client secret, tick the
 confirmation, then “Connect the store”. Your three messages are written at once and sent to Meta for approval.
 
-With this box, you confirm that your store’s customers have agreed to receive your WhatsApp messages, and you take
-responsibility for it: Meta requires their agreement for any message you send them first. Without it, the store does
-not connect. The sentence, the date and your address are kept.
+With this box, you confirm that your store’s customers have agreed to receive your WhatsApp messages, offers included,
+and you take responsibility for it: Meta requires their agreement for any message you send them first. Without it, the
+store does not connect. The sentence, the date and your address are kept.
 
 **4. See your messages, then switch them on.** Scenario > Automation > Shopify lists your automations: Order
 paid, Order shipped, Abandoned checkout and Abandoned checkout with AI agent (below). Hover over a line to read its message, with examples in place of the data;
@@ -166,12 +166,23 @@ second removes it; the number on each button says how many contacts it finds, an
 shown.
 
 **11. Catch up the orders of the last 60 days.** On the Shopify card, “Catch up” first counts, writing nothing, the paid
-orders of the last 60 days: already known, to attach to a record of your contacts, without a record or without a
-phone. “Start the catch-up” reads them all again in the background, and the card tells where it stands.
+orders of the last 60 days: already known, to attach to a record, the buyer records to create and the places your plan
+leaves, without a record or without a phone. “Start the catch-up” reads them all again in the background, and the card
+tells where it stands.
 
-Each order joins the record of its phone, with its amount and products; an order without a record is counted, never
-kept. No record is created, no message goes out, and the revenue brought in by WhatsApp does not change. Allow a few
-minutes for most stores, over an hour for the largest.
+Each order joins the record of its phone, with its amount and products. A buyer with a mobile phone and no record yet
+gets one, on the customer’s or the billing phone, never the shipping one (a gift recipient does not get in): opted in
+on the strength of your attestation, tagged “Shopify”, within your plan’s contact limit; beyond it, their order is
+counted, never kept. The preview warns you when these records would take your last places: a new customer writing to
+you first could then no longer get in. No message goes out, and the revenue brought in by WhatsApp does not change.
+Allow a few minutes for most stores, over an hour for the largest.
+
+**Good to know.** The catch-up needs your customers’ consent attestation, the box at the top of Scenario > Automation >
+Shopify: without it, the preview says so and nothing starts. A contact you deleted never comes back through the
+catch-up: only an order placed after its deletion gives it a record again. Nor is a record created without a mobile
+number, for a customer who had replied STOP, or for a number WhatsApp already refused. A record the catch-up creates is
+deleted if WhatsApp does not find its number at the first message: its place comes back. Run again, the catch-up
+creates nothing more.
 
 **Good to know.** The catch-up and the collections need the read_products scope on your Shopify app. An app created
 before November 24, 2026 does not have it: add it to its scopes on the Shopify developer dashboard, release its new
@@ -180,10 +191,10 @@ so, and nothing is read.
 
 **Good to know.** Orders count from the moment the store was connected; a catch-up adds those of the 60 days before
 it, as Shopify lets no one read further back. Without a catch-up, right after connecting, “at least 2 orders”
-therefore finds nobody; the section gives the date tracking started, and the date of the catch-up. Only orders from a
-number already in your contacts count, test orders included: import your customers before catching up their orders.
-Products are known for orders paid since November 23, 2026, and for those of a catch-up. Country and activity work in
-every workspace, with or without a store.
+therefore finds nobody; the section gives the date tracking started, and the date of the catch-up. As they come, only
+orders from a number already in your contacts count, or one their confirmation message brings in, test orders
+included; the catch-up, for its part, creates the buyer’s record. Products are known for orders paid since November 23,
+2026, and for those of a catch-up. Country and activity work in every workspace, with or without a store.
 
 ## The sending rules
 

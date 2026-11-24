@@ -6,6 +6,7 @@ import type { UserFieldStore } from './fields';
 import type { ColumnMapping, ImportReport, UserFieldDef } from './types';
 import type { CountryCode } from 'libphonenumber-js';
 import type { AutoriteImport } from './transition-consentement';
+import type { NeeDe } from './contact-store.pg';
 
 export interface ContactUpsert {
   tenantId: string;
@@ -48,6 +49,12 @@ export interface LotContacts {
    */
   autorite: AutoriteImport;
   contacts: ContactDeLot[];
+  /**
+   * L'origine posée sur les fiches que ce lot INSÈRE (`contacts.nee_de`) : le rattrapage Shopify (segments Shopify enrichis,
+   * lot 5b) y écrit `shopify`, pour que le premier 131026 supprime une fiche qu'il a créée et qui n'a jamais écrit, comme
+   * celle née d'un envoi Shopify. Absente : aucune marque (l'import CSV, HubSpot, les abonnés).
+   */
+  neeDe?: NeeDe;
 }
 
 export interface ContactStore {

@@ -1770,8 +1770,10 @@ async function main(): Promise<void> {
       agents: agentStore,
     },
     // Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5) : l'aperçu et le lancement ici,
-    // le job dans le worker, par le MÊME câblage (`cablerReprise`) ; les magasins ENTIERS, leurs méthodes lisent `this`.
+    // le job dans le worker, par le MÊME câblage (`cablerReprise`) ; les magasins ENTIERS, leurs méthodes lisent `this`. Le
+    // pool tient la transaction d'une page, qui crée les fiches des acheteurs puis y rattache leurs commandes (lot 5b).
     reprise: cablerReprise({
+      pool,
       reprises: new PgReprisesStore(pool),
       boutiques: shopifyStore,
       contacts: contactStore,

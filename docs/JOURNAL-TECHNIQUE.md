@@ -5,6 +5,30 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : segments Shopify, lot 5b : « Rattraper » fait entrer les acheteurs
+
+Après le premier rattrapage réel de Maison Saint-Honoré (39 commandes, 4 fiches dans l'espace, 34 acheteurs au numéro
+utilisable sans fiche, rien de gardé), Julien a précisé ce qu'il attendait : « Rattraper » IMPORTE les acheteurs avec ce
+qu'ils ont acheté, sauf ceux sans téléphone portable, et l'attestation de la boutique vaut consentement ; on ne vérifie
+rien de plus client par client. La question du 2026-11-23 (« garder une commande sans fiche ? ») parlait technique au
+lieu de dire l'effet : les acheteurs sans fiche n'entraient pas dans l'espace.
+Le rattrapage crée donc, sous l'attestation en vigueur, la fiche de chaque acheteur au mobile utilisable, consentante,
+étiquetée « Shopify », par le chemin de l'import des abonnés (`upsertManyByPhone` : autorité `import`, un STOP jamais
+levé, liste de refus, plafond de l'offre revérifié), en UNE transaction par page (fiches, commandes, lignes derrière un
+point de reprise). Marquée `nee_de = 'shopify'`, elle disparaît au premier `131026` si elle n'a jamais été écrite.
+La relecture indépendante a trouvé un rouge, prouvé sur PGlite : une fiche créée puis supprimée (console, ou premier
+`131026` d'une campagne) renaissait consentante au rattrapage suivant, la purge anonymisant le numéro et effaçant les
+commandes. Décision de Julien : un contact supprimé n'est JAMAIS recréé par le rattrapage. Correctif : la table
+`numeros_effaces` (migration 0317, BLOQUANTE, poussée seule et déployée avant le code), où `purgeMany` écrit
+l'empreinte HMAC du numéro de toute fiche purgée et sa date, gardée 90 jours ; le rattrapage ne crée aucune fiche pour
+un numéro effacé après la date de paiement. Deux autres décisions du même jour : la fiche se crée sur le numéro de
+l'ACHETEUR (client, commande, facturation), jamais sur celui de la livraison (le destinataire d'un cadeau n'entre pas) ;
+le texte de l'attestation s'élargit aux offres, les attestations déjà données restant valables. Les comptes du
+rattrapage gagnent les fiches créées et celles que le plafond a empêchées (migration 0318). Plugin 0.3.63.
+Leçon : un test qui simule un état par une écriture directe (`update deleted_at`) prouve un chemin que la production
+n'emprunte plus ; il faut passer par le vrai chemin (`purgeMany`). 37 mutations sur 39 rouges, les deux vertes
+expliquées ; en local, trois tests ne dépassent que leur délai, la CI tranche.
+
 ## 2026-11-24 : le oui aux données de la fiche, jamais lu chez Maison Saint-Honoré
 
 L'entretien de Maison Saint-Honoré (« Construire en parlant », Shopify branché) a reposé quatre fois la question des

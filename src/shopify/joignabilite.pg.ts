@@ -56,6 +56,29 @@ export class PgJoignabiliteStore {
     );
   }
 
+  /**
+   * 🔴 LES COMMANDES DONT LE NUMÉRO N'EST PAS SUR WHATSAPP, DE L'AVEU DE META (segments Shopify enrichis, lot 5b) : un message
+   * Shopify de la commande (confirmation, avis d'expédition) a échoué en 131026, et la fiche qu'il visait a été supprimée
+   * depuis (sa ligne de campagne anonymisée par la purge : la règle du lot 2a, ou le marchand). Le rattrapage ne recrée
+   * pas la fiche de ces commandes : sinon chaque relance referait la fiche morte que le premier 131026 a supprimée, et la
+   * referait occuper une place de l'offre jusqu'au prochain envoi. Aucun numéro lu ni gardé : la commande seule. Les accusés
+   * se lisent par une campagne DE L'ESPACE, comme la carte (`lire`). Depuis la trace des numéros effacés (migration 0317),
+   * toute purge laisse aussi la sienne : cette lecture ne garde plus seule que les fiches supprimées AVANT la trace.
+   */
+  async commandesSansWhatsapp(tenantId: string, commandeIds: readonly string[]): Promise<Set<string>> {
+    if (commandeIds.length === 0) return new Set();
+    const res = await this.pool.query<{ commande_id: string }>(
+      `select distinct e.commande_id
+         from shopify_envois e
+         join campaigns c on c.id = e.campaign_id and c.tenant_id = $1
+         join campaign_recipients r on r.campaign_id = e.campaign_id
+        where e.tenant_id = $1 and e.commande_id = any($2::text[])
+          and r.delivery_status = 'failed' and r.error_code = $3::integer and r.to_e164 = 'anonyme'`,
+      [tenantId, [...new Set(commandeIds)], CODE_SANS_WHATSAPP],
+    );
+    return new Set(res.rows.map((r) => r.commande_id));
+  }
+
   /** `customers/redact` : les lignes des commandes que la demande cite. */
   async effacerCommandes(tenantId: string, commandeIds: readonly string[]): Promise<void> {
     if (commandeIds.length === 0) return;

@@ -12,7 +12,8 @@ import type { LigneDeLaListe, ListeDeLAgent } from '../mba/liste';
  * code 131026, l'accusé (`processStatuses`) enfile ce job, et le job supprime la fiche : la place revient.
  *
  * 🔴 DÉCISION DE JULIEN DU 2026-11-23 : seulement une fiche NÉE D'UN ENVOI SHOPIFY (`contacts.nee_de`) et qui n'a JAMAIS
- * ÉCRIT. Une fiche importée, saisie ou qui a écrit reste : le repli d'une campagne (RCS, e-mail) et la sortie « En cas
+ * ÉCRIT ; depuis le lot 5b (2026-11-24), aussi celle que le rattrapage des commandes a créée pour un acheteur, marquée de
+ * même. Une fiche importée, saisie ou qui a écrit reste : le repli d'une campagne (RCS, e-mail) et la sortie « En cas
  * d'échec » d'un scénario se servent de ce même 131026 sur la même fiche. Les gardes vivent dans UNE requête
  * (`PgRecipientStore.ficheNeeDeShopifySansWhatsapp`), lue au moment du job, pas à celui de l'accusé.
  *

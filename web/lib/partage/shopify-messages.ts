@@ -130,10 +130,13 @@ export const adresseDuBoutonPanier = (domaine: string): string => `https://${dom
  * L'ATTESTATION DU CONSENTEMENT DES CLIENTS (Julien, 2026-11-20) : la phrase que le marchand coche, historisée MOT POUR MOT
  * (`shopify_attestations`, migration 0305). Le serveur la choisit selon la langue reçue, jamais depuis un texte du client :
  * changer une phrase ici change ce qui s'atteste à partir de ce jour, les lignes déjà écrites gardent la leur.
+ * 🔴 Élargie aux offres le 2026-11-24 (décision de Julien, segments Shopify enrichis, lot 5b) : les fiches que le
+ * rattrapage crée sur sa foi sont consentantes, donc ciblables par une campagne. Les attestations déjà données restent
+ * valables (`attestationEnVigueur` ne lit que la case et la boutique).
  */
 export const TEXTE_ATTESTATION_SHOPIFY: Readonly<Record<'fr' | 'en', string>> = {
-  fr: 'J’atteste que les clients de ma boutique ont accepté de recevoir de ma part des messages WhatsApp (confirmation et suivi de commande, relance de panier), et j’en assume la responsabilité.',
-  en: 'I confirm that my store’s customers have agreed to receive WhatsApp messages from me (order confirmation and tracking, checkout reminders), and I take responsibility for it.',
+  fr: 'J’atteste que les clients de ma boutique ont accepté de recevoir mes messages WhatsApp, offres comprises (confirmation et suivi de commande, relance de panier, campagnes), et j’en assume la responsabilité.',
+  en: 'I confirm that my store’s customers have agreed to receive my WhatsApp messages, offers included (order confirmation and tracking, checkout reminders, campaigns), and I take responsibility for it.',
 };
 
 /**

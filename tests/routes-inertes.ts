@@ -1000,10 +1000,15 @@ export const repriseInerte: DepsReprise = {
   boutique: async () => null,
   jeton: neDevraitPasEtreAppelee('shopify.reprise.jeton'),
   droits: neDevraitPasEtreAppelee('shopify.reprise.droits'),
+  attestation: neDevraitPasEtreAppelee('shopify.reprise.attestation'),
   lirePage: neDevraitPasEtreAppelee('shopify.reprise.lirePage'),
   commandesConnues: neDevraitPasEtreAppelee('shopify.reprise.commandesConnues'),
   fichesParNumeros: neDevraitPasEtreAppelee('shopify.reprise.fichesParNumeros'),
-  lierCommande: neDevraitPasEtreAppelee('shopify.reprise.lierCommande'),
+  numerosEnRefus: neDevraitPasEtreAppelee('shopify.reprise.numerosEnRefus'),
+  effacements: neDevraitPasEtreAppelee('shopify.reprise.effacements'),
+  commandesSansWhatsapp: neDevraitPasEtreAppelee('shopify.reprise.commandesSansWhatsapp'),
+  places: neDevraitPasEtreAppelee('shopify.reprise.places'),
+  ecrirePage: neDevraitPasEtreAppelee('shopify.reprise.ecrirePage'),
   enfiler: neDevraitPasEtreAppelee('shopify.reprise.enfiler'),
 };
 

@@ -1,6 +1,6 @@
 ---
 name: shopify
-description: Connects the user's Shopify store to Messaging Me so that customers receive WhatsApp messages when an order is paid or shipped, and a reminder when they abandon a checkout, imports the store's customers who subscribed to marketing, and catches up the paid orders of the last 60 days for the segments - creates the store app with the Shopify CLI in the merchant's own organization, installs it with one click, keeps its secret and sets the messages. Use when the user wants to connect Shopify, send order confirmations, shipping updates or abandoned checkout reminders on WhatsApp, import their Shopify customers, bring their past orders into their segments, know how much revenue their WhatsApp messages brought in, or check or cut the Shopify connection.
+description: Connects the user's Shopify store to Messaging Me so that customers receive WhatsApp messages when an order is paid or shipped, and a reminder when they abandon a checkout, imports the store's customers who subscribed to marketing, and catches up the paid orders of the last 60 days for the segments, with the records of their buyers - creates the store app with the Shopify CLI in the merchant's own organization, installs it with one click, keeps its secret and sets the messages. Use when the user wants to connect Shopify, send order confirmations, shipping updates or abandoned checkout reminders on WhatsApp, import their Shopify customers, bring their past orders into their segments, know how much revenue their WhatsApp messages brought in, or check or cut the Shopify connection.
 allowed-tools: mcp__plugin_messagingme_messagingme__get_shopify_state, mcp__plugin_messagingme_messagingme__get_revenue_stats, mcp__plugin_messagingme_messagingme__preview_shopify_customers, mcp__plugin_messagingme_messagingme__preview_shopify_order_history, mcp__plugin_messagingme_messagingme__get_shopify_order_history, mcp__plugin_messagingme_messagingme__list_templates, mcp__plugin_messagingme_messagingme__get_template_status, mcp__plugin_messagingme_messagingme__get_setup_state
 ---
 
@@ -161,17 +161,18 @@ its "any other reply" output, or ends the journey.
 
 ### The consent attestation
 
-No automation turns on until the merchant has attested, once, that their customers agreed to receive their WhatsApp
-messages: Meta requires that agreement for any message that writes first. `get_shopify_state` says whether it is done
+No automation turns on, and no catch-up of past orders runs (it creates opted in records on its strength), until the
+merchant has attested, once, that their customers agreed to receive their WhatsApp messages, offers included: Meta
+requires that agreement for any message that writes first. `get_shopify_state` says whether it is done
 (`customers_consent_attested`). When it is false, before turning anything on, ask the user, quoting this sentence in
-their language (in French: "J’atteste que les clients de ma boutique ont accepté de recevoir de ma part des messages
-WhatsApp (confirmation et suivi de commande, relance de panier), et j’en assume la responsabilité."):
+their language (in French: "J’atteste que les clients de ma boutique ont accepté de recevoir mes messages WhatsApp,
+offres comprises (confirmation et suivi de commande, relance de panier, campagnes), et j’en assume la responsabilité."):
 
-"I confirm that my store’s customers have agreed to receive WhatsApp messages from me (order confirmation and
-tracking, checkout reminders), and I take responsibility for it."
+"I confirm that my store’s customers have agreed to receive my WhatsApp messages, offers included (order confirmation
+and tracking, checkout reminders, campaigns), and I take responsibility for it."
 
-Only on their clear yes, pass `customers_consent_attested: true` with the call (`set_shopify_message`, or
-`connect_shopify` if they confirmed it before connecting): it records who, when and the sentence, in French, word for
+Only on their clear yes, pass `customers_consent_attested: true` with the call (`set_shopify_message`,
+`import_shopify_order_history`, or `connect_shopify` if they confirmed it before connecting): it records who, when and the sentence, in French, word for
 word. Never answer for the merchant, never assume it from an earlier request, and never pass it when they hesitate or
 say no: then nothing turns on, and say so. A refusal that asks for the attestation means the same: ask the user. It is
 withdrawn in the console (Scenario > Automation > Shopify, Pro and above), which turns the three automations off.
@@ -240,20 +241,36 @@ days. To add them:
 
 Orders paid before the store was connected are not in the segments (`find_contacts`: orders, products, amount spent).
 The catch-up reads the paid orders created in the last 60 days, the window Shopify opens to the app, and attaches each
-one to the record of its phone already in the workspace, amount and products included, as a live order would have
-been. It creates no record, sends no message and attributes no revenue: an order whose phone matches no record, or
-without a usable phone, is counted and never kept. It is open to every plan.
+one to the record of its phone, amount and products included, as a live order would have been (a landline is skipped
+for the next phone of the order), or else to the record of its buyer. When neither has a record, it creates the
+BUYER's record (the customer's phone, then the billing one; never the shipping one, so a gift recipient never gets
+in): opted in on the strength of the merchant's consent attestation, tagged Shopify, one per phone, within the free
+places of the plan; beyond them the order is counted and never kept. It creates no record without a buyer's usable
+mobile phone, for a contact deleted from the workspace after the order was paid (a deleted contact is never recreated
+by the catch-up), for a phone that said STOP, or for a phone WhatsApp already refused; a record it created that never
+wrote is deleted at the first WhatsApp failure 131026 (the number is not on WhatsApp), and its place comes back. It
+sends no message and attributes no revenue. It is open to every plan.
 
-1. Count first with `preview_shopify_order_history`, which writes nothing. If it refuses for the read_products
-   scope, add it first (Add a scope to an app already installed, above), then count again. Tell the user, in plain words: how many paid
-   orders the window holds, how many are already known (they get their products), how many would join a record, how
-   many have no record or no usable phone (counted, never kept). When `complete` is false, the counts are partial: the
-   catch-up itself reads everything.
-2. Once the user agrees, call `import_shopify_order_history`. It runs in the background, a few minutes for most
+1. It needs the merchant's consent attestation (The consent attestation, above): without it, both tools refuse and
+   say so. When `get_shopify_state` says `customers_consent_attested` is false, ask the attestation question first,
+   saying that the catch-up creates their buyers' records opted in on its strength. Only on their clear yes, pass
+   `customers_consent_attested: true` with `import_shopify_order_history`: it records the attestation and starts at
+   once, without a count before it, so first tell them how many contacts their plan still allows (`get_plan`) and get
+   their go-ahead. Never pass it when they hesitate or say no: then nothing starts, and say so.
+2. Otherwise, count first with `preview_shopify_order_history`, which writes nothing. If it refuses for the read_products
+   scope, add it first (Add a scope to an app already installed, above), then count again. Tell the user, in plain
+   words: how many paid orders the window holds, how many are already known (they get their products), how many would
+   join a record, how many buyer records it would create (`records_to_create`) and the free places of the plan
+   (`free_places`, null when unlimited), how many orders the plan's limit would leave out (`over_plan_limit`), and how
+   many have no record kept or no usable phone (counted, never kept). When `fills_free_places` is true, say it before
+   they choose: these records would take the last places, and a new customer who writes first could then no longer get
+   in. When `complete` is false, the counts are partial: the catch-up itself reads everything.
+3. Once the user agrees, call `import_shopify_order_history`. It runs in the background, a few minutes for most
    stores and over an hour for the largest, and is refused while another one runs.
-3. `get_shopify_order_history` follows it: its status and its counts. `interrupted` means nothing moved for 15 minutes:
-   starting it again closes it and reads the window again. Once it is `termine`, `find_contacts` says from which date
-   the orders were caught up, with its orders criteria.
+4. `get_shopify_order_history` follows it: its status and its counts (`records_created` among them). `interrupted`
+   means nothing moved for 15 minutes: starting it again closes it and reads the window again; it creates nothing more
+   for the orders already caught up. Once it is `termine`, `find_contacts` says from which date the orders were caught
+   up, with its orders criteria.
 
 ## Target by collection
 

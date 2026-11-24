@@ -12,7 +12,16 @@ import type { Pool } from 'pg';
  */
 
 export type StatutReprise = 'en_attente' | 'en_cours' | 'termine' | 'refuse' | 'erreur';
-export interface ComptesReprise { lues: number; rattachees: number; deja: number; sansFiche: number; sansNumero: number }
+/**
+ * Les comptes d'une reprise. Depuis le lot 5b (décision de Julien du 2026-11-24), `rattachees` compte aussi les commandes
+ * rattachées à une fiche que la reprise a CRÉÉE, `fichesCreees` ces fiches (une par numéro d'acheteur), et `horsPlafond`
+ * les commandes non gardées faute de place dans la limite de contacts de l'offre. `sansFiche` : un numéro utilisable dont
+ * la fiche n'est pas créée (un contact supprimé de l'espace après le paiement, un numéro en STOP dans la liste de refus ou
+ * que WhatsApp a déjà refusé en 131026, ou un numéro porté par la seule livraison).
+ */
+export interface ComptesReprise {
+  lues: number; rattachees: number; deja: number; sansFiche: number; sansNumero: number; fichesCreees: number; horsPlafond: number;
+}
 export interface Reprise {
   id: string;
   statut: StatutReprise;
@@ -36,19 +45,23 @@ export const BAIL_REPRISE_SECONDES = 180;
 export const REPRISE_ABANDONNEE_MINUTES = 15;
 /** L'erreur écrite sur une reprise abandonnée : le worker qui la tenait est mort sans relance. */
 export const ERREUR_ABANDON = 'rattrapage interrompu : aucun passage depuis 15 minutes, relancez-le';
-const AUCUN: ComptesReprise = { lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0 };
+const AUCUN: ComptesReprise = { lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0, fichesCreees: 0, horsPlafond: 0 };
 
-const COLONNES = `id, statut, domaine, fenetre_debut, curseur, lues, rattachees, deja, sans_fiche, sans_numero, erreur, par,
-  commence_le, maj_le, fini_le, (bail_jusqua is not null and bail_jusqua > now()) as tenue`;
+// `fiches_creees` et `hors_plafond` : migration 0318 (lot 5b), appliquée AVANT ce code.
+const COLONNES = `id, statut, domaine, fenetre_debut, curseur, lues, rattachees, deja, sans_fiche, sans_numero, fiches_creees,
+  hors_plafond, erreur, par, commence_le, maj_le, fini_le, (bail_jusqua is not null and bail_jusqua > now()) as tenue`;
 
 interface Ligne {
   id: string; statut: StatutReprise; domaine: string; fenetre_debut: Date; curseur: string | null; lues: number;
-  rattachees: number; deja: number; sans_fiche: number; sans_numero: number; erreur: string | null; par: string | null;
-  commence_le: Date; maj_le: Date; fini_le: Date | null; tenue: boolean;
+  rattachees: number; deja: number; sans_fiche: number; sans_numero: number; fiches_creees: number; hors_plafond: number;
+  erreur: string | null; par: string | null; commence_le: Date; maj_le: Date; fini_le: Date | null; tenue: boolean;
 }
 const reprise = (l: Ligne): Reprise => ({
   id: l.id, statut: l.statut, domaine: l.domaine, fenetreDebut: l.fenetre_debut, curseur: l.curseur, erreur: l.erreur, par: l.par,
-  comptes: { lues: l.lues, rattachees: l.rattachees, deja: l.deja, sansFiche: l.sans_fiche, sansNumero: l.sans_numero },
+  comptes: {
+    lues: l.lues, rattachees: l.rattachees, deja: l.deja, sansFiche: l.sans_fiche, sansNumero: l.sans_numero,
+    fichesCreees: l.fiches_creees, horsPlafond: l.hors_plafond,
+  },
   commenceLe: l.commence_le, majLe: l.maj_le, finiLe: l.fini_le, tenue: l.tenue,
 });
 const estUnicite = (err: unknown): boolean => (err as { code?: string }).code === '23505';
@@ -114,10 +127,11 @@ export class PgReprisesStore {
   async avancer(id: string, tenantId: string, jeton: string, curseur: string, ajout: ComptesReprise): Promise<boolean> {
     const res = await this.pool.query(
       `update shopify_reprises set curseur = $4, lues = lues + $5, rattachees = rattachees + $6, deja = deja + $7,
-              sans_fiche = sans_fiche + $8, sans_numero = sans_numero + $9, maj_le = now(),
-              bail_jusqua = now() + make_interval(secs => $10)
+              sans_fiche = sans_fiche + $8, sans_numero = sans_numero + $9, fiches_creees = fiches_creees + $11,
+              hors_plafond = hors_plafond + $12, maj_le = now(), bail_jusqua = now() + make_interval(secs => $10)
         where id = $1 and tenant_id = $2 and jeton = $3 and statut = 'en_cours'`,
-      [id, tenantId, jeton, curseur, ajout.lues, ajout.rattachees, ajout.deja, ajout.sansFiche, ajout.sansNumero, BAIL_REPRISE_SECONDES],
+      [id, tenantId, jeton, curseur, ajout.lues, ajout.rattachees, ajout.deja, ajout.sansFiche, ajout.sansNumero, BAIL_REPRISE_SECONDES,
+        ajout.fichesCreees, ajout.horsPlafond],
     );
     return (res.rowCount ?? 0) > 0;
   }
@@ -140,9 +154,10 @@ export class PgReprisesStore {
     const res = await this.pool.query(
       `update shopify_reprises set statut = $4, erreur = $5, fini_le = now(), maj_le = now(), bail_jusqua = null, jeton = null,
               lues = lues + $6, rattachees = rattachees + $7, deja = deja + $8, sans_fiche = sans_fiche + $9,
-              sans_numero = sans_numero + $10
+              sans_numero = sans_numero + $10, fiches_creees = fiches_creees + $11, hors_plafond = hors_plafond + $12
         where id = $1 and tenant_id = $2 and jeton = $3 and statut = 'en_cours'`,
-      [id, tenantId, jeton, statut, erreurEcrite(erreur), ajout.lues, ajout.rattachees, ajout.deja, ajout.sansFiche, ajout.sansNumero],
+      [id, tenantId, jeton, statut, erreurEcrite(erreur), ajout.lues, ajout.rattachees, ajout.deja, ajout.sansFiche, ajout.sansNumero,
+        ajout.fichesCreees, ajout.horsPlafond],
     );
     return (res.rowCount ?? 0) > 0;
   }

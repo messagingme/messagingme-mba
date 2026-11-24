@@ -67,7 +67,9 @@ export const estObjetSimple = (v: unknown): v is Record<string, unknown> => v !=
  * lit dedans (prénom, téléphone, pays) est facultatif ; la forme reçue se journalise (`shopify_forme_inattendue`).
  */
 const objetOuAbsent = <T extends z.ZodType>(schema: T) => z.preprocess((v) => (v === undefined || v === null || estObjetSimple(v) ? v : null), schema);
-const adresse = objetOuAbsent(z.object({ first_name: texte, phone: texte, country_code: texte }).nullish());
+// `last_name` (segments Shopify enrichis, lot 5b) : le nom de la fiche qu'un rattrapage crée (`nomDeLAcheteur`) ; facultatif,
+// `.catch(null)` comme ce que seule l'attribution lit, jamais un refus du corps.
+const adresse = objetOuAbsent(z.object({ first_name: texte, last_name: texte.catch(null), phone: texte, country_code: texte }).nullish());
 const idShopify = z.number().int().positive();
 
 export const schemaCommande = z.object({
@@ -77,7 +79,7 @@ export const schemaCommande = z.object({
   order_status_url: texte,
   customer_locale: texte,
   phone: texte,
-  customer: objetOuAbsent(z.object({ id: idShopify.nullish(), phone: texte, first_name: texte }).nullish()),
+  customer: objetOuAbsent(z.object({ id: idShopify.nullish(), phone: texte, first_name: texte, last_name: texte.catch(null) }).nullish()),
   shipping_address: adresse,
   billing_address: adresse,
   total_price: texte,
@@ -327,6 +329,13 @@ export function telephoneE164(
 
 type CandidatTelephone = { brut: string | null | undefined; pays?: string | null | undefined };
 
+/** Le nom d'une fiche : prénom et nom joints, espaces resserrés, 200 caractères au plus ; vide, `null`. */
+export const NOM_FICHE_MAX = 200;
+export function nomComplet(prenom: string | null | undefined, nom: string | null | undefined): string | null {
+  const joint = [prenom, nom].filter((x): x is string => typeof x === 'string' && x.trim() !== '').join(' ').replace(/\s+/g, ' ').trim();
+  return joint === '' ? null : joint.slice(0, NOM_FICHE_MAX);
+}
+
 /** L'ordre mesuré pour une commande : livraison, facturation, client, puis le champ de la commande. */
 const candidatsDeCommande = (c: CommandeShopify): CandidatTelephone[] => [
   { brut: c.shipping_address?.phone, pays: c.shipping_address?.country_code },
@@ -339,6 +348,40 @@ const candidatsDExpedition = (f: ExpeditionShopify): CandidatTelephone[] => [{ b
 /** Le téléphone d'une commande, un fixe sauté. */
 export function telephoneDeCommande(c: CommandeShopify, paysBoutique: string | null): string | null {
   return telephoneE164(candidatsDeCommande(c), paysBoutique, { sauterFixes: true });
+}
+
+/**
+ * Les candidats de L'ACHETEUR : le client, le numéro que la commande porte pour lui (`phone`, « le numéro associé au
+ * client » chez Shopify), puis la facturation. Jamais la livraison, qui peut être le destinataire d'un cadeau. Chacun porte
+ * le nom qui va avec son numéro : celui du client pour les deux premiers, celui de la facturation pour le dernier.
+ */
+const candidatsDeLAcheteur = (c: CommandeShopify): Array<CandidatTelephone & { nom: string | null }> => {
+  const client = nomComplet(c.customer?.first_name, c.customer?.last_name);
+  return [
+    { brut: c.customer?.phone, nom: client },
+    { brut: c.phone, nom: client },
+    { brut: c.billing_address?.phone, pays: c.billing_address?.country_code, nom: nomComplet(c.billing_address?.first_name, c.billing_address?.last_name) },
+  ];
+};
+
+/**
+ * LE NUMÉRO DE L'ACHETEUR (segments Shopify enrichis, lot 5b ; décision de Julien du 2026-11-24), un fixe sauté : le
+ * rattrapage ne CRÉE une fiche que sur lui, jamais sur celui de la livraison (un destinataire de cadeau n'entre pas). Le
+ * rattachement à une fiche déjà là garde les candidats de `telephoneDeCommande`.
+ */
+export function telephoneDeLAcheteur(c: CommandeShopify, paysBoutique: string | null): string | null {
+  return telephoneE164(candidatsDeLAcheteur(c), paysBoutique, { sauterFixes: true });
+}
+
+/**
+ * LE NOM DE LA FICHE D'UN ACHETEUR (segments Shopify enrichis, lot 5b) : le premier nom porté par un candidat de
+ * l'acheteur qui donne CE numéro. Le nom suit le numéro retenu, jamais celui de la livraison. `null` : aucun nom.
+ */
+export function nomDeLAcheteur(c: CommandeShopify, numero: string, paysBoutique: string | null): string | null {
+  for (const x of candidatsDeLAcheteur(c)) {
+    if (x.nom !== null && telephoneE164([x], paysBoutique, { sauterFixes: true }) === numero) return x.nom;
+  }
+  return null;
 }
 
 export function telephoneDExpedition(f: ExpeditionShopify, paysBoutique: string | null): string | null {

@@ -671,7 +671,36 @@ export class PgShopifyStore {
    * prend la date du jour.
    */
   async lierCommande(tenantId: string, commandeId: string, clientId: string | null, contactId: string, details?: DetailsCommande): Promise<void> {
-    await this.pool.query(
+    await this.ecrireCommande(this.pool, tenantId, commandeId, clientId, contactId, details);
+    if (details?.lignes) await this.noterLignes(tenantId, commandeId, details.lignes);
+  }
+
+  /**
+   * LA MÊME ÉCRITURE QUE `lierCommande`, DANS LA TRANSACTION DE L'APPELANT (segments Shopify enrichis, lot 5b) : le
+   * rattrapage crée la fiche d'un acheteur, puis y rattache sa commande et ses lignes, en une transaction. Les lignes
+   * restent au mieux, derrière un point de reprise : une panne n'annule qu'elles (une instruction en échec rendrait sinon
+   * la transaction entière inutilisable), se journalise, et la commande, gardée sans lignes, se complète au rattrapage
+   * suivant (`commandesConnues`, `aCompleter`).
+   */
+  async lierCommandeDans(
+    client: Pick<PoolClient, 'query'>, tenantId: string, commandeId: string, clientId: string | null, contactId: string, details?: DetailsCommande,
+  ): Promise<void> {
+    await this.ecrireCommande(client, tenantId, commandeId, clientId, contactId, details);
+    if (!details?.lignes) return;
+    await client.query('savepoint shopify_lignes');
+    try {
+      await ecrireLignes(client, tenantId, commandeId, details.lignes);
+      await client.query('release savepoint shopify_lignes');
+    } catch (err) {
+      await client.query('rollback to savepoint shopify_lignes');
+      journaliser('warn', 'shopify_lignes_non_notees', { tenantId, erreur: messageDe(err) });
+    }
+  }
+
+  private async ecrireCommande(
+    q: Pick<PoolClient, 'query'>, tenantId: string, commandeId: string, clientId: string | null, contactId: string, details?: DetailsCommande,
+  ): Promise<void> {
+    await q.query(
       `insert into shopify_commandes (tenant_id, commande_id, client_id, contact_id, payee_le, montant, devise, test)
        values ($1, $2, $3, $4, coalesce($5::timestamptz, now()), $6::numeric, $7, coalesce($8::boolean, false))
        on conflict (tenant_id, commande_id) do update set
@@ -682,7 +711,6 @@ export class PgShopifyStore {
          test = case when $8::boolean is null then shopify_commandes.test else excluded.test end`,
       [tenantId, commandeId, clientId, contactId, details?.payeeLe ?? null, details?.montant ?? null, details?.devise ?? null, details?.test ?? null],
     );
-    if (details?.lignes) await this.noterLignes(tenantId, commandeId, details.lignes);
   }
 
   /**
@@ -693,25 +721,7 @@ export class PgShopifyStore {
    */
   private async noterLignes(tenantId: string, commandeId: string, l: LignesDeCommande): Promise<void> {
     try {
-      if (l.lignes.length > 0) {
-        await this.pool.query(
-          `insert into shopify_commande_lignes
-             (tenant_id, commande_id, ligne_id, produit_id, variante_id, sku, titre, variante_titre, quantite, carte_cadeau)
-           select $1, $2, x.ligne_id, x.produit_id, x.variante_id, x.sku, x.titre, x.variante_titre, x.quantite, x.carte_cadeau
-             from jsonb_to_recordset($3::jsonb) as x(ligne_id text, produit_id text, variante_id text, sku text, titre text,
-                                                     variante_titre text, quantite integer, carte_cadeau boolean)
-           on conflict (tenant_id, commande_id, ligne_id) do update set
-             produit_id = excluded.produit_id, variante_id = excluded.variante_id, sku = excluded.sku, titre = excluded.titre,
-             variante_titre = excluded.variante_titre, quantite = excluded.quantite, carte_cadeau = excluded.carte_cadeau`,
-          [tenantId, commandeId, JSON.stringify(l.lignes.map((x) => ({
-            ligne_id: x.ligneId, produit_id: x.produitId, variante_id: x.varianteId, sku: x.sku, titre: x.titre,
-            variante_titre: x.varianteTitre, quantite: x.quantite, carte_cadeau: x.carteCadeau,
-          })))],
-        );
-      }
-      if (l.tronquees) {
-        await this.pool.query(`update shopify_commandes set lignes_tronquees = true where tenant_id = $1 and commande_id = $2`, [tenantId, commandeId]);
-      }
+      await ecrireLignes(this.pool, tenantId, commandeId, l);
     } catch (err) {
       journaliser('warn', 'shopify_lignes_non_notees', { tenantId, erreur: messageDe(err) });
     }
@@ -746,6 +756,29 @@ export class PgShopifyStore {
       [tenantId, ids],
     );
     return new Map(res.rows.map((r) => [r.commande_id, { contactId: r.contact_id, aCompleter: r.a_completer }]));
+  }
+}
+
+/** Les lignes d'une commande notée et son drapeau `lignes_tronquees` : rejouées, elles réécrivent les mêmes lignes. */
+async function ecrireLignes(q: Pick<PoolClient, 'query'>, tenantId: string, commandeId: string, l: LignesDeCommande): Promise<void> {
+  if (l.lignes.length > 0) {
+    await q.query(
+      `insert into shopify_commande_lignes
+         (tenant_id, commande_id, ligne_id, produit_id, variante_id, sku, titre, variante_titre, quantite, carte_cadeau)
+       select $1, $2, x.ligne_id, x.produit_id, x.variante_id, x.sku, x.titre, x.variante_titre, x.quantite, x.carte_cadeau
+         from jsonb_to_recordset($3::jsonb) as x(ligne_id text, produit_id text, variante_id text, sku text, titre text,
+                                                 variante_titre text, quantite integer, carte_cadeau boolean)
+       on conflict (tenant_id, commande_id, ligne_id) do update set
+         produit_id = excluded.produit_id, variante_id = excluded.variante_id, sku = excluded.sku, titre = excluded.titre,
+         variante_titre = excluded.variante_titre, quantite = excluded.quantite, carte_cadeau = excluded.carte_cadeau`,
+      [tenantId, commandeId, JSON.stringify(l.lignes.map((x) => ({
+        ligne_id: x.ligneId, produit_id: x.produitId, variante_id: x.varianteId, sku: x.sku, titre: x.titre,
+        variante_titre: x.varianteTitre, quantite: x.quantite, carte_cadeau: x.carteCadeau,
+      })))],
+    );
+  }
+  if (l.tronquees) {
+    await q.query(`update shopify_commandes set lignes_tronquees = true where tenant_id = $1 and commande_id = $2`, [tenantId, commandeId]);
   }
 }
 

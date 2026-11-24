@@ -28,7 +28,7 @@ describe.skipIf(!url)('les reprises de l’historique Shopify (Postgres)', () =>
   let ailleurs = '';
   const DOMAINE = `itest-reprises-${randomBytes(4).toString('hex')}.myshopify.com`;
   const FENETRE = new Date('2026-09-24T00:00:00Z');
-  const zero = { lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0 };
+  const zero = { lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0, fichesCreees: 0, horsPlafond: 0 };
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl(), max: 4 });
@@ -80,9 +80,11 @@ describe.skipIf(!url)('les reprises de l’historique Shopify (Postgres)', () =>
     expect(p!.reprise).toMatchObject({ statut: 'en_cours', tenue: true });
     // Tenue : un second passage ne la prend pas.
     expect(await store.prendre(r.id, ici)).toBeNull();
-    expect(await store.avancer(r.id, ici, p!.jeton, 'c1', { lues: 3, rattachees: 1, deja: 1, sansFiche: 1, sansNumero: 0 })).toBe(true);
-    expect(await store.avancer(r.id, ici, p!.jeton, 'c2', { lues: 2, rattachees: 2, deja: 0, sansFiche: 0, sansNumero: 0 })).toBe(true);
-    expect(await store.lire(r.id, ici)).toMatchObject({ curseur: 'c2', comptes: { lues: 5, rattachees: 3, deja: 1, sansFiche: 1, sansNumero: 0 } });
+    expect(await store.avancer(r.id, ici, p!.jeton, 'c1', { ...zero, lues: 3, rattachees: 1, deja: 1, sansFiche: 1, fichesCreees: 1 })).toBe(true);
+    expect(await store.avancer(r.id, ici, p!.jeton, 'c2', { ...zero, lues: 2, rattachees: 2, horsPlafond: 3 })).toBe(true);
+    expect(await store.lire(r.id, ici)).toMatchObject({
+      curseur: 'c2', comptes: { lues: 5, rattachees: 3, deja: 1, sansFiche: 1, sansNumero: 0, fichesCreees: 1, horsPlafond: 3 },
+    });
     // Le bail libéré, un autre passage la reprend : l'ancien jeton ne vaut plus rien.
     await store.relacher(r.id, ici, p!.jeton);
     expect((await store.lire(r.id, ici))!.tenue).toBe(false);
@@ -92,9 +94,9 @@ describe.skipIf(!url)('les reprises de l’historique Shopify (Postgres)', () =>
     expect(await store.finir(r.id, ici, p!.jeton, 'termine', null)).toBe(false);
     expect(await store.avancer(r.id, ailleurs, q.jeton, 'autre-espace', zero)).toBe(false);
     // La fin ajoute les comptes de la dernière page dans la même écriture.
-    expect(await store.finir(r.id, ici, q.jeton, 'termine', null, { lues: 1, rattachees: 1, deja: 0, sansFiche: 0, sansNumero: 0 })).toBe(true);
+    expect(await store.finir(r.id, ici, q.jeton, 'termine', null, { ...zero, lues: 1, rattachees: 1, fichesCreees: 1, horsPlafond: 1 })).toBe(true);
     const fin = (await store.lire(r.id, ici))!;
-    expect(fin).toMatchObject({ statut: 'termine', curseur: 'c2', tenue: false, erreur: null, comptes: { lues: 6, rattachees: 4 } });
+    expect(fin).toMatchObject({ statut: 'termine', curseur: 'c2', tenue: false, erreur: null, comptes: { lues: 6, rattachees: 4, fichesCreees: 2, horsPlafond: 4 } });
     expect(fin.finiLe).not.toBeNull();
     // Finie, elle ne se reprend plus.
     expect(await store.prendre(r.id, ici)).toBeNull();
@@ -155,7 +157,8 @@ describe.skipIf(!url)('les reprises de l’historique Shopify (Postgres)', () =>
     )).rows[0]!.id;
     const active = await fiche(ici, '+33600313001');
     const supprimee = await fiche(ici, '+33600313002');
-    await pool.query(`update contacts set deleted_at = now() where id = $1`, [supprimee]);
+    // La suppression réelle : la purge, seul chemin qui supprime, anonymise le numéro (sa trace garde la recréation).
+    await contacts.purgeMany(ici, [supprimee]);
     await fiche(ailleurs, '+33600313003');
     expect(await contacts.fichesParNumeros(ici, ['+33600313001', '+33600313002', '+33600313003', '+33600313999']))
       .toEqual(new Map([['+33600313001', active]]));
@@ -165,6 +168,7 @@ describe.skipIf(!url)('les reprises de l’historique Shopify (Postgres)', () =>
     const ligne = { ligneId: '1', produitId: '7', varianteId: null, sku: null, titre: 'Bougie', varianteTitre: null, quantite: 1, carteCadeau: false };
     await shopify.lierCommande(ici, '313001', null, active, sansLignes);
     await shopify.lierCommande(ici, '313002', null, active, { ...sansLignes, lignes: { lignes: [ligne], tronquees: false } });
+    // Une course : le rattrapage a lu la fiche active, une purge passe avant l'écriture de sa commande.
     await shopify.lierCommande(ici, '313003', null, supprimee, sansLignes);
     const etrangere = await fiche(ailleurs, '+33600313004');
     await shopify.lierCommande(ailleurs, '313004', null, etrangere, sansLignes);

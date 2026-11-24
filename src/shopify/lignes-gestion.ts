@@ -75,8 +75,9 @@ export const PHRASE_ATTESTATION_REQUISE = 'Avant d’allumer une automation Shop
 /**
  * L'attestation EN VIGUEUR pour la boutique branchée : la dernière de l'espace, cochée, et donnée pour CE domaine. Une
  * attestation d'une autre boutique de l'espace (changée, reprise ailleurs puis rebranchée) ne vaut pas pour celle-ci.
+ * Lue aussi par le rattrapage des commandes (segments Shopify enrichis, lot 5b), qui ne lui demande que `attestation`.
  */
-export async function attestationEnVigueur(deps: Pick<DepsLignesShopify, 'store'>, tenantId: string, domaine: string): Promise<AttestationShopify | null> {
+export async function attestationEnVigueur(deps: { store: Pick<PgShopifyStore, 'attestation'> }, tenantId: string, domaine: string): Promise<AttestationShopify | null> {
   const a = await deps.store.attestation(tenantId);
   return a !== null && a.coche && a.domaine === domaine ? a : null;
 }

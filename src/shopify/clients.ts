@@ -3,7 +3,7 @@ import { lireCorpsBorne } from '../lib/corps-borne';
 import { texteDe } from '../lib/erreur';
 import { fetchPublic } from '../lib/connexion-publique';
 import { API_VERSION_SHOPIFY } from './connexion';
-import { telephoneE164 } from './donnees';
+import { nomComplet, telephoneE164 } from './donnees';
 
 /**
  * LES CLIENTS ABONNÉS D'UNE BOUTIQUE, lus chez Shopify pour l'import (plan 2026-10-21, lot 3, décisions de Julien du
@@ -34,7 +34,6 @@ const ESSAIS_FREIN = 5;
  * s'arrête donc avant, en le disant (`complet: false`) ; l'import est relançable.
  */
 export const BUDGET_LECTURE_MS = 25_000;
-const NOM_MAX = 200;
 
 export const FILTRE_ABONNES = 'email_marketing_state:SUBSCRIBED OR sms_marketing_state:SUBSCRIBED';
 
@@ -101,9 +100,9 @@ export function estAbonne(n: Pick<Noeud, 'defaultPhoneNumber' | 'defaultEmailAdd
   return n.defaultEmailAddress?.marketingState === 'SUBSCRIBED' || n.defaultPhoneNumber?.marketingState === 'SUBSCRIBED';
 }
 
+/** Le nom de la fiche importée : la MÊME règle que celle d'une fiche créée par le rattrapage (`nomComplet`). */
 function nomDe(n: Noeud): string | null {
-  const nom = [n.firstName, n.lastName].filter((x): x is string => typeof x === 'string' && x.trim() !== '').join(' ').replace(/\s+/g, ' ').trim();
-  return nom === '' ? null : nom.slice(0, NOM_MAX);
+  return nomComplet(n.firstName, n.lastName);
 }
 
 const pause = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));

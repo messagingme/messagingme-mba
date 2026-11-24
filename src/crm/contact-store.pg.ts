@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { enTransaction } from '../db/transaction';
 import { PEREMPTION_WHATSAPP_MS } from '../../web/lib/partage/joignabilite';
 import type { ContactFilters, BulkTarget } from '../../web/lib/partage/contact-filters';
@@ -125,8 +125,9 @@ export interface ClesNormalisees {
 export type CreationFiche = (FicheIdentite & { created: boolean }) | 'conflit';
 
 /**
- * L'origine d'une fiche qu'un envoi vient d'INSÉRER (`contacts.nee_de`, migration 0309, segments Shopify enrichis, lot 2a).
- * Une seule valeur : le premier accusé 131026 ne supprime que les fiches nées d'un envoi Shopify et jamais écrites.
+ * L'origine d'une fiche qu'un envoi vient d'INSÉRER (`contacts.nee_de`, migration 0309, segments Shopify enrichis, lot 2a),
+ * ou que le rattrapage des commandes Shopify a créée (lot 5b, `LotContacts.neeDe`). Une seule valeur : le premier accusé
+ * 131026 ne supprime que les fiches nées de Shopify et jamais écrites.
  */
 export type NeeDe = 'shopify';
 
@@ -285,12 +286,13 @@ export class PgContactStore implements ContactStore {
    * de contacts de l'offre. Un numéro déjà porté par une fiche active n'est pas une création. Sans limite : rien n'est lu.
    * ⚠️ Lecture puis écriture, sans verrou : deux créations simultanées à la dernière place peuvent passer toutes les
    * deux. Une limite commerciale tolère ce dépassement d'une ou deux fiches.
+   * `q` : le client d'une transaction de l'appelant (le rattrapage Shopify, lot 5b), qui voit ses propres écritures.
    */
-  async verifierPlaceContacts(tenantId: string, numeros: readonly string[], sansNumero = 0): Promise<void> {
+  async verifierPlaceContacts(tenantId: string, numeros: readonly string[], sansNumero = 0, q: Pick<PoolClient, 'query'> = this.pool): Promise<void> {
     if (!this.limiteContacts) return;
     const limite = await this.limiteContacts(tenantId);
     if (limite === null) return;
-    const r = await this.pool.query<{ crees: number; nouveaux: number }>(
+    const r = await q.query<{ crees: number; nouveaux: number }>(
       `select (select count(*) from contacts x where x.tenant_id = $1 and ${ficheComptee('x', contactsToutesOrigines(limite.offre))})::int as crees,
               (select count(*) from unnest($2::text[]) as p(numero)
                 where not exists (select 1 from contacts x
@@ -307,9 +309,12 @@ export class PgContactStore implements ContactStore {
    * Ce que `verifierPlaceContacts` mesure, rendu au lieu d'être tranché : la limite de l'offre (`null` sans limite), les
    * fiches qu'elle compte, et ceux de ces numéros déjà portés par une fiche active. L'import des clients Shopify (lot 3)
    * le dit AVANT d'écrire, pour que le marchand choisisse ; les MÊMES prédicats, pour que l'annonce et le refus
-   * comptent pareil.
+   * comptent pareil. `toutesOrigines` : l'offre compte aussi les fiches nées d'un message entrant, donc pleine, elle
+   * refuse un inconnu qui écrit le premier (`inconnusRefuses`) ; l'aperçu du rattrapage (lot 5b) le dit avant de la remplir.
    */
-  async placesContacts(tenantId: string, numeros: readonly string[]): Promise<{ limite: number | null; comptees: number; presents: Set<string> }> {
+  async placesContacts(tenantId: string, numeros: readonly string[]): Promise<{
+    limite: number | null; comptees: number; presents: Set<string>; toutesOrigines: boolean;
+  }> {
     const limite = this.limiteContacts ? await this.limiteContacts(tenantId) : null;
     const toutesOrigines = limite !== null && contactsToutesOrigines(limite.offre);
     const r = await this.pool.query<{ comptees: number; presents: string[] | null }>(
@@ -319,7 +324,7 @@ export class PgContactStore implements ContactStore {
       [tenantId, [...new Set(numeros)]],
     );
     const ligne = r.rows[0];
-    return { limite: limite?.max ?? null, comptees: ligne?.comptees ?? 0, presents: new Set(ligne?.presents ?? []) };
+    return { limite: limite?.max ?? null, comptees: ligne?.comptees ?? 0, presents: new Set(ligne?.presents ?? []), toutesOrigines };
   }
 
   /**
@@ -451,11 +456,15 @@ export class PgContactStore implements ContactStore {
    * Déduplication obligatoire : Postgres refuse qu'un `on conflict do update` touche deux fois la même ligne dans
    * une commande. Les occurrences d'un même numéro fusionnent avant l'écriture (la suivante écrase les mêmes clés,
    * un nom non vide gagne).
+   * `q` (segments Shopify enrichis, lot 5b) : le client de la transaction du rattrapage, qui crée les fiches des acheteurs
+   * par CE chemin, puis y rattache leurs commandes dans la même transaction. Le lot y porte `neeDe` : la marque se pose sur
+   * les fiches que CETTE écriture a insérées, jamais sur une fiche retrouvée, et dans la même transaction (une panne
+   * annule la création avec elle : une fiche du rattrapage n'existe jamais sans sa marque).
    */
-  async upsertManyByPhone(lot: LotContacts): Promise<Array<'created' | 'updated'>> {
+  async upsertManyByPhone(lot: LotContacts, q: Pick<PoolClient, 'query'> = this.pool): Promise<Array<'created' | 'updated'>> {
     if (lot.contacts.length === 0) return [];
     // Le filet du lot ; l'import vérifie TOUT le fichier avant son premier lot (`importContacts`).
-    await this.verifierPlaceContacts(lot.tenantId, lot.contacts.map((c) => c.phoneE164));
+    await this.verifierPlaceContacts(lot.tenantId, lot.contacts.map((c) => c.phoneE164), 0, q);
 
     const fusion = new Map<string, ContactDeLot>();
     const premiereApparition = new Map<string, number>();
@@ -478,14 +487,17 @@ export class PgContactStore implements ContactStore {
       empreinte: empreinteRefus(lot.tenantId, { tel: c.phoneE164 }),
     }));
     const leve = issueDeLaTransition('opted_out', lot.optInStatus, lot.autorite) === 'ecrit';
+    // Le réabonnement s'annonce APRÈS la validation : dans la transaction d'un appelant, il partirait avant elle. Le
+    // rattrapage (autorité `import`) ne lève jamais un STOP ; un lot qui le lèverait n'a rien à faire là.
+    if (leve && q !== this.pool) throw new Error('upsertManyByPhone : un lot qui lève un STOP ne s’écrit pas dans la transaction d’un appelant');
     const neuf = colonnesNeuves('f', '$2::text', '$3::text', '$6');
     // Un lot qui LÈVE un STOP (l'import CSV coché) : les numéros de ce lot encore désabonnés, lus AVANT l'écriture, sont
     // ceux qu'il réabonne, annoncés après elle (la case HubSpot se décoche) ; comme une fiche effacée en STOP que l'import
     // recrée abonnée depuis la liste de refus. Lus hors verrou : l'annonce n'est qu'un signal, et ce qu'elle déclenche
     // relit l'état enregistré (un numéro de trop repousse le même état, il ne fausse rien).
-    const aReabonner = leve ? await this.desabonnesDuLot(lot.tenantId, lignes) : [];
+    const aReabonner = leve ? await this.desabonnesDuLot(lot.tenantId, lignes, q) : [];
 
-    const res = await this.pool.query<{ phone_e164: string; created: boolean }>(
+    const res = await q.query<{ phone_e164: string; created: boolean }>(
       `with refus_lus as (
          -- La liste de refus, par ligne (voir cteRefus) : consommée seulement pour un numéro qu'aucune fiche ne porte.
          delete from refus_effaces r
@@ -520,10 +532,19 @@ export class PgContactStore implements ContactStore {
       [lot.tenantId, lot.optInStatus, lot.optInSource ?? null, lot.tags ?? [], JSON.stringify(lignes), leve],
     );
 
+    const creePar = new Map(res.rows.map((r) => [r.phone_e164, r.created] as const));
+    // La marque de naissance (lot 5b), sur les seules fiches INSÉRÉES ici (`xmax = 0`), une fois (`nee_de is null`).
+    const inserees = [...creePar].filter(([, cree]) => cree).map(([tel]) => tel);
+    if (lot.neeDe && inserees.length > 0) {
+      await q.query(
+        'update contacts set nee_de = $3 where tenant_id = $1 and phone_e164 = any($2::text[]) and nee_de is null',
+        [lot.tenantId, inserees, lot.neeDe],
+      );
+    }
+
     // Après l'écriture (une instruction, donc validée), jamais avant.
     if (aReabonner.length > 0) await this.annoncerLeve(lot.tenantId, aReabonner.map((p) => waIdOf(p, null)));
 
-    const creePar = new Map(res.rows.map((r) => [r.phone_e164, r.created] as const));
     // Un numéro en double n'est « créé » qu'à sa première apparition, les suivantes sont des mises à jour : sinon
     // un fichier qui répète cinq fois un contact annoncerait cinq créations.
     return lot.contacts.map((c, i) =>
@@ -536,8 +557,10 @@ export class PgContactStore implements ContactStore {
    * WhatsApp gardé dans la liste de refus (une fiche effacée en STOP). Lu par `upsertManyByPhone` pour un lot qui lève
    * un STOP, avant son écriture.
    */
-  private async desabonnesDuLot(tenantId: string, lignes: ReadonlyArray<{ phone: string; empreinte: string }>): Promise<string[]> {
-    const res = await this.pool.query<{ phone: string }>(
+  private async desabonnesDuLot(
+    tenantId: string, lignes: ReadonlyArray<{ phone: string; empreinte: string }>, q: Pick<PoolClient, 'query'>,
+  ): Promise<string[]> {
+    const res = await q.query<{ phone: string }>(
       `select x.phone from jsonb_to_recordset($2::jsonb) as x(phone text, empreinte text)
         where exists (select 1 from contacts c
                        where c.tenant_id = $1::uuid and c.phone_e164 = x.phone and c.opt_in_status = 'opted_out')
@@ -563,19 +586,56 @@ export class PgContactStore implements ContactStore {
   }
 
   /**
-   * Les fiches ACTIVES (ni supprimées, ni anonymisées) de ces numéros E.164, dans l'espace : numéro vers identifiant (un
-   * numéro n'a qu'une fiche par espace, index unique `contacts_tenant_phone_uidx`). Le rattrapage des commandes Shopify
-   * (segments, lot 5) y rattache une page de commandes en une lecture, jamais une par commande ; aucune fiche n'est créée.
-   * La fiche que le webhook choisirait (`findByPhone`), une anonymisée en moins.
+   * Les fiches ACTIVES de ces numéros E.164, dans l'espace : numéro vers identifiant. Le rattrapage des commandes Shopify
+   * (segments, lot 5) y rattache une page de commandes en une lecture, jamais une par commande : à la fiche que le webhook
+   * choisirait (`findByPhone`), une anonymisée en moins. Depuis le lot 5b, il crée celle d'un acheteur qui n'en a pas : une
+   * fiche supprimée n'a plus son numéro (la purge l'anonymise, seul chemin qui supprime une fiche depuis fbc58d04b), c'est
+   * la trace des numéros effacés (`effacementsDesNumeros`) qui la garde de la recréation. `q` : la transaction du
+   * rattrapage, qui relit les fiches qu'elle vient d'écrire.
    */
-  async fichesParNumeros(tenantId: string, numeros: readonly string[]): Promise<Map<string, string>> {
+  async fichesParNumeros(tenantId: string, numeros: readonly string[], q: Pick<PoolClient, 'query'> = this.pool): Promise<Map<string, string>> {
     if (numeros.length === 0) return new Map();
-    const res = await this.pool.query<{ phone_e164: string; id: string }>(
+    const res = await q.query<{ phone_e164: string; id: string }>(
       `select x.phone_e164, x.id from contacts x
         where x.tenant_id = $1 and x.phone_e164 = any($2::text[]) and ${FICHE_ACTIVE}`,
       [tenantId, numeros],
     );
     return new Map(res.rows.map((r) => [r.phone_e164, r.id]));
+  }
+
+  /**
+   * 🔴 LES NUMÉROS DONT UNE FICHE EFFACÉE A DIT STOP (la liste de refus, `refus_effaces`, par leur empreinte dans CET
+   * espace) : le rattrapage Shopify (lot 5b) ne les recrée pas. Une fiche recréée y naîtrait en STOP, sans que personne
+   * l'ait demandé : une place prise dans la limite de l'offre pour un numéro qu'on ne peut pas écrire, et une personne
+   * effacée qui revient. L'entrée n'est pas consommée : elle attend une vraie création (un message de la personne).
+   */
+  async numerosEnRefus(tenantId: string, numeros: readonly string[]): Promise<Set<string>> {
+    if (numeros.length === 0) return new Set();
+    const parEmpreinte = new Map(numeros.map((n) => [empreinteRefus(tenantId, { tel: n }), n] as const));
+    const res = await this.pool.query<{ empreinte: string }>(
+      `select empreinte from refus_effaces
+        where tenant_id = $1 and empreinte = any($2::text[]) and whatsapp_le is not null`,
+      [tenantId, [...parEmpreinte.keys()]],
+    );
+    return new Set(res.rows.map((r) => parEmpreinte.get(r.empreinte)).filter((n): n is string => n !== undefined));
+  }
+
+  /**
+   * 🔴 LA DATE D'EFFACEMENT DE CES NUMÉROS DANS L'ESPACE (`numeros_effaces`, migration 0317, par leur empreinte) : numéro
+   * vers la date de la dernière purge d'une fiche qui le portait. Le rattrapage Shopify (lot 5b) ne crée jamais la fiche
+   * d'une commande payée avant cette date (décision de Julien du 2026-11-24). Jamais le numéro en clair en base.
+   */
+  async effacementsDesNumeros(tenantId: string, numeros: readonly string[]): Promise<Map<string, Date>> {
+    if (numeros.length === 0) return new Map();
+    const parEmpreinte = new Map(numeros.map((n) => [empreinteRefus(tenantId, { tel: n }), n] as const));
+    const res = await this.pool.query<{ empreinte: string; efface_le: Date }>(
+      `select empreinte, efface_le from numeros_effaces where tenant_id = $1 and empreinte = any($2::text[])`,
+      [tenantId, [...parEmpreinte.keys()]],
+    );
+    return new Map(res.rows.flatMap((r) => {
+      const n = parEmpreinte.get(r.empreinte);
+      return n === undefined ? [] : [[n, r.efface_le] as const];
+    }));
   }
 
   /**
@@ -1836,6 +1896,19 @@ export class PgContactStore implements ContactStore {
   }
 
   /**
+   * La trace des numéros effacés au-delà de sa durée (`RETENTION_NUMEROS_EFFACES_JOURS`), comptée depuis la DERNIÈRE purge
+   * du numéro (`efface_le`, toujours renseignée : aucun `greatest` de colonnes nulles ne peut la garder à vie). TOUS ESPACES,
+   * l'exception au filtre d'espace, comme la liste de refus. Rend le nombre d'entrées effacées.
+   */
+  async purgerNumerosEffaces(jours: number): Promise<number> {
+    const res = await this.pool.query(
+      `delete from numeros_effaces where efface_le < now() - make_interval(days => $1::int)`,
+      [jours],
+    );
+    return res.rowCount ?? 0;
+  }
+
+  /**
    * 🔴 Purge : efface réellement les données d'une personne, en gardant les compteurs. `listeAgent` : les lignes
    * de la liste de l'agent de Meta supprimées ici, à retirer chez Meta après la transaction (la route s'en charge).
    * Effacé : le fil, ses messages, son analyse (texte libre tiré de la conversation), et les traces techniques
@@ -1884,6 +1957,19 @@ export class PgContactStore implements ContactStore {
              whatsapp_le = greatest(refus_effaces.whatsapp_le, excluded.whatsapp_le),
              rcs_le = greatest(refus_effaces.rcs_le, excluded.rcs_le)`,
           [tenantId, JSON.stringify([...refus.values()])],
+        );
+      }
+      // 🔴 LA TRACE DES NUMÉROS EFFACÉS (migration 0317, lot 5b des segments Shopify) : TOUTE fiche qui avait un numéro,
+      // STOP ou non, laisse l'empreinte de ce numéro et la date de l'effacement, pour que le rattrapage des commandes ne la
+      // recrée jamais (décision de Julien du 2026-11-24). Dans la transaction, comme la liste de refus : une purge annulée
+      // ne laisse aucune trace, une purge validée n'en oublie aucune. 🔴 BLOQUANTE : sans la table, toute purge échoue.
+      const effaces = [...new Set(e164)].map((tel) => empreinteRefus(tenantId, { tel }));
+      if (effaces.length > 0) {
+        await client.query(
+          `insert into numeros_effaces (tenant_id, empreinte, efface_le)
+           select $1::uuid, e, now() from unnest($2::text[]) as e
+           on conflict (tenant_id, empreinte) do update set efface_le = greatest(numeros_effaces.efface_le, excluded.efface_le)`,
+          [tenantId, effaces],
         );
       }
       // Les tables par `wa_id` portent les chiffres nus du numéro : on les dérive de la fiche, en plus des `wa_id` des

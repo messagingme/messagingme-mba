@@ -2081,6 +2081,14 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   trois ans depuis le STOP le plus récent de l'entrée (`RETENTION_REFUS_ANS`, balayage de rétention du worker).
   La purge lit ses fiches `for update` : un STOP concurrent est écrit avant elle, ou attend qu'elle finisse.
   ⚠️ Un identifiant RATTACHÉ à une fiche existante (`rattacherCles`) ne lit pas la liste.
+- 🔴 **La trace des numéros effacés** (`numeros_effaces`, migration 0317, BLOQUANTE ; segments Shopify enrichis, lot 5b,
+  décision de Julien du 2026-11-24 : « un contact supprimé n'est JAMAIS recréé par le rattrapage »). `purgeMany`, dans
+  la même transaction que la liste de refus, garde pour TOUTE fiche qui avait un numéro, STOP ou non, l'empreinte de ce
+  numéro (le même HMAC, `empreinteRefus`) et la date de la dernière purge (`efface_le`). Personne ne renaît en STOP par
+  elle et aucune création ne la consomme : seul le rattrapage des commandes Shopify la lit (`effacementsDesNumeros`).
+  Rétention : 90 jours depuis la dernière purge (`RETENTION_NUMEROS_EFFACES_JOURS`, qui reste au-dessus de
+  `FENETRE_REPRISE_JOURS`, `tests/numeros-effaces.test.ts`), étape `numeros-effaces` du balayage de rétention, sur sa
+  seule date toujours renseignée. 🔴 Sans la table, toute purge échoue en 42P01 : la migration part SEULE, avant le code.
 - 🔴 **Un consentement posé par l'API passe par `ecrireConsentementParId`**, qui n'écrit RIEN quand la valeur
   ne change pas : un outil qui renvoie `opted_out` à chaque appel ne repousse pas la date du désabonnement et
   n'écrit pas une ligne d'audit par appel. Sur une fiche déjà `opted_in`, un `opted_in` d'une autre source ne
@@ -3020,7 +3028,9 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   `email` lu en base depuis `users` de CET espace, `origine` `console` ou `claude_code`, `le`) ; l'état en vigueur est
   la DERNIÈRE ligne de l'espace (`PgShopifyStore.attestation`, index `(tenant_id, le desc, id desc)`). La phrase vient
   de `TEXTE_ATTESTATION_SHOPIFY` (`web/lib/partage/shopify-messages.ts`), choisie par le SERVEUR selon la langue reçue,
-  jamais d'un texte du client. `reglerAttestation` (`src/shopify/lignes-gestion.ts`) exige une boutique branchée ;
+  jamais d'un texte du client. Elle couvre les offres depuis le 2026-11-24 (lot 5b : le rattrapage crée des fiches
+  consentantes sur sa foi) ; une attestation donnée avant reste en vigueur, l'état ne lisant que la case et la boutique
+  (`attestationEnVigueur`). `reglerAttestation` (`src/shopify/lignes-gestion.ts`) exige une boutique branchée ;
   décocher éteint les lignes allumées et arrête leurs parcours (`attestation retirée`). `reglerLigne` refuse le premier
   allumage d'une ligne sans attestation cochée en 409 (`PHRASE_ATTESTATION_REQUISE`, la même phrase pour la console et
   Claude Code) ; une ligne allumée avant elle continue. Deux portes : la console (`POST
@@ -3186,7 +3196,8 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   (2) L'envoi
   Shopify passe `neeDe: 'shopify'` à l'envoi public (option interne, jamais lue du corps), et `creerFicheApi` pose
   `contacts.nee_de` (migration 0309) sur une fiche qu'il vient d'INSÉRER, par une écriture à part et au mieux, pour que
-  0309 ne soit pas bloquante. Au `failed` 131026, `processStatuses` enfile en dernier le job `shopify-sans-whatsapp`
+  0309 ne soit pas bloquante. Le rattrapage des commandes (lot 5b) la pose aussi sur les fiches d'acheteurs qu'il crée
+  (`LotContacts.neeDe`, dans sa transaction : jamais une fiche créée sans sa marque). Au `failed` 131026, `processStatuses` enfile en dernier le job `shopify-sans-whatsapp`
   (`src/shopify/sans-whatsapp.ts`, câblé sur `webhook` ET `webhook-status`, `tests/sans-whatsapp-cablage.test.ts`) ; le
   job relit les gardes en une requête (`PgRecipientStore.ficheNeeDeShopifySansWhatsapp`) puis purge par `purgeMany` et
   `oublierChezMeta`, hors limite de suppressions du jour. Les gardes, chacune une raison de garder la fiche : marque
@@ -3263,9 +3274,35 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   garde sa fiche ; elle ne reçoit ses lignes que si elle n'en a aucune et que sa
   fiche est active (`commandesConnues`, `aCompleter`) : réécrire une commande complète la dirait tronquée à tort, le
   rattrapage lisant 50 lignes par commande quand le webhook en garde 250. Une inconnue rejoint la fiche ACTIVE de son
-  numéro (`fichesParNumeros`, celle que `findByPhone` donnerait au webhook) ; sinon elle est comptée, jamais gardée.
-  🔴 Aucune fiche créée, ni attribution de vente, ni joignabilité, ni message ; `commandes_depuis` ne bouge pas. Deux
-  lectures groupées par page (`commandesConnues`, `fichesParNumeros`), jamais une par commande. `shopify_reprises` tient
+  numéro (`fichesParNumeros`, celle que `findByPhone` donnerait au webhook), sinon celle de son ACHETEUR
+  (`telephoneDeLAcheteur` : le client, le champ `phone` de la commande, puis la facturation ; jamais la livraison).
+  🔴 **Sans fiche, celle de l'acheteur est CRÉÉE** (lot 5b, décision de Julien du 2026-11-24, migration 0318), jamais
+  sur le numéro de la livraison (un destinataire de cadeau n'entre pas : la commande est comptée sans fiche) : par le
+  chemin de l'import des abonnés, `upsertManyByPhone` (consentante, la trace `sourceDuConsentement` qui nomme
+  l'attestation, étiquette `Shopify`, autorité `import` qui ne lève jamais un STOP, la liste de refus, la limite
+  revérifiée), marquée `nee_de = 'shopify'` sur les seules fiches insérées (le premier 131026 la supprime donc comme
+  celle née d'un envoi, tant qu'elle n'a jamais écrit ni rien reçu), avec le nom de l'acheteur qui va avec ce numéro
+  (`nomDeLAcheteur`). 🔴 La page s'écrit en UNE transaction (`ecrirePage`) : les fiches, puis chaque commande par
+  `lierCommandeDans` (ses lignes derrière un point de reprise, au mieux : une ligne refusée laisse la fiche et la
+  commande) ; une autre panne n'en laisse rien. Deux commandes du même acheteur : une fiche (dédoublonnées par la page,
+  puis par `upsertManyByPhone` et l'index unique). 🔴 Jamais créée quand l'un des numéros de la commande appartenait à
+  un contact SUPPRIMÉ après son paiement (la trace des numéros effacés, `effacementsDesNumeros` ; une date de paiement
+  illisible devant une trace vaut un paiement d'avant ; une commande payée après l'effacement crée sa fiche, comme le
+  webhook), est dans la liste de refus (`numerosEnRefus`), ou a été refusé en 131026 sur une fiche supprimée depuis
+  (`commandesSansWhatsapp`, `shopify_envois`, qui couvre les suppressions d'avant la trace). La trace ne garde que la
+  CRÉATION : une commande d'avant l'effacement rejoint une fiche qui existe (recréée par un autre chemin, ou par une
+  commande d'après dans la même page). Les places de l'offre se lisent par page (`placesContacts`, les mêmes prédicats
+  que le refus) et les acheteurs les prennent dans l'ordre des commandes ; au-delà, la commande est comptée
+  `hors_plafond`. 🔴 Sans l'attestation EN VIGUEUR de la boutique (`attestationEnVigueur`), l'aperçu et le lancement
+  refusent avant tout appel à Shopify, en deux voix (cause `attestation_absente`) : la console dit où cocher
+  (`PHRASE_ATTESTATION_RATTRAPAGE`), l'outil MCP quoi demander au marchand (`PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE`) ; le
+  job la relit avant chaque page écrite et se clôt en `refuse` si elle est retirée (`PHRASE_ATTESTATION_RETIREE`, lue
+  par les deux). Ni attribution de vente, ni joignabilité, ni message ; `commandes_depuis` ne bouge pas. Les lectures
+  sont groupées par page (`commandesConnues`, `fichesParNumeros`, `numerosEnRefus`, `effacementsDesNumeros`,
+  `commandesSansWhatsapp`, `placesContacts`), jamais une par commande. L'aperçu simule les créations d'une page à
+  l'autre en mémoire (`Simulation`), sans rien garder après l'appel, et dit `remplitLesPlaces` quand ses fiches
+  prendraient les dernières places d'une offre qui compte tous les contacts (`toutesOrigines` : ensuite, un inconnu qui
+  écrit le premier est refusé). `shopify_reprises` tient
   une ligne par rattrapage, sans aucune donnée de personne : 🔴 un index unique partiel refuse une seconde reprise
   VIVANTE par espace (le lancement rend 409 avec la date de la vivante) ; le job (file `shopify-reprise`, rôle
   `analyse`) la prend par un BAIL de 180 s et un JETON DE GARDE renouvelés à chaque page, passe 2 minutes au plus,

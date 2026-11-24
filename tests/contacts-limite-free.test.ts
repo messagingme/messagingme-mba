@@ -62,12 +62,13 @@ describe('🔴 le compte de la limite dépend de l’offre (`contactsToutesOrigi
 
   it('les places que l’import Shopify annonce comptent comme le refus : toutes les fiches en Free, Pro et Business, les créées en Entreprise', async () => {
     const { p } = pool();
+    // `toutesOrigines` : pleine, l'offre refuse un inconnu qui écrit le premier (l'aperçu du rattrapage le dit, lot 5b).
     expect(await new PgContactStore(p, undefined, limite({ max: 100, offre: 'base' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 100, comptees: 100, presents: new Set() });
+      .toEqual({ limite: 100, comptees: 100, presents: new Set(), toutesOrigines: true });
     expect(await new PgContactStore(p, undefined, limite({ max: 1000, offre: 'pro' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 1000, comptees: 100, presents: new Set() });
+      .toEqual({ limite: 1000, comptees: 100, presents: new Set(), toutesOrigines: true });
     expect(await new PgContactStore(p, undefined, limite({ max: 5000, offre: 'entreprise' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 5000, comptees: 60, presents: new Set() });
+      .toEqual({ limite: 5000, comptees: 60, presents: new Set(), toutesOrigines: false });
   });
 
   it('sans limite, rien n’est lu ni refusé', async () => {

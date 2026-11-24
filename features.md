@@ -3175,9 +3175,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
 - **L'attestation du consentement** (décision de Julien du 2026-11-20, qui remplace celle du 2026-10-26 où aucune
   question n'était posée) : Shopify ne recueille aucun consentement WhatsApp, et Meta exige l'accord du client pour
   tout message envoyé en premier. Le marchand coche donc une case : « J’atteste que les clients de ma boutique ont
-  accepté de recevoir de ma part des messages WhatsApp (confirmation et suivi de commande, relance de panier), et j’en
-  assume la responsabilité. » (texte : `TEXTE_ATTESTATION_SHOPIFY`, `web/lib/partage/shopify-messages.ts`, en anglais
-  pour une console en anglais). **Sans elle, aucune des trois automations ne s'allume**, ni depuis la console ni depuis
+  accepté de recevoir mes messages WhatsApp, offres comprises (confirmation et suivi de commande, relance de panier,
+  campagnes), et j’en assume la responsabilité. » (texte : `TEXTE_ATTESTATION_SHOPIFY`,
+  `web/lib/partage/shopify-messages.ts`, en anglais pour une console en anglais ; élargie aux offres le 2026-11-24, les
+  attestations déjà données restant valables). **Sans elle, aucune des trois automations ne s'allume**, ni depuis la console ni depuis
   Claude Code ; celles allumées avant le 2026-11-20 continuent. Chaque geste, cocher comme décocher, est **historisé**
   et jamais réécrit : qui, son adresse e-mail, quand, la phrase mot pour mot, la boutique, et d'où (console ou Claude
   Code). **Décocher éteint les trois automations** (avec une confirmation) : elles ne pourraient plus se rallumer. La
@@ -3283,21 +3284,37 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   contacts, le choix des destinataires d'une campagne et Claude Code (`find_contacts`) ciblent par nombre de commandes
   payées, montant dépensé et jours depuis la dernière commande, depuis le branchement de la boutique, et les 60 jours
   d'avant un rattrapage. Sans boutique, ces critères n'existent pas (détail dans « Contacts & CRM »).
-- **Le rattrapage des commandes des 60 derniers jours** (2026-11-23, segments Shopify enrichis, lot 5 ; toutes les
-  offres : par Claude Code partout, et en Pro sur la carte Shopify de la console) : les commandes payées CRÉÉES dans les
-  60 jours qui précèdent (la limite que Shopify ouvre à l'app) rejoignent les fiches déjà là, avec leur montant et leurs
-  produits, comme si elles avaient été reçues au fil de l'eau. Un aperçu compte d'abord, sans rien écrire : déjà
-  connues, à rattacher, sans fiche, sans numéro, écartées (jamais payées ou illisibles), et il dit quand il n'a pas tout
+- **Le rattrapage des commandes des 60 derniers jours** (2026-11-23, segments Shopify enrichis, lot 5 ; les fiches
+  d'acheteurs depuis le lot 5b, décision de Julien du 2026-11-24 ; toutes les offres : par Claude Code partout, et en Pro
+  sur la carte Shopify de la console) : les commandes payées CRÉÉES dans les 60 jours qui précèdent (la limite que
+  Shopify ouvre à l'app) rejoignent les fiches, avec leur montant et leurs produits, comme si elles avaient été reçues au
+  fil de l'eau. Une commande déjà connue garde sa fiche et reçoit ses produits s'il lui en manque ; une commande inconnue
+  rejoint la fiche de son numéro, le même que celui de son message de confirmation (un fixe est sauté au profit du
+  mobile suivant de la commande), sinon celle de son acheteur. **Sans fiche, celle de l'ACHETEUR est créée** (le
+  numéro du client, puis celui de la facturation ; jamais celui de la livraison : le destinataire d'un cadeau n'entre
+  pas) : consentante sur la foi de l'attestation de la boutique (sa source la nomme), étiquetée « Shopify », au nom qui
+  va avec le numéro, une par numéro, dans les places de la limite de contacts de l'offre ; au-delà, la commande est
+  comptée « hors limite », jamais gardée. Une fiche ainsi créée qui n'a jamais écrit ni rien reçu est supprimée au
+  premier échec 131026 de Meta, comme celle née d'un message Shopify, et sa place revient. **Un contact supprimé n'est
+  jamais recréé par le rattrapage** (décision de Julien du 2026-11-24) : chaque suppression garde, 90 jours, une trace
+  du numéro (son empreinte, jamais le numéro) et sa date, et aucune fiche n'est créée pour une commande payée avant ;
+  une commande payée après est une nouvelle commande, sa fiche se crée. Jamais de fiche créée non plus sans mobile
+  d'acheteur utilisable, pour un numéro qui avait dit STOP avant d'être effacé, ni pour une commande dont un message
+  Shopify a déjà échoué en 131026 : la commande est comptée, jamais gardée. **Sans l'attestation du consentement des
+  clients, l'aperçu et le lancement refusent** et disent de la cocher (depuis Claude Code, `customers_consent_attested`
+  sur `import_shopify_order_history`, sur le oui du marchand). Un aperçu compte d'abord, sans rien écrire : déjà
+  connues, à rattacher, fiches à créer et places libres de l'offre, hors limite, sans fiche, sans numéro, écartées
+  (jamais payées ou illisibles) ; il prévient quand ces fiches prendraient les dernières places d'une offre qui compte
+  tous les contacts (un nouveau client qui écrirait le premier n'entrerait plus), et il dit quand il n'a pas tout
   lu. Le lancement tourne ensuite en arrière-plan, quelques minutes pour la plupart des boutiques, plus d'une heure pour
-  les très grandes ; la carte et `get_shopify_order_history` disent où il en est. Une commande déjà connue garde sa
-  fiche et reçoit ses produits s'il lui en manque ; une commande sans fiche à son numéro, ou sans numéro utilisable, est
-  comptée, jamais gardée. Aucune fiche n'est créée, aucun message ne part, le chiffre rapporté par WhatsApp n'en change
-  pas. Il demande à l'app de la boutique le droit `read_products` (dans la liste des droits depuis le 2026-11-24 : une
-  app plus ancienne l'ajoute à ses portées, publie sa nouvelle version et se réinstalle ; l'aperçu et le lancement le
-  disent ; la lecture des collections, plus bas, l'exige aussi). Un seul rattrapage à la fois par espace ; relancé, il relit la fenêtre sans doublon ; une boutique coupée ou
-  remplacée pendant qu'il tourne l'arrête. Ensuite, le volet des achats et `find_contacts` (`orders_backfilled_since`)
-  disent depuis quand les commandes ont été relues, tant qu'aucune coupure n'a suivi. Outils :
-  `preview_shopify_order_history`, `import_shopify_order_history`, `get_shopify_order_history`.
+  les très grandes ; la carte et `get_shopify_order_history` disent où il en est, fiches créées comprises. Aucun message
+  ne part, le chiffre rapporté par WhatsApp n'en change pas. Il demande à l'app de la boutique le droit `read_products`
+  (dans la liste des droits depuis le 2026-11-24 : une app plus ancienne l'ajoute à ses portées, publie sa nouvelle
+  version et se réinstalle ; l'aperçu et le lancement le disent ; la lecture des collections, plus bas, l'exige aussi).
+  Un seul rattrapage à la fois par espace ; relancé, il relit la fenêtre sans doublon et ne crée rien de plus ; une
+  boutique coupée ou remplacée pendant qu'il tourne l'arrête, une attestation retirée aussi. Ensuite, le volet des achats
+  et `find_contacts` (`orders_backfilled_since`) disent depuis quand les commandes ont été relues, tant qu'aucune coupure
+  n'a suivi. Outils : `preview_shopify_order_history`, `import_shopify_order_history`, `get_shopify_order_history`.
 - **Les collections des produits achetés** (2026-11-24, segments Shopify enrichis, lot 6a) : pour cibler « a acheté
   dans la collection » (détail dans « Contacts & CRM »), les collections de chaque produit commandé se lisent chez
   Shopify, en arrière-plan, jamais pendant la confirmation d'une commande : quand le volet Shopify des filtres s'ouvre

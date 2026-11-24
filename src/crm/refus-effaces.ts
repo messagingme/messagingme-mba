@@ -38,3 +38,16 @@ export const RETENTION_REFUS_ANS = 3;
 
 /** La source écrite sur une fiche qui naît en STOP par la liste : le canal d'origine du STOP est parti avec la purge. */
 export const SOURCE_LISTE_DE_REFUS = 'liste_de_refus';
+
+/**
+ * 🔴 LA TRACE DES NUMÉROS EFFACÉS (`numeros_effaces`, migration 0317 ; segments Shopify enrichis, lot 5b, décision de
+ * Julien du 2026-11-24 : « un contact supprimé n'est JAMAIS recréé par le rattrapage »). Chaque purge garde, pour toute
+ * fiche qui avait un numéro, son EMPREINTE (`empreinteRefus`, jamais le numéro en clair) et la date de l'effacement. À la
+ * différence de la liste de refus, elle ne fait renaître personne en STOP et aucune création ne la consomme : seul le
+ * rattrapage des commandes la lit, pour ne jamais recréer la fiche d'une commande payée avant l'effacement.
+ *
+ * Sa durée : la fenêtre du rattrapage (60 jours, `FENETRE_REPRISE_JOURS`) plus une marge. Une commande que le rattrapage
+ * peut lire a été créée dans cette fenêtre : une trace plus vieille ne protège plus rien. 🔴 Les deux constantes restent
+ * ordonnées (`tests/numeros-effaces.test.ts`) : la fenêtre qui s'allonge (24 mois au lot 7) allonge celle-ci.
+ */
+export const RETENTION_NUMEROS_EFFACES_JOURS = 90;

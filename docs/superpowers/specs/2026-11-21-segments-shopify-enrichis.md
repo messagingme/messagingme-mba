@@ -1407,10 +1407,20 @@ nomme une table lue par l'accusé, part en `avant`.
    qu'un template part. Au premier `131026`, la fiche créée pour l'envoi est supprimée et la place revient. La Free
    n'a pas cette action. Est-ce le levier Pro voulu, ou la création d'acheteurs doit-elle rester l'import des abonnés
    marketing ?
+   **Tranchée le 2026-11-24** (Julien, lot 5b, après le premier rattrapage réel) : « Rattraper » crée lui-même la fiche
+   de l'acheteur au mobile utilisable qui n'en a pas, pour toutes les offres, dans les places de l'offre, sans envoi ;
+   au premier `131026`, la règle du lot 2a la supprime. Le même jour, après la relecture du lot : la fiche se crée sur le
+   numéro de l'ACHETEUR (le client, puis la facturation), jamais sur celui de la livraison (un destinataire de cadeau
+   n'entre pas), et un contact supprimé n'est JAMAIS recréé par le rattrapage (la trace des numéros effacés, migration
+   0317 : aucune fiche pour une commande payée avant la suppression).
 2. **Julien, consentement.** Un achat ne pose pas `opted_in`, y compris quand Claude Code lance l'action. Ça diverge
    de l'import des abonnés depuis Claude Code, qui pose l'accord sous attestation. On confirme la divergence ?
+   **Tranchée le 2026-11-24** : l'attestation de la boutique vaut consentement ; la fiche créée par le rattrapage naît
+   `opted_in`, et sans attestation en vigueur le rattrapage se refuse. Sa phrase s'élargit aux offres (« offres
+   comprises ») ; les attestations déjà données restent valables.
 3. **Julien, étiquette des fiches créées.** « Acheteur Shopify », pour ne pas rejoindre en silence l'étiquette
    « Shopify » de l'import d'abonnés. Autre nom, ou la même étiquette ?
+   **Tranchée le 2026-11-24** : la même étiquette, « Shopify ».
 4. **Julien, 24 mois.** `read_all_orders` pourrait tout lire. On borne à 24 mois. Plus court (12) ou plus long ?
    **Tranchée le 2026-11-23 : 24 mois pour le Pro** (Julien, en lançant le lot 5) ; 60 jours pour toutes les offres.
 5. **Julien, remboursements.** On continue de ne pas les déduire, produits compris. Le rouvrir oblige un sujet de plus

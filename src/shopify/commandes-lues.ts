@@ -37,9 +37,9 @@ const REQUETE = `query($n: Int!, $apres: String, $q: String!) {
       legacyResourceId name processedAt test displayFinancialStatus
       totalPriceSet { shopMoney { amount currencyCode } }
       phone
-      shippingAddress { phone countryCodeV2 }
-      billingAddress { phone countryCodeV2 }
-      customer { legacyResourceId defaultPhoneNumber { phoneNumber } }
+      shippingAddress { phone countryCodeV2 firstName lastName }
+      billingAddress { phone countryCodeV2 firstName lastName }
+      customer { legacyResourceId firstName lastName defaultPhoneNumber { phoneNumber } }
       lineItems(first: ${LIGNES_PAR_COMMANDE}) {
         pageInfo { hasNextPage }
         nodes { id title variantTitle sku quantity isGiftCard product { legacyResourceId } variant { legacyResourceId } }
@@ -65,7 +65,8 @@ const schemaPage = z.object({
     }).nullish(),
   }).nullish(),
 });
-const adresse = z.object({ phone: texte, countryCodeV2: texte }).nullish().catch(null);
+// Le prénom et le nom (lot 5b) : celui de la fiche que le rattrapage crée ; illisibles, absents, jamais la commande refusée.
+const adresse = z.object({ phone: texte, countryCodeV2: texte, firstName: texte.catch(null), lastName: texte.catch(null) }).nullish().catch(null);
 const idLegacy = z.object({ legacyResourceId: texte }).nullish().catch(null);
 const schemaNoeud = z.object({
   legacyResourceId: z.string().regex(/^\d{1,19}$/),
@@ -77,7 +78,10 @@ const schemaNoeud = z.object({
   phone: texte.catch(null),
   shippingAddress: adresse,
   billingAddress: adresse,
-  customer: z.object({ legacyResourceId: texte, defaultPhoneNumber: z.object({ phoneNumber: texte }).nullish().catch(null) }).nullish().catch(null),
+  customer: z.object({
+    legacyResourceId: texte, firstName: texte.catch(null), lastName: texte.catch(null),
+    defaultPhoneNumber: z.object({ phoneNumber: texte }).nullish().catch(null),
+  }).nullish().catch(null),
   lineItems: z.object({ pageInfo: z.object({ hasNextPage: z.boolean() }), nodes: z.array(z.unknown()) }).nullish().catch(null),
 });
 const schemaLigneLue = z.object({
@@ -109,13 +113,19 @@ export function versCorpsWebhook(n: z.infer<typeof schemaNoeud>): unknown {
       gift_card: l.data.isGiftCard ?? null,
     }];
   });
-  const adresseRest = (a: { phone?: string | null; countryCodeV2?: string | null } | null | undefined) =>
-    (a ? { phone: a.phone ?? null, country_code: a.countryCodeV2 ?? null } : null);
+  const adresseRest = (a: z.infer<typeof adresse>) => (a
+    ? { phone: a.phone ?? null, country_code: a.countryCodeV2 ?? null, first_name: a.firstName ?? null, last_name: a.lastName ?? null }
+    : null);
   return {
     id: numerique(n.legacyResourceId),
     name: n.name.slice(0, 100),
     phone: n.phone ?? null,
-    customer: n.customer ? { id: numerique(n.customer.legacyResourceId), phone: n.customer.defaultPhoneNumber?.phoneNumber ?? null } : null,
+    customer: n.customer
+      ? {
+        id: numerique(n.customer.legacyResourceId), phone: n.customer.defaultPhoneNumber?.phoneNumber ?? null,
+        first_name: n.customer.firstName ?? null, last_name: n.customer.lastName ?? null,
+      }
+      : null,
     shipping_address: adresseRest(n.shippingAddress),
     billing_address: adresseRest(n.billingAddress),
     total_price_set: n.totalPriceSet?.shopMoney

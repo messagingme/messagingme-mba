@@ -7,6 +7,7 @@ import type { ShopifyRouteDeps } from '../src/http/shopify';
 import type { Connexion, VueBoutique } from '../src/shopify/store.pg';
 import { monterLignes } from './shopify-lignes-faux';
 import { commandeLue, monterReprise, page } from './reprise-faux';
+import { PHRASE_ATTESTATION_RATTRAPAGE } from '../src/shopify/reprise';
 import { collectionsInertes } from './routes-inertes';
 import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 
@@ -224,12 +225,36 @@ describe('le rattrapage des commandes', () => {
   const URL_RATTRAPAGE = `${URL_T1}/commandes/rattrapage`;
   const lecture = (jeton: string) => ({ headers: { authorization: `Bearer ${jeton}` } });
 
-  it('l’aperçu compte les commandes de la fenêtre sans rien écrire', async () => {
-    const { app, reprise } = monter({ reprise: { fiches: { '+33612345678': 'fa' }, pages: { '': page([commandeLue(1), commandeLue(2, { telephone: null })], null, 2) } } });
+  it('l’aperçu compte les commandes de la fenêtre sans rien écrire, fiches à créer et places de l’offre comprises', async () => {
+    const { app, reprise } = monter({
+      reprise: {
+        fiches: { '+33612345678': 'fa' }, limite: 100,
+        pages: { '': page([commandeLue(1), commandeLue(2, { telephone: null }), commandeLue(3, { telephone: '+33698765432' })], null, 2) },
+      },
+    });
     const r = await app.inject({ method: 'GET', url: URL_APERCU, ...lecture(admin) });
     expect(r.statusCode).toBe(200);
-    expect(r.json()).toEqual({ fenetreDebut: '2026-09-24T00:00:00.000Z', lues: 2, deja: 0, rattachables: 1, sansFiche: 0, sansNumero: 1, ecartees: 2, complet: true });
+    expect(r.json()).toEqual({
+      fenetreDebut: '2026-09-24T00:00:00.000Z', lues: 3, deja: 0, rattachables: 2, fichesACreer: 1, horsPlafond: 0, placesLibres: 99,
+      remplitLesPlaces: false, sansFiche: 0, sansNumero: 1, ecartees: 2, complet: true,
+    });
     expect(reprise.trace.liees).toEqual([]);
+    expect(reprise.trace.ecrites).toEqual([]);
+  });
+
+  it('🔴 sans l’attestation du consentement des clients, l’aperçu et le lancement la demandent (409), rien n’est lu ni inscrit', async () => {
+    const { app, reprise, trace } = monter({ reprise: { attestation: null } });
+    for (const r of [
+      await app.inject({ method: 'GET', url: URL_APERCU, ...lecture(admin) }),
+      await app.inject({ method: 'POST', url: URL_RATTRAPAGE, ...en(admin), payload: {} }),
+    ]) {
+      expect(r.statusCode).toBe(409);
+      // La voix de la console (où cocher), jamais celle de Claude Code, ni la cause interne du refus.
+      expect(r.json()).toEqual({ error: PHRASE_ATTESTATION_RATTRAPAGE });
+    }
+    expect(reprise.trace.lectures).toEqual([]);
+    expect(reprise.lignes).toEqual([]);
+    expect(trace.audit).toEqual([]);
   });
 
   it('🔴 le lancement : 202, la reprise inscrite au nom de la personne, son job enfilé, le journal ; puis l’état la rend', async () => {

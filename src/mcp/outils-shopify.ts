@@ -11,7 +11,7 @@ import {
 } from '../shopify/gestion';
 import { reglerAttestation, type EtatLigne } from '../shopify/lignes-gestion';
 import type { MessageBranche } from '../shopify/store.pg';
-import { apercuReprise, etatReprise, lancerReprise } from '../shopify/reprise';
+import { apercuReprise, etatReprise, lancerReprise, PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE, type IssueRattrapage } from '../shopify/reprise';
 import { lireCollections } from '../shopify/collections';
 import type { RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
 import { messageDe } from '../lib/erreur';
@@ -67,17 +67,36 @@ function valeur<T>(r: Issue<T>): T {
   return r.valeur;
 }
 
+/**
+ * Un refus du rattrapage des commandes (lot 5b) : sans l'attestation du marchand, la phrase de Claude Code (la question à
+ * lui poser, l'outil à rappeler) au lieu de celle de la console, qui dit où cocher.
+ */
+function valeurDuRattrapage<T>(r: IssueRattrapage<T>): T {
+  if (!r.ok && r.cause === 'attestation_absente') throw new RefusOutil(PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE, familleDuRefus(r.statut));
+  return valeur(r);
+}
+
 const evenements = EVENEMENTS_DISPONIBLES.map((e) => `${e} (${DONNEES_PAR_EVENEMENT[e].join(', ')})`).join('; ');
 
-/** Une reprise des commandes (segments Shopify enrichis, lot 5), telle que le lancement et l'état la rendent. */
+/** Une reprise des commandes (segments Shopify enrichis, lots 5 et 5b), telle que le lancement et l'état la rendent. */
 const versRattrapage = (v: RepriseShopifyVue) => ({
   status: v.statut, interrupted: v.interrompue, window_start: v.fenetreDebut, started_at: v.commenceLe, finished_at: v.finiLe,
   counts: {
-    paid_orders_read: v.comptes.lues, attached: v.comptes.rattachees, already_known: v.comptes.deja,
+    paid_orders_read: v.comptes.lues, attached: v.comptes.rattachees, records_created: v.comptes.fichesCreees ?? 0,
+    over_plan_limit: v.comptes.horsPlafond ?? 0, already_known: v.comptes.deja,
     without_record: v.comptes.sansFiche, without_usable_phone: v.comptes.sansNumero,
   },
   error: v.erreur,
 });
+
+/** L'attestation demandée au marchand, la même que pour les automations : ici, elle fonde l'accord des fiches créées. */
+const ATTESTATION_RATTRAPAGE = {
+  type: 'boolean' as const,
+  description: 'true ONLY once the merchant has confirmed themself, in this conversation, that the customers of their store '
+    + 'agreed to receive their WhatsApp messages, offers included (order confirmation and tracking, checkout reminders, '
+    + 'campaigns): it records their attestation (who, when, the exact wording) before the catch-up starts. Never answer for '
+    + 'the merchant. Required once: the buyer records the catch-up creates are opted in on its strength.',
+};
 
 /** Un message d'avant le lot 5 (l'ancienne table), que `get_shopify_state` rend encore aux plugins d'avant. */
 const versMessage = (m: MessageBranche) => ({
@@ -159,9 +178,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         customers_consent_attested: {
           type: 'boolean',
           description: 'true ONLY once the merchant has confirmed themself, in this conversation, that the customers of their store '
-            + 'agreed to receive WhatsApp messages from them (order confirmation and tracking, checkout reminders): it records '
-            + 'their attestation (who, when, the exact wording). Never answer for the merchant. Required once before turning an '
-            + 'automation on.',
+            + 'agreed to receive their WhatsApp messages, offers included (order confirmation and tracking, checkout reminders, '
+            + 'campaigns): it records their attestation (who, when, the exact wording). Never answer for the merchant. Required '
+            + 'once before turning an automation on.',
         },
       },
       required: ['store', 'client_id', 'client_secret'],
@@ -228,9 +247,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         customers_consent_attested: {
           type: 'boolean',
           description: 'true ONLY once the merchant has confirmed themself, in this conversation, that the customers of their store '
-            + 'agreed to receive WhatsApp messages from them (order confirmation and tracking, checkout reminders): it records '
-            + 'their attestation (who, when, the exact wording). Never answer for the merchant. Required once before turning an '
-            + 'automation on.',
+            + 'agreed to receive their WhatsApp messages, offers included (order confirmation and tracking, checkout reminders, '
+            + 'campaigns): it records their attestation (who, when, the exact wording). Never answer for the merchant. Required '
+            + 'once before turning an automation on.',
         },
       },
       required: ['event', 'language'],
@@ -371,20 +390,30 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     description:
       'Counts, before any catch-up, the paid orders (paid, partially or fully refunded) created in the last 60 days in the '
       + 'connected Shopify store, the window Shopify opens to the app: how many are already known (received live: a catch-up '
-      + 'adds their products), how many would join a record of the workspace (the same phone choice as a live order), how '
-      + 'many have no record with that phone or no usable phone (counted, never kept: a catch-up creates no record), and how '
-      + 'many were never paid (left out). Writes nothing. complete is false when the 25 seconds of the preview were not '
-      + 'enough to read every order: the counts are then partial, never a total. Needs the read_products scope on the store '
-      + 'app (an app created before 2026-11-24 must add it: the shopify skill does); without it, it refuses and says so. '
-      + 'Counts toward the workspace\'s heavy operations.',
+      + 'adds their products), how many would join a record (attachable: the record of their phone, the same phone choice as '
+      + 'a live order, or of their buyer, or the buyer record the catch-up creates), how many buyer records it would create '
+      + '(records_to_create, one per buyer phone, within the free places of the plan: free_places, null when unlimited; '
+      + 'fills_free_places is true when they would take the last places of a plan that counts every contact, after which a '
+      + 'new customer writing first could no longer get in: say it to the user before the catch-up), how many orders the '
+      + 'plan\'s contact limit would leave out (over_plan_limit), how many have a usable phone whose record is not created '
+      + '(without_record: a contact deleted from the workspace after the order was paid, a phone that said STOP or that '
+      + 'WhatsApp already refused, or a phone only on the shipping address, a gift recipient who never gets a record) or no '
+      + 'usable mobile phone (without_usable_phone): counted, never kept, and how many were never paid (left out). Writes '
+      + 'nothing. complete is false when the 25 seconds of the preview were not enough to read every order: the counts are '
+      + 'then partial, never a total. Refused without the merchant\'s consent attestation (customers_consent_attested in '
+      + 'get_shopify_state: the created records are opted in on its strength; ask the merchant, then pass it with '
+      + 'import_shopify_order_history), and without the read_products scope on the store app (an app created before '
+      + '2026-11-24 must add it: the shopify skill does). Counts toward the workspace\'s heavy operations.',
     annotations: { title: 'Count the Shopify orders to catch up', readOnlyHint: true, openWorldHint: true },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
       const c = await deps.couteux.consommer(tenantId);
       if (!c.accepte) throw refusDuPlafond(c.attenteMs);
-      const a = valeur(await apercuReprise(deps.shopify.reprise, tenantId));
+      const a = valeurDuRattrapage(await apercuReprise(deps.shopify.reprise, tenantId));
       return {
         window_start: a.fenetreDebut, paid_orders_read: a.lues, already_known: a.deja, attachable: a.rattachables,
+        records_to_create: a.fichesACreer ?? 0, over_plan_limit: a.horsPlafond ?? 0, free_places: a.placesLibres ?? null,
+        fills_free_places: a.remplitLesPlaces ?? false,
         without_record: a.sansFiche, without_usable_phone: a.sansNumero, never_paid: a.ecartees, complete: a.complet,
       };
     },
@@ -396,19 +425,32 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       'Starts the catch-up of the paid orders created in the last 60 days in the connected Shopify store, after '
       + 'preview_shopify_order_history and the user\'s yes. An order already known keeps its record and gets its products; '
       + 'an unknown order joins the active record of its usable phone, with its amount and products, as a live order would '
-      + 'have. An order without a record or without a usable phone is counted, never kept. It creates no record, sends no '
-      + 'message and attributes no revenue: find_contacts (orders, products, amount spent) then sees these orders. It runs in '
-      + 'the background, a few minutes for most stores and over an hour for the largest: get_shopify_order_history follows '
-      + 'it. Refused while another '
-      + 'catch-up of the workspace is running, or when the store app lacks the read_products scope. Counts toward the '
-      + 'workspace\'s heavy operations.',
+      + 'have (a landline is skipped for the next phone of the order), or else the record of its buyer. When neither has a '
+      + 'record, the catch-up creates the BUYER\'s record (the customer\'s phone, then the billing one, never the shipping '
+      + 'one: a gift recipient never gets in), one per phone, within the free places of the plan: opted in on the strength '
+      + 'of the merchant\'s consent attestation (its source names it), tagged Shopify, and the order joins it. A record '
+      + 'created this way that never wrote is deleted at the first WhatsApp failure 131026 (number not on WhatsApp), and its '
+      + 'place comes back. No record is created without a buyer\'s usable mobile phone, for a contact deleted from the '
+      + 'workspace after the order was paid (a deleted contact is never recreated by the catch-up), for a phone that said '
+      + 'STOP, or for one WhatsApp already refused; beyond the plan\'s contact limit the order is counted, never kept. It '
+      + 'sends no message and attributes no revenue: find_contacts (orders, products, amount spent) then sees '
+      + 'these orders. It runs in the background, a few minutes for most stores and over an hour for the largest: '
+      + 'get_shopify_order_history follows it. Refused while another catch-up of the workspace is running, without the '
+      + 'merchant\'s consent attestation (customers_consent_attested: ask the merchant, never answer for them), or when the '
+      + 'store app lacks the read_products scope. Counts toward the workspace\'s heavy operations.',
     annotations: { title: 'Catch up the Shopify orders', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
-    entree: { type: 'object', properties: {} },
+    entree: {
+      type: 'object',
+      properties: { customers_consent_attested: ATTESTATION_RATTRAPAGE },
+      additionalProperties: false,
+    },
     ecran: () => LISTES.integrations,
-    async executer(deps: DepsMcp, tenantId, _args, personne) {
+    async executer(deps: DepsMcp, tenantId, args, personne) {
       const c = await deps.couteux.consommer(tenantId);
       if (!c.accepte) throw refusDuPlafond(c.attenteMs);
-      const r = valeur(await lancerReprise(deps.shopify.reprise, tenantId, personne?.userId ?? null));
+      // L'attestation du marchand d'abord (lot 5b) : sans elle, le rattrapage ne crée aucune fiche et se refuse.
+      if (args.customers_consent_attested === true) await attester(deps, tenantId, personne?.userId ?? null);
+      const r = valeurDuRattrapage(await lancerReprise(deps.shopify.reprise, tenantId, personne?.userId ?? null));
       journaliser('info', 'mcp_shopify_rattrapage', { tenantId, userId: personne?.userId ?? null, reprise: r.id });
       return { ...versRattrapage(r), next_step: 'get_shopify_order_history follows it: a few minutes for most stores, over an hour for the largest' };
     },
@@ -419,8 +461,9 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     description:
       'The last catch-up of the Shopify orders of the workspace: its status (en_attente, en_cours, termine, refuse, erreur), '
       + 'interrupted when nothing moved for 15 minutes (import_shopify_order_history closes it and starts again), the window '
-      + 'read, when it started and finished, its counts (paid orders read, attached to a record, already known, without a '
-      + 'record, without a usable phone) and the reason it stopped. started is false when none was ever started.',
+      + 'read, when it started and finished, its counts (paid orders read, attached to a record, buyer records created, '
+      + 'left out over the plan\'s contact limit, already known, without a record, without a usable phone) and the reason it '
+      + 'stopped. started is false when none was ever started.',
     annotations: { title: 'Get the Shopify orders catch-up', readOnlyHint: true, openWorldHint: false },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {

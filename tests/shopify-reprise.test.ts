@@ -1,26 +1,40 @@
 import { describe, it, expect } from 'vitest';
+import type { Pool } from 'pg';
 import {
-  apercuReprise, cablerReprise, debutDeFenetre, etatReprise, FENETRE_REPRISE_JOURS, lancerReprise, PAR_PAGE_REPRISE, rattacher,
-  SANS_READ_PRODUCTS, traiterReprise, vueReprise, type JobReprise,
+  apercuReprise, cablerReprise, debutDeFenetre, etatReprise, FENETRE_REPRISE_JOURS, lancerReprise, PAR_PAGE_REPRISE,
+  PHRASE_ATTESTATION_RATTRAPAGE, PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE, PHRASE_ATTESTATION_RETIREE, rattacher,
+  SANS_READ_PRODUCTS, sourceDuConsentement, traiterReprise, vueReprise, type JobReprise, type Simulation,
 } from '../src/shopify/reprise';
 import { BAIL_REPRISE_SECONDES, ERREUR_ABANDON, type PgReprisesStore, type Reprise } from '../src/shopify/reprises.pg';
 import type { PgShopifyStore } from '../src/shopify/store.pg';
 import { PgContactStore as PgContactStoreReel, type PgContactStore } from '../src/crm/contact-store.pg';
+import type { LotContacts } from '../src/crm/import';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import { MESSAGE_OPERATIONS_LOURDES } from '../src/auth/plafond-partage';
-import { BOUTIQUE_REPRISE, commandeLue, connue, MIDI_REPRISE, monterReprise, page } from './reprise-faux';
+import {
+  ATTESTATION_REPRISE, BOUTIQUE_REPRISE, commandeLue, connue, MIDI_REPRISE, monterReprise, page, SOURCE_REPRISE,
+} from './reprise-faux';
 
 /**
- * LE RATTRAPAGE DES COMMANDES SHOPIFY DES 60 DERNIERS JOURS (segments Shopify enrichis, lot 5). Ce qu'il fait : une
+ * LE RATTRAPAGE DES COMMANDES SHOPIFY DES 60 DERNIERS JOURS (segments Shopify enrichis, lots 5 et 5b). Ce qu'il fait : une
  * commande connue garde sa fiche (et reçoit ses lignes s'il lui en manque), une inconnue rejoint la fiche active de son
- * numéro utilisable. Ce qu'il ne fait jamais : créer une fiche, garder une commande sans fiche, continuer sur une autre
- * boutique. Le job tient la reprise par un bail, passe deux minutes au plus, puis se réenfile à son curseur.
+ * numéro utilisable, ou de son acheteur, ou, depuis le lot 5b (décisions de Julien du 2026-11-24), la fiche de l'ACHETEUR
+ * qu'il crée, consentante sous l'attestation de la boutique, une par numéro, dans les places de l'offre. Ce qu'il ne fait
+ * jamais : créer une fiche sans mobile d'acheteur (un destinataire de cadeau n'entre pas), recréer un contact supprimé pour
+ * une commande payée avant sa suppression, recréer un STOP effacé, refaire la fiche d'un numéro que WhatsApp a refusé,
+ * dépasser la limite de l'offre, rien faire sans l'attestation, continuer sur une autre boutique. Le job tient la reprise
+ * par un bail, passe deux minutes au plus, puis se réenfile à son curseur.
  */
 
 const T = '11111111-1111-4111-8111-111111111111';
 const FENETRE = '2026-09-24T00:00:00.000Z';
 const NUMERO_A = '+33612345678';
 const NUMERO_B = '+33698765432';
+const NUMERO_C = '+33611112222';
+const FIXE = '+33145678901';
+const ECRIRE = { source: SOURCE_REPRISE };
+const zero = { lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0, fichesCreees: 0, horsPlafond: 0 };
+const simulation = (libres = Infinity): Simulation => ({ libres, creees: new Set(), refusees: new Set() });
 
 describe('la fenêtre lue', () => {
   it('commence à minuit (UTC) il y a 60 jours : la limite de read_orders', () => {
@@ -30,7 +44,7 @@ describe('la fenêtre lue', () => {
 });
 
 describe('le rattachement d’une page', () => {
-  it('🔴 une commande connue garde SA fiche ; une inconnue rejoint la fiche de son numéro ; sans fiche ou sans numéro, comptée, jamais gardée', async () => {
+  it('🔴 une commande connue garde SA fiche ; une inconnue rejoint la fiche de son numéro, ou celle créée pour son acheteur ; sans numéro utilisable, comptée, jamais gardée', async () => {
     const { deps, trace } = monterReprise({ connues: { '1': connue('fiche-connue', true) }, fiches: { [NUMERO_A]: 'fiche-a' } });
     const commandes = [
       // Connue, sans lignes, et son numéro mène à une AUTRE fiche : elle garde la sienne et reçoit ses lignes.
@@ -38,66 +52,242 @@ describe('le rattachement d’une page', () => {
       commandeLue(2, { telephone: NUMERO_A, client: 77 }),
       commandeLue(3, { telephone: NUMERO_B }),
       commandeLue(4, { telephone: null }),
-      // Un fixe : WhatsApp ne le porte pas.
-      commandeLue(5, { telephone: '+33145678901' }),
+      // Un fixe : WhatsApp ne le porte pas, et la commande n'a pas d'autre numéro.
+      commandeLue(5, { telephone: FIXE }),
     ];
-    const c = await rattacher(deps, T, commandes, BOUTIQUE_REPRISE, true);
-    expect(c).toEqual({ lues: 5, rattachees: 1, deja: 1, sansFiche: 1, sansNumero: 2 });
-    expect(trace.liees.map((l) => [l.commandeId, l.contactId, l.clientId])).toEqual([['1', 'fiche-connue', null], ['2', 'fiche-a', '77']]);
+    const c = await rattacher(deps, T, commandes, BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toEqual({ ...zero, lues: 5, rattachees: 2, deja: 1, sansNumero: 2, fichesCreees: 1 });
+    expect(trace.liees.map((l) => [l.commandeId, l.contactId, l.clientId])).toEqual([
+      ['1', 'fiche-connue', null], ['2', 'fiche-a', '77'], ['3', `fiche-${NUMERO_B}`, null],
+    ]);
+    // La fiche créée : son numéro, consentante sur la foi de l'attestation, la trace qui la nomme.
+    expect(trace.creees).toEqual([{ numero: NUMERO_B, nom: null, source: SOURCE_REPRISE, contactId: `fiche-${NUMERO_B}` }]);
     // Le montant, la date de Shopify et les lignes, comme le webhook les aurait écrits.
     expect(trace.liees[1]!.details).toMatchObject({ montant: '42.00', devise: 'EUR', test: false, payeeLe: new Date('2026-11-01T10:00:00Z') });
     expect(trace.liees[1]!.details.lignes?.lignes).toHaveLength(1);
+    // 🔴 Une seule écriture pour la page : la fiche et les trois commandes, dans la même transaction.
+    expect(trace.ecrites).toHaveLength(1);
+    expect(trace.ecrites[0]!.liaisons.map((l) => ('numero' in l ? `numero:${l.numero}` : `fiche:${l.contactId}`)))
+      .toEqual(['fiche:fiche-connue', 'fiche:fiche-a', `numero:${NUMERO_B}`]);
+  });
+
+  it('🔴 deux commandes du même numéro dans une page : UNE fiche, les deux commandes y sont rattachées', async () => {
+    const { deps, trace } = monterReprise();
+    const c = await rattacher(deps, T, [commandeLue(1, { telephone: NUMERO_B }), commandeLue(2, { telephone: NUMERO_B })], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toMatchObject({ lues: 2, rattachees: 2, fichesCreees: 1 });
+    expect(trace.ecrites[0]!.fiches).toEqual([{ numero: NUMERO_B, nom: null }]);
+    expect(trace.liees.map((l) => l.contactId)).toEqual([`fiche-${NUMERO_B}`, `fiche-${NUMERO_B}`]);
+  });
+
+  it('🔴 un fixe est sauté : le mobile suivant de la commande fonde la fiche ; sans mobile, rien n’est créé', async () => {
+    const { deps, trace } = monterReprise();
+    // Le fixe de livraison masquait le mobile de la commande.
+    const c = await rattacher(deps, T, [commandeLue(1, { livraison: { telephone: '01 45 67 89 01' }, telephone: NUMERO_C })], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toMatchObject({ rattachees: 1, fichesCreees: 1, sansNumero: 0 });
+    expect(trace.creees.map((f) => f.numero)).toEqual([NUMERO_C]);
+    const fixeSeul = monterReprise();
+    expect(await rattacher(fixeSeul.deps, T, [commandeLue(2, { telephone: FIXE })], BOUTIQUE_REPRISE, ECRIRE)).toEqual({ ...zero, lues: 1, sansNumero: 1 });
+    expect(fixeSeul.trace.ecrites).toEqual([]);
+    // Le numéro du client Shopify est un fixe : la fiche de l'acheteur naît sur le mobile que la commande porte pour lui.
+    const clientFixe = monterReprise();
+    expect(await rattacher(clientFixe.deps, T, [commandeLue(3, { client: 79, clientTelephone: FIXE, telephone: NUMERO_A })], BOUTIQUE_REPRISE, ECRIRE))
+      .toEqual({ ...zero, lues: 1, rattachees: 1, fichesCreees: 1 });
+    expect(clientFixe.trace.creees.map((f) => f.numero)).toEqual([NUMERO_A]);
+  });
+
+  it('🔴 la fiche créée est celle de l’ACHETEUR, à son nom (le client, puis la facturation) ; jamais celle de la livraison : un destinataire de cadeau n’entre pas', async () => {
+    const { deps, trace } = monterReprise();
+    const D = '+33633334444';
+    const c = await rattacher(deps, T, [
+      // Un cadeau : la livraison porte le numéro et le nom du destinataire, la commande ceux de l'acheteur.
+      commandeLue(1, { client: 77, telephone: NUMERO_A, livraison: { telephone: NUMERO_B, prenom: 'Léa', nom: 'Dupont' } }),
+      // Le numéro du client Shopify d'abord, son nom avec.
+      commandeLue(2, { client: 78, clientTelephone: NUMERO_C, telephone: null }),
+      // Ni client ni numéro de commande : la facturation, à son nom.
+      commandeLue(3, { telephone: null, facturation: { telephone: D, prenom: '  Jean ', nom: 'Moulin' } }),
+      // Seule la livraison porte un numéro : la commande est comptée sans fiche, rien n'est créé.
+      commandeLue(4, { telephone: null, livraison: { telephone: '+33655556666', prenom: 'Zoé' } }),
+    ], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toEqual({ ...zero, lues: 4, rattachees: 3, sansFiche: 1, fichesCreees: 3 });
+    expect(trace.creees.map((f) => [f.numero, f.nom])).toEqual([[NUMERO_A, 'Camille Martin'], [NUMERO_C, 'Camille Martin'], [D, 'Jean Moulin']]);
+    expect(trace.liees.map((l) => [l.commandeId, l.contactId])).toEqual([['1', `fiche-${NUMERO_A}`], ['2', `fiche-${NUMERO_C}`], ['3', `fiche-${D}`]]);
+  });
+
+  it('🔴 le rattachement garde les candidats du lot 5 : la fiche déjà là du numéro de livraison reçoit la commande ; sinon celle de l’acheteur', async () => {
+    const { deps, trace } = monterReprise({ fiches: { [NUMERO_B]: 'fiche-destinataire', [NUMERO_C]: 'fiche-acheteur' } });
+    const c = await rattacher(deps, T, [
+      commandeLue(1, { telephone: NUMERO_A, livraison: { telephone: NUMERO_B } }),
+      commandeLue(2, { telephone: NUMERO_C, livraison: { telephone: '+33655556666' } }),
+    ], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toEqual({ ...zero, lues: 2, rattachees: 2 });
+    expect(trace.liees.map((l) => [l.commandeId, l.contactId])).toEqual([['1', 'fiche-destinataire'], ['2', 'fiche-acheteur']]);
+    // 🔴 Aucune fiche demandée : une fiche déjà là ne repasse jamais par le chemin de l'import (consentement, étiquette).
+    expect(trace.ecrites.map((p) => p.fiches)).toEqual([[]]);
+    expect(trace.creees).toEqual([]);
+  });
+
+  it('🔴 un contact supprimé n’est JAMAIS recréé : une commande payée avant son effacement ne fonde aucune fiche ; payée après, si', async () => {
+    // Effacé le 10 novembre : la commande payée le 1er ne le recrée pas, celle du 15 est une nouvelle commande.
+    const { deps, trace } = monterReprise({ effacements: { [NUMERO_B]: '2026-11-10T08:00:00Z' } });
+    expect(await rattacher(deps, T, [commandeLue(1, { telephone: NUMERO_B })], BOUTIQUE_REPRISE, ECRIRE)).toEqual({ ...zero, lues: 1, sansFiche: 1 });
+    expect(trace.ecrites).toEqual([]);
+    const apres = await rattacher(deps, T, [commandeLue(2, { telephone: NUMERO_B, payeeLe: '2026-11-15T10:00:00Z' })], BOUTIQUE_REPRISE, ECRIRE);
+    expect(apres).toEqual({ ...zero, lues: 1, rattachees: 1, fichesCreees: 1 });
+    expect(trace.creees.map((f) => f.numero)).toEqual([NUMERO_B]);
+  });
+
+  it('🔴 la trace vaut pour TOUS les numéros de la commande ; un paiement à la seconde de l’effacement, ou à une date illisible, vaut un paiement d’avant', async () => {
+    const { deps, trace } = monterReprise({ effacements: { [NUMERO_B]: '2026-11-10T08:00:00Z' } });
+    const c = await rattacher(deps, T, [
+      // Le contact effacé portait le numéro de livraison : l'acheteur peut être la même personne, rien ne naît.
+      commandeLue(1, { telephone: NUMERO_C, livraison: { telephone: NUMERO_B } }),
+      commandeLue(2, { telephone: NUMERO_B, payeeLe: '2026-11-10T08:00:00Z' }),
+      commandeLue(3, { telephone: NUMERO_B, payeeLe: null }),
+    ], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toEqual({ ...zero, lues: 3, sansFiche: 3 });
+    expect(trace.ecrites).toEqual([]);
+    // Lue une fois pour la page, sur les numéros sans fiche.
+    expect(trace.effacements).toEqual([[NUMERO_B, NUMERO_C]]);
+  });
+
+  it('la trace ne garde que la CRÉATION : la fiche active d’un numéro effacé (revenue par un autre chemin) reçoit la commande', async () => {
+    const { deps, trace } = monterReprise({ fiches: { [NUMERO_B]: 'fiche-revenue' }, effacements: { [NUMERO_B]: '2026-11-10T08:00:00Z' } });
+    expect(await rattacher(deps, T, [commandeLue(1, { telephone: NUMERO_B })], BOUTIQUE_REPRISE, ECRIRE)).toEqual({ ...zero, lues: 1, rattachees: 1 });
+    expect(trace.liees.map((l) => l.contactId)).toEqual(['fiche-revenue']);
+    expect(trace.effacements).toEqual([]);
+  });
+
+  it('🔴 un numéro de la liste de refus (une fiche effacée en STOP) ne revient pas ; une fiche en STOP reçoit sa commande sans rien d’autre', async () => {
+    const { deps, trace } = monterReprise({ refus: [NUMERO_B], fiches: { [NUMERO_A]: 'fiche-en-stop' } });
+    const c = await rattacher(deps, T, [commandeLue(1, { telephone: NUMERO_B }), commandeLue(2, { telephone: NUMERO_A })], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toEqual({ ...zero, lues: 2, rattachees: 1, sansFiche: 1 });
+    // Aucune fiche créée : la fiche existante n'est jamais réécrite (ni consentement, ni étiquette), elle reçoit la commande.
+    expect(trace.creees).toEqual([]);
+    expect(trace.ecrites[0]!.fiches).toEqual([]);
+    expect(trace.liees.map((l) => [l.commandeId, l.contactId])).toEqual([['2', 'fiche-en-stop']]);
+  });
+
+  it('🔴 un numéro que WhatsApp a déjà refusé (131026, fiche supprimée depuis) ne refait pas sa fiche, pour aucune commande de la page', async () => {
+    const { deps, trace } = monterReprise({ sansWhatsapp: ['1'] });
+    const c = await rattacher(deps, T, [commandeLue(1, { telephone: NUMERO_B }), commandeLue(2, { telephone: NUMERO_B }), commandeLue(3, { telephone: NUMERO_C })], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toEqual({ ...zero, lues: 3, rattachees: 1, sansFiche: 2, fichesCreees: 1 });
+    expect(trace.creees.map((f) => f.numero)).toEqual([NUMERO_C]);
+    // Seules les commandes sans fiche à leur numéro sont cherchées.
+    expect(trace.sansWhatsapp).toEqual([['1', '2', '3']]);
+  });
+
+  it('🔴 la limite de contacts de l’offre n’est jamais dépassée : au-delà des places, la commande est comptée hors plafond', async () => {
+    // Deux places : les deux premiers numéros naissent, le troisième non, et sa seconde commande non plus.
+    const { deps, trace } = monterReprise({ limite: 3, fiches: { [NUMERO_A]: 'fa' } });
+    const D = '+33633334444';
+    const c = await rattacher(deps, T, [
+      commandeLue(1, { telephone: NUMERO_B }), commandeLue(2, { telephone: NUMERO_C }), commandeLue(3, { telephone: D }),
+      commandeLue(4, { telephone: NUMERO_B }), commandeLue(5, { telephone: D }), commandeLue(6, { telephone: NUMERO_A }),
+    ], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toEqual({ ...zero, lues: 6, rattachees: 4, fichesCreees: 2, horsPlafond: 2 });
+    expect(trace.creees.map((f) => f.numero)).toEqual([NUMERO_B, NUMERO_C]);
+    expect(trace.liees.map((l) => l.commandeId)).toEqual(['1', '2', '4', '6']);
+    // Plein : plus rien ne naît, une fiche déjà là reçoit encore ses commandes.
+    const plein = await rattacher(deps, T, [commandeLue(7, { telephone: '+33655556666' }), commandeLue(8, { telephone: NUMERO_A })], BOUTIQUE_REPRISE, ECRIRE);
+    expect(plein).toEqual({ ...zero, lues: 2, rattachees: 1, horsPlafond: 1 });
+  });
+
+  it('les lectures sont groupées par page, jamais une par commande ; les numéros des commandes connues ne sont pas cherchés', async () => {
+    const { deps, trace } = monterReprise({ connues: { '1': connue('f1') }, fiches: { [NUMERO_A]: 'fa' } });
+    await rattacher(deps, T, [commandeLue(1, { telephone: NUMERO_B }), commandeLue(2), commandeLue(3), commandeLue(4, { telephone: NUMERO_B })], BOUTIQUE_REPRISE, ECRIRE);
+    expect(trace.connues).toEqual([['1', '2', '3', '4']]);
+    expect(trace.numeros).toEqual([[NUMERO_A, NUMERO_B]]);
+    expect(trace.refus).toEqual([[NUMERO_B]]);
+    expect(trace.effacements).toEqual([[NUMERO_B]]);
+    expect(trace.sansWhatsapp).toEqual([['4']]);
+    expect(trace.places).toBe(1);
+    // Toutes connues : aucun numéro à chercher, aucune place lue.
+    const tout = monterReprise({ connues: { '1': connue('f1') } });
+    await rattacher(tout.deps, T, [commandeLue(1)], BOUTIQUE_REPRISE, ECRIRE);
+    expect(tout.trace.numeros).toEqual([]);
+    expect(tout.trace.places).toBe(0);
+  });
+
+  it('🔴 à l’aperçu (simulation), il compte la même chose sans rien écrire, et garde d’une page à l’autre ce qu’il aurait créé', async () => {
+    const { deps, trace } = monterReprise({ connues: { '1': connue('f1', true) }, fiches: { [NUMERO_A]: 'fa' } });
+    const sim = simulation(1);
+    const c = await rattacher(deps, T, [commandeLue(1), commandeLue(2), commandeLue(3, { telephone: NUMERO_B }), commandeLue(4, { telephone: NUMERO_C })], BOUTIQUE_REPRISE, { simulation: sim });
+    expect(c).toEqual({ ...zero, lues: 4, rattachees: 2, deja: 1, fichesCreees: 1, horsPlafond: 1 });
+    expect(trace.ecrites).toEqual([]);
+    expect(trace.places).toBe(0);
+    expect(sim).toEqual({ libres: 0, creees: new Set([NUMERO_B]), refusees: new Set([NUMERO_C]) });
+    // Page suivante : B se rattache à la fiche « créée », C reste hors plafond ; seul C, sans fiche, se juge encore.
+    const suite = await rattacher(deps, T, [commandeLue(5, { telephone: NUMERO_B }), commandeLue(6, { telephone: NUMERO_C })], BOUTIQUE_REPRISE, { simulation: sim });
+    expect(suite).toEqual({ ...zero, lues: 2, rattachees: 1, horsPlafond: 1 });
+    expect(trace.refus.at(-1)).toEqual([NUMERO_C]);
+    expect(trace.places).toBe(0);
+  });
+
+  it('une commande lue incomplète chez Shopify (plus de 50 lignes) le dit sur ses lignes', async () => {
+    const { deps, trace } = monterReprise({ fiches: { [NUMERO_A]: 'fa' } });
+    await rattacher(deps, T, [commandeLue(1, { lignes: 2, tronquees: true }), commandeLue(2)], BOUTIQUE_REPRISE, ECRIRE);
+    expect(trace.liees.map((l) => l.details.lignes?.tronquees)).toEqual([true, false]);
   });
 
   it('🔴 une commande connue qui a déjà ses lignes, ou dont la fiche n’est plus active, n’est jamais réécrite', async () => {
     // Le webhook en a gardé 120 lignes ; relue à 50 avec une suite, la réécrire la dirait tronquée à tort.
     const { deps, trace } = monterReprise({ connues: { '1': connue('f1'), '2': connue('f-supprimee', false) } });
-    const c = await rattacher(deps, T, [commandeLue(1, { lignes: 50, tronquees: true }), commandeLue(2)], BOUTIQUE_REPRISE, true);
-    expect(c).toMatchObject({ lues: 2, deja: 2, rattachees: 0 });
-    expect(trace.liees).toEqual([]);
-  });
-
-  it('deux lectures groupées par page, jamais une par commande ; les numéros des commandes connues ne sont pas cherchés', async () => {
-    const { deps, trace } = monterReprise({ connues: { '1': connue('f1') }, fiches: { [NUMERO_A]: 'fa' } });
-    await rattacher(deps, T, [commandeLue(1, { telephone: NUMERO_B }), commandeLue(2), commandeLue(3), commandeLue(4, { telephone: NUMERO_B })], BOUTIQUE_REPRISE, true);
-    expect(trace.connues).toEqual([['1', '2', '3', '4']]);
-    expect(trace.numeros).toEqual([[NUMERO_A, NUMERO_B]]);
-    // Toutes connues : aucun numéro à chercher.
-    const tout = monterReprise({ connues: { '1': connue('f1') } });
-    await rattacher(tout.deps, T, [commandeLue(1)], BOUTIQUE_REPRISE, true);
-    expect(tout.trace.numeros).toEqual([]);
-  });
-
-  it('à faux, il compte la même chose sans rien écrire (l’aperçu)', async () => {
-    const { deps, trace } = monterReprise({ connues: { '1': connue('f1', true) }, fiches: { [NUMERO_A]: 'fa' } });
-    const c = await rattacher(deps, T, [commandeLue(1), commandeLue(2), commandeLue(3, { telephone: NUMERO_B })], BOUTIQUE_REPRISE, false);
-    expect(c).toEqual({ lues: 3, rattachees: 1, deja: 1, sansFiche: 1, sansNumero: 0 });
-    expect(trace.liees).toEqual([]);
-  });
-
-  it('une commande lue incomplète chez Shopify (plus de 50 lignes) le dit sur ses lignes', async () => {
-    const { deps, trace } = monterReprise({ fiches: { [NUMERO_A]: 'fa' } });
-    await rattacher(deps, T, [commandeLue(1, { lignes: 2, tronquees: true }), commandeLue(2)], BOUTIQUE_REPRISE, true);
-    expect(trace.liees.map((l) => l.details.lignes?.tronquees)).toEqual([true, false]);
+    const c = await rattacher(deps, T, [commandeLue(1, { lignes: 50, tronquees: true }), commandeLue(2)], BOUTIQUE_REPRISE, ECRIRE);
+    expect(c).toMatchObject({ lues: 2, deja: 2, rattachees: 0, fichesCreees: 0 });
+    expect(trace.ecrites).toEqual([]);
   });
 
   it('une page vide ne lit rien', async () => {
     const { deps, trace } = monterReprise();
-    expect(await rattacher(deps, T, [], BOUTIQUE_REPRISE, true)).toEqual({ lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0 });
+    expect(await rattacher(deps, T, [], BOUTIQUE_REPRISE, ECRIRE)).toEqual(zero);
     expect(trace.connues).toEqual([]);
   });
 });
 
+describe('la trace du consentement', () => {
+  it('nomme l’attestation qui fonde l’accord : sa date et sa boutique', () => {
+    expect(sourceDuConsentement('b.myshopify.com', ATTESTATION_REPRISE)).toBe(SOURCE_REPRISE);
+  });
+});
+
 describe('l’aperçu', () => {
-  it('lit toute la fenêtre, page après page, compte sans rien écrire et le dit complet', async () => {
+  it('lit toute la fenêtre, page après page, compte sans rien écrire et le dit complet, places libres comprises', async () => {
     const { deps, trace } = monterReprise({
-      connues: { '1': connue('f1') }, fiches: { [NUMERO_A]: 'fa' },
+      connues: { '1': connue('f1') }, fiches: { [NUMERO_A]: 'fa' }, limite: 100, autresFiches: 40,
       pages: { '': page([commandeLue(1), commandeLue(2)], 'c1', 3), c1: page([commandeLue(3, { telephone: NUMERO_B }), commandeLue(4, { telephone: null })], null, 1) },
     });
     const r = await apercuReprise(deps, T);
-    expect(r).toEqual({ ok: true, valeur: { fenetreDebut: FENETRE, lues: 4, deja: 1, rattachables: 1, sansFiche: 1, sansNumero: 1, ecartees: 4, complet: true } });
+    expect(r).toEqual({ ok: true, valeur: {
+      fenetreDebut: FENETRE, lues: 4, deja: 1, rattachables: 2, fichesACreer: 1, horsPlafond: 0, placesLibres: 59,
+      remplitLesPlaces: false, sansFiche: 0, sansNumero: 1, ecartees: 4, complet: true,
+    } });
     expect(trace.lectures.map((l) => [l.apres, l.parPage, l.depuis])).toEqual([[null, PAR_PAGE_REPRISE, FENETRE], ['c1', PAR_PAGE_REPRISE, FENETRE]]);
-    expect(trace.liees).toEqual([]);
+    expect(trace.ecrites).toEqual([]);
+  });
+
+  it('🔴 il annonce ce que la limite empêcherait : les fiches dans les places, le reste hors plafond ; sans limite, places nulles', async () => {
+    const pages = { '': page([commandeLue(1, { telephone: NUMERO_B }), commandeLue(2, { telephone: NUMERO_C })], 'c1'), c1: page([commandeLue(3, { telephone: '+33633334444' }), commandeLue(4, { telephone: NUMERO_C })], null) };
+    const limite = await apercuReprise(monterReprise({ limite: 1, pages }).deps, T);
+    expect(limite.ok && limite.valeur).toMatchObject({ fichesACreer: 1, rattachables: 1, horsPlafond: 3, placesLibres: 1 });
+    const libre = await apercuReprise(monterReprise({ pages }).deps, T);
+    expect(libre.ok && libre.valeur).toMatchObject({ fichesACreer: 3, rattachables: 4, horsPlafond: 0, placesLibres: null });
+  });
+
+  it('🔴 il prévient quand ces fiches prendraient les DERNIÈRES places d’une offre qui compte tous les contacts (un inconnu qui écrit le premier n’entrerait plus)', async () => {
+    const pages = { '': page([commandeLue(1, { telephone: NUMERO_B }), commandeLue(2, { telephone: NUMERO_C })], null) };
+    const apercu = async (o: Parameters<typeof monterReprise>[0]) => {
+      const r = await apercuReprise(monterReprise({ ...o, pages }).deps, T);
+      return r.ok ? r.valeur : null;
+    };
+    // Deux places, deux fiches : l'offre est pleine ensuite ; une place, une fiche et le reste hors plafond : pleine aussi.
+    expect(await apercu({ limite: 2 })).toMatchObject({ fichesACreer: 2, placesLibres: 2, remplitLesPlaces: true });
+    expect(await apercu({ limite: 1 })).toMatchObject({ fichesACreer: 1, horsPlafond: 1, remplitLesPlaces: true });
+    // Une place de reste, sans limite, ou une offre qui ne compte que les fiches créées (l'Entreprise) : rien à dire.
+    expect(await apercu({ limite: 3 })).toMatchObject({ remplitLesPlaces: false });
+    expect(await apercu({})).toMatchObject({ placesLibres: null, remplitLesPlaces: false });
+    expect(await apercu({ limite: 2, toutesOrigines: false })).toMatchObject({ remplitLesPlaces: false });
+    // Déjà pleine, il ne crée rien : ce n'est pas lui qui la remplit.
+    expect(await apercu({ limite: 0 })).toMatchObject({ fichesACreer: 0, horsPlafond: 2, remplitLesPlaces: false });
   });
 
   it('🔴 à court de temps, il rend des comptes PARTIELS et le dit (complet faux), jamais un total', async () => {
@@ -129,6 +319,24 @@ describe('l’aperçu', () => {
     expect(jamais.trace.lectures.map((l) => l.parPage)).toEqual([5, 2, 1]);
   });
 
+  it('🔴 sans l’attestation en vigueur de la boutique, un refus qui dit de la cocher, sans rien demander à Shopify', async () => {
+    for (const attestation of [null, { ...ATTESTATION_REPRISE, domaine: 'autre.myshopify.com' }]) {
+      const { deps, trace } = monterReprise({ attestation });
+      expect(await apercuReprise(deps, T)).toEqual({ ok: false, statut: 409, message: PHRASE_ATTESTATION_RATTRAPAGE, cause: 'attestation_absente' });
+      expect(trace.jetons).toBe(0);
+      expect(trace.lectures).toEqual([]);
+    }
+  });
+
+  it('🔴 les phrases de l’attestation : la console dit où cocher, sans un nom d’outil ; Claude Code, quoi demander et quel outil rappeler ; l’arrêt du job, ni l’un ni l’autre', () => {
+    expect(PHRASE_ATTESTATION_RATTRAPAGE).toMatch(/offres comprises.*Scénario > Automation > Shopify/);
+    // Un nom d'outil porte un tiret bas : aucun devant l'utilisateur de la console.
+    expect(PHRASE_ATTESTATION_RATTRAPAGE).not.toMatch(/_/);
+    expect(PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE).toMatch(/offres comprises.*Posez-lui la question.*import_shopify_order_history.*customers_consent_attested/);
+    // Lue par la console ET par Claude Code : ni chemin d'écran, ni nom d'outil.
+    expect(PHRASE_ATTESTATION_RETIREE).not.toMatch(/_|Scénario >/);
+  });
+
   it('🔴 sans le droit read_products, un refus qui dit comment l’ajouter, sans rien lire chez Shopify (mesuré le 2026-11-24)', async () => {
     const { deps, trace } = monterReprise({ droits: ['read_customers', 'read_orders', 'read_checkouts', 'read_fulfillments'] });
     expect(await apercuReprise(deps, T)).toEqual({ ok: false, statut: 409, message: SANS_READ_PRODUCTS });
@@ -157,7 +365,7 @@ describe('le lancement', () => {
     const r = await lancerReprise(deps, T, 'u1');
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.valeur).toMatchObject({ statut: 'en_attente', interrompue: false, fenetreDebut: FENETRE, finiLe: null, erreur: null });
+    expect(r.valeur).toMatchObject({ statut: 'en_attente', interrompue: false, fenetreDebut: FENETRE, finiLe: null, erreur: null, comptes: zero });
     expect(lignes[0]!.r).toMatchObject({ par: 'u1', domaine: 'b.myshopify.com' });
     expect(trace.jobs).toEqual([{ job: { tenantId: T, repriseId: r.valeur.id }, dansSecondes: 0 }]);
   });
@@ -181,11 +389,17 @@ describe('le lancement', () => {
     expect((await lancerReprise(deps, T, null)).ok).toBe(true);
   });
 
-  it('🔴 sans le droit read_products, le lancement est refusé avec la même phrase, sans rien inscrire ni enfiler', async () => {
-    const { deps, trace, lignes } = monterReprise({ droits: ['read_orders'] });
-    expect(await lancerReprise(deps, T, null)).toEqual({ ok: false, statut: 409, message: SANS_READ_PRODUCTS });
-    expect(lignes).toEqual([]);
-    expect(trace.jobs).toEqual([]);
+  it('🔴 sans l’attestation, ou sans le droit read_products, le lancement est refusé avec sa phrase, sans rien inscrire ni enfiler', async () => {
+    const cas: Array<[Parameters<typeof monterReprise>[0], object]> = [
+      [{ attestation: null }, { message: PHRASE_ATTESTATION_RATTRAPAGE, cause: 'attestation_absente' }],
+      [{ droits: ['read_orders'] }, { message: SANS_READ_PRODUCTS }],
+    ];
+    for (const [o, refus] of cas) {
+      const { deps, trace, lignes } = monterReprise(o);
+      expect(await lancerReprise(deps, T, null)).toEqual({ ok: false, statut: 409, ...refus });
+      expect(lignes).toEqual([]);
+      expect(trace.jobs).toEqual([]);
+    }
   });
 
   it('refusé sans boutique ou boutique coupée, sans rien inscrire', async () => {
@@ -208,17 +422,66 @@ describe('le job', () => {
     return { ...faux, job, ligne: () => faux.lignes[0]! };
   }
 
-  it('lit la fenêtre jusqu’au bout, écrit, cumule les comptes et finit en « termine »', async () => {
+  it('lit la fenêtre jusqu’au bout, crée les fiches manquantes, écrit, cumule les comptes et finit en « termine »', async () => {
     const { deps, trace, job, ligne } = await lance({
       connues: { '1': connue('f1', true) }, fiches: { [NUMERO_A]: 'fa' },
       pages: { '': page([commandeLue(1), commandeLue(2)], 'c1'), c1: page([commandeLue(3, { telephone: NUMERO_B }), commandeLue(4, { telephone: null })], null) },
     });
     await traiterReprise(deps, job);
-    expect(ligne().r).toMatchObject({ statut: 'termine', curseur: 'c1', erreur: null, comptes: { lues: 4, rattachees: 1, deja: 1, sansFiche: 1, sansNumero: 1 } });
+    expect(ligne().r).toMatchObject({
+      statut: 'termine', curseur: 'c1', erreur: null, comptes: { ...zero, lues: 4, rattachees: 2, deja: 1, sansNumero: 1, fichesCreees: 1 },
+    });
     expect(ligne().r.finiLe).not.toBeNull();
     expect(ligne().jeton).toBeNull();
-    expect(trace.liees.map((l) => l.commandeId)).toEqual(['1', '2']);
+    expect(trace.liees.map((l) => l.commandeId)).toEqual(['1', '2', '3']);
+    expect(trace.creees).toEqual([{ numero: NUMERO_B, nom: null, source: SOURCE_REPRISE, contactId: `fiche-${NUMERO_B}` }]);
     expect(trace.jobs).toEqual([]);
+  });
+
+  it('🔴 relancé, il ne crée rien de plus : les commandes rattrapées sont connues, les fiches créées déjà là', async () => {
+    const pages = { '': page([commandeLue(1, { telephone: NUMERO_B }), commandeLue(2, { telephone: NUMERO_C })], null) };
+    const faux = await lance({ pages });
+    await traiterReprise(faux.deps, faux.job);
+    expect(faux.ligne().r.comptes).toMatchObject({ fichesCreees: 2, rattachees: 2 });
+    const second = await lancerReprise(faux.deps, T, null);
+    if (!second.ok) throw new Error(second.message);
+    await traiterReprise(faux.deps, { tenantId: T, repriseId: second.valeur.id });
+    expect(faux.lignes[1]!.r).toMatchObject({ statut: 'termine', comptes: { ...zero, lues: 2, deja: 2 } });
+    expect(faux.trace.creees).toHaveLength(2);
+  });
+
+  it('🔴 les places se relisent à chaque page : une page pleine compte hors plafond, sans jamais dépasser la limite', async () => {
+    const { deps, trace, job, ligne } = await lance({
+      limite: 2, fiches: { [NUMERO_A]: 'fa' },
+      pages: { '': page([commandeLue(1, { telephone: NUMERO_B })], 'c1'), c1: page([commandeLue(2, { telephone: NUMERO_C }), commandeLue(3, { telephone: NUMERO_A })], null) },
+    });
+    await traiterReprise(deps, job);
+    expect(ligne().r).toMatchObject({ statut: 'termine', comptes: { ...zero, lues: 3, rattachees: 2, fichesCreees: 1, horsPlafond: 1 } });
+    expect(trace.places).toBe(2);
+    expect(trace.creees.map((f) => f.numero)).toEqual([NUMERO_B]);
+  });
+
+  it('🔴 l’attestation retirée pendant le passage : la page lue n’est pas écrite, la reprise se clôt en « refuse » avec sa phrase', async () => {
+    const { deps, trace, job, ligne } = await lance({ pages: { '': page([commandeLue(1, { telephone: NUMERO_B })], 'c1'), c1: page([commandeLue(2, { telephone: NUMERO_C })], null) } });
+    const lire = deps.lirePage;
+    let pages = 0;
+    deps.lirePage = async (acces, p) => {
+      const r = await lire(acces, p);
+      // Décochée juste après la lecture de la deuxième page.
+      if (++pages === 2) deps.attestation = async () => null;
+      return r;
+    };
+    await traiterReprise(deps, job);
+    expect(trace.creees.map((f) => f.numero)).toEqual([NUMERO_B]);
+    expect(ligne().r).toMatchObject({ statut: 'refuse', erreur: PHRASE_ATTESTATION_RETIREE, comptes: { lues: 1, fichesCreees: 1 } });
+  });
+
+  it('🔴 sans attestation au passage du job (retirée après le lancement) : « refuse », rien n’est lu', async () => {
+    const { deps, trace, job, ligne } = await lance({ pages: { '': page([commandeLue(1)], null) } });
+    deps.attestation = async () => null;
+    await traiterReprise(deps, job);
+    expect(ligne().r).toMatchObject({ statut: 'refuse', erreur: PHRASE_ATTESTATION_RETIREE });
+    expect(trace.lectures).toEqual([]);
   });
 
   it('🔴 au bout de deux minutes, il enfile la suite PUIS libère le bail ; la suite reprend au curseur et finit', async () => {
@@ -247,21 +510,21 @@ describe('le job', () => {
     expect(ligne().r).toMatchObject({ statut: 'termine', comptes: { lues: 2, rattachees: 2 } });
   });
 
-  it('🔴 une panne de la base au milieu (une écriture qui lève) libère AUSSI le bail : le rejeu la prend, au lieu de se réenfiler sans fin', async () => {
+  it('🔴 une panne de la base au milieu (une écriture qui lève, une place prise entre-temps) libère AUSSI le bail : le rejeu la prend', async () => {
     const { deps, trace, job, ligne } = await lance({
       fiches: { [NUMERO_A]: 'fa' },
-      pages: { '': page([commandeLue(1)], 'c1'), c1: page([commandeLue(2)], null) },
+      pages: { '': page([commandeLue(1)], 'c1'), c1: page([commandeLue(2, { telephone: NUMERO_B })], null) },
     });
-    const lier = deps.lierCommande;
+    const ecrire = deps.ecrirePage;
     let pannes = 1;
-    deps.lierCommande = async (...a) => { if (a[1] === '2' && pannes-- > 0) throw new Error('connexion perdue'); return lier(...a); };
+    deps.ecrirePage = async (t, p) => { if (p.liaisons.some((l) => l.commandeId === '2') && pannes-- > 0) throw new Error('connexion perdue'); return ecrire(t, p); };
     await expect(traiterReprise(deps, job)).rejects.toThrow('connexion perdue');
     expect(ligne().bail).toBeNull();
     expect(ligne().r).toMatchObject({ statut: 'en_cours', curseur: 'c1' });
     // Le rejeu de pg-boss la PREND (il ne la trouve pas tenue) et finit.
     await traiterReprise(deps, job);
     expect(trace.jobs).toEqual([]);
-    expect(ligne().r).toMatchObject({ statut: 'termine', comptes: { lues: 2, rattachees: 2 } });
+    expect(ligne().r).toMatchObject({ statut: 'termine', comptes: { lues: 2, rattachees: 2, fichesCreees: 1 } });
   });
 
   it('🔴 la dernière page se compte UNE fois, même quand sa fin a échoué une première fois', async () => {
@@ -271,7 +534,8 @@ describe('le job', () => {
     deps.reprises.finir = async (...a) => { if (pannes-- > 0) throw new Error('connexion perdue'); return finir(...a); };
     await expect(traiterReprise(deps, job)).rejects.toThrow('connexion perdue');
     await traiterReprise(deps, job);
-    expect(ligne().r).toMatchObject({ statut: 'termine', comptes: { lues: 2, rattachees: 2 } });
+    // Écrites au premier passage, ses commandes sont connues au rejeu : lues une fois, comptées une fois.
+    expect(ligne().r).toMatchObject({ statut: 'termine', comptes: { lues: 2, deja: 2, rattachees: 0 } });
   });
 
   it('un accès refusé au milieu clôt la reprise en « refuse », ce qui est fait reste compté', async () => {
@@ -311,6 +575,8 @@ describe('le job', () => {
   it('🔴 une autre boutique que celle du lancement : la reprise se clôt, son curseur ne sert jamais ailleurs', async () => {
     const { deps, trace, job, ligne } = await lance({ fiches: { [NUMERO_A]: 'fa' }, pages: { '': page([commandeLue(1)], null) } });
     deps.boutique = async () => ({ ...BOUTIQUE_REPRISE, domaine: 'autre.myshopify.com' });
+    // L'attestation suit la boutique : celle d'avant vaudrait pour l'autre, la reprise s'arrête sur le changement.
+    deps.attestation = async () => ATTESTATION_REPRISE;
     await traiterReprise(deps, job);
     expect(ligne().r).toMatchObject({ statut: 'erreur', erreur: expect.stringMatching(/a changé/) });
     expect(trace.lectures).toEqual([]);
@@ -375,7 +641,7 @@ describe('le job', () => {
 describe('l’état', () => {
   const r = (o: Partial<Reprise>): Reprise => ({
     id: 'r1', statut: 'en_cours', domaine: 'b.myshopify.com', fenetreDebut: new Date(FENETRE), curseur: null,
-    comptes: { lues: 1, rattachees: 1, deja: 0, sansFiche: 0, sansNumero: 0 },
+    comptes: { ...zero, lues: 1, rattachees: 1 },
     erreur: null, par: 'u1', commenceLe: new Date(MIDI_REPRISE), majLe: new Date(MIDI_REPRISE), finiLe: null, tenue: false, ...o,
   });
 
@@ -392,7 +658,7 @@ describe('l’état', () => {
     const { deps } = monterReprise();
     expect(await etatReprise(deps, T)).toBeNull();
     await lancerReprise(deps, T, null);
-    expect(await etatReprise(deps, T)).toMatchObject({ statut: 'en_attente', comptes: { lues: 0 } });
+    expect(await etatReprise(deps, T)).toMatchObject({ statut: 'en_attente', comptes: { lues: 0, fichesCreees: 0, horsPlafond: 0 } });
   });
 });
 
@@ -404,23 +670,38 @@ describe('le câblage commun de l’API et du worker', () => {
       async acces() { return this.acces_; }
       async lire() { return this.vue; }
       async commandesConnues() { return new Map([['1', { contactId: this.vue.devise, aCompleter: false }]]); }
-      async lierCommande() { this.vue.devise = 'ecrite'; }
+      async attestation() { return { ...ATTESTATION_REPRISE, domaine: this.acces_.domaine }; }
+      async lierCommandeDans() { this.vue.devise = 'ecrite'; }
     }
     class Contacts {
       private readonly fiches = new Map([['+41790000000', 'fiche']]);
+      private readonly refus = new Set(['+41791111111']);
+      private readonly effaces = new Map([['+41792222222', new Date('2026-11-10T08:00:00Z')]]);
       async fichesParNumeros() { return this.fiches; }
+      async numerosEnRefus() { return this.refus; }
+      async effacementsDesNumeros() { return this.effaces; }
+      async placesContacts() { return { limite: 100, comptees: this.fiches.size, presents: new Set<string>(), toutesOrigines: true }; }
+      async upsertManyByPhone() { return ['created' as const]; }
     }
     const jobs: Array<Date | undefined> = [];
+    const pool = { query: async () => ({ rows: [{ commande_id: '9' }] }), connect: async () => ({ query: async () => ({ rows: [] }), release: () => undefined }) } as unknown as Pool;
     const deps = cablerReprise({
+      pool,
       reprises: {} as PgReprisesStore,
-      boutiques: new Boutiques() as unknown as Pick<PgShopifyStore, 'acces' | 'lire' | 'commandesConnues' | 'lierCommande'>,
-      contacts: new Contacts() as unknown as Pick<PgContactStore, 'fichesParNumeros'>,
+      boutiques: new Boutiques() as unknown as Pick<PgShopifyStore, 'acces' | 'lire' | 'commandesConnues' | 'lierCommandeDans' | 'attestation'>,
+      contacts: new Contacts() as unknown as Pick<PgContactStore, 'fichesParNumeros' | 'numerosEnRefus' | 'effacementsDesNumeros' | 'placesContacts' | 'upsertManyByPhone'>,
       enfiler: async (_job, quand) => { jobs.push(quand); },
     });
     expect(await deps.boutique(T)).toMatchObject({ domaine: 'b.myshopify.com', pays: 'CH', devise: 'CHF', etat: 'connectee' });
+    expect(await deps.attestation(T, 'b.myshopify.com')).toMatchObject({ coche: true });
+    expect(await deps.attestation(T, 'autre.myshopify.com')).toBeNull();
     expect(await deps.commandesConnues(T, ['1'])).toEqual(new Map([['1', { contactId: 'CHF', aCompleter: false }]]));
     expect(await deps.fichesParNumeros(T, [])).toEqual(new Map([['+41790000000', 'fiche']]));
-    await deps.lierCommande(T, '1', null, 'fiche', { payeeLe: new Date(), montant: null, devise: null, test: false });
+    expect(await deps.numerosEnRefus(T, [])).toEqual(new Set(['+41791111111']));
+    expect(await deps.effacements(T, [])).toEqual(new Map([['+41792222222', new Date('2026-11-10T08:00:00Z')]]));
+    expect(await deps.places(T)).toEqual({ limite: 100, comptees: 1, toutesOrigines: true });
+    expect(await deps.commandesSansWhatsapp(T, ['9'])).toEqual(new Set(['9']));
+    await deps.ecrirePage(T, { fiches: [], source: SOURCE_REPRISE, liaisons: [{ commandeId: '1', clientId: null, contactId: 'fiche', details: { payeeLe: new Date(), montant: null, devise: null, test: false } }] });
     expect(await deps.boutique(T)).toMatchObject({ devise: 'ecrite' });
     const avant = Date.now();
     await deps.enfiler({ tenantId: T, repriseId: T }, 0);
@@ -428,13 +709,72 @@ describe('le câblage commun de l’API et du worker', () => {
     expect(jobs[0]).toBeUndefined();
     expect(jobs[1]!.getTime()).toBeGreaterThanOrEqual(avant + 60_000);
   });
+
+  it('🔴 une page écrite en UNE transaction, par le chemin de l’import des abonnés : consentante, « Shopify », autorité import, marquée née Shopify ; puis ses commandes, par le client de la transaction', async () => {
+    const requetes: string[] = [];
+    const client = { query: async (sql: string) => { requetes.push(sql); return { rows: [] }; }, release: () => { requetes.push('release'); } };
+    const pool = { connect: async () => client, query: async () => ({ rows: [] }) } as unknown as Pool;
+    const lots: Array<{ lot: LotContacts; q: unknown }> = [];
+    const liees: Array<{ q: unknown; commandeId: string; contactId: string }> = [];
+    const deps = cablerReprise({
+      pool,
+      reprises: {} as PgReprisesStore,
+      boutiques: {
+        lierCommandeDans: async (q: unknown, _t: string, commandeId: string, _c: string | null, contactId: string) => { liees.push({ q, commandeId, contactId }); },
+      } as unknown as Pick<PgShopifyStore, 'acces' | 'lire' | 'commandesConnues' | 'lierCommandeDans' | 'attestation'>,
+      contacts: {
+        upsertManyByPhone: async (lot: LotContacts, q: unknown) => { lots.push({ lot, q }); return lot.contacts.map(() => 'created' as const); },
+        fichesParNumeros: async (_t: string, numeros: readonly string[], q: unknown) => {
+          expect(q).toBe(client);
+          return new Map(numeros.map((n) => [n, `fiche-${n}`]));
+        },
+      } as unknown as Pick<PgContactStore, 'fichesParNumeros' | 'numerosEnRefus' | 'effacementsDesNumeros' | 'placesContacts' | 'upsertManyByPhone'>,
+      enfiler: async () => undefined,
+    });
+    const details = { payeeLe: new Date(), montant: '10', devise: 'EUR', test: false };
+    const r = await deps.ecrirePage(T, {
+      fiches: [{ numero: NUMERO_B, nom: 'Léa Dupont' }], source: SOURCE_REPRISE,
+      liaisons: [{ commandeId: '1', clientId: null, numero: NUMERO_B, details }, { commandeId: '2', clientId: null, contactId: 'fa', details }],
+    });
+    expect(r).toEqual({ creees: 1 });
+    expect(lots).toEqual([{
+      q: client,
+      lot: {
+        tenantId: T, optInStatus: 'opted_in', optInSource: SOURCE_REPRISE, tags: ['Shopify'], autorite: 'import', neeDe: 'shopify',
+        contacts: [{ phoneE164: NUMERO_B, profileName: 'Léa Dupont', fields: {} }],
+      },
+    }]);
+    expect(liees).toEqual([{ q: client, commandeId: '1', contactId: `fiche-${NUMERO_B}` }, { q: client, commandeId: '2', contactId: 'fa' }]);
+    expect(requetes).toEqual(['begin', 'commit', 'release']);
+  });
+
+  it('🔴 une écriture qui lève annule la transaction entière : rollback, rien de validé', async () => {
+    const requetes: string[] = [];
+    const client = { query: async (sql: string) => { requetes.push(sql); return { rows: [] }; }, release: () => undefined };
+    const pool = { connect: async () => client, query: async () => ({ rows: [] }) } as unknown as Pool;
+    const deps = cablerReprise({
+      pool,
+      reprises: {} as PgReprisesStore,
+      boutiques: { lierCommandeDans: async () => { throw new Error('commande refusée'); } } as unknown as Pick<PgShopifyStore, 'acces' | 'lire' | 'commandesConnues' | 'lierCommandeDans' | 'attestation'>,
+      contacts: {
+        upsertManyByPhone: async () => ['created' as const],
+        fichesParNumeros: async (_t: string, numeros: readonly string[]) => new Map(numeros.map((n) => [n, `fiche-${n}`])),
+      } as unknown as Pick<PgContactStore, 'fichesParNumeros' | 'numerosEnRefus' | 'effacementsDesNumeros' | 'placesContacts' | 'upsertManyByPhone'>,
+      enfiler: async () => undefined,
+    });
+    await expect(deps.ecrirePage(T, {
+      fiches: [{ numero: NUMERO_B, nom: null }], source: SOURCE_REPRISE,
+      liaisons: [{ commandeId: '1', clientId: null, numero: NUMERO_B, details: { payeeLe: new Date(), montant: null, devise: null, test: false } }],
+    })).rejects.toThrow('commande refusée');
+    expect(requetes).toEqual(['begin', 'rollback']);
+  });
 });
 
 describe('les outils MCP du rattrapage', () => {
   const PERSONNE = { userId: 'u1', autorisationId: 'aut-1' } as never;
   const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
-  const mcp = (reprise: ReturnType<typeof monterReprise>['deps'], accepte = true) => ({
-    shopify: { reprise }, couteux: { consommer: async () => ({ accepte, attenteMs: 4_000 }) },
+  const mcp = (reprise: ReturnType<typeof monterReprise>['deps'], accepte = true, lignes?: unknown) => ({
+    shopify: { reprise, lignes }, couteux: { consommer: async () => ({ accepte, attenteMs: 4_000 }) },
   }) as unknown as DepsMcp;
 
   it('ouverts à toutes les offres, une personne nommée, l’aperçu et le lancement sous le plafond des opérations lourdes', async () => {
@@ -450,15 +790,47 @@ describe('les outils MCP du rattrapage', () => {
   });
 
   it('compter, lancer, suivre : les comptes sous leurs noms anglais, un second lancement refusé', async () => {
-    const { deps } = monterReprise({ connues: { '1': connue('f1') }, fiches: { [NUMERO_A]: 'fa' }, pages: { '': page([commandeLue(1), commandeLue(2), commandeLue(3, { telephone: null })], null, 2) } });
+    const { deps } = monterReprise({
+      connues: { '1': connue('f1') }, fiches: { [NUMERO_A]: 'fa' }, limite: 50,
+      pages: { '': page([commandeLue(1), commandeLue(2), commandeLue(3, { telephone: null }), commandeLue(4, { telephone: NUMERO_B })], null, 2) },
+    });
     expect(await outil('get_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE)).toMatchObject({ started: false });
     expect(await outil('preview_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE)).toEqual({
-      window_start: FENETRE, paid_orders_read: 3, already_known: 1, attachable: 1, without_record: 0, without_usable_phone: 1, never_paid: 2, complete: true,
+      window_start: FENETRE, paid_orders_read: 4, already_known: 1, attachable: 2, records_to_create: 1, over_plan_limit: 0,
+      free_places: 49, fills_free_places: false, without_record: 0, without_usable_phone: 1, never_paid: 2, complete: true,
     });
     const lance = await outil('import_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE);
-    expect(lance).toMatchObject({ status: 'en_attente', window_start: FENETRE, counts: { paid_orders_read: 0 }, next_step: expect.stringMatching(/get_shopify_order_history/) });
+    expect(lance).toMatchObject({
+      status: 'en_attente', window_start: FENETRE, counts: { paid_orders_read: 0, records_created: 0, over_plan_limit: 0 },
+      next_step: expect.stringMatching(/get_shopify_order_history/),
+    });
     await expect(outil('import_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE)).rejects.toThrow(/déjà en cours/);
     expect(await outil('get_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE)).toMatchObject({ started: true, status: 'en_attente', interrupted: false });
+  });
+
+  it('🔴 sans attestation, l’aperçu et le lancement refusent avec la phrase de Claude Code ; customers_consent_attested l’enregistre au nom de la personne, puis lance', async () => {
+    const { deps, lignes } = monterReprise({ attestation: null });
+    // La voix de Claude Code (quoi demander, quel outil rappeler), jamais celle de la console, qui dit où cocher.
+    for (const nom of ['preview_shopify_order_history', 'import_shopify_order_history']) {
+      await expect(outil(nom).executer(mcp(deps), T, {}, PERSONNE), nom).rejects.toMatchObject({
+        name: 'RefusOutil', code: 'conflict', message: PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE,
+      });
+    }
+    expect(lignes).toEqual([]);
+    // La case cochée par Claude Code, sur le oui du marchand : l'historique de l'attestation, puis le rattrapage.
+    const attestations: Array<{ coche: boolean; par: string | null; origine: string }> = [];
+    const store = {
+      lire: async () => ({ domaine: BOUTIQUE_REPRISE.domaine, etat: 'connectee' }),
+      attester: async (_t: string, a: { coche: boolean; par: string | null; origine: string }) => {
+        attestations.push({ coche: a.coche, par: a.par, origine: a.origine });
+        deps.attestation = async () => ATTESTATION_REPRISE;
+      },
+      attestation: async () => ATTESTATION_REPRISE,
+    };
+    const r = await outil('import_shopify_order_history').executer(mcp(deps, true, { store }), T, { customers_consent_attested: true }, PERSONNE);
+    expect(attestations).toEqual([{ coche: true, par: 'u1', origine: 'claude_code' }]);
+    expect(r).toMatchObject({ status: 'en_attente' });
+    expect(lignes).toHaveLength(1);
   });
 
   it('un refus de la gestion devient le refus de l’outil, avec sa phrase', async () => {

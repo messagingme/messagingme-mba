@@ -9,6 +9,7 @@ import { STATUT_PAR_CODE } from '../src/api/erreurs';
 import { OUTILS_SURS } from '../src/agent/reglages';
 import { QUOTAS_API_DEFAUT } from '../src/api/quotas';
 import { commandesPubliees } from '../scripts/plugin/generer';
+import { commandeLue, monterReprise, page } from './reprise-faux';
 
 /**
  * LE PLUGIN CLAUDE CODE (lot 10), tel qu'il part dans `messagingme/messagingme-plugin` : ce dossier est copié tel
@@ -164,6 +165,14 @@ describe('les skills', () => {
       offre: { option: { etat: async () => ({ statut: 'actif', places: 1 }), ouvrir: async () => { throw new Error('pas d’ouverture'); } } },
       couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) },
     } as unknown as DepsMcp, 't', {}, { userId: 'u', autorisationId: 'a' });
+    // Les comptes que rendent l'aperçu et l'état du rattrapage des commandes (segments Shopify, lot 5b : `records_to_create`,
+    // `free_places`...), par les VRAIS outils sur le faux du rattrapage.
+    const reprise = monterReprise({ pages: { '': page([commandeLue(1)], null) } });
+    const depsReprise = { shopify: { reprise: reprise.deps }, couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) } } as unknown as DepsMcp;
+    const personne = { userId: 'u', autorisationId: 'a' };
+    const sortieApercu = await OUTILS.find((o) => o.nom === 'preview_shopify_order_history')!.executer(depsReprise, 't', {}, personne);
+    await OUTILS.find((o) => o.nom === 'import_shopify_order_history')!.executer(depsReprise, 't', {}, personne);
+    const sortieRattrapage = await OUTILS.find((o) => o.nom === 'get_shopify_order_history')!.executer(depsReprise, 't', {}, personne);
     const clesRendues = (o: unknown): string[] => (o !== null && typeof o === 'object')
       ? Object.entries(o).flatMap(([k, v]) => [k, ...clesRendues(Array.isArray(v) ? v[0] : v)]) : [];
     const exemple = etatMiseEnService({
@@ -184,6 +193,7 @@ describe('les skills', () => {
       .flatMap((p) => [...(p.enum ?? []), ...(p.items?.enum ?? [])].filter((v): v is string => typeof v === 'string')));
     const connus = new Set<string>([
       ...Object.keys(CATALOGUE_MCP), ...Object.keys(OUTILS_DE_L_ETAPE), ...AVERTISSEMENTS, ...clesRendues(exemple), ...clesRendues(sortieListe), ...clesRendues(sortieOption),
+      ...clesRendues(sortieApercu), ...clesRendues(sortieRattrapage),
       ...arguments_, ...valeurs, ...OUTILS_SURS, ...Object.keys(STATUT_PAR_CODE),
     ]);
     for (const s of SKILLS) {

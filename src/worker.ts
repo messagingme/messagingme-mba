@@ -9,7 +9,7 @@ import { PgNumerosFournisStore, RETENTION_CODES_VERIFICATION_JOURS } from './otp
 import { PgRcsMediaStore, GRACE_SUPPRESSION_JOURS } from './rcs/media-store.pg';
 import { PgDocumentsContact, CONSERVATION_DOCUMENTS_JOURS } from './documents/store.pg';
 import { RETENTION_LATENCES_JOURS } from './ops/latence-http';
-import { RETENTION_REFUS_ANS } from './crm/refus-effaces';
+import { RETENTION_NUMEROS_EFFACES_JOURS, RETENTION_REFUS_ANS } from './crm/refus-effaces';
 import { MesureTaches, RETENTION_TACHES_JOURS } from './ops/mesure-taches';
 import { RETENTION_FILES_HEURES_JOURS } from './ops/mesures-files.pg';
 import { RETENTION_MEMOIRE_WORKERS_JOURS } from './ops/memoire-workers.pg';
@@ -589,9 +589,11 @@ export async function demarrerWorker(): Promise<void> {
 
   /**
    * Le rattrapage des commandes Shopify des 60 derniers jours (segments Shopify enrichis, lot 5) : le MÊME câblage que
-   * l'API (`cablerReprise`). Le job tient la reprise par un bail et se réenfile à son curseur après deux minutes.
+   * l'API (`cablerReprise`). Le job tient la reprise par un bail et se réenfile à son curseur après deux minutes. Le pool
+   * tient la transaction d'une page : les fiches des acheteurs créées, puis leurs commandes rattachées (lot 5b).
    */
   const depsReprise = cablerReprise({
+    pool,
     reprises: new PgReprisesStore(pool),
     boutiques: new PgShopifyStore(pool, config.ENCRYPTION_KEY),
     contacts: contactStore,
@@ -2040,6 +2042,10 @@ export async function demarrerWorker(): Promise<void> {
     // une opposition (`src/crm/refus-effaces.ts`).
     await etape('refus', `refus de fiche effacée échu(s) (au-delà de ${RETENTION_REFUS_ANS} ans)`,
       () => contactStore.purgerRefusEffaces(RETENTION_REFUS_ANS));
+    // La trace des numéros effacés (lot 5b des segments Shopify, migration 0317) : la fenêtre du rattrapage des commandes
+    // plus une marge, au-delà de laquelle elle ne protège plus aucune commande (`src/crm/refus-effaces.ts`).
+    await etape('numeros-effaces', `trace(s) de numéro effacé échue(s) (au-delà de ${RETENTION_NUMEROS_EFFACES_JOURS} j)`,
+      () => contactStore.purgerNumerosEffaces(RETENTION_NUMEROS_EFFACES_JOURS));
     // Le journal des webhooks sortants (lot 12) : la durée de l'offre de chaque espace (3 jours en Base, 30 sinon), lue
     // dans la grille et jamais écrite ici. Une durée sans limite garde un siècle, c'est-à-dire tout.
     const joursJournal = (o: keyof typeof DROITS): number => DROITS[o].limites.journalWebhooksJours ?? 36_500;

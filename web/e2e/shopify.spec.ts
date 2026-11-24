@@ -26,11 +26,15 @@ const BRANCHEE = {
 };
 /** L'attestation du consentement des clients (2026-11-20), telle que le serveur la rend ; sans le champ, une API ancienne. */
 const ATTESTEE = { coche: true, le: '2026-11-20T09:00:00.000Z', email: 'moi@e2e.test', texte: 'J’atteste…' };
-/** Le rattrapage des commandes (lot 5) : l'aperçu et la reprise lancée, tels que le serveur les rend. */
-const APERCU_RATTRAPAGE = { fenetreDebut: '2026-09-24T00:00:00.000Z', lues: 42, deja: 10, rattachables: 25, sansFiche: 5, sansNumero: 2, ecartees: 3, complet: true };
+/**
+ * Le rattrapage des commandes : l'aperçu d'une API du lot 5 (sans les fiches d'acheteurs), celui du lot 5b (les fiches à
+ * créer, les places, le plafond), et la reprise lancée, tels que le serveur les rend.
+ */
+const APERCU_RATTRAPAGE_LOT5 = { fenetreDebut: '2026-09-24T00:00:00.000Z', lues: 42, deja: 10, rattachables: 25, sansFiche: 5, sansNumero: 2, ecartees: 3, complet: true };
+const APERCU_RATTRAPAGE = { ...APERCU_RATTRAPAGE_LOT5, fichesACreer: 20, horsPlafond: 0, placesLibres: 950, remplitLesPlaces: false };
 const REPRISE = {
   id: 'r1', statut: 'en_attente', interrompue: false, fenetreDebut: '2026-09-24T00:00:00.000Z', commenceLe: '2026-11-23T12:00:00.000Z', finiLe: null,
-  comptes: { lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0 }, erreur: null,
+  comptes: { lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0, fichesCreees: 0, horsPlafond: 0 }, erreur: null,
 };
 /** La relance aussi en service : la carte dit alors la ligne des paniers. */
 const RELANCE_ACTIVE = { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned')] };
@@ -58,7 +62,11 @@ async function monter(page: Page, o: {
    * Le rattrapage des commandes (segments Shopify, lot 5) : la dernière reprise (`absente` : le 404 du routeur, une API
    * plus ancienne), l'aperçu, la reprise rendue au lancement.
    */
-  rattrapage?: { etat?: Record<string, unknown> | null | 'absente'; apercu?: Record<string, unknown>; lancee?: Record<string, unknown> };
+  rattrapage?: {
+    etat?: Record<string, unknown> | null | 'absente'; apercu?: Record<string, unknown>; lancee?: Record<string, unknown>;
+    /** L'aperçu refusé (409) avec ce message : celui du serveur sans l'attestation du consentement des clients. */
+    refusApercu?: string;
+  };
 }): Promise<Trace> {
   const trace: Trace = { branchements: [], pauses: [], lignes: [], attestations: [], posts: [], rattrapages: 0 };
   let rattrapage = o.rattrapage?.etat ?? null;
@@ -85,7 +93,10 @@ async function monter(page: Page, o: {
       }
       return json({ reprise: rattrapage });
     }
-    if (chemin.endsWith('/integrations/shopify/commandes/apercu')) return json(o.rattrapage?.apercu ?? APERCU_RATTRAPAGE);
+    if (chemin.endsWith('/integrations/shopify/commandes/apercu')) {
+      if (o.rattrapage?.refusApercu) return json({ error: o.rattrapage.refusApercu }, 409);
+      return json(o.rattrapage?.apercu ?? APERCU_RATTRAPAGE);
+    }
     if (chemin.endsWith('/integrations/shopify') && req.method() === 'PATCH') {
       trace.pauses.push(req.postDataJSON());
       return json({ changee: true });
@@ -254,7 +265,7 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await expect(page.getByTestId('integration-shopify-paniers')).toHaveCount(0);
   });
 
-  test('🔴 le rattrapage des commandes : l’aperçu compte, le lancement part une fois, la carte dit qu’il tourne (lot 5)', async ({ page }) => {
+  test('🔴 le rattrapage des commandes : l’aperçu compte, fiches d’acheteurs à créer comprises, le lancement part une fois, la carte dit qu’il tourne (lots 5 et 5b)', async ({ page }) => {
     const trace = await monter(page, {});
     const carte = page.getByTestId('integration-shopify');
     await expect(carte.getByTestId('integration-shopify-rattrapage-etat')).toHaveCount(0);
@@ -265,10 +276,17 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     const apercu = page.getByTestId('shopify-rattrapage-apercu');
     await expect(apercu).toContainText('42 commandes payées créées depuis le');
     await expect(apercu).toContainText('25 à rattacher à une fiche');
-    await expect(apercu).toContainText('5 sans fiche à leur numéro : comptées, jamais gardées');
+    await expect(page.getByTestId('shopify-rattrapage-fiches')).toHaveText(
+      '20 fiches d’acheteurs à créer : consentantes sur la foi de votre attestation, étiquetées « Shopify » (votre offre laisse 950 places)',
+    );
+    await expect(page.getByTestId('shopify-rattrapage-plafond')).toHaveCount(0);
+    // Il reste des places après ces fiches : rien à dire de la porte des nouveaux clients.
+    await expect(page.getByTestId('shopify-rattrapage-places')).toHaveCount(0);
+    await expect(apercu).toContainText('5 sans fiche créée (un contact supprimé après la commande, un STOP, un numéro absent de WhatsApp, ou un numéro sur la seule livraison, comme un cadeau) : comptées, jamais gardées');
     await expect(apercu).toContainText('2 sans numéro WhatsApp utilisable');
     await expect(apercu).toContainText('3 écartées : jamais payées ou illisibles');
-    await expect(page.getByTestId('shopify-rattrapage')).toContainText('Aucune fiche n’est créée et aucun message ne part');
+    await expect(page.getByTestId('shopify-rattrapage-regle')).toContainText('Aucun message ne part. Une fiche créée par le rattrapage est supprimée si WhatsApp ne trouve pas son numéro au premier envoi');
+    await expect(page.getByTestId('shopify-rattrapage')).not.toContainText('Aucune fiche n’est créée');
     expect(trace.rattrapages).toBe(0);
     await page.getByTestId('shopify-rattrapage-lancer').click();
     await expect(page.getByTestId('shopify-rattrapage')).toHaveCount(0);
@@ -279,23 +297,56 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await expect(carte.getByTestId('integration-shopify-rattraper')).toHaveCount(0);
   });
 
-  test('un aperçu partiel le dit ; un rattrapage terminé dit son bilan, un rattrapage arrêté dit pourquoi', async ({ page }) => {
-    const termine = { ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z', comptes: { lues: 42, rattachees: 25, deja: 10, sansFiche: 5, sansNumero: 2 } };
+  test('un aperçu partiel le dit ; un rattrapage terminé dit son bilan, fiches créées et plafond compris', async ({ page }) => {
+    const termine = {
+      ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z',
+      comptes: { lues: 42, rattachees: 25, deja: 10, sansFiche: 5, sansNumero: 2, fichesCreees: 20, horsPlafond: 3 },
+    };
     await monter(page, { rattrapage: { etat: termine, apercu: { ...APERCU_RATTRAPAGE, complet: false } } });
     const etat = page.getByTestId('integration-shopify-rattrapage-etat');
     await expect(etat).toContainText('Terminé le');
     await expect(etat).toContainText('42 commandes payées créées depuis le');
-    await expect(etat).toContainText('25 rattachées à une fiche, 10 déjà connues, 7 sans fiche ou sans numéro, non gardées');
+    await expect(etat).toContainText('25 rattachées à une fiche, 20 fiches d’acheteurs créées, 10 déjà connues, 7 sans fiche ou sans numéro, non gardées, 3 au-delà de la limite de contacts de votre offre, non gardées.');
     await page.getByTestId('integration-shopify-rattraper').click();
     await expect(page.getByTestId('shopify-rattrapage-partiel')).toContainText('l’aperçu n’a pas tout lu');
   });
 
+  test('🔴 la limite de l’offre atteinte : l’aperçu dit les commandes qu’elle écarterait, et que les nouveaux clients n’entreraient plus', async ({ page }) => {
+    await monter(page, { rattrapage: { apercu: { ...APERCU_RATTRAPAGE, fichesACreer: 2, horsPlafond: 4, placesLibres: 2, remplitLesPlaces: true } } });
+    await page.getByTestId('integration-shopify-rattraper').click();
+    await expect(page.getByTestId('shopify-rattrapage-fiches')).toContainText('2 fiches d’acheteurs à créer : consentantes');
+    await expect(page.getByTestId('shopify-rattrapage-fiches')).toContainText('(votre offre laisse 2 places)');
+    await expect(page.getByTestId('shopify-rattrapage-plafond')).toHaveText('4 au-delà de la limite de contacts de votre offre : non gardées');
+    await expect(page.getByTestId('shopify-rattrapage-places')).toHaveText(
+      'Ces fiches prendraient les dernières places de votre offre : ensuite, un nouveau client qui vous écrirait le premier n’entrerait plus.',
+    );
+  });
+
+  test('🔴 sans l’attestation du consentement des clients, l’aperçu le dit, et rien ne se lance', async ({ page }) => {
+    const refus = 'Le rattrapage crée, consentantes, les fiches des acheteurs qui n’en ont pas : avant lui, attestez…';
+    const trace = await monter(page, { rattrapage: { refusApercu: refus } });
+    await page.getByTestId('integration-shopify-rattraper').click();
+    await expect(page.getByTestId('shopify-rattrapage-erreur')).toHaveText(refus);
+    await expect(page.getByTestId('shopify-rattrapage-lancer')).toHaveCount(0);
+    expect(trace.rattrapages).toBe(0);
+  });
+
+  test('🔴 une API d’avant le lot 5b ne crée aucune fiche : l’aperçu garde le texte du lot 5, aucune création promise', async ({ page }) => {
+    await monter(page, { rattrapage: { apercu: APERCU_RATTRAPAGE_LOT5, etat: { ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z', comptes: { lues: 3, rattachees: 1, deja: 1, sansFiche: 1, sansNumero: 0 } } } });
+    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).toContainText('1 rattachée à une fiche, 1 déjà connue, 1 sans fiche ou sans numéro, non gardée.');
+    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).not.toContainText('acheteur');
+    await page.getByTestId('integration-shopify-rattraper').click();
+    await expect(page.getByTestId('shopify-rattrapage-apercu')).toContainText('5 sans fiche à leur numéro : comptées, jamais gardées');
+    await expect(page.getByTestId('shopify-rattrapage-fiches')).toHaveCount(0);
+    await expect(page.getByTestId('shopify-rattrapage-regle')).toContainText('Aucune fiche n’est créée et aucun message ne part');
+  });
+
   test('un seul : le singulier, en français jusqu’à un', async ({ page }) => {
-    const un = { ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z', comptes: { lues: 1, rattachees: 1, deja: 0, sansFiche: 0, sansNumero: 0 } };
+    const un = { ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z', comptes: { lues: 1, rattachees: 1, deja: 0, sansFiche: 0, sansNumero: 0, fichesCreees: 1, horsPlafond: 1 } };
     await monter(page, { rattrapage: { etat: un } });
     await expect(page.getByTestId('integration-shopify-rattrapage-etat'))
       .toContainText('1 commande payée créée depuis le');
-    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).toContainText('1 rattachée à une fiche, 0 déjà connue, 0 sans fiche ou sans numéro, non gardée.');
+    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).toContainText('1 rattachée à une fiche, 1 fiche d’acheteur créée, 0 déjà connue, 0 sans fiche ou sans numéro, non gardée, 1 au-delà de la limite de contacts de votre offre, non gardée.');
   });
 
   test('un rattrapage arrêté par Shopify dit sa raison, et se relance', async ({ page }) => {

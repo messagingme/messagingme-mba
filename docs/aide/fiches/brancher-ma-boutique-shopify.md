@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 1545e8
+source_empreinte: ae59f8
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -41,9 +41,9 @@ votre site : la bulle « ? » dit où le lire), l'ID client et le secret client,
 cochez l'attestation, puis « Brancher la boutique ». Vos trois messages sont aussitôt écrits et envoyés à Meta pour
 validation.
 
-Par cette case, vous attestez que les clients de votre boutique ont accepté de recevoir vos messages WhatsApp, et vous
-en assumez la responsabilité : Meta exige leur accord pour tout message que vous leur envoyez en premier. Sans elle, la
-boutique ne se branche pas. La phrase, la date et votre adresse sont gardées.
+Par cette case, vous attestez que les clients de votre boutique ont accepté de recevoir vos messages WhatsApp, offres
+comprises, et vous en assumez la responsabilité : Meta exige leur accord pour tout message que vous leur envoyez en
+premier. Sans elle, la boutique ne se branche pas. La phrase, la date et votre adresse sont gardées.
 
 **4. Voir vos messages, puis les allumer.** Scénario > Automation > Shopify liste vos automations : Commande
 payée, Commande expédiée, Panier abandonné et Panier abandonné avec agent IA (plus bas). Survolez une ligne pour lire son message, avec des exemples à la place
@@ -176,12 +176,24 @@ le bouton, un second le retire ; le nombre sur chaque bouton dit combien de cont
 trouve personne ne s'affiche pas.
 
 **11. Rattraper les commandes des 60 derniers jours.** Sur la carte Shopify, « Rattraper » compte d'abord, sans rien
-écrire, les commandes payées des 60 derniers jours : déjà connues, à rattacher à une fiche de vos contacts, sans fiche
-ou sans numéro. « Lancer le rattrapage » les relit toutes en arrière-plan, et la carte dit où il en est.
+écrire, les commandes payées des 60 derniers jours : déjà connues, à rattacher à une fiche, les fiches d'acheteurs à
+créer et les places que votre offre laisse, sans fiche ou sans numéro. « Lancer le rattrapage » les relit toutes en
+arrière-plan, et la carte dit où il en est.
 
-Chaque commande rejoint la fiche de son numéro, avec son montant et ses produits ; une commande sans fiche est
-comptée, jamais gardée. Aucune fiche n'est créée, aucun message ne part, et le chiffre rapporté par WhatsApp n'en
-change pas. Comptez quelques minutes pour la plupart des boutiques, plus d'une heure pour les très grandes.
+Chaque commande rejoint la fiche de son numéro, avec son montant et ses produits. L'acheteur qui a un mobile et pas
+encore de fiche reçoit la sienne, sur le numéro du client ou de la facturation, jamais sur celui de la livraison (le
+destinataire d'un cadeau n'entre pas) : consentante sur la foi de votre attestation, étiquetée « Shopify », dans la
+limite de contacts de votre offre ; au-delà, sa commande est comptée, jamais gardée. L'aperçu prévient quand ces fiches
+prendraient vos dernières places : un nouveau client qui vous écrirait le premier n'entrerait plus. Aucun message ne
+part, et le chiffre rapporté par WhatsApp n'en change pas. Comptez quelques minutes pour la plupart des boutiques, plus
+d'une heure pour les très grandes.
+
+**Bon à savoir.** Le rattrapage demande l'attestation du consentement de vos clients, la case en tête de Scénario >
+Automation > Shopify : sans elle, l'aperçu le dit et rien ne se lance. Un contact que vous avez supprimé ne revient
+jamais par le rattrapage : seule une commande passée après sa suppression lui recrée une fiche. Aucune fiche n'est
+créée non plus sans numéro mobile, pour un client qui avait répondu STOP, ni pour un numéro que WhatsApp a déjà refusé.
+Une fiche créée par le rattrapage est supprimée si WhatsApp ne trouve pas son numéro au premier envoi : sa place
+revient. Relancé, le rattrapage ne crée rien de plus.
 
 **Bon à savoir.** Le rattrapage et les collections demandent à votre app Shopify le droit read_products. Une app créée
 avant le 24 novembre 2026 ne l'a pas : ajoutez-le à ses portées sur le tableau de bord développeur de Shopify, publiez
@@ -190,10 +202,11 @@ disent, et rien n'est lu.
 
 **Bon à savoir.** Les commandes comptent depuis le branchement de la boutique ; un rattrapage ajoute celles des 60 jours
 qui le précèdent, Shopify ne laissant pas lire plus loin. Sans rattrapage, juste après le branchement, « au moins 2
-commandes » ne trouve donc personne ; le volet dit la date du début du suivi, et celle du rattrapage. Seules comptent
-les commandes d'un numéro déjà dans vos contacts, commandes de test comprises : importez vos clients avant de
-rattraper leurs commandes. Les produits sont connus pour les commandes payées depuis le 23 novembre 2026, et pour
-celles d'un rattrapage. Le pays et l'activité, eux, marchent dans tous les espaces, avec ou sans boutique.
+commandes » ne trouve donc personne ; le volet dit la date du début du suivi, et celle du rattrapage. Au fil de l'eau,
+seules comptent les commandes d'un numéro déjà dans vos contacts, ou que son message de confirmation y fait entrer,
+commandes de test comprises ; le rattrapage, lui, crée la fiche de l'acheteur. Les produits sont connus pour les
+commandes payées depuis le 23 novembre 2026, et pour celles d'un rattrapage. Le pays et l'activité, eux, marchent dans
+tous les espaces, avec ou sans boutique.
 
 ## Les règles des envois
 
