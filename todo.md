@@ -1,5 +1,18 @@
 # todo.md : backlog
 
+## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 et 2
+
+- Lot 3 (le moteur de la carte qui accompagne, et le parcours agent IA), lot 4 (Shopify, campagne, scénario), lot 5
+  (le film de bienvenue) ; puis l'essai réel qui clôt la feature : un compte neuf sur la SANDBOX suit la checklist et le
+  parcours agent IA dans la console de production.
+- 🟡 La fiche publique « Me repérer dans la console » ne parle que de « Faire le tour » : ni la checklist « Bien
+  démarrer », ni la carte de l'Accueil, ni l'entrée de l'aide (fiche relue, empreinte seule, `eb5fa05bd`). À reprendre
+  avec le lot 3, `npm run vitrine:aide`, la version `en/` et `aide:charger`.
+- 🟡 La carte « Bien démarrer » de l'Accueil ne se relit qu'au montage et au retour sur l'onglet : une étape faite sans
+  quitter la page ne se coche qu'au rechargement.
+- 🟡 Sans numéro, l'Accueil montre deux invitations qui se recouvrent : la carte « Bien démarrer » (prochaine étape :
+  relier le numéro) et « Votre numéro WhatsApp n'est pas encore connecté ».
+
 ## La carte Shopify de l'Accueil (2026-11-24, `1f0f19723`)
 
 - `aide:charger` en production pour la fiche « Canaux et services » (elle parle désormais de la carte Shopify), après
