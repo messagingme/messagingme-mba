@@ -4993,6 +4993,11 @@ l'activer, et d'ouvrir une recharge du crédit.
   inchangé, et les rappels. `tests/mcp-ecran.test.ts` exige l'écran de chaque écriture, relie chaque chemin à une page
   de `web/app` et chaque paramètre au code de sa page. ⚠️ La fiche d'un contact n'a pas d'adresse : la page des contacts
   ne lit aucun paramètre.
+- 🔴 **Une écriture réussie par MCP laisse sa trace au journal d'audit** (lot 1 du CSM virtuel, B0c) : le serveur écrit
+  `mcp.ecriture` (cible : l'outil ; détail : `via: 'mcp'`, `par` une personne ou une clé, l'autorisation OAuth de la
+  personne, l'écran), jamais les arguments, qui peuvent porter des données de contact. Une lecture ou un refus ne laisse
+  rien. Best-effort par `tenter`, comme `makeJournal`. La dépendance `journal` de `DepsMcp` est REQUISE : un câblage qui
+  l'oublierait ne compilerait pas (`tests/mcp-serveur.test.ts`, `tests/oauth-mcp.test.ts`).
 - 🔴 **Le plafond des opérations coûteuses est celui de la console** : `buildServer` construit UN `PlafondPartage`
   (`Gardes.plafondCouteux`), dont dérive `limiteCouteuse`, et le pose dans les dépendances du MCP au montage
   (`DepsMcp.couteux` ; le câblage fournit `CablageMcp`, sans lui). Même instance, même clé (l'espace) : les outils

@@ -9,6 +9,7 @@ import {
 } from '../inbox/repondre';
 import { PHRASE_FORMAT_APPLICATION, phraseApplicationIndisponible, phraseMessageEnFile, phrasePremierMessage } from '../application/envoi';
 import { journaliser } from '../lib/journal';
+import type { AuditSink } from '../audit/journal';
 import { apercuDuMessage, corpsPourMeta, schemaContenuMeta } from '../api/message-meta';
 import { messageDeForme } from '../api/forme';
 import { MetaApiError } from '../meta/errors';
@@ -81,6 +82,11 @@ export const ACTIONS_DE_LA_CONVERSATION = 10;
 export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
+  /**
+   * Le journal d'audit de l'espace (lot 1 du CSM virtuel, B0c) : le serveur y écrit chaque écriture réussie par un outil,
+   * pour répondre à « qui a changé ça ? ». 🔴 REQUIS : un câblage qui l'oublierait ne tracerait rien, en silence.
+   */
+  journal: AuditSink;
   inbox: ConversationsRepondre & {
     listConversations(tenantId: string, opts?: ListConversationsOptions): Promise<ConversationSummary[]>;
     /** Les `n` plus récents, dans l'ordre chronologique : le MCP ne lit jamais le DÉBUT d'un fil. */

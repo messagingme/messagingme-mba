@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -146,6 +146,7 @@ function app(
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
+    ...mcpJournalMuet,
     ...reste,
   };
   const keys = new FakeApiKeys()
@@ -1550,6 +1551,44 @@ describe('serveur MCP : une écriture rend l’écran de ce qu’elle a fait (lo
     expect(JSON.parse(blocs.content[1]!.text)).toEqual({ ecran: adresseEcran('/inbox?c=cv1') });
     const lu = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_conversations') });
     expect(lu.json<{ result: { content: unknown[] } }>().result.content).toHaveLength(1);
+    await server.close();
+  });
+});
+
+describe('serveur MCP : chaque écriture réussie laisse sa trace au journal d’audit (lot 1 du CSM virtuel, B0c)', () => {
+  type Ligne = { tenant: string; actor: { userId: string | null }; action: string; target: unknown; detail: unknown };
+  const journalEnMemoire = () => {
+    const lignes: Ligne[] = [];
+    const journal: CablageMcp['journal'] = async (tenant, actor, action, target, detail) => { lignes.push({ tenant, actor, action, target, detail }); };
+    return { lignes, journal };
+  };
+
+  it('🔴 une écriture par clé d’API : l’outil, la clé, l’écran ; jamais les arguments', async () => {
+    const { lignes, journal } = journalEnMemoire();
+    const { server } = app({ journal });
+    await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('tag_conversation', { conversation_id: 'cv1', tags: ['chaud'] }) });
+    expect(lignes).toEqual([{
+      tenant: 't1', actor: { userId: null, email: null }, action: 'mcp.ecriture', target: { kind: 'outil', id: 'tag_conversation' },
+      detail: { via: 'mcp', par: 'cle_api', ecran: '/inbox?c=cv1' },
+    }]);
+    expect(JSON.stringify(lignes)).not.toContain('chaud');
+    await server.close();
+  });
+
+  it('🔴 une lecture, ou une écriture refusée, ne laisse rien', async () => {
+    const { lignes, journal } = journalEnMemoire();
+    const { server } = app({ journal });
+    await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_conversations') });
+    await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('tag_conversation', { conversation_id: 'inconnue', tags: ['x'] }) });
+    expect(lignes).toEqual([]);
+    await server.close();
+  });
+
+  it('🔴 un journal en panne ne fait pas croire que l’écriture n’a pas eu lieu', async () => {
+    const { server, traces } = app({ journal: async () => { throw new Error('base indisponible'); } });
+    const c = contenu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('tag_conversation', { conversation_id: 'cv1', tags: ['chaud'] }) }));
+    expect(c.isError).toBe(false);
+    expect(traces.poses).toHaveLength(1);
     await server.close();
   });
 });

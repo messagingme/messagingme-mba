@@ -137,6 +137,10 @@ const CATALOGUE_ACTIONS_AUDIT = {
   // La pièce reçue par un bloc Question (2026-11-02) : téléchargée par le lien qu'un Appel API de scénario a fabriqué.
   // La cible est le message, jamais le jeton ni le contact.
   'piece.telechargee': ['Pièce reçue téléchargée par un lien de scénario', 'Received attachment downloaded through a scenario link'],
+  // Une écriture faite par un outil MCP, Claude Code ou demain le CSM virtuel (lot 1 du CSM virtuel, B0c). La cible est
+  // l'outil ; le détail porte qui (`par` : une personne connectée ou une clé d'API) et l'écran de ce qui a été fait,
+  // jamais les arguments, qui peuvent porter des données de contact.
+  'mcp.ecriture': ['Écriture par un outil (Claude, MCP)', 'Write by a tool (Claude, MCP)'],
 } as const satisfies Record<string, readonly [string, string]>;
 
 /** Une nouvelle action doit porter ses deux libellés avant de pouvoir être écrite. */

@@ -10,7 +10,7 @@ import { FakeQueue } from './fake-queue';
 import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { jamaisDesabonne } from './consentement';
-import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { filiereApiSeule, aucunPremierMessage } from './gardes';
 
 /**
@@ -48,10 +48,12 @@ class FauxJetons implements AccesOauthLookup {
 interface Traces {
   envois: Array<{ auteur: string | null | undefined; origine: string }>;
   assignations: AuteurDuChangement[];
+  /** Le journal d'audit des écritures MCP (B0c) : qui, et sous quelle autorisation. */
+  journal: Array<{ userId: string | null; detail: unknown }>;
 }
 
 function monter(o: { publicApiUrl?: string; apiParMinute?: number } = {}) {
-  const traces: Traces = { envois: [], assignations: [] };
+  const traces: Traces = { envois: [], assignations: [], journal: [] };
   const mcp: CablageMcp = {
     estDesabonne: jamaisDesabonne,
     inbox: {
@@ -97,6 +99,8 @@ function monter(o: { publicApiUrl?: string; apiParMinute?: number } = {}) {
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
+    ...mcpJournalMuet,
+    journal: async (_t, actor, _a, _c, detail) => { traces.journal.push({ userId: actor.userId, detail }); },
   };
   const server = buildServer({
     queue: new FakeQueue(),
@@ -188,6 +192,20 @@ describe('qui signe une écriture faite par /mcp', () => {
     await server.inject({ method: 'POST', url: '/mcp', headers: entetes(API, JETON.brut), payload: appeler('assign_conversation', args) });
     await server.inject({ method: 'POST', url: '/mcp', headers: entetes(API, CLE), payload: appeler('assign_conversation', args) });
     expect(traces.assignations).toEqual([{ collaborateur: 'u-admin' }, { cause: 'automatique : agent tiers (MCP)' }]);
+    await server.close();
+  });
+});
+
+describe('la trace d’une écriture faite par /mcp (lot 1 du CSM virtuel, B0c)', () => {
+  it('🔴 avec un jeton, la personne et son autorisation signent la ligne du journal ; avec une clé, la clé', async () => {
+    const { server, traces } = monter();
+    const args = { conversation_id: 'cv1', text: 'bonjour' };
+    await server.inject({ method: 'POST', url: '/mcp', headers: entetes(API, JETON.brut), payload: appeler('reply_in_open_window', args) });
+    await server.inject({ method: 'POST', url: '/mcp', headers: entetes(API, CLE), payload: appeler('reply_in_open_window', args) });
+    expect(traces.journal).toEqual([
+      { userId: 'u-admin', detail: { via: 'mcp', par: 'personne', autorisation: 'a1', ecran: '/inbox?c=cv1' } },
+      { userId: null, detail: { via: 'mcp', par: 'cle_api', ecran: '/inbox?c=cv1' } },
+    ]);
     await server.close();
   });
 });

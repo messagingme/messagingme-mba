@@ -4070,6 +4070,8 @@ async function main(): Promise<void> {
         },
         // La création d'une clé d'API (spec offres v2) : la MÊME fonction que la route de la console, pour `create_api_key`.
         cles: { cles: apiKeyStore, limiteCles: limiteClesDeLOffre, audit: auditSink },
+        // Le journal d'audit de l'espace (lot 1 du CSM virtuel, B0c) : le serveur MCP y trace chaque écriture réussie.
+        journal: auditSink,
         // Les modèles (lot 13, domaine 3) : la MÊME création que `POST /v1/templates`, la MÊME liste que le catalogue. La
         // grille de Meta du Crédit WhatsApp donne à Claude le prix d'un message (plan 2026-11-06).
         modeles: { ...creationModeles, lister: listerModeles, oublier: oublierModeles, grilleMeta: () => reglagesCreditWhatsapp.grilleEnVigueur() },

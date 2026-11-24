@@ -619,6 +619,9 @@ export const mcpEtiquettesInertes: Pick<DepsMcp, 'etiquettes'> = {
  * La main du fil de `control_conversation`, pour les montages qui n'en parlent pas : deux ÉCRITURES, donc elles lèvent.
  * L'outil a son propre fichier, `tests/mcp-control-conversation.test.ts`.
  */
+/** Le journal d'audit du MCP (B0c) : muet, pour les montages qui ne l'observent pas. */
+export const mcpJournalMuet: Pick<DepsMcp, 'journal'> = { journal: journalMuet };
+
 export const mcpFilInerte: Pick<DepsMcp, 'fil'> = {
   fil: { reprendreLaMain: neDevraitPasEtreAppelee('fil.reprendreLaMain'), rendreLaMainSousConsentement: neDevraitPasEtreAppelee('fil.rendreLaMainSousConsentement') },
 };

@@ -6,6 +6,7 @@ import { phraseOutilSansObjet, sansObjetSurApplication } from '../application/ga
 import { FiltreContactInvalide } from '../crm/contact-filters';
 import type { CodeRefus, PrecisionsRefus } from './saisie';
 import { adresseEcran } from './ecran';
+import { tenter } from '../lib/tenter';
 
 /**
  * Le transport MCP : du JSON-RPC 2.0 sur un seul POST, sans état.
@@ -176,6 +177,24 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
         const resultat = await outil.executer(deps, ctx.tenantId, args, ctx.personne);
         // L'écran de ce qui vient d'être fait (B0b), entre le résultat et les rappels : le résultat lui-même ne change pas.
         const ecran = outil.ecran?.(args, resultat);
+        // La trace d'une écriture réussie (B0c) : qui (la personne d'un jeton OAuth, ou une clé), quel outil, quel écran.
+        // Jamais les arguments, qui peuvent porter des données de contact. Best-effort, comme `makeJournal` : un journal en
+        // panne ne fait pas croire qu'une écriture qui a eu lieu n'a pas eu lieu.
+        if (outil.scope === 'mcp:write') {
+          await tenter('audit MCP ignoré:', () => deps.journal(
+            ctx.tenantId,
+            { userId: ctx.personne?.userId ?? null, email: null },
+            'mcp.ecriture',
+            { kind: 'outil', id: outil.nom },
+            {
+              via: 'mcp',
+              par: ctx.personne === null ? 'cle_api' : 'personne',
+              // La séance : l'autorisation OAuth de la personne (celle qu'une révocation coupe), jamais le jeton.
+              ...(ctx.personne === null ? {} : { autorisation: ctx.personne.autorisationId }),
+              ...(ecran === undefined ? {} : { ecran }),
+            },
+          ));
+        }
         const blocEcran = ecran === undefined ? [] : [{ type: 'text', text: JSON.stringify({ ecran: adresseEcran(ecran) }) }];
         return ok(id, { content: [{ type: 'text', text: JSON.stringify(resultat, null, 2) }, ...blocEcran, ...blocsRappels], isError: false });
       } catch (err) {
