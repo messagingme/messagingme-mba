@@ -41,16 +41,16 @@ export const PHRASE_ASSISTANT_RETIRE = 'Les messages Shopify sont devenus des sc
 // ⚠️ `consentementAffirme` est encore ACCEPTÉ, et ignoré : la console ne pose plus la question depuis le 2026-10-26, mais
 // un onglet ouvert avec l'ancien bundle l'envoie encore, et un corps strict lui rendrait 400.
 const consentementIgnore = { consentementAffirme: z.boolean().optional() };
-const corpsBranchement = z.object({ boutique: z.string().max(200), clientId: z.string().max(300), secret: z.string().max(300) }).strict();
+export const corpsBranchement = z.object({ boutique: z.string().max(200), clientId: z.string().max(300), secret: z.string().max(300) }).strict();
 const corpsReglage = z.object({ delaiMinutes: z.number().int().optional(), ...consentementIgnore }).strict();
-const corpsImport = z.object({ maximum: z.number().int() }).strict();
+export const corpsImport = z.object({ maximum: z.number().int() }).strict();
 const corpsPause = z.object({ pause: z.boolean() }).strict();
 // `agentId` : la relance de panier avec agent IA seulement (2026-11-20), l'agent qui répond au bouton « Vous avez une question ? ».
 const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int().optional(), agentId: z.string().uuid().optional() }).strict();
 // La langue choisit la phrase attestée côté serveur (`TEXTE_ATTESTATION_SHOPIFY`) : jamais un texte reçu.
 const corpsAttestation = z.object({ coche: z.boolean(), langue: z.enum(['fr', 'en']).optional() }).strict();
 // Le rattrapage des commandes (lot 5) : aucun réglage, la fenêtre est celle de Shopify (60 jours).
-const corpsRattrapage = z.object({}).strict();
+export const corpsRattrapage = z.object({}).strict();
 
 const raisonCorps = (e: z.ZodError): string => {
   const i = e.issues[0];

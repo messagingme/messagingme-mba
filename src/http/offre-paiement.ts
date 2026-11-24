@@ -44,7 +44,7 @@ export interface OffrePaiementRouteDeps {
 }
 
 /** Le corps ne porte qu'une périodicité, jamais un prix ni un montant : une clé inconnue est refusée. */
-const corpsSchema = z.object({ periodicite: z.enum(['mois', 'an']) }).strict();
+export const corpsSchema = z.object({ periodicite: z.enum(['mois', 'an']) }).strict();
 /**
  * Un siège à la fois, depuis l'état que l'écran a lu : jamais un prix ni un montant (le prix vient de la configuration et de
  * Stripe), et jamais un saut (une requête ne charge pas mille sièges sur la carte, Y7 de la relecture).
@@ -53,7 +53,7 @@ const corpsSiegesSchema = z.object({ depuis: z.number().int().min(0).max(1000), 
   .strict()
   .refine((c) => Math.abs(c.cible - c.depuis) === 1);
 /** Rendre le numéro : un booléen, rien d'autre. */
-const corpsRendreSchema = z.object({ rendre: z.boolean() }).strict();
+export const corpsRendreSchema = z.object({ rendre: z.boolean() }).strict();
 /** Résilier ou annuler la résiliation : un booléen, rien d'autre (ni date, ni abonnement : c'est celui de l'espace). */
 const corpsResiliationSchema = z.object({ resilier: z.boolean() }).strict();
 

@@ -75,13 +75,13 @@ export interface AgentsRouteDeps extends DepsGestionAgents {
  * Le corps de l'ANCIENNE `PUT .../agents/repondeur` (lot 5) : un agent, ou `null` pour n'en désigner aucun. Gardée pour
  * la console d'avant RC6 (elle est publiée APRÈS l'API) ; elle passe par `choixDeLAncienneFormeSousLOffre`.
  */
-const corpsRepondeur = z.object({ agentId: z.string().max(100).nullable() });
+export const corpsRepondeur = z.object({ agentId: z.string().max(100).nullable() });
 
 /**
  * Le corps de `PUT /tenants/:tenantId/repondeur` (RC6) : un mode et sa cible. Le délai est en heures, comme à l'écran,
  * et ses bornes sont dans `choisirRepondeur` (une seule règle pour la console et l'outil MCP).
  */
-const corpsQuiRepond = z.discriminatedUnion('mode', [
+export const corpsQuiRepond = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('mba') }),
   z.object({ mode: z.literal('equipe') }),
   z.object({ mode: z.literal('agent'), agentId: z.string().max(100) }),

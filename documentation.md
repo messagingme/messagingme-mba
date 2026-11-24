@@ -6400,6 +6400,17 @@ Certaines vérités ne s'obtiennent qu'en interrogeant le tiers. Ces scripts son
 chemins publics après un déploiement), `npm run auto-attaque` (sondes d'attaque sur les routes RÉELLES,
 inventoriées depuis le serveur).
 
+### La parité entre la console et les outils MCP
+
+Chaque route de console ouverte au Pro a une décision dans `tests/parite/adresses.ts` : l'outil MCP qui la sert, un
+geste laissé à la personne, une exclusion motivée, ou la brique du lot 1 du CSM virtuel qui la couvrira. L'inventaire
+vient du registre réel, et l'offre qu'exige chaque route se MESURE par l'étape d'offre (`tests/parite/inventaire.ts`) :
+les routes Business et Entreprise en sortent seules. Une route d'écriture servie par un outil déclare son corps dans
+`tests/parite/champs.ts` (le schéma Zod qu'elle applique, exporté du code), et ce schéma est comparé à l'entrée de
+l'outil (`tests/parite/schemas.ts`) : chaque champ, chaque valeur permise et chaque borne de la route doit s'y
+retrouver, ou figurer dans `ECARTS`, la liste de travail. 🔴 **Une route ajoutée dans `src/http` prend donc sa ligne
+dans la table**, sinon le job `unit` est rouge (`tests/parite-adresses.test.ts`, `tests/parite-champs.test.ts`).
+
 ---
 
 ## 10. Exploitation

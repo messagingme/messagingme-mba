@@ -39,9 +39,17 @@ ajoutée sans décision casse la CI.
 
 ## A2 · Parité des champs (après A1)
 
-- Pour chaque route d'écriture servie par un outil : son schéma Zod, exporté, converti par `z.toJSONSchema` côté entrée,
-  comparé à l'entrée de l'outil. Chaque champ et chaque borne y figure, ou sa transformation ou son absence est écrite.
-- Les routes qui lisent leur corps sans schéma (`req.body as`) sont listées : leur schéma est à écrire avec leur outil.
+- `tests/parite/champs.ts` : une déclaration par route d'écriture dont la décision est un outil. `sansCorps` (l'adresse
+  dit tout), `parLaPage` (la page du lien de l'outil, où la personne agit), `aLaMain` (corps lu sans schéma, avec
+  `req.body as` : son schéma d'écriture est à écrire en B0), ou le `schema` Zod que la route applique, EXPORTÉ du code
+  (dix schémas de `src/http` reçoivent le mot `export`, rien d'autre ne change).
+- `tests/parite/schemas.ts` : les deux côtés mis à plat en chemins (`contenu.objectif`, `sorties[].code`). UN SEUL SENS,
+  de la route vers l'outil : chaque champ, chaque type, chaque valeur permise et chaque borne de la route doit se
+  retrouver dans l'outil, au moins aussi strict. Un outil plus strict, ou qui porte des champs à lui, n'est pas un écart ;
+  une obligation non plus (l'outil peut fournir la valeur par défaut). `noms` pour un champ renommé (`contenu: ''` met un
+  objet à plat), `absents` et `valeursAbsentes` pour ce que l'outil ne porte pas EXPRÈS, avec la raison.
+- `tests/parite-champs.test.ts` : chaque route d'écriture servie a sa déclaration ; les noms et absents désignent des
+  champs qui existent ; les écarts trouvés sont EXACTEMENT ceux de `ECARTS`, la suite de la liste de travail.
 - ⚠️ La forme que rend `z.toJSONSchema` change d'une version de zod à l'autre : un champ nullable s'écrit
   `type: [x, null]` en 4.6.7 (le lockfile, la CI) et `anyOf` en 4.4.3 (le `node_modules` du poste, en retard). La
   comparaison normalise ces deux formes, sinon elle serait verte en CI et rouge sur le poste, ou l'inverse.

@@ -87,8 +87,8 @@ const TEXTE = (max: number) => z.string().trim().max(max);
  * `cible` est lue contre le schéma du catalogue (`lireCibleSaisie`), pas ici : son `handler` vient de l'outil, jamais
  * du corps. Absente pour un outil qui n'en a pas ; une cible donnée à un tel outil est refusée (400).
  */
-const ajoutSchema = z.object({ handler: z.string().trim().min(1).max(64), name: NOM.optional(), cible: z.unknown().optional() });
-const patchSchema = z.object({
+export const ajoutSchema = z.object({ handler: z.string().trim().min(1).max(64), name: NOM.optional(), cible: z.unknown().optional() });
+export const patchSchema = z.object({
   /** La cible fixée d'un outil qui en a une (RC4). Même lecture qu'à la pose, `handler` imposé par l'outil. */
   cible: z.unknown().optional(),
   name: NOM.optional(),

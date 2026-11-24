@@ -24,7 +24,9 @@ Le plan du lot vit sur claude.ai (« Lot 1 : tout en outils », https://claude.a
 plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien du 2026-11-24).
 - B1, parité des adresses : `tests/parite-adresses.test.ts` et sa table `tests/parite/adresses.ts`, qui EST la liste
   de travail du lot (ses `aFaire` et ses `reste`). Plan : `2026-11-24-csm-lot1-b1-parite.md`.
-- Ensuite : B1, parité des champs ; puis B0 (contrats partagés), après les arbitrages de Julien sur les formats.
+- B1, parité des champs : `tests/parite-champs.test.ts`, la table `tests/parite/champs.ts` (le corps de chaque route
+  d'écriture servie, et `ECARTS`, la suite de la liste de travail) et la comparaison `tests/parite/schemas.ts`.
+- Ensuite : B0 (contrats partagés), puis le chemin du pilote (B2 à B6, B9).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 

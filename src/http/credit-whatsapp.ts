@@ -123,7 +123,7 @@ export interface VueCreditWhatsapp {
 }
 
 /** `origine` (lot B) : depuis les cartes « Qui règle Meta ? », le retour de Stripe ramène sur Connecter WhatsApp. */
-const CORPS_OPTION = z.object({ places: z.number().int(), origine: z.enum(['offre', 'connecter']).optional() }).strict();
+export const CORPS_OPTION = z.object({ places: z.number().int(), origine: z.enum(['offre', 'connecter']).optional() }).strict();
 const CORPS_PLACES = z.object({ depuis: z.number().int(), cible: z.number().int() }).strict();
 
 export function registerCreditWhatsapp(

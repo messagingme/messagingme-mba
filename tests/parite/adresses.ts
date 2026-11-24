@@ -394,7 +394,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /agents': outil('create_agent'),
   'GET /agents/:agentId/manques': outil('get_agent'),
   'GET /agents/modeles': outil('get_agent'),
-  'PATCH /agents/:agentId': enPartie(['update_agent', 'set_agent_limits'], 'le nom donné au contact, l’inactivité et le contact inconnu'),
+  'PATCH /agents/:agentId': enPartie(['update_agent', 'set_agent_limits', 'activate_agent'], 'le nom donné au contact, l’inactivité et le contact inconnu'),
   'DELETE /agents/:agentId': aFaire('B10', 'agent IA : supprimer un agent'),
 
   // La médiathèque (rcsMedia)
@@ -453,5 +453,5 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /credit-whatsapp': aFaire('B10', 'offre : le crédit WhatsApp (solde, qui peut recharger)'),
   'POST /credit-whatsapp/option': outil('take_credit_line'),
   'PATCH /credit-whatsapp/option': aFaire('B10', 'offre : les places de la ligne de crédit'),
-  'POST /credit-whatsapp/achat': aFaire('B10', 'offre : acheter du crédit WhatsApp ; l’outil rend la page de paiement'),
+  'POST /credit-whatsapp/achat': outil('buy_credit'),
 };
