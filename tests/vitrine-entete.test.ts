@@ -121,16 +121,22 @@ describe('le menu en cascade', () => {
 
     it(`${langue} : Ressources s’ouvre sur la documentation développeurs, aux cinq briques de la page « ${L.premier[3]} »`, () => {
       const ressources = menu(entete, L.premier[1]);
-      const [doc, ...autres] = cascades(ressources);
+      const [doc, guides, ...autres] = cascades(ressources);
       expect(doc?.libelle).toBe(L.doc);
       expect(autres).toEqual([]);
       const portes = lire(PAGE_IA[langue]).split('<nav class="dev-portes"')[1]?.split('</nav>')[0] ?? '';
       expect(adresses(doc!.contenu)).toEqual(adresses(portes));
       expect(adresses(doc!.contenu)).toHaveLength(5);
-      // Après la cascade, les liens directs : l'aide, les guides d'intégration, la confiance, le blog.
-      const directs = ressources.slice(ressources.indexOf('</details>'));
-      expect(directs).toMatch(new RegExp(`href="${langue === 'fr' ? '' : '/en'}/integrations/"[^>]*>.*?<strong>${L.guides}</strong>`));
-      expect(adresses(directs)).toHaveLength(4);
+      // Puis le sous-menu Guides (2026-11-24) : ses deux groupes titrés, chaque page en ligne, et « Tous les guides ».
+      expect(guides?.libelle).toBe('Guides');
+      expect(guides!.contenu).toContain(`<p class="menu-groupe-titre">${L.guides}</p>`);
+      const pages = adresses(guides!.contenu);
+      expect(pages).toContain(`${langue === 'fr' ? '' : '/en'}/integrations/`);
+      expect(pages.at(-1)).toBe(`${langue === 'fr' ? '' : '/en'}/guides/`);
+      for (const a of pages) expect(existsSync(join(SITE, a, 'index.html')), a).toBe(true);
+      // Les liens directs : l'aide, la confiance, le blog.
+      const directs = ressources.replace(/<details class="menu-cascade"[\s\S]*?<\/details>/g, '');
+      expect(adresses(directs)).toHaveLength(3);
     });
 
     it(`${langue} : le pied de page mène à « ${L.premier[3]} »`, () => {

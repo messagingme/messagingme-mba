@@ -1516,6 +1516,11 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .menu-suite{font-size:.8rem;color:var(--muted);rotate:180deg;transition:translate .15s}
 .menu-cascade[open] .menu-suite{translate:3px 0;color:#FFFFFF}
 .menu-sous-panneau{position:absolute;left:calc(100% + 12px);top:-1px;width:316px;display:grid;gap:2px;padding:8px;border-radius:16px;background:#16237E;border:1px solid rgb(255 255 255 / .16);box-shadow:inset 0 1px 0 rgb(255 255 255 / .07),0 28px 56px -18px var(--ombre)}
+/* Le sous-menu Guides (2026-11-24) : deux groupes titrés, puis « Tous les guides ». Même rendu dans le burger. */
+.menu-groupe-titre{margin:10px 10px 2px;color:var(--muted);font-size:.72rem;font-weight:700;letter-spacing:.06em;line-height:1.3;text-transform:uppercase}
+.menu-groupe-titre:first-child{margin-top:4px}
+.menu-panneau a.menu-tous,.burger-liens a.menu-tous{display:flex;align-items:center;gap:8px;margin-top:4px;padding:12px 10px;border-top:1px solid rgb(255 255 255 / .12);border-radius:0 0 10px 10px;color:#FFFFFF;font-size:.9rem;font-weight:700}
+.menu-tous .ic{font-size:.85rem}
 @media (prefers-reduced-motion:no-preference){
   .js .menu-cascade[open] > .menu-sous-panneau{animation:menu-glisse .18s cubic-bezier(.16,1,.3,1)}
   @keyframes menu-glisse{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
@@ -2238,6 +2243,8 @@ html[data-ou="console"] .aide-une .appels .bouton-trait[data-voie="console"]{bac
 .confiance-tableau th{padding:12px 18px;border-bottom:1px solid var(--line);color:var(--muted);font-size:.76rem;font-weight:700;letter-spacing:.06em;text-align:left;text-transform:uppercase}
 .confiance-tableau td{padding:13px 18px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.45}
 .confiance-tableau tr:last-child td{border-bottom:0}
+.confiance-tableau tbody th{padding:13px 18px;border-bottom:1px solid var(--line);color:var(--ink);font-size:.93rem;letter-spacing:0;text-transform:none;vertical-align:top;line-height:1.45}
+.confiance-tableau tr:last-child th{border-bottom:0}
 .confiance-tableau td:first-child{font-weight:700}
 .confiance-detail section.confiance-large{max-width:none}
 .confiance-large .confiance-tableau table{min-width:780px}

@@ -1,0 +1,450 @@
+[
+  {
+    "fr": "Guides WhatsApp, RCS et intégrations · Messaging Me",
+    "en": "WhatsApp, RCS and integration guides · Messaging Me"
+  },
+  {
+    "fr": "Intégrer et comprendre WhatsApp et le RCS.",
+    "en": "Integrate and understand WhatsApp and RCS."
+  },
+  {
+    "fr": "Brancher WhatsApp à votre CRM ou à votre application, choisir entre WhatsApp, le RCS et le SMS&nbsp;: les guides de Messaging&nbsp;Me, au même endroit. Le pas-à-pas de chaque écran est dans l’aide.",
+    "en": "Connect WhatsApp to your CRM or your app, choose between WhatsApp, RCS and SMS: Messaging&nbsp;Me guides, in one place. The step-by-step for each screen is in the help center."
+  },
+  {
+    "fr": "Tout comprendre&nbsp;: WhatsApp, RCS et SMS.",
+    "en": "Understand WhatsApp, RCS and SMS."
+  },
+  {
+    "fr": "Ce que chaque canal sait faire, ce qu’il coûte et ce qu’il demande, pour choisir avant de brancher.",
+    "en": "What each channel can do, what it costs and what it requires, to choose before you connect."
+  },
+  {
+    "fr": "RCS, SMS ou WhatsApp&nbsp;: le comparatif",
+    "en": "RCS, SMS or WhatsApp: the comparison"
+  },
+  {
+    "fr": "Formats, couverture, prix et consentement&nbsp;: quel canal pour quel message.",
+    "en": "Formats, reach, price and consent: which channel for which message."
+  },
+  {
+    "fr": "Guides d’intégration.",
+    "en": "Integration guides."
+  },
+  {
+    "fr": "Relier WhatsApp à vos outils, à votre application et à vos automatisations.",
+    "en": "Connect WhatsApp to your tools, your app and your automations."
+  },
+  {
+    "fr": "WhatsApp pour Salesforce",
+    "en": "WhatsApp for Salesforce"
+  },
+  {
+    "fr": "Chaque conversation arrive dans Salesforce, analysée, et devient une action.",
+    "en": "Every conversation lands in Salesforce, analyzed, and becomes an action."
+  },
+  {
+    "fr": "Intégration WhatsApp et HubSpot",
+    "en": "WhatsApp and HubSpot integration"
+  },
+  {
+    "fr": "Répondre depuis la fiche contact, envoyer des modèles depuis vos workflows.",
+    "en": "Reply from the contact record, send templates from your workflows."
+  },
+  {
+    "fr": "Relance de panier et suivi de commande sur WhatsApp.",
+    "en": "Abandoned cart recovery and order tracking on WhatsApp."
+  },
+  {
+    "fr": "Développeurs&nbsp;: API, SDK et serveur MCP",
+    "en": "Developers: API, SDK and MCP server"
+  },
+  {
+    "fr": "Brancher WhatsApp à votre application et le piloter depuis votre IA.",
+    "en": "Connect WhatsApp to your app and run it from your AI."
+  },
+  {
+    "fr": "Brancher vos automatisations à Messaging&nbsp;Me.",
+    "en": "Connect your automations to Messaging&nbsp;Me."
+  },
+  {
+    "fr": "Un projet à cadrer&nbsp;?",
+    "en": "A project to scope?"
+  },
+  {
+    "fr": "Brancher WhatsApp à Salesforce, HubSpot ou votre application, et choisir entre WhatsApp, le RCS et le SMS : les guides de Messaging Me.",
+    "en": "Connect WhatsApp to Salesforce, HubSpot or your app, and choose between WhatsApp, RCS and SMS: Messaging Me guides."
+  },
+  {
+    "fr": "RCS, SMS ou WhatsApp : le comparatif · Messaging Me",
+    "en": "RCS, SMS or WhatsApp: the comparison · Messaging Me"
+  },
+  {
+    "fr": "RCS, SMS ou WhatsApp&nbsp;: quel canal pour vos messages&nbsp;?",
+    "en": "RCS, SMS or WhatsApp: which channel for your messages?"
+  },
+  {
+    "fr": "Ce que chaque canal sait faire, qui il touche, ce qu’il coûte et ce qu’il demande comme consentement. Et comment ne plus avoir à choisir.",
+    "en": "What each channel can do, who it reaches, what it costs and what consent it requires. And how to stop choosing."
+  },
+  {
+    "fr": "Mis à jour le 24&nbsp;novembre&nbsp;2026",
+    "en": "Updated on 24&nbsp;November&nbsp;2026"
+  },
+  {
+    "fr": "La réponse courte",
+    "en": "The short answer"
+  },
+  {
+    "fr": "Le SMS touche tout le monde, mais ne transporte que du texte. Le RCS ajoute le logo de votre marque, des images, des carrousels et des boutons, dans l’application Messages du téléphone, sans rien à installer. WhatsApp est le canal de la conversation&nbsp;: service client, prise de rendez-vous, agent IA, suivi de commande.",
+    "en": "SMS reaches everyone, but only carries text. RCS adds your brand’s logo, images, carousels and buttons, in the phone’s Messages app, with nothing to install. WhatsApp is the channel for conversation: customer service, appointment booking, AI agent, order tracking."
+  },
+  {
+    "fr": "Pour une campagne, le bon choix n’est souvent pas un canal mais deux&nbsp;: chaque client reçoit le message sur le canal qu’il a.",
+    "en": "For a campaign, the right choice is often not one channel but two: each customer gets the message on the channel they have."
+  },
+  {
+    "fr": "Les trois canaux, côte à côte",
+    "en": "The three channels, side by side"
+  },
+  {
+    "fr": "Critère",
+    "en": "Criterion"
+  },
+  {
+    "fr": "Où le message arrive",
+    "en": "Where the message lands"
+  },
+  {
+    "fr": "L’application Messages, sans rien à installer",
+    "en": "The Messages app, nothing to install"
+  },
+  {
+    "fr": "Du texte et un lien",
+    "en": "Text and a link"
+  },
+  {
+    "fr": "Texte, images, vidéos, documents, boutons, formulaires",
+    "en": "Text, images, videos, documents, buttons, forms"
+  },
+  {
+    "fr": "Qui l’envoie",
+    "en": "Who sends it"
+  },
+  {
+    "fr": "Un nom d’expéditeur",
+    "en": "A sender name"
+  },
+  {
+    "fr": "Un agent de marque&nbsp;: votre nom et votre logo",
+    "en": "A brand agent: your name and your logo"
+  },
+  {
+    "fr": "Le profil de votre entreprise",
+    "en": "Your business profile"
+  },
+  {
+    "fr": "Qui le reçoit",
+    "en": "Who receives it"
+  },
+  {
+    "fr": "Tous les mobiles",
+    "en": "Every mobile phone"
+  },
+  {
+    "fr": "Les téléphones compatibles, messagerie enrichie activée",
+    "en": "Compatible phones, with rich messaging turned on"
+  },
+  {
+    "fr": "Les utilisateurs de WhatsApp",
+    "en": "WhatsApp users"
+  },
+  {
+    "fr": "Le premier message",
+    "en": "The first message"
+  },
+  {
+    "fr": "Libre, sans modèle à faire approuver",
+    "en": "Free-form, no template to get approved"
+  },
+  {
+    "fr": "Un modèle approuvé par Meta",
+    "en": "A Meta-approved template"
+  },
+  {
+    "fr": "La conversation",
+    "en": "The conversation"
+  },
+  {
+    "fr": "Limitée",
+    "en": "Limited"
+  },
+  {
+    "fr": "Des réponses par boutons",
+    "en": "Button replies"
+  },
+  {
+    "fr": "Complète&nbsp;: équipe, agent IA, Meta Business Agent",
+    "en": "Full: team, AI agent, Meta Business Agent"
+  },
+  {
+    "fr": "Le SMS&nbsp;: universel, mais limité au texte",
+    "en": "SMS: universal, but text only"
+  },
+  {
+    "fr": "Le SMS reste le seul canal que reçoivent tous les mobiles, même sans connexion. C’est sa force pour les alertes, les codes de vérification et les messages urgents.",
+    "en": "SMS is still the only channel every mobile phone receives, even without a data connection. That’s its strength for alerts, verification codes and urgent messages."
+  },
+  {
+    "fr": "Sa limite&nbsp;: du texte et un lien, un nom d’expéditeur simple, et peu de mesure au-delà du clic. Pour une offre qui se vend par l’image, il convertit moins bien qu’un canal enrichi.",
+    "en": "Its limit: text and a link, a simple sender name, and little measurement beyond the click. For an offer that sells through images, it converts less well than a rich channel."
+  },
+  {
+    "fr": "Le RCS&nbsp;: le SMS enrichi, dans l’application Messages",
+    "en": "RCS: rich SMS, in the Messages app"
+  },
+  {
+    "fr": "Le RCS est la messagerie enrichie de l’application de messages du téléphone. Le destinataire n’installe rien&nbsp;: le message arrive au même endroit que ses SMS, mais sous le nom et le logo de votre marque.",
+    "en": "RCS is the rich messaging of the phone’s messages app. The recipient installs nothing: the message lands where their SMS do, but under your brand’s name and logo."
+  },
+  {
+    "fr": "Un message RCS porte un texte, une image et des boutons, ou un carrousel de cartes qui défilent. Il n’y a",
+    "en": "An RCS message carries text, an image and buttons, or a carousel of scrolling cards. There is"
+  },
+  {
+    "fr": "aucun modèle à faire approuver",
+    "en": "no template to get approved"
+  },
+  {
+    "fr": "&nbsp;: vous écrivez, vous enregistrez, vous envoyez.",
+    "en": ": you write, you save, you send."
+  },
+  {
+    "fr": "Sa limite&nbsp;: il ne touche que les téléphones compatibles, avec la messagerie enrichie activée. Dans Messaging&nbsp;Me, le RCS fait partie de l’offre Entreprise.",
+    "en": "Its limit: it only reaches compatible phones with rich messaging turned on. In Messaging&nbsp;Me, RCS is part of the Enterprise plan."
+  },
+  {
+    "fr": "Composer et envoyer un message RCS, pas à pas",
+    "en": "Compose and send an RCS message, step by step"
+  },
+  {
+    "fr": "WhatsApp&nbsp;: le canal de la conversation",
+    "en": "WhatsApp: the channel for conversation"
+  },
+  {
+    "fr": "WhatsApp est l’application où vos clients écrivent déjà à leurs proches. C’est là qu’une campagne devient une conversation&nbsp;: une question, un rendez-vous, un paiement, un échange avec votre équipe ou votre agent IA.",
+    "en": "WhatsApp is the app where your customers already write to their friends and family. That’s where a campaign becomes a conversation: a question, an appointment, a payment, an exchange with your team or your AI agent."
+  },
+  {
+    "fr": "Sa règle&nbsp;: vous ne pouvez écrire librement qu’à une personne qui vous a écrit dans les 24&nbsp;dernières heures. Pour écrire en premier, comme dans une campagne, il faut un",
+    "en": "Its rule: you can only write freely to someone who wrote to you in the last 24&nbsp;hours. To write first, as in a campaign, you need a"
+  },
+  {
+    "fr": "modèle approuvé par Meta",
+    "en": "Meta-approved template"
+  },
+  {
+    "fr": ", classé utility (une commande, un rendez-vous, un compte) ou marketing (tout le reste).",
+    "en": ", classified as utility (an order, an appointment, an account) or marketing (everything else)."
+  },
+  {
+    "fr": "La fenêtre de 24&nbsp;heures, en détail",
+    "en": "The 24-hour window, in detail"
+  },
+  {
+    "fr": "Ce que coûte chaque canal",
+    "en": "What each channel costs"
+  },
+  {
+    "fr": "La grille de Meta",
+    "en": "Meta’s rate card"
+  },
+  {
+    "fr": "Comparer le prix d’un message ne suffit pas&nbsp;: ce qui compte, c’est le coût d’une réponse ou d’une vente. Messaging&nbsp;Me affiche le coût par engagement de chaque campagne et le coût par lead de chaque publicité.",
+    "en": "Comparing the price of a message isn’t enough: what counts is the cost of a reply or a sale. Messaging&nbsp;Me shows the cost per engagement of each campaign and the cost per lead of each ad."
+  },
+  {
+    "fr": "Le consentement, canal par canal",
+    "en": "Consent, channel by channel"
+  },
+  {
+    "fr": "Chaque canal marketing demande un accord explicite. Un accord recueilli pour le SMS ne vaut pas pour WhatsApp&nbsp;: recueillez-le pour WhatsApp, et faites de votre premier message une confirmation claire, avec une désinscription simple.",
+    "en": "Every marketing channel requires explicit consent. Consent collected for SMS does not cover WhatsApp: collect it for WhatsApp, and make your first message a clear confirmation, with an easy opt-out."
+  },
+  {
+    "fr": "Dans Messaging&nbsp;Me, un contact qui répond STOP n’est plus contacté&nbsp;: la vérification a lieu avant chaque envoi, qu’il parte d’une campagne, d’un scénario, de l’agent IA ou de votre équipe.",
+    "en": "In Messaging&nbsp;Me, a contact who replies STOP is no longer contacted: the check runs before every send, whether it comes from a campaign, a scenario, the AI agent or your team."
+  },
+  {
+    "fr": "Le RGPD chez Messaging&nbsp;Me",
+    "en": "GDPR at Messaging&nbsp;Me"
+  },
+  {
+    "fr": "Quel canal pour quel usage",
+    "en": "Which channel for which use"
+  },
+  {
+    "fr": "Code de vérification, alerte urgente",
+    "en": "Verification code, urgent alert"
+  },
+  {
+    "fr": "&nbsp;: le SMS.",
+    "en": ": SMS."
+  },
+  {
+    "fr": "&nbsp;: le RCS, ou WhatsApp pour les clients qui l’ont accepté.",
+    "en": ": RCS, or WhatsApp for customers who accepted it."
+  },
+  {
+    "fr": "Confirmation et rappel de rendez-vous, suivi de commande",
+    "en": "Appointment confirmation and reminder, order tracking"
+  },
+  {
+    "fr": "&nbsp;: WhatsApp en utility, avec repli en RCS.",
+    "en": ": WhatsApp utility, with RCS fallback."
+  },
+  {
+    "fr": "&nbsp;: WhatsApp, avec un agent IA et le relais à votre équipe.",
+    "en": ": WhatsApp, with an AI agent and handover to your team."
+  },
+  {
+    "fr": "Publicité qui ouvre une conversation",
+    "en": "Ad that opens a conversation"
+  },
+  {
+    "fr": "Ne plus choisir&nbsp;: WhatsApp et RCS, avec repli",
+    "en": "Stop choosing: WhatsApp and RCS, with fallback"
+  },
+  {
+    "fr": "À la création d’une campagne dans Messaging&nbsp;Me, l’option «&nbsp;WhatsApp et RCS, avec repli&nbsp;» envoie d’abord sur le canal choisi. Si l’envoi échoue, le message repart aussitôt sur l’autre canal&nbsp;: chaque client reçoit un seul message. Qu’il réponde sur WhatsApp ou en RCS, votre équipe lui répond dans la même Inbox.",
+    "en": "When you create a campaign in Messaging&nbsp;Me, the “WhatsApp and RCS, with fallback” option sends on the chosen channel first. If the send fails, the message goes out right away on the other channel: each customer gets one message. Whether they reply on WhatsApp or RCS, your team answers in the same Inbox."
+  },
+  {
+    "fr": "Voir WhatsApp et RCS, avec repli",
+    "en": "See WhatsApp and RCS, with fallback"
+  },
+  {
+    "fr": "Quelle est la différence entre le SMS et le RCS ?",
+    "en": "What is the difference between SMS and RCS?"
+  },
+  {
+    "fr": "Le SMS transporte du texte et un lien. Le RCS arrive au même endroit, dans l’application Messages, mais sous le nom et le logo de la marque, avec des images, des carrousels et des boutons.",
+    "en": "SMS carries text and a link. RCS lands in the same place, in the Messages app, but under the brand’s name and logo, with images, carousels and buttons."
+  },
+  {
+    "fr": "Faut-il installer une application pour recevoir un RCS ?",
+    "en": "Do you need to install an app to receive RCS?"
+  },
+  {
+    "fr": "Non. Le RCS arrive dans l’application de messages du téléphone, à condition que le téléphone soit compatible et que la messagerie enrichie soit activée.",
+    "en": "No. RCS arrives in the phone’s messages app, as long as the phone is compatible and rich messaging is turned on."
+  },
+  {
+    "fr": "RCS ou WhatsApp : lequel choisir pour une campagne ?",
+    "en": "RCS or WhatsApp: which one for a campaign?"
+  },
+  {
+    "fr": "Le RCS pour un message visuel, sans modèle à faire approuver. WhatsApp pour ouvrir une conversation avec des clients qui ont accepté vos messages. Avec le repli entre les deux, chaque client reçoit le message sur le canal qu’il a.",
+    "en": "RCS for a visual message, with no template to get approved. WhatsApp to open a conversation with customers who accepted your messages. With fallback between the two, each customer gets the message on the channel they have."
+  },
+  {
+    "fr": "Un client peut-il recevoir deux fois le même message avec le repli ?",
+    "en": "Can a customer receive the same message twice with fallback?"
+  },
+  {
+    "fr": "Non. Le repli ne part que si le premier envoi échoue. Chaque client reçoit un seul message.",
+    "en": "No. Fallback only goes out if the first send fails. Each customer gets one message."
+  },
+  {
+    "fr": "Combien coûte un message WhatsApp en France ?",
+    "en": "How much does a WhatsApp message cost in France?"
+  },
+  {
+    "fr": "Meta facture une réponse à un client 0,0248 €, avec 1 000 réponses offertes par mois et par numéro. Les modèles marketing coûtent davantage, selon la grille de Meta.",
+    "en": "Meta bills a reply to a customer €0.0248, with 1,000 free replies per month and per number. Marketing templates cost more, according to Meta’s rate card."
+  },
+  {
+    "fr": "Un accord recueilli pour le SMS suffit-il pour écrire sur WhatsApp ?",
+    "en": "Is consent collected for SMS enough to message on WhatsApp?"
+  },
+  {
+    "fr": "Non. Recueillez un accord pour WhatsApp, et rappelez-le dans votre premier message, avec une désinscription simple.",
+    "en": "No. Collect consent for WhatsApp, and remind people of it in your first message, with an easy opt-out."
+  },
+  {
+    "fr": "Tous les guides",
+    "en": "All guides"
+  },
+  {
+    "fr": "Formats, couverture, prix et consentement : le RCS, le SMS et WhatsApp comparés pour vos messages en France, et comment envoyer sur WhatsApp et RCS avec repli.",
+    "en": "Formats, reach, price and consent: RCS, SMS and WhatsApp compared for your messages in France, and how to send on WhatsApp and RCS with fallback."
+  },
+  {
+    "fr": "Le SMS et le RCS se paient au message, chez leur fournisseur. WhatsApp est facturé par Meta, directement à votre entreprise, selon sa grille par pays et par catégorie de message, sauf avec la ligne de crédit (formule Pro ou Business), prépayée chez Messaging&nbsp;Me. En France, une réponse à un client coûte 0,0248&nbsp;€, avec 1&nbsp;000&nbsp;réponses offertes par mois et par numéro, et un modèle marketing coûte davantage. Les messages que vos clients vous envoient ne sont jamais facturés.",
+    "en": "SMS and RCS are paid per message, to their provider. WhatsApp is billed by Meta, directly to your business, according to its rate card by country and message category, except with the credit line (Pro or Business plan), prepaid at Messaging&nbsp;Me. In France, a reply to a customer costs €0.0248, with 1,000 free replies per month and per number, and a marketing template costs more. Messages your customers send you are never billed."
+  },
+  {
+    "fr": "Ouvrir l’aide",
+    "en": "Open the help center"
+  },
+  {
+    "fr": "Salesforce, Dynamics&nbsp;365, HubSpot, Shopify&nbsp;: ce que Messaging&nbsp;Me relie.",
+    "en": "Salesforce, Dynamics&nbsp;365, HubSpot, Shopify: what Messaging&nbsp;Me connects."
+  },
+  {
+    "fr": "Make, n8n ou Zapier",
+    "en": "Make, n8n or Zapier"
+  },
+  {
+    "fr": "L’application Messages",
+    "en": "The Messages app"
+  },
+  {
+    "fr": "L’application WhatsApp",
+    "en": "The WhatsApp app"
+  },
+  {
+    "fr": "Ce qu’il transporte",
+    "en": "What it carries"
+  },
+  {
+    "fr": "Texte, image, carrousel de cartes, boutons",
+    "en": "Text, image, card carousel, buttons"
+  },
+  {
+    "fr": "Libre",
+    "en": "Free-form"
+  },
+  {
+    "fr": "L’usage type",
+    "en": "Typical use"
+  },
+  {
+    "fr": "Alertes, codes, urgence",
+    "en": "Alerts, codes, urgent messages"
+  },
+  {
+    "fr": "Campagnes visuelles, venue en magasin",
+    "en": "Visual campaigns, store visits"
+  },
+  {
+    "fr": "Service client, vente, relances",
+    "en": "Customer service, sales, follow-ups"
+  },
+  {
+    "fr": "Offre visuelle, nouvelle collection, invitation en magasin",
+    "en": "Visual offer, new collection, in-store invitation"
+  },
+  {
+    "fr": "Service client, questions avant achat",
+    "en": "Customer service, pre-purchase questions"
+  },
+  {
+    "fr": "Développeurs : API, SDK et serveur MCP",
+    "en": "Developers: API, SDK and MCP server"
+  },
+  {
+    "fr": "RCS, SMS ou WhatsApp : le comparatif",
+    "en": "RCS, SMS or WhatsApp: the comparison"
+  }
+]

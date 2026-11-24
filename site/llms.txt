@@ -183,6 +183,16 @@
 - [Les intégrations](https://app.messagingme.fr/integrations/) : Messaging Me s’installe dans Salesforce (Marketing Cloud et Sales Cloud), Dynamics 365 et HubSpot, où WhatsApp devient une étape des parcours et les réponses reviennent dans la fiche ; il se branche à Shopify, à Claude Code et à Codex ; l’API, les webhooks et le serveur MCP relient le reste.
 - [Integrations](https://app.messagingme.fr/en/integrations/) : the same page in English.
 
+## Guides
+
+- [Guides](https://app.messagingme.fr/guides/) : brancher WhatsApp à Salesforce, HubSpot, Shopify ou une application, et comprendre WhatsApp, le RCS et le SMS avant de choisir.
+
+- [Guides (English)](https://app.messagingme.fr/en/guides/) : connect WhatsApp to Salesforce, HubSpot, Shopify or an app, and understand WhatsApp, RCS and SMS before choosing.
+
+- [RCS, SMS ou WhatsApp : le comparatif](https://app.messagingme.fr/comparatif-rcs-sms-whatsapp/) : formats, couverture, prix et consentement des trois canaux, quel canal pour quel usage, et l’envoi sur WhatsApp et RCS avec repli.
+
+- [RCS, SMS or WhatsApp: the comparison (English)](https://app.messagingme.fr/en/rcs-sms-whatsapp-comparison/) : formats, reach, price and consent of the three channels, which channel for which use, and sending on WhatsApp and RCS with fallback.
+
 ## Centre de confiance
 
 - [Centre de confiance](https://app.messagingme.fr/confiance/) : comment Messaging Me protège les conversations WhatsApp : le chemin d’un message, qui fait quoi entre Meta, Messaging Me et le client, les certifications des fournisseurs (ISO 27001, SOC 2 Type II), le chiffrement, les accès, l’exploitation, et les documents sur demande.
