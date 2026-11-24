@@ -13,8 +13,6 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 
 - Lot 4 (parcours Shopify, campagne, scénario), lot 5 (le film de bienvenue) ; puis l'essai réel qui clôt la feature :
   un compte neuf sur la SANDBOX suit la checklist et le parcours agent IA dans la console de production.
-- `aide:charger` en production pour la fiche « Me repérer dans la console » (réécrite au lot 3), après avoir comparé
-  `docs/aide` à origin.
 - 🟡 La carte « Bien démarrer » de l'Accueil ne se relit qu'au montage et au retour sur l'onglet : une étape faite sans
   quitter la page ne se coche qu'au rechargement.
 - 🟡 Sans numéro, l'Accueil montre deux invitations qui se recouvrent : la carte « Bien démarrer » (prochaine étape :
