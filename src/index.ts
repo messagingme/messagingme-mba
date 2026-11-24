@@ -41,6 +41,7 @@ import { PgMfaStore } from './auth/mfa-store.pg';
 import { estAdresseOps } from './auth/middleware';
 import type { ActionMfa } from './auth/mfa';
 import { PgUserStore, type EspaceNe } from './user/store.pg';
+import { PgDemarrageStore } from './demarrage/store.pg';
 import { PgAuthTokenStore } from './auth/token-store.pg';
 import { verifyGoogleIdToken } from './auth/google';
 import { PgApiKeyStore } from './auth/api-key-store.pg';
@@ -444,6 +445,7 @@ async function main(): Promise<void> {
     `[mba-${NOM_API}] Nouvel espace « ${e.nom} » : ${e.email}, par ${e.parGoogle ? 'Google' : 'e-mail'}`
     + `${e.origine === 'claude_code' ? ', depuis Claude Code' : e.origine === 'client_mcp' ? ', depuis un client MCP' : ''} (${e.tenantId})`,
   );
+  const demarrageStore = new PgDemarrageStore(pool);
   const userStore = new PgUserStore(pool, async (tenant) => {
     const o = await offresSansCache.offreDe(tenant);
     const { limites } = o.droits;
@@ -3363,6 +3365,7 @@ async function main(): Promise<void> {
         ? { disconnectHubspot: (tenant: string) => disconnectHubspot({ baseUrl: config.HUBSPOT_SERVICE_URL, secret: config.HUBSPOT_SERVICE_SECRET, transport }, tenant) }
         : {}),
     },
+    demarrage: { etat: (tenant) => demarrageStore.etat(tenant) },
     me: {
       getById: (userId) => userStore.getById(userId),
       estExploitant: (email) => estAdresseOps(opsEmails, email),

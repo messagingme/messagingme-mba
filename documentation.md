@@ -4440,6 +4440,12 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   `VISITE_EVENT` (`web/lib/accueil-console.ts`) ; la visite s'ancre sur l'attribut `data-nav` des entrées du menu
   (`AppShell`) : renommer une clé de `lib/nav.ts` fait sauter son étape en silence. Les comptes antérieurs à 0303 sont
   marqués, sauf les invitations alors en attente.
+- **« Bien démarrer »** (plan `2026-11-24-guide-demarrage`) : `GET /tenants/:tenantId/demarrage`, réservé aux
+  administrateurs, rend cinq oui/non que la checklist de la console coche d'elle-même (`PgDemarrageStore`,
+  `src/demarrage/store.pg.ts`, une requête, `tenant_id = $1` dans chaque sous-requête) : `numero` (un numéro rattaché,
+  délié compris, comme `hasNumber`), `outil` (boutique Shopify `connectee`, ou `hubspot_connected` sur un numéro, que la
+  pause remet à faux), `scenarioOuCampagne` (un scénario publié hors `systeme`, ou une campagne programmée, en cours, en
+  pause ou terminée), `agent` (un agent `active`), `bulle` (une bulle `actif`). Une progression, jamais un compteur.
 - **Le widget personnalisable** (`widget_personnalise`, Business et Entreprise) : hors offre, une apparence nouvelle
   (couleur, position, libellé, avatar) est refusée en 402, une valeur standard ou déjà enregistrée passe sans rien changer
   (`src/widgets/gestion.ts`), et le script public sert l'apparence standard (`APPARENCE_STANDARD`,

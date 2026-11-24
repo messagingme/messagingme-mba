@@ -34,6 +34,7 @@ const SQL_TOUS_RAYONS: Record<string, string> = {
   'src/agent/requetes.pg.ts': 'les scénarios qui UTILISENT une requête : tout usage bloque sa suppression',
   'src/rcs/media-store.pg.ts': 'les scénarios qui UTILISENT un média : tout usage bloque sa suppression',
   'src/dossiers/store.pg.ts': 'le rangement des scénarios en dossiers, par identifiant, tous rayons',
+  'src/demarrage/store.pg.ts': 'la checklist « Bien démarrer » : un scénario publié de n’importe quel rayon (Shopify, HubSpot) coche l’étape',
 };
 
 /** Les lectures par identifiant qui voient tous les rayons, et pourquoi (fichier → raison). */

@@ -64,6 +64,7 @@ import { registerWorkflowReports } from './http/workflow-reports';
 import type { WorkflowReportsRouteDeps } from './http/workflow-reports';
 import { registerAccount } from './http/account';
 import { registerMe } from './http/me';
+import { registerDemarrage, type DemarrageRouteDeps } from './http/demarrage';
 import { registerEspaces } from './http/espaces';
 import { registerOps } from './http/ops';
 import { registerOpsCreditWhatsapp } from './http/ops-credit-whatsapp';
@@ -394,6 +395,8 @@ export interface ServerDeps {
   account?: AccountRouteDeps;
   /** Profil de l'utilisateur courant (Accueil : « Bonjour {prénom} »), tout compte authentifié. */
   me?: MeRouteDeps;
+  /** La progression « Bien démarrer » de la console (plan 2026-11-24-guide-demarrage), réservée aux admins. */
+  demarrage?: DemarrageRouteDeps;
   /**
    * Surface d'exploitation cross-tenant `/ops`, protégée par la session d'exploitation nominative
    * (`makeRequireOps`), jamais par une session d'espace. Son autorité (secret, second facteur, `opsEmails`) est
@@ -1029,6 +1032,8 @@ export function modulesDeRoutes(
      */
     // La langue et les abonnements d'e-mails de la personne connectée (lot 7), pour « Mon compte ».
     entree('emailsMoi', 'tenant', deps.emailsMoi, (app, d, g) => registerEmailsMoi(app, d, g.auth)),
+    // La checklist « Bien démarrer » (plan 2026-11-24-guide-demarrage) : cinq oui/non, admin comme l'Accueil.
+    entree('demarrage', 'tenant', deps.demarrage, (app, d, g) => registerDemarrage(app, d, g.admin)),
     entree('me', 'tenant', deps.me, (app, d, g) => {
       registerMe(app, d, g.auth);
       if (deps.auth) registerEspaces(app, deps.auth, g.auth);
