@@ -12,8 +12,10 @@ import { journaliser } from '../lib/journal';
 import type { LigneDeLaListe } from '../mba/liste';
 import type { CleFicheFixe } from './champs-fiche';
 import { clauseFiltreFiche, estCleFiltrable, estOperateurFicheSeul } from './filtre-fiche';
-import { clauseSegment, type SuiviSegments } from './segments';
+import { clauseSegment, collectionsDesFiltres, type SuiviSegments } from './segments';
 import { estCleSegment, type ProduitVuVue } from '../../web/lib/partage/segments';
+import { FiltreContactInvalide } from './contact-filters';
+import { refusDesCollections } from '../shopify/collections.pg';
 import { COLONNES_ANALYSE_FICHE, analyseDeLaLigne, type AnalyseDeFiche, type LigneAnalyseFiche } from '../analysis/fiche';
 import { LimiteOffreError } from '../offres/refus';
 import { DROITS, contactsToutesOrigines, estOffre, type LimiteContacts } from '../offres/offres';
@@ -1542,12 +1544,34 @@ export class PgContactStore implements ContactStore {
   }
 
   /**
+   * 🔴 LE SEUL PASSAGE DES LECTURES PAR FILTRES VERS `buildContactWhere` (et `selecteurDeMasse` vers `buildBulkSelector`) :
+   * le critère « a acheté dans la collection » (segments Shopify enrichis, lot 6a) y est REFUSÉ, jamais « personne »,
+   * quand aucune lecture des collections n'a abouti pour l'espace ou qu'une collection demandée n'est pas connue
+   * (`refusDesCollections`). Le refus est un `FiltreContactInvalide` : 400 aux routes, refus de l'outil au MCP. Sans ce
+   * critère, rien n'est lu. `tests/collections-refus.test.ts` exige qu'aucune lecture de ce magasin ne l'esquive.
+   */
+  private async ouFiltres(tenantId: string, filters: ContactFilters): Promise<{ where: string; params: unknown[] }> {
+    await this.exigerCollectionsConnues(tenantId, filters);
+    return buildContactWhere(tenantId, filters);
+  }
+
+  private async selecteurDeMasse(tenantId: string, target: BulkTarget): Promise<{ where: string; params: unknown[] }> {
+    if ('filters' in target) await this.exigerCollectionsConnues(tenantId, target.filters);
+    return buildBulkSelector(tenantId, target);
+  }
+
+  private async exigerCollectionsConnues(tenantId: string, filters: ContactFilters): Promise<void> {
+    const refus = await refusDesCollections(this.pool, tenantId, collectionsDesFiltres(filters.fieldFilters));
+    if (refus !== null) throw new FiltreContactInvalide(refus);
+  }
+
+  /**
    * Requête filtrée et paginée (« Liste de contacts » de campagne, mini-CRM), scopée tenant, `deleted_at is null`
    * toujours posé.
    */
   async query(tenantId: string, filters: ContactFilters, limit = 100, offset = 0): Promise<ContactRow[]> {
     const capped = Math.min(Math.max(limit, 1), 500);
-    const { where, params } = buildContactWhere(tenantId, filters);
+    const { where, params } = await this.ouFiltres(tenantId, filters);
     const limitRef = `$${params.length + 1}`;
     const offsetRef = `$${params.length + 2}`;
     const res = await this.pool.query<{
@@ -1589,7 +1613,7 @@ export class PgContactStore implements ContactStore {
 
   /** Nombre de contacts correspondant aux filtres (« N contacts » avant de fixer le débit). */
   async count(tenantId: string, filters: ContactFilters): Promise<number> {
-    const { where, params } = buildContactWhere(tenantId, filters);
+    const { where, params } = await this.ouFiltres(tenantId, filters);
     const res = await this.pool.query<{ n: string }>(`select count(*)::text as n from contacts where ${where}`, params);
     return Number(res.rows[0]?.n ?? 0);
   }
@@ -1602,14 +1626,29 @@ export class PgContactStore implements ContactStore {
     );
     const b = res.rows[0];
     if (!b) return { boutique: null };
-    const rattrapage = await this.dernierRattrapage(tenantId, b.commandes_depuis);
+    const [rattrapage, collectionsLuesLe] = await Promise.all([this.dernierRattrapage(tenantId, b.commandes_depuis), this.collectionsLuesLe(tenantId)]);
     // `coupee_le` ne vaut que pour une boutique coupée : un rebranchement la remet à nul, mais rien ne coûte de le redire.
     return {
       boutique: {
         devise: b.devise, commandesDepuis: b.commandes_depuis, coupeeLe: b.etat === 'coupee' ? b.coupee_le : null,
         ...(rattrapage ? { rattrapage } : {}),
+        ...(collectionsLuesLe ? { collectionsLuesLe } : {}),
       },
     };
+  }
+
+  /**
+   * La dernière lecture ABOUTIE des collections des produits achetés (segments Shopify enrichis, lot 6a, migration 0314).
+   * AU MIEUX, comme le rattrapage : une lecture en panne la tait, elle ne fait jamais échouer le suivi.
+   */
+  private async collectionsLuesLe(tenantId: string): Promise<Date | null> {
+    try {
+      const res = await this.pool.query<{ lue_le: Date | null }>(`select lue_le from shopify_collections_lecture where tenant_id = $1`, [tenantId]);
+      return res.rows[0]?.lue_le ?? null;
+    } catch (err) {
+      journaliser('warn', 'suivi_collections_illisible', { tenantId, erreur: messageDe(err) });
+      return null;
+    }
   }
 
   /**
@@ -1660,7 +1699,7 @@ export class PgContactStore implements ContactStore {
   /** Ids des contacts correspondant aux filtres (source « Liste de contacts » d'une campagne), scopé tenant,
    *  avec un plafond dur. */
   async idsForFilters(tenantId: string, filters: ContactFilters, cap = 100_000): Promise<string[]> {
-    const { where, params } = buildContactWhere(tenantId, filters);
+    const { where, params } = await this.ouFiltres(tenantId, filters);
     const capRef = `$${params.length + 1}`;
     const res = await this.pool.query<{ id: string }>(
       `select id from contacts where ${where} order by created_at desc limit ${capRef}`,
@@ -1689,7 +1728,7 @@ export class PgContactStore implements ContactStore {
     const optIn = edits.setOptIn === 'opted_in' || edits.setOptIn === 'opted_out' ? edits.setOptIn : undefined;
     if (addTags.length === 0 && removeTags.length === 0 && !hasSet && optIn === undefined) return { affected: 0, stopsGardes: 0 };
 
-    const sel = buildBulkSelector(tenantId, target);
+    const sel = await this.selecteurDeMasse(tenantId, target);
     const params = [...sel.params];
     const add = (v: unknown): `$${number}` => { params.push(v); return `$${params.length}`; };
     const sets: string[] = [];
@@ -1748,7 +1787,7 @@ export class PgContactStore implements ContactStore {
      * Les exclusions sont dans le `WHERE`, donc avant le `LIMIT` : retirées en mémoire après la troncature, elles
      * feraient sous-envoyer une campagne en silence (les éligibles au-delà de la fenêtre jamais atteints).
      */
-    const sel = buildBulkSelector(tenantId, target);
+    const sel = await this.selecteurDeMasse(tenantId, target);
     /**
      * Pas de borne haute sur une limite demandée : le plafond de campagne se relève en configuration, et un
      * `Math.min` écraserait en silence une limite plus grande (sous-envoi que l'écran ne montrerait pas). Les
@@ -1773,7 +1812,7 @@ export class PgContactStore implements ContactStore {
    * fiches importées ensemble peuvent partager leur `created_at`.
    */
   async selectionAEffacer(tenantId: string, target: BulkTarget, limite: number): Promise<FicheASupprimer[]> {
-    const sel = buildBulkSelector(tenantId, target);
+    const sel = await this.selecteurDeMasse(tenantId, target);
     const plafond = `$${sel.params.length + 1}`;
     const res = await this.pool.query<{ id: string; profile_name: string | null; phone_e164: string | null; bsuid: string | null; created_at: Date }>(
       `select id, profile_name, phone_e164, bsuid, created_at from contacts where ${sel.where} order by created_at asc, id asc limit ${plafond}`,

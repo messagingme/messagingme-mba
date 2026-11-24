@@ -1,6 +1,7 @@
 import { request } from './http';
 import {
-  BORNES_SEGMENTS, type BoutonsSansCommandeVue, type PlageSurJours, type ProduitVuVue, type SuiviSegmentsVue,
+  BORNES_SEGMENTS, type BoutonsSansCommandeVue, type CollectionLueVue, type CollectionsLuesVue, type LectureCollectionsVue,
+  type PlageSurJours, type ProduitVuVue, type SuiviSegmentsVue,
 } from './partage/segments';
 
 /**
@@ -12,9 +13,12 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   if (typeof o.activiteCompleteDepuis !== 'string') return null;
-  // Les critères produit (lot 3) : seulement si l'API le dit, en toutes lettres.
-  const produits = o.produits === true ? { produits: true } : {};
-  if (o.boutique === null) return { boutique: null, activiteCompleteDepuis: o.activiteCompleteDepuis, ...produits };
+  // Les critères produit (lot 3) et de collection (lot 6a) : seulement si l'API le dit, en toutes lettres.
+  const annonces = {
+    ...(o.produits === true ? { produits: true } : {}),
+    ...(o.collections === true ? { collections: true } : {}),
+  };
+  if (o.boutique === null) return { boutique: null, activiteCompleteDepuis: o.activiteCompleteDepuis, ...annonces };
   const b = o.boutique as Record<string, unknown> | undefined;
   if (!b || typeof b !== 'object' || typeof b.commandesDepuis !== 'string') return null;
   const boutons = boutonsDe(o.boutons);
@@ -26,7 +30,7 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
       ...(typeof b.rattrapeesDepuis === 'string' ? { rattrapeesDepuis: b.rattrapeesDepuis } : {}),
     },
     activiteCompleteDepuis: o.activiteCompleteDepuis,
-    ...produits,
+    ...annonces,
     ...(boutons ? { boutons } : {}),
   };
 }
@@ -65,6 +69,45 @@ export async function chercherProduitsVus(tenantId: string, recherche: string): 
   try {
     const q = recherche.trim() === '' ? '' : `?q=${encodeURIComponent(recherche.trim().slice(0, 80))}`;
     return produitsVusDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/produits${q}`));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Les collections lues et l'état de leur lecture (lot 6a), lus défensivement : une collection qui ne se lit pas est
+ * écartée seule ; un état illisible rend `null` (la route ne répond pas comme elle le doit : rien n'est proposé).
+ */
+export function collectionsLuesDe(v: unknown): CollectionsLuesVue | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  if (!Array.isArray(o.collections) || !o.lecture || typeof o.lecture !== 'object') return null;
+  const l = o.lecture as Record<string, unknown>;
+  const codes: ReadonlyArray<string> = ['sans_droit', 'refusee', 'erreur'];
+  const refus = l.refus && typeof l.refus === 'object' ? l.refus as Record<string, unknown> : null;
+  const lecture: LectureCollectionsVue = {
+    lueLe: typeof l.lueLe === 'string' ? l.lueLe : null,
+    enCours: l.enCours === true,
+    refus: refus && typeof refus.code === 'string' && codes.includes(refus.code) && typeof refus.message === 'string'
+      ? { code: refus.code as 'sans_droit' | 'refusee' | 'erreur', message: refus.message }
+      : null,
+    incompletes: l.incompletes === true,
+  };
+  const collections = o.collections.flatMap((c): CollectionLueVue[] => {
+    if (!c || typeof c !== 'object') return [];
+    const x = c as Record<string, unknown>;
+    if (typeof x.collectionId !== 'string' || x.collectionId === '') return [];
+    const produits = typeof x.produits === 'number' && Number.isInteger(x.produits) && x.produits >= 0 ? x.produits : 0;
+    return [{ collectionId: x.collectionId, titre: typeof x.titre === 'string' && x.titre !== '' ? x.titre : null, produits }];
+  });
+  return { collections, lecture };
+}
+
+/** Cherche parmi les collections lues ; `null` si la route ne répond pas. La lecture demande aussi une relecture si besoin. */
+export async function chercherCollections(tenantId: string, recherche: string): Promise<CollectionsLuesVue | null> {
+  try {
+    const q = recherche.trim() === '' ? '' : `?q=${encodeURIComponent(recherche.trim().slice(0, 80))}`;
+    return collectionsLuesDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/collections${q}`));
   } catch {
     return null;
   }

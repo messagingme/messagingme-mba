@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 311fea
+traduit_de: 709304
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -25,7 +25,8 @@ in one click. Allow five minutes.
 
 Untick “Embed app in Shopify admin”, leave the rest as it is, then Create app and Release. Then install it on your
 store: the message “This app hasn’t been reviewed” is expected, it is your own app. Finally, open the app in Apps:
-its Client ID and its Client secret are in the Credentials box, on the right.
+its Client ID and its Client secret are in the Credentials box, on the right. If Shopify refuses the release because of
+the read_all_orders scope, remove it from the list and release again: only reading orders older than 60 days will need it.
 
 **3. Connect the store.** Back in the card, paste the store's internal name (the one ending in .myshopify.com, not your
 website's public address: the “?” bubble says where to read it), the Client ID and the Client secret, tick the
@@ -154,6 +155,11 @@ And products: those who bought a product (or a single variant, by its SKU), thos
 with a bought product, never alone), and restock, the last purchase of a product so many days ago. You pick them among
 the products already ordered in your store; gift cards cannot be targeted.
 
+And collections: those who bought at least one product of each of the chosen collections. They are read from Shopify on
+your products already ordered, when you open the section, which says “reading” while they are read. A collection counts
+as it is in your store at that reading, whose date the section gives, not as it was on the day of the order: a product
+taken out of a collection no longer counts in it.
+
 And two ready-made buttons, with no setting: “Wrote without ordering” (at least one message still known) and “Clicked
 without ordering” (at least one tracked link click), for contacts with no order recorded. One click sets the button, a
 second removes it; the number on each button says how many contacts it finds, and a button that finds nobody is not
@@ -167,9 +173,10 @@ Each order joins the record of its phone, with its amount and products; an order
 kept. No record is created, no message goes out, and the revenue brought in by WhatsApp does not change. Allow a few
 minutes for most stores, over an hour for the largest.
 
-**Good to know.** The catch-up needs the read_products scope on your Shopify app. An app created before November 24,
-2026 does not have it: add it to its scopes on the Shopify developer dashboard, release its new version, then install
-it again on your store to accept it. As long as it is missing, the preview says so and nothing is read.
+**Good to know.** The catch-up and the collections need the read_products scope on your Shopify app. An app created
+before November 24, 2026 does not have it: add it to its scopes on the Shopify developer dashboard, release its new
+version, then install it again on your store to accept it. As long as it is missing, the preview and the section say
+so, and nothing is read.
 
 **Good to know.** Orders count from the moment the store was connected; a catch-up adds those of the 60 days before
 it, as Shopify lets no one read further back. Without a catch-up, right after connecting, “at least 2 orders”

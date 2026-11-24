@@ -39,6 +39,7 @@ import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes
 import type { DepsScenariosApi } from '../src/workflow/scenarios-api';
 import { depsScenarios } from './aide/scenarios-api';
 import type { DepsReprise } from '../src/shopify/reprise';
+import type { DepsCollections } from '../src/shopify/collections';
 
 /**
  * LES DÉPENDANCES DE ROUTES DEVENUES REQUISES, EN VALEURS INERTES NOMMÉES (lot 3 de l'audit ponytail, 2026-09-26).
@@ -1003,6 +1004,32 @@ export const repriseInerte: DepsReprise = {
   enfiler: neDevraitPasEtreAppelee('shopify.reprise.enfiler'),
 };
 
+/**
+ * La lecture des collections (segments Shopify enrichis, lot 6a) : aucune boutique, aucune collection, aucune lecture ; rien
+ * ne s'enfile ni ne s'écrit.
+ */
+export const collectionsInertes: DepsCollections = {
+  magasin: {
+    synchroniser: neDevraitPasEtreAppelee('shopify.collections.synchroniser'),
+    reserver: neDevraitPasEtreAppelee('shopify.collections.reserver'),
+    liberer: neDevraitPasEtreAppelee('shopify.collections.liberer'),
+    ecrire: neDevraitPasEtreAppelee('shopify.collections.ecrire'),
+    resteALire: async () => false,
+    aLire: async () => false,
+    demander: neDevraitPasEtreAppelee('shopify.collections.demander'),
+    annulerDemande: neDevraitPasEtreAppelee('shopify.collections.annulerDemande'),
+    noterIssue: neDevraitPasEtreAppelee('shopify.collections.noterIssue'),
+    etat: async () => null,
+    collections: async () => [],
+  },
+  boutique: async () => null,
+  etatBoutique: async () => null,
+  jeton: neDevraitPasEtreAppelee('shopify.collections.jeton'),
+  droits: neDevraitPasEtreAppelee('shopify.collections.droits'),
+  lireLot: neDevraitPasEtreAppelee('shopify.collections.lireLot'),
+  enfiler: neDevraitPasEtreAppelee('shopify.collections.enfiler'),
+};
+
 /** Le connecteur Shopify (2026-10-21) : aucune boutique, et rien ne s'écrit. */
 export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
   shopify: {
@@ -1046,6 +1073,7 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
       filiere: async () => null,
     },
     reprise: repriseInerte,
+    collections: collectionsInertes,
   },
 };
 

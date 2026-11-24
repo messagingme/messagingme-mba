@@ -27,6 +27,8 @@ import type { TemplateSummary } from '../src/meta/templates';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { modeleMeta, monterLignes } from './shopify-lignes-faux';
 import { monterReprise } from './reprise-faux';
+import { MIDI_COLLECTIONS, T_COLLECTIONS, monterCollections } from './collections-faux';
+import { traiterCollections } from '../src/shopify/collections';
 
 const DOMAINE = 'b.myshopify.com';
 
@@ -95,6 +97,8 @@ function monter(o: {
     lignes: lignes.deps,
     // Le rattrapage des commandes (lot 5) : éprouvé par `tests/shopify-reprise.test.ts`, une boutique sans commande ici.
     reprise: monterReprise().deps,
+    // Les collections (lot 6a) : éprouvées par `tests/shopify-collections.test.ts` ; une lecture fausse, vide, ici.
+    collections: monterCollections().deps,
   };
   return { deps, journal, lignes };
 }
@@ -392,6 +396,31 @@ describe('l’état et la coupure', () => {
     expect(lus).toEqual([[T, undefined, 20]]);
     const enPanne = { ...mcpDe(deps), contacts: { produitsVus: async () => { throw new Error('relation "shopify_commande_lignes" does not exist'); } } } as unknown as DepsMcp;
     expect(await outil.executer(enPanne, T, {}, PERSONNE)).toMatchObject({ store: 'b.myshopify.com', products_seen: [] });
+  });
+
+  it('🔴 get_shopify_state rend les collections lues et l’état de leur lecture (lot 6a), qu’il enfile au besoin ; une panne rend null', async () => {
+    const outil = OUTILS.find((x) => x.nom === 'get_shopify_state')!;
+    const c = monterCollections({ lignes: ['8801'], catalogue: { 8801: { titre: 'Sérum', collections: [{ id: '4401', titre: 'Été' }] } } });
+    const { deps } = monter();
+    const avec = { ...mcpDe({ ...deps, collections: c.deps }), contacts: { produitsVus: async () => [] } } as unknown as DepsMcp;
+    // Un produit commandé jamais lu : la lecture part, l'outil le dit.
+    expect(await outil.executer(avec, T, {}, PERSONNE)).toMatchObject({
+      collections: { read_at: null, reading: true, refused: null, incomplete: false, list: [] },
+    });
+    expect(c.trace.jobs).toHaveLength(1);
+    await traiterCollections(c.deps, { tenantId: T_COLLECTIONS });
+    expect(await outil.executer(avec, T, {}, PERSONNE)).toMatchObject({
+      collections: { read_at: new Date(MIDI_COLLECTIONS).toISOString(), reading: false, list: [{ collection_id: '4401', title: 'Été', products_seen: 1 }] },
+    });
+    const sansDroit = monterCollections({ lignes: ['8801'], droits: ['read_orders'] });
+    const refus = { ...mcpDe({ ...deps, collections: sansDroit.deps }), contacts: { produitsVus: async () => [] } } as unknown as DepsMcp;
+    await outil.executer(refus, T, {}, PERSONNE);
+    await traiterCollections(sansDroit.deps, { tenantId: T_COLLECTIONS });
+    expect(await outil.executer(refus, T, {}, PERSONNE)).toMatchObject({ collections: { refused: { reason: 'sans_droit', message: expect.stringContaining('read_products') } } });
+    const panne = monterCollections();
+    panne.deps.magasin.etat = async () => { throw new Error('relation "shopify_collections_lecture" does not exist'); };
+    const enPanne = { ...mcpDe({ ...deps, collections: panne.deps }), contacts: { produitsVus: async () => [] } } as unknown as DepsMcp;
+    expect(await outil.executer(enPanne, T, {}, PERSONNE)).toMatchObject({ store: 'b.myshopify.com', collections: null });
   });
 
   it('couper est idempotent et rend la page d’où désinstaller l’app', async () => {

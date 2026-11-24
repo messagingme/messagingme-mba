@@ -335,6 +335,7 @@ describe('inventaire : chaque appel vers une URL client passe par le fetch véri
     ['src/shopify/connexion.ts', 'la vérification d’une boutique Shopify (domaine donné par le marchand)', true],
     ['src/shopify/clients.ts', 'la lecture des clients d’une boutique Shopify (import, lot 3)', true],
     ['src/shopify/commandes-lues.ts', 'la lecture des commandes d’une boutique Shopify (rattrapage, segments Shopify, lot 5)', true],
+    ['src/shopify/collections-lues.ts', 'la lecture des collections des produits d’une boutique Shopify (segments Shopify, lot 6a)', true],
     ['src/shopify/abonnements.ts', 'l’abonnement des webhooks d’une boutique branchée par la console (2026-10-22)', true],
   ] as const;
 

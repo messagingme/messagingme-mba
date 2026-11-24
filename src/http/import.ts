@@ -19,6 +19,7 @@ import { messageDe } from '../lib/erreur';
 import { nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite } from '../offres/refus';
+import { lireCollections, type DepsCollections } from '../shopify/collections';
 
 /** Ce que les routes de liste lisent du dépôt des contacts, en plus de ce que l'import y écrit. */
 export interface ContactsListeDep extends ContactStore {
@@ -37,6 +38,11 @@ export interface ContactsListeDep extends ContactStore {
 
 export interface ImportRouteDeps extends ImportDeps {
   contacts: ContactsListeDep;
+  /**
+   * Les collections lues des produits achetés et l'état de leur lecture (segments Shopify enrichis, lot 6a), pour le
+   * volet Shopify : la liste enfile la lecture quand un produit l'attend (`lireCollections`).
+   */
+  collections: Pick<DepsCollections, 'magasin' | 'etatBoutique' | 'enfiler' | 'maintenant'>;
   /**
    * Journal d'audit (les fixtures qui ne l'observent pas passent `journalMuet`). Un import fait entrer des personnes
    * par milliers : sans trace, personne ne peut dire d'où vient un contact ni qui l'a chargé.
@@ -162,6 +168,8 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
       activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
       // Les critères produit (lot 3) : la console ne les propose qu'à une API qui le dit ici.
       produits: true,
+      // Le critère de collection et la liste des collections lues (lot 6a) : de même.
+      collections: true,
       ...(boutons ? { boutons } : {}),
     };
     return reply.code(200).send(vue);
@@ -177,6 +185,18 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
     const recherche = typeof q === 'string' ? q.slice(0, 80) : undefined;
     const produits = await deps.contacts.produitsVus(espaceVerifie(req), recherche, 20);
     return reply.code(200).send({ produits });
+  });
+
+  /**
+   * Les collections lues des produits achetés (segments Shopify enrichis, lot 6a), pour le critère « a acheté dans la
+   * collection » : 50 au plus, celles qui portent le plus de produits commandés d'abord, avec l'état de la lecture (lue le,
+   * en cours, refusée). 🔴 Une lecture LÉGÈRE qui ENFILE : un produit acheté jamais lu, ou lu il y a plus de 24 h, demande
+   * une lecture des collections de la boutique branchée. `q` cherche dans le titre (80 caractères au plus, au-delà coupé).
+   */
+  app.get('/tenants/:tenantId/contacts/segments/collections', opts, async (req, reply) => {
+    const q = (req.query as Record<string, unknown>).q;
+    const recherche = typeof q === 'string' ? q.slice(0, 80) : undefined;
+    return reply.code(200).send(await lireCollections(deps.collections, espaceVerifie(req), recherche));
   });
 
   // Compteur seul (rapide) : « N contacts correspondent » avant de fixer le débit / lancer.

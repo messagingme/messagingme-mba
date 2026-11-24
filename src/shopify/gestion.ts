@@ -19,6 +19,7 @@ import {
 } from './lignes-gestion';
 import { prefixeShopify } from './lignes';
 import type { DepsReprise } from './reprise';
+import type { DepsCollections } from './collections';
 import type { ChiffreVentes, Montant } from './chiffre';
 import { addDays, todayParis, type DateRange } from '../stats/range';
 
@@ -54,6 +55,11 @@ export interface DepsGestionShopify {
   lignes: DepsLignesShopify;
   /** Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5) : `cablerReprise`, `./reprise.ts`. */
   reprise: DepsReprise;
+  /**
+   * La lecture des collections des produits achetés (segments Shopify enrichis, lot 6a) : `cablerCollections`,
+   * `./collections.ts`. `get_shopify_state` et le volet Shopify des filtres la lisent et l'enfilent.
+   */
+  collections: DepsCollections;
 }
 
 // Le refus d'un message Shopify sur un numéro relié par QR code vit avec l'interrupteur des lignes, qui l'emploie aussi.

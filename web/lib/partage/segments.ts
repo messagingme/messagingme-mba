@@ -23,6 +23,11 @@ export const CLES_SEGMENT = {
   pasAchete: 'segment_pas_achete',
   reassort: 'segment_reassort',
   /**
+   * Segments Shopify enrichis, lot 6a : « a acheté dans la collection », au moins un produit de CHACUNE des collections,
+   * telles qu'elles sont dans la boutique à la dernière lecture.
+   */
+  collection: 'segment_collection',
+  /**
    * Segments Shopify enrichis, lot 4 : les deux boutons prêts, valeur `true` et rien d'autre. Un message reçu (ou un
    * clic attribué) connu, et aucune commande enregistrée pour la fiche dans l'espace.
    */
@@ -42,7 +47,7 @@ export function estCleSegment(cle: unknown): cle is CleSegment {
 /** Les critères qui lisent les commandes Shopify : sans boutique, l'outil MCP les refuse et la console ne les montre pas. */
 export const CLES_COMMANDES: readonly CleSegment[] = [
   CLES_SEGMENT.commandes, CLES_SEGMENT.depense, CLES_SEGMENT.derniereCommande,
-  CLES_SEGMENT.achete, CLES_SEGMENT.pasAchete, CLES_SEGMENT.reassort,
+  CLES_SEGMENT.achete, CLES_SEGMENT.pasAchete, CLES_SEGMENT.reassort, CLES_SEGMENT.collection,
   CLES_SEGMENT.ecritSansCommande, CLES_SEGMENT.clicSansCommande,
 ];
 export const CLES_ACTIVITE: readonly CleSegment[] = [CLES_SEGMENT.actif, CLES_SEGMENT.inactif];
@@ -62,9 +67,19 @@ export interface AchatsVises { produits: ProduitVise[]; jours?: number }
 /** Le réassort : le dernier achat de CE produit, il y a au moins `min` et au plus `max` jours ; exige un achat connu. */
 export type Reassort = ProduitVise & Plage;
 
+/**
+ * « A acheté dans ces collections » (lot 6a) : au moins un produit de CHACUNE, sur les `jours` derniers jours ou depuis le
+ * début du suivi, les collections telles qu'elles sont dans la boutique à la dernière lecture ; cartes cadeaux exclues.
+ * Les identifiants sont ceux de Shopify, en chiffres (`legacyResourceId`).
+ */
+export interface CollectionsVisees { collections: string[]; jours?: number }
+
+/** L'identifiant Shopify d'une collection, en chiffres : la règle de la validation et du schéma de l'outil MCP. */
+export const MOTIF_ID_COLLECTION = '^\\d{1,19}$';
+
 /** Bornes d'une donnée cliente, refusées au-delà (jamais tronquées : un critère tronqué vise une autre population). */
 export const BORNES_SEGMENTS = {
-  joursMax: 3650, commandesMax: 1000, depenseMax: 10_000_000, paysMax: 20, produitsMax: 20, skuMax: 255,
+  joursMax: 3650, commandesMax: 1000, depenseMax: 10_000_000, paysMax: 20, produitsMax: 20, skuMax: 255, collectionsMax: 20,
 } as const;
 
 /** Ce que l'API sait cibler pour un espace (`GET /tenants/:id/contacts/segments`). */
@@ -81,6 +96,11 @@ export interface SuiviSegmentsVue {
    * produit, qu'une telle API chercherait dans les champs perso, où il n'est jamais (personne ne serait trouvé).
    */
   produits?: boolean;
+  /**
+   * L'API sait cibler par collection (lot 6a) et lister les collections lues (`GET .../contacts/segments/collections`).
+   * 🔴 Absent d'une API plus ancienne : la console ne propose alors aucun critère de collection.
+   */
+  collections?: boolean;
   /**
    * Le compte de chaque bouton prêt (lot 4), le bouton SEUL, jamais croisé avec les autres filtres (décision de Julien du
    * 2026-11-23). Présent seulement avec une boutique et quand les deux comptes ont pu se lire : absent, la console ne
@@ -103,6 +123,30 @@ export interface ProduitVuVue {
   commandes: number;
 }
 
+/** Une collection lue (lot 6a), pour choisir un critère (`GET .../contacts/segments/collections`). */
+export interface CollectionLueVue {
+  collectionId: string;
+  /** Nul quand Shopify n'en a pas rendu : l'écran dit alors son identifiant. */
+  titre: string | null;
+  /** Les produits déjà commandés dans l'espace qu'elle porte, à la dernière lecture. */
+  produits: number;
+}
+
+/** L'état de la lecture des collections d'un espace (lot 6a). */
+export interface LectureCollectionsVue {
+  /** La dernière lecture aboutie ; nulle : aucune, et le critère de collection est refusé. */
+  lueLe: string | null;
+  /** Une lecture est demandée et n'a pas encore rendu son issue. */
+  enCours: boolean;
+  /** La dernière lecture refusée : le droit `read_products` manque (`sans_droit`), Shopify a refusé, ou une panne. */
+  refus: { code: 'sans_droit' | 'refusee' | 'erreur'; message: string } | null;
+  /** Un produit lu porte plus de 50 collections : la liste n'est pas exhaustive. */
+  incompletes: boolean;
+}
+
+/** Ce que rend `GET .../contacts/segments/collections` : les collections lues (50 au plus) et l'état de la lecture. */
+export interface CollectionsLuesVue { collections: CollectionLueVue[]; lecture: LectureCollectionsVue }
+
 /** Une plage posée : au moins une borne. */
 export function plagePosee(p: Plage | undefined): boolean {
   return p !== undefined && (p.min !== undefined || p.max !== undefined);
@@ -112,7 +156,7 @@ export function plagePosee(p: Plage | undefined): boolean {
  * Un critère de segment dans la forme du fil : sa valeur en JSON (une plage, des jours, des pays, des produits, ou `true`
  * pour un bouton prêt).
  */
-export function filtreSegment(cle: CleSegment, valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | true): ContactFieldFilter {
+export function filtreSegment(cle: CleSegment, valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | true): ContactFieldFilter {
   return { key: cle, op: OP_SEGMENT, value: JSON.stringify(valeur) };
 }
 

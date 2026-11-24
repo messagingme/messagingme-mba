@@ -5,7 +5,7 @@ import { CHAMPS_CIBLE_FILTRES, CHAMPS_CIBLE_IDENTIFIANTS, lireCibleMcp } from '.
 import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
 import type { AnalyseEtResume, ContactFilters } from '../crm/contact-store.pg';
 import { ACTIVITE_COMPLETE_DEPUIS, paysDuNumero } from '../crm/segments';
-import { CLES_ACTIVITE, CLES_COMMANDES, OP_SEGMENT } from '../../web/lib/partage/segments';
+import { CLES_ACTIVITE, CLES_COMMANDES, CLES_SEGMENT, OP_SEGMENT } from '../../web/lib/partage/segments';
 import { LONGUEUR_MAX_ETIQUETTE, nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { MAX_TAGS } from '../crm/contact-filters';
 import { estUuid } from '../http/scope';
@@ -169,8 +169,11 @@ async function suiviDeLaReponse(deps: DepsMcp, tenantId: string, f: ContactFilte
   const commandes = cles.some((k) => (CLES_COMMANDES as readonly string[]).includes(k));
   const activite = cles.some((k) => (CLES_ACTIVITE as readonly string[]).includes(k));
   const boutique = commandes ? (await deps.contacts.suiviSegments(tenantId)).boutique : null;
+  // La date de la lecture des collections (lot 6a) : « telles qu'elles sont dans la boutique à la dernière lecture ».
+  const collection = cles.includes(CLES_SEGMENT.collection);
   return {
     ...(boutique ? { orders_recorded_since: boutique.commandesDepuis.toISOString() } : {}),
+    ...(collection && boutique?.collectionsLuesLe ? { collections_read_at: boutique.collectionsLuesLe.toISOString() } : {}),
     ...(boutique?.rattrapage ? { orders_backfilled_since: boutique.rattrapage.depuis.toISOString(), orders_backfilled_at: boutique.rattrapage.le.toISOString() } : {}),
     ...(boutique?.coupeeLe ? { shop_cut_at: boutique.coupeeLe.toISOString() } : {}),
     ...(activite ? { activity_complete_since: ACTIVITE_COMPLETE_DEPUIS } : {}),
@@ -184,7 +187,8 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
     description:
       'Finds the contacts of a target, the way the console\'s contact list filters them: tags (all or any), marketing '
       + 'consent, Shopify orders (count, amount spent, days since the last one), Shopify products (bought, not bought, '
-      + 'days since the last purchase of one product), the one-click "wrote without ordering" and "clicked without '
+      + 'days since the last purchase of one product), Shopify collections (bought in each of them, as they are in the '
+      + 'store at the last reading, date given: collections_read_at), the one-click "wrote without ordering" and "clicked without '
       + 'ordering", activity (wrote or clicked a tracked link '
       + 'within N days, or not for N days), country by phone calling code, and on the Enterprise plan the fields of the '
       + 'latest conversation analysis (intent, sentiment, satisfaction, urgency, resolved...). Criteria combine: "customers '

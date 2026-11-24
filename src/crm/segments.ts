@@ -1,8 +1,10 @@
 import { getCountryCallingCode, isSupportedCountry, parsePhoneNumberFromString } from 'libphonenumber-js';
 import metadonnees from 'libphonenumber-js/min/metadata';
 import {
-  CLES_SEGMENT, plagePosee, type AchatsVises, type CleSegment, type Plage, type PlageSurJours, type ProduitVise, type Reassort,
+  CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, plagePosee, type AchatsVises, type CleSegment, type CollectionsVisees, type Plage, type PlageSurJours, type ProduitVise,
+  type Reassort,
 } from '../../web/lib/partage/segments';
+import type { ContactFieldFilter } from '../../web/lib/partage/contact-filters';
 
 /**
  * LES CRITÈRES DE SEGMENT EN SQL (spec docs/superpowers/specs/2026-10-31-segments-commandes-pays-activite-design.md) :
@@ -29,7 +31,14 @@ export const ACTIVITE_COMPLETE_DEPUIS = '2026-11-03';
  * relues le `le` pour les fiches qui existaient alors ; absent sans rattrapage, ou quand sa lecture a échoué.
  */
 export interface SuiviSegments {
-  boutique: { devise: string | null; commandesDepuis: Date; coupeeLe: Date | null; rattrapage?: { depuis: Date; le: Date } } | null;
+  boutique: {
+    devise: string | null; commandesDepuis: Date; coupeeLe: Date | null; rattrapage?: { depuis: Date; le: Date };
+    /**
+     * La dernière lecture ABOUTIE des collections des produits achetés (lot 6a, migration 0314) ; absente sans lecture
+     * aboutie (le critère de collection est alors refusé), ou quand sa lecture a échoué.
+     */
+    collectionsLuesLe?: Date;
+  } | null;
 }
 
 /** Un code pays connu (ISO alpha-2, capitales) : seul ce qui a un indicatif se cible. */
@@ -98,6 +107,17 @@ export function ligneVisee(p: ProduitVise, add: (v: unknown) => string): string 
     : `(l.sku = ${add(p.sku)} and l.sku is not null and not l.carte_cadeau)`;
 }
 
+/**
+ * Ce qu'une ligne doit porter pour être dans une collection (lot 6a) : un produit (hors carte cadeau, 🔴 le prédicat de
+ * l'index partiel `shopify_commande_lignes_produit` repris mot pour mot) que la dernière lecture a vu dans la collection.
+ * La sous-requête nomme l'espace et passe par l'index `(tenant_id, collection_id)` de la migration 0314. Exporté pour le
+ * test qui tient ce contrat.
+ */
+export function ligneDansLaCollection(collectionId: string, add: (v: unknown) => string): string {
+  return `(l.produit_id is not null and not l.carte_cadeau and l.produit_id in (select pc.produit_id from shopify_produit_collections pc `
+    + `where pc.tenant_id = $1 and pc.collection_id = ${add(collectionId)}))`;
+}
+
 /** Les fiches dont une commande porte une ligne qui répond à `lignes`, sur les `jours` derniers jours si posés. */
 function fichesAyantAchete(lignes: string, jours: number | undefined, add: (v: unknown) => string): string {
   const periode = jours !== undefined ? ` and o.payee_le >= ${ilYA(add(jours))}` : '';
@@ -116,6 +136,29 @@ function estProduitVise(p: unknown): p is ProduitVise {
   if (p === null || typeof p !== 'object') return false;
   const o = p as Record<string, unknown>;
   return typeof o.produit === 'string' || typeof o.sku === 'string';
+}
+
+/** Une valeur « a acheté dans la collection » déjà validée, ou `null` (qui vise PERSONNE). */
+function collectionsLues(v: unknown): CollectionsVisees | null {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return null;
+  const c = v as Partial<CollectionsVisees>;
+  const motif = new RegExp(MOTIF_ID_COLLECTION);
+  return Array.isArray(c.collections) && c.collections.length > 0 && c.collections.every((x) => typeof x === 'string' && motif.test(x))
+    ? c as CollectionsVisees : null;
+}
+
+/**
+ * Les collections que des filtres visent (lot 6a), dédupliquées : `PgContactStore` exige, avant toute lecture, qu'une
+ * lecture des collections ait abouti et que chacune soit connue. Une valeur illisible n'en vise aucune (elle vise
+ * personne, `clauseSegment`).
+ */
+export function collectionsDesFiltres(fieldFilters: readonly ContactFieldFilter[] | undefined): string[] {
+  const ids = (fieldFilters ?? []).filter((f) => f.key === CLES_SEGMENT.collection && f.op === OP_SEGMENT).flatMap((f) => {
+    let v: unknown;
+    try { v = JSON.parse(f.value) as unknown; } catch { return []; }
+    return collectionsLues(v)?.collections ?? [];
+  });
+  return [...new Set(ids)];
 }
 
 /** Les jours depuis la dernière commande : exige une commande connue. */
@@ -158,6 +201,15 @@ export function clauseSegment(cle: CleSegment, valeur: string, add: (v: unknown)
       // AUCUN des produits. `contact_id` n'est jamais nul dans `shopify_commandes` : le `not in` ne bute pas sur un nul.
       const a = achatsLus(v);
       return a ? `id not in (${fichesAyantAchete(`(${a.produits.map((p) => ligneVisee(p, add)).join(' or ')})`, a.jours, add)})` : 'false';
+    }
+    case CLES_SEGMENT.collection: {
+      // CHACUNE des collections : une sous-requête par collection, jointes par `and`. Qu'une lecture ait abouti et que
+      // chaque collection soit encore connue est exigé AVANT (`PgContactStore`, refus) : ici, une collection inconnue ne
+      // trouverait personne.
+      const c = collectionsLues(v);
+      return c
+        ? `(${c.collections.map((id) => `id in (${fichesAyantAchete(ligneDansLaCollection(id, add), c.jours, add)})`).join(' and ')})`
+        : 'false';
     }
     case CLES_SEGMENT.reassort: {
       // Le DERNIER achat de ce produit dans la plage : exige un achat connu (« il y a au moins 180 jours » ne retient pas

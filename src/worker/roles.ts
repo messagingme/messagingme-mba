@@ -74,6 +74,9 @@ export const FILES_PAR_ROLE: Record<NomDeFile, Appartenance> = {
   // Le rattrapage des commandes Shopify (segments Shopify, lot 5) : des passages de deux minutes qui appellent Shopify
   // page après page ; personne n'attend derrière, et un passage lent ne doit pas retarder un message entrant.
   'shopify-reprise': 'analyse',
+  // La lecture des collections des produits achetés (segments Shopify, lot 6a) : des lots de produits lus chez Shopify,
+  // personne n'attend derrière, et un lot lent ne doit pas retarder un message entrant.
+  'shopify-collections': 'analyse',
   'push-analysis': 'analyse',
   'hubspot-catchup': 'analyse',
 };

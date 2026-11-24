@@ -67,7 +67,10 @@ any Shopify review.
 4. Replace the content of its `shopify.app.toml` with the block below, keeping the client id that `app init` wrote.
    Its application URL is the page Shopify opens right after Install: it tells the user to come back here. Keep it in
    French for a French-speaking user, otherwise use https://app.messagingme.fr/en/shopify/installed/ instead.
-5. Publish: `npx @shopify/cli@latest app deploy --no-input --allow-updates`.
+5. Publish: `npx @shopify/cli@latest app deploy --no-input --allow-updates`. If Shopify refuses the version because of
+   read_all_orders (an app_access error on the scopes: the app sits in a partner organization, where Shopify must
+   approve that scope first), remove read_all_orders from the list and publish again. Only reading orders older than
+   60 days needs it; everything else works without it.
 
 ```toml
 client_id = "<kept from app init>"
@@ -76,7 +79,7 @@ application_url = "https://app.messagingme.fr/shopify/installe/"
 embedded = false
 
 [access_scopes]
-scopes = "read_customers,read_orders,read_checkouts,read_fulfillments,read_products"
+scopes = "read_customers,read_orders,read_checkouts,read_fulfillments,read_products,read_all_orders"
 
 [webhooks]
 api_version = "2026-10"
@@ -216,15 +219,20 @@ record counts toward the plan's contact limit, and managing that limit is the us
 
 ## Add a scope to an app already installed
 
-An app created before November 24, 2026 lacks read_products, which the catch-up of past orders needs (without it,
-Shopify does not give the product of an order line): `preview_shopify_order_history` refuses and says so. To add it:
+An app created before November 24, 2026 lacks read_products, which the catch-up of past orders and the collections of
+the segments need (without it, Shopify gives neither the product of an order line nor its collections):
+`preview_shopify_order_history` refuses and says so, and `get_shopify_state` gives `collections.refused` with the
+reason sans_droit. The list of the block above also asks for read_all_orders, which will open orders older than 60
+days. To add them:
 
 1. In the folder where the app was created (for example `messagingme-shopify`), set `scopes` in `shopify.app.toml` to
    the list of the block above. If that folder is gone, ask the user for the app's client ID (Shopify developer
    dashboard, the Messaging Me app, its settings), then run
    `npx @shopify/cli@latest app config link --client-id=<client id>` in a new folder: it writes the app's
    `shopify.app.toml` again, whose scopes you then set.
-2. Publish: `npx @shopify/cli@latest app deploy --no-input --allow-updates`.
+2. Publish: `npx @shopify/cli@latest app deploy --no-input --allow-updates`. If Shopify refuses the version because of
+   read_all_orders (an app_access error on the scopes, an app in a partner organization), remove read_all_orders
+   from the list and publish again: nothing else needs it today.
 3. Give the install link again (Install it and connect it, step 1): the user approves the new access there. Nothing
    else changes: the keys stay the same, there is no need to call `connect_shopify` again.
 
@@ -246,6 +254,16 @@ without a usable phone, is counted and never kept. It is open to every plan.
 3. `get_shopify_order_history` follows it: its status and its counts. `interrupted` means nothing moved for 15 minutes:
    starting it again closes it and reads the window again. Once it is `termine`, `find_contacts` says from which date
    the orders were caught up, with its orders criteria.
+
+## Target by collection
+
+`find_contacts` (and `tag_contacts`, `prepare_campaign`) can target the contacts who bought in Shopify collections:
+`collections` with the ids of `get_shopify_state` (`collections.list`), each one required. Collections are read from
+the store on the products already ordered, and they are as they are in the store at that reading (`collections.read_at`),
+not as they were on the day of the order: say so to the user. Calling `get_shopify_state` starts a reading when an
+ordered product was never read or was read over 24 hours ago (`collections.reading`: a few minutes). Until a reading has
+succeeded the criterion is refused; without read_products it never succeeds: add the scope first (Add a scope to an app
+already installed, above).
 
 ## What WhatsApp brought in
 

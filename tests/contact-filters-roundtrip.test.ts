@@ -287,3 +287,43 @@ describe('les boutons « sans commander » : true et rien d’autre', () => {
     expect(() => parGet([champ])).toThrow(FiltreContactInvalide);
   });
 });
+
+/**
+ * « A ACHETÉ DANS LA COLLECTION » (segments Shopify enrichis, lot 6a) : `{ collections, jours? }`, 1 à 20 identifiants
+ * Shopify en chiffres. Même règle que les autres critères : la forme canonique, ou le refus par les deux portes. Que la
+ * lecture ait abouti et que chaque collection soit connue se juge en base (`tests/collections-refus.test.ts`).
+ */
+describe('le critère de collection : forme canonique et refus', () => {
+  const S = CLES_SEGMENT;
+  const brut = (key: string, value: unknown) => ({ key, op: 'segment', value: JSON.stringify(value) });
+  const parGet = (champs: unknown[]): unknown => parseFilters({ fields: JSON.stringify(champs) });
+  const parCorps = (champs: unknown[]): unknown => parseBulkTarget({ filters: { fieldFilters: champs } });
+
+  it('survit au round-trip sous sa forme canonique, avec ou sans fenêtre', () => {
+    const tous: ContactFilters = { fieldFilters: [filtreSegment(S.collection, { collections: ['4401', '4402'], jours: 90 })] };
+    expect(roundTrip(tous)).toEqual(tous);
+    const sansJours: ContactFilters = { fieldFilters: [filtreSegment(S.collection, { collections: ['4401'] })] };
+    expect(roundTrip(sansJours)).toEqual(sansJours);
+  });
+
+  it('la valeur est ramenée à sa forme : identifiant numérique en texte, espaces retirés, doublons fusionnés', () => {
+    expect(parCorps([brut(S.collection, { collections: [4401, ' 4401 ', '4402'] })]))
+      .toEqual({ filters: { fieldFilters: [filtreSegment(S.collection, { collections: ['4401', '4402'] })] }, excludeIds: [] });
+  });
+
+  const malformes: Array<[string, unknown]> = [
+    ['aucune collection', brut(S.collection, { collections: [] })],
+    ['collections absentes', brut(S.collection, { jours: 30 })],
+    ['21 collections', brut(S.collection, { collections: Array.from({ length: 21 }, (_, i) => String(i + 1)) })],
+    ['un GID au lieu des chiffres', brut(S.collection, { collections: ['gid://shopify/Collection/1'] })],
+    ['un titre au lieu d’un identifiant', brut(S.collection, { collections: ['Été'] })],
+    ['plus de 19 chiffres', brut(S.collection, { collections: ['1'.repeat(20)] })],
+    ['clé inconnue', brut(S.collection, { collections: ['1'], depuis: 3 })],
+    ['jours à 0', brut(S.collection, { collections: ['1'], jours: 0 })],
+    ['une liste au lieu d’un objet', brut(S.collection, ['1'])],
+  ];
+  it.each(malformes)('🔴 refusé par les deux portes : %s', (_nom, champ) => {
+    expect(() => parCorps([champ])).toThrow(FiltreContactInvalide);
+    expect(() => parGet([champ])).toThrow(FiltreContactInvalide);
+  });
+});

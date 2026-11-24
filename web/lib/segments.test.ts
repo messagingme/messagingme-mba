@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lirePlageSaisie, produitsVusDe, saisieDePlage, suiviSegmentsDe } from './segments';
+import { collectionsLuesDe, lirePlageSaisie, produitsVusDe, saisieDePlage, suiviSegmentsDe } from './segments';
 
 /**
  * Les segments côté console (spec du 2026-10-31). 🔴 Deux gardes : une réponse illisible de la route rend `null` (le
@@ -62,6 +62,37 @@ describe('produitsVusDe', () => {
   it('🔴 une réponse illisible rend null (l’écran le dit), jamais « aucun produit »', () => {
     for (const v of [null, {}, { produits: 'x' }, []]) expect(produitsVusDe(v), JSON.stringify(v)).toBeNull();
     expect(produitsVusDe({ produits: [] })).toEqual([]);
+  });
+});
+
+/** Le critère de collection (lot 6a) : annoncé en toutes lettres, et la liste des collections lues lue défensivement. */
+describe('les collections lues (lot 6a)', () => {
+  it('🔴 le critère ne s’annonce que sur un `true` en toutes lettres', () => {
+    const base = { boutique: null, activiteCompleteDepuis: '2026-11-03' };
+    expect(suiviSegmentsDe({ ...base, collections: true })).toEqual({ ...base, collections: true });
+    for (const collections of [undefined, false, 'true', 1]) {
+      expect(suiviSegmentsDe({ ...base, collections }), String(collections)).toEqual(base);
+    }
+  });
+
+  it('lit les collections et l’état ; une collection sans identifiant s’écarte seule, un titre vide devient nul', () => {
+    expect(collectionsLuesDe({
+      collections: [
+        { collectionId: '4401', titre: 'Été', produits: 3 }, { collectionId: '4402', titre: '', produits: 'x' }, { titre: 'Sans id' }, 'x',
+      ],
+      lecture: { lueLe: '2026-11-24T08:00:00.000Z', enCours: false, refus: null, incompletes: true },
+    })).toEqual({
+      collections: [{ collectionId: '4401', titre: 'Été', produits: 3 }, { collectionId: '4402', titre: null, produits: 0 }],
+      lecture: { lueLe: '2026-11-24T08:00:00.000Z', enCours: false, refus: null, incompletes: true },
+    });
+  });
+
+  it('le refus se lit seulement sous une forme connue ; illisible, la réponse rend null (rien n’est proposé)', () => {
+    const lecture = (refus: unknown) => collectionsLuesDe({ collections: [], lecture: { lueLe: null, enCours: false, refus } })?.lecture.refus;
+    expect(lecture({ code: 'sans_droit', message: 'm' })).toEqual({ code: 'sans_droit', message: 'm' });
+    expect(lecture({ code: 'inconnu', message: 'm' })).toBeNull();
+    expect(lecture({ code: 'erreur' })).toBeNull();
+    for (const v of [null, {}, { collections: [] }, { collections: 'x', lecture: {} }, []]) expect(collectionsLuesDe(v), JSON.stringify(v)).toBeNull();
   });
 });
 

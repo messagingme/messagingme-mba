@@ -3,6 +3,7 @@ import { messageDe } from '../lib/erreur';
 import { rappelDeLAbonnement, rappelDeLaSuiteDuPro } from './outils-numero';
 import { corpsRefusFonction } from '../offres/refus';
 import { phraseOutilSansObjet, sansObjetSurApplication } from '../application/garde-outils';
+import { FiltreContactInvalide } from '../crm/contact-filters';
 
 /**
  * Le transport MCP : du JSON-RPC 2.0 sur un seul POST, sans état.
@@ -167,7 +168,9 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
         const resultat = await outil.executer(deps, ctx.tenantId, args, ctx.personne);
         return ok(id, { content: blocs(JSON.stringify(resultat, null, 2)), isError: false });
       } catch (err) {
-        if (err instanceof RefusOutil) {
+        // Un filtre de contacts refusé par le magasin (un critère de collection sans lecture aboutie, segments Shopify
+        // enrichis, lot 6a) est un refus, avec sa phrase, comme sur les routes (400), jamais une « panne ».
+        if (err instanceof RefusOutil || err instanceof FiltreContactInvalide) {
           return ok(id, { content: blocs(err.message), isError: true });
         }
         // Panne : journalisée côté serveur, sans renvoyer le message d'origine (fragment SQL ou réponse Meta possible).

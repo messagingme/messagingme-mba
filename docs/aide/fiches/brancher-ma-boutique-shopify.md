@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 72c0cf
+source_empreinte: 1545e8
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -33,7 +33,8 @@ Décochez « Intégrer l'appli dans l'interface administrateur Shopify », laiss
 et, dans la fenêtre « Publication de la version », Publier. Installez-la ensuite sur votre boutique : dans Applis,
 menu « ⋮ » de sa ligne > Installer l'appli, puis Installer. « Cette appli n'a pas été examinée » est normal, c'est
 la vôtre. Ouvrez enfin l'appli dans Applis : son ID client et son secret client sont dans le cadre
-Identifiants, à droite.
+Identifiants, à droite. Si Shopify refuse la publication à cause du droit read_all_orders, retirez-le de la liste et
+publiez à nouveau : seule la lecture des commandes de plus de 60 jours en aura besoin.
 
 **3. Brancher la boutique.** Revenez dans la carte, collez le nom interne de la boutique (celui en .myshopify.com, pas l'adresse publique de
 votre site : la bulle « ? » dit où le lire), l'ID client et le secret client,
@@ -164,6 +165,11 @@ Et les produits : ceux qui ont acheté un produit (ou une seule variante, par so
 (toujours avec un produit acheté, jamais seul), et le réassort, le dernier achat d'un produit il y a tant de jours.
 Vous les choisissez parmi les produits déjà commandés dans votre boutique ; les cartes cadeaux ne se ciblent pas.
 
+Et les collections : ceux qui ont acheté au moins un produit de chacune des collections choisies. Elles se lisent chez
+Shopify sur vos produits déjà commandés, quand vous ouvrez le volet, et le volet dit « lecture en cours » le temps de
+les lire. Une collection compte telle qu'elle est dans votre boutique à cette lecture, dont le volet donne la date, pas
+telle qu'elle était le jour de la commande : un produit sorti d'une collection n'y compte plus.
+
 Et deux boutons prêts, sans réglage : « A écrit sans commander » (au moins un message reçu encore connu) et « A cliqué
 sans commander » (au moins un clic sur un lien suivi), pour les contacts sans aucune commande enregistrée. Un clic pose
 le bouton, un second le retire ; le nombre sur chaque bouton dit combien de contacts il trouve, et un bouton qui ne
@@ -177,9 +183,10 @@ Chaque commande rejoint la fiche de son numéro, avec son montant et ses produit
 comptée, jamais gardée. Aucune fiche n'est créée, aucun message ne part, et le chiffre rapporté par WhatsApp n'en
 change pas. Comptez quelques minutes pour la plupart des boutiques, plus d'une heure pour les très grandes.
 
-**Bon à savoir.** Le rattrapage demande à votre app Shopify le droit read_products. Une app créée avant le 24 novembre
-2026 ne l'a pas : ajoutez-le à ses portées sur le tableau de bord développeur de Shopify, publiez sa nouvelle version,
-puis réinstallez-la sur votre boutique pour l'accepter. Tant qu'il manque, l'aperçu le dit et rien n'est lu.
+**Bon à savoir.** Le rattrapage et les collections demandent à votre app Shopify le droit read_products. Une app créée
+avant le 24 novembre 2026 ne l'a pas : ajoutez-le à ses portées sur le tableau de bord développeur de Shopify, publiez
+sa nouvelle version, puis réinstallez-la sur votre boutique pour l'accepter. Tant qu'il manque, l'aperçu et le volet le
+disent, et rien n'est lu.
 
 **Bon à savoir.** Les commandes comptent depuis le branchement de la boutique ; un rattrapage ajoute celles des 60 jours
 qui le précèdent, Shopify ne laissant pas lire plus loin. Sans rattrapage, juste après le branchement, « au moins 2

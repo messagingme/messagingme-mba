@@ -56,6 +56,40 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 6a (« a acheté dans la collection ») : la relecture (2026-11-24, aucun rouge)
+
+- Un produit que Shopify refuse seul, à chaque fois (`INTERNAL_SERVER_ERROR` sur un lot réduit à lui), bloque la
+  première lecture de tout l'espace : `reserver` reprend les jamais-lus dans l'ordre, `lue_le` n'est jamais posé.
+  L'écrire lu et incomplet après N échecs. (Le titre coupé au milieu d'un emoji, l'autre cause, est corrigé.)
+- Un nœud illisible efface les collections connues du produit pendant 24 h, et l'écran l'explique par « plus de 50
+  collections » : garder les anciennes, ou dire la vraie cause.
+- Le cache part des lignes pour `aLire`, de lui-même pour `reserver` et `resteALire` : un produit dont les commandes ont
+  été purgées se relit chaque jour et compte encore dans « N produits commandés ».
+- La console : pendant la première lecture, une liste vide est jugée complète (un critère posé est dit « plus parmi les
+  collections lues ») ; une première lecture de plus de 15 minutes s'affiche « Aucune collection lue » ; l'anglais
+  promet une relance, fausse pour une boutique coupée ; `REFUS_SANS_LECTURE` dit d'ouvrir le volet même quand rien
+  n'est à lire.
+- `get_shopify_state` ne rend que les 50 premières collections, sans recherche : une collection au-delà est
+  introuvable depuis Claude (la console a la recherche). Il garde `readOnlyHint: true` alors qu'il peut enfiler une
+  lecture. `prepare_campaign`, `tag_contacts` et `set_contact_field` ne rendent pas `collections_read_at` (la
+  description le dit désormais).
+- L'appel GraphQL Admin (frein, lecture du corps, erreurs) existe en trois copies (`clients.ts`, `commandes-lues.ts`,
+  `collections-lues.ts`) : le factoriser.
+- `PRODUITS_PAR_LOT` (10) repose sur une estimation d'environ 53 points par produit : la régler sur
+  `shopify_collections_cout` mesuré sur la boutique d'essai. `aLire` relit tous les produits distincts des lignes à
+  chaque ouverture du volet et à chaque relecture de 5 s pendant une lecture : à mesurer sur un gros espace.
+- Une lecture perdue en panne passagère, les essais de pg-boss épuisés, reste « en cours » 15 minutes puis s'affiche
+  « aucune collection lue » sans parler de la panne. Un produit « trop lourd » seul relance un job en échec au plus une
+  fois par quart d'heure.
+- Le refus d'une collection inconnue la nomme par son identifiant : si c'est illisible pour les marchands, garder une
+  table des collections vues. La raison d'un refus de lecture est en français dans la console anglaise.
+- L'audience d'une campagne avale un 400 en silence (comportement existant) : avec une collection plus connue, le
+  compte affiché reste l'ancien.
+- La page « Depuis Claude » (`aide-claude-textes`, « Cibler par les commandes ») ne parle pas des collections.
+- `tests/integration/shopify-store.integration.test.ts` (« un panier verrouillé est sauté ») échoue sur le banc PGlite
+  par nature (une seule session) : le sauter sur PGlite. `mcp-agent` dépasse 5 s dans chaque passage complet local,
+  vert seul en 1 à 1,5 s : à quantifier sur la référence.
+
 ## 🟡 Segments Shopify, lot 5 (le rattrapage des commandes des 60 derniers jours) : la relecture (2026-11-23, aucun rouge)
 
 - La file `shopify-reprise` est servie un job à la fois (`src/worker.ts`, aucune `concurrency`) : vers huit rattrapages

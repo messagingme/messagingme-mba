@@ -13,6 +13,7 @@ import { lirePlageSaisie, saisieDePlage, type SaisiePlage } from '@/lib/segments
 import { Icone } from '@/components/Icone';
 import { LogoShopify } from '@/components/LogosCanaux';
 import { FiltresProduitsShopify } from '@/components/FiltresProduitsShopify';
+import { FiltresCollectionsShopify } from '@/components/FiltresCollectionsShopify';
 
 /**
  * LE VOLET « SHOPIFY » DU PANNEAU DE FILTRES (spec du 2026-11-21, lot 1, décision d'ergonomie de Julien du
@@ -40,6 +41,7 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
   const { locale } = useLocale();
   const posee = segments.some((s) => (CLES_COMMANDES as readonly string[]).includes(s.key));
   const produitPose = segments.some((s) => s.key === CLES_SEGMENT.achete || s.key === CLES_SEGMENT.pasAchete || s.key === CLES_SEGMENT.reassort);
+  const collectionPosee = segments.some((s) => s.key === CLES_SEGMENT.collection);
   const [ouvert, setOuvert] = useState(force || posee);
   useEffect(() => {
     if (force || posee) setOuvert(true);
@@ -85,6 +87,8 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
         />
         {/* Les critères produit (lot 3) : annoncés par l'API, ou déjà posés (un brouillon les garde visibles pour les retirer). */}
         {(suivi?.produits === true || produitPose) && <FiltresProduitsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
+        {/* La collection (lot 6a) : annoncée par l'API, ou déjà posée (pour la retirer). */}
+        {(suivi?.collections === true || collectionPosee) && <FiltresCollectionsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
         <BoutonsSansCommande segments={segments} onChange={onChange} comptes={suivi?.boutons ?? null} />
         {boutique && (
           <p className="text-xs text-ink-500" data-testid="filtres-achats-suivi">

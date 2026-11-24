@@ -31,6 +31,8 @@ import { FILE_PREUVE_UTM, traiterPreuveUtm, type DepsPreuveUtm } from './shopify
 import { FILE_SANS_WHATSAPP, traiterSansWhatsapp, type DepsSansWhatsapp } from './shopify/sans-whatsapp';
 import { FILE_REPRISE, cablerReprise, traiterReprise } from './shopify/reprise';
 import { PgReprisesStore } from './shopify/reprises.pg';
+import { FILE_COLLECTIONS, cablerCollections, traiterCollections } from './shopify/collections';
+import { PgCollectionsStore } from './shopify/collections.pg';
 import type { SansWhatsappSink } from './webhooks/delivery';
 import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
 import { FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsOubli, type ProgrammerOubli } from './shopify/preparation';
@@ -596,6 +598,18 @@ export async function demarrerWorker(): Promise<void> {
     enfiler: async (job, quand) => { await queue.enqueue(FILE_REPRISE, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
   });
   await queue.work(FILE_REPRISE, async (data) => { await traiterReprise(depsReprise, data); });
+
+  /**
+   * La lecture des collections des produits achetés (segments Shopify enrichis, lot 6a) : le MÊME câblage que l'API
+   * (`cablerCollections`), qui l'enfile à l'ouverture du volet Shopify. Les produits se réservent par lots (bail), le job
+   * se réenfile après deux minutes ; les magasins ENTIERS, leurs méthodes lisent `this`.
+   */
+  const depsCollections = cablerCollections({
+    magasin: new PgCollectionsStore(pool),
+    boutiques: new PgShopifyStore(pool, config.ENCRYPTION_KEY),
+    enfiler: async (job, quand) => { await queue.enqueue(FILE_COLLECTIONS, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
+  });
+  await queue.work(FILE_COLLECTIONS, async (data) => { await traiterCollections(depsCollections, data); });
 
   /**
    * L'issue d'un événement envoyé à l'agent de Meta, relue 20 s après, et une relance sur une panne passagère de Meta

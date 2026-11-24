@@ -730,7 +730,15 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     produit, il y a au moins ou au plus N jours, un achat connu exigé). Un produit se vise entier (toutes ses
     variantes) ou par variante (son SKU), choisi parmi ceux déjà commandés dans l'espace, jamais le catalogue ; une
     carte cadeau ne se cible jamais, sa commande comptant toujours. Claude Code a les mêmes (`bought`, `not_bought`,
-    `days_since_product`), et `get_shopify_state` lui donne les produits vus. Depuis le lot 4, deux **boutons prêts**,
+    `days_since_product`), et `get_shopify_state` lui donne les produits vus. Depuis le lot 6a (2026-11-24), il filtre
+    aussi par **collection** : « a acheté dans la collection » (au moins un produit de CHACUNE des collections choisies,
+    sur les N derniers jours au choix), parmi les collections lues chez Shopify sur les produits déjà commandés. 🔴 Telles
+    qu'elles sont dans la boutique **à la dernière lecture**, pas au jour de la commande (une collection automatique bouge
+    sans qu'aucune commande change) : le volet le dit, avec la date de la lecture. Ouvrir le volet lance une lecture quand
+    un produit commandé n'a jamais été lu ou date de plus de 24 h (« lecture en cours », quelques minutes) ; sans le droit
+    `read_products` sur l'app de la boutique, le volet dit comment l'ajouter. Tant qu'aucune lecture n'a abouti, ou pour
+    une collection qui n'est plus connue, le critère est **refusé**, jamais « personne ». Claude Code a le même
+    (`collections`), et `get_shopify_state` lui donne les collections lues. Depuis le lot 4, deux **boutons prêts**,
     sans aucun réglage : « **A écrit sans commander** » (au moins un message reçu encore connu, une réaction ou un
     bouton touché comptent) et « **A cliqué sans commander** » (au moins un clic sur un lien suivi), avec, pour les
     deux, aucune commande enregistrée pour le contact. Un clic pose le bouton, un second le retire, les deux se
@@ -3281,10 +3289,19 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   comptée, jamais gardée. Aucune fiche n'est créée, aucun message ne part, le chiffre rapporté par WhatsApp n'en change
   pas. Il demande à l'app de la boutique le droit `read_products` (dans la liste des droits depuis le 2026-11-24 : une
   app plus ancienne l'ajoute à ses portées, publie sa nouvelle version et se réinstalle ; l'aperçu et le lancement le
-  disent). Un seul rattrapage à la fois par espace ; relancé, il relit la fenêtre sans doublon ; une boutique coupée ou
+  disent ; la lecture des collections, plus bas, l'exige aussi). Un seul rattrapage à la fois par espace ; relancé, il relit la fenêtre sans doublon ; une boutique coupée ou
   remplacée pendant qu'il tourne l'arrête. Ensuite, le volet des achats et `find_contacts` (`orders_backfilled_since`)
   disent depuis quand les commandes ont été relues, tant qu'aucune coupure n'a suivi. Outils :
   `preview_shopify_order_history`, `import_shopify_order_history`, `get_shopify_order_history`.
+- **Les collections des produits achetés** (2026-11-24, segments Shopify enrichis, lot 6a) : pour cibler « a acheté
+  dans la collection » (détail dans « Contacts & CRM »), les collections de chaque produit commandé se lisent chez
+  Shopify, en arrière-plan, jamais pendant la confirmation d'une commande : quand le volet Shopify des filtres s'ouvre
+  ou que Claude Code lit `get_shopify_state`, et au plus une fois par jour et par produit. Elles exigent le droit
+  `read_products`. Une boutique coupée garde ses collections lues, qui ne se relisent plus ; l'effacement de la
+  boutique (app de la console désinstallée, demande d'effacement de Shopify) les emporte. **Un droit de plus dans la liste, le
+  2026-11-24 : `read_all_orders`**, qui ouvrira les commandes de plus de 60 jours ; une app créée dans l'organisation du
+  marchand l'obtient sans validation de Shopify, et si Shopify refuse la version (une app d'organisation partenaire), on
+  le retire : rien d'autre n'en a besoin aujourd'hui.
 
 ## API publique `/v1` (intégrateurs externes)
 

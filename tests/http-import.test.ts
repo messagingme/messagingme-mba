@@ -7,7 +7,10 @@ import type { ContactStore, ContactUpsert, LotContacts } from '../src/crm/import
 import type { UserFieldStore } from '../src/crm/fields';
 import type { UserFieldDef } from '../src/crm/types';
 import type { ContactFilters } from '../src/crm/contact-store.pg';
-import { journalMuet } from './routes-inertes';
+import type { ImportRouteDeps } from '../src/http/import';
+import { collectionsInertes, journalMuet } from './routes-inertes';
+import { MIDI_COLLECTIONS, T_COLLECTIONS, monterCollections } from './collections-faux';
+import { traiterCollections } from '../src/shopify/collections';
 import { csvLent, retardPendant } from './boucle';
 import { LimiteOffreError } from '../src/offres/refus';
 import { ACTIVITE_COMPLETE_DEPUIS } from '../src/crm/segments';
@@ -72,7 +75,7 @@ type QueryCapture = {
 /** Trace d'audit telle que la route l'écrit. `journal` est fourni par les tests qui l'observent. */
 interface Trace { action: string; target: { kind: string; id: string }; detail: Record<string, unknown>; actor: { userId: string | null } }
 
-function inject(contacts: ContactStore, userFields: UserFieldStore, cap?: QueryCapture, journal?: Trace[]) {
+function inject(contacts: ContactStore, userFields: UserFieldStore, cap?: QueryCapture, journal?: Trace[], collections?: ImportRouteDeps['collections']) {
   return buildServer({
     queue: new FakeQueue(),
     auth: { users: noUsers, secret: SECRET },
@@ -94,6 +97,7 @@ function inject(contacts: ContactStore, userFields: UserFieldStore, cap?: QueryC
       }),
       userFields,
       audit: journalMuet,
+      collections: collections ?? collectionsInertes,
       ...(journal ? { audit: async (_t: string, actor: { userId: string | null }, action: string, target: { kind: string; id: string }, detail: Record<string, unknown> = {}) => { journal.push({ action, target, detail, actor }); } } : {}),
     },
   });
@@ -207,6 +211,8 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
       boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
       // 🔴 L'annonce des critères produit (lot 3) : sans elle, la console ne les propose pas.
       produits: true,
+      // 🔴 Et celle du critère de collection (lot 6a), de même.
+      collections: true,
       // Les pastilles des deux boutons prêts (lot 4) : le faux compte rend 3.
       boutons: { ecritSansCommande: 3, clicSansCommande: 3 },
     });
@@ -241,6 +247,28 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     expect(panne.statusCode).toBe(200);
     expect(panne.json()).toMatchObject({ produits: true, boutique: { devise: 'EUR' } });
     expect(panne.json()).not.toHaveProperty('boutons');
+    await app.close();
+  });
+
+  it('🔴 GET des collections lues (lot 6a) : la liste et l’état de la lecture, une lecture enfilée au besoin, la recherche bornée à 80 caractères ; 401 sans session', async () => {
+    const c = monterCollections({ lignes: ['8801'], catalogue: { 8801: { titre: 'Sérum', collections: [{ id: '4401', titre: 'Été' }] } } });
+    const app = inject(new FakeContacts(), new FakeFields(), undefined, undefined, c.deps);
+    const lire = (q = '') => app.inject({ method: 'GET', url: `/tenants/t1/contacts/segments/collections${q}`, headers: { authorization: `Bearer ${token}` } });
+    // Un produit commandé jamais lu : la lecture est demandée et enfilée, la liste dit « en cours ».
+    const avant = await lire(`?q=${encodeURIComponent(`été${'x'.repeat(100)}`)}`);
+    expect(avant.statusCode).toBe(200);
+    expect(avant.json()).toEqual({ collections: [], lecture: { lueLe: null, enCours: true, refus: null, incompletes: false } });
+    expect(c.trace.jobs).toEqual([{ job: { tenantId: 't1' }, dansSecondes: 0 }]);
+    expect(c.trace.recherches).toEqual([`été${'x'.repeat(77)}`]);
+    // Le job passé, la liste rend la collection lue et sa date ; plus rien à lire, rien n'est enfilé.
+    await traiterCollections(c.deps, { tenantId: T_COLLECTIONS });
+    const apres = await lire();
+    expect(apres.json()).toEqual({
+      collections: [{ collectionId: '4401', titre: 'Été', produits: 1 }],
+      lecture: { lueLe: new Date(MIDI_COLLECTIONS).toISOString(), enCours: false, refus: null, incompletes: false },
+    });
+    expect(c.trace.jobs).toHaveLength(1);
+    expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/collections' })).statusCode).toBe(401);
     await app.close();
   });
 

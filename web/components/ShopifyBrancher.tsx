@@ -22,9 +22,11 @@ import { TEXTE_ATTESTATION_SHOPIFY } from '@/lib/partage/shopify-messages';
 
 /**
  * Les droits de l'app, ceux de `shopify.app.toml` (la skill du plugin) : la même app, créée sans la CLI. `read_products`
- * depuis le 2026-11-24 : le rattrapage des commandes en a besoin (le produit d'une ligne, par l'API).
+ * depuis le 2026-11-24 : le rattrapage des commandes en a besoin (le produit d'une ligne, par l'API), et la lecture des
+ * collections. `read_all_orders` depuis le lot 6a des segments : la reprise au-delà de 60 jours (lot 7) s'en servira ; sans
+ * approbation de Shopify pour une app de l'organisation du marchand, et à retirer si Shopify refuse la version.
  */
-export const DROITS_SHOPIFY = 'read_customers,read_orders,read_checkouts,read_fulfillments,read_products';
+export const DROITS_SHOPIFY = 'read_customers,read_orders,read_checkouts,read_fulfillments,read_products,read_all_orders';
 
 /**
  * LA CASE DE L'ATTESTATION (Julien, 2026-11-20) : le marchand atteste que les clients de sa boutique consentent à recevoir
@@ -155,8 +157,8 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
         <span className="mt-1 block">{t('3. Décochez « Intégrer l’appli dans l’interface administrateur Shopify ».', '3. Untick “Embed app in Shopify admin”.')}</span>
         <span className="mt-1 block">
           {t(
-            '4. Portées : appuyez sur « Sélectionner dans la liste » et cochez read_customers, read_orders, read_checkouts, read_fulfillments et read_products (ou collez la liste dans le champ).',
-            '4. Scopes: click “Select from list” and tick read_customers, read_orders, read_checkouts, read_fulfillments and read_products (or paste the list in the field).',
+            '4. Portées : appuyez sur « Sélectionner dans la liste » et cochez read_customers, read_orders, read_checkouts, read_fulfillments, read_products et read_all_orders (ou collez la liste dans le champ). Si Shopify refuse la version à cause de read_all_orders, retirez-le : seul le rattrapage au-delà de 60 jours en a besoin.',
+            '4. Scopes: click “Select from list” and tick read_customers, read_orders, read_checkouts, read_fulfillments, read_products and read_all_orders (or paste the list in the field). If Shopify refuses the version because of read_all_orders, remove it: only the catch-up beyond 60 days needs it.',
           )}
         </span>
         {ligneCopiable(DROITS_SHOPIFY, t('Droits de l’appli', 'App scopes'), 'shopify-copier-droits')}

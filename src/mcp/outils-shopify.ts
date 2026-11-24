@@ -13,6 +13,7 @@ import {
 import { reglerAttestation, type EtatLigne } from '../shopify/lignes-gestion';
 import type { MessageBranche } from '../shopify/store.pg';
 import { apercuReprise, etatReprise, lancerReprise } from '../shopify/reprise';
+import { lireCollections } from '../shopify/collections';
 import type { RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
 import { messageDe } from '../lib/erreur';
 
@@ -27,6 +28,26 @@ async function produitsVusAuMieux(deps: DepsMcp, tenantId: string): Promise<Arra
   } catch (err) {
     journaliser('warn', 'mcp_produits_vus_illisibles', { tenantId, erreur: messageDe(err) });
     return [];
+  }
+}
+
+/**
+ * Les collections lues des produits achetés et l'état de leur lecture (segments Shopify enrichis, lot 6a), pour le critère
+ * `collections` de l'assistant : la MÊME lecture que le volet Shopify de la console, qui enfile une lecture quand un
+ * produit l'attend. AU MIEUX : une panne rend `null`, jamais un outil en échec.
+ */
+async function collectionsAuMieux(deps: DepsMcp, tenantId: string) {
+  try {
+    const v = await lireCollections(deps.shopify.collections, tenantId, undefined);
+    return {
+      read_at: v.lecture.lueLe, reading: v.lecture.enCours,
+      refused: v.lecture.refus === null ? null : { reason: v.lecture.refus.code, message: v.lecture.refus.message },
+      incomplete: v.lecture.incompletes,
+      list: v.collections.map((c) => ({ collection_id: c.collectionId, title: c.titre, products_seen: c.produits })),
+    };
+  } catch (err) {
+    journaliser('warn', 'mcp_collections_illisibles', { tenantId, erreur: messageDe(err) });
+    return null;
   }
 }
 
@@ -251,7 +272,12 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'The revenue attributed to WhatsApp over any period: get_revenue_stats. messages: the setting from before automations '
       + 'became scenarios, kept for older plugins; it no longer sends. products_seen: the 20 products found most often in '
       + 'paid orders (product_id, sku, title), gift cards left out: the ids and SKUs for bought, not_bought and '
-      + 'days_since_product.',
+      + 'days_since_product. collections: the Shopify collections of the products ordered, as they are in the store at the '
+      + 'last reading (read_at; null: no reading has succeeded yet, and the collections criterion is refused), the 50 '
+      + 'holding the most ordered products (collection_id, title, products_seen): the ids for the collections criterion. '
+      + 'Reading this tool starts a reading when an ordered product was never read or was read over 24 hours ago (reading: '
+      + 'true, a few minutes); refused says why the last one failed (sans_droit: the store app lacks the read_products '
+      + 'scope, which the shopify skill adds); incomplete: a product is in more than 50 collections, the list is not exhaustive.',
     annotations: { title: 'Get the Shopify connection', readOnlyHint: true, openWorldHint: false },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
@@ -277,6 +303,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         },
         store_apps_page: e.pageApps,
         products_seen: await produitsVusAuMieux(deps, tenantId),
+        collections: await collectionsAuMieux(deps, tenantId),
       };
     },
   },

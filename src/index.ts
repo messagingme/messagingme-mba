@@ -121,6 +121,8 @@ import { importContacts } from './crm/import';
 import type { DepsGestionShopify } from './shopify/gestion';
 import { FILE_REPRISE, cablerReprise } from './shopify/reprise';
 import { PgReprisesStore } from './shopify/reprises.pg';
+import { FILE_COLLECTIONS, cablerCollections } from './shopify/collections';
+import { PgCollectionsStore } from './shopify/collections.pg';
 import { FILE_OUBLI_MODELE } from './shopify/preparation';
 import { CHAMP_LIEN_SUIVI, traiterWebhookShopify, type DepsTraitementShopify } from './shopify/traitement';
 import { relancerPaniers, type DepsRelance } from './shopify/relance';
@@ -1775,6 +1777,13 @@ async function main(): Promise<void> {
       contacts: contactStore,
       enfiler: async (job, quand) => { await queue.enqueue(FILE_REPRISE, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
     }),
+    // La lecture des collections des produits achetés (segments Shopify enrichis, lot 6a) : la liste ici (volet Shopify des
+    // filtres, `get_shopify_state`), qui enfile la lecture ; le job dans le worker, par le MÊME câblage (`cablerCollections`).
+    collections: cablerCollections({
+      magasin: new PgCollectionsStore(pool),
+      boutiques: shopifyStore,
+      enfiler: async (job, quand) => { await queue.enqueue(FILE_COLLECTIONS, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
+    }),
   };
   const traitementShopify: DepsTraitementShopify = {
     store: shopifyStore,
@@ -2227,6 +2236,8 @@ async function main(): Promise<void> {
       userFields: fieldStore,
       defaultCountry: config.DEFAULT_COUNTRY as CountryCode,
       audit: auditSink,
+      // Les collections lues du volet Shopify (segments Shopify enrichis, lot 6a) : le MÊME objet que `get_shopify_state`.
+      collections: gestionShopify.collections,
     },
     // Le MÊME objet que les campagnes de l'assistant (`mcp.campagnes`, plus bas) : un seul câblage, une seule vérité.
     campaigns: depsCampagnes,

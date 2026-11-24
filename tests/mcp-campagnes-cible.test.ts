@@ -6,7 +6,7 @@ import { DROITS, type Fonction } from '../src/offres/offres';
 import { corpsRefusFonction } from '../src/offres/refus';
 import type { BulkTarget, ContactFilters, ContactRow } from '../src/crm/contact-store.pg';
 import { ACTIVITE_COMPLETE_DEPUIS, type SuiviSegments } from '../src/crm/segments';
-import { BORNES_SEGMENTS, CLES_SEGMENT as S, filtreSegment } from '../web/lib/partage/segments';
+import { BORNES_SEGMENTS, CLES_SEGMENT as S, MOTIF_ID_COLLECTION, filtreSegment } from '../web/lib/partage/segments';
 
 /**
  * LA CIBLE DE L'ASSISTANT ET `find_contacts` (plan « Campagnes depuis Claude », tâche 4). La cible passe par
@@ -330,5 +330,53 @@ describe('les segments de l’assistant', () => {
       const p = OUTILS.find((o) => o.nom === nom)!.entree.properties;
       for (const cle of ['wrote_without_order', 'clicked_without_order']) expect(p[cle], `${nom} ${cle}`).toMatchObject({ type: 'boolean', enum: [true] });
     }
+  });
+
+  it('le critère de collection (lot 6a), traduit dans le contrat commun', async () => {
+    const { d } = deps({ boutique: BOUTIQUE });
+    expect(await lireCibleMcp({ collections: { ids: ['4401', '4402'], within_days: 90 } }, PRO, d, T, { identifiants: true })).toEqual({
+      filters: { fieldFilters: [filtreSegment(S.collection, { collections: ['4401', '4402'], jours: 90 })] },
+      excludeIds: [],
+    });
+  });
+
+  it('🔴 un critère de collection sans boutique est refusé avant toute lecture des contacts', async () => {
+    const { d, lus } = deps();
+    await expect(lireCibleMcp({ collections: { ids: ['4401'] } }, PRO, d, T, { identifiants: false })).rejects.toThrow(/aucune boutique Shopify/);
+    expect(lus.map((l) => l.quoi)).toEqual(['suivi']);
+  });
+
+  it.each([
+    { collections: { ids: [] } }, { collections: { ids: ['Été'] } }, { collections: { ids: ['1'], depuis: 3 } }, { collections: ['4401'] },
+    { collections: { ids: Array.from({ length: BORNES_SEGMENTS.collectionsMax + 1 }, (_, i) => String(i + 1)) } },
+    { collections: { ids: ['4401'], within_days: 0 } }, { collections: { within_days: 30 } },
+  ])('🔴 critère de collection refusé, jamais ignoré : %j', async (args) => {
+    const { d } = deps({ boutique: BOUTIQUE });
+    await expect(lireCibleMcp(args, PRO, d, T, { identifiants: true })).rejects.toThrow(RefusOutil);
+  });
+
+  it('🔴 chaque borne du critère de collection est annoncée dans le schéma, sur chaque outil de la cible', () => {
+    for (const nom of ['find_contacts', 'tag_contacts', 'prepare_campaign', 'set_contact_field']) {
+      const c = OUTILS.find((o) => o.nom === nom)!.entree.properties.collections!;
+      expect(c, nom).toMatchObject({ type: 'object', required: ['ids'], additionalProperties: false });
+      expect(c.properties!.ids, nom).toMatchObject({
+        type: 'array', minItems: 1, maxItems: BORNES_SEGMENTS.collectionsMax, items: { type: 'string', pattern: MOTIF_ID_COLLECTION },
+      });
+      expect(c.properties!.within_days, nom).toMatchObject({ type: 'integer', minimum: 1, maximum: BORNES_SEGMENTS.joursMax });
+      // La description dit « telles qu'elles sont dans la boutique à la dernière lecture », et où lire sa date : seul
+      // `find_contacts` rend `collections_read_at`, `get_shopify_state` la rend pour tous (relecture du lot 6a).
+      expect(c.description, nom).toMatch(/as they are in the store at the last reading \(its date: collections\.read_at in get_shopify_state, and collections_read_at in the answer of find_contacts/);
+    }
+    // Le motif annoncé est celui que la validation applique : 19 chiffres passent, 20 non.
+    expect(new RegExp(MOTIF_ID_COLLECTION).test('1'.repeat(19))).toBe(true);
+    expect(new RegExp(MOTIF_ID_COLLECTION).test('1'.repeat(20))).toBe(false);
+  });
+
+  it('🔴 find_contacts rend la date de la lecture des collections, seulement si le critère est posé', async () => {
+    const lue = new Date('2026-11-24T08:00:00Z');
+    const avec = deps({ boutique: { ...BOUTIQUE, collectionsLuesLe: lue } });
+    expect(await outil.executer(avec.d, T, { collections: { ids: ['4401'] } }, null)).toMatchObject({ collections_read_at: lue.toISOString() });
+    const sans = (await outil.executer(avec.d, T, { orders: { min: 1 } }, null)) as Record<string, unknown>;
+    expect(sans).not.toHaveProperty('collections_read_at');
   });
 });

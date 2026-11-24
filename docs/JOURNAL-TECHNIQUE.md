@@ -5,6 +5,33 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : segments Shopify, lot 6a : « a acheté dans la collection »
+
+Le lot 6 de la feuille de route se livre en sous-lots, chacun relu et déployé (décision de Julien, en question fermée) :
+6a les collections, puis les étiquettes Shopify, les segments Shopify, les webhooks d'étiquettes. Et `read_all_orders`
+entre dès maintenant dans les listes de droits, pour le lot 7 : d'après la page officielle des scopes, une app créée
+dans l'organisation du marchand n'a besoin d'aucune approbation ; sous une organisation partenaire, la création de la
+version échoue (`app_access`), et la console, la skill et la fiche disent alors de le retirer. Non encore éprouvé : à
+l'essai réel du lot.
+Le critère « a acheté dans la collection » (au moins un produit de CHACUNE, sur N jours au choix) entre dans le volet
+Shopify et dans la cible de l'assistant (`collections`). Les collections se lisent sur le produit, chez Shopify, par la
+file `shopify-collections` (rôle `analyse`), jamais sur le chemin du webhook : la lecture s'enfile quand on ouvre le
+volet ou lit `get_shopify_state`, si un produit commandé n'a jamais été lu ou date de plus de 24 h ; le job vérifie
+`read_products`, réserve par lots de dix (bail, jeton, `skip locked`) et remplace les collections en bloc. Le critère
+est refusé, jamais « personne », sans lecture aboutie ou pour une collection inconnue : la garde vit dans
+`PgContactStore`, devenu le seul passage vers `buildContactWhere` et `buildBulkSelector`. Au MCP, un
+`FiltreContactInvalide` devient un refus de l'outil, comme le 400 des routes. La migration 0314 (trois tables) est
+BLOQUANTE, l'effacement du branchement la nomme : poussée seule (`31f2dd4ff`, CI verte), déployée en `migration=avant`
+par le run 45388881261, avant le code.
+Un implémenteur a codé, 27 mutations toutes rouges ; la relecture indépendante n'a trouvé aucun rouge. Quatre jaunes
+corrigés avant de pousser, chacun vérifié dans les deux sens : la demande de lecture annulée comparait une date gardée
+à la microseconde à une `Date` rendue à la milliseconde (le job `integration` de la CI aurait été rouge, PGlite, à
+l'horloge en millisecondes, le masquait : le test pose désormais une date à la microseconde) ; un titre coupé au milieu
+d'un emoji, que le `jsonb` refuse, aurait bloqué à jamais la lecture d'un espace (coupe en points de code) ; la
+description de l'outil promettait une date que trois outils ne rendent pas ; l'effacement verrouillait dans l'ordre
+inverse de l'écriture (les produits d'abord désormais). Le reste au `todo.md`. En local, aucun passage complet de
+`npm test` n'est vert : des délais dépassés sous charge (`mcp-agent`, `api-usage-guard`), verts seuls ; la CI tranche.
+
 ## 2026-11-24 : guide de démarrage, lot 3 : la carte qui accompagne, parcours agent IA
 
 « Me guider » sur l'étape agent IA de « Bien démarrer » lance une carte en haut à droite (`GuideCompagnon`, monté par la

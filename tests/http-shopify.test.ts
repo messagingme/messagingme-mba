@@ -7,6 +7,7 @@ import type { ShopifyRouteDeps } from '../src/http/shopify';
 import type { Connexion, VueBoutique } from '../src/shopify/store.pg';
 import { monterLignes } from './shopify-lignes-faux';
 import { commandeLue, monterReprise, page } from './reprise-faux';
+import { collectionsInertes } from './routes-inertes';
 import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 
 /**
@@ -63,6 +64,7 @@ function monter(o: { reprise?: Parameters<typeof monterReprise>[0] } = {}) {
       }),
       lignes: lignes.deps,
       reprise: reprise.deps,
+      collections: collectionsInertes,
     },
     audit: async (_t, _acteur, action, cible, detail) => { trace.audit.push({ action, cible, detail }); },
   };

@@ -28,6 +28,7 @@ import { porteEnMemoire } from './aide/porte-premier';
 import { PHRASE_PREMIER_CONTACT } from '../src/application/envoi';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { refusDesClesInconnues } from '../src/mcp/serveur';
+import { FiltreContactInvalide } from '../src/crm/contact-filters';
 
 /**
  * Le serveur MCP : `POST /mcp`, du JSON-RPC 2.0 sans état, autorisé par une clé d'API.
@@ -550,6 +551,26 @@ describe('serveur MCP : les outils', () => {
     expect(c.isError).toBe(true);
     expect(c.texte).toBe(MESSAGE_NUMERO_DELIE);
     expect(traces.journal).toEqual([]);
+    await server.close();
+  });
+
+  /**
+   * 🔴 UN FILTRE REFUSÉ PAR LE MAGASIN EST UN REFUS, PAS UNE PANNE (segments Shopify enrichis, lot 6a). Le critère de
+   * collection se juge en base, à la lecture des contacts (`FiltreContactInvalide`, 400 sur les routes) : sans cette
+   * traduction, l'outil rendrait « échec interne » et l'agent ne lirait jamais qu'il faut d'abord lire les collections.
+   */
+  it('🔴 un critère de collection refusé à la lecture des contacts : un RÉSULTAT `isError` avec la phrase du refus', async () => {
+    const phrase = 'filtre « a acheté dans la collection » : les collections de la boutique n’ont pas encore été lues.';
+    const refuser = async (): Promise<never> => { throw new FiltreContactInvalide(phrase); };
+    const { server } = app({
+      contacts: {
+        suiviSegments: async () => ({ boutique: { devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null } }),
+        count: refuser, query: refuser,
+      },
+    });
+    const res = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('find_contacts', { collections: { ids: ['4401'] } }) });
+    expect(res.json<{ error?: unknown }>().error, 'le refus ne doit pas sortir en erreur de protocole').toBeUndefined();
+    expect(contenu(res)).toEqual({ isError: true, texte: phrase });
     await server.close();
   });
 

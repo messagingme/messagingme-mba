@@ -11,7 +11,7 @@ import { corpsRefusFonction } from '../offres/refus';
 import type { Fonction } from '../offres/offres';
 import type { ProprieteEntree } from './outils';
 import { RefusOutil } from './saisie';
-import { BORNES_SEGMENTS, CLES_SEGMENT, OP_SEGMENT, type CleSegment } from '../../web/lib/partage/segments';
+import { BORNES_SEGMENTS, CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, type CleSegment } from '../../web/lib/partage/segments';
 import type { SuiviSegments } from '../crm/segments';
 
 /**
@@ -52,7 +52,7 @@ const AIDE_ANALYSE = CLES_FILTRABLES.map((cle) => {
   return `${cle}: ${operateursDuChamp(champ).join('/')}${valeurs}`;
 }).join('; ');
 
-const { joursMax, commandesMax, depenseMax, paysMax, produitsMax, skuMax } = BORNES_SEGMENTS;
+const { joursMax, commandesMax, depenseMax, paysMax, produitsMax, skuMax, collectionsMax } = BORNES_SEGMENTS;
 const JOURS = { type: 'integer', minimum: 1, maximum: joursMax } as const;
 
 /** Un produit visé (lot 3) : son identifiant Shopify OU un SKU, jamais les deux (refusé par `lireSegment`). */
@@ -130,6 +130,25 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
     description: 'Restock: the last paid purchase of ONE product ({"product_id"} or {"sku"}) between min and max days ago, '
       + 'e.g. {"sku":"SER-30","min":60,"max":120}; requires a known purchase of it, at least one bound. Needs the Shopify store.',
   },
+  collections: {
+    type: 'object',
+    properties: {
+      ids: {
+        type: 'array', minItems: 1, maxItems: collectionsMax, items: { type: 'string', pattern: MOTIF_ID_COLLECTION },
+        description: `1 to ${collectionsMax} Shopify collection ids, in digits (collection_id in get_shopify_state collections.list).`,
+      },
+      within_days: { ...JOURS, description: `Bought over the last N days (1 to ${joursMax}); without it, every recorded order.` },
+    },
+    required: ['ids'],
+    additionalProperties: false,
+    description: 'Contacts whose paid orders include at least one product of EACH of these Shopify collections, e.g. '
+      + '{"ids":["4401"],"within_days":90}. The collections are as they are in the store at the last reading (its date: '
+      + 'collections.read_at in get_shopify_state, and collections_read_at in the answer of find_contacts; wait until '
+      + 'get_shopify_state says reading: false before targeting), not as they were on the day of the '
+      + 'order: an automated collection moves without any order changing. Gift cards never match. Refused until a reading '
+      + 'of the store collections has succeeded (get_shopify_state starts it; it needs the read_products scope on the '
+      + 'store app), and for a collection not known at the last reading. Needs the Shopify store.',
+  },
   wrote_without_order: {
     type: 'boolean', enum: [true],
     description: 'One-click segment, the console button "Wrote without ordering": contacts who sent at least one message '
@@ -184,8 +203,8 @@ export const CHAMPS_CIBLE_FILTRES: Record<string, ProprieteEntree> = {
     },
     description: `Enterprise plan only. Filters on each contact's latest conversation analysis: ${AIDE_ANALYSE}. `
       + `${MAX_FIELD_FILTERS} filters at most in all, the orders, spent, days_since_last_order, bought, not_bought, `
-      + 'days_since_product, wrote_without_order, clicked_without_order, active_within_days, inactive_for_days and '
-      + 'countries criteria included.',
+      + 'days_since_product, collections, wrote_without_order, clicked_without_order, active_within_days, inactive_for_days '
+      + 'and countries criteria included.',
   },
   ...CHAMPS_CIBLE_SEGMENTS,
 };
@@ -284,11 +303,11 @@ export async function lireCibleMcp(
 }
 
 const CLES_SEGMENTS = [
-  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'wrote_without_order',
+  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'wrote_without_order',
   'clicked_without_order', 'active_within_days', 'inactive_for_days', 'countries',
 ] as const;
 const CLES_COMMANDES_MCP = [
-  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'wrote_without_order',
+  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'wrote_without_order',
   'clicked_without_order',
 ] as const;
 
@@ -339,9 +358,21 @@ async function lireSegmentsMcp(
     const brut = v as Record<string, unknown>;
     return { ...(produit('days_since_product', brut) as object), min: brut.min, max: brut.max };
   };
+  /**
+   * « A acheté dans la collection » (lot 6a) : `ids` et `within_days` dans la forme de la console (`collections`, `jours`).
+   * Qu'une lecture ait abouti et que chaque collection soit connue se juge en base, à la lecture des contacts
+   * (`PgContactStore`), dont le refus devient celui de l'outil (`src/mcp/serveur.ts`).
+   */
+  const collections = (): unknown => {
+    const v = args.collections;
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) return v;
+    const brut = v as Record<string, unknown>;
+    seules('collections', brut, ['ids', 'within_days']);
+    return { collections: brut.ids, jours: brut.within_days };
+  };
   if (CLES_COMMANDES_MCP.some((k) => present(args[k])) && (await deps.contacts.suiviSegments(tenantId)).boutique === null) {
     throw new RefusOutil('aucune boutique Shopify dans cet espace : les critères de commande (orders, spent, days_since_last_order, '
-      + 'bought, not_bought, days_since_product, wrote_without_order, clicked_without_order) n’ont rien à compter. '
+      + 'bought, not_bought, days_since_product, collections, wrote_without_order, clicked_without_order) n’ont rien à compter. '
       + 'get_shopify_state dit comment la brancher');
   }
   const pays = args.countries;
@@ -353,6 +384,7 @@ async function lireSegmentsMcp(
     ...(present(args.bought) ? [entree(CLES_SEGMENT.achete, achats('bought'))] : []),
     ...(present(args.not_bought) ? [entree(CLES_SEGMENT.pasAchete, achats('not_bought'))] : []),
     ...(present(args.days_since_product) ? [entree(CLES_SEGMENT.reassort, reassort())] : []),
+    ...(present(args.collections) ? [entree(CLES_SEGMENT.collection, collections())] : []),
     // Les boutons prêts passent tels quels : `lireSegment` refuse tout ce qui n'est pas `true`, en le nommant.
     ...(present(args.wrote_without_order) ? [entree(CLES_SEGMENT.ecritSansCommande, args.wrote_without_order)] : []),
     ...(present(args.clicked_without_order) ? [entree(CLES_SEGMENT.clicSansCommande, args.clicked_without_order)] : []),

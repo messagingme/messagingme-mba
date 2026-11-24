@@ -24,13 +24,27 @@ const PRODUITS = [
   { produitId: '8802', sku: 'CRE-50', titre: 'Crème de nuit', varianteTitre: '50 ml', commandes: 2 },
 ];
 
-/** `segments` : la réponse de la route, ou `null` pour une API qui ne la connaît pas (404). */
-async function mock(page: import('@playwright/test').Page, segments: unknown): Promise<URLSearchParams[]> {
+/** Les collections lues (lot 6a), telles que `GET .../contacts/segments/collections` les rend, et l'état de leur lecture. */
+const LUES = {
+  collections: [{ collectionId: '4401', titre: 'Été', produits: 3 }, { collectionId: '4402', titre: 'Soins du visage', produits: 2 }],
+  lecture: { lueLe: '2026-11-24T08:00:00.000Z', enCours: false, refus: null, incompletes: false },
+};
+
+/**
+ * `segments` : la réponse de la route, ou `null` pour une API qui ne la connaît pas (404). `collections` : la réponse de la
+ * route des collections lues, ou une fonction du numéro de l'appel (une lecture en cours, puis finie).
+ */
+async function mock(page: import('@playwright/test').Page, segments: unknown, collections: unknown | ((appel: number, q: string) => unknown) = LUES): Promise<URLSearchParams[]> {
   const requetes: URLSearchParams[] = [];
+  let appels = 0;
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
     const url = new URL(route.request().url());
     const json = (b: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    if (url.pathname.endsWith('/contacts/segments/collections')) {
+      appels += 1;
+      return json(typeof collections === 'function' ? collections(appels, url.searchParams.get('q') ?? '') : collections);
+    }
     if (url.pathname.endsWith('/contacts/segments/produits')) {
       const q = (url.searchParams.get('q') ?? '').toLowerCase();
       return json({ produits: PRODUITS.filter((p) => q === '' || p.titre.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) });
@@ -252,5 +266,92 @@ test.describe('Contacts : les boutons « sans commander » du volet Shopify', ()
     await deplierShopify(page);
     await expect(page.getByTestId('filtre-commandes-min')).toBeVisible();
     await expect(page.getByTestId('filtres-boutons-sans-commande')).toHaveCount(0);
+  });
+});
+
+/**
+ * LE CRITÈRE DE COLLECTION DU VOLET (segments Shopify enrichis, lot 6a) : choisi parmi les collections LUES chez Shopify,
+ * telles qu'elles sont dans la boutique à la dernière lecture (la phrase le dit, avec sa date). 🔴 Une API qui ne l'annonce
+ * pas n'en montre aucun ; une lecture en cours, ou refusée faute du droit read_products, se dit.
+ */
+test.describe('Contacts : le critère de collection du volet Shopify', () => {
+  test.use({ viewport: TREIZE_POUCES });
+  const AVEC_COLLECTIONS = { ...AVEC_BOUTIQUE, produits: true, collections: true };
+  const dernier = (requetes: URLSearchParams[]) => segments(requetes.at(-1) ?? new URLSearchParams());
+
+  test('🔴 « a acheté dans la collection » : chacune des collections, la fenêtre, la puce nommée ; la phrase dit la date de la lecture', async ({ page }) => {
+    const requetes = await mock(page, AVEC_COLLECTIONS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-collections-resultat')).toHaveCount(2);
+    await expect(page.getByTestId('filtre-collections-resultat').first()).toContainText('Été');
+    await expect(page.getByTestId('filtre-collections-resultat').first()).toContainText('3 produits commandés');
+    await expect(page.getByTestId('filtre-collections-lues-le')).toContainText('telles qu’elles sont dans votre boutique, lues le');
+    await expect(page.getByTestId('filtre-collections-lues-le')).toContainText('pas au jour de sa commande');
+    await page.getByTestId('collection-achete').first().click();
+    await expect(page.getByTestId('filtre-collection-puce')).toHaveText(/Été/);
+    await expect.poll(() => dernier(requetes).segment_collection).toBe('{"collections":["4401"]}');
+    await page.getByTestId('filtre-collection-jours').fill('90');
+    await expect.poll(() => dernier(requetes).segment_collection).toBe('{"collections":["4401"],"jours":90}');
+    await page.getByTestId('collection-achete').nth(1).click();
+    await expect.poll(() => dernier(requetes).segment_collection).toBe('{"collections":["4401","4402"],"jours":90}');
+    await expect(page.getByTestId('filtre-collection-puce')).toHaveCount(2);
+    // Retirer les deux puces retire le critère.
+    await page.getByTestId('filtre-collection-retirer').first().click();
+    await page.getByTestId('filtre-collection-retirer').first().click();
+    await expect.poll(() => dernier(requetes).segment_collection).toBeUndefined();
+    await expect(page.getByTestId('filtre-collection')).toHaveCount(0);
+  });
+
+  test('🔴 une lecture en cours se dit, et la liste se relit seule jusqu’à son issue', async ({ page }) => {
+    const enCours = { collections: [], lecture: { lueLe: null, enCours: true, refus: null, incompletes: false } };
+    await mock(page, AVEC_COLLECTIONS, (appel: number) => (appel === 1 ? enCours : LUES));
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-collections-en-cours')).toContainText('Lecture des collections de votre boutique en cours');
+    await expect(page.getByTestId('filtre-collections-resultat')).toHaveCount(2, { timeout: 15_000 });
+    await expect(page.getByTestId('filtre-collections-en-cours')).toHaveCount(0);
+  });
+
+  test('🔴 sans le droit read_products : la phrase dit comment l’ajouter, aucune collection n’est proposée', async ({ page }) => {
+    await mock(page, AVEC_COLLECTIONS, {
+      collections: [], lecture: { lueLe: null, enCours: false, refus: { code: 'sans_droit', message: 'm' }, incompletes: false },
+    });
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-collections-sans-droit')).toContainText('read_products');
+    await expect(page.getByTestId('filtre-collections-sans-droit')).toContainText('réinstallez-la sur la boutique');
+    await expect(page.getByTestId('filtre-collections-resultat')).toHaveCount(0);
+  });
+
+  test('🔴 une collection posée qui n’est plus dans la liste complète est signalée : le critère serait refusé', async ({ page }) => {
+    const etat = { liste: LUES };
+    await mock(page, AVEC_COLLECTIONS, () => etat.liste);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('collection-achete').first().click();
+    await expect(page.getByTestId('filtre-collection-puce')).toHaveText(/Été/);
+    // Relue, la boutique n'a plus « Été » : la recherche relance la lecture, la liste complète ne la porte plus.
+    etat.liste = { ...LUES, collections: [LUES.collections[1]!] };
+    await page.getByTestId('filtre-collections-recherche').fill('soins');
+    await page.getByTestId('filtre-collections-recherche').fill('');
+    await expect(page.getByTestId('filtre-collection-inconnue')).toContainText('Été n’est plus parmi les collections lues');
+  });
+
+  test('🔴 une API qui n’annonce pas les collections : aucune ligne de collection, les critères produit restent', async ({ page }) => {
+    await mock(page, { ...AVEC_BOUTIQUE, produits: true });
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtres-produits')).toBeVisible();
+    await expect(page.getByTestId('filtres-collections')).toHaveCount(0);
+  });
+
+  test('sur un 13 pouces, le critère de collection ne fait pas déborder le panneau', async ({ page }) => {
+    await mock(page, AVEC_COLLECTIONS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('collection-achete').first().click();
+    await expect(page.getByTestId('filtre-collection-jours')).toBeVisible();
+    await pasDeDebordement(page);
   });
 });

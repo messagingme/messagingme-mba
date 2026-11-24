@@ -299,7 +299,10 @@ export class PgShopifyStore {
     );
   }
 
-  /** `shop/redact` : le branchement part entier (secret, messages, paniers, événements, commandes, joignabilité), les fiches restent. */
+  /**
+   * `shop/redact` : le branchement part entier (secret, messages, paniers, événements, commandes, joignabilité, cache des
+   * collections), les fiches restent.
+   */
   async effacerBoutique(tenantId: string): Promise<void> {
     await enTransaction(this.pool, (client) => effacerBranchement(client, tenantId));
   }
@@ -750,12 +753,18 @@ export class PgShopifyStore {
  * Tout le branchement d'un espace, dans la transaction de l'appelant. 🔴 Les ventes attribuées n'en font pas partie : elles
  * perdent leur commande et leur contact, et restent anonymes (spec du 2026-10-28) ; un chiffre déjà lu ne change pas. Les
  * lignes (lot 5) restent, ÉTEINTES : une configuration sans donnée personnelle, dont le scénario (au nom unique dans son
- * rayon) resservira à la reconnexion.
+ * rayon) resservira à la reconnexion. Le cache des collections et l'état de leur lecture (segments Shopify enrichis, lot
+ * 6a, migration 0314, BLOQUANTE pour cette raison) partent avec la boutique : rebranchée, elle relit ses collections.
  */
 async function effacerBranchement(client: PoolClient, tenantId: string): Promise<void> {
   await client.query(`update ventes_attribuees set commande_id = null, contact_id = null where tenant_id = $1`, [tenantId]);
   await client.query(`update shopify_lignes set actif = false, modifie_le = now() where tenant_id = $1 and actif`, [tenantId]);
-  for (const table of ['shopify_messages', 'shopify_messages_attente', 'shopify_paniers', 'shopify_evenements', 'shopify_commandes', 'shopify_boutiques']) {
+  // Les produits AVANT leurs collections (la cascade les emporte) : l'ordre des verrous de l'écriture d'une lecture
+  // (`ecrire`, produit puis collections), sans quoi les deux s'interbloqueraient.
+  for (const table of [
+    'shopify_messages', 'shopify_messages_attente', 'shopify_paniers', 'shopify_evenements', 'shopify_commandes',
+    'shopify_produits', 'shopify_produit_collections', 'shopify_collections_lecture', 'shopify_boutiques',
+  ]) {
     await client.query(`delete from ${table} where tenant_id = $1`, [tenantId]);
   }
   await effacerJoignabiliteDuBranchement(client, tenantId);

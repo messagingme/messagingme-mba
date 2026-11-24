@@ -1,11 +1,13 @@
 import { NIVEAUX_RISQUE, type NiveauRisque } from '../engagement/risque';
-import { isContactFieldOp, type ContactFieldFilter, type ContactFilters } from './contact-store.pg';
+// Depuis le module partagé, jamais par `./contact-store.pg` qui le réexporte : ce magasin importe `FiltreContactInvalide`
+// d'ici (le refus d'un critère de collection, lot 6a), et le passage par lui ferait un cycle d'imports.
+import { isContactFieldOp, type ContactFieldFilter, type ContactFilters } from '../../web/lib/partage/contact-filters';
 import { champFiche } from './champs-fiche';
 import { estCleFiltrable, estOperateurFicheSeul, lireFiltreFiche } from './filtre-fiche';
 import { paysConnu, paysPrincipalDe } from './segments';
 import {
-  BORNES_SEGMENTS, CLES_SEGMENT, OP_SEGMENT, estCleSegment,
-  type AchatsVises, type CleSegment, type PlageSurJours, type ProduitVise, type Reassort,
+  BORNES_SEGMENTS, CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, estCleSegment,
+  type AchatsVises, type CleSegment, type CollectionsVisees, type PlageSurJours, type ProduitVise, type Reassort,
 } from '../../web/lib/partage/segments';
 
 /**
@@ -87,6 +89,7 @@ export function normalizeFieldFilters(raw: unknown[]): ContactFieldFilter[] {
 const NOMS_SEGMENT: Record<CleSegment, string> = {
   [CLES_SEGMENT.commandes]: 'commandes', [CLES_SEGMENT.depense]: 'dépense', [CLES_SEGMENT.derniereCommande]: 'dernière commande',
   [CLES_SEGMENT.achete]: 'a acheté', [CLES_SEGMENT.pasAchete]: 'n’a pas acheté', [CLES_SEGMENT.reassort]: 'réassort',
+  [CLES_SEGMENT.collection]: 'a acheté dans la collection',
   [CLES_SEGMENT.ecritSansCommande]: 'a écrit sans commander', [CLES_SEGMENT.clicSansCommande]: 'a cliqué sans commander',
   [CLES_SEGMENT.actif]: 'actif', [CLES_SEGMENT.inactif]: 'inactif', [CLES_SEGMENT.pays]: 'pays',
 };
@@ -96,7 +99,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
  * ignorée : JSON illisible, clé inconnue, borne hors plage, minimum au-dessus du maximum, pays inconnu, et pour le nombre
  * de commandes et la dépense « au moins 0 » sans maximum, qui viserait tout l'espace.
  */
-export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | number | string[] | AchatsVises | Reassort | true {
+export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | true {
   const nom = NOMS_SEGMENT[cle];
   let v: unknown;
   try { v = typeof brut === 'string' ? JSON.parse(brut) as unknown : undefined; } catch { v = undefined; }
@@ -108,6 +111,7 @@ export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | num
     case CLES_SEGMENT.achete:
     case CLES_SEGMENT.pasAchete: return lireAchats(v, nom);
     case CLES_SEGMENT.reassort: return lireReassort(v, nom);
+    case CLES_SEGMENT.collection: return lireCollections(v, nom);
     case CLES_SEGMENT.ecritSansCommande:
     case CLES_SEGMENT.clicSansCommande:
       // Un bouton prêt : `true` et rien d'autre (spec, « Les deux boutons prêts ») ; aucun réglage ne s'y glisse.
@@ -164,6 +168,29 @@ function lireReassort(v: unknown, nom: string): Reassort {
     max: BORNES_SEGMENTS.joursMax, entier: true, avecJours: false, restreint: false,
   });
   return { ...p, ...plage };
+}
+
+/**
+ * « A acheté dans la collection » (lot 6a) : `{ collections, jours? }`, de 1 à `collectionsMax` identifiants Shopify en
+ * chiffres, dédupliqués. 🔴 La forme seule se juge ici ; qu'une lecture des collections ait abouti et que chaque
+ * collection soit encore connue se juge en base, à l'entrée de chaque lecture par filtres (`PgContactStore`).
+ */
+function lireCollections(v: unknown, nom: string): CollectionsVisees {
+  const refus = (raison: string): never => { throw new FiltreContactInvalide(`filtre « ${nom} » : ${raison}`); };
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return refus('un objet { collections, jours } est attendu');
+  const o = v as Record<string, unknown>;
+  const inconnues = Object.keys(o).filter((k) => k !== 'collections' && k !== 'jours');
+  if (inconnues.length > 0) refus(`clé inconnue (${inconnues.join(', ')}) ; seules collections, jours`);
+  if (!Array.isArray(o.collections) || o.collections.length === 0) refus('au moins une collection');
+  const liste = o.collections as unknown[];
+  if (liste.length > BORNES_SEGMENTS.collectionsMax) refus(`${BORNES_SEGMENTS.collectionsMax} collections au plus`);
+  const motif = new RegExp(MOTIF_ID_COLLECTION);
+  const collections = [...new Set(liste.map((c) => {
+    const id = typeof c === 'number' && Number.isSafeInteger(c) && c > 0 ? String(c) : typeof c === 'string' ? c.trim() : '';
+    return motif.test(id) ? id : refus('« collections » : les identifiants Shopify des collections, en chiffres');
+  }))];
+  const jours = o.jours !== undefined && o.jours !== null ? lireJours(o.jours, nom) : undefined;
+  return { collections, ...(jours !== undefined ? { jours } : {}) };
 }
 
 /** Un nombre de jours : entier de 1 à `joursMax`. */

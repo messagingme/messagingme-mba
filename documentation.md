@@ -3226,8 +3226,8 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   propose que sur `produits: true` de `GET .../contacts/segments` ; `GET .../contacts/segments/produits` cherche les
   produits DÉJÀ VUS (jamais le catalogue, 20 au plus, `%` et `_` à la lettre), et `get_shopify_state` en rend les 20
   plus achetés à l'assistant, au mieux. L'onglet Shopify de la fiche lit les lignes par une requête à part, au mieux :
-  il existait avant elles et ne doit pas tomber avec elles. Les collections attendent le lot 6 ; son droit
-  `read_products` est demandé dès le lot 5, pour le rattrapage (décision de Julien du 2026-11-24) ;
+  il existait avant elles et ne doit pas tomber avec elles. Les collections (lot 6a) ont leur paragraphe plus bas ;
+  le droit `read_products` qu'elles exigent est demandé dès le lot 5, pour le rattrapage (décision de Julien du 2026-11-24) ;
 - **les deux boutons prêts du volet Shopify** (segments Shopify enrichis, lot 4) : « a écrit sans commander »
   (`segment_ecrit_sans_commande`) et « a cliqué sans commander » (`segment_clic_sans_commande`), valeur `true` et rien
   d'autre (`lireSegment` refuse le reste), réservés aux espaces à boutique (`CLES_COMMANDES`). La date du geste non
@@ -3269,6 +3269,40 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   début du suivi courant (`fini_le >= commandes_depuis` : sans trou entre les deux) se lit dans `suiviSegments`, AU
   MIEUX (une panne le tait, jamais le suivi) : `GET .../contacts/segments` le rend (`rattrapeesDepuis`), `find_contacts`
   aussi (`orders_backfilled_since`) ;
+- 🔴 **les collections des produits achetés** (segments Shopify enrichis, lot 6a, migration 0314, `src/shopify/collections.ts`) :
+  une collection n'est pas dans la ligne, elle se lit sur le produit, chez Shopify, par un job (file `shopify-collections`,
+  rôle `analyse`), JAMAIS sur le chemin du webhook. Le cache : `shopify_produits` (un produit vu dans les lignes, hors
+  cartes cadeaux, son titre, `collections_lues_le`, `collections_incompletes` au-delà de 50 collections, un bail et un
+  jeton), `shopify_produit_collections` (ses collections à la dernière lecture, REMPLACÉES en bloc, clé étrangère en
+  cascade, index `(tenant_id, collection_id)`) et `shopify_collections_lecture` (l'état par espace : `lue_le`, la dernière
+  lecture ABOUTIE, `demandee_le`, l'issue et son message ; jamais une colonne de `shopify_boutiques`, que chaque webhook
+  lit). La lecture s'ENFILE à la lecture de la liste (`lireCollections` : `GET .../contacts/segments/collections`, et
+  `get_shopify_state`) quand un produit des lignes n'a jamais été lu ou date de plus de 24 h, boutique branchée
+  seulement ; `demander` ne pose qu'une demande vive à la fois (15 minutes, puis une minute après chaque issue), et un
+  job qui n'a pas pu être enfilé efface la sienne. Aucun passage de toutes les boutiques. Le job lit d'abord les droits
+  (`lireDroitsDeLApp`) : sans `read_products`, issue `sans_droit` et rien n'est lu. Puis il inscrit les produits des
+  lignes (`synchroniser`, identifiants de 1 à 19 chiffres), 🔴 RÉSERVE les produits à lire par lots de 10 (`for update
+  skip locked`, un bail de 180 s et un jeton : pg-boss ne déduplique rien, deux jobs ne lisent jamais le même produit, et
+  un porteur dont le bail a été repris n'écrit plus rien), les lit par `nodes(ids:)` avec `collections(first: 50)`
+  (`lireCollectionsDesProduits`, `src/shopify/collections-lues.ts`, par `fetchPublic`, chaque réponse par Zod), et les
+  écrit dans une transaction : `hasNextPage` les dit incomplets, un nœud nul (produit supprimé chez Shopify) est LU sans
+  collection, une réponse qui n'a pas un nœud par produit demandé ne s'écrit pas. La boutique est relue avant chaque
+  écriture (coupée, effacée ou remplacée : rien de ce lot ne s'écrit). 🔴 Toute panne pendant un lot rend son bail avant
+  de remonter (pg-boss rejoue) ; un lot trop lourd se redemande plus petit ; chaque passage journalise le coût de son
+  premier lot (`shopify_collections_cout`) et passe 2 minutes au plus, puis se réenfile. La lecture est aboutie (`lue`)
+  quand plus aucun produit n'est à lire. Le critère `segment_collection` (`{ collections: 1 à 20 identifiants, jours? }`,
+  `lireSegment`) retient les fiches qui ont acheté au moins un produit de CHACUNE des collections (une sous-requête
+  chacune, `ligneDansLaCollection`, le prédicat de l'index partiel des produits repris mot pour mot, `tenant_id = $1` sur
+  les trois tables), telles qu'elles sont dans la boutique à la DERNIÈRE LECTURE. 🔴 Il est REFUSÉ, jamais « personne »,
+  sans lecture aboutie ou pour une collection pas connue (`refusDesCollections`, `src/shopify/collections.pg.ts`) : la
+  garde est posée dans `PgContactStore` sur CHAQUE lecture par filtres (`ouFiltres`, `selecteurDeMasse`, les seuls
+  appelants de `buildContactWhere` et `buildBulkSelector`, tenu par `tests/collections-refus.test.ts`), donc liste,
+  compte, action en masse, cible de campagne et suppression ; son `FiltreContactInvalide` rend 400 aux routes et un
+  refus de l'outil au MCP (`src/mcp/serveur.ts`). La console ne le propose que sur `collections: true` de
+  `GET .../contacts/segments` ; `find_contacts` rend `collections_read_at` (`suiviSegments`, au mieux). L'effacement du
+  branchement emporte les trois tables (migration BLOQUANTE pour cette raison) ; le simple Couper les garde, sans relecture.
+  `read_all_orders` entre dans la liste des droits (console, skill) sans que rien ne le lise encore : la reprise au-delà
+  de 60 jours (lot 7) s'en servira ;
 - **le secret qui vérifie doit être celui de la boutique relue** : le cache d'une minute ne laisse pas passer un
   webhook de l'ancienne app après une reconnexion, et `shop/redact` n'efface jamais une boutique `connectee` ;
 - 🔴 **la relance de panier est balayée DANS L'API** (`src/shopify/relance.ts`, la minuterie d'une minute de
