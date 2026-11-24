@@ -5,6 +5,27 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : « Enregistrer et activer » à la fin de l'entretien
+
+Julien : à la fin de « Construire en parlant », à côté de « Enregistrer », « un bouton Enregistrer et Activer, comme ça
+le truc est activé direct ». Décisions (questions fermées) : c'est le bouton PRINCIPAL tant que l'agent n'est pas actif,
+« Enregistrer » passe en secondaire, pour qui veut tester d'abord ; rien à construire pour l'automation « Panier
+abandonné avec agent IA », qui ne liste déjà que les agents actifs (`AutomationsShopify.tsx`). Console seule, aucune
+route neuve : le bouton enchaîne l'enregistrement (le chemin de « Enregistrer ») puis, s'il a réussi, le geste
+« Activer » de l'en-tête (`changerStatut('active')`), dont le refus 422 pose ses manques dans l'encadré « Suite ». Un
+agent déjà actif n'a que « Enregistrer ». La liste « Pour finir » du serveur cite toujours « Enregistrer » (le bouton
+existe, et ce chemin-là passe par l'essai) : laissée telle quelle pour ne pas déployer l'API. Méthode : en direct, une
+relecture indépendante. Sans l'activation enchaînée, les deux e2e « Enregistrer et activer » échouent (console construite
+à part, source restaurée et vérifiée par empreinte). La relecture : aucun rouge. Un jaune corrigé dans le lot : une
+activation en PANNE (ni 2xx ni 422) laissait les manques à « on ne sait pas », donc l'encadré « Suite » disparaissait
+avec son bouton « Activer l'agent » et le client pouvait partir en croyant l'agent actif ; `enregistrer` relit
+désormais les manques après toute activation refusée. Par « Enregistrer et activer » la panne était masquée (la relecture
+lancée par l'enregistrement arrive après), le défaut se voyait par « Activer l'agent » de l'encadré : c'est ce chemin que
+le test exerce, rouge sans le correctif. Un test de plus, qui manquait : un enregistrement refusé n'active rien. Écarté :
+la relecture des manques sans `await` qui croise un refus d'activation, sans effet visible puisque les deux listes
+viennent du même calcul serveur (sauf une modification concurrente depuis un autre onglet). Fiche « Construire un agent
+IA » (étape 5, français et anglais, capture refaite), `features.md`, empreintes des cinq fiches de la section.
+
 ## 2026-11-20 au 23 : la relance avec agent IA en production, le scénario déplié, « Modifier » dans le bloc
 
 **Relance de panier avec agent IA (suite de l'entrée du 2026-11-20).** Le serveur (da17a5f31) est parti dans le

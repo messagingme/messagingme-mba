@@ -2,7 +2,7 @@
 description: Créer un agent IA WhatsApp, le régler en parlant à l'assistant ou onglet par onglet, l'activer, puis le faire répondre à vos clients.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: d3f96d
+source_empreinte: da6514
 publique: oui
 rubrique: parler-aux-clients
 rang: 10
@@ -65,17 +65,20 @@ réponses de fond : ses pages sont lues et découpées en fiches pendant que vou
   proposition active « Lire la fiche du contact » : l'agent pourra répondre à « où en est ma commande ? ».
 
 **5. Avec l'assistant : garder, corriger ou jeter chaque ligne.** Le tour du sujet fait, il affiche « Ce que ça
-changerait » : chaque réglage proposé, la valeur d'avant barrée. Relisez, puis « Enregistrer ».
+changerait » : chaque réglage proposé, la valeur d'avant barrée. Relisez, puis « Enregistrer et activer » : l'agent
+est réglé et activé d'un seul clic. « Enregistrer », à côté, règle sans activer, pour le tester d'abord.
 
 - Rien n'est écrit dans les onglets avant ce clic : l'assistant propose, il ne change rien tout seul.
 - Tout est gardé au départ. Chaque ligne a deux boutons, « Garder » et « Jeter », et son texte se corrige sur place.
-  Une ligne jetée, le bouton dit combien de lignes partiront (« Enregistrer les 4 gardées »). « Tout jeter » abandonne
-  la proposition.
-- Après « Enregistrer », un encadré dit la suite : « Votre agent est prêt », avec « Activer l'agent » et « Le tester » ;
-  ou, s'il manque encore quelque chose, la liste de ce qui manque, chaque ligne menant à son onglet.
+  Une ligne jetée, le bouton dit combien de lignes partiront (« Enregistrer les 4 gardées et activer »). « Tout jeter »
+  abandonne la proposition.
+- Un encadré dit ensuite la suite : « Votre agent est actif » ; « Votre agent est prêt », avec « Activer l'agent » et
+  « Le tester », si vous avez seulement enregistré ; ou, s'il manque encore quelque chose, la liste de ce qui manque,
+  chaque ligne menant à son onglet. Ce que vous avez gardé est enregistré même quand l'activation est refusée.
+- Un agent déjà actif n'a que « Enregistrer » : ce que vous enregistrez s'applique à ses prochaines réponses.
 - Les règles d'arrêt se gardent ou se jettent en bloc : elles se corrigent ensuite dans Objectif et transferts.
 - Un moment où l'agent doit lancer un scénario : nommez un de vos scénarios en ligne quand il vous les liste. La
-  proposition porte alors une ligne « Outil « Lancer un scénario » », et « Enregistrer » pose l'outil, « Inactif »,
+  proposition porte alors une ligne « Outil « Lancer un scénario » », et l'enregistrement pose l'outil, « Inactif »,
   dans l'onglet Outils.
 - Il peut aussi brancher ou débrancher un outil de votre bibliothèque si vous le demandez, jamais en créer un.
   Brancher n'active pas.

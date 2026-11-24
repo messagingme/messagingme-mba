@@ -40,7 +40,11 @@ interface ProprietesConstruction {
   /** L'état de l'agent et ce qui manque encore pour l'activer (`null` = pas encore lu), pour dire la suite. */
   actif: boolean;
   manques: ManqueFiche[] | null;
-  onActiver: () => void;
+  /**
+   * Active l'agent, par le MÊME geste que le bouton de l'en-tête (refusé en 422 avec la liste de ce qui manque, que
+   * l'écran parent pose dans `manques`). Attendu par « Enregistrer et activer », qui l'enchaîne après l'enregistrement.
+   */
+  onActiver: () => void | Promise<void>;
   onOnglet: (cle: ManqueFiche['onglet'] | 'tester') => void;
 }
 
@@ -279,7 +283,13 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
     }
   }
 
-  async function garder(gardees: Map<string, string>) {
+  /**
+   * Enregistre les lignes gardées ; `activer` enchaîne l'activation de l'agent (« Enregistrer et activer », Julien,
+   * 2026-11-24 : « comme ça le truc est activé direct »). L'activation ne part que si l'enregistrement a réussi. Refusée
+   * parce qu'il manque encore quelque chose, elle ne dit rien ici : l'écran parent pose la liste dans `manques`, et le
+   * bloc « Suite » la montre, chaque ligne menant à son onglet.
+   */
+  async function garder(gardees: Map<string, string>, activer = false) {
     if (!proposition || !changements || busy) return;
     setBusy(true);
     setErreur(null);
@@ -290,6 +300,7 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
       setTours((t0) => [...t0, { role: 'assistant', content: t('C’est enregistré.', 'Saved.') }]);
       setAuteurs((a0) => [...a0, null]);
       setEnregistre(true);
+      if (activer) await onActiver();
     } catch (err) {
       setErreur(err instanceof Error ? err.message : t('Enregistrement impossible', 'Unable to save'));
     } finally {
@@ -481,7 +492,12 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
         </p>
       )}
       {changements !== null && resteACouvrir === 0 && (
-        <Diff key={lot} changements={changements} busy={busy} onGarder={garder} onJeter={() => { setChangements(null); setProposition(null); }} />
+        <Diff
+          key={lot} changements={changements} busy={busy} actif={actif}
+          onGarder={(g) => void garder(g)}
+          onGarderEtActiver={(g) => void garder(g, true)}
+          onJeter={() => { setChangements(null); setProposition(null); }}
+        />
       )}
       {enregistre && changements === null && (
         <Suite actif={actif} manques={manques} busy={busy} onActiver={onActiver} onOnglet={onOnglet} />
@@ -560,10 +576,13 @@ function Suite({ actif, manques, busy, onActiver, onOnglet }: {
  * PLUSIEURS règles, et le relire pour reconstruire la liste ferait dépendre un enregistrement d'un format que
  * le client peut casser en tapant. L'onglet Objectif a les bons champs pour ça.
  */
-function Diff({ changements, busy, onGarder, onJeter }: {
+function Diff({ changements, busy, actif, onGarder, onGarderEtActiver, onJeter }: {
   changements: Changement[];
   busy: boolean;
+  /** L'agent est déjà actif : « Enregistrer » suffit, il n'y a rien à activer. */
+  actif: boolean;
   onGarder: (gardees: Map<string, string>) => void;
+  onGarderEtActiver: (gardees: Map<string, string>) => void;
   onJeter: () => void;
 }) {
   const t = useT();
@@ -648,7 +667,22 @@ function Diff({ changements, busy, onGarder, onJeter }: {
         );
       })}
       <div className="flex flex-wrap items-center gap-2">
+        {/* 🔴 « ENREGISTRER ET ACTIVER » EST LE GESTE PRINCIPAL d'un agent pas encore actif (Julien, 2026-11-24) : à la fin
+            d'un entretien, on veut qu'il réponde. « Enregistrer » reste à côté, pour qui veut tester d'abord. Un agent
+            déjà actif n'a que « Enregistrer » : ce qu'on enregistre s'applique déjà à ses réponses. */}
+        {!actif && (
+          <Bouton
+            data-testid="setup-garder-activer"
+            disabled={busy || gardees.size === 0}
+            onClick={() => onGarderEtActiver(gardees)}
+          >
+            {gardees.size === changements.length
+              ? t('Enregistrer et activer', 'Save and activate')
+              : t(`Enregistrer les ${gardees.size} gardées et activer`, `Save the ${gardees.size} kept and activate`)}
+          </Bouton>
+        )}
         <Bouton
+          variante={actif ? undefined : 'secondaire'}
           data-testid="setup-garder"
           disabled={busy || gardees.size === 0}
           onClick={() => onGarder(gardees)}

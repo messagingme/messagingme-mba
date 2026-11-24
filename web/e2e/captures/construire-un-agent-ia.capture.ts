@@ -144,7 +144,8 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await page.waitForTimeout(800);
       await capturer(page, CLE, 4, locale, page.getByTestId('setup-saisie'), 'bas', page.getByTestId('setup-joindre'));
 
-      // 5. « Ce que ça changerait » : une ligne jetée, le bouton qui compte celles qui partiront. Rien n'est enregistré.
+      // 5. « Ce que ça changerait » : une ligne jetée, le bouton qui compte celles qui partiront, « Enregistrer et activer »
+      // en geste principal. Rien n'est enregistré.
       etat.reponseEntretien = {
         message: d.reponse5, proposition: { fiche: {}, outils: [] }, changements: [...d.changements],
         couverture: { manquants: [], total: 10, pointOuvert: null },
@@ -153,7 +154,7 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await page.getByTestId('setup-envoyer').click();
       await expect(page.getByTestId('setup-diff')).toBeVisible();
       await page.getByTestId('setup-jeter-fiche.ton').click();
-      await capturer(page, CLE, 5, locale, page.getByTestId('setup-diff'), 'haut', page.getByTestId('setup-garder'));
+      await capturer(page, CLE, 5, locale, page.getByTestId('setup-diff'), 'haut', page.getByTestId('setup-garder-activer'));
 
       // 6. Le dernier message de l'assistant et sa liste « Pour finir » ; « Recommencer » en haut de la conversation.
       etat.entretien = {

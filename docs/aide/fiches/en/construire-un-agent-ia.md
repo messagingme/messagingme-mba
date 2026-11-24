@@ -1,6 +1,6 @@
 ---
 slug: build-an-ai-agent
-traduit_de: afe40a
+traduit_de: e2d11d
 description: Create a WhatsApp AI agent, set it up by talking to the assistant or tab by tab, activate it, then have it answer your customers.
 ---
 # Build an AI agent
@@ -57,17 +57,20 @@ answers come from: its pages are read and split into entries while you carry on.
   activates “Read the contact record”: the agent will be able to answer “where is my order?”.
 
 **5. With the assistant: keep, edit or drop each line.** Once the topic is covered, it shows “What this would change”:
-each proposed setting, with the previous value struck through. Reread, then “Save”.
+each proposed setting, with the previous value struck through. Reread, then “Save and activate”: the agent is set up
+and activated in one click. “Save”, next to it, sets it up without activating, so you can test it first.
 
 - Nothing is written to the tabs before that click: the assistant proposes, it changes nothing on its own.
 - Everything is kept at first. Each line has two buttons, “Keep” and “Drop”, and its text can be edited in place.
-  Once a line is dropped, the button says how many lines will be saved (“Save the 4 kept”). “Drop all” discards the
-  proposal.
-- After “Save”, a box tells you what comes next: “Your agent is ready.”, with “Activate the agent” and “Test it”; or,
-  if something is still missing, the list of what is missing, each line leading to its tab.
+  Once a line is dropped, the button says how many lines will be saved (“Save the 4 kept and activate”). “Drop all”
+  discards the proposal.
+- A box then tells you what comes next: “Your agent is active”; “Your agent is ready.”, with “Activate the agent” and
+  “Test it”, if you only saved; or, if something is still missing, the list of what is missing, each line leading to
+  its tab. What you kept is saved even when activation is refused.
+- An agent that is already active only has “Save”: what you save applies to its next answers.
 - Stop rules are kept or dropped as a block: they are edited afterwards in Objective and handovers.
 - A moment when the agent must start a scenario: name one of your live scenarios when it lists them. The proposal then
-  carries a “Start a scenario” tool line, and “Save” places the tool, “Inactive”, in the Tools tab.
+  carries a “Start a scenario” tool line, and saving places the tool, “Inactive”, in the Tools tab.
 - It can also connect or disconnect a tool from your library if you ask, never create one. Connecting does not
   activate.
 - It may not write the AI disclosure, the caps or the model, nor activate a tool.

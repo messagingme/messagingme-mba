@@ -1733,6 +1733,11 @@ interdit d'inventer. Ce que le modèle avait proposé pour cet outil est remplac
 (`outilsAActiver`) : une ligne `outil.lire_contact.actif` du diff, même quand ses mots sont déjà les bons, qui se garde
 ou se jette et ne se réécrit pas. C'est la SEULE exception à « tout outil ajouté par l'assistant naît inactif »
 (`appliquerProposition`, `web/lib/api-agent-setup.ts`) : un outil en lecture seule, que le client vient de relire.
+🔴 **« Enregistrer et activer » enchaîne deux gestes qui existaient déjà, dans cet ordre** (2026-11-24, console seule) :
+l'enregistrement de la proposition (`onApplique`, le chemin de « Enregistrer »), puis, s'il a réussi, l'activation de
+l'en-tête (`changerStatut('active')`, `web/app/agents/page.tsx`), qui juge donc la fiche ENREGISTRÉE ; son refus 422 pose
+ses manques dans l'encadré « Suite » et ne défait pas l'enregistrement. Le bouton n'existe que pour un agent pas encore
+actif ; il est alors le geste principal, « Enregistrer » le secondaire.
 🔴 **Le lien de suivi du dernier colis s'écrit sur la fiche** (`lienDeSuiviAuMieux`, `src/shopify/traitement.ts`).
 À chaque `fulfillments/create`, AVANT `servir` (qui s'arrête tout de suite sans ligne allumée), pause comprise, le
 `tracking_url` lu BRUT (une adresse http(s) entière, jamais coupée à la borne d'une variable) va dans le champ

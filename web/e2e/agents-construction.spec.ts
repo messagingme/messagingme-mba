@@ -38,7 +38,12 @@ async function mock(page: import('@playwright/test').Page, appels: Appel[], opts
   /** Les réponses successives du GET de l'entretien ; « coupure » = la connexion tombe. Épuisées, le fil vide. */
   lectures?: Array<'coupure' | unknown>;
   /** Le POST de l'entretien tombe en coupure (le serveur l'a peut-être traité, le navigateur n'en sait rien). */
-  postCoupe?: boolean } = {}) {
+  postCoupe?: boolean;
+  /** Le statut de l'agent ouvert : « Enregistrer et activer » ne s'offre qu'à un agent pas encore actif. */
+  statut?: 'draft' | 'active';
+  /** Le PATCH de la fiche est refusé (409) : l'enregistrement échoue. */
+  enregistrementEnEchec?: boolean } = {}) {
+  const agent = { ...AGENT, status: opts.statut ?? AGENT.status };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
     const req = route.request();
@@ -81,9 +86,10 @@ async function mock(page: import('@playwright/test').Page, appels: Appel[], opts
         const corps = (req.postDataJSON() ?? {}) as Record<string, unknown>;
         appels.push({ method, url, body: corps });
         if (corps.status === 'active' && opts.activation) return json(opts.activation.body, opts.activation.status);
-        return json({ agent: { ...AGENT, ...corps } });
+        if (corps.contenu && opts.enregistrementEnEchec) return json({ error: 'la fiche a changé entre-temps, rechargez' }, 409);
+        return json({ agent: { ...agent, ...corps } });
       }
-      return json({ agent: AGENT });
+      return json({ agent });
     }
     if (/\/agents(\?|$)/.test(url)) return json({ agents: [{ id: AG, label: 'Conseiller séjours', status: 'draft', sorties: [], modele: 'anthropic/claude-haiku-4.5' }] });
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
@@ -154,6 +160,84 @@ test.describe('Agents IA : construire en parlant', () => {
 
     await expect(page.getByTestId('setup-suite-manque-connaissance')).toBeVisible();
     await expect(page.getByTestId('setup-suite-activer')).toHaveCount(0);
+  });
+
+  test('🔴 « Enregistrer et activer » enregistre PUIS active, et le fil dit que l agent est actif', async ({ page }) => {
+    // Julien, 2026-11-24 : « un bouton Enregistrer et Activer, comme ça le truc est activé direct ». C'est le geste
+    // principal d'un agent pas encore actif ; « Enregistrer » reste à côté, pour qui veut tester d'abord.
+    const appels: Appel[] = [];
+    await mock(page, appels);
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
+    await page.getByTestId('setup-envoyer').click();
+    await expect(page.getByTestId('setup-garder-activer')).toHaveText('Enregistrer et activer');
+    await expect(page.getByTestId('setup-garder')).toBeVisible();
+    await page.getByTestId('setup-garder-activer').click();
+
+    await expect(page.getByTestId('setup-suite')).toContainText('Votre agent est actif');
+    const patchs = appels.filter((a) => a.method === 'PATCH').map((a) => a.body as { contenu?: unknown; status?: string });
+    // L'ORDRE compte : l'activation se juge sur la fiche enregistrée, jamais sur celle d'avant.
+    expect(patchs.map((b) => (b.status ? `status:${b.status}` : b.contenu ? 'contenu' : '?'))).toEqual(['contenu', 'status:active']);
+  });
+
+  test('🔴 « Enregistrer et activer » sur un agent incomplet : la fiche est enregistrée, l écran dit ce qui manque', async ({ page }) => {
+    // Un refus d'activation ne doit faire perdre ni ce qui vient d'être gardé, ni le mode d'emploi pour finir.
+    const manques = [{ onglet: 'connaissance', message: 'Ajoutez au moins une fiche de connaissance.' }];
+    const appels: Appel[] = [];
+    await mock(page, appels, { manques, activation: { status: 422, body: { error: 'agent incomplet', manques } } });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
+    await page.getByTestId('setup-envoyer').click();
+    await page.getByTestId('setup-garder-activer').click();
+
+    await expect(page.getByTestId('setup-suite-manque-connaissance')).toBeVisible();
+    await expect(page.getByTestId('setup-suite-activer')).toHaveCount(0);
+    expect(appels.some((a) => a.method === 'PATCH' && (a.body as { contenu?: unknown }).contenu)).toBe(true);
+    expect(appels.some((a) => a.method === 'PATCH' && (a.body as { status?: string }).status === 'active')).toBe(true);
+  });
+
+  test('🔴 activation en panne : l encadré revient avec « Activer l agent », le client ne part pas en le croyant actif', async ({ page }) => {
+    // Relecture du 2026-11-24 : une panne (ni 2xx ni 422) laissait les manques à « on ne sait pas », donc l'encadré
+    // disparaissait et plus aucun bouton n'offrait de réessayer. Par « Enregistrer et activer », la relecture des
+    // manques lancée par l'enregistrement le masque ; par « Activer l'agent » de l'encadré, rien ne le masquait.
+    await mock(page, [], { activation: { status: 500, body: { error: 'panne passagère' } } });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
+    await page.getByTestId('setup-envoyer').click();
+    await page.getByTestId('setup-garder').click();
+    await page.getByTestId('setup-suite-activer').click();
+
+    await expect(page.getByText('panne passagère').first()).toBeVisible();
+    await expect(page.getByTestId('setup-suite')).toContainText('Votre agent est prêt');
+    await expect(page.getByTestId('setup-suite-activer')).toBeVisible();
+  });
+
+  test('🔴 un enregistrement refusé n active rien', async ({ page }) => {
+    const appels: Appel[] = [];
+    await mock(page, appels, { enregistrementEnEchec: true });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
+    await page.getByTestId('setup-envoyer').click();
+    await page.getByTestId('setup-garder-activer').click();
+
+    await expect(page.getByText('la fiche a changé entre-temps, rechargez').first()).toBeVisible();
+    // Le diff reste là, pour réessayer ; et aucun PATCH de statut n'est parti.
+    await expect(page.getByTestId('setup-diff')).toBeVisible();
+    expect(appels.some((a) => a.method === 'PATCH' && (a.body as { status?: string }).status !== undefined)).toBe(false);
+  });
+
+  test('un agent déjà actif n a que « Enregistrer » : rien à activer, et rien ne part pour son statut', async ({ page }) => {
+    const appels: Appel[] = [];
+    await mock(page, appels, { statut: 'active' });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
+    await page.getByTestId('setup-envoyer').click();
+    await expect(page.getByTestId('setup-diff')).toBeVisible();
+    await expect(page.getByTestId('setup-garder-activer')).toHaveCount(0);
+    await page.getByTestId('setup-garder').click();
+
+    await expect(page.getByTestId('setup-suite')).toContainText('Votre agent est actif');
+    expect(appels.some((a) => a.method === 'PATCH' && (a.body as { status?: string }).status !== undefined)).toBe(false);
   });
 
   test('🔴 TANT QUE LE PÉRIMÈTRE N EST PAS COUVERT, on discute : aucun diff', async ({ page }) => {

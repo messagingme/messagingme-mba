@@ -328,7 +328,10 @@ function Ecran({ tenantId }: { tenantId: string }) {
          * refusée, et sans elle on croirait l'avoir enregistrée), et on relit les vrais manques de l'agent.
          */
         setErreur(err instanceof Error ? err.message : t('Enregistrement impossible', 'Unable to save'));
-        if (liste.length > 0) void rafraichirManques(ouvert.id);
+        // ⚠️ UNE ACTIVATION EN PANNE (ni 2xx ni 422) relit aussi les manques, remis à « on ne sait pas » plus haut : sans
+        // cela, l'encadré « Suite » de l'entretien disparaissait avec son bouton « Activer l'agent », et le client pouvait
+        // partir en croyant l'agent actif (relecture du 2026-11-24).
+        if (liste.length > 0 || patch.status === 'active') void rafraichirManques(ouvert.id);
       }
     } finally {
       setBusy(false);
@@ -456,7 +459,7 @@ function Ecran({ tenantId }: { tenantId: string }) {
                 agentId={ouvert.id}
                 actif={ouvert.status === 'active'}
                 manques={manques}
-                onActiver={() => void changerStatut('active')}
+                onActiver={() => changerStatut('active')}
                 onOnglet={(cle) => aller(ouvert.id, lireOnglet(cle))}
                 onApplique={async (p) => {
                   try {

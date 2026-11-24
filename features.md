@@ -4812,6 +4812,12 @@ un gros bouton « Ajouter un outil », et la liste des outils posés.
   « potentiellement le mec ne veut en changer qu'une et le reste lui convient ». Tout est gardé au départ, le
   bouton dit combien de lignes partiront. Seules les règles d'arrêt se gardent ou se jettent en bloc, parce
   qu'elles sont plusieurs dans une même ligne : elles se corrigent dans l'onglet Objectif.
+- ✅ **« Enregistrer et activer », d'un seul clic** (2026-11-24, demande de Julien : « comme ça le truc est activé
+  direct »). C'est le bouton principal sous la proposition tant que l'agent n'est pas actif ; « Enregistrer », à
+  côté, règle sans activer, pour le tester d'abord. Si l'activation est refusée parce qu'il manque encore quelque
+  chose, ce qui a été gardé est enregistré quand même, et l'encadré qui suit liste ce qui manque, chaque ligne menant
+  à son onglet. Un agent déjà actif n'a que « Enregistrer ». Activé veut dire proposable (dans un scénario, dans
+  « Qui répond au client », dans l'automation « Panier abandonné avec agent IA ») : cela ne le fait pas répondre à tout.
 - ✅ **Tout ce qu'il écrit reste modifiable dans les autres onglets**, champ par champ.
 - ✅ **Une proposition un peu trop longue est corrigée, plus rejetée** (2026-09-17). Le dernier tour de
   l'entretien, celui où il écrit enfin tous les champs, pouvait échouer d'un bloc sur « l'assistant a rendu
