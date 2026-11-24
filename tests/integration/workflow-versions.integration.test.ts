@@ -80,6 +80,18 @@ describe.skipIf(!url)('les versions publiées d’un scénario (Postgres)', () =
     expect((await versions().lire(tenantId, id, 2))?.graph).toEqual(graphe('apres'));
   });
 
+  it('🔴 un graphe dont `nodes` n’est pas un tableau s’écrit sans erreur, et ne fait pas de version', async () => {
+    // La console n'en écrit pas (`parseGraph`), mais la base l'accepte : le déclencheur ne doit JAMAIS empêcher l'écriture
+    // (22023 en CI sur 6e519ca31, `requete-scenarios.integration.test.ts`).
+    const r = await pool.query<{ id: string }>(
+      'insert into workflows (tenant_id, name, graph) values ($1, $2, $3::jsonb) returning id',
+      [tenantId, 'itest versions mal forme', JSON.stringify({ nodes: { n1: { type: 'http' } }, edges: [] })],
+    );
+    const id = r.rows[0]!.id;
+    await pool.query('update workflows set graph = $3::jsonb where id = $1 and tenant_id = $2', [id, tenantId, JSON.stringify({ nodes: 'x', edges: [] })]);
+    expect(await versions().lister(tenantId, id)).toEqual([]);
+  });
+
   it('🔴 la lecture est scopée à l’espace, et la suppression d’un scénario emporte ses versions', async () => {
     const { id } = await store().insert(tenantId, 'itest versions isolement', graphe('a'), 'general');
     await store().publish(id, tenantId);

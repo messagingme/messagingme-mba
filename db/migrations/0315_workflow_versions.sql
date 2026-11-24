@@ -17,7 +17,10 @@
 --   Deplacer un bloc d un scenario publie reecrit workflows.graph (l enregistrement automatique de l editeur y range la
 --   disposition) : sans cette regle, chaque deplacement serait une version. La comparaison passe par
 --   workflow_graphe_forme, le jumeau SQL de forme() dans src/workflow/store.pg.ts (le graphe sans les positions), que
---   tests/migration-0315.test.ts tient egal. Une version garde la disposition de sa publication. Le test d un graphe
+--   tests/migration-0315.test.ts tient egal. Une version garde la disposition de sa publication. Un graphe dont nodes
+--   n est pas un tableau (la console n en ecrit pas, mais la base l accepte) ne fait pas de version et n empeche jamais
+--   l ecriture : la garde passe par un case, seul ordre d evaluation garanti, avant tout jsonb_array_length ; une
+--   version a donc toujours des nodes en tableau, et workflow_graphe_forme n en recoit jamais d autre. Le test d un graphe
 --   inchange n est qu un raccourci : chaque enregistrement automatique de l editeur reecrit graph a l identique (le
 --   brouillon change, pas le publie), et il evite d y relire la derniere version.
 -- Le numero : max + 1. Deux ecritures d un meme scenario se suivent sur le verrou de sa ligne (l UPDATE le prend), donc
@@ -50,7 +53,7 @@ declare
   derniere_numero integer;
   derniere_graph jsonb;
 begin
-  if jsonb_array_length(coalesce(new.graph -> 'nodes', '[]'::jsonb)) = 0 then
+  if (case when jsonb_typeof(new.graph -> 'nodes') = 'array' then jsonb_array_length(new.graph -> 'nodes') else 0 end) = 0 then
     return new;
   end if;
   if tg_op = 'UPDATE' and new.graph is not distinct from old.graph then
@@ -78,5 +81,5 @@ create trigger workflows_version
 insert into workflow_versions (tenant_id, workflow_id, numero, graph, publiee_le)
 select w.tenant_id, w.id, 1, w.graph, coalesce(w.published_at, w.updated_at, w.created_at)
 from workflows w
-where jsonb_array_length(coalesce(w.graph -> 'nodes', '[]'::jsonb)) > 0
+where (case when jsonb_typeof(w.graph -> 'nodes') = 'array' then jsonb_array_length(w.graph -> 'nodes') else 0 end) > 0
 on conflict (workflow_id, numero) do nothing;

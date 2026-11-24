@@ -40,7 +40,9 @@ describe('migration 0315', () => {
 
   it('🔴 la reprise : chaque scénario déjà publié a sa version 1, rejouable sans doublon', () => {
     const reprise = commencant('insert into workflow_versions (tenant_id, workflow_id, numero, graph, publiee_le)');
-    expect(reprise).toContain("where jsonb_array_length(coalesce(w.graph -> 'nodes', '[]'::jsonb)) > 0");
+    // 🔴 La garde sur le TYPE d'abord, dans un `case` (le seul ordre d'évaluation garanti) : un `nodes` qui n'est pas un
+    // tableau faisait échouer la migration entière en 22023 (CI de 6e519ca31, `requete-scenarios.integration.test.ts`).
+    expect(reprise).toContain("where (case when jsonb_typeof(w.graph -> 'nodes') = 'array' then jsonb_array_length(w.graph -> 'nodes') else 0 end) > 0");
     expect(reprise).toMatch(/on conflict \(workflow_id, numero\) do nothing$/);
   });
 
@@ -52,7 +54,9 @@ describe('migration 0315', () => {
 
   it('🔴 le déclencheur ne fait une version que d’un graphe non vide qui diffère de la dernière version par sa forme', () => {
     const fonction = commencant('create or replace function workflow_version_publiee() returns trigger');
-    expect(fonction).toContain("if jsonb_array_length(coalesce(new.graph -> 'nodes', '[]'::jsonb)) = 0 then return new; end if;");
+    expect(fonction).toContain(
+      "if (case when jsonb_typeof(new.graph -> 'nodes') = 'array' then jsonb_array_length(new.graph -> 'nodes') else 0 end) = 0 then return new; end if;",
+    );
     expect(fonction).toContain('order by v.numero desc limit 1;');
     expect(fonction).toContain(
       'if derniere_graph is not null and workflow_graphe_forme(derniere_graph) = workflow_graphe_forme(new.graph) then return new; end if;',
