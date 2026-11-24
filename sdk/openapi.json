@@ -5981,7 +5981,7 @@
                                     "type": "string"
                                   },
                                   "additionalProperties": {},
-                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain."
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action."
                                 }
                               },
                               "required": [
@@ -6063,7 +6063,7 @@
                                     "type": "string"
                                   },
                                   "additionalProperties": {},
-                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain."
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action."
                                 }
                               },
                               "required": [
@@ -6131,6 +6131,228 @@
                         },
                         "required": [
                           "humain"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "question": {
+                            "type": "object",
+                            "properties": {
+                              "texte": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4096,
+                                "description": "The question sent to the contact, who answers it."
+                              },
+                              "champ": {
+                                "description": "A field of the workspace: the written answer is stored in it.",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "bouton": {
+                                "description": "With a menu only: the label of the button that opens the list.",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 20
+                              },
+                              "ranger_choix": {
+                                "description": "With a menu and champ only: true stores the title of the chosen line in the field.",
+                                "type": "boolean"
+                              },
+                              "sans_reponse_apres": {
+                                "description": "No answer after this delay (30 days at most): sans_reponse is played. Absent: the question waits with no end.",
+                                "type": "object",
+                                "properties": {
+                                  "valeur": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "unite": {
+                                    "type": "string",
+                                    "enum": [
+                                      "minutes",
+                                      "hours",
+                                      "days"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "valeur",
+                                  "unite"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "texte"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "menu": {
+                            "description": "A WhatsApp list of up to 10 lines with distinct titles; every line needs its step.",
+                            "maxItems": 10,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "titre": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 24
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "maxLength": 72
+                                },
+                                "suite": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {},
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action."
+                                }
+                              },
+                              "required": [
+                                "titre",
+                                "suite"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "autre_reponse": {
+                            "description": "With a menu: the contact writes instead of choosing a line.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "suite": {
+                            "description": "Without a menu: the step played after the answer.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "sans_reponse": {
+                            "description": "Required with sans_reponse_apres, refused without: the step played when the delay runs out (a reminder, the team).",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "question"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "minItems": 1,
+                            "maxItems": 10,
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "etiquette": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64,
+                                      "description": "Adds this tag to the contact."
+                                    }
+                                  },
+                                  "required": [
+                                    "etiquette"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "retirer_etiquettes": {
+                                      "minItems": 1,
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "retirer_etiquettes"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "champ": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64,
+                                      "description": "A field of the workspace."
+                                    },
+                                    "valeur": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1000,
+                                      "description": "Its value, as text, matching the field type."
+                                    }
+                                  },
+                                  "required": [
+                                    "champ",
+                                    "valeur"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "vider_champs": {
+                                      "minItems": 1,
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "vider_champs"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            },
+                            "description": "Operations played in order, never the contact's consent: add a tag, remove tags, give a field a value, clear fields."
+                          },
+                          "suite": {
+                            "description": "The step played right after.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "action"
                         ],
                         "additionalProperties": false
                       }
@@ -6821,7 +7043,7 @@
                                     "type": "string"
                                   },
                                   "additionalProperties": {},
-                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain."
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action."
                                 }
                               },
                               "required": [
@@ -6903,7 +7125,7 @@
                                     "type": "string"
                                   },
                                   "additionalProperties": {},
-                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain."
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action."
                                 }
                               },
                               "required": [
@@ -6971,6 +7193,228 @@
                         },
                         "required": [
                           "humain"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "question": {
+                            "type": "object",
+                            "properties": {
+                              "texte": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4096,
+                                "description": "The question sent to the contact, who answers it."
+                              },
+                              "champ": {
+                                "description": "A field of the workspace: the written answer is stored in it.",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "bouton": {
+                                "description": "With a menu only: the label of the button that opens the list.",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 20
+                              },
+                              "ranger_choix": {
+                                "description": "With a menu and champ only: true stores the title of the chosen line in the field.",
+                                "type": "boolean"
+                              },
+                              "sans_reponse_apres": {
+                                "description": "No answer after this delay (30 days at most): sans_reponse is played. Absent: the question waits with no end.",
+                                "type": "object",
+                                "properties": {
+                                  "valeur": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "unite": {
+                                    "type": "string",
+                                    "enum": [
+                                      "minutes",
+                                      "hours",
+                                      "days"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "valeur",
+                                  "unite"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "texte"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "menu": {
+                            "description": "A WhatsApp list of up to 10 lines with distinct titles; every line needs its step.",
+                            "maxItems": 10,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "titre": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 24
+                                },
+                                "description": {
+                                  "type": "string",
+                                  "maxLength": 72
+                                },
+                                "suite": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {},
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action."
+                                }
+                              },
+                              "required": [
+                                "titre",
+                                "suite"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "autre_reponse": {
+                            "description": "With a menu: the contact writes instead of choosing a line.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "suite": {
+                            "description": "Without a menu: the step played after the answer.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "sans_reponse": {
+                            "description": "Required with sans_reponse_apres, refused without: the step played when the delay runs out (a reminder, the team).",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "question"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "minItems": 1,
+                            "maxItems": 10,
+                            "type": "array",
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "etiquette": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64,
+                                      "description": "Adds this tag to the contact."
+                                    }
+                                  },
+                                  "required": [
+                                    "etiquette"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "retirer_etiquettes": {
+                                      "minItems": 1,
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "retirer_etiquettes"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "champ": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 64,
+                                      "description": "A field of the workspace."
+                                    },
+                                    "valeur": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 1000,
+                                      "description": "Its value, as text, matching the field type."
+                                    }
+                                  },
+                                  "required": [
+                                    "champ",
+                                    "valeur"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "vider_champs": {
+                                      "minItems": 1,
+                                      "maxItems": 20,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "vider_champs"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              ]
+                            },
+                            "description": "Operations played in order, never the contact's consent: add a tag, remove tags, give a field a value, clear fields."
+                          },
+                          "suite": {
+                            "description": "The step played right after.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "action"
                         ],
                         "additionalProperties": false
                       }

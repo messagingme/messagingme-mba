@@ -27,8 +27,8 @@ function Scenarios() {
       <EnTetePage page="scenarios">
         <p>
           {t(
-            'Créer un scénario simple sans ouvrir la console, avec le droit scenarios:write : un template et ses boutons, des messages à réponses rapides avec un fichier, un agent IA, l’équipe. Toute écriture le publie aussitôt ; il part ensuite par',
-            'Create a simple scenario without opening the console, with the scenarios:write right: a template and its buttons, quick-reply messages with a file, an AI agent, the team. Every write publishes it at once; it then goes out through',
+            'Créer un scénario simple sans ouvrir la console, avec le droit scenarios:write : un template et ses boutons, des messages à réponses rapides avec un fichier, des questions dont la réponse se range dans un champ, des étiquettes et des champs posés en chemin, un agent IA, l’équipe. Toute écriture le publie aussitôt ; il part ensuite par',
+            'Create a simple scenario without opening the console, with the scenarios:write right: a template and its buttons, quick-reply messages with a file, questions whose answer goes into a field, tags and fields set along the way, an AI agent, the team. Every write publishes it at once; it then goes out through',
           )}{' '}
           <LienDoc page="sends">{t('Envois', 'Sends')}</LienDoc>.
         </p>
@@ -38,8 +38,8 @@ function Scenarios() {
       <Section id="recette" titre={t('La recette', 'The recipe')}>
         <p>
           {t(
-            'Un scénario se décrit par une arborescence d’étapes, sans identifiant ni position. Chaque étape est exactement une de ces quatre formes :',
-            'A scenario is described as a tree of steps, with no id or position. Each step is exactly one of these four forms:',
+            'Un scénario se décrit par une arborescence d’étapes, sans identifiant ni position. Chaque étape est exactement une de ces six formes :',
+            'A scenario is described as a tree of steps, with no id or position. Each step is exactly one of these six forms:',
           )}
         </p>
         <Tableau
@@ -49,6 +49,8 @@ function Scenarios() {
             { cle: 'message', cellules: [<C key="c">message</C>, t('Un message libre dans la fenêtre de 24 h, avec un fichier facultatif (image JPEG, PNG ou GIF, vidéo MP4, PDF). reponses : 3 réponses rapides au plus, 20 caractères chacune. Sans réponse rapide, il n’attend pas : suite est l’étape d’après.', 'A free message within the 24-hour window, with an optional file (JPEG, PNG or GIF image, MP4 video, PDF). reponses: 3 quick replies at most, 20 characters each. Without quick replies, it does not wait: suite is the next step.')] },
             { cle: 'agent', cellules: [<C key="c">agent</C>, t('Confie la conversation à un agent IA actif de l’espace. Il termine le parcours.', 'Hands the conversation to an active AI agent of the workspace. It ends the scenario.')] },
             { cle: 'humain', cellules: [<C key="c">humain</C>, t('Passe la conversation à l’équipe (À traiter). Il termine le parcours.', 'Hands the conversation to the team (To handle). It ends the scenario.')] },
+            { cle: 'question', cellules: [<C key="c">question</C>, t('Pose une question et attend la réponse, rangée dans champ si vous le donnez. menu : une liste WhatsApp de 10 lignes au plus (titre de 24 caractères, description de 72), chacune avec sa suite ; avec menu, bouton nomme la liste, ranger_choix range le titre choisi et autre_reponse reçoit une réponse écrite ; sans menu, suite vient après la réponse. sans_reponse_apres (valeur, et unite : minutes, hours ou days ; 30 jours au plus) mène à sans_reponse : l’équipe, ou une relance (au-delà de 24 h après le dernier message du contact, seul un template l’atteint).', 'Asks a question and waits for the answer, stored in champ if you give it. menu: a WhatsApp list of 10 lines at most (24-character title, 72-character description), each with its next step; with a menu, bouton labels the list, ranger_choix stores the chosen title and autre_reponse takes a written answer; without a menu, suite comes after the answer. sans_reponse_apres (valeur, and unite: minutes, hours or days; 30 days at most) leads to sans_reponse: the team, or a reminder (beyond 24 hours after the contact’s last message, only a template reaches them).')] },
+            { cle: 'action', cellules: [<C key="c">action</C>, t('Joue dans l’ordre 10 opérations au plus : etiquette (poser une étiquette), retirer_etiquettes, champ et valeur (donner une valeur à un champ), vider_champs. Jamais le consentement du contact. suite : l’étape d’après.', 'Plays up to 10 operations in order: etiquette (add a tag), retirer_etiquettes, champ and valeur (give a field a value), vider_champs. Never the contact’s consent. suite: the next step.')] },
           ]}
         />
         <Liste>
@@ -91,7 +93,7 @@ function Scenarios() {
         <Erreurs
           lignes={[
             ['scenario_not_found', t('Aucun scénario de ce nom dans l’espace.', 'No such scenario in the workspace.')],
-            ['scenario_not_describable', t('Modifié dans la console au-delà de ce qu’une recette sait dire.', 'Edited in the console beyond what a recipe can describe.')],
+            ['scenario_not_describable', t('Modifié dans la console au-delà de ce qu’une recette sait dire, ou pas encore publié (un brouillon de Claude).', 'Edited in the console beyond what a recipe can describe, or not published yet (a draft written by Claude).')],
           ]}
         />
       </Route>
@@ -107,8 +109,8 @@ function Scenarios() {
           lignes={[
             ['precondition_required', t('L’empreinte manque.', 'The fingerprint is missing.')],
             ['scenario_managed_in_console', t('Le scénario a été créé dans la console.', 'The scenario was created in the console.')],
-            ['scenario_changed', t('Il a changé depuis votre lecture, ou une modification de la console attend d’être publiée.', 'It changed since you read it, or a console change is waiting to be published.')],
-            ['scenario_not_describable', t('Modifié dans la console au-delà de ce qu’une recette sait dire.', 'Edited in the console beyond what a recipe can describe.')],
+            ['scenario_changed', t('Il a changé depuis votre lecture, ou un brouillon attend d’être publié (fait dans la console ou par Claude).', 'It changed since you read it, or a draft is waiting to be published (made in the console or by Claude).')],
+            ['scenario_not_describable', t('Modifié dans la console au-delà de ce qu’une recette sait dire, ou pas encore publié (un brouillon de Claude).', 'Edited in the console beyond what a recipe can describe, or not published yet (a draft written by Claude).')],
           ]}
         />
         <p>{t('Et les erreurs de la création.', 'And the errors of creation.')}</p>

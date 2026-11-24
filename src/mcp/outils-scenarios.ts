@@ -11,8 +11,9 @@ import { CLE_IDEMPOTENCE_MAX } from '../api/idempotence';
 import { MAX_NODES } from '../workflow/graph';
 import { ECRANS, LISTES, lire } from './ecran';
 import {
+  BOUTON_MENU_MAX, DESCRIPTION_LIGNE_MAX, ECHEANCE_MAX_JOURS, ETIQUETTE_MAX, LIGNES_MENU_MAX, LISTE_OPERATION_MAX,
   LONGUEUR_CHAMP_MAX, LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX,
-  PROFONDEUR_MAX_RECETTE,
+  OPERATIONS_MAX, PROFONDEUR_MAX_RECETTE, TEXTE_QUESTION_MAX, TITRE_LIGNE_MAX, UNITES_ECHEANCE, VALEUR_CHAMP_RECETTE_MAX,
 } from '../workflow/recette';
 import {
   creerScenario, lireScenario, remplacerScenario, supprimerScenario, type DepsScenariosApi, type ResultatScenario,
@@ -65,6 +66,21 @@ const FORME_ETAPE = 'A step is an object with EXACTLY ONE of these forms. '
   + 'the step when the contact writes. Without quick replies the message does not wait: "suite" is the next step. '
   + '(3) { "agent": { "agent_id" } }: an active AI agent of the workspace (list_agents) takes the conversation; it ends the '
   + 'scenario. (4) { "humain": {} }: the conversation goes to the team (To handle); it ends the scenario. '
+  + '(5) { "question": { "texte", "champ"?, "bouton"?, "ranger_choix"?, "sans_reponse_apres"? }, "menu"?, "autre_reponse"?, '
+  + `"suite"?, "sans_reponse"? }: asks the contact and waits for the answer. "texte": ${TEXTE_QUESTION_MAX} characters. "champ": a `
+  + 'field key (list_fields) that stores the written answer. "menu": a WhatsApp list of up to '
+  + `${LIGNES_MENU_MAX} lines { "titre", "description"?, "suite" } (titre ${TITRE_LIGNE_MAX} characters, distinct; description `
+  + `${DESCRIPTION_LIGNE_MAX}); EVERY line needs its step; with a menu, "bouton" (${BOUTON_MENU_MAX} characters) labels the button `
+  + 'that opens the list, "ranger_choix": true stores the chosen title in "champ", and "autre_reponse" is the step when the '
+  + 'contact writes; without a menu, "suite" is the step after the answer. "sans_reponse_apres": { "valeur": a whole number '
+  + `from 1, "unite": ${UNITES_ECHEANCE.map((u) => `"${u}"`).join(', ')} }, ${ECHEANCE_MAX_JOURS} days at most: then "sans_reponse" `
+  + '(required with it, refused without) is played, e.g. { "humain": {} }. A reminder there must respect the 24-hour '
+  + 'window: a free message or a question reaches the contact only within 24 hours of their last message; beyond, '
+  + 'only a template does. '
+  + `(6) { "action": [operations], "suite"? }: ${OPERATIONS_MAX} operations at most, played in order: { "etiquette": a tag `
+  + `(${ETIQUETTE_MAX} characters) to add }, { "retirer_etiquettes": [tags] }, { "champ": a field key, "valeur": its value as text `
+  + `(${VALEUR_CHAMP_RECETTE_MAX} characters, matching the field type) }, { "vider_champs": [field keys] }, lists of `
+  + `${LISTE_OPERATION_MAX} at most. Never the contact's consent. "suite": the next step. `
   + `At most ${PROFONDEUR_MAX_RECETTE} steps deep, ${MAX_NODES} steps and ${MAX_FICHIERS_RECETTE} distinct files.`;
 
 const RECETTE: Record<'nom' | 'entree', ProprieteEntree> = {

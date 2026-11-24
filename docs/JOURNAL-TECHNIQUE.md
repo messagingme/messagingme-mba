@@ -5,6 +5,38 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : CSM virtuel, lot E : la Question et l'Action dans la recette
+
+Plan `docs/superpowers/plans/2026-11-24-csm-lot1-e-recette-pilote.md`, après le lot D (le brouillon, `26fb1f783`, qui
+part en production avec le déploiement du lot 2 des packs de contacts, `37e17ce29`, son fils direct).
+
+**B5, la recette du pilote.** Deux étapes neuves, de quoi écrire le parcours de qualification de leads. `question` :
+le texte, le champ qui range la réponse, un menu WhatsApp facultatif (une suite par ligne, exigée), `autre_reponse`
+avec menu ou `suite` sans, une échéance (les unités et les 30 jours du bloc Attente) qui va avec sa suite
+`sans_reponse`, jamais seule. `action` : des opérations jouées dans l'ordre (poser une étiquette, en retirer, donner
+une valeur fixe à un champ, vider des champs), jamais le consentement. La compilation pose les blocs de la console
+champ pour champ, et le moteur les joue tels quels (testé par `walk`, `actionOf`, `reglagesQuestion` et
+`delaiSansReponseMs`) ; la relecture redonne la même recette, ou laisse à la console ce qu'elle ne sait pas dire
+(une question qui attend un fichier, une échéance non entière ou sans sortie, une valeur « maintenant » ou « dernière
+saisie », le consentement). `signatureDe` (lot D) compte les lignes et l'échéance d'une Question comme ses sorties :
+un parcours de la console fait de ces blocs garde ses ids à la réécriture. Chaque borne est annoncée au modèle et au
+contrat de `/v1`, et le SDK se régénère (ajout seulement). La table de parité range le reste des blocs pour la recette
+complète (B10). Aucune migration.
+
+**La relecture indépendante, sur l'arbre construit : aucun rouge.** Réglés avant de pousser, chacun prouvé dans les
+deux sens : les champs de base (prénom, nom, e-mail), annoncés par `list_fields` et proposés par la console, étaient
+refusés sur un espace où ils n'ont jamais été écrits (« Votre e-mail ? » aurait échoué à l'essai réel) ; la relance
+derrière une échéance était présentée comme un message, alors qu'au-delà de 24 h après le dernier message du contact
+seul un template l'atteint (dit au modèle et dans la doc) ; une recette relue que l'écriture refuserait (deux lignes au
+même titre réglées dans la console) est laissée à la console, la relecture repassant `lireRecette` ; le libellé d'un
+champ posé, pour que la console ne montre pas le bloc comme non réglé ; deux commentaires ; deux tests. Le reste est au
+`todo.md` (un champ `json`, un template derrière une Action d'entrée, le nom des blocs, l'analyse de fenêtre).
+Preuves : 13 tests neufs (aller-retour, moteur, refus avec leur chemin, ids et places, données de la forme de la
+console, champs de base) et 14 mutations nommées, toutes rouges.
+Dans une copie d'origin portant tout le lot : typecheck et lint (racine et console), l'auto-attaque (2 225 sondes,
+aucune trouvaille), la suite racine (19 099 tests, aucun échec), la suite de la console (1 398 tests). Les deux fiches
+d'aide qui citent la section API de `features.md` prennent sa nouvelle empreinte, relues.
+
 ## 2026-11-24 : CSM virtuel, lot D : Claude écrit en brouillon
 
 Plan `docs/superpowers/plans/2026-11-24-csm-lot1-d-brouillon.md`, après le lot C (en production le même jour).

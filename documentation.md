@@ -918,6 +918,22 @@ scénario qui n'existe qu'en brouillon y est refusé (`scenario_not_describable`
 que le contrat du SDK promet remplie. Remplacer en publiant un tel scénario est refusé de même, et un brouillon en
 attente (console ou Claude) fait refuser la publication directe qui l'effacerait.
 
+🔴 **La Question et l'Action dans la recette (lot 1 du CSM virtuel, B5)** : `question` compile vers le bloc que la
+console pose, champ pour champ (`body`, `rows`, `buttonLabel`, `champReponse`, `rangerLigne`, `timeoutValue`,
+`timeoutUnit`, sorties `row:<i>`, libre et `timeout`) ; `action` vers un bloc `action` (première opération à plat, les
+suivantes dans `data.suite`, `web/lib/partage/actions-bloc.ts` : `add_tag`, `remove_tag`, `set_field` à valeur fixe,
+`clear_field`). Les bornes sont celles du moteur (`QUESTION_LIMITES`, `QUESTION_MAX_ROWS`, l'échéance du bloc Attente,
+30 jours) et chacune est annoncée au modèle et au contrat de `/v1`. Une échéance va avec sa suite `sans_reponse`, jamais
+seule, et l'inverse ; avec un menu, la réponse écrite est `autre_reponse`, sans menu `suite`. La relecture ne rend
+une Question que si la recette la redonne : une Question qui attend un fichier, une échéance non entière ou sans
+sortie, une ligne sans suite, une opération de consentement ou à valeur « maintenant » ou « dernière saisie » restent à
+la console, et une recette relue que `lireRecette` refuserait aussi (deux lignes au même titre réglées dans la
+console) : `get_scenario` ne rend jamais ce que `update_scenario` refuse. `signatureDe` compte les lignes et l'échéance
+d'une Question comme ses sorties. Les champs connus d'une recette sont ceux de l'espace PLUS les champs de base
+(`SOCLE_FIELDS` : prénom, nom, e-mail), qui n'entrent dans `user_fields` qu'à leur première écriture. ⚠️ À
+l'échéance, la fenêtre de 24 h est souvent close : une relance en message libre ou en Question n'atteint le contact
+que dans les 24 h de son dernier message, au-delà seul un template l'atteint (le moteur passe sinon à l'équipe).
+
 🔴 **Le fichier d'un message se lit à chaque envoi** et se vérifie une fois à l'écriture par le MÊME chemin que l'envoi
 (`lireFichierDuBloc`, `src/meta/template-media.ts` : fiche de la médiathèque de l'espace, sinon téléchargement gardé),
 sans être stocké. **Ce qui utilise un scénario** (`utilisationsDuScenario` : automation, campagne qui peut encore

@@ -2,7 +2,7 @@
 
 # Scénarios
 
-Créer un scénario simple sans ouvrir la console, avec le droit scenarios:write : un template et ses boutons, des messages à réponses rapides avec un fichier, un agent IA, l’équipe. Toute écriture le publie aussitôt ; il part ensuite par [Envois](https://console.messagingme.app/developers/api/sends.md).
+Créer un scénario simple sans ouvrir la console, avec le droit scenarios:write : un template et ses boutons, des messages à réponses rapides avec un fichier, des questions dont la réponse se range dans un champ, des étiquettes et des champs posés en chemin, un agent IA, l’équipe. Toute écriture le publie aussitôt ; il part ensuite par [Envois](https://console.messagingme.app/developers/api/sends.md).
 
 Sur cette page
 
@@ -17,7 +17,7 @@ Sur cette page
 
 ## La recette
 
-Un scénario se décrit par une arborescence d’étapes, sans identifiant ni position. Chaque étape est exactement une de ces quatre formes :
+Un scénario se décrit par une arborescence d’étapes, sans identifiant ni position. Chaque étape est exactement une de ces six formes :
 
 | Étape | Sens |
 | --- | --- |
@@ -25,6 +25,8 @@ Un scénario se décrit par une arborescence d’étapes, sans identifiant ni po
 | `message` | Un message libre dans la fenêtre de 24 h, avec un fichier facultatif (image JPEG, PNG ou GIF, vidéo MP4, PDF). reponses : 3 réponses rapides au plus, 20 caractères chacune. Sans réponse rapide, il n’attend pas : suite est l’étape d’après. |
 | `agent` | Confie la conversation à un agent IA actif de l’espace. Il termine le parcours. |
 | `humain` | Passe la conversation à l’équipe (À traiter). Il termine le parcours. |
+| `question` | Pose une question et attend la réponse, rangée dans champ si vous le donnez. menu : une liste WhatsApp de 10 lignes au plus (titre de 24 caractères, description de 72), chacune avec sa suite ; avec menu, bouton nomme la liste, ranger_choix range le titre choisi et autre_reponse reçoit une réponse écrite ; sans menu, suite vient après la réponse. sans_reponse_apres (valeur, et unite : minutes, hours ou days ; 30 jours au plus) mène à sans_reponse : l’équipe, ou une relance (au-delà de 24 h après le dernier message du contact, seul un template l’atteint). |
+| `action` | Joue dans l’ordre 10 opérations au plus : etiquette (poser une étiquette), retirer_etiquettes, champ et valeur (donner une valeur à un champ), vider_champs. Jamais le consentement du contact. suite : l’étape d’après. |
 
 - variables : pour chaque position du template ({{1}} s’écrit 1), un champ de la fiche (champ), un texte fixe (texte), ou le nom ou le numéro du contact (attribut : name ou phone). Absent : les associations posées dans la console.
 - Le fichier se lit à chaque envoi par son adresse https : il est vérifié une fois à l’écriture, jamais copié. S’il change sur le site, les envois suivants changent.
@@ -214,7 +216,7 @@ curl https://api.messagingme.app/v1/scenarios/7d2e4c1a-3b5f-4e6d-8a9b-0c1d2e3f4a
 | Statut | Code | Cause |
 | --- | --- | --- |
 | 404 | `scenario_not_found` | Aucun scénario de ce nom dans l’espace. |
-| 409 | `scenario_not_describable` | Modifié dans la console au-delà de ce qu’une recette sait dire. |
+| 409 | `scenario_not_describable` | Modifié dans la console au-delà de ce qu’une recette sait dire, ou pas encore publié (un brouillon de Claude). |
 
 <a id="remplacer"></a>
 
@@ -297,8 +299,8 @@ curl -X PUT https://api.messagingme.app/v1/scenarios/7d2e4c1a-3b5f-4e6d-8a9b-0c1
 | --- | --- | --- |
 | 428 | `precondition_required` | L’empreinte manque. |
 | 409 | `scenario_managed_in_console` | Le scénario a été créé dans la console. |
-| 409 | `scenario_changed` | Il a changé depuis votre lecture, ou une modification de la console attend d’être publiée. |
-| 409 | `scenario_not_describable` | Modifié dans la console au-delà de ce qu’une recette sait dire. |
+| 409 | `scenario_changed` | Il a changé depuis votre lecture, ou un brouillon attend d’être publié (fait dans la console ou par Claude). |
+| 409 | `scenario_not_describable` | Modifié dans la console au-delà de ce qu’une recette sait dire, ou pas encore publié (un brouillon de Claude). |
 
 Et les erreurs de la création.
 

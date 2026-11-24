@@ -3492,8 +3492,15 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   `POST /v1/scenarios`, `GET|PUT|DELETE /v1/scenarios/{id}` sous un droit neuf, `scenarios:write`, et les outils
   `create_scenario`, `get_scenario`, `update_scenario`, `delete_scenario` pour Claude. Un intégrateur décrit un
   parcours simple sans ouvrir la console : un template approuvé et une suite par réponse rapide, des messages à
-  réponses rapides avec une image, une vidéo ou un PDF, un agent IA, l'équipe. Le serveur le compile dans le même
-  graphe que la console dessine. Réservé aux offres qui ont les scénarios.
+  réponses rapides avec une image, une vidéo ou un PDF, des questions et des actions (ci-dessous), un agent IA,
+  l'équipe. Le serveur le compile dans le même graphe que la console dessine. Réservé aux offres qui ont les
+  scénarios.
+  ✅ **Des questions et des actions dans la recette** (2026-11-24, lot 1 du CSM virtuel, plan
+  `docs/superpowers/plans/2026-11-24-csm-lot1-e-recette-pilote.md`) : une Question attend la réponse du contact et
+  la range dans un champ de sa fiche, avec un menu WhatsApp facultatif (une suite par ligne) et une échéance qui
+  mène à une relance ou à l'équipe ; une Action pose ou retire des étiquettes et donne une valeur à des champs, ou
+  les vide, jamais le consentement. Claude monte ainsi un parcours de qualification de leads, et relit de même un
+  scénario de la console fait de ces blocs.
   🔴 **Par l'API, toute écriture publie aussitôt**, sans brouillon : le scénario n'écrit à personne tant qu'un envoi
   ou le répondeur ne le lance pas. Un template encore en revue chez Meta fait refuser l'appel entier.
   ⚠️ **L'API ne modifie et ne supprime que ses propres scénarios** : un scénario dessiné dans la console reste à la

@@ -79,6 +79,23 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot E (la recette du pilote) : ce qui reste hors du lot (2026-11-24)
+
+- La recette complète (attente, condition, appel API, fonction JS, « Aller à », e-mail, RCS, formulaire, envoi au MBA) :
+  la brique du plan qui la porte (B10), le pilote n'a besoin que de la Question et de l'Action.
+- Une Question qui attend un fichier, une valeur de champ « maintenant » ou « dernière saisie », la valeur d'un champ
+  jugée selon son type à l'écriture (aujourd'hui le moteur la juge à l'envoi).
+- De la relecture du lot E (aucun rouge ; réglés avant de pousser : les champs de base refusés sur un espace neuf, la
+  relance au-delà de 24 h annoncée comme possible, une recette relue que l'écriture refuserait, le libellé des champs
+  posés dans la console, deux commentaires, deux tests). Reste :
+  - Un champ `json` : une recette peut y ranger une réponse ou une valeur, ce que la console n'offre pas, et
+    `avecGardeJson` le vide alors. Le refuser à la compilation demande le type des champs dans `ReferencesResolues`.
+  - Un template placé derrière une Action d'entrée exige des sources pour ses variables (`cheminArbre.length > 1`),
+    alors que `/v1/sends` les remplit déjà : le refus est trop strict, et son commentaire est devenu faux.
+  - Réécrire un scénario de la console efface le `name` de ses blocs.
+  - Une relance en message libre derrière une échéance de 24 h ou plus : à juger par l'analyse de fenêtre à
+    l'écriture (`analyserFenetre`), aujourd'hui seulement dite au modèle et dans la doc.
+
 ## 🟡 CSM virtuel, lot D (le brouillon) : ce qui est reporté (2026-11-24)
 
 - `/v1/scenarios` : l'option `brouillon` (corps de `POST` et `PUT`) et `POST /v1/scenarios/{id}/publish`, que le plan du

@@ -502,7 +502,7 @@ export type WalkRest =
  *  par le réveil court (`reveil-court.ts`) et non par le balayage, qui ne passe qu'une fois par minute. */
 export const WAIT_UNITS = ['seconds', 'minutes', 'hours', 'days'] as const;
 export type WaitUnit = (typeof WAIT_UNITS)[number];
-const UNIT_MS: Record<WaitUnit, number> = { seconds: 1000, minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
+export const UNIT_MS: Record<WaitUnit, number> = { seconds: 1000, minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
 /** Unités de l'échéance « pas de réponse » d'un bloc Question : sans les secondes, que l'écran ne propose pas et
  *  qu'une échéance à la seconde n'aurait aucun sens à tenir (le balayage des questions passe une fois par minute). */
 export const QUESTION_UNITS = ['minutes', 'hours', 'days'] as const;

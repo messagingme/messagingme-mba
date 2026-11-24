@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CodeApi } from '../api/erreurs';
 import { MAX_NODES } from './graph';
+import { QUESTION_LIMITES, QUESTION_MAX_ROWS, QUESTION_UNITS, UNIT_MS, WAIT_MAX_MS } from './engine';
+import { LONGUEUR_MAX_ETIQUETTE } from '../crm/poser-etiquette';
 import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
 import {
   MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE,
@@ -35,7 +37,34 @@ export interface EtapeMessage {
 }
 export interface EtapeAgent { agent: { agent_id: string } }
 export interface EtapeHumain { humain: Record<string, never> }
-export type Etape = EtapeTemplate | EtapeMessage | EtapeAgent | EtapeHumain;
+/** Une ligne du menu d'une Question : ce que le contact choisit, et la suite de ce choix. */
+export interface LigneMenu { titre: string; description?: string; suite: Etape }
+export type UniteEcheance = (typeof QUESTION_UNITS)[number];
+/** L'échéance « pas de réponse » d'une Question : les unités et le plafond du bloc Attente. */
+export interface Echeance { valeur: number; unite: UniteEcheance }
+/**
+ * Une Question (lot 1 du CSM virtuel, B5) : elle attend la réponse du contact et la range dans `champ`. Avec un menu
+ * (liste interactive WhatsApp), une suite par ligne et `autre_reponse` pour une réponse écrite ; sans menu, `suite`.
+ * `sans_reponse` est la suite à l'échéance (une relance, l'équipe) : elle va avec `sans_reponse_apres`, jamais seule.
+ */
+export interface EtapeQuestion {
+  question: { texte: string; champ?: string; bouton?: string; ranger_choix?: true; sans_reponse_apres?: Echeance };
+  menu?: LigneMenu[];
+  autre_reponse?: Etape;
+  suite?: Etape;
+  sans_reponse?: Etape;
+}
+/**
+ * Une opération d'une Action, jouée dans l'ordre : poser une étiquette, en retirer, donner une valeur à un champ, en
+ * vider. Le consentement n'en fait pas partie : il vient du contact, jamais d'une recette.
+ */
+export type Operation =
+  | { etiquette: string }
+  | { retirer_etiquettes: string[] }
+  | { champ: string; valeur: string }
+  | { vider_champs: string[] };
+export interface EtapeAction { action: Operation[]; suite?: Etape }
+export type Etape = EtapeTemplate | EtapeMessage | EtapeAgent | EtapeHumain | EtapeQuestion | EtapeAction;
 export interface Recette { nom: string; entree: Etape }
 
 /** Un refus, avec l'endroit exact de la recette : un appelant (souvent un modèle) doit pouvoir corriger sans deviner. */
@@ -54,6 +83,20 @@ export const LONGUEUR_URL_FICHIER_MAX = 2048;
 export const MAX_FICHIERS_RECETTE = 10;
 /** Les attributs de la fiche qu'une variable peut citer : le nom du profil WhatsApp et le numéro. */
 export const ATTRIBUTS_RECETTE = ['name', 'phone'] as const;
+/** Une Question : les plafonds de la liste interactive de WhatsApp, ceux du moteur (`QUESTION_LIMITES`). */
+export const TEXTE_QUESTION_MAX = QUESTION_LIMITES.body;
+export const BOUTON_MENU_MAX = QUESTION_LIMITES.bouton;
+export const TITRE_LIGNE_MAX = QUESTION_LIMITES.titre;
+export const DESCRIPTION_LIGNE_MAX = QUESTION_LIMITES.description;
+export const LIGNES_MENU_MAX = QUESTION_MAX_ROWS;
+/** L'échéance d'une Question : les unités et le plafond du bloc Attente (`WAIT_MAX_MS`, 30 jours). */
+export const UNITES_ECHEANCE = QUESTION_UNITS;
+export const ECHEANCE_MAX_JOURS = WAIT_MAX_MS / UNIT_MS.days;
+/** Une Action : ses opérations, une étiquette (64 caractères, `poserEtiquette`), une valeur, une liste à retirer ou vider. */
+export const OPERATIONS_MAX = 10;
+export const ETIQUETTE_MAX = LONGUEUR_MAX_ETIQUETTE;
+export const VALEUR_CHAMP_RECETTE_MAX = 1000;
+export const LISTE_OPERATION_MAX = 20;
 
 const refus = (chemin: string, message: string, code: CodeApi = 'invalid_body'): RefusRecette =>
   ({ ok: false, code, message: `${chemin} : ${message}`, chemin });
@@ -78,12 +121,30 @@ const MESSAGE = z.object({
 const AGENT = z.object({ agent_id: z.uuid() }).strict();
 const HUMAIN = z.object({}).strict();
 const BRANCHE = z.object({ texte: z.string(), suite: z.unknown() }).strict();
+const QUESTION = z.object({
+  texte: z.string(),
+  champ: z.string().trim().min(1).max(LONGUEUR_CHAMP_MAX).optional(),
+  bouton: z.string().trim().min(1).max(BOUTON_MENU_MAX).optional(),
+  ranger_choix: z.boolean().optional(),
+  sans_reponse_apres: z.object({ valeur: z.number().int().min(1), unite: z.enum(UNITES_ECHEANCE) }).strict().optional(),
+}).strict();
+const LIGNE = z.object({ titre: z.string(), description: z.string().optional(), suite: z.unknown() }).strict();
+const ETIQUETTE = z.string().trim().min(1).max(ETIQUETTE_MAX);
+const CLE_CHAMP = z.string().trim().min(1).max(LONGUEUR_CHAMP_MAX);
+const OPERATION = z.union([
+  z.object({ etiquette: ETIQUETTE }).strict(),
+  z.object({ retirer_etiquettes: z.array(ETIQUETTE).min(1).max(LISTE_OPERATION_MAX) }).strict(),
+  z.object({ champ: CLE_CHAMP, valeur: z.string().min(1).max(VALEUR_CHAMP_RECETTE_MAX) }).strict(),
+  z.object({ vider_champs: z.array(CLE_CHAMP).min(1).max(LISTE_OPERATION_MAX) }).strict(),
+]);
 
 const CLES_ETAPE = {
   template: ['template', 'boutons', 'autre_reponse', 'si_echec'],
   message: ['message', 'reponses', 'autre_reponse', 'suite'],
   agent: ['agent'],
   humain: ['humain'],
+  question: ['question', 'menu', 'autre_reponse', 'suite', 'sans_reponse'],
+  action: ['action', 'suite'],
 } as const;
 type Forme = keyof typeof CLES_ETAPE;
 
@@ -137,6 +198,90 @@ function lireBranches(brut: unknown, chemin: string, max: number, maxTexte: numb
   return { ok: true, valeur: sortie };
 }
 
+/** Les lignes du menu d'une Question : titre exigé et distinct, description facultative, une suite chacune. */
+function lireLignes(brut: unknown, chemin: string, profondeur: number, compte: Compte): Lu<LigneMenu[]> {
+  if (!Array.isArray(brut)) return refus(chemin, 'une liste attendue');
+  if (brut.length > LIGNES_MENU_MAX) return refus(chemin, `${LIGNES_MENU_MAX} lignes au plus`);
+  const vus = new Set<string>();
+  const sortie: LigneMenu[] = [];
+  for (const [i, l] of brut.entries()) {
+    const ici = `${chemin}[${i}]`;
+    const lu = lireAvec(LIGNE, l, ici);
+    if (!lu.ok) return lu;
+    const titre = lu.valeur.titre.trim();
+    if (titre === '') return refus(`${ici}.titre`, 'vide');
+    if (titre.length > TITRE_LIGNE_MAX) return refus(`${ici}.titre`, `${TITRE_LIGNE_MAX} caractères au plus`);
+    if (vus.has(titre)) return refus(`${ici}.titre`, `« ${titre} » figure deux fois`);
+    vus.add(titre);
+    const description = (lu.valeur.description ?? '').trim();
+    if (description.length > DESCRIPTION_LIGNE_MAX) return refus(`${ici}.description`, `${DESCRIPTION_LIGNE_MAX} caractères au plus`);
+    const suite = lireEtape(lu.valeur.suite, `${ici}.suite`, profondeur + 1, compte);
+    if (!suite.ok) return suite;
+    sortie.push({ titre, ...(description !== '' ? { description } : {}), suite: suite.valeur });
+  }
+  return { ok: true, valeur: sortie };
+}
+
+/**
+ * Une Question : la question, son menu, ses suites. Chaque combinaison que le moteur ne jouerait pas est refusée avec
+ * son chemin : un bouton ou un choix à ranger sans menu, `suite` avec menu, une échéance sans sa suite et l'inverse.
+ */
+function lireQuestion(
+  objet: Record<string, unknown>, chemin: string, profondeur: number, compte: Compte,
+  lireSiPresente: (cle: string) => Lu<Etape | undefined>,
+): Lu<Etape> {
+  const q = lireAvec(QUESTION, objet.question, `${chemin}.question`);
+  if (!q.ok) return q;
+  const { texte, champ, bouton, ranger_choix: ranger, sans_reponse_apres: echeance } = q.valeur;
+  if (texte.trim() === '') return refus(`${chemin}.question.texte`, 'vide');
+  if (texte.length > TEXTE_QUESTION_MAX) return refus(`${chemin}.question.texte`, `${TEXTE_QUESTION_MAX} caractères au plus`);
+  if (echeance && echeance.valeur * UNIT_MS[echeance.unite] > WAIT_MAX_MS) {
+    return refus(`${chemin}.question.sans_reponse_apres`, `${ECHEANCE_MAX_JOURS} jours au plus`);
+  }
+  if (ranger === true && champ === undefined) return refus(`${chemin}.question.ranger_choix`, 'ranger le choix demande « champ »');
+  const etape: EtapeQuestion = {
+    question: {
+      texte, ...(champ ? { champ } : {}), ...(bouton ? { bouton } : {}), ...(ranger === true ? { ranger_choix: true as const } : {}),
+      ...(echeance ? { sans_reponse_apres: echeance } : {}),
+    },
+  };
+  if (objet.menu !== undefined) {
+    const m = lireLignes(objet.menu, `${chemin}.menu`, profondeur, compte);
+    if (!m.ok) return m;
+    if (m.valeur.length > 0) etape.menu = m.valeur;
+  }
+  if (etape.menu) {
+    if (objet.suite !== undefined) return refus(`${chemin}.suite`, 'avec un menu, les suites sont ses lignes et « autre_reponse » (la réponse écrite)');
+    const autre = lireSiPresente('autre_reponse');
+    if (!autre.ok) return autre;
+    if (autre.valeur) etape.autre_reponse = autre.valeur;
+  } else {
+    if (bouton !== undefined) return refus(`${chemin}.question.bouton`, 'sans menu, pas de bouton : il ouvre la liste des lignes');
+    if (ranger === true) return refus(`${chemin}.question.ranger_choix`, 'sans menu, il n’y a pas de choix à ranger');
+    if (objet.autre_reponse !== undefined) return refus(`${chemin}.autre_reponse`, 'sans menu, la réponse écrite va dans « suite »');
+    const suite = lireSiPresente('suite');
+    if (!suite.ok) return suite;
+    if (suite.valeur) etape.suite = suite.valeur;
+  }
+  if (echeance && objet.sans_reponse === undefined) {
+    return refus(`${chemin}.sans_reponse`, 'une échéance demande sa suite : une relance, ou l’équipe ({ "humain": {} })');
+  }
+  if (!echeance && objet.sans_reponse !== undefined) {
+    return refus(`${chemin}.sans_reponse`, 'sans « question.sans_reponse_apres », la question attend sans échéance : rien ne mène ici');
+  }
+  const sans = lireSiPresente('sans_reponse');
+  if (!sans.ok) return sans;
+  if (sans.valeur) etape.sans_reponse = sans.valeur;
+  return { ok: true, valeur: etape };
+}
+
+/** Une opération, ses listes sans doublon : la forme rendue est celle que la relecture redonnera. */
+function operationPropre(o: z.infer<typeof OPERATION>): Operation {
+  if ('retirer_etiquettes' in o) return { retirer_etiquettes: [...new Set(o.retirer_etiquettes)] };
+  if ('vider_champs' in o) return { vider_champs: [...new Set(o.vider_champs)] };
+  return o;
+}
+
 function lireEtape(brut: unknown, chemin: string, profondeur: number, compte: Compte): Lu<Etape> {
   if (profondeur > PROFONDEUR_MAX_RECETTE) return refus(chemin, `profondeur de ${PROFONDEUR_MAX_RECETTE} étapes au plus`);
   if ((compte.etapes += 1) > MAX_NODES) return refus(chemin, `${MAX_NODES} étapes au plus`);
@@ -144,7 +289,7 @@ function lireEtape(brut: unknown, chemin: string, profondeur: number, compte: Co
   const objet = brut as Record<string, unknown>;
   const formes = (Object.keys(CLES_ETAPE) as Forme[]).filter((f) => f in objet);
   if (formes.length !== 1) {
-    return refus(chemin, 'exactement une forme attendue parmi template, message, agent, humain');
+    return refus(chemin, 'exactement une forme attendue parmi template, message, agent, humain, question, action');
   }
   const forme = formes[0]!;
   const permises: readonly string[] = CLES_ETAPE[forme];
@@ -160,6 +305,21 @@ function lireEtape(brut: unknown, chemin: string, profondeur: number, compte: Co
   if (forme === 'humain') {
     const h = lireAvec(HUMAIN, objet.humain, `${chemin}.humain`);
     return h.ok ? { ok: true, valeur: { humain: {} } } : h;
+  }
+  if (forme === 'question') return lireQuestion(objet, chemin, profondeur, compte, lireSiPresente);
+  if (forme === 'action') {
+    if (!Array.isArray(objet.action)) return refus(`${chemin}.action`, 'une liste d’opérations attendue');
+    if (objet.action.length === 0) return refus(`${chemin}.action`, 'vide');
+    if (objet.action.length > OPERATIONS_MAX) return refus(`${chemin}.action`, `${OPERATIONS_MAX} opérations au plus`);
+    const operations: Operation[] = [];
+    for (const [i, o] of objet.action.entries()) {
+      const lu = lireAvec(OPERATION, o, `${chemin}.action[${i}]`);
+      if (!lu.ok) return lu;
+      operations.push(operationPropre(lu.valeur));
+    }
+    const suite = lireSiPresente('suite');
+    if (!suite.ok) return suite;
+    return { ok: true, valeur: { action: operations, ...(suite.valeur ? { suite: suite.valeur } : {}) } };
   }
   if (forme === 'template') {
     const t = lireAvec(TEMPLATE, objet.template, `${chemin}.template`);
@@ -228,7 +388,7 @@ export function lireRecette(brut: unknown): Lu<Recette> {
  * récursif (chaque référence doit se résoudre dans le document) : l'étape d'entrée est décrite en entier, une étape
  * imbriquée est un objet de la même forme. Les bornes sont les constantes de `lireRecette`, qui reste le seul juge.
  */
-const suiteDoc = z.record(z.string(), z.unknown()).describe('Another step, of the same shape as entree: exactly one of template, message, agent, humain.');
+const suiteDoc = z.record(z.string(), z.unknown()).describe('Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action.');
 const brancheDoc = z.strictObject({ texte: z.string().min(1), suite: suiteDoc });
 const etapeDoc = z.union([
   z.strictObject({
@@ -260,6 +420,34 @@ const etapeDoc = z.union([
   }),
   z.strictObject({ agent: z.strictObject({ agent_id: z.uuid() }).describe('An active AI agent of the workspace; it ends the scenario.') }),
   z.strictObject({ humain: z.strictObject({}).describe('Hands the conversation to the team; it ends the scenario.') }),
+  z.strictObject({
+    question: z.strictObject({
+      texte: z.string().min(1).max(TEXTE_QUESTION_MAX).describe('The question sent to the contact, who answers it.'),
+      champ: z.string().min(1).max(LONGUEUR_CHAMP_MAX).optional().describe('A field of the workspace: the written answer is stored in it.'),
+      bouton: z.string().min(1).max(BOUTON_MENU_MAX).optional().describe('With a menu only: the label of the button that opens the list.'),
+      ranger_choix: z.boolean().optional().describe('With a menu and champ only: true stores the title of the chosen line in the field.'),
+      sans_reponse_apres: z.strictObject({ valeur: z.number().int().min(1), unite: z.enum(UNITES_ECHEANCE) }).optional()
+        .describe(`No answer after this delay (${ECHEANCE_MAX_JOURS} days at most): sans_reponse is played. Absent: the question waits with no end.`),
+    }),
+    menu: z.array(z.strictObject({
+      titre: z.string().min(1).max(TITRE_LIGNE_MAX), description: z.string().max(DESCRIPTION_LIGNE_MAX).optional(), suite: suiteDoc,
+    })).max(LIGNES_MENU_MAX).optional().describe(`A WhatsApp list of up to ${LIGNES_MENU_MAX} lines with distinct titles; every line needs its step.`),
+    autre_reponse: suiteDoc.optional().describe('With a menu: the contact writes instead of choosing a line.'),
+    suite: suiteDoc.optional().describe('Without a menu: the step played after the answer.'),
+    sans_reponse: suiteDoc.optional().describe('Required with sans_reponse_apres, refused without: the step played when the delay runs out (a reminder, the team).'),
+  }),
+  z.strictObject({
+    action: z.array(z.union([
+      z.strictObject({ etiquette: z.string().min(1).max(ETIQUETTE_MAX).describe('Adds this tag to the contact.') }),
+      z.strictObject({ retirer_etiquettes: z.array(z.string().min(1).max(ETIQUETTE_MAX)).min(1).max(LISTE_OPERATION_MAX) }),
+      z.strictObject({
+        champ: z.string().min(1).max(LONGUEUR_CHAMP_MAX).describe('A field of the workspace.'),
+        valeur: z.string().min(1).max(VALEUR_CHAMP_RECETTE_MAX).describe('Its value, as text, matching the field type.'),
+      }),
+      z.strictObject({ vider_champs: z.array(z.string().min(1).max(LONGUEUR_CHAMP_MAX)).min(1).max(LISTE_OPERATION_MAX) }),
+    ])).min(1).max(OPERATIONS_MAX).describe('Operations played in order, never the contact\'s consent: add a tag, remove tags, give a field a value, clear fields.'),
+    suite: suiteDoc.optional().describe('The step played right after.'),
+  }),
 ]);
 export const schemaRecetteDoc = z.strictObject({
   nom: z.string().min(1).max(NOM_SCENARIO_MAX).describe('Unique in the workspace, case-insensitive.'),
@@ -275,6 +463,13 @@ export function sousEtapes(e: Etape): Etape[] {
   if ('message' in e) {
     return [...(e.reponses ?? []).map((b) => b.suite), ...(e.autre_reponse ? [e.autre_reponse] : []), ...(e.suite ? [e.suite] : [])];
   }
+  if ('question' in e) {
+    return [
+      ...(e.menu ?? []).map((l) => l.suite), ...(e.autre_reponse ? [e.autre_reponse] : []), ...(e.suite ? [e.suite] : []),
+      ...(e.sans_reponse ? [e.sans_reponse] : []),
+    ];
+  }
+  if ('action' in e) return e.suite ? [e.suite] : [];
   return [];
 }
 
@@ -292,6 +487,13 @@ export function referencesDe(entree: Etape): { templates: Array<{ nom: string; l
       if (e.message.fichier) fichiers.add(e.message.fichier.url);
     } else if ('agent' in e) {
       agents.add(e.agent.agent_id);
+    } else if ('question' in e) {
+      if (e.question.champ) champs.add(e.question.champ);
+    } else if ('action' in e) {
+      for (const o of e.action) {
+        if ('champ' in o) champs.add(o.champ);
+        if ('vider_champs' in o) for (const c of o.vider_champs) champs.add(c);
+      }
     }
     sousEtapes(e).forEach(visiter);
   };

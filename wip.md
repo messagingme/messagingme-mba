@@ -38,7 +38,9 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
 - Lot D (plan `2026-11-24-csm-lot1-d-brouillon.md`) : B4, le brouillon des outils (`brouillon` sur `create_scenario` et
   `update_scenario`, console comprise), sans migration. L'option de `/v1` et sa route de publication sont reportées
   après le pilote (`todo.md`).
-- Ensuite : le chemin du pilote (B5, B6, B9).
+- Lot E (plan `2026-11-24-csm-lot1-e-recette-pilote.md`) : B5, la Question et l'Action dans la recette (le parcours
+  de qualification du pilote), sans migration ; le contrat de `/v1` et le SDK gagnent les deux étapes.
+- Ensuite : le chemin du pilote (B6, B9).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 

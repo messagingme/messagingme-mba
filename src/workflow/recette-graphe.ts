@@ -4,9 +4,14 @@ import { MAX_NODES } from './graph';
 import { parseParamHints, type ParamSource } from '../crm/template';
 import { entreeDuGraphe } from '../../web/lib/partage/ouverture-scenario';
 import { SORTIE_HUMAIN, SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
-import { sousActions } from '../../web/lib/partage/actions-bloc';
-import { ATTRIBUTS_RECETTE, type Branche, type Etape, type EtapeMessage, type EtapeTemplate, type Lu, type RefusRecette, type SourceRecette } from './recette';
-import { delaiSansReponseMs } from './engine';
+import { champsAVider, etiquettesARetirer, sousActions } from '../../web/lib/partage/actions-bloc';
+import {
+  ATTRIBUTS_RECETTE, type Branche, type Echeance, type Etape, type EtapeAction, type EtapeMessage, type EtapeQuestion,
+  type EtapeTemplate, type LigneMenu, type Lu, type Operation, type RefusRecette, type SourceRecette, lireRecette,
+  OPERATIONS_MAX, VALEUR_CHAMP_RECETTE_MAX,
+} from './recette';
+import { delaiSansReponseMs, QUESTION_UNITS, questionRows, UNIT_MS, WAIT_MAX_MS } from './engine';
+import { reglagesQuestion } from './question-piece';
 import { SORTIE_NON_LIVRE } from '../../web/lib/partage/sortie-non-livre';
 
 /**
@@ -73,7 +78,8 @@ interface Chantier {
 
 /**
  * La signature qu'aurait un bloc du graphe remplacé une fois compilé : la même que celle que `poser` reçoit pour son
- * type (le template et ses boutons, les réponses rapides, l'agent et ses sorties, rien pour l'équipe et la fin). À
+ * type (le template et ses boutons, les réponses rapides, l'agent et ses sorties, les lignes et l'échéance d'une
+ * Question, rien pour l'équipe, la fin et l'Action). À
  * chemin, type et signature égaux, c'est le même bloc, et il garde son id : un contact qui attend dessus reprend là.
  * 🔴 Sans elle, seul le code `nod_` était repris, et un scénario dessiné dans la console, dont les blocs portent des UUID,
  * changeait l'id de CHACUN à sa réécriture par Claude : publiée, elle faisait perdre leur bloc à tous les parcours en
@@ -92,8 +98,12 @@ function signatureDe(n: WorkflowNode): string {
     const sorties = Array.isArray(n.data.sorties) ? (n.data.sorties as Array<{ code?: unknown }>).map((s) => s.code) : [];
     return JSON.stringify([String(n.data.agentId ?? '').trim(), sorties]);
   }
+  if (n.type === 'question') return signatureQuestion(questionRows(n).map((r) => r.title), delaiSansReponseMs(n) > 0);
   return '';
 }
+
+/** Les sorties d'une Question : le titre de chaque ligne (un choix revient par position, `row:<i>`) et l'échéance. */
+const signatureQuestion = (titres: readonly string[], echeance: boolean): string => JSON.stringify([titres, echeance]);
 
 /**
  * Compile une recette déjà lue (`lireRecette`). `precedent` : le graphe qu'elle remplace (le publié, ou le brouillon en
@@ -143,6 +153,8 @@ function compilerEtape(e: Etape, chemin: string, cheminArbre: Chemin, profondeur
     return { ok: true, valeur: id };
   }
 
+  if ('question' in e) return compilerQuestion(e, chemin, cheminArbre, profondeur, refs, chantier);
+  if ('action' in e) return compilerAction(e, chemin, cheminArbre, profondeur, refs, chantier);
   if ('template' in e) return compilerTemplate(e, chemin, cheminArbre, profondeur, refs, chantier);
   return compilerMessage(e, chemin, cheminArbre, profondeur, refs, chantier);
 }
@@ -238,6 +250,74 @@ function compilerMessage(e: EtapeMessage, chemin: string, cheminArbre: Chemin, p
   return { ok: true, valeur: id };
 }
 
+/**
+ * Une Question (B5) : le bloc que la console pose, champ pour champ (`body`, `rows`, `buttonLabel`, `champReponse`,
+ * `rangerLigne`, `timeoutValue`, `timeoutUnit`), et ses sorties `row:<i>`, libre (la réponse écrite) et `timeout`.
+ */
+function compilerQuestion(e: EtapeQuestion, chemin: string, cheminArbre: Chemin, profondeur: number, refs: ReferencesResolues, chantier: Chantier): Lu<string> {
+  const q = e.question;
+  if (q.champ && !refs.champs.has(q.champ)) return refus(`${chemin}.question.champ`, `aucun champ « ${q.champ} » dans cet espace (list_fields)`, 'field_unknown');
+  const lignes = e.menu ?? [];
+  const id = poser(chantier, cheminArbre, 'question', profondeur, {
+    body: q.texte,
+    ...(lignes.length > 0 ? {
+      rows: lignes.map((l) => (l.description ? { title: l.titre, description: l.description } : { title: l.titre })),
+      buttonLabel: q.bouton ?? '',
+    } : {}),
+    ...(q.champ ? { champReponse: q.champ, champReponseLabel: q.champ } : {}),
+    ...(q.ranger_choix ? { rangerLigne: true } : {}),
+    ...(q.sans_reponse_apres ? { timeoutValue: q.sans_reponse_apres.valeur, timeoutUnit: q.sans_reponse_apres.unite } : {}),
+  }, signatureQuestion(lignes.map((l) => l.titre), q.sans_reponse_apres !== undefined));
+  for (const [i, l] of lignes.entries()) {
+    const suite = compilerEtape(l.suite, `${chemin}.menu[${i}].suite`, [...cheminArbre, 'm', l.titre], profondeur + 1, refs, chantier);
+    if (!suite.ok) return suite;
+    relier(chantier, id, suite.valeur, `row:${i}`);
+  }
+  const libre = e.autre_reponse ?? e.suite;
+  if (libre) {
+    const champ = e.autre_reponse ? 'autre_reponse' : 'suite';
+    const suite = compilerEtape(libre, `${chemin}.${champ}`, [...cheminArbre, e.autre_reponse ? 'a' : 's'], profondeur + 1, refs, chantier);
+    if (!suite.ok) return suite;
+    relier(chantier, id, suite.valeur);
+  }
+  if (e.sans_reponse) {
+    const suite = compilerEtape(e.sans_reponse, `${chemin}.sans_reponse`, [...cheminArbre, 't'], profondeur + 1, refs, chantier);
+    if (!suite.ok) return suite;
+    relier(chantier, id, suite.valeur, SORTIE_TIMEOUT);
+  }
+  return { ok: true, valeur: id };
+}
+
+/**
+ * Une Action (B5) : la première opération à plat dans `data`, les suivantes dans `data.suite`
+ * (`web/lib/partage/actions-bloc.ts`), comme la console les range ; une seule sortie, libre.
+ */
+function compilerAction(e: EtapeAction, chemin: string, cheminArbre: Chemin, profondeur: number, refs: ReferencesResolues, chantier: Chantier): Lu<string> {
+  const sous: Array<Record<string, unknown>> = [];
+  for (const [i, o] of e.action.entries()) {
+    if ('etiquette' in o) {
+      sous.push({ actionKind: 'add_tag', tag: o.etiquette });
+    } else if ('retirer_etiquettes' in o) {
+      sous.push({ actionKind: 'remove_tag', tags: o.retirer_etiquettes });
+    } else if ('champ' in o) {
+      if (!refs.champs.has(o.champ)) return refus(`${chemin}.action[${i}].champ`, `aucun champ « ${o.champ} » dans cet espace (list_fields)`, 'field_unknown');
+      sous.push({ actionKind: 'set_field', fieldKey: o.champ, fieldLabel: o.champ, value: o.valeur });
+    } else {
+      const inconnu = o.vider_champs.find((c) => !refs.champs.has(c));
+      if (inconnu !== undefined) return refus(`${chemin}.action[${i}].vider_champs`, `aucun champ « ${inconnu} » dans cet espace (list_fields)`, 'field_unknown');
+      sous.push({ actionKind: 'clear_field', champs: o.vider_champs.map((key) => ({ key })) });
+    }
+  }
+  const [premiere, ...suivantes] = sous;
+  const id = poser(chantier, cheminArbre, 'action', profondeur, { ...premiere, ...(suivantes.length > 0 ? { suite: suivantes } : {}) });
+  if (e.suite) {
+    const suite = compilerEtape(e.suite, `${chemin}.suite`, [...cheminArbre, 's'], profondeur + 1, refs, chantier);
+    if (!suite.ok) return suite;
+    relier(chantier, id, suite.valeur);
+  }
+  return { ok: true, valeur: id };
+}
+
 // ─── Décompiler ────────────────────────────────────────────────────────────────────────────────────────────────
 
 const indescriptible = (raison: string): RefusRecette => ({
@@ -253,9 +333,49 @@ const versRecette = (s: ParamSource): SourceRecette | null => {
 };
 
 /**
+ * L'échéance d'une Question en recette : `null` sans échéance, `illisible` quand la recette ne sait pas la dire (un
+ * nombre non entier, une unité de la console que la recette n'a pas, plus de 30 jours).
+ */
+function echeanceDe(n: WorkflowNode): Echeance | null | 'illisible' {
+  if (delaiSansReponseMs(n) <= 0) return null;
+  const valeur = Number(n.data.timeoutValue);
+  const unite = String(n.data.timeoutUnit ?? 'hours');
+  if (!Number.isInteger(valeur) || !(QUESTION_UNITS as readonly string[]).includes(unite)) return 'illisible';
+  const u = unite as Echeance['unite'];
+  return valeur * UNIT_MS[u] > WAIT_MAX_MS ? 'illisible' : { valeur, unite: u };
+}
+
+/** Une opération d'un bloc Action en recette, ou la raison de ne pas savoir la dire. */
+function operationDe(sa: Record<string, unknown>): Operation | string {
+  const kind = String(sa.actionKind ?? '');
+  if (kind === 'add_tag') {
+    const tag = String(sa.tag ?? '').trim();
+    return tag === '' ? 'une étiquette vide' : { etiquette: tag };
+  }
+  if (kind === 'remove_tag') {
+    const tags = etiquettesARetirer(sa);
+    return tags.length === 0 ? 'une étiquette à retirer vide' : { retirer_etiquettes: tags };
+  }
+  if (kind === 'set_field') {
+    if (sa.valueKind === 'now' || sa.valueKind === 'derniere_saisie') return 'un champ rempli par la date ou par la dernière saisie';
+    const cle = String(sa.fieldKey ?? sa.key ?? '').trim();
+    const valeur = String(sa.value ?? '');
+    if (cle === '' || valeur === '') return 'un champ sans clé ou sans valeur';
+    return valeur.length > VALEUR_CHAMP_RECETTE_MAX ? 'une valeur de champ trop longue' : { champ: cle, valeur };
+  }
+  if (kind === 'clear_field') {
+    const champs = champsAVider(sa).map((c) => c.key);
+    return champs.length === 0 ? 'un champ à vider vide' : { vider_champs: champs };
+  }
+  return kind === '' ? 'une action vide' : `une action « ${kind} »`;
+}
+
+/**
  * Relit la recette d'un graphe : pour `GET /v1/scenarios/:id` et pour l'empreinte qui garde un remplacement. Refuse
- * (`scenario_not_describable`) tout ce que la recette ne sait pas dire : un type de bloc hors des quatre, des branches
- * qui se rejoignent, un bloc que l'entrée n'atteint pas, une réponse rapide sans suite.
+ * (`scenario_not_describable`) tout ce que la recette ne sait pas dire : un type de bloc qu'elle n'a pas, des branches
+ * qui se rejoignent, un bloc que l'entrée n'atteint pas, une réponse rapide sans suite. 🔴 Et ce qu'elle rend repasse
+ * `lireRecette` : une recette relue que l'écriture refuserait (deux lignes de menu au même titre, une étiquette ou un
+ * libellé trop longs, réglés dans la console) laisserait `get_scenario` rendre ce que `update_scenario` refuse.
  */
 export function decompilerGraphe(g: WorkflowGraph): Lu<Etape> {
   return decompiler(g).lu;
@@ -264,8 +384,15 @@ export function decompilerGraphe(g: WorkflowGraph): Lu<Etape> {
 /** La recette d'un graphe, et chacun de ses blocs par son chemin (celui que `compilerRecette` lui donnerait). */
 function decompiler(g: WorkflowGraph): { lu: Lu<Etape>; chemins: Map<string, WorkflowNode> } {
   const chemins = new Map<string, WorkflowNode>();
-  const lu = lireGraphe(g, chemins);
+  const brut = lireGraphe(g, chemins);
+  const lu = brut.ok ? relueValide(brut.valeur) : brut;
   return { lu, chemins: lu.ok ? chemins : new Map() };
+}
+
+/** La recette relue, si l'écriture l'accepterait telle quelle (`lireRecette`) ; sinon elle reste à la console. */
+function relueValide(e: Etape): Lu<Etape> {
+  const r = lireRecette({ nom: 'relecture', entree: e });
+  return r.ok ? { ok: true, valeur: e } : indescriptible(`un réglage que la recette refuse (${r.message})`);
 }
 
 function lireGraphe(g: WorkflowGraph, chemins: Map<string, WorkflowNode>): Lu<Etape> {
@@ -376,7 +503,77 @@ function lireGraphe(g: WorkflowGraph, chemins: Map<string, WorkflowNode>): Lu<Et
       return { ok: true, valeur: etape };
     }
 
+    if (n.type === 'question') return lireQuestionDuGraphe(n, aretes, libre, ici);
+    if (n.type === 'action') {
+      const operations: Operation[] = [];
+      if (sousActions(n.data).length > OPERATIONS_MAX) return indescriptible(`une action de plus de ${OPERATIONS_MAX} opérations`);
+      for (const sa of sousActions(n.data)) {
+        const o = operationDe(sa);
+        if (typeof o === 'string') return indescriptible(o);
+        operations.push(o);
+      }
+      if (aretes.some((a) => a.sourceHandle !== undefined)) return indescriptible('une sortie d’action inconnue');
+      const etape: EtapeAction = { action: operations };
+      if (libre[0]) {
+        const suite = lire(libre[0].target, [...ici, 's']);
+        if (!suite.ok) return suite;
+        etape.suite = suite.valeur;
+      }
+      return { ok: true, valeur: etape };
+    }
+
     return indescriptible(`un bloc de type « ${n.type} »`);
+  };
+
+  /**
+   * Une Question relue : ce que `compilerQuestion` pose, et rien d'autre. Une question qui attend un fichier, une
+   * échéance sans sa sortie (ou l'inverse), une ligne sans suite restent à la console.
+   */
+  const lireQuestionDuGraphe = (n: WorkflowNode, aretes: WorkflowEdge[], libre: WorkflowEdge[], ici: Chemin): Lu<Etape> => {
+    const texte = String(n.data.body ?? '');
+    if (texte.trim() === '') return indescriptible('une question sans texte');
+    const reglages = reglagesQuestion(n);
+    if (reglages.genres !== null) return indescriptible('une question qui attend un fichier');
+    const lignes = questionRows(n);
+    if (lignes.some((l) => l.title === '')) return indescriptible('une ligne de menu sans titre');
+    const echeance = echeanceDe(n);
+    if (echeance === 'illisible') return indescriptible('une échéance qui n’est pas un nombre entier de minutes, d’heures ou de jours');
+    const timeout = aretes.find((a) => a.sourceHandle === SORTIE_TIMEOUT);
+    if ((echeance === null) !== (timeout === undefined)) return indescriptible('une échéance sans sa sortie « pas de réponse », ou l’inverse');
+    if (aretes.some((a) => a.sourceHandle !== undefined && a.sourceHandle !== SORTIE_TIMEOUT && !lignes.some((_, i) => a.sourceHandle === `row:${i}`))) {
+      return indescriptible('une sortie de question inconnue');
+    }
+    const bouton = String(n.data.buttonLabel ?? '').trim();
+    const etape: EtapeQuestion = {
+      question: {
+        texte,
+        ...(reglages.champ ? { champ: reglages.champ } : {}),
+        ...(lignes.length > 0 && bouton !== '' ? { bouton } : {}),
+        ...(lignes.length > 0 && reglages.champ && reglages.rangerLigne ? { ranger_choix: true as const } : {}),
+        ...(echeance ? { sans_reponse_apres: echeance } : {}),
+      },
+    };
+    const menu: LigneMenu[] = [];
+    for (const [i, l] of lignes.entries()) {
+      const a = aretes.find((x) => x.sourceHandle === `row:${i}`);
+      if (!a) return indescriptible('une ligne de menu sans suite');
+      const suite = lire(a.target, [...ici, 'm', l.title]);
+      if (!suite.ok) return suite;
+      menu.push({ titre: l.title, ...(l.description ? { description: l.description } : {}), suite: suite.valeur });
+    }
+    if (menu.length > 0) etape.menu = menu;
+    if (libre[0]) {
+      const suite = lire(libre[0].target, [...ici, menu.length > 0 ? 'a' : 's']);
+      if (!suite.ok) return suite;
+      if (menu.length > 0) etape.autre_reponse = suite.valeur;
+      else etape.suite = suite.valeur;
+    }
+    if (timeout) {
+      const suite = lire(timeout.target, [...ici, 't']);
+      if (!suite.ok) return suite;
+      etape.sans_reponse = suite.valeur;
+    }
+    return { ok: true, valeur: etape };
   };
 
   const r = lire(entree.id, ['e']);

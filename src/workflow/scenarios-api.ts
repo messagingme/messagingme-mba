@@ -13,6 +13,7 @@ import { empreinteRecette, lireRecette, referencesDe, type Recette } from './rec
 import { cleTemplateRecette, compilerRecette, decompilerGraphe, type ReferencesResolues, type TemplateResolu } from './recette-graphe';
 import type { LigneApi } from './store.pg';
 import { entreeDuGraphe } from '../../web/lib/partage/ouverture-scenario';
+import { SOCLE_FIELDS } from '../../web/lib/partage/champs';
 
 /**
  * CRÉER, RELIRE, REMPLACER ET SUPPRIMER UN SCÉNARIO PAR L'API OU LE MCP (spec
@@ -163,7 +164,8 @@ async function preparer(deps: DepsScenariosApi, tenantId: string, corps: unknown
       templateResolu(templates.find((t) => t.name === nom && t.language === langue), indices),
     ])),
     agents: new Map(agents.map((a) => [a.id, { actif: a.actif, label: a.label, sorties: a.sorties }])),
-    champs: new Set(champs),
+    // Les champs de base en plus de ceux de l'espace : ils n'entrent dans `user_fields` qu'à leur première écriture.
+    champs: new Set([...champs, ...SOCLE_FIELDS.map((s) => s.key)]),
   };
   const compile = compilerRecette(recette.entree, refs, precedent);
   if (!compile.ok) return echec(compile.code, compile.message, { chemin: compile.chemin });

@@ -187,6 +187,18 @@ describe('lireScenario et supprimerScenario', () => {
  * bouge pas, rien ne part au journal (rien n'est publié), et la mise en ligne d'un admin publie ensuite. Sans l'option,
  * rien ne change (les cas ci-dessus).
  */
+describe('les champs de base dans une recette (CSM, B5)', () => {
+  it('une Question rangée dans l’e-mail passe sur un espace où il n’a encore jamais été écrit', async () => {
+    // `list_fields` annonce le prénom, le nom et l'e-mail, et la console les propose : ils n'entrent dans les champs de
+    // l'espace qu'à leur première écriture (relecture de B5).
+    const { d } = deps();
+    const r = await creerScenario(d, TENANT, { nom: 'Contact', entree: { question: { texte: 'Votre e-mail ?', champ: 'email' } } }, 'mcp', undefined, { brouillon: true });
+    expect(r.ok).toBe(true);
+    const inconnu = await creerScenario(d, TENANT, { nom: 'Autre', entree: { question: { texte: 'Votre pays ?', champ: 'pays' } } }, 'mcp', undefined, { brouillon: true });
+    expect(inconnu).toMatchObject({ ok: false, code: 'field_unknown' });
+  });
+});
+
 describe('le brouillon (CSM, B4)', () => {
   const autreRecette = () => recette({
     template: { nom: 'relance', langue: 'fr' },

@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { OUTILS, outilsPour, RefusOutil, type DepsMcp } from '../src/mcp/outils';
 import { creerScenario, type VueScenario } from '../src/workflow/scenarios-api';
 import {
-  LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX, PROFONDEUR_MAX_RECETTE,
+  BOUTON_MENU_MAX, DESCRIPTION_LIGNE_MAX, ECHEANCE_MAX_JOURS, ETIQUETTE_MAX, LIGNES_MENU_MAX, LISTE_OPERATION_MAX,
+  LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX, OPERATIONS_MAX,
+  PROFONDEUR_MAX_RECETTE, TEXTE_QUESTION_MAX, TITRE_LIGNE_MAX, UNITES_ECHEANCE, VALEUR_CHAMP_RECETTE_MAX,
 } from '../src/workflow/recette';
 import { MAX_NODES } from '../src/workflow/graph';
 import {
@@ -75,8 +77,15 @@ describe('les outils MCP des scénarios', () => {
     for (const borne of [
       MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE, MAX_TEXTE_BOUTON_TEMPLATE,
       MAX_BOUTONS_TEMPLATE, PROFONDEUR_MAX_RECETTE, MAX_NODES, NOM_SCENARIO_MAX, LONGUEUR_URL_FICHIER_MAX, MAX_FICHIERS_RECETTE,
+      // La Question et l'Action (CSM, B5).
+      TEXTE_QUESTION_MAX, BOUTON_MENU_MAX, TITRE_LIGNE_MAX, DESCRIPTION_LIGNE_MAX, LIGNES_MENU_MAX, ECHEANCE_MAX_JOURS, OPERATIONS_MAX,
+      ETIQUETTE_MAX, VALEUR_CHAMP_RECETTE_MAX, LISTE_OPERATION_MAX,
     ]) expect(annonce, String(borne)).toMatch(new RegExp(`(^|[^0-9])${borne}([^0-9]|$)`));
-    for (const mot of ['https', 'template', 'message', 'agent', 'humain', 'boutons', 'reponses', 'autre_reponse', 'suite', 'fichier']) {
+    for (const mot of [
+      'https', 'template', 'message', 'agent', 'humain', 'boutons', 'reponses', 'autre_reponse', 'suite', 'fichier',
+      'question', 'champ', 'menu', 'titre', 'description', 'bouton', 'ranger_choix', 'sans_reponse_apres', 'sans_reponse', 'valeur',
+      ...UNITES_ECHEANCE, 'action', 'etiquette', 'retirer_etiquettes', 'vider_champs',
+    ]) {
       expect(annonce, mot).toContain(mot);
     }
     // update_scenario annonce la même recette.

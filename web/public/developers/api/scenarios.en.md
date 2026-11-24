@@ -2,7 +2,7 @@
 
 # Scenarios
 
-Create a simple scenario without opening the console, with the scenarios:write right: a template and its buttons, quick-reply messages with a file, an AI agent, the team. Every write publishes it at once; it then goes out through [Sends](https://console.messagingme.app/developers/api/sends.en.md).
+Create a simple scenario without opening the console, with the scenarios:write right: a template and its buttons, quick-reply messages with a file, questions whose answer goes into a field, tags and fields set along the way, an AI agent, the team. Every write publishes it at once; it then goes out through [Sends](https://console.messagingme.app/developers/api/sends.en.md).
 
 On this page
 
@@ -17,7 +17,7 @@ On this page
 
 ## The recipe
 
-A scenario is described as a tree of steps, with no id or position. Each step is exactly one of these four forms:
+A scenario is described as a tree of steps, with no id or position. Each step is exactly one of these six forms:
 
 | Step | Meaning |
 | --- | --- |
@@ -25,6 +25,8 @@ A scenario is described as a tree of steps, with no id or position. Each step is
 | `message` | A free message within the 24-hour window, with an optional file (JPEG, PNG or GIF image, MP4 video, PDF). reponses: 3 quick replies at most, 20 characters each. Without quick replies, it does not wait: suite is the next step. |
 | `agent` | Hands the conversation to an active AI agent of the workspace. It ends the scenario. |
 | `humain` | Hands the conversation to the team (To handle). It ends the scenario. |
+| `question` | Asks a question and waits for the answer, stored in champ if you give it. menu: a WhatsApp list of 10 lines at most (24-character title, 72-character description), each with its next step; with a menu, bouton labels the list, ranger_choix stores the chosen title and autre_reponse takes a written answer; without a menu, suite comes after the answer. sans_reponse_apres (valeur, and unite: minutes, hours or days; 30 days at most) leads to sans_reponse: the team, or a reminder (beyond 24 hours after the contact’s last message, only a template reaches them). |
+| `action` | Plays up to 10 operations in order: etiquette (add a tag), retirer_etiquettes, champ and valeur (give a field a value), vider_champs. Never the contact’s consent. suite: the next step. |
 
 - variables: for each template position ({{1}} is written 1), a record field (champ), a fixed text (texte), or the contact’s name or number (attribut: name or phone). Absent: the associations set in the console.
 - The file is read at each send from its https address: it is checked once at write time, never copied. If it changes on the site, later sends change.
@@ -214,7 +216,7 @@ curl https://api.messagingme.app/v1/scenarios/7d2e4c1a-3b5f-4e6d-8a9b-0c1d2e3f4a
 | Status | Code | Cause |
 | --- | --- | --- |
 | 404 | `scenario_not_found` | No such scenario in the workspace. |
-| 409 | `scenario_not_describable` | Edited in the console beyond what a recipe can describe. |
+| 409 | `scenario_not_describable` | Edited in the console beyond what a recipe can describe, or not published yet (a draft written by Claude). |
 
 <a id="remplacer"></a>
 
@@ -297,8 +299,8 @@ curl -X PUT https://api.messagingme.app/v1/scenarios/7d2e4c1a-3b5f-4e6d-8a9b-0c1
 | --- | --- | --- |
 | 428 | `precondition_required` | The fingerprint is missing. |
 | 409 | `scenario_managed_in_console` | The scenario was created in the console. |
-| 409 | `scenario_changed` | It changed since you read it, or a console change is waiting to be published. |
-| 409 | `scenario_not_describable` | Edited in the console beyond what a recipe can describe. |
+| 409 | `scenario_changed` | It changed since you read it, or a draft is waiting to be published (made in the console or by Claude). |
+| 409 | `scenario_not_describable` | Edited in the console beyond what a recipe can describe, or not published yet (a draft written by Claude). |
 
 And the errors of creation.
 

@@ -4049,7 +4049,7 @@ export interface operations {
                         /** @description One branch per QUICK_REPLY button of the template, named by its exact text; every quick reply needs one. */
                         boutons?: {
                             texte: string;
-                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain. */
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action. */
                             suite: {
                                 [key: string]: unknown;
                             };
@@ -4074,7 +4074,7 @@ export interface operations {
                         /** @description Up to 3 quick replies, distinct, in the order the contact sees them. */
                         reponses?: {
                             texte: string;
-                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain. */
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action. */
                             suite: {
                                 [key: string]: unknown;
                             };
@@ -4096,6 +4096,63 @@ export interface operations {
                     } | {
                         /** @description Hands the conversation to the team; it ends the scenario. */
                         humain: Record<string, never>;
+                    } | {
+                        question: {
+                            /** @description The question sent to the contact, who answers it. */
+                            texte: string;
+                            /** @description A field of the workspace: the written answer is stored in it. */
+                            champ?: string;
+                            /** @description With a menu only: the label of the button that opens the list. */
+                            bouton?: string;
+                            /** @description With a menu and champ only: true stores the title of the chosen line in the field. */
+                            ranger_choix?: boolean;
+                            /** @description No answer after this delay (30 days at most): sans_reponse is played. Absent: the question waits with no end. */
+                            sans_reponse_apres?: {
+                                valeur: number;
+                                /** @enum {string} */
+                                unite: "minutes" | "hours" | "days";
+                            };
+                        };
+                        /** @description A WhatsApp list of up to 10 lines with distinct titles; every line needs its step. */
+                        menu?: {
+                            titre: string;
+                            description?: string;
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action. */
+                            suite: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                        /** @description With a menu: the contact writes instead of choosing a line. */
+                        autre_reponse?: {
+                            [key: string]: unknown;
+                        };
+                        /** @description Without a menu: the step played after the answer. */
+                        suite?: {
+                            [key: string]: unknown;
+                        };
+                        /** @description Required with sans_reponse_apres, refused without: the step played when the delay runs out (a reminder, the team). */
+                        sans_reponse?: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @description Operations played in order, never the contact's consent: add a tag, remove tags, give a field a value, clear fields. */
+                        action: ({
+                            /** @description Adds this tag to the contact. */
+                            etiquette: string;
+                        } | {
+                            retirer_etiquettes: string[];
+                        } | {
+                            /** @description A field of the workspace. */
+                            champ: string;
+                            /** @description Its value, as text, matching the field type. */
+                            valeur: string;
+                        } | {
+                            vider_champs: string[];
+                        })[];
+                        /** @description The step played right after. */
+                        suite?: {
+                            [key: string]: unknown;
+                        };
                     };
                 };
             };
@@ -4362,7 +4419,7 @@ export interface operations {
                         /** @description One branch per QUICK_REPLY button of the template, named by its exact text; every quick reply needs one. */
                         boutons?: {
                             texte: string;
-                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain. */
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action. */
                             suite: {
                                 [key: string]: unknown;
                             };
@@ -4387,7 +4444,7 @@ export interface operations {
                         /** @description Up to 3 quick replies, distinct, in the order the contact sees them. */
                         reponses?: {
                             texte: string;
-                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain. */
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action. */
                             suite: {
                                 [key: string]: unknown;
                             };
@@ -4409,6 +4466,63 @@ export interface operations {
                     } | {
                         /** @description Hands the conversation to the team; it ends the scenario. */
                         humain: Record<string, never>;
+                    } | {
+                        question: {
+                            /** @description The question sent to the contact, who answers it. */
+                            texte: string;
+                            /** @description A field of the workspace: the written answer is stored in it. */
+                            champ?: string;
+                            /** @description With a menu only: the label of the button that opens the list. */
+                            bouton?: string;
+                            /** @description With a menu and champ only: true stores the title of the chosen line in the field. */
+                            ranger_choix?: boolean;
+                            /** @description No answer after this delay (30 days at most): sans_reponse is played. Absent: the question waits with no end. */
+                            sans_reponse_apres?: {
+                                valeur: number;
+                                /** @enum {string} */
+                                unite: "minutes" | "hours" | "days";
+                            };
+                        };
+                        /** @description A WhatsApp list of up to 10 lines with distinct titles; every line needs its step. */
+                        menu?: {
+                            titre: string;
+                            description?: string;
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain, question, action. */
+                            suite: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                        /** @description With a menu: the contact writes instead of choosing a line. */
+                        autre_reponse?: {
+                            [key: string]: unknown;
+                        };
+                        /** @description Without a menu: the step played after the answer. */
+                        suite?: {
+                            [key: string]: unknown;
+                        };
+                        /** @description Required with sans_reponse_apres, refused without: the step played when the delay runs out (a reminder, the team). */
+                        sans_reponse?: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @description Operations played in order, never the contact's consent: add a tag, remove tags, give a field a value, clear fields. */
+                        action: ({
+                            /** @description Adds this tag to the contact. */
+                            etiquette: string;
+                        } | {
+                            retirer_etiquettes: string[];
+                        } | {
+                            /** @description A field of the workspace. */
+                            champ: string;
+                            /** @description Its value, as text, matching the field type. */
+                            valeur: string;
+                        } | {
+                            vider_champs: string[];
+                        })[];
+                        /** @description The step played right after. */
+                        suite?: {
+                            [key: string]: unknown;
+                        };
                     };
                     /** @description The fingerprint read by GET, if not sent in If-Match. */
                     empreinte?: string;
