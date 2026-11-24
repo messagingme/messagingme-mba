@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { forbidNonAdmin, gardeEtendue } from '../auth/middleware';
 import type { Guard, PreHandler } from '../auth/middleware';
-import type { ContactRow, ContactFilters, BulkTarget, BulkEdits, IssueActionEnMasse } from '../crm/contact-store.pg';
+import type { ContactRow, ContactFilters, BulkTarget, BulkEdits, IssueActionEnMasse, LigneAExporter } from '../crm/contact-store.pg';
 import type { UserFieldDef } from '../crm/types';
 import type { ContactHistory, ContactSend, ResumeContact } from '../crm/contact-history.pg';
 import type { CoutContact, NiveauEngagement } from '../stats/cost';
@@ -18,6 +18,8 @@ import type { TravauxEnVol } from '../lib/en-vol';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite } from '../offres/refus';
 import { effacerContacts } from '../crm/effacement';
 import { creerEditionFicheOperateur, type ContactsEditionOperateur } from '../crm/editer-fiche-operateur';
+import { clesDesChamps, corpsExport, valeurExportee } from '../crm/export-contacts';
+import { colonnesExportables, EXPORT_CONTACTS_MAX } from '../../web/lib/partage/export-contacts';
 
 /** Ce que les routes lisent et écrivent des fiches de contact. */
 export interface ContactsDep extends ContactsEditionOperateur {
@@ -54,6 +56,11 @@ export interface ContactsDep extends ContactsEditionOperateur {
   }>;
   /** Résout une cible (ids ou filtres) en identifiants. Nécessaire à la purge, qui travaille par identifiants. */
   contactIdsForTarget(tenantId: string, target: BulkTarget): Promise<string[]>;
+  /**
+   * L'export CSV : les fiches vivantes de la cible, au plus `limite`, avec les seules clés `cles` de leurs champs
+   * (`PgContactStore.lignesAExporter`).
+   */
+  lignesAExporter(tenantId: string, target: BulkTarget, cles: readonly string[], limite: number): Promise<LigneAExporter[]>;
 }
 
 export interface ContactsRouteDeps {
@@ -429,6 +436,39 @@ export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, 
     }
 
     return reply.code(400).send({ error: 'action inconnue (add_tag | remove_tag | set_field | set_optin)' });
+  });
+
+  /**
+   * L'export CSV d'une sélection (action en masse du mini-CRM, 2026-11-24). Rend du JSON `{ colonnes, lignes }` : la
+   * console construit le fichier, comme pour l'historique d'un contact (`request()` lit toujours du JSON). Admin, et le
+   * plafond des routes coûteuses.
+   * 🔴 Chaque colonne est choisie par l'admin, et seules celles de `colonnesExportables` passent : une étiquette, un champ
+   * HubSpot ou Shopify, une colonne inconnue, c'est 400, jamais une colonne vide en silence. Au-delà de
+   * `EXPORT_CONTACTS_MAX` fiches, refus : on affine la sélection par les filtres.
+   */
+  app.post('/tenants/:tenantId/contacts/export', couteux, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    if (forbidNonAdmin(req, reply)) return;
+    const b = (req.body ?? {}) as { target?: unknown; colonnes?: unknown };
+    const lu = parseBulkTarget(b.target);
+    if (lu === null) return reply.code(400).send({ error: 'cible invalide (target: { ids } ou { filters, excludeIds })' });
+    const corps = corpsExport.safeParse({ colonnes: b.colonnes });
+    if (!corps.success) return reply.code(400).send({ error: 'colonnes requises : au moins une, choisie dans la liste' });
+    // Un identifiant qui n'est pas un UUID ne désigne aucune fiche : retiré ici, il ferait échouer le cast en base (500).
+    const target: BulkTarget = 'ids' in lu
+      ? { ids: lu.ids.filter(estUuid) }
+      : { filters: lu.filters, excludeIds: (lu.excludeIds ?? []).filter(estUuid) };
+    const colonnes = [...new Set(corps.data.colonnes)];
+    const permises = new Set(colonnesExportables(await deps.champs.list(tenant)).map((c) => c.cle));
+    const refusee = colonnes.find((c) => !permises.has(c));
+    if (refusee !== undefined) return reply.code(400).send({ error: `colonne non exportable : ${refusee}` });
+    const lignes = await deps.contacts.lignesAExporter(tenant, target, clesDesChamps(colonnes), EXPORT_CONTACTS_MAX + 1);
+    if (lignes.length > EXPORT_CONTACTS_MAX) {
+      return reply.code(400).send({ error: `plus de ${EXPORT_CONTACTS_MAX} contacts : affinez la sélection avec les filtres` });
+    }
+    // 🔴 Une extraction de données personnelles laisse une trace : le nombre et les colonnes, jamais les valeurs.
+    await journal(tenant, req, 'contacts.exportes', { kind: 'contact', id: 'lot' }, { contacts: lignes.length, colonnes });
+    return reply.code(200).send({ colonnes, lignes: lignes.map((l) => colonnes.map((c) => valeurExportee(l, c))) });
   });
 
   /**

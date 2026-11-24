@@ -238,6 +238,14 @@ export function bulkContactAction(tenantId: string, target: BulkTarget, action: 
 }
 
 /**
+ * L'export CSV d'une sélection (admin) : les colonnes cochées une à une (`colonnesExportables`, module partagé), une ligne
+ * par fiche, chaque valeur en texte ou `null`. Le fichier se construit dans le navigateur (`toCsv`).
+ */
+export function exportContacts(tenantId: string, target: BulkTarget, colonnes: string[]): Promise<{ colonnes: string[]; lignes: Array<Array<string | null>> }> {
+  return request(`/tenants/${tenantId}/contacts/export`, { method: 'POST', body: JSON.stringify({ target, colonnes }) });
+}
+
+/**
  * SUPPRESSION de contacts (admin). LA seule, et elle est IRRÉVERSIBLE : le fil de conversation, ses messages
  * et l'analyse qualitative sont effacés, puis ce qui porte les compteurs est anonymisé pour que les totaux de
  * campagne restent justes. Le `confirm` n'est pas décoratif : le serveur refuse sans lui.

@@ -30,10 +30,20 @@ export function teteCsv(texte: string): string {
   return coupe > 0 ? tranche.slice(0, coupe) : tranche;
 }
 
+/**
+ * 🔴 Un texte qui commence par `=`, `+`, `-`, `@`, une tabulation ou un retour chariot est lu comme une FORMULE par un
+ * tableur : un nom de profil WhatsApp ou une réponse de contact (`=HYPERLINK(...)`) s'exécuterait chez l'opérateur qui
+ * ouvre l'export. Préfixé d'une apostrophe, il reste du texte. Un nombre (« -12,5 », « +33612345678 ») ne l'est pas : il
+ * ne peut rien exécuter, et un numéro de téléphone doit sortir tel qu'il est.
+ */
+function neutraliserFormule(s: string): string {
+  return /^[=+\-@\t\r]/.test(s) && !/^[+-]?[\d\s.,]+$/.test(s) ? `'${s}` : s;
+}
+
 /** Échappe une valeur pour une cellule CSV : entoure de guillemets si virgule / guillemet / retour ligne, et double
  *  les guillemets internes. null/undefined -> chaîne vide. */
 function cell(v: string | number | null | undefined): string {
-  const s = v === null || v === undefined ? '' : String(v);
+  const s = v === null || v === undefined ? '' : neutraliserFormule(String(v));
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

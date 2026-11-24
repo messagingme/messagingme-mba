@@ -19,6 +19,17 @@ describe('toCsv (export CSV F5, RFC 4180)', () => {
   it('en-têtes seuls (aucune ligne) -> juste la ligne d\'en-têtes', () => {
     expect(toCsv(['a', 'b'], [])).toBe('a,b');
   });
+
+  it('🔴 un texte lu comme une formule par un tableur sort préfixé d’une apostrophe', () => {
+    expect(toCsv(['x'], [['=HYPERLINK("http://x")']])).toBe(`x\r\n"'=HYPERLINK(""http://x"")"`);
+    expect(toCsv(['x'], [['@SUM(A1)']])).toBe("x\r\n'@SUM(A1)");
+    expect(toCsv(['x'], [['-2+3']])).toBe("x\r\n'-2+3");
+    expect(toCsv(['x'], [['+A1']])).toBe("x\r\n'+A1");
+  });
+
+  it('un numéro de téléphone ou un nombre signé sort tel quel', () => {
+    expect(toCsv(['x', 'y', 'z'], [['+33612345678', '-12,5', -3]])).toBe('x,y,z\r\n+33612345678,"-12,5",-3');
+  });
 });
 
 /**

@@ -7,10 +7,12 @@ import type { Session } from '@/lib/session';
 import {
   listContacts,
   queryContacts,
+  countContacts,
   listUserFields,
   listTags,
   bulkContactAction,
   deleteContacts,
+  exportContacts,
   createContact,
   type Contact,
   type UserFieldDef,
@@ -31,8 +33,14 @@ import { Icone } from '@/components/Icone';
 import { Modale } from '@/components/Modale';
 import { VoileMenu } from '@/components/Flottant';
 import { Squelette } from '@/components/Squelette';
-import { erreurDeChargement } from '@/lib/http';
+import { ApiError, erreurDeChargement } from '@/lib/http';
 import { avisStopsGardes, quiLeveUnStop } from '@/lib/stops-gardes';
+import { colonnesExportables } from '@/lib/partage/export-contacts';
+import { downloadCsv, toCsv } from '@/lib/csv';
+
+/** Le nombre de contacts par page : 20 par défaut, 50 ou 100 au plus (demande de Julien, 2026-11-24). */
+const TAILLES_PAGE = [20, 50, 100] as const;
+type TaillePage = (typeof TAILLES_PAGE)[number];
 
 export default function ContactsPage() {
   return <AppShell active="contacts">{(session) => <ContactsInner session={session} />}</AppShell>;
@@ -65,7 +73,9 @@ function ContactsInner({ session }: { session: Session }) {
   /** Menu « Rajouter des contacts » : les deux façons d'en ajouter tiennent derrière un seul bouton. */
   const [ajoutMenuOuvert, setAjoutMenuOuvert] = useState(false);
 
-  const LIMIT = 500;
+  // Une page à la fois, les plus récents d'abord (le serveur trie par date de création décroissante).
+  const [taillePage, setTaillePage] = useState<TaillePage>(20);
+  const [page, setPage] = useState(0);
   // Garde anti-course : chaque `load` prend un numéro de séquence ; une réponse périmée (filtre changé entre
   // temps, ou GET rejoué après un 5xx transitoire) est ignorée. Sans ça, une réponse lente d'un filtre ANCIEN
   // pourrait écraser la liste + le total courants, et fausser le compteur montré dans la confirmation de suppression.
@@ -74,26 +84,31 @@ function ContactsInner({ session }: { session: Session }) {
   const load = useCallback(async () => {
     const seq = ++reqSeq.current;
     setError(null);
+    const offset = page * taillePage;
     try {
-      if (filtersActive(filters)) {
-        const res = await queryContacts(session.tenantId, filters, { limit: LIMIT });
-        if (seq !== reqSeq.current) return;
-        setContacts(res.contacts);
-        setTotal(res.total ?? res.contacts.length);
-      } else {
-        const { contacts } = await listContacts(session.tenantId, { limit: LIMIT });
-        if (seq !== reqSeq.current) return;
-        setContacts(contacts);
-        // >= cap : total réel inconnu (pas de « tout sélectionner » sûr tant qu'on n'a pas filtré).
-        setTotal(contacts.length < LIMIT ? contacts.length : null);
+      const [lignes, compte] = filtersActive(filters)
+        ? await queryContacts(session.tenantId, filters, { limit: taillePage, offset }).then((r) => [r.contacts, r.total] as const)
+        // Sans filtre, la liste ne rend pas de total : le compteur le donne, au mieux (un échec ne vide pas la liste).
+        : await Promise.all([
+          listContacts(session.tenantId, { limit: taillePage, offset }).then((r) => r.contacts),
+          countContacts(session.tenantId, {}).then((r) => r.total, () => undefined),
+        ]);
+      if (seq !== reqSeq.current) return;
+      // Une page vidée (sa dernière fiche supprimée) : retour à la dernière page qui a des contacts.
+      if (lignes.length === 0 && page > 0) {
+        setPage(typeof compte === 'number' ? Math.max(0, Math.ceil(compte / taillePage) - 1) : page - 1);
+        return;
       }
+      setContacts(lignes);
+      // Total inconnu et page pleine : on ne sait pas combien il y en a (pas de « tout sélectionner » sûr).
+      setTotal(typeof compte === 'number' ? compte : lignes.length < taillePage ? offset + lignes.length : null);
     } catch (err) {
       if (seq !== reqSeq.current) return;
       setError(erreurDeChargement(err, t));
     } finally {
       if (seq === reqSeq.current) setLoading(false);
     }
-  }, [session.tenantId, filters]);
+  }, [session.tenantId, filters, page, taillePage]);
 
   // Debounce sur les filtres (350 ms) : évite un fetch par frappe.
   useEffect(() => {
@@ -102,9 +117,10 @@ function ContactsInner({ session }: { session: Session }) {
     return () => clearTimeout(id);
   }, [load]);
 
-  // Changement de filtres -> la sélection précédente n'a plus de sens (jeu de résultats différent) : reset.
+  // Changement de filtres -> la sélection précédente n'a plus de sens (jeu de résultats différent) : reset, et retour
+  // à la première page. Changer de page garde la sélection : elle porte des identifiants, pas des lignes affichées.
   const filtersKey = useMemo(() => JSON.stringify(filters), [filters]);
-  useEffect(() => { setSelection(selectionVide()); }, [filtersKey]);
+  useEffect(() => { setSelection(selectionVide()); setPage(0); }, [filtersKey]);
 
   // Définitions user fields + tags existants (fiche + filtres + actions) : chargés une fois.
   useEffect(() => {
@@ -159,7 +175,7 @@ function ContactsInner({ session }: { session: Session }) {
     );
   }
 
-  const countLabel = total != null ? String(total) : `${contacts.length}+`;
+  const countLabel = total != null ? String(total) : `${page * taillePage + contacts.length}+`;
 
   return (
     <section>
@@ -251,7 +267,9 @@ function ContactsInner({ session }: { session: Session }) {
             <span className="font-medium">{t(`${selectedCount} sélectionné(s)`, `${selectedCount} selected`)}</span>
             {!selection.toutFiltre && moreThanLoaded && allLoadedChecked && (
               <button onClick={selectAllMatching} className="text-brand-600 hover:underline" data-testid="contacts-select-all-matching">
-                {t(`Sélectionner les ${total} contacts correspondants`, `Select all ${total} matching contacts`)}
+                {active
+                  ? t(`Sélectionner les ${total} contacts correspondants`, `Select all ${total} matching contacts`)
+                  : t(`Sélectionner les ${total} contacts de l’espace`, `Select all ${total} contacts in the workspace`)}
               </button>
             )}
             <button onClick={clearSelection} className="text-ink-500 hover:underline">{t('Tout désélectionner', 'Clear selection')}</button>
@@ -274,6 +292,8 @@ function ContactsInner({ session }: { session: Session }) {
                   <button onClick={() => { setAction('optin'); setMenuOpen(false); }} data-testid="contacts-action-optin" className="block w-full px-4 py-2 text-left hover:bg-ink-50">{t('Passer en opt-in', 'Mark as opted in')}</button>
                   <button onClick={() => { setAction('optout'); setMenuOpen(false); }} data-testid="contacts-action-optout" className="block w-full px-4 py-2 text-left hover:bg-ink-50">{t('Passer en opt-out', 'Mark as opted out')}</button>
                   <div className="my-1 border-t border-ink-100" />
+                  <button onClick={() => { setAction('export'); setMenuOpen(false); }} data-testid="contacts-action-export" className="block w-full px-4 py-2 text-left hover:bg-ink-50">{t('Exporter en CSV', 'Export to CSV')}</button>
+                  <div className="my-1 border-t border-ink-100" />
                   <button onClick={() => { setAction('delete'); setMenuOpen(false); }} data-testid="contacts-action-delete" className="block w-full px-4 py-2 text-left text-danger-600 hover:bg-danger-50">{t('Supprimer', 'Delete')}</button>
                 </div>
               </>
@@ -292,6 +312,16 @@ function ContactsInner({ session }: { session: Session }) {
         onToggleHeader={toggleHeader}
         headerChecked={selection.toutFiltre || allLoadedChecked}
       />
+      {!loading && (contacts.length > 0 || page > 0) && (
+        <Pagination
+          taille={taillePage}
+          page={page}
+          affiches={contacts.length}
+          total={total}
+          onTaille={(n) => { setTaillePage(n); setPage(0); }}
+          onPage={setPage}
+        />
+      )}
 
       {action && (
         <BulkActionModal
@@ -485,7 +515,7 @@ function AjoutContactModal({ tenantId, tagSuggestions, onDone, onClose }: {
  * (« Passer en opt-in » / « Passer en opt-out ») là où le serveur n'a qu'une action portant une valeur.
  * Faire choisir la valeur dans un menu déroulant aurait ajouté un clic pour rien.
  */
-type ActionCrm = 'add_tag' | 'remove_tag' | 'set_field' | 'optin' | 'optout' | 'delete';
+type ActionCrm = 'add_tag' | 'remove_tag' | 'set_field' | 'optin' | 'optout' | 'export' | 'delete';
 
 /** Modale d'une action en masse : formulaire adapté (tag / champ / consentement / suppression), appelle l'API
  *  avec la cible calculée, puis onDone(affected).
@@ -510,6 +540,9 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
   const [fieldKey, setFieldKey] = useState(sansJson(userFields).find((d) => d.key !== 'email')?.key ?? sansJson(userFields)[0]?.key ?? '');
   const [fieldVal, setFieldVal] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  // L'export : chaque colonne se coche une à une, aucune ne l'est d'avance (rien ne sort sans avoir été choisi).
+  const colonnes = useMemo(() => colonnesExportables(userFields), [userFields]);
+  const [cochees, setCochees] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -519,6 +552,7 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
     set_field: t('Ajouter un champ', 'Set a field'),
     optin: t('Passer en opt-in', 'Mark as opted in'),
     optout: t('Passer en opt-out', 'Mark as opted out'),
+    export: t('Exporter en CSV', 'Export to CSV'),
     delete: t('Supprimer les contacts', 'Delete contacts'),
   };
 
@@ -526,9 +560,34 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
     ? confirmation.trim().toUpperCase() === 'SUPPRIMER'
     : action === 'optin' || action === 'optout'
       ? true
-      : action === 'set_field'
-        ? fieldKey !== '' && fieldVal.trim() !== ''
-        : tag.trim() !== '';
+      : action === 'export'
+        ? cochees.size > 0
+        : action === 'set_field'
+          ? fieldKey !== '' && fieldVal.trim() !== ''
+          : tag.trim() !== '';
+
+  function basculerColonne(cle: string): void {
+    setCochees((avant) => {
+      const apres = new Set(avant);
+      if (apres.has(cle)) apres.delete(cle); else apres.add(cle);
+      return apres;
+    });
+  }
+
+  /** Le fichier se construit ici : les en-têtes dans la langue de l'écran, l'opt-in en clair comme dans la liste. */
+  async function exporter(): Promise<number> {
+    const choisies = colonnes.filter((c) => cochees.has(c.cle));
+    const res = await exportContacts(tenantId, target, choisies.map((c) => c.cle));
+    const libelles = new Map(choisies.map((c) => [c.cle, t(...c.libelle)]));
+    const lignes = res.lignes.map((l) => l.map((v, i) => {
+      if (res.colonnes[i] !== 'opt_in' || v === null) return v;
+      const badge = OPT_IN_LABEL[v];
+      return badge ? t(...badge.text) : v;
+    }));
+    const jour = new Date().toISOString().slice(0, 10);
+    downloadCsv(`contacts-${jour}.csv`, toCsv(res.colonnes.map((c) => libelles.get(c) ?? c), lignes));
+    return res.lignes.length;
+  }
 
   async function submit() {
     if (busy) return; // garde de ré-entrance : un double Entrée (inputs non désactivés) ne double pas l'appel
@@ -541,6 +600,9 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
         // `purges` = le nombre de PERSONNES supprimées, c'est ce que l'opérateur a demandé ; pas le nombre de
         // messages détruits au passage, qui serait un chiffre spectaculaire et sans rapport avec sa décision.
         affected = (await deleteContacts(tenantId, target)).purges;
+      } else if (action === 'export') {
+        affected = await exporter();
+        avis = t(`${affected} contact(s) exporté(s).`, `${affected} contact(s) exported.`);
       } else {
         const act: BulkAction = action === 'set_field'
           ? { type: 'set_field', key: fieldKey, value: fieldVal.trim() }
@@ -553,7 +615,10 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
       }
       onDone(affected, avis);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Action impossible', 'Action failed'));
+      // Un 404 sur l'export : la console est publiée avant l'API qui porte sa route (déploiement en attente).
+      setError(action === 'export' && err instanceof ApiError && err.status === 404
+        ? t('L’export n’est pas encore disponible : réessayez dans quelques minutes.', 'Export is not available yet: try again in a few minutes.')
+        : err instanceof Error ? err.message : t('Action impossible', 'Action failed'));
       setBusy(false);
     }
   }
@@ -592,6 +657,40 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
             {t(`Les ${count} contact(s) seront exclus de toute campagne, y compris de celles déjà programmées. Leur fiche et leur historique restent intacts.`, `The ${count} contact(s) will be excluded from every campaign, including already scheduled ones. Their record and history stay intact.`)}
           </p>
         )}
+        {action === 'export' && (
+          <>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-ink-500">{t('Cochez chaque colonne à extraire.', 'Tick each column to extract.')}</span>
+              <button
+                type="button"
+                onClick={() => setCochees(cochees.size === colonnes.length ? new Set() : new Set(colonnes.map((c) => c.cle)))}
+                data-testid="export-tout"
+                className="shrink-0 text-brand-600 hover:underline"
+              >
+                {cochees.size === colonnes.length ? t('Tout décocher', 'Untick all') : t('Tout cocher', 'Tick all')}
+              </button>
+            </div>
+            <ul className="max-h-72 divide-y divide-ink-100 overflow-y-auto rounded-controle border border-ink-200" data-testid="export-colonnes">
+              {colonnes.map((c) => (
+                <li key={c.cle}>
+                  <label className="flex items-center gap-2 px-3 py-2 text-sm text-ink-900 hover:bg-ink-50">
+                    <input
+                      type="checkbox"
+                      checked={cochees.has(c.cle)}
+                      onChange={() => basculerColonne(c.cle)}
+                      data-testid={`export-colonne-${c.cle}`}
+                      className="h-4 w-4 rounded-controle border-ink-300 text-brand-600 focus:ring-brand-400"
+                    />
+                    {t(...c.libelle)}
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-ink-500">
+              {t('Les étiquettes et les données venues de Shopify ou de HubSpot ne s’exportent pas.', 'Tags and data from Shopify or HubSpot are not exported.')}
+            </p>
+          </>
+        )}
         {action === 'delete' && (
           <>
             <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">
@@ -614,13 +713,60 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
           className={`rounded-controle px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 ${action === 'delete' ? 'bg-danger-600 hover:bg-danger-700' : 'bg-brand-600 hover:bg-brand-700'}`}
           data-testid="bulk-submit"
         >
-          {busy ? t('…', '…') : action === 'delete' ? t('Supprimer', 'Delete') : t('Appliquer', 'Apply')}
+          {busy ? t('…', '…') : action === 'delete' ? t('Supprimer', 'Delete') : action === 'export' ? t('Exporter', 'Export') : t('Appliquer', 'Apply')}
         </button>
       </div>
     </Modale>
   );
 }
 
+
+/**
+ * Le pied de la liste : combien par page (20, 50 ou 100) et les pages précédente et suivante. Total inconnu (compteur
+ * en échec) : « Suivant » reste possible tant que la page est pleine.
+ */
+function Pagination({ taille, page, affiches, total, onTaille, onPage }: {
+  taille: TaillePage;
+  page: number;
+  affiches: number;
+  total: number | null;
+  onTaille: (n: TaillePage) => void;
+  onPage: (p: number) => void;
+}) {
+  const t = useT();
+  const debut = page * taille;
+  const aSuivre = total != null ? debut + affiches < total : affiches === taille;
+  const bouton = 'rounded-controle border border-ink-200 px-3 py-1.5 text-sm text-ink-900 transition-colors duration-150 hover:bg-ink-50 disabled:opacity-50 disabled:hover:bg-transparent';
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-ink-500" data-testid="contacts-pagination">
+      <label className="flex items-center gap-2">
+        {t('Afficher', 'Show')}
+        <select
+          value={taille}
+          onChange={(e) => onTaille(Number(e.target.value) as TaillePage)}
+          data-testid="contacts-taille-page"
+          className="rounded-controle border border-ink-200 bg-white px-2 py-1 text-sm text-ink-900"
+        >
+          {TAILLES_PAGE.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        {t('contacts par page', 'contacts per page')}
+      </label>
+      <div className="flex items-center gap-3">
+        <span className="tabular-nums">
+          {affiches === 0
+            ? t('Aucun contact sur cette page', 'No contacts on this page')
+            : t(`${debut + 1} à ${debut + affiches}`, `${debut + 1} to ${debut + affiches}`) + (total != null ? t(` sur ${total}`, ` of ${total}`) : '')}
+        </span>
+        <button onClick={() => onPage(page - 1)} disabled={page === 0} data-testid="contacts-page-precedente" className={bouton}>
+          {t('Précédent', 'Previous')}
+        </button>
+        <button onClick={() => onPage(page + 1)} disabled={!aSuivre} data-testid="contacts-page-suivante" className={bouton}>
+          {t('Suivant', 'Next')}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** WhatsApp ID (wa_id) : la clé de routage WhatsApp = les chiffres du numéro sans « + », sinon le BSUID. */
 function waIdOf(c: Contact): string | null {

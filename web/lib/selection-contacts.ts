@@ -34,11 +34,17 @@ export function basculerContact(selection: SelectionContacts, id: string): Selec
   return selection.toutFiltre ? { ...selection, exclus: ids } : { ...selection, selected: ids };
 }
 
-/** L'en-tête du CRM coche les lignes chargées, ou vide la sélection si elles le sont déjà. */
+/**
+ * L'en-tête coche les lignes affichées, ou les décoche si elles le sont déjà. 🔴 Les lignes cochées sur une AUTRE page du
+ * mini-CRM restent cochées (2026-11-24, la liste passe par pages) : remplacer la sélection par la page courante faisait
+ * exporter ou supprimer un autre jeu que celui que l'opérateur avait coché.
+ */
 export function basculerLignesAffichees(selection: SelectionContacts, ids: string[]): SelectionContacts {
   if (selection.toutFiltre) return selectionVide();
   const toutesCochees = ids.length > 0 && ids.every((id) => estRetenu(selection, id));
-  return { ...selection, selected: toutesCochees ? new Set() : new Set(ids) };
+  const selected = new Set(selection.selected);
+  for (const id of ids) if (toutesCochees) selected.delete(id); else selected.add(id);
+  return { ...selection, selected };
 }
 
 /** Contrat commun des actions CRM et de la création de campagne. */

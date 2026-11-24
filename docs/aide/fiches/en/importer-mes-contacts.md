@@ -1,6 +1,6 @@
 ---
 slug: import-my-contacts
-traduit_de: 26e19a
+traduit_de: 6d8967
 ---
 # Add or import my contacts
 
@@ -20,7 +20,7 @@ Adding by hand a number that is already known, on the other hand, never resubscr
 
 **4. Find and act in bulk.** The screen then works as a search engine: filter, tick rows, and the “Action” menu
 applies the same action to the whole selection (“Add a tag”, “Remove a tag”, “Set a field”, “Mark as opted in”,
-“Mark as opted out”, “Delete”).
+“Mark as opted out”, “Export to CSV”, “Delete”).
 
 You filter by tag, by marketing consent, by name, by phone number, by the value of a field you created, by whether
 there is an email address, by disengagement risk level (useful to prepare a campaign towards those who are drifting
@@ -28,13 +28,15 @@ away), or by what their latest analysis says: intent, sentiment, satisfaction or
 request resolved or not, analysed less than so many days ago. A record never analysed matches none of these values.
 Filters add up, and they are the same when you choose a campaign’s recipients.
 
-Three things to know before acting in bulk:
+Four things to know before acting in bulk:
 
 - **“Mark as opted in”** (consent given) makes the selection a recipient of your campaigns. Only do it if you hold proof of
   that consent. People who replied STOP to you stay that way: the screen tells you how many records kept their
   STOP. A STOP is lifted from the person’s record, by the person themselves, by a CSV import with the box ticked or
   by a scenario, never by a bulk action.
 - **“Mark as opted out”** (consent refused) excludes from every campaign, including those already scheduled.
+- **“Export to CSV”**: tick each column to extract, none is ticked in advance. Tags and data from Shopify or HubSpot
+  are not exported. Beyond 50,000 contacts, narrow the selection with the filters first.
 - **Deleting cannot be undone**: the record, the conversation and its history go in a single action. You must type
   the word SUPPRIMER to confirm.
 

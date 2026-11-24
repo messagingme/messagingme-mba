@@ -27,4 +27,12 @@ describe('sélection commune aux contacts et aux campagnes', () => {
     expect(cibleContacts(tous, {})).toEqual({ filters: {}, excludeIds: [] });
     expect(basculerLignesAffichees(moinsUn, ['a', 'b'])).toEqual(selectionVide());
   });
+
+  it('🔴 l’en-tête d’une page ne touche pas aux lignes cochées sur une autre page', () => {
+    const page1 = basculerContact(basculerContact(selectionVide(), 'a'), 'b');
+    const avecPage2 = basculerLignesAffichees(page1, ['c', 'd']);
+    expect(cibleContacts(avecPage2, {})).toEqual({ ids: ['a', 'b', 'c', 'd'] });
+    // Décochée, la page 2 seule part : la page 1 reste cochée.
+    expect(cibleContacts(basculerLignesAffichees(avecPage2, ['c', 'd']), {})).toEqual({ ids: ['a', 'b'] });
+  });
 });

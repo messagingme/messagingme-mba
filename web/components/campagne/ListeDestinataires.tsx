@@ -246,8 +246,8 @@ export function ListeDestinataires({
         Liste des contacts correspondants : cocher/décocher affine la sélection.
         ⚠️ LA CASE D'EN-TÊTE EST HORS DE `destinataires-liste`, et c'est voulu : les e2e y désignent les lignes par leur
         rang (`getByRole('checkbox').first()`), une case de plus en tête les décalerait toutes. Même règle que l'en-tête
-        du mini-CRM (`basculerLignesAffichees`) : cochée, elle vide la sélection ; décochée, elle coche les lignes
-        affichées, « Tout sélectionner (N) » restant le seul chemin vers le total serveur.
+        du mini-CRM (`basculerLignesAffichees`) : cochée, elle décoche les lignes affichées ; décochée, elle les coche,
+        « Tout sélectionner (N) » restant le seul chemin vers le total serveur.
       */}
       <div className="rounded-controle border border-ink-200">
         {contacts.length > 0 && (

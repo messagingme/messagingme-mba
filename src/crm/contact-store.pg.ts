@@ -195,6 +195,18 @@ export interface FicheASupprimer {
   createdAt: string;
 }
 
+/** Une fiche telle que l'export CSV la lit (`lignesAExporter`) : `champs` ne porte que les clés demandées. */
+export interface LigneAExporter {
+  phoneE164: string | null;
+  bsuid: string | null;
+  externalId: string | null;
+  profileName: string | null;
+  optInStatus: string;
+  /** En ISO. */
+  createdAt: string;
+  champs: Record<string, unknown>;
+}
+
 /** Une violation d'index unique : un refus de saisie, pas une panne. */
 const estUnicite = (err: unknown): boolean => (err as { code?: string }).code === '23505';
 
@@ -1627,7 +1639,8 @@ export class PgContactStore implements ContactStore {
 
   /**
    * Requête filtrée et paginée (« Liste de contacts » de campagne, mini-CRM), scopée tenant, `deleted_at is null`
-   * toujours posé.
+   * toujours posé. 🔴 L'ordre est TOTAL (`created_at`, puis `id`) : un import pose la même date sur tout un lot, et sans
+   * départage deux pages de la liste pouvaient montrer la même fiche et en perdre une autre.
    */
   async query(tenantId: string, filters: ContactFilters, limit = 100, offset = 0): Promise<ContactRow[]> {
     const capped = Math.min(Math.max(limit, 1), 500);
@@ -1641,7 +1654,7 @@ export class PgContactStore implements ContactStore {
       `select id, phone_e164, bsuid, external_id, profile_name, opt_in_status, fields, tags, created_at, blocked_at,
               whatsapp_joignable, whatsapp_joignable_le, ${PgContactStore.COLONNES_RISQUE}
        from contacts where ${where}
-       order by created_at desc limit ${limitRef} offset ${offsetRef}`,
+       order by created_at desc, id desc limit ${limitRef} offset ${offsetRef}`,
       [...params, capped, Math.max(offset, 0)],
     );
     return res.rows.map(PgContactStore.rowToContact);
@@ -1859,6 +1872,32 @@ export class PgContactStore implements ContactStore {
       [...sel.params, cap],
     );
     return res.rows.map((r) => r.id);
+  }
+
+  /**
+   * L'export CSV d'une sélection du mini-CRM (`web/lib/partage/export-contacts.ts`) : les fiches VIVANTES de la cible, par
+   * le sélecteur de l'action en masse (`tenant_id` et `deleted_at is null`), les plus récentes d'abord, au plus `limite`.
+   * 🔴 Des champs de la fiche ne remontent que les clés `cles` : un champ que personne n'a coché ne quitte pas la base,
+   * et un champ `json` de 16 Ko non demandé ne pèse rien sur la réponse.
+   */
+  async lignesAExporter(tenantId: string, target: BulkTarget, cles: readonly string[], limite: number): Promise<LigneAExporter[]> {
+    const sel = await this.selecteurDeMasse(tenantId, target);
+    const clesRef = `$${sel.params.length + 1}`;
+    const plafond = `$${sel.params.length + 2}`;
+    const res = await this.pool.query<{
+      phone_e164: string | null; bsuid: string | null; external_id: string | null; profile_name: string | null;
+      opt_in_status: string; created_at: Date; champs: Record<string, unknown> | null;
+    }>(
+      `select phone_e164, bsuid, external_id, profile_name, opt_in_status, created_at,
+              (select jsonb_object_agg(e.key, e.value) from jsonb_each(coalesce(contacts.fields, '{}'::jsonb)) e
+                where e.key = any(${clesRef}::text[])) as champs
+         from contacts where ${sel.where} order by created_at desc, id desc limit ${plafond}`,
+      [...sel.params, [...cles], Math.max(1, Math.round(limite))],
+    );
+    return res.rows.map((r) => ({
+      phoneE164: r.phone_e164, bsuid: r.bsuid, externalId: r.external_id, profileName: r.profile_name,
+      optInStatus: r.opt_in_status, createdAt: r.created_at.toISOString(), champs: r.champs ?? {},
+    }));
   }
 
   /**

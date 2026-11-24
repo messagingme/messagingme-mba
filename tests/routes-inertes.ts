@@ -256,13 +256,15 @@ export const contactsInertes: Pick<ContactsRouteDeps,
 };
 
 export const contactsDepInerte: Pick<ContactsDep,
-  'setBlocked' | 'listBlocked' | 'listeDesabonnes' | 'messagesARelire' | 'purgeMany' | 'contactIdsForTarget'> = {
+  'setBlocked' | 'listBlocked' | 'listeDesabonnes' | 'messagesARelire' | 'purgeMany' | 'contactIdsForTarget' | 'lignesAExporter'> = {
   setBlocked: neDevraitPasEtreAppelee('setBlocked'),
   listBlocked: async () => [],
   listeDesabonnes: async () => [],
   messagesARelire: async () => ({ scannes: 0, messages: [] }),
   purgeMany: neDevraitPasEtreAppelee('purgeMany'),
   contactIdsForTarget: async () => [],
+  // L'export CSV a son propre fichier (`tests/contacts-export.test.ts`).
+  lignesAExporter: neDevraitPasEtreAppelee('lignesAExporter'),
 };
 
 export const historiqueContactInerte: Pick<ContactsRouteDeps['contactHistory'], 'resumeContact'> = {

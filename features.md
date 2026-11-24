@@ -561,11 +561,18 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   vide / valeur précise), cumulables. On **coche** des contacts (la case d'en-tête coche toute la page affichée) ;
   si le filtre ramène plus de contacts que l'écran n'en montre, un lien **« Sélectionner les N contacts
   correspondants »** étend la sélection à tout le segment, re-résolu côté serveur au moment d'appliquer l'action
-  (les lignes décochées entre-temps restent exclues). Le nombre exact n'est affiché **que lorsqu'un filtre est
-  posé** : sans filtre, la liste s'arrête à 500 et affiche « 500+ ».
+  (les lignes décochées entre-temps restent exclues). La liste montre **20 contacts par page**, les plus récents
+  d'abord, avec le total ; **« Afficher »** en passe 50 ou 100 par page (2026-11-24), et « Précédent » / « Suivant »
+  parcourent le reste. La sélection survit au changement de page.
   Puis un menu **« Action »** applique en masse : **ajouter un tag**, **retirer un tag**,
   **ajouter un champ** (une valeur sur toute la sélection), **passer en opt-in**, **passer en
-  opt-out**, **supprimer**.
+  opt-out**, **exporter en CSV**, **supprimer**.
+  **Exporter en CSV** (2026-11-24, admin) : chaque colonne se coche une à une, aucune ne l'est d'avance. On choisit
+  parmi les données de base (nom WhatsApp, prénom, nom, téléphone, BSUID, WhatsApp ID, email, opt-in, identifiant
+  externe, date de création) et les champs personnalisés. **Ne s'exportent pas, pour l'instant** : les étiquettes,
+  les champs venus de Shopify ou de HubSpot, l'analyse et le risque. 50 000 contacts au plus par fichier : au-delà,
+  on affine la sélection par les filtres. Chaque export est tracé au journal des actions (le nombre de contacts et
+  les colonnes, jamais les valeurs), et une valeur qu'un tableur lirait comme une formule sort en texte.
   **Passer en opt-in** rend la sélection destinataire des campagnes : à n'utiliser que si vous
   détenez une preuve du consentement, l'écran le dit. 🔴 **Elle ne lève pas un STOP** (2026-10-03) : un contact
   qui a répondu STOP reste désabonné, et l'écran dit combien de fiches ont gardé leur STOP (« 1 fiche a gardé son

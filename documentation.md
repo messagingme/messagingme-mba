@@ -2157,6 +2157,15 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   🔴 **Toute colonne ajoutée à `contacts` décide son sort dans l'`update` de `purgeMany`**, où chaque colonne
   porte sa raison ; et un écrivain qui vise une fiche par son identifiant filtre `deleted_at is null`
   (l'identifiant survit à la purge, dans `campaign_recipients.contact_id` entre autres).
+- 🔴 **L'export CSV d'une sélection (`POST /contacts/export`, admin) ne sort que des colonnes permises.**
+  `colonnesExportables` (`web/lib/partage/export-contacts.ts`) les définit pour la console ET pour le serveur, qui
+  refuse toute autre en 400 : ni étiquettes, ni champs d'intégration, ni analyse, ni risque. Des champs de la fiche,
+  `lignesAExporter` ne lit que les clés cochées, par le sélecteur de l'action en masse (espace, fiches vivantes).
+  Le serveur rend du JSON, la console construit le fichier. Plafond `EXPORT_CONTACTS_MAX`, trace `contacts.exportes`
+  (le nombre et les colonnes, jamais les valeurs). ⚠️ Un champ d'intégration se reconnaît à son PRÉFIXE
+  (`estChampIntegration` : `hs_`, `shopify_`) : une intégration qui écrira demain sur la fiche sous un autre préfixe
+  y entre, sinon ses données deviennent exportables. `toCsv` (`web/lib/csv.ts`) préfixe d'une apostrophe un texte
+  qu'un tableur lirait comme une formule, pour TOUS les exports de la console.
   🔴 **Toute table qui porte un `wa_id` est visée par UN jeu, `waIdsDeLaPersonne`** (`purgeMany`) : les numéros des
   fils de la personne, les chiffres de sa fiche ET son BSUID, les trois formes que `matchWaIdPredicat` rattache à une
   fiche. La rétention efface les fils et garde la fiche : un jeu tiré des seuls fils laissait le numéro, ou le BSUID, à

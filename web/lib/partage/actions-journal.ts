@@ -96,6 +96,8 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'compte.relie_sans_numero': ['Compte WhatsApp relié sans numéro', 'WhatsApp account linked without a number'],
   'numero.active': ['Numéro WhatsApp activé', 'WhatsApp number activated'],
   'contact.exporte': ['Historique d’un contact exporté', 'Contact history exported'],
+  // L'export CSV d'une sélection du mini-CRM (2026-11-24) : le détail porte le nombre de fiches et les colonnes cochées.
+  'contacts.exportes': ['Contacts exportés en CSV', 'Contacts exported to CSV'],
   // Les publicités Click-to-WhatsApp.
   'pubs.connectee': ['Compte publicitaire connecté', 'Ad account connected'],
   'pubs.actifs_choisis': ['Compte et page publicitaires choisis', 'Ad account and page selected'],

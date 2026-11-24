@@ -290,6 +290,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /contacts/:contactId/history/export': aFaire('B10', 'contacts : l’export RGPD de l’historique'),
   'POST /contacts': aFaire('B10', 'contacts : ajouter un contact'),
   'POST /contacts/bulk': enPartie(['tag_contacts', 'set_contact_field'], 'l’opt-in, l’opt-out et le retrait d’étiquettes en masse'),
+  'POST /contacts/export': humain('extraire des données personnelles dans un fichier : la personne coche chaque colonne, et le geste est tracé au journal'),
   'GET /audit': aFaire('B10', 'chiffres : le journal d’audit'),
   'GET /erreurs-livraison': aFaire('B6', 'déroulé : le journal des erreurs de livraison'),
   'GET /erreurs-systeme': aFaire('B6', 'déroulé : le journal des erreurs du système'),
