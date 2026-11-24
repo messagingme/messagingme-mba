@@ -28,7 +28,8 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   d'écriture servie, et `ECARTS`, la suite de la liste de travail) et la comparaison `tests/parite/schemas.ts`.
 - B0, les contrats partagés des outils (plan `2026-11-24-csm-lot1-b0-contrats.md`) : B0a, les refus codés
   (`CODES_REFUS`, `structuredContent`) ; B0b, l'écran de chaque écriture (`src/mcp/ecran.ts`) ; B0c, la trace d'audit
-  (`mcp.ecriture`) ; puis B0d (le champ visé, omis ou vidé). Les formats à unifier attendent l'arbitrage de Julien.
+  (`mcp.ecriture`) ; B0d, le champ visé et la règle « omis ou vidé ». Reste : la relecture de B0b à B0d, puis le
+  déploiement de l'API. Les formats à unifier attendent l'arbitrage de Julien.
 - Ensuite : le chemin du pilote (B2 à B6, B9).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.

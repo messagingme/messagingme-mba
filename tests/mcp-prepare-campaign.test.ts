@@ -8,6 +8,7 @@ import type { BulkTarget, ContactFilters } from '../src/crm/contact-store.pg';
 import type { CreateCampaignInput } from '../src/campaign/store.pg';
 import type { BuildContact, BuiltRecipient } from '../src/campaign/build';
 import { REPONDEURS_ETAGE } from '../src/campaign/etages';
+import { SOCLE_FIELDS } from '../web/lib/partage/champs';
 
 /**
  * `prepare_campaign` (plan « Campagnes depuis Claude », tâche 7) : la campagne complète NON lancée, par le chemin de la
@@ -39,6 +40,8 @@ function deps(o: {
   avecBloque?: boolean;
   /** Le Crédit WhatsApp au lancement (tâche 6) : absent = hors de la ligne. */
   credit?: { montantMicroEur: number; soldeMicroEur: number; manqueMicroEur: number } | null;
+  /** Les champs de l'espace (B0d) : une variable qui vise un champ absent est refusée. */
+  champs?: string[];
 } = {}) {
   const trace: string[] = [];
   const crees: CreateCampaignInput[] = [];
@@ -75,6 +78,7 @@ function deps(o: {
     offres: { offreDe: async () => ({ droits: { fonctions: DROITS.pro.fonctions } }) },
     couteux: { consommer: async () => { trace.push('plafond'); return { accepte: true, attenteMs: 0 }; } },
     inbox: { contactIdsDesConversations: async () => [] },
+    champs: { list: async () => (o.champs ?? []).map((key) => ({ key, label: key, type: 'text' })) },
     contacts: { contactIdsForTarget: async (_t: string, cible: BulkTarget) => ('ids' in cible ? cible.ids : []) },
     campagnes: {
       route: {
@@ -140,6 +144,21 @@ describe('prepare_campaign', () => {
       const { d, crees } = deps({ modele });
       await expect(outil.executer(d, T, BASE, PERSONNE), modele.statut).rejects.toThrow(RefusOutil);
       expect(crees).toHaveLength(0);
+    }
+  });
+
+  it('🔴 une variable qui vise un champ absent de l’espace : refusée (not_found), avant le plafond, rien n’est créé (B0d)', async () => {
+    const { d, crees, trace } = deps({ champs: ['ville'] });
+    const faute = { ...BASE, variables: [{ position: 1, source: { type: 'field', key: 'vile' } }] };
+    await expect(outil.executer(d, T, faute, PERSONNE)).rejects.toThrow(expect.objectContaining({ code: 'not_found', message: expect.stringContaining('vile') }));
+    expect([crees, trace]).toEqual([[], []]);
+    // Un champ de l'espace, ou un champ de base (prénom) qui n'a encore jamais servi : le contrôle passe, la préparation
+    // va jusqu'au plafond (ici, les contacts du montage n'ont pas la valeur : la garde « sans la valeur d'une variable »
+    // les écarte ensuite, c'est elle qui empêche déjà d'envoyer une variable vide).
+    for (const key of ['ville', SOCLE_FIELDS[0]!.key]) {
+      const ok = deps({ champs: ['ville'] });
+      await outil.executer(ok.d, T, { ...BASE, variables: [{ position: 1, source: { type: 'field', key } }] }, PERSONNE).catch(() => undefined);
+      expect(ok.trace, key).toContain('plafond');
     }
   });
 

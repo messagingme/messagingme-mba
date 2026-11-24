@@ -194,7 +194,8 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
     ...ficheOutilMcp('update_webhook_endpoint'),
     fonction: null,
     description:
-      'Edits an outgoing webhook endpoint (list_webhook_endpoints gives its id): its event types, its description, a pause '
+      'Edits an outgoing webhook endpoint (list_webhook_endpoints gives its id); only the fields provided change: its event '
+      + 'types, its description, a pause '
       + '(active false: it receives nothing, and the events of the pause are not sent later) or a reactivation (active '
       + 'true, refused beyond the plan\'s limit of active endpoints), and rotate_secret true for a new signing secret, '
       + 'shown ONLY ONCE in this result: put it at once in the application\'s environment variable, the previous secret '

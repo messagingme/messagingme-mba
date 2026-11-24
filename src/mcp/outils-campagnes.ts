@@ -21,6 +21,7 @@ import type { PhoneNumberRow } from '../campaign/store.pg';
 import { messageDePause, type MotifDePause } from '../campaign/pause';
 import { REPONDEURS_ETAGE } from '../campaign/etages';
 import { LISTES } from './ecran';
+import { SOCLE_FIELDS } from '../../web/lib/partage/champs';
 
 /**
  * Ce que les outils de campagne lisent et écrivent, en plus des contacts et de l'Inbox du MCP. 🔴 Les MÊMES objets que
@@ -348,6 +349,16 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
         : texteObligatoire(args, 'name', LONGUEUR_MAX_NOM_CAMPAGNE);
       const paramMapping = validateParamMapping(args.variables ?? []);
       if (paramMapping === null) throw new RefusOutil('paramètre « variables » : une entrée par variable, positions 1..N, sources valides', 'invalid_args');
+      // Le champ visé existe (lot 1 du CSM virtuel, B0d) : une faute de frappe ferait partir la campagne avec une variable
+      // vide, que la console évite par sa liste déroulante. Les champs de base (prénom, e-mail) existent avant d'avoir servi.
+      const visees = paramMapping.flatMap((p) => (p.source.type === 'field' ? [p.source.key] : []));
+      if (visees.length > 0) {
+        const connues = new Set([...SOCLE_FIELDS.map((s) => s.key), ...(await deps.champs.list(tenantId)).map((c) => c.key)]);
+        const inconnues = visees.filter((k) => !connues.has(k));
+        if (inconnues.length > 0) {
+          throw new RefusOutil(`paramètre « variables » : champ inconnu (${inconnues.join(', ')}) ; list_fields donne les champs de l’espace, create_field en crée un`, 'not_found');
+        }
+      }
       const prevueLe = dateAvecFuseau(args, 'scheduled_for') ?? null;
       if (prevueLe !== null && prevueLe.getTime() <= Date.now()) throw new RefusOutil('paramètre « scheduled_for » : la date est passée', 'invalid_args');
       const remplace = args.replaces === undefined || args.replaces === null ? null : args.replaces;

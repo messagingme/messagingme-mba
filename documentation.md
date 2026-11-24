@@ -4998,6 +4998,11 @@ l'activer, et d'ouvrir une recharge du crédit.
   personne, l'écran), jamais les arguments, qui peuvent porter des données de contact. Une lecture ou un refus ne laisse
   rien. Best-effort par `tenter`, comme `makeJournal`. La dépendance `journal` de `DepsMcp` est REQUISE : un câblage qui
   l'oublierait ne compilerait pas (`tests/mcp-serveur.test.ts`, `tests/oauth-mcp.test.ts`).
+- **Un champ visé existe, un champ omis n'est pas touché** (lot 1 du CSM virtuel, B0d) : `set_contact_field` et les
+  variables de `prepare_campaign` refusent un champ absent de l'espace (`not_found`, les champs de base comptent), comme
+  la recette d'un scénario. Chaque outil de modification dit sa famille dans sa description : partiel (« only the fields
+  provided change », `null` vide un champ facultatif là où le schéma l'annonce) ou remplacement (`update_template`,
+  `update_scenario`) ; `tests/mcp-modification.test.ts` oblige un outil de modification ajouté à choisir.
 - 🔴 **Le plafond des opérations coûteuses est celui de la console** : `buildServer` construit UN `PlafondPartage`
   (`Gardes.plafondCouteux`), dont dérive `limiteCouteuse`, et le pose dans les dépendances du MCP au montage
   (`DepsMcp.couteux` ; le câblage fournit `CablageMcp`, sans lui). Même instance, même clé (l'espace) : les outils
