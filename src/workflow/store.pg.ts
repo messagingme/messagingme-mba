@@ -146,8 +146,10 @@ const PUBLIC = 'systeme is null';
 /**
  * Le graphe sans la position de ses blocs, que le moteur ne lit jamais : déplacer un bloc est du rangement, pas une
  * modification à publier. `update` et la mise en ligne programmée comparent par lui. `g` est une expression SQL.
+ * 🔴 Son jumeau SQL, `workflow_graphe_forme` (migration 0315), décide si une écriture de `graph` fait une version :
+ * `tests/migration-0315.test.ts` exige que les deux restent la même expression.
  */
-const forme = (g: string): string => `jsonb_build_object(
+export const forme = (g: string): string => `jsonb_build_object(
   'edges', ${g}->'edges',
   'nodes', (select coalesce(jsonb_agg(n - 'position' order by ord), '[]'::jsonb)
               from jsonb_array_elements(coalesce(${g}->'nodes', '[]'::jsonb)) with ordinality as t(n, ord))

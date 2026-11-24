@@ -2185,6 +2185,17 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   seul « Publier » met en ligne, ou la mise en ligne d'une version programmée, ci-dessous), `workflow_runs` (`status` ∈ waiting | sleeping | inbox | done, `resume_at`,
   `channel`, `last_message_id` pour la dédup d'avance, posé dès la naissance quand le lancement nomme le message
   qui le déclenche), `workflow_node_events`.
+- 🔴 **CHAQUE VERSION PUBLIÉE D'UN SCÉNARIO EST GARDÉE** (`workflow_versions`, migration 0315, lot 1 du CSM virtuel).
+  Elle s'écrit en base, par le DÉCLENCHEUR `workflows_version` : toute écriture qui change `workflows.graph`, quel que
+  soit le chemin (publication de la console, création et remplacement par l'API ou le MCP, mise en ligne programmée),
+  insère une version numérotée par scénario, et un chemin ajouté demain aussi. Seulement quand le graphe n'est pas vide
+  et qu'il diffère de la DERNIÈRE version autrement que par la disposition des blocs : la comparaison passe par
+  `workflow_graphe_forme`, le jumeau SQL de `forme` du store (`src/workflow/store.pg.ts`), et
+  `tests/migration-0315.test.ts` exige que les deux restent la même expression. Le brouillon n'en fait donc pas, un bloc
+  déplacé dans un scénario publié non plus, et une version garde la disposition de sa publication. Le déclencheur n'a
+  pas de session : QUI a publié se lit au journal d'audit (`workflow.published`). La lecture (`PgVersionsScenario`,
+  `src/workflow/versions.pg.ts`) est scopée à l'espace ; la suppression d'un scénario ou d'un espace emporte ses
+  versions (clés étrangères en cascade).
 - 🔴 **UN SCÉNARIO SYSTÈME N'EXISTE POUR AUCUNE LECTURE PUBLIQUE** (`workflows.systeme`, liste fermée
   `SYSTEMES_SCENARIO`, une ligne par espace par l'index unique partiel `workflows_systeme_uidx`). Le seul est
   `repondeur`, l'ancre des parcours du répondeur de l'espace, nommée « Répondeur automatique », graphe vide. Le
