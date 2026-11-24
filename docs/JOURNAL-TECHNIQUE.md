@@ -52,6 +52,14 @@ l'offre se revérifie pour toute action, au clic aussi ; la lecture des actions 
 commentaires périmés. Les autres jaunes sont au `todo.md` (la reprise sans échéance, la publication programmée suivie du
 répondeur, le rejeu du répondeur, l'origine au journal, la fiche du constructeur, le bloc qui n'est pas un objet).
 
+**En production le 2026-11-24** : `2aa69b7be` par le run 45475739722 (`migration=avant`, « 0316_mises_en_ligne.sql ...
+ok », seule migration ; fiches d'aide rechargées, 371 lignes), approuvé par Julien, après le déploiement de la session
+voisine (`3a6dec656`) : déployé avant elle, le sien aurait remis un code plus ancien. Relu en base, par la machine des
+workers et en lecture seule : les 17 colonnes (types, nullabilité, défauts), les huit contraintes sous leur nom, dont la
+cascade sur l'espace, les deux index, la vraie requête de lecture, et ce que lit le bail (la fonction de l'offre, la
+révocation OAuth, les colonnes des membres) ; les 78 versions de 0315 n'ont pas bougé, aucune publication depuis.
+Le plugin 0.3.64 publié ensuite (run 45479403955), sa liste d'outils à jour. Reste l'essai réel (285), qui éprouvera
+aussi le déclencheur des versions en production.
 ## 2026-11-24 : « Votre agent est prêt » ne s'annonce plus pendant l'entretien
 
 Suite de Maison Saint-Honoré : une fois son oui lu, l'entretien a repris sur les moments (ceux donnés pendant le

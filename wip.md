@@ -31,10 +31,10 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   (`mcp.ecriture`) ; B0d, le champ visé et la règle « omis ou vidé ». Déployé le 2026-11-24 (`79666e5b8`). Essai
   réel : le refus codé est vu en production ; l'écriture (son écran, sa trace) se joue avec l'essai du lot C, sur un
   espace de test. Les formats à unifier attendent l'arbitrage de Julien.
-- Lot C (plan `2026-11-24-csm-lot1-c-clic-et-versions.md`) : B3, les versions de scénario (migration 0315, poussée,
-  déployée avec le premier déploiement qui l'emporte) ; B2, le oui de mise en ligne (migration 0316, `src/mise-en-ligne/`,
-  la page `/mise-en-ligne`, les outils `propose_go_live`, `get_go_live` et `list_scenario_versions`), écrit et testé,
-  à relire puis à déployer en `migration=avant`, et le plugin à republier ensuite. L'essai réel clôt le lot.
+- Lot C (plan `2026-11-24-csm-lot1-c-clic-et-versions.md`) : en production le 2026-11-24. B3, les versions de
+  scénario (0315, `6e519ca31` et `5a0860749`) ; B2, le oui de mise en ligne (0316, `2aa69b7be`, run 45475739722 : la
+  page `/mise-en-ligne`, `propose_go_live`, `get_go_live`, `list_scenario_versions`) ; plugin 0.3.64. Relu sans rouge,
+  les jaunes au `todo.md`. Reste l'essai réel (285, `docs/prive/ESSAIS-REELS.md`).
 - Ensuite : le chemin du pilote (B4 à B6, B9).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
