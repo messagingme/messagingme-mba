@@ -37,7 +37,7 @@ const LARGEURS: Record<TailleModale, string> = {
 };
 
 export function Modale({
-  titre, titreHref, sousTitre, taille = 'moyenne', actions, pied, testId, testIdFermer = 'modale-fermer', fermeture = 'partout', onClose, children,
+  titre, titreHref, sousTitre, taille = 'moyenne', actions, pied, testId, testIdFermer = 'modale-fermer', fermeture = 'partout', sansEntete = false, onClose, children,
 }: {
   titre: string;
   /**
@@ -66,6 +66,12 @@ export function Modale({
    * un scénario en cours d'édition) : un clic à côté ne doit pas coûter ce travail.
    */
   fermeture?: 'partout' | 'boutons';
+  /**
+   * Le contenu porte son propre en-tête (un bandeau, la fenêtre de bienvenue) : ni barre de titre ni marges. La croix
+   * reste, posée sur le contenu en haut à droite (claire : elle est sur un bandeau sombre), et `titre` nomme toujours le
+   * dialogue pour les lecteurs d'écran.
+   */
+  sansEntete?: boolean;
   onClose: () => void;
   children: React.ReactNode;
 }) {
@@ -131,29 +137,40 @@ export function Modale({
         // Un clic DANS la fenêtre ne remonte pas aux parents : une fenêtre ouverte depuis une ligne cliquable
         // (une fiche de contact depuis la liste) rejouerait sinon le geste de la ligne à chaque clic.
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-[85vh] ${taille === 'plein' ? '' : 'w-full '}flex-col overflow-hidden rounded-carte bg-white shadow-mm-lg outline-none ${LARGEURS[taille]}`}
+        className={`relative flex max-h-[85vh] ${taille === 'plein' ? '' : 'w-full '}flex-col overflow-hidden rounded-carte bg-white shadow-mm-lg outline-none ${LARGEURS[taille]}`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-ink-100 px-5 py-4">
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-ink-900">
-              {titreHref
-                ? <Link href={titreHref} data-testid="modale-titre-lien" className="hover:text-brand-600 hover:underline">{titre}</Link>
-                : titre}
-            </h3>
-            {sousTitre && <div className="mt-0.5 text-xs text-ink-500">{sousTitre}</div>}
+        {!sansEntete && (
+          <div className="flex items-start justify-between gap-3 border-b border-ink-100 px-5 py-4">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-ink-900">
+                {titreHref
+                  ? <Link href={titreHref} data-testid="modale-titre-lien" className="hover:text-brand-600 hover:underline">{titre}</Link>
+                  : titre}
+              </h3>
+              {sousTitre && <div className="mt-0.5 text-xs text-ink-500">{sousTitre}</div>}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {actions}
+              <button
+                type="button"
+                onClick={onClose}
+                data-testid={testIdFermer}
+                aria-label={t('Fermer', 'Close')}
+                className="sans-impression rounded-controle p-1 text-ink-400 transition-colors duration-150 hover:bg-ink-50 hover:text-ink-900"
+              ><Icone nom="fermer" /></button>
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {actions}
-            <button
-              type="button"
-              onClick={onClose}
-              data-testid={testIdFermer}
-              aria-label={t('Fermer', 'Close')}
-              className="sans-impression rounded-controle p-1 text-ink-400 transition-colors duration-150 hover:bg-ink-50 hover:text-ink-900"
-            ><Icone nom="fermer" /></button>
-          </div>
-        </div>
-        <div className={`min-h-0 flex-1 ${taille === 'plein' ? 'overflow-auto p-3' : 'overflow-y-auto px-5 py-4'}`}>{children}</div>
+        )}
+        {sansEntete && (
+          <button
+            type="button"
+            onClick={onClose}
+            data-testid={testIdFermer}
+            aria-label={t('Fermer', 'Close')}
+            className="sans-impression absolute right-3 top-3 z-10 rounded-controle p-1 text-white/70 transition-colors duration-150 hover:bg-white/10 hover:text-white"
+          ><Icone nom="fermer" /></button>
+        )}
+        <div className={`min-h-0 flex-1 ${taille === 'plein' ? 'overflow-auto p-3' : sansEntete ? 'overflow-y-auto' : 'overflow-y-auto px-5 py-4'}`}>{children}</div>
         {pied && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink-100 px-5 py-3">{pied}</div>}
       </div>
     </div>

@@ -11,7 +11,7 @@ import { LienCommentFaire } from './LienCommentFaire';
 import { BoutonAide } from './BoutonAide';
 import { AccueilBienvenue } from './AccueilBienvenue';
 import { VisiteConsole } from './VisiteConsole';
-import { VISITE_EVENT } from '@/lib/accueil-console';
+import { BIENVENUE_EVENT, VISITE_EVENT } from '@/lib/accueil-console';
 import { BandeauAbonnement } from './BandeauAbonnement';
 import { BandeauLigneCredit } from './BandeauLigneCredit';
 import { EncartOffre } from './EncartOffre';
@@ -102,6 +102,12 @@ export function AppShell({ active, fullBleed = false, pleineLargeur = false, fon
   const vueOffre = useOffre(session?.tenantId ?? null);
   const ouvertes: ReadonlySet<FonctionOffre> | null = vueOffre ? vueOffre.fonctions : null;
   const fonctionOuverte = (f: FonctionOffre): boolean => ouvertes === null || ouvertes.has(f);
+  /**
+   * La fenêtre de bienvenue et « Bien démarrer » (plan 2026-11-24-guide-demarrage) : jamais en Free (sans console), ni pour
+   * une session d'observation, ni tant que l'offre n'est pas lue. La MÊME condition pour la fenêtre, la carte de l'Accueil
+   * et l'entrée de l'aide : un bouton qui rouvre une fenêtre qui ne s'ouvre pas serait un bouton mort.
+   */
+  const bienDemarrerOuvert = !!session && !session.observation && !!vueOffre && vueOffre.offre !== 'free';
 
   // Les quatre listes de la barre vivent dans `lib/nav.ts` depuis le 2026-09-11 : elles sont la CARTE
   // de la console, et un composant ne se lit pas de l’extérieur. Le compte de non-lus leur est passé
@@ -256,6 +262,14 @@ export function AppShell({ active, fullBleed = false, pleineLargeur = false, fon
     const lancer = (): void => setVisite(true);
     window.addEventListener(VISITE_EVENT, lancer);
     return () => window.removeEventListener(VISITE_EVENT, lancer);
+  }, []);
+
+  // La checklist « Bien démarrer » rouverte à la demande (carte de l'Accueil, aide) : un geste explicite, il passe outre
+  // une fermeture par la croix pendant cette visite.
+  useEffect(() => {
+    const ouvrir = (): void => setBienvenue(true);
+    window.addEventListener(BIENVENUE_EVENT, ouvrir);
+    return () => window.removeEventListener(BIENVENUE_EVENT, ouvrir);
   }, []);
 
   useEffect(() => {
@@ -609,7 +623,7 @@ export function AppShell({ active, fullBleed = false, pleineLargeur = false, fon
             zone de gauche, qui porte désormais une largeur propre. Sans lui, l'avatar colle au bord. */}
         <div className="ml-auto flex shrink-0 items-center gap-1 pr-4">
           <LienCommentFaire ecran={active} />
-          {aideDansEntete && <BoutonAide tenantId={session.tenantId} ecranCourant={active} role={session.role} dansEntete />}
+          {aideDansEntete && <BoutonAide tenantId={session.tenantId} ecranCourant={active} role={session.role} bienDemarrer={bienDemarrerOuvert} dansEntete />}
           <AccountMenu session={session} onLogout={logout} />
         </div>
       </header>
@@ -715,10 +729,10 @@ export function AppShell({ active, fullBleed = false, pleineLargeur = false, fon
           sur les écrans de connexion, qui ne passent pas par cette coquille et où il n'aurait rien à dire.
           `active` est la clé de nav de la page : c'est ce qui rend l'aide contextuelle sans rien demander. */}
       {/* Sur l'Inbox, il vit dans la barre du haut (`aideDansEntete`) : en bas à droite, il couvrait « Envoyer ». */}
-      {!aideDansEntete && <BoutonAide tenantId={session.tenantId} ecranCourant={active} role={session.role} />}
+      {!aideDansEntete && <BoutonAide tenantId={session.tenantId} ecranCourant={active} role={session.role} bienDemarrer={bienDemarrerOuvert} />}
       {/* L'accueil d'un nouveau membre : jamais en Free (sans console) ni pour une session d'observation. */}
-      {bienvenue && !session.observation && vueOffre && vueOffre.offre !== 'free' && (
-        <AccueilBienvenue tenantId={session.tenantId} admin={session.role === 'admin'}
+      {bienvenue && bienDemarrerOuvert && (
+        <AccueilBienvenue tenantId={session.tenantId} admin={session.role === 'admin'} fonctionOuverte={fonctionOuverte}
           onFermer={() => { bienvenueFermeeIci = true; setBienvenue(false); }} />
       )}
       {visite && <VisiteConsole onFin={() => setVisite(false)} />}

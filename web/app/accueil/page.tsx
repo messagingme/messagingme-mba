@@ -5,6 +5,7 @@ import { AideErreurMeta } from '@/components/AideErreurMeta';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { CarteBienDemarrer } from '@/components/CarteBienDemarrer';
 import { RcsChannelCard, useCanalRcs } from '@/components/RcsChannelCard';
 import { CanauxServices } from '@/components/CanauxServices';
 import { LogoHubSpot } from '@/components/LogosCanaux';
@@ -558,6 +559,9 @@ function AccueilInner({ session }: { session: Session }) {
       </div>
 
       {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
+
+      {/* « Bien démarrer » (plan 2026-11-24-guide-demarrage) : la checklist une fois la fenêtre de bienvenue fermée. */}
+      <CarteBienDemarrer tenantId={session.tenantId} observation={!!session.observation} />
 
       {/* SANS NUMÉRO, LA MISE EN SERVICE EN TÊTE (Julien, 2026-11-17) : la carte qui la reprend passe avant tout le
           reste, au lieu d'attendre sous Canaux et services. Seulement une fois le compte lu ET sans numéro (l'invariant

@@ -5,6 +5,26 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : guide de démarrage, lots 1 et 2 : « Bien démarrer » remplace la fenêtre de bienvenue
+
+Julien trouvait la fenêtre de bienvenue « vraiment pourrie » (un titre, une phrase, quatre boutons gris). Cadrage en
+questions fermées puis maquette cliquable validée (`docs/superpowers/specs/2026-11-24-guide-demarrage-design.md`, plan
+`2026-11-24-guide-demarrage.md`) : une checklist de cinq étapes cochée d'après l'état réel de l'espace, puis, aux lots
+3 et 4, une carte qui accompagne de page en page.
+Lot 1 (API) : `GET /tenants/:tenantId/demarrage`, administrateurs, cinq oui/non en une requête, `tenant_id = $1` dans
+chaque sous-requête. Une relecture sans rouge ; une campagne programmée coche aussi l'étape (jaune pris avant le
+commit). Le job `integration` de 85138a0de était rouge sur la fixture (deux bulles à la même phrase,
+`widgets_phrase_key`), corrigée par 5efe933ed. Déployé par le run 45353052333 (`migration=aucune`), approuvé par
+Julien ; sonde : la route rend 401 sans session (montée), une route inconnue 404.
+Lot 2 (console) : la fenêtre réécrite d'après la maquette (bandeau, progression, un bouton par étape non faite, « Faire
+le tour de la console », « Plus tard »), une carte « Bien démarrer, N étapes sur 5 » en haut de l'Accueil et une
+entrée dans le panneau d'aide qui la rouvrent (`BIENVENUE_EVENT`) ; la Modale gagne `sansEntete`. Les anciens
+raccourcis sont retirés. La relecture n'a pas trouvé de rouge ; son jaune n° 1 (en Free ou en observation, la carte
+et l'entrée d'aide rouvraient une fenêtre qui ne s'ouvre pas) a été corrigé avant le push, par une seule condition
+pour les trois (`bienDemarrerOuvert`). L'e2e `console-free` l'avait attrapé de son côté : la carte appelait
+`/demarrage` en Free, route que le serveur ne lui garde pas. Le film de bienvenue (lot 5) n'existe pas encore : le
+bandeau n'a pas de bouton de lecture.
+
 ## 2026-11-24 : la carte Shopify à la place de « Autres intégrations »
 
 Demande de Julien : dans « Canaux et services », la sixième case de la grille (le lien en pointillés « Autres

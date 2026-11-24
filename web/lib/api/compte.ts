@@ -28,6 +28,21 @@ export interface MeResponse {
 export function getMe(tenantId: string): Promise<MeResponse> {
   return request<MeResponse>(`/tenants/${tenantId}/me`);
 }
+/** Où en est l'espace dans « Bien démarrer » (plan 2026-11-24-guide-demarrage) : cinq oui/non, lus par la checklist. */
+export interface EtatDemarrage { numero: boolean; outil: boolean; scenarioOuCampagne: boolean; agent: boolean; bulle: boolean }
+/**
+ * `null` quand la route manque (une API plus ancienne) ou échoue : la checklist s'affiche alors sans coche, jamais en
+ * erreur. Une réponse dont un champ n'est pas un booléen vaut `false` pour ce champ.
+ */
+export async function getDemarrage(tenantId: string): Promise<EtatDemarrage | null> {
+  try {
+    const r = await request<Record<string, unknown>>(`/tenants/${tenantId}/demarrage`);
+    const oui = (k: string) => r[k] === true;
+    return { numero: oui('numero'), outil: oui('outil'), scenarioOuCampagne: oui('scenarioOuCampagne'), agent: oui('agent'), bulle: oui('bulle') };
+  } catch {
+    return null;
+  }
+}
 /** Le compte a fait son choix dans la fenêtre de bienvenue : elle ne revient plus. */
 export async function marquerAccueil(tenantId: string): Promise<void> {
   await request<void>(`/tenants/${tenantId}/moi/accueil`, { method: 'POST', body: JSON.stringify({}) });

@@ -7,26 +7,11 @@
 /** L'événement qui lance la visite, depuis la fenêtre ou depuis le panneau d'aide. La coquille l'écoute. */
 export const VISITE_EVENT = 'mba:visite';
 
-export type CleRaccourci = 'numero' | 'campagne' | 'agent' | 'outil';
-export interface Raccourci { cle: CleRaccourci; href: string; fr: string; en: string }
-
-const TOUS: readonly Raccourci[] = [
-  { cle: 'numero', href: '/connecter-whatsapp', fr: 'Connecter mon numéro', en: 'Connect my number' },
-  { cle: 'campagne', href: '/campaigns/nouvelle', fr: 'Lancer une campagne', en: 'Launch a campaign' },
-  { cle: 'agent', href: '/agents', fr: 'Construire un agent IA', en: 'Build an AI agent' },
-  { cle: 'outil', href: '/integrations', fr: 'Brancher un outil', en: 'Connect a tool' },
-];
-
 /**
- * Les raccourcis à montrer. Les quatre mènent à des écrans d'administrateur (`accesAutorise`, `lib/nav.ts`) : un membre
- * qui ne l'est pas (agent, manager, en Business et au-delà) n'en voit AUCUN, sinon la coquille le renverrait à l'Inbox
- * après avoir marqué son choix (relecture du lot). Il garde « Faire le tour » et « Ne plus afficher ». Le numéro
- * disparaît dès qu'il y en a un ; tant que ce n'est pas su (`aNumero` à `null`), il n'est pas proposé.
+ * L'événement qui rouvre la fenêtre de bienvenue (la checklist « Bien démarrer », plan 2026-11-24-guide-demarrage), depuis
+ * la carte de l'Accueil ou le panneau d'aide. La coquille l'écoute ; il ne marque rien.
  */
-export function raccourcisAccueil(admin: boolean, aNumero: boolean | null): Raccourci[] {
-  if (!admin) return [];
-  return TOUS.filter((r) => r.cle !== 'numero' || aNumero === false);
-}
+export const BIENVENUE_EVENT = 'mba:bienvenue';
 
 /**
  * Une étape de la visite : l'élément de la console qu'elle montre, et sa phrase. `cible` est un sélecteur CSS sur un

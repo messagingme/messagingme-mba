@@ -350,14 +350,18 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   rien ne signalait l'oubli : l'écran d'un espace montrait des horaires que la base ne portait pas. Un jour dont
   l'heure de fin précède l'heure de début est signalé en rouge, et rien n'est enregistré tant qu'il n'est pas corrigé.
   Le **journal des actions** n'est plus sur cette page : il est dans **Sécurité** (« Journaux et traces »).
-- ✅ **La fenêtre de bienvenue d'un nouveau membre** (2026-11-19, plan `2026-11-19-accueil-pro`) : à sa première
-  connexion à la console (Pro, essai compris, et au-delà ; jamais en Free), chaque nouveau membre d'un espace voit
-  « Bienvenue dans votre console » : **« Faire le tour »**, ou un premier geste tout de suite (« Connecter mon numéro »
-  tant qu'il n'y en a pas, « Lancer une campagne », « Construire un agent IA », « Brancher un outil » ; le numéro et les
-  outils, comme les campagnes et les agents, sont des écrans d'administrateur : un autre membre n'a que le tour), ou « Ne
-  plus afficher ». Elle revient à chaque connexion tant qu'aucun de
-  ces choix n'est fait ; la fermer par la croix ne compte pas. Les comptes qui existaient le jour de la livraison ne la
-  voient pas, sauf une invitation encore en attente ce jour-là. **La visite** pointe tour à tour les zones présentes à
+- ✅ **La fenêtre de bienvenue d'un nouveau membre** (2026-11-19, plan `2026-11-19-accueil-pro` ; refaite le 2026-11-24,
+  plan `2026-11-24-guide-demarrage`) : à sa première connexion à la console (Pro, essai compris, et au-delà ; jamais en
+  Free), chaque nouveau membre d'un espace voit « Bienvenue dans votre console ». Un administrateur y trouve **« Bien
+  démarrer »**, cinq étapes cochées d'elles-mêmes d'après ce que l'espace a vraiment fait : relier le numéro WhatsApp,
+  brancher sa boutique ou son CRM (Shopify, HubSpot), un premier scénario ou une première campagne, un agent IA qui
+  répond, la bulle WhatsApp sur le site. Chaque étape non faite a son bouton, qui mène à l'écran où la faire (le
+  scénario n'est proposé que si l'offre l'ouvre). Un autre membre n'a que **la visite** (ces écrans sont
+  d'administrateur). La fenêtre revient à chaque connexion tant qu'aucun choix n'est fait (un bouton d'étape, « Faire
+  le tour de la console » ou « Plus tard ») ; la fermer par la croix ne compte pas. Ensuite, **une carte « Bien
+  démarrer, N étapes sur 5 »** en haut de l'Accueil la rouvre par « Continuer », jusqu'à ce que tout soit fait ; le
+  panneau d'aide la rouvre aussi (« Bien démarrer »). Les comptes qui existaient le 2026-11-19 ne voient pas la fenêtre
+  d'eux-mêmes, sauf une invitation encore en attente ce jour-là. **La visite** pointe tour à tour les zones présentes à
   l'écran (l'Accueil, l'Inbox, le mini-CRM, les Campagnes, AI Agent, Tools et l'aide pour un administrateur sur
   ordinateur ; moins sur l'Inbox ou sur un téléphone) ; elle se relance à tout moment par « Faire le tour », en haut du
   panneau d'aide.

@@ -1,6 +1,6 @@
 'use client';
 
-import { VISITE_EVENT } from '@/lib/accueil-console';
+import { BIENVENUE_EVENT, VISITE_EVENT } from '@/lib/accueil-console';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useT, useLocale } from '@/lib/i18n';
@@ -51,7 +51,8 @@ function peutVoirLeRecap(role: string): boolean {
  * où le coin bas droit est celui du bouton « Envoyer » : le bouton rond le recouvrait, sur ordinateur comme
  * sur téléphone (mesuré le 2026-09-25).
  */
-export function BoutonAide({ tenantId, ecranCourant, role, dansEntete = false }: { tenantId: string; ecranCourant: string; role: string; dansEntete?: boolean }) {
+/** `bienDemarrer` : la coquille ouvre la fenêtre « Bien démarrer » sur cette session (ni Free ni observation). */
+export function BoutonAide({ tenantId, ecranCourant, role, bienDemarrer = false, dansEntete = false }: { tenantId: string; ecranCourant: string; role: string; bienDemarrer?: boolean; dansEntete?: boolean }) {
   const t = useT();
   const { locale } = useLocale();
   const [ouvert, setOuvert] = useState(false);
@@ -198,8 +199,15 @@ export function BoutonAide({ tenantId, ecranCourant, role, dansEntete = false }:
               <Logo className="h-3.5 w-auto shrink-0" />
               {t('Aide', 'Help')}
             </span>
+            {/* La checklist « Bien démarrer » (plan 2026-11-24-guide-demarrage) : ses écrans et sa route sont d'administrateur. */}
+            {role === 'admin' && bienDemarrer && (
+              <button type="button" data-testid="aide-bien-demarrer" className="ml-auto text-xs font-medium text-brand-600 hover:underline"
+                onClick={() => { setOuvert(false); window.dispatchEvent(new Event(BIENVENUE_EVENT)); }}>
+                {t('Bien démarrer', 'Getting started')}
+              </button>
+            )}
             {/* La visite de la console (plan 2026-11-19-accueil-pro) : relançable par tout membre, à tout moment. */}
-            <button type="button" data-testid="aide-visite" className="ml-auto mr-3 text-xs font-medium text-brand-600 hover:underline"
+            <button type="button" data-testid="aide-visite" className={`${role === 'admin' && bienDemarrer ? 'ml-3' : 'ml-auto'} mr-3 text-xs font-medium text-brand-600 hover:underline`}
               onClick={() => { setOuvert(false); window.dispatchEvent(new Event(VISITE_EVENT)); }}>
               {t('Faire le tour', 'Take the tour')}
             </button>

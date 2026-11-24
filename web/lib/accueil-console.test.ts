@@ -1,23 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ETAPES_VISITE, etapesVisibles, raccourcisAccueil } from './accueil-console';
+import { ETAPES_VISITE, etapesVisibles } from './accueil-console';
 
 describe('l’accueil d’un nouveau membre (plan 2026-11-19-accueil-pro)', () => {
-  const cles = (admin: boolean, aNumero: boolean | null) => raccourcisAccueil(admin, aNumero).map((r) => r.cle);
-
-  it('un administrateur sans numéro voit les quatre raccourcis, le numéro en tête', () => {
-    expect(cles(true, false)).toEqual(['numero', 'campagne', 'agent', 'outil']);
-  });
-
-  it('le numéro disparaît dès qu’il y en a un, et tant que ce n’est pas su', () => {
-    expect(cles(true, true)).toEqual(['campagne', 'agent', 'outil']);
-    expect(cles(true, null)).toEqual(['campagne', 'agent', 'outil']);
-  });
-
-  it('🔴 un membre non administrateur ne voit aucun raccourci : les quatre écrans lui sont fermés', () => {
-    expect(cles(false, false)).toEqual([]);
-    expect(cles(false, true)).toEqual([]);
-  });
-
   it('chaque étape de la visite vise un élément et a sa phrase dans les deux langues, sans tiret long', () => {
     for (const e of ETAPES_VISITE) {
       expect(e.cible).toMatch(/^\[data-(nav|testid)="[a-z-]+"\]$/);
