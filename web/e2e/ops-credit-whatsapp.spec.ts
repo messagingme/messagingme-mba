@@ -306,8 +306,11 @@ test.describe('Ops : les numéros d’un espace sur la ligne de crédit', () => 
     await expect(modale.getByTestId('ligne-credit-forcer')).toHaveCount(0);
   });
 
+  // La note n'est exigée que pour CHANGER d'offre (2026-11-24) : un réglage de l'Entreprise en place s'enregistre sans elle.
   test('🔴 « Enregistrer » grisé dit pourquoi, et la raison disparaît avec la note', async ({ page }) => {
     const { modale } = await offre(page);
+    await expect(modale.getByTestId('offre-enregistrer')).toBeEnabled();
+    await modale.getByTestId('offre-business').check();
     await expect(modale.getByTestId('offre-enregistrer')).toBeDisabled();
     await expect(modale.getByTestId('offre-bloquants')).toContainText('écrivez la note');
     await modale.getByTestId('offre-note').fill('Devis signé le 2 novembre');
