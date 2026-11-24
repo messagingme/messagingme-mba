@@ -141,6 +141,11 @@ const CATALOGUE_ACTIONS_AUDIT = {
   // l'outil ; le détail porte qui (`par` : une personne connectée ou une clé d'API) et l'écran de ce qui a été fait,
   // jamais les arguments, qui peuvent porter des données de contact.
   'mcp.ecriture': ['Écriture par un outil (Claude, MCP)', 'Write by a tool (Claude, MCP)'],
+  // Le oui de mise en ligne (lot 1 du CSM virtuel, B2) : le clic d'un admin sur le bouton préparé par Claude, puis ce que
+  // l'exécution a donné. La cible est la mise en ligne ; chaque action garde aussi sa propre trace (publication, répondeur).
+  'mise_en_ligne.acceptee': ['Mise en ligne acceptée d’un clic', 'Go-live accepted with one click'],
+  'mise_en_ligne.faite': ['Mise en ligne faite', 'Go-live done'],
+  'mise_en_ligne.echouee': ['Mise en ligne arrêtée par un refus', 'Go-live stopped by a refusal'],
 } as const satisfies Record<string, readonly [string, string]>;
 
 /** Une nouvelle action doit porter ses deux libellés avant de pouvoir être écrite. */

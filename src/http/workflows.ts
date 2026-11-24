@@ -12,9 +12,9 @@ import { makeJournal, type AuditSink } from '../audit/journal';
 import { espaceVerifie, nonEmpty, estUuid } from './scope';
 import { executerFonctionJs } from '../workflow/fonction-js';
 import { sautsDeLaCopie } from '../workflow/aller-a';
-import { controlesDePublication } from '../workflow/publication';
+import { publierScenario } from '../workflow/publier';
 import {
-  creerModeleDuBloc, jugerPublication, modelesDuGraphe, programmerMenage, type DepsCreationDeBloc, type DepsPublication,
+  creerModeleDuBloc, modelesDuGraphe, type DepsCreationDeBloc, type DepsPublication,
 } from '../workflow/modeles-de-bloc';
 import { tagsInGraph } from '../workflow/tags-du-graphe';
 import type { Rayon } from '../workflow/rayon';
@@ -260,7 +260,8 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
    * Met en ligne le brouillon (ou PROGRAMME sa mise en ligne, lot 3) : avec l'API et la mise en ligne d'une version
    * programmée, le seul chemin qui touche le graphe publié, donc qui change quelque chose pour les
    * contacts. Un parcours déjà en cours bascule sur la nouvelle version, une campagne programmée part avec la
-   * version en ligne le jour de l'expédition. Sans retour arrière : la version précédente n'est conservée nulle part.
+   * version en ligne le jour de l'expédition. Chaque publication garde sa version (`workflow_versions`, déclencheur de
+   * 0315) : on revient à une ancienne en la republiant, par une mise en ligne (CSM, B2).
    */
   app.post('/tenants/:tenantId/workflows/:id/publish', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
@@ -270,36 +271,19 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
      * 🔴 LES BLOCS « ALLER À » SE VÉRIFIENT AVANT LA MISE EN LIGNE (RC5) : une cible inexistante, et la fenêtre de 24 h
      * qui suit le saut vers un autre scénario (`refusDePublication`). Seulement s'il y a un brouillon : sans lui, la
      * publication ne change rien. Les autres scénarios se lisent ici, scopés à l'espace, dans leur version PUBLIÉE. Un
-     * scénario inconnu tombe plus bas, sur le 404 de `publish`, comme avant.
+     * scénario inconnu rend 404 avant tout contrôle.
      */
     const avant = await deps.scenarios.getById(id, tenant);
-    if (avant?.draftGraph) {
-      const brouillon = avant.draftGraph;
-      // Les contrôles du graphe (Question qui attend un fichier, « Puis, sans attendre », « Aller à » du même rayon) :
-      // les mêmes que la mise en ligne d'une version programmée rejoue (`controlesDePublication`).
-      const refus = await controlesDePublication(brouillon, id, () => deps.scenarios.list(tenant, avant.rayon), avant.rayon);
-      if (refus !== null) return reply.code(422).send({ error: `Publication refusée : ${refus.message}.`, code: refus.code });
-      // 🔴 Un template écrit depuis un bloc et encore en validation chez Meta (lot 3, décision 18) : la mise en ligne se
-      // PROGRAMME (202), sous réserve qu'aucune campagne active n'utilise le scénario. Un scénario sans template de bloc
-      // passe ici sans aucune lecture de plus, et se publie comme avant.
-      const jugement = await jugerPublication(deps.modelesDeBloc.publication, tenant, id, brouillon);
-      if (jugement.type === 'refus') return reply.code(422).send({ error: `Publication refusée : ${jugement.erreur}`, code: jugement.code });
-      if (jugement.type === 'programmer') {
-        const programmee = await deps.scenarios.programmer(id, tenant, req.auth?.userId ?? null, brouillon);
-        if (!programmee) return reply.code(404).send({ error: 'workflow inconnu' });
-        await journal(tenant, req, 'workflow.publication_programmee', { kind: 'workflow', id }, { modeles: jugement.attend.length });
-        return reply.code(202).send({ id, programmee: { le: programmee.le, attend: jugement.attend } });
-      }
-    }
-    // Le brouillon JUGÉ, pas celui du moment (relecture de 3a) : un enregistrement tombé pendant le jugement reste un brouillon.
-    const row = await deps.scenarios.publish(id, tenant, avant?.draftGraph ?? undefined);
-    if (!row) return reply.code(404).send({ error: 'workflow inconnu' });
-    // Le ménage des templates que cette version remplace (rayons d'automation, spec § 5.1) : best-effort, il ne bloque rien.
-    if (avant) await programmerMenage(deps.modelesDeBloc.publication.menage, tenant, avant.rayon, avant.graph, row.graph);
-    // Le journal porte qui a publié : la table `workflows`, elle, ne garde que la date. Détail non identifiant
-    // (un nombre de blocs), comme partout dans ce journal.
-    await journal(tenant, req, 'workflow.published', { kind: 'workflow', id }, { blocs: row.graph.nodes.length });
-    return reply.code(200).send({ id, graph: row.graph, publishedAt: row.publishedAt ?? null });
+    if (!avant) return reply.code(404).send({ error: 'workflow inconnu' });
+    // Les règles de la publication (contrôles du graphe, jugement des templates de bloc, ménage, journal) vivent dans
+    // `publierScenario`, que la mise en ligne acceptée d'un clic (CSM, B2) appelle aussi. Le brouillon JUGÉ part, pas
+    // celui du moment ; sans brouillon, la publication ne change rien.
+    const issue = await publierScenario(
+      { scenarios: deps.scenarios, publication: deps.modelesDeBloc.publication, journal }, tenant, avant, avant.draftGraph ?? undefined, req,
+    );
+    if (issue.type === 'refus') return reply.code(issue.statut).send({ error: issue.message, ...(issue.code ? { code: issue.code } : {}) });
+    if (issue.type === 'programme') return reply.code(202).send({ id, programmee: { le: issue.le, attend: issue.attend } });
+    return reply.code(200).send({ id, graph: issue.row.graph, publishedAt: issue.row.publishedAt ?? null });
   });
 
   /**

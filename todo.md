@@ -22,13 +22,12 @@
 ## 🟡 CSM virtuel, B0b à B0d (`871f9bd06`, `5877b47a8`, `ca7ecb841`) : la relecture (2026-11-24, aucun rouge)
 
 Partent avec B2 (lot de fonctionnalité qui ajoute des outils et leurs écrans), pas en lot à part.
+Réglés avec B2 : l'écran qui ne se calcule pas ne fait plus échouer l'écriture (`sansPanne`), `ident` sur la valeur
+nettoyée, `set_transfer_mode` vers `/securite/ia` et `set_default_responder` vers `/accueil`. Reste :
 - Écrans : ne pas en rendre à la Free hors de `/offre`, `/developers/keys`, `/connecter-whatsapp` (la console lui est
-  fermée) ; `set_transfer_mode` vers `/securite/ia`, `set_default_responder` vers `/accueil` ; les onglets de l'agent
-  (`perimetre` pour les limites, `tester`, `objectif`) et de l'offre (`?tab=credit`, `?tab=whatsapp`) ; des exemptions
-  motivées pour les outils qui rendent déjà un lien (connexion du numéro, Stripe) ; `ident` sur la valeur nettoyée ;
+  fermée) ; les onglets de l'agent (`perimetre` pour les limites, `tester`, `objectif`) et de l'offre (`?tab=credit`,
+  `?tab=whatsapp`) ; des exemptions motivées pour les outils qui rendent déjà un lien (connexion du numéro, Stripe) ;
   nommer l'espace (un admin de plusieurs espaces) ; peut-être `_meta.ecran` pour une lecture par programme.
-- Robustesse : envelopper `outil.ecran` et `adresseEcran` dans un `try` qui rend `undefined` (une écriture faite ne doit
-  jamais revenir en « échec interne », que l'agent rejouerait), et le tester.
 - Trace : nommer la clé d'API (`cleIdDe`, `ContexteMcp`) ; la cible = l'objet quand l'outil la déclare (une fonction
   `objet(args, resultat)` dont dérivent l'écran et la cible, pour le filtre et l'index du journal) ; une exemption
   déclarée pour le bruit (`watch_whatsapp_connection` appelé en boucle, `test_agent`) ; les messages, à l'arbitrage de
@@ -48,16 +47,37 @@ testé (`rendreRefus`) et la règle de l’`outputSchema`. Reste, avec le procha
 - Le délai du quota du jour (`quotaEnvois` le perd) ; `unsupported` (filière application) lu au serveur.
 - L’essai réel doit voir si Claude Code donne au modèle le bloc JSON de la cause.
 
-## 🟡 CSM virtuel, lot 1 : trois défauts relevés en passant (2026-11-24, non corrigés)
+## 🟡 CSM virtuel, lot 1 : un défaut relevé en passant (2026-11-24, non corrigé)
 
-Ils partent avec le premier lot de fonctionnalité du lot 1 (plan `2026-11-24-csm-lot1-b1-parite`), pas en lot à part.
-- `web/app/securite/ia/page.tsx` (vers la ligne 194) : le lien vers un agent est `/agents?a=` au lieu de `?id=`.
+Réglés avec B2 : le lien `/agents?a=` de Sécurité > IA, le `.doc` du sélecteur de la connaissance, le « Aucune campagne »
+de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
-- `web/components/AgentConnaissance.tsx` : le sélecteur d'import de la connaissance propose `.doc`, que le serveur ne
-  lit pas (seul `.docx` l'est).
-- `features.md` (§ des outils de l'assistant) dit encore « Aucune campagne », périmé depuis `prepare_campaign` et
-  `launch_campaign`.
+
+## 🟡 CSM virtuel, lot C (le oui de mise en ligne, les versions) : ce qui reste après l'écriture (2026-11-24)
+
+- Une mise en ligne interrompue ne se reprend que par un clic : la reprise par le worker part avec B8 (les envois au oui
+  attendent Meta de toute façon), avec le câblage du répondeur dans le worker.
+- Le récapitulatif écrit par le serveur est en français seulement : la console anglaise le montre tel quel.
+- Les mises en ligne gardent les graphes montrés (`actions`) sans durée de rétention : une purge (90 jours ?) à décider.
+- Les versions d'un scénario ne se voient pas dans la console (le cadrage les y veut) : un écran et sa route, avec B10.
+- La compétence du plugin n'apprend pas encore le bouton : avec B4, quand Claude écrira en brouillon.
+- De la relecture du lot C (aucun rouge ; réglés avant de pousser : la reprise après un refus noté, l'offre revérifiée
+  pour toute action, la lecture sans `as`, la version du plugin, quatre commentaires périmés). Reste :
+  - « Reprendre » n'a ni échéance ni revérification : une exécution coupée, reprise des jours plus tard, republie le
+    graphe gardé par-dessus une publication faite depuis. Refuser la reprise après `expire_le`, ou rejouer `relever`.
+  - La publication PROGRAMMÉE (un template de bloc en validation) suivie du répondeur : la mise en ligne échoue au
+    répondeur après un effet partiel. Juger les templates dès la proposition, ou l'annoncer dans le récapitulatif.
+  - Le rejeu du répondeur (défaut ancien) : coupé après `setRepondeur` et pendant `toutRetirer`, le rejeu s'arrête sur
+    `memeReglage` et la liste de l'agent de Meta n'est jamais vidée.
+  - Le journal : `origine: 'mcp'` pour une action cliquée dans la console ; le clic de reprise d'un second admin n'est
+    tracé nulle part.
+  - `features.md` (§ du constructeur, « la version précédente n'est conservée nulle part ») est périmé, mais sa section
+    est citée par la fiche publique `creer-un-scenario` : la fiche, son empreinte, `vitrine:aide` et `aide:charger`
+    ensemble. L'infobulle de « Publier » (« pas de retour arrière ») suit l'écran des versions.
+  - `workflow_graphe_forme` (0315, en production) lève sur un bloc qui n'est pas un objet (`n - 'position'`) : théorique
+    (`parseGraph` l'interdit, et `forme` du store fait déjà de même), à garder par une migration (`case when
+    jsonb_typeof(n) = 'object'`) avec son jumeau du store.
 
 ## Les guides de la vitrine : ce qui reste hors dépôt (plan `2026-11-24-guides-vitrine`)
 

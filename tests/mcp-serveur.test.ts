@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -147,6 +147,7 @@ function app(
     ...mcpShopifyInerte,
     ...mcpFilInerte,
     ...mcpJournalMuet,
+    ...mcpMisesEnLigneInertes,
     ...reste,
   };
   const keys = new FakeApiKeys()
@@ -945,6 +946,9 @@ describe('serveur MCP : cohérence du catalogue', () => {
       delete_scenario: [true, true, false],
       // Un scénario part chez une personne ; la même clé d'idempotence ne renvoie rien ; comme l'envoi d'un modèle.
       send_scenario_to_contact: [true, true, true],
+      // Le oui de mise en ligne (CSM, B2) : chaque appel prépare une mise en ligne de plus ; rien ne part chez un tiers
+      // (rien n'est publié avant le clic d'un admin).
+      propose_go_live: [true, false, false],
       // Livraison B : un message part chez une personne ; la même clé d'idempotence ne renvoie rien ; le fil n'est pas pris.
       send_template_to_contact: [true, true, true],
       // Les campagnes depuis l'assistant (2026-10-20) : reposer les mêmes étiquettes ne change rien.
@@ -1154,6 +1158,8 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   // Les scénarios par leur recette (2026-11-02) : la fonction qui garde les scénarios de la console.
   get_scenario: 'scenarios', create_scenario: 'scenarios', update_scenario: 'scenarios', delete_scenario: 'scenarios',
   send_scenario_to_contact: 'scenarios',
+  // Les versions et le oui de mise en ligne (CSM, B2 et B3) : la fonction qui garde les scénarios de la console.
+  list_scenario_versions: 'scenarios', propose_go_live: 'scenarios', get_go_live: 'scenarios',
 };
 
 describe('serveur MCP : les outils et l’offre (lot 6, B2a)', () => {
@@ -1552,6 +1558,24 @@ describe('serveur MCP : une écriture rend l’écran de ce qu’elle a fait (lo
     const lu = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_conversations') });
     expect(lu.json<{ result: { content: unknown[] } }>().result.content).toHaveLength(1);
     await server.close();
+  });
+
+  it('🔴 un écran qui ne se calcule pas ne fait jamais d’une écriture faite un échec : elle revient sans écran', async () => {
+    const etiqueter = OUTILS.find((o) => o.nom === 'tag_conversation')!;
+    const ecranDOrigine = etiqueter.ecran;
+    etiqueter.ecran = () => { throw new Error('écran impossible'); };
+    try {
+      const { server, traces } = app();
+      const ecrit = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('tag_conversation', { conversation_id: 'cv1', tags: ['chaud'] }) });
+      const blocs = ecrit.json<{ result: { content: Array<{ text: string }>; isError: boolean } }>().result;
+      expect(blocs.isError).toBe(false);
+      expect(JSON.parse(blocs.content[0]!.text)).toMatchObject({ conversation_id: 'cv1' });
+      expect(blocs.content.some((b) => b.text.includes('"ecran"'))).toBe(false);
+      expect(traces.poses).toHaveLength(1);
+      await server.close();
+    } finally {
+      etiqueter.ecran = ecranDOrigine;
+    }
   });
 });
 

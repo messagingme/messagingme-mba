@@ -56,6 +56,25 @@ une fois, jusqu'au bout. Et qu'une publication se défasse : chaque version publ
   la console, que seule une session d'admin ouvre.
 - Le journal d'audit : la proposition, le clic (qui, quand) et le résultat.
 
+## Ce que l'écriture de B2 a tranché (2026-11-24)
+
+- L'exécution court dans la REQUÊTE du clic, sous un bail à jeton (pas de file pg-boss) : les actions du pilote sont des
+  écritures en base de moins d'une seconde. Une panne rend le bail ; la page dit « interrompue » et un clic reprend après
+  le dernier résultat. La reprise sans clic (le worker) attend B8, qui a besoin d'attentes de toute façon (Meta) : la
+  câbler maintenant aurait recopié dans le worker tout le câblage du répondeur.
+- Pas de troisième pièce au verrou (le drapeau de relance de `run-lock.ts`) : rien ne s'ajoute à une mise en ligne après
+  son acceptation, il n'y a pas de travail arrivé pendant l'exécution à rattraper.
+- Le libellé du bouton et le récapitulatif sont écrits par le SERVEUR, à partir des actions : le CSM ne choisit pas les
+  mots du bouton qui vaut accord. Le récapitulatif est en français seulement (la console bilingue le montre tel quel).
+- Trois actions : `publier` (le brouillon d'un scénario de la console, tel que montré : c'est le graphe gardé qui part),
+  `restaurer` (republier une version), `repondeur` (le mode scénario du répondeur). « Publier » de la console et la mise
+  en ligne passent par un seul service, `publierScenario`.
+- Les accès se relisent à la prise du bail, en SQL : l'admin qui a cliqué, la personne qui a préparé, son autorisation.
+- La page vit sous `active="workflows"` (pas d'entrée de menu : on n'y arrive que par le lien de Claude), réservée aux
+  admins par la garde de l'API ; son bouton s'arme comme ceux qui accordent un accès (`useArme`).
+- La compétence du plugin n'apprend pas encore le bouton : rien dans le parcours de mise en service ne le demande avant
+  B4 (Claude écrit en brouillon). Le plugin se republie quand même, pour sa liste d'outils.
+
 ## Tests
 
 - B3 : chaque publication crée une version, quel que soit le chemin (console, API, ligne Shopify, programmée) ; une

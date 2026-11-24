@@ -178,6 +178,9 @@ import { MetaEmbeddedSignupClient } from './meta/embedded-signup';
 import { setTimeout as dormir } from 'node:timers/promises';
 import { activationPour } from './http/mba';
 import type { DepsReglageRepondeur } from './repondeur/reglage';
+import { PgVersionsScenario } from './workflow/versions.pg';
+import { PgMisesEnLigne } from './mise-en-ligne/store.pg';
+import type { DepsMisesEnLigne } from './mise-en-ligne/mise-en-ligne';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { fetchUrlBorne } from './lib/page-distante';
 import { signSession, signLienNumero } from './auth/token';
@@ -1889,6 +1892,22 @@ async function main(): Promise<void> {
     creation: { gestion: depsModeles, scenarios: workflowStore, lignes: modelesDeBlocStore, maintenant: () => new Date() },
     publication: publicationDesScenarios,
   };
+
+  /**
+   * Le oui de mise en ligne (lot 1 du CSM virtuel, B2) et les versions de scénario (B3), pour leurs DEUX portes : la page
+   * de la console (le clic d'un admin) et les outils MCP (la proposition, sa lecture, les versions). La publication y
+   * passe par les MÊMES dépendances que « Publier » de la console, le répondeur par le MÊME réglage que l'Accueil. Les
+   * magasins ENTIERS : leurs méthodes lisent `this`.
+   */
+  const misesEnLigne: DepsMisesEnLigne = {
+    store: new PgMisesEnLigne(pool),
+    scenarios: workflowStore,
+    versions: new PgVersionsScenario(pool),
+    publication: publicationDesScenarios,
+    repondeur: repondeurDeLaConsole,
+    audit: auditSink,
+    maintenant: () => Date.now(),
+  };
   let filetModelesDeBlocEnCours = false;
 
   /**
@@ -3385,6 +3404,8 @@ async function main(): Promise<void> {
       accueilAFaire: (userId, tenant) => userStore.accueilAFaire(userId, tenant),
       marquerAccueil: (userId, tenant) => userStore.marquerAccueil(userId, tenant),
     },
+    // Le oui de mise en ligne (CSM, B2) : la page du clic, le même objet que les outils MCP.
+    misesEnLigne,
     workflows: {
       scenarios: workflowStore,
       tenantCode: (tenant) => resolveTenantCode(pool, tenant),
@@ -4112,6 +4133,8 @@ async function main(): Promise<void> {
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),
         // Les scénarios par leur recette (spec 2026-11-02) : le MÊME service que `/v1/scenarios`.
         scenariosApi: depsScenariosApi,
+        // Le oui de mise en ligne et les versions (CSM, B2 et B3) : le MÊME objet que la page de la console.
+        misesEnLigne,
         // Les widgets de l'écran, le MÊME objet : un outil MCP n'est qu'un second appelant de leur gestion.
         widgets: widgetsDeLaConsole,
         scenarios: workflowStore,

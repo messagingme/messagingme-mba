@@ -762,7 +762,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
         },
       },
     },
-    ecran: () => LISTES.agents,
+    ecran: () => LISTES.accueil,
     async executer(deps, tenantId, args, personne) {
       const auteur = { userId: signataire(personne), origine: 'mcp' as const };
       const reglage = deps.agentIa.repondeur;
@@ -1033,7 +1033,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       properties: { mode: { type: 'string', enum: [...MODES_TRANSFERT], description: 'always, business_hours or never.' } },
       required: ['mode'],
     },
-    ecran: () => LISTES.parametres,
+    ecran: () => LISTES.securiteIa,
     async executer(deps, tenantId, args) {
       return { mode: valeurOuRefus(await reglerModeTransfert(deps.agentIa.reglages, tenantId, args.mode)) };
     },

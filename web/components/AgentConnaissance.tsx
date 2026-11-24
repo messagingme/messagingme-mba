@@ -434,7 +434,7 @@ function ImportDocument({ busy, onDeposer }: { busy: boolean; onDeposer: (nom: s
           ref={ref}
           type="file"
           data-testid="kb-document-fichier"
-          accept=".txt,.csv,.md,.pdf,.doc,.docx,text/plain,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".txt,.csv,.md,.pdf,.docx,text/plain,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];

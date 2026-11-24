@@ -14,10 +14,12 @@ import { config } from '../config';
  */
 
 /** Un identifiant lisible, encodé pour l'adresse, ou `null`. */
-const ident = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? encodeURIComponent(v) : null);
+const ident = (v: unknown): string | null => (typeof v === 'string' && v.trim() !== '' ? encodeURIComponent(v.trim()) : null);
 
 /** Les listes de la console, quand l'objet n'a pas d'écran à lui (ou que l'outil ne le connaît pas). */
 export const LISTES = {
+  /** L'Accueil, où vit la carte « Qui répond au client » (`set_default_responder`). */
+  accueil: '/accueil',
   agents: '/agents',
   campagnes: '/campaigns',
   champs: '/fields',
@@ -31,6 +33,8 @@ export const LISTES = {
   offre: '/offre',
   parametres: '/parametres',
   scenarios: '/workflows',
+  /** Sécurité > IA, où vit la promesse de transfert à l'équipe (`set_transfer_mode`). */
+  securiteIa: '/securite/ia',
   webhooks: '/developers/evenements',
   widgets: '/widgets',
 } as const;
@@ -52,6 +56,11 @@ export const ECRANS = {
   scenario: (scenarioId: unknown): string => {
     const s = ident(scenarioId);
     return s === null ? LISTES.scenarios : `/workflows?open=${s}`;
+  },
+  /** La page du oui de mise en ligne (CSM, B2) : le récapitulatif et le bouton qu'un admin clique. */
+  miseEnLigne: (id: unknown): string => {
+    const m = ident(id);
+    return m === null ? LISTES.scenarios : `/mise-en-ligne?id=${m}`;
   },
 } as const;
 

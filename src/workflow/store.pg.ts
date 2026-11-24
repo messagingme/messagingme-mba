@@ -450,8 +450,8 @@ export class PgWorkflowStore {
   }
 
   /**
-   * Met en ligne le brouillon : il devient le graphe publié, sans retour arrière (la version précédente n'est
-   * pas gardée).
+   * Met en ligne le brouillon : il devient le graphe publié. La version précédente reste dans `workflow_versions`
+   * (déclencheur de 0315) : on y revient en la republiant.
    *
    * Sans effet quand il n'y a rien à publier : `draft_graph` null laisse `graph` intact grâce au `coalesce`.
    * Sans lui, republier deux fois écraserait le publié par NULL, donc effacerait le scénario en production.

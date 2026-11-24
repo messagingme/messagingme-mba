@@ -21,7 +21,7 @@ describe('l’écran de ce qu’un outil vient de faire (B0b)', () => {
   });
 
   it('🔴 chaque liste et chaque écran mène à une page qui existe dans la console', () => {
-    const chemins = [...Object.values(LISTES), ECRANS.agent('a1'), ECRANS.conversation('c1'), ECRANS.scenario('s1')];
+    const chemins = [...Object.values(LISTES), ECRANS.agent('a1'), ECRANS.conversation('c1'), ECRANS.scenario('s1'), ECRANS.miseEnLigne('m1')];
     expect(chemins.filter((c) => !existsSync(page(c)))).toEqual([]);
   });
 
@@ -30,6 +30,8 @@ describe('l’écran de ce qu’un outil vient de faire (B0b)', () => {
     expect(readFileSync(page('/agents'), 'utf8')).toMatch(/ONGLETS[^\n]*'connaissance'[^\n]*'outils'/);
     expect(readFileSync(page('/workflows'), 'utf8')).toContain("searchParams.get('open')");
     expect(readFileSync(page('/inbox'), 'utf8')).toContain("searchParams.get('c')");
+    // La page du oui de mise en ligne (CSM, B2) lit l'identifiant que rend `propose_go_live`.
+    expect(readFileSync(page('/mise-en-ligne'), 'utf8')).toContain(".get('id')");
   });
 
   it('chaque outil d’écriture rend un chemin de la console, même sans arguments ni résultat lisibles', () => {

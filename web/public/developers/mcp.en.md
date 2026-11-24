@@ -214,6 +214,9 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | update_scenario | mcp:write OAuth connection required | Replace a scenario created through the API or by Claude, published at once, if nobody changed it in the meantime. |
 | delete_scenario | mcp:write OAuth connection required | Delete a scenario created through the API or by Claude, if nothing uses it any more. |
 | send_scenario_to_contact | mcp:write OAuth connection required | Start a published scenario for one person, even outside the 24-hour window, through its opening template, with the sends rules (STOP, monthly templates); the person’s agreement is declared by the client. |
+| list_scenario_versions | mcp:read | The published versions of a scenario, most recent first, and the one that is live. |
+| propose_go_live | mcp:write OAuth connection required | Prepare a go-live (publish a draft, restore a version, set the responder): returns the link of the page where an administrator accepts it with one click; nothing happens before that click. |
+| get_go_live | mcp:read | Where a go-live stands: waiting for the click, done or stopped, and the result of each action. |
 
 ### Chat bubble
 

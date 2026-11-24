@@ -191,7 +191,7 @@ function Ia({ tenantId, estAdmin }: { tenantId: string; estAdmin: boolean }) {
                   </p>
                   <p className="truncate text-xs text-ink-500">« {a.mentionIa} »</p>
                 </div>
-                <Link href={`/agents?a=${a.id}`} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">
+                <Link href={`/agents?id=${a.id}`} className="shrink-0 text-xs font-medium text-brand-600 hover:underline">
                   {t('Ouvrir la fiche', 'Open the agent')}
                 </Link>
               </li>

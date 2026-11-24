@@ -433,13 +433,16 @@ describe('POST /tenants/:t/workflows/:id/publish', () => {
   });
 
   it('scénario inconnu -> 404, et un id qui n’est pas un uuid -> 404 SANS toucher au store', async () => {
-    const { server, cap } = app();
+    const lus: string[] = [];
+    const { server, cap } = app({ scenarios: { getById: async (id) => { lus.push(id); return id === W1 ? sampleRow() : null; } } });
     const inconnu = await server.inject({ method: 'POST', url: '/tenants/t1/workflows/22222222-2222-4222-8222-222222222222/publish', ...h(adminTok), payload: {} });
     expect(inconnu.statusCode).toBe(404);
     const malForme = await server.inject({ method: 'POST', url: '/tenants/t1/workflows/pas-un-uuid/publish', ...h(adminTok), payload: {} });
     expect(malForme.statusCode).toBe(404);
-    // Le second n'a JAMAIS atteint la base : un id mal formé y ferait lever Postgres (22P02), donc un 500.
-    expect(cap.publies).toEqual(['22222222-2222-4222-8222-222222222222']);
+    // Le premier est lu, reconnu inconnu, et ne va pas plus loin (le service de publication part d'une ligne relue). Le
+    // second n'a JAMAIS atteint la base : un id mal formé y ferait lever Postgres (22P02), donc un 500.
+    expect(lus).toEqual(['22222222-2222-4222-8222-222222222222']);
+    expect(cap.publies).toEqual([]);
     await server.close();
   });
 

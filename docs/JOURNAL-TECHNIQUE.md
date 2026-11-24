@@ -5,6 +5,53 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : CSM virtuel, lot C : les versions de scénario et le oui de mise en ligne
+
+Plan `docs/superpowers/plans/2026-11-24-csm-lot1-c-clic-et-versions.md`, après B0 (en production le même jour, `79666e5b8`,
+approuvé par Julien ; essai réel en partie : le refus codé vu en production, l'écriture attend un espace de test, l'espace
+relié au MCP du poste ayant une administratrice extérieure).
+
+**B3, les versions (migration 0315, `6e519ca31`).** Une table et le premier déclencheur du dépôt : toute écriture qui
+change `workflows.graph` fait une version, sauf un graphe vide et un graphe qui ne diffère de la dernière version que par
+la disposition. Cette règle a été trouvée en écrivant : l'enregistrement automatique de l'éditeur range un bloc déplacé
+dans le graphe PUBLIÉ (`update`), et chaque déplacement aurait été une version ; la comparaison reprend `forme` du store
+par une fonction SQL jumelle, tenue égale par un test. Prouvé sur le banc PGlite, sept mutations rouges.
+🔴 Poussé, la CI a rougi sur le job `integration` : `requete-scenarios.integration.test.ts` écrit un graphe dont `nodes`
+est un objet, et le déclencheur levait 22023, donc empêchait l'écriture ; la reprise de la migration aurait fait échouer
+la migration entière sur une seule ligne de ce genre en production. Correctif `5a0860749` (la garde lit le type d'abord,
+dans un `case`), prouvé dans les deux sens sur PGlite, CI verte ; `main` est resté rouge le temps du correctif, les deux
+sessions voisines prévenues avant leurs pushs. La leçon : le banc n'avait joué que le test neuf ; un déclencheur change
+chaque écrivain de la table, la suite d'intégration ENTIÈRE se joue avant de pousser (cerveau et mémoire du banc).
+Migration appliquée par le déploiement de la session voisine (`fb2897ffa`, `migration=avant`). Relecture en base :
+par la machine des workers, en lecture seule, le jour même : les cinq colonnes (types, nullabilité, défaut de
+`publiee_le`), les contraintes sous leur nom et les deux cascades (`confdeltype` `c`), les deux index, le déclencheur
+actif (`AFTER INSERT OR UPDATE OF graph`), la garde du type dans la fonction, la reprise (78 versions pour 78 scénarios
+publiés, aucun graphe mal formé, aucun scénario publié sans version, aucun espace mélangé), la vraie requête de lecture,
+aucun verrou en attente sur `workflows`. Aucune publication n'avait encore eu lieu depuis : le déclencheur s'éprouvera à
+l'essai réel.
+
+**B2, le oui de mise en ligne (migration 0316).** Claude prépare (`propose_go_live`), un admin clique sur la
+page `/mise-en-ligne`, le serveur exécute ce qui a été montré, une fois. Ce que l'écriture a tranché : l'exécution court
+dans la requête du clic sous un bail à jeton (pas de file : des écritures de moins d'une seconde), une panne rend le bail
+et un clic reprend après le dernier résultat (la reprise par le worker attend B8) ; le libellé du bouton et le
+récapitulatif sont écrits par le serveur ; les accès (l'admin qui a cliqué, la personne et l'autorisation qui ont
+préparé) se relisent en SQL à la prise du bail ; « Publier » de la console et la mise en ligne passent par un seul
+service, `publierScenario`, extrait de la route. La table de parité : la publication d'un scénario passe de « à faire
+(B4) » à `propose_go_live`, le clic est humain par décision. Le relevé du moteur demandé avant toute restauration est figé
+par un test : un contact arrêté sur un bloc qu'une version restaurée n'a plus n'est pas bloqué (un clic monte à
+l'équipe, un texte clôt le parcours et suit le chemin habituel). En route, les jaunes de la relecture de B0b à B0d qui
+touchaient le même code : un écran qui ne se calcule pas ne fait plus échouer une écriture faite (`sansPanne`), les
+écrans du répondeur et du transfert, l'identifiant nettoyé, deux liens et le `.doc` de la console.
+Preuves : 17 tests du cœur et sept mutations rouges ; 6 tests d'intégration du magasin et sept mutations rouges sur
+PGlite ; les routes (seul un admin de l'espace clique, aucun jeton du MCP n'ouvre la route) et les outils (aucun
+n'importe `accepter`). Dans une copie d'origin portant tout le lot : typecheck et lint (racine et
+console), l'auto-attaque (2 210 sondes, aucune trouvaille), la suite de la console (1 394 tests), la suite racine
+(18 961 tests ; ses rouges de charge, rejoués seuls, verts). Relecture indépendante (B3 et B2 ensemble) : aucun rouge. Réglés avant de pousser, chacun
+vérifié dans les deux sens : une reprise après un refus déjà noté conclut sur lui au lieu de brancher le répondeur ;
+l'offre se revérifie pour toute action, au clic aussi ; la lecture des actions sans `as` ; la version du plugin ; quatre
+commentaires périmés. Les autres jaunes sont au `todo.md` (la reprise sans échéance, la publication programmée suivie du
+répondeur, le rejeu du répondeur, l'origine au journal, la fiche du constructeur, le bloc qui n'est pas un objet).
+
 ## 2026-11-24 : « Votre agent est prêt » ne s'annonce plus pendant l'entretien
 
 Suite de Maison Saint-Honoré : une fois son oui lu, l'entretien a repris sur les moments (ceux donnés pendant le

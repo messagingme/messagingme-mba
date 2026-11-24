@@ -69,6 +69,8 @@ import { registerEspaces } from './http/espaces';
 import { registerOps } from './http/ops';
 import { registerOpsCreditWhatsapp } from './http/ops-credit-whatsapp';
 import { registerWorkflows } from './http/workflows';
+import { registerMisesEnLigne } from './http/mises-en-ligne';
+import type { DepsMisesEnLigne } from './mise-en-ligne/mise-en-ligne';
 import { registerAutomations } from './http/automations';
 import { registerHubspotLignes, type HubspotLignesRouteDeps } from './http/hubspot-lignes';
 import { registerChannelsMeRoutes, type ChannelsMeRouteDeps } from './http/channels-me';
@@ -405,6 +407,11 @@ export interface ServerDeps {
   ops?: OpsRouteDeps;
   /** Bot builder (workflows), réservé aux admins. */
   workflows?: WorkflowRouteDeps;
+  /**
+   * Le oui de mise en ligne (lot 1 du CSM virtuel, B2) : la page où un admin lit et accepte d'un clic ce que Claude a
+   * préparé. Le même objet que les outils MCP de la mise en ligne.
+   */
+  misesEnLigne?: DepsMisesEnLigne;
   /** Automations : lecture ouverte aux comptes authentifiés, écritures admin-only (garde dans la route). */
   automations?: AutomationRouteDeps;
   /** Automation > HubSpot (menu « Scénario », lot 6b) : les mêmes rôles que l'écran Automation. */
@@ -911,6 +918,9 @@ export function modulesDeRoutes(
     entree('contacts', 'tenant', deps.contacts, (app, d, g) => registerContacts(app, d, g.admin, g.encadrement, g.limiteCouteuse)),
     entree('workflows', 'tenant', deps.workflows, (app, d, g) => registerWorkflows(app, d, g.admin, g.limiteCouteuse), ecritures('scenarios')),
     entree('workflowReports', 'tenant', deps.workflowReports, (app, d, g) => registerWorkflowReports(app, d, g.admin), toutes('performance_lab')),
+    // Le oui de mise en ligne (CSM, B2) : `admin`, la seule porte du clic, qu'aucun jeton OAuth n'ouvre. Pas de garde d'offre
+    // au module : chaque action vérifie la sienne (la proposition refuse un répondeur hors de l'offre).
+    entree('misesEnLigne', 'tenant', deps.misesEnLigne, (app, d, g) => registerMisesEnLigne(app, d, g.admin)),
     entree('automations', 'tenant', deps.automations, (app, d, g) => registerAutomations(app, d, g.auth)),
     // Automation > HubSpot (lot 6b) : `auth` comme l'écran Automation, écritures fermées dans la route par `forbidNonAdmin`.
     // HubSpot est une fonction de l'offre (`crm`), comme les autres écrans HubSpot.

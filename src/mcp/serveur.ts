@@ -176,7 +176,9 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
         if (refus !== null) return refuser(refus, 'invalid_args');
         const resultat = await outil.executer(deps, ctx.tenantId, args, ctx.personne);
         // L'écran de ce qui vient d'être fait (B0b), entre le résultat et les rappels : le résultat lui-même ne change pas.
-        const ecran = outil.ecran?.(args, resultat);
+        // 🔴 Sans panne possible : une écriture FAITE ne revient jamais en « échec interne » (l'agent la rejouerait) parce
+        // que son écran n'a pas pu se calculer ; elle revient alors sans écran.
+        const ecran = sansPanne(() => outil.ecran?.(args, resultat));
         // La trace d'une écriture réussie (B0c) : qui (la personne d'un jeton OAuth, ou une clé), quel outil, quel écran.
         // Jamais les arguments, qui peuvent porter des données de contact. Best-effort, comme `makeJournal` : un journal en
         // panne ne fait pas croire qu'une écriture qui a eu lieu n'a pas eu lieu.
@@ -195,7 +197,8 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
             },
           ));
         }
-        const blocEcran = ecran === undefined ? [] : [{ type: 'text', text: JSON.stringify({ ecran: adresseEcran(ecran) }) }];
+        const adresse = ecran === undefined ? undefined : sansPanne(() => adresseEcran(ecran));
+        const blocEcran = adresse === undefined ? [] : [{ type: 'text', text: JSON.stringify({ ecran: adresse }) }];
         return ok(id, { content: [{ type: 'text', text: JSON.stringify(resultat, null, 2) }, ...blocEcran, ...blocsRappels], isError: false });
       } catch (err) {
         // Un filtre de contacts refusé par le magasin (un critère de collection sans lecture aboutie, segments Shopify
@@ -210,6 +213,15 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
     }
     default:
       return ko(id, ERREUR.METHODE_INCONNUE, `méthode inconnue : ${methode || '(vide)'}`);
+  }
+}
+
+/** Une valeur calculée après une écriture faite, sans que sa panne ne transforme l'écriture en échec : `undefined`. */
+function sansPanne<T>(calcul: () => T): T | undefined {
+  try {
+    return calcul();
+  } catch {
+    return undefined;
   }
 }
 

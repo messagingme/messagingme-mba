@@ -11,6 +11,7 @@
 import { request } from '../http';
 import type { WorkflowNodeType } from '../partage/blocs';
 import type { Depart } from '../partage/fenetre-scenario';
+import type { VueMiseEnLigne } from '../partage/mise-en-ligne';
 
 // --- Flows (constructeur de formulaire RICHE : texte / image / champ) ---
 
@@ -281,7 +282,8 @@ export function deleteWorkflow(tenantId: string, id: string): Promise<unknown> {
  * MET EN LIGNE le brouillon. C'est le seul appel du front qui change quelque chose pour les contacts : tout
  * le reste de l'éditeur n'écrit que le brouillon.
  *
- * ⚠️ Sans retour arrière : la version précédente n'est conservée nulle part.
+ * Chaque publication garde sa version : on revient à une ancienne par une mise en ligne que Claude prépare (la console
+ * ne montre pas encore les versions).
  */
 export function publishWorkflow(tenantId: string, id: string): Promise<PublicationDuScenario> {
   return request(`/tenants/${tenantId}/workflows/${id}/publish`, { method: 'POST', body: JSON.stringify({}) });
@@ -366,4 +368,16 @@ export function renameTag(tenantId: string, from: string, to: string): Promise<{
 }
 export function deleteTag(tenantId: string, tag: string): Promise<{ removed: number }> {
   return request(`/tenants/${tenantId}/tags?tag=${encodeURIComponent(tag)}`, { method: 'DELETE' });
+}
+
+// --- Le oui de mise en ligne (lot 1 du CSM virtuel, B2) ---
+
+/** Une mise en ligne préparée par Claude, telle que la page la montre (réservée aux administrateurs). */
+export function lireMiseEnLigne(tenantId: string, id: string): Promise<VueMiseEnLigne> {
+  return request<VueMiseEnLigne>(`/tenants/${tenantId}/mises-en-ligne/${encodeURIComponent(id)}`);
+}
+
+/** Le clic : accepte la mise en ligne (ou reprend une mise en ligne interrompue), et rend où elle en est. */
+export function accepterMiseEnLigne(tenantId: string, id: string): Promise<VueMiseEnLigne> {
+  return request<VueMiseEnLigne>(`/tenants/${tenantId}/mises-en-ligne/${encodeURIComponent(id)}/accepter`, { method: 'POST', body: '{}' });
 }

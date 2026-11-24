@@ -319,6 +319,33 @@ describe('WorkflowExecutor', () => {
     expect(releases).toEqual(['33600']); // l'agent reprend la parole
   });
 
+  /**
+   * 🔴 UNE VERSION RESTAURÉE (lot 1 du CSM virtuel, B3 ; plan du lot 1, « Conversations en cours ») : le moteur ne change
+   * pas, et ce relevé le fige AVANT la restauration. Un parcours non figé relit la version publiée à sa reprise ; si le
+   * bloc où il attend n'y est plus, le contact n'est jamais bloqué : un clic monte à l'équipe, un texte clôt le parcours
+   * et suit le chemin habituel (l'agent de Meta, le répondeur, l'équipe). Les messages déjà partis restent partis.
+   */
+  it('🔴 un contact arrêté sur un bloc qu’une version restaurée n’a plus n’est pas bloqué', async () => {
+    const restauree: WorkflowGraph = { nodes: [n('autre', 'tag', { tag: 'autre' })], edges: [] };
+    for (const [reponse, attendu] of [['btn:0', 'equipe'], [null, 'remise']] as const) {
+      let publie = branched;
+      const releases: string[] = [];
+      const { ex, runs, calls, escalations } = make(branched, {
+        getGraph: async () => publie,
+        mbaActifPour: async () => true,
+        releaseToMba: async (_t, w) => { releases.push(w); },
+      });
+      await ex.demarrer('campagne_scenario', 't1', 'wf1', branched, { waId: '33600', contactId: 'c1' });
+      expect(runs.run).toMatchObject({ status: 'waiting', currentNode: 'tpl' });
+      publie = restauree;
+      await ex.advance('t1', '33600', 'm2', reponse);
+      expect(runs.run, String(reponse)).toMatchObject({ status: 'done', currentNode: null });
+      expect(calls.filter((c) => c.startsWith('tag:')), String(reponse)).toEqual([]);
+      expect(escalations, String(reponse)).toEqual(attendu === 'equipe' ? ['33600'] : []);
+      expect(releases, String(reponse)).toEqual(attendu === 'remise' ? ['33600'] : []);
+    }
+  });
+
   it('🔴 advance HORS boutons : un bouton TAPÉ qui ne mène nulle part remonte à un humain', async () => {
     // Ce n'est pas le contact qui sort du script : on lui a proposé un choix, il l'a fait, et il n'a rien reçu.
     // C'est un TROU DE MONTAGE du scénario. Vécu par Julien le 2026-08-25 : bouton tapé, parcours terminé

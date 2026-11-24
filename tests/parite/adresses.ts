@@ -431,12 +431,17 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /nodes': ecran('le catalogue des blocs de l’éditeur ; la recette décrit les siens'),
   'GET /workflows/:id': enPartie(['get_scenario'], 'les scénarios faits dans la console, que la recette ne relit pas encore (B5)'),
   'PATCH /workflows/:id': aFaire('B4', 'scénarios : écrire en brouillon, y compris sur un scénario fait dans la console'),
-  'POST /workflows/:id/publish': aFaire('B4', 'scénarios : publier, au clic'),
+  // La publication passe par le oui de mise en ligne (B2) : `propose_go_live` (action « publier »), puis le clic d'un admin.
+  'POST /workflows/:id/publish': outil('propose_go_live'),
   'POST /workflows/:id/blocs/:nodeId/modele': aFaire('B10', 'scénarios : créer le modèle d’un bloc'),
   'GET /workflows/:id/modeles': aFaire('B10', 'scénarios : l’état des modèles que nomme le brouillon'),
   'DELETE /workflows/:id/programmation': aFaire('B10', 'scénarios : annuler une programmation'),
   'DELETE /workflows/:id': enPartie(['delete_scenario'], 'les scénarios faits dans la console'),
   'POST /workflows/:id/test-link': aFaire('B4', 'scénarios : le lien de test du brouillon'),
+
+  // Le oui de mise en ligne (misesEnLigne, B2)
+  'GET /mises-en-ligne/:id': outil('get_go_live'),
+  'POST /mises-en-ligne/:id/accepter': humain('le clic d’un admin sur la page vaut accord (décision du 24 novembre) : le CSM ne peut pas se le donner, aucun outil ne clique'),
 
   // Les connecteurs MCP de l'agent IA (agentMcp)
   'GET /mcp': aFaire('B10', 'agent IA, connecteurs MCP : lister'),

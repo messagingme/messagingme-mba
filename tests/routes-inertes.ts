@@ -622,6 +622,26 @@ export const mcpEtiquettesInertes: Pick<DepsMcp, 'etiquettes'> = {
 /** Le journal d'audit du MCP (B0c) : muet, pour les montages qui ne l'observent pas. */
 export const mcpJournalMuet: Pick<DepsMcp, 'journal'> = { journal: journalMuet };
 
+/**
+ * Le oui de mise en ligne et les versions (CSM, B2 et B3), pour les montages qui n'en parlent pas : les LECTURES rendent
+ * le vide, les ÉCRITURES lèvent. Leurs outils ont leur propre fichier, `tests/mcp-mise-en-ligne.test.ts`.
+ */
+export const mcpMisesEnLigneInertes: Pick<DepsMcp, 'misesEnLigne'> = {
+  misesEnLigne: {
+    store: {
+      inserer: neDevraitPasEtreAppelee('misesEnLigne.inserer'), lire: async () => null, accepter: neDevraitPasEtreAppelee('misesEnLigne.accepter'),
+      reclamer: neDevraitPasEtreAppelee('misesEnLigne.reclamer'), noterResultat: neDevraitPasEtreAppelee('misesEnLigne.noterResultat'),
+      terminer: neDevraitPasEtreAppelee('misesEnLigne.terminer'), relacher: neDevraitPasEtreAppelee('misesEnLigne.relacher'),
+    },
+    scenarios: { getById: async () => null, list: async () => [], publish: neDevraitPasEtreAppelee('misesEnLigne.publish'), programmer: neDevraitPasEtreAppelee('misesEnLigne.programmer') },
+    versions: { lire: async () => null, lister: async () => [] },
+    publication: modelesDeBlocInertes.publication,
+    repondeur: repondeurInerte,
+    audit: journalMuet,
+    maintenant: () => 0,
+  },
+};
+
 export const mcpFilInerte: Pick<DepsMcp, 'fil'> = {
   fil: { reprendreLaMain: neDevraitPasEtreAppelee('fil.reprendreLaMain'), rendreLaMainSousConsentement: neDevraitPasEtreAppelee('fil.rendreLaMainSousConsentement') },
 };

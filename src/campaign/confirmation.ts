@@ -29,8 +29,11 @@ export interface EtatConfirme {
   status: string;
 }
 
-/** Un JSON à clés triées : la même valeur donne le même texte, quel que soit l'ordre de construction. */
-function canonique(v: unknown): string {
+/**
+ * Un JSON à clés triées : la même valeur donne le même texte, quel que soit l'ordre de construction. L'empreinte d'une
+ * mise en ligne (`src/mise-en-ligne/mise-en-ligne.ts`) passe aussi par elle.
+ */
+export function canonique(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(canonique).join(',')}]`;
   if (v !== null && typeof v === 'object') {
     return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonique((v as Record<string, unknown>)[k])}`).join(',')}}`;

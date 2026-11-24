@@ -34,6 +34,7 @@ import { OUTILS_AGENT, signataire, type DepsAgentMcp } from './outils-agent';
 import { estUuid } from '../http/scope';
 import { OUTILS_OFFRE, type DepsOffreMcp, type DepsOptionMcp } from './outils-offre';
 import { OUTILS_SCENARIOS, type DepsScenariosMcp } from './outils-scenarios';
+import { OUTILS_MISE_EN_LIGNE, type DepsMiseEnLigneMcp } from './outils-mise-en-ligne';
 import type { DepsCreationCle } from '../auth/creer-cle';
 import { OUTILS_EVENEMENTS, type DepsEvenementsMcp } from './outils-evenements';
 import { OUTILS_CHIFFRES, type DepsChiffresMcp } from './outils-chiffres';
@@ -79,7 +80,7 @@ export type { ScopeMcp } from '../../web/lib/partage/catalogue-mcp';
 /** Les actions d'agent IA rendues par `get_conversation` : les plus récentes, la conversation en porte peu. */
 export const ACTIONS_DE_LA_CONVERSATION = 10;
 
-export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp {
+export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp, DepsMiseEnLigneMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
   /**
@@ -1212,6 +1213,8 @@ export const OUTILS: OutilMcp[] = [
   // La clé de l'application et le paiement du Pro, depuis Claude (spec offres v2) : leur fichier, `src/mcp/outils-offre.ts`.
   ...OUTILS_OFFRE,
   ...OUTILS_SCENARIOS,
+  // Le oui de mise en ligne et les versions de scénario (lot 1 du CSM virtuel, B2 et B3) : `src/mcp/outils-mise-en-ligne.ts`.
+  ...OUTILS_MISE_EN_LIGNE,
 ];
 
 /**

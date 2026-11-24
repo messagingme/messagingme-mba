@@ -6014,10 +6014,12 @@ mais elle donne ce pouvoir à QUICONQUE la détient : elle peut changer ce que l
 depuis un assistant : elle reste un geste de la console.
 
 **Ce qu'il ne fait PAS, et c'est délibéré.**
-- **Aucune campagne.** Ouvrir l'envoi de masse à un modèle, c'est lui donner un mégaphone facturé sur un numéro
-  dont Meta note la qualité. Un assistant répond dans une conversation ouverte, et envoie un modèle approuvé à
-  UNE personne à la fois (`send_template_to_contact`, réservé à une personne connectée, compté dans les envois du
-  jour) ; il ne lance pas d'envoi de masse.
+- **Une campagne ne part qu'après votre oui.** Ouvrir l'envoi de masse à un modèle, c'est lui donner un mégaphone
+  facturé sur un numéro dont Meta note la qualité : Claude la prépare (`prepare_campaign`) et ne la lance
+  (`launch_campaign`) qu'avec le code de confirmation qu'il vous montre, valable 30 minutes pour la campagne telle
+  qu'elle a été montrée (voir « Claude prépare une campagne, et ne la lance qu'après votre oui »). Ces outils exigent une
+  personne connectée, jamais une clé d'API. Hors campagne, un assistant envoie un modèle approuvé à UNE personne à la
+  fois (`send_template_to_contact`, compté dans les envois du jour).
 - **Hors de la fenêtre de 24 h, seul un modèle approuvé part.** Un message libre est refusé, avec la raison.
 - **Les automations ne se déclenchent pas.** Un tag posé par un assistant classe le contact, il ne réveille
   pas les automations qui écoutent ce tag : un agent qui boucle sur 500 fils déclencherait 500 envois. Comme
@@ -6333,6 +6335,32 @@ chemin pour elle. Chacun devient un outil, qui appelle la fonction du bouton de 
 **Les garde-fous.** Tous exigent la connexion de Claude, sauf la main du fil. Corriger et supprimer un modèle comptent
 dans les opérations lourdes. Un refus de Meta (un modèle, un droit qui manque au compte) revient avec sa raison, jamais
 comme une panne.
+
+### Mettre en ligne d'un clic ce que Claude a préparé (2026-11-24)
+
+**À quoi ça sert.** Claude fait le travail (un scénario, ses réglages), et vous n'avez qu'un geste à faire pour le mettre
+en ligne : un clic, sur une page qui dit exactement ce qui va se passer. Rien de ce qui touche vos clients ne part avant.
+
+**Comment ça marche.**
+- Claude prépare la mise en ligne (`propose_go_live`) : publier un scénario tel que son brouillon est dans la console,
+  revenir à une version précédente, et faire répondre un scénario à qui vous écrit sur WhatsApp (le répondeur). Il vous
+  donne un lien.
+- Le lien ouvre une page de la console, réservée aux administrateurs : elle montre ce qui va changer, en phrases écrites
+  par Messaging Me (jamais par Claude), et un seul bouton qui nomme l'effet, « Activer sur WhatsApp » quand le scénario
+  va répondre à vos clients.
+- Votre clic vaut accord, sans autre confirmation. Le bouton sert une fois et expire au bout de 24 heures. Si le brouillon
+  ou le répondeur a changé depuis que Claude l'a préparé, le clic est refusé : Claude vous remontre la mise en ligne.
+  C'est le brouillon montré qui part, même si quelqu'un l'a retouché juste après votre clic.
+- Ensuite la page dit ce qui a été fait, action par action. Une panne peut l'interrompre : « Reprendre » repart après la
+  dernière action faite, sans rien refaire. Claude lit le même état (`get_go_live`).
+- Aucun outil de Claude ne peut cliquer à votre place : seul un administrateur connecté à la console le peut.
+
+**Les versions d'un scénario.** Chaque publication d'un scénario est gardée comme version, celles faites dans la console
+comprises ; déplacer un bloc n'en est pas une. Claude les liste (`list_scenario_versions`) et peut revenir à l'une
+d'elles, toujours par ce clic. La console ne montre pas encore les versions.
+
+**Ce qui n'est pas encore là.** Claude ne prépare pas encore lui-même le brouillon d'un scénario : il publie un brouillon
+fait dans la console, ou en restaure une version. Les campagnes gardent leur code de confirmation.
 
 ## Plafonds d'usage (visible seulement si on force)
 

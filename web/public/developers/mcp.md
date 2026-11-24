@@ -214,6 +214,9 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | update_scenario | mcp:write connexion OAuth requise | Remplacer un scénario créé par l’API ou par Claude, publié aussitôt, si personne ne l’a changé entre-temps. |
 | delete_scenario | mcp:write connexion OAuth requise | Supprimer un scénario créé par l’API ou par Claude, si plus rien ne l’utilise. |
 | send_scenario_to_contact | mcp:write connexion OAuth requise | Faire partir un scénario publié vers une personne, même hors de la fenêtre de 24 h, par son template d’ouverture, avec les règles des envois (STOP, modèles du mois) ; l’accord de la personne est déclaré par le client. |
+| list_scenario_versions | mcp:read | Les versions publiées d’un scénario, la plus récente d’abord, et celle qui est en ligne. |
+| propose_go_live | mcp:write connexion OAuth requise | Préparer une mise en ligne (publier un brouillon, restaurer une version, brancher le répondeur) : rend le lien de la page où un administrateur l’accepte d’un clic ; rien n’est fait avant ce clic. |
+| get_go_live | mcp:read | Où en est une mise en ligne : en attente du clic, faite ou arrêtée, et le résultat de chaque action. |
 
 ### Bulle WhatsApp
 

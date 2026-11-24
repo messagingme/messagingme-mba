@@ -40,6 +40,14 @@ export const CATALOGUE_MCP = {
   update_scenario: { scope: 'mcp:write', exigePersonne: true },
   delete_scenario: { scope: 'mcp:write', exigePersonne: true },
   send_scenario_to_contact: { scope: 'mcp:write', exigePersonne: true },
+  /** Les versions publiées d'un scénario (lot 1 du CSM virtuel, B3) : une lecture. */
+  list_scenario_versions: { scope: 'mcp:read' },
+  /**
+   * Le oui de mise en ligne (lot 1 du CSM virtuel, B2) : la proposition, au nom d'une personne, et sa lecture. Aucun
+   * outil ne clique : le clic passe par la page de la console, sous la session d'un admin.
+   */
+  propose_go_live: { scope: 'mcp:write', exigePersonne: true },
+  get_go_live: { scope: 'mcp:read' },
   create_widget: { scope: 'mcp:write' },
   update_widget: { scope: 'mcp:write' },
   get_plan: { scope: 'mcp:read' },

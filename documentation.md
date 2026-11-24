@@ -5055,6 +5055,35 @@ l'activer, et d'ouvrir une recharge du crédit.
   la recette d'un scénario. Chaque outil de modification dit sa famille dans sa description : partiel (« only the fields
   provided change », `null` vide un champ facultatif là où le schéma l'annonce) ou remplacement (`update_template`,
   `update_scenario`) ; `tests/mcp-modification.test.ts` oblige un outil de modification ajouté à choisir.
+  Un écran qui ne se calcule pas (une panne de `ecran` ou de `adresseEcran`) ne fait jamais d'une écriture faite un
+  échec : elle revient sans écran (`sansPanne`, `src/mcp/serveur.ts`), sinon l'agent la rejouerait.
+- 🔴 **LE OUI DE MISE EN LIGNE** (lot 1 du CSM virtuel, B2 ; `src/mise-en-ligne/`, table `mises_en_ligne`, migration
+  0316 ; décisions de Julien du 24 novembre). `propose_go_live` (au nom d'une personne) relit l'état de chaque action sans
+  rien écrire et garde une mise en ligne : les actions dans l'ordre qui tient (les publications, puis le répondeur), ce qui
+  a été montré (le graphe d'un brouillon ou d'une version), l'empreinte de l'état relu, et un libellé et un récapitulatif
+  ÉCRITS PAR LE SERVEUR (le CSM ne choisit pas les mots du bouton qui vaut accord). Trois actions : `publier` (le
+  brouillon tel que montré), `restaurer` (republier une version), `repondeur` (le scénario répond, comme
+  `set_default_responder` en mode scénario). Les invariants :
+  - 🔴 **Le clic passe par une seule porte** : `POST /tenants/:tenantId/mises-en-ligne/:id/accepter`, sous la garde
+    `admin` de la console. Aucun jeton OAuth ni clé d'API n'ouvre une route de la console (`verifySession`), une session
+    d'observation y est en lecture seule, et aucun outil n'importe `accepter` (`tests/mcp-mise-en-ligne.test.ts`).
+  - **Il vaut pour ce qui a été montré** : le clic relit l'état et recalcule l'empreinte (les graphes sans leurs
+    positions : un bloc déplacé ne change rien), puis accepte en UNE requête conditionnelle (proposée, pas échue, même
+    empreinte). C'est le graphe GARDÉ qui part, par `publierScenario` (`src/workflow/publier.ts`), le service que
+    « Publier » de la console appelle aussi : mêmes contrôles, même jugement des templates de bloc, même ménage, même
+    journal ; un brouillon retouché après le clic reste un brouillon.
+  - **Une fois, 24 heures** : non cliquée, elle expire (la lecture le dit, rien ne s'écrit) ; un second clic rend le
+    résultat sans rien refaire.
+  - **L'exécution court dans la requête du clic, sous un bail** (`execution_jeton`, `execution_bail`, 120 s renouvelées
+    à chaque action) : deux exécutions ne courent jamais ensemble, chaque résultat s'écrit sous le jeton, une action
+    refusée arrête la suite (`echouee`). Une panne rend le bail et laisse la mise en ligne acceptée : la page dit
+    « interrompue », un clic la reprend après le dernier résultat écrit (chaque action est rejouable sans double effet).
+    ⚠️ Rien ne la reprend sans un clic : le worker ne connaît pas les mises en ligne.
+  - 🔴 **Les accès se relisent à la prise du bail**, dans la même requête : l'admin qui a cliqué l'est encore, la personne
+    qui a préparé aussi, et son autorisation OAuth n'est pas révoquée. Sinon : `echouee`, code `acces_revoque`.
+  - **Le journal** : `mise_en_ligne.acceptee` (qui a cliqué), `mise_en_ligne.faite` ou `.echouee`, et chaque action garde
+    sa propre trace (`workflow.published`, l'historique du répondeur), au nom de l'admin qui a cliqué.
+  La page (`web/app/mise-en-ligne/page.tsx`) et le serveur partagent le contrat de la vue (`web/lib/partage/mise-en-ligne.ts`).
 - 🔴 **Le plafond des opérations coûteuses est celui de la console** : `buildServer` construit UN `PlafondPartage`
   (`Gardes.plafondCouteux`), dont dérive `limiteCouteuse`, et le pose dans les dépendances du MCP au montage
   (`DepsMcp.couteux` ; le câblage fournit `CablageMcp`, sans lui). Même instance, même clé (l'espace) : les outils

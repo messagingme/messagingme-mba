@@ -148,6 +148,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   // Les scénarios
   'POST /workflows': A_LA_MAIN,
   'DELETE /workflows/:id': SANS_CORPS,
+  // Publier : rien dans le corps ; le brouillon publié est celui que montre la mise en ligne (`propose_go_live`).
+  'POST /workflows/:id/publish': SANS_CORPS,
 };
 
 /**
