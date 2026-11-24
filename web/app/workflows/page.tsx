@@ -286,6 +286,7 @@ function WorkflowsInner({ session }: { session: Session }) {
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') void create(); }}
+          data-testid="workflow-nouveau-nom"
           placeholder={t('Nom du scénario…', 'Scenario name…')}
           className="flex-1 rounded-controle border border-ink-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
         />

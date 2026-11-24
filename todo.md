@@ -1,5 +1,14 @@
 # todo.md : backlog
 
+## 🟡 CSM virtuel, lot 1 : trois défauts relevés en passant (2026-11-24, non corrigés)
+
+Ils partent avec le premier lot de fonctionnalité du lot 1 (plan `2026-11-24-csm-lot1-b1-parite`), pas en lot à part.
+- `web/app/securite/ia/page.tsx` (vers la ligne 194) : le lien vers un agent est `/agents?a=` au lieu de `?id=`.
+- `web/components/AgentConnaissance.tsx` : le sélecteur d'import de la connaissance propose `.doc`, que le serveur ne
+  lit pas (seul `.docx` l'est).
+- `features.md` (§ des outils de l'assistant) dit encore « Aucune campagne », périmé depuis `prepare_campaign` et
+  `launch_campaign`.
+
 ## Les guides de la vitrine : ce qui reste hors dépôt (plan `2026-11-24-guides-vitrine`)
 
 Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a`) : Ressources › Guides, le hub
@@ -9,10 +18,10 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - 🟡 Un lien vers `/api-whatsapp-business/` depuis la page Développeurs (gabarit de ~130 pages générées, jumelle anglaise
   écrite à la main) et depuis le bloc « API et serveur MCP » de l'accueil, que la note proposait.
 
-## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 à 3
+## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 à 4
 
-- Lot 4 (parcours Shopify, campagne, scénario), lot 5 (le film de bienvenue) ; puis l'essai réel qui clôt la feature :
-  un compte neuf sur la SANDBOX suit la checklist et le parcours agent IA dans la console de production.
+- Lot 5 (le film de bienvenue) ; puis l'essai réel qui clôt la feature : un compte neuf sur la SANDBOX suit la
+  checklist et les parcours (agent IA d'abord) dans la console de production.
 - 🟡 La carte « Bien démarrer » de l'Accueil ne se relit qu'au montage et au retour sur l'onglet : une étape faite sans
   quitter la page ne se coche qu'au rechargement.
 - 🟡 Sans numéro, l'Accueil montre deux invitations qui se recouvrent : la carte « Bien démarrer » (prochaine étape :
@@ -20,7 +29,16 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - 🟡 La carte qui accompagne et le panneau d'aide sont tous deux `fixed right-5 z-40` : ouvert pendant un parcours, le
   panneau est recouvert sur l'Inbox (`top-16`) et recouvre la carte ailleurs sur un écran bas. Replier la carte à
   l'ouverture de l'aide, ou la décaler.
-- 🟡 La carte couvre le haut à droite de l'écran (sur la fiche d'un agent, le bouton « Supprimer ») ; elle se replie.
+- 🟡 La carte ne descend que pour sa cible et son voisin immédiat (160 px) : elle peut encore couvrir un autre bouton
+  du haut à droite (« Supprimer » sur la fiche d'un agent) ; elle se replie.
+- 🟡 Parcours campagne : une campagne reprise d'un brouillon, ou ouverte sur `?etape=`, laisse la carte sur une étape
+  passée (chaque passage attend la section SUIVANTE, l'avance en chaîne est impossible) jusqu'à « Suivant ».
+- 🟡 Parcours Shopify sur une boutique déjà branchée : le formulaire vit dans « Rebrancher », replié ; la carte parle
+  d'un formulaire caché, sans cadre.
+- 🟡 Une cible plus haute que l'écran (le canevas d'un scénario, le mode opératoire Shopify) : la carte en bas en
+  couvre un coin (les contrôles du canevas) ; mieux vaut ne pas cadrer une telle cible.
+- 🟡 « Publiez » : `workflow-publier` n'existe que s'il y a quelque chose à publier ; sans lui, la carte parle d'un
+  bouton encadré absent.
 - 🟡 La relecture de la carte (400 ms) tourne aussi onglet masqué ; « Y aller » paraît une fraction de seconde au
   premier rendu, avant la première relecture.
 

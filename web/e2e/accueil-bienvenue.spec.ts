@@ -52,8 +52,9 @@ test.describe(`L’accueil d’un nouveau membre (${AG})`, () => {
     await expect(page.getByTestId('accueil-etape-outil')).toHaveAttribute('data-faite', 'non');
     await expect(page.getByTestId('accueil-progression')).toHaveText(/1 étape sur 5|1 of 5/);
     await expect(page.getByTestId('accueil-geste-numero')).toHaveCount(0);
+    // Le parcours de la campagne commence par les contacts (plan 2026-11-24-guide-demarrage, lot 4).
     await page.getByTestId('accueil-geste-campagne').click();
-    await expect(page).toHaveURL(/\/campaigns\/nouvelle/);
+    await expect(page).toHaveURL(/\/contacts/);
     expect(marques).toHaveLength(1);
   });
 

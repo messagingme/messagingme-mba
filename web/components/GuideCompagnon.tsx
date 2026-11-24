@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Bouton } from '@/components/Bouton';
@@ -49,6 +49,13 @@ export function GuideCompagnon() {
   const [adresse, setAdresse] = useState('');
   const [etat, setEtat] = useState<EtatGuide | null>(null);
   const [boite, setBoite] = useState<DOMRect | null>(null);
+  /**
+   * 🔴 LA CARTE NE COUVRE JAMAIS SA CIBLE (vu par l'e2e du lot 4 : elle masquait « Créer un scénario », le bouton même
+   * qu'elle demandait de toucher). Sa place est en haut à droite ; quand la cible tombe dessous, elle descend en bas à
+   * droite, au-dessus du bouton d'aide.
+   */
+  const carte = useRef<HTMLElement>(null);
+  const [enBas, setEnBas] = useState(false);
 
   const poser = useCallback((e: EtatGuide | null) => { ecrire(e); setEtat(e); }, []);
 
@@ -76,6 +83,11 @@ export function GuideCompagnon() {
       const el = etape && surLaPage(etape, lue) && !etat.replie ? affiche(etape.cible) : null;
       const r = el ? el.getBoundingClientRect() : null;
       setBoite((b) => (r === null ? null : b && b.top === r.top && b.left === r.left && b.width === r.width && b.height === r.height ? b : r));
+      const largeur = carte.current?.offsetWidth ?? 336;
+      const hauteur = carte.current?.offsetHeight ?? 320;
+      // La place du haut : `right-5` (20 px), `top-20` (80 px). La cible est élargie de 160 px à droite : son voisin
+      // (le bouton à côté d'un champ, relecture du lot 4) ne doit pas finir sous la carte non plus.
+      setEnBas(r !== null && r.right + 160 > window.innerWidth - 20 - largeur && r.top < 80 + hauteur && r.bottom > 80);
     };
     tic();
     const minuteur = window.setInterval(tic, 400);
@@ -119,8 +131,8 @@ export function GuideCompagnon() {
           className="pointer-events-none fixed z-[45] animate-pulse rounded-controle ring-2 ring-brand-500 ring-offset-2"
           style={{ top: boite.top, left: boite.left, width: boite.width, height: boite.height }} />
       )}
-      <aside aria-live="polite" aria-label={t('Guide', 'Guide')} data-testid="guide-carte"
-        className="fixed right-5 top-20 z-40 w-[min(21rem,calc(100vw-2.5rem))] overflow-hidden rounded-carte border border-ink-200 bg-white shadow-mm-lg">
+      <aside ref={carte} aria-live="polite" aria-label={t('Guide', 'Guide')} data-testid="guide-carte" data-place={enBas ? 'bas' : 'haut'}
+        className={`fixed right-5 ${enBas ? 'bottom-20' : 'top-20'} z-40 w-[min(21rem,calc(100vw-2.5rem))] overflow-hidden rounded-carte border border-ink-200 bg-white shadow-mm-lg`}>
         <div className="flex items-center gap-3 bg-navy-800 px-4 py-3 text-white">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-500"><Icone nom="localiser" taille="petite" /></span>
           <div className="min-w-0 flex-1">

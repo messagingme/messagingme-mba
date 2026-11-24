@@ -5,6 +5,19 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : guide de démarrage, lot 4 : les parcours Shopify, campagne et scénario
+
+Trois parcours de plus pour la carte qui accompagne, lancés depuis « Bien démarrer » : Shopify (ouvrir le volet, créer
+l'appli chez Shopify, coller les clés, brancher), campagne (les contacts, puis le nom, le canal, le message, les
+destinataires et le lancement dans l'assistant ; arriver dans l'assistant vaut « contacts faits ») et scénario (le
+créer, le construire, le publier). « Un autre outil » mène aux Intégrations, sans carte. Deux repères ajoutés pour les
+cibles (`workflow-nouveau-nom`, `workflow-canevas`), le reste existait.
+🔴 L'e2e a trouvé un vrai défaut, pas une erreur de test : la carte, en haut à droite, couvrait « Créer un scénario »,
+le bouton même qu'elle demandait de toucher (le clic était intercepté). Elle descend désormais en bas à droite quand sa
+cible, ou son voisin immédiat, tombe sous sa place (`data-place`, tenu par l'e2e). Relecture sans rouge ; trois jaunes
+pris avant le push (l'étape des contacts sautée quand on arrive dans l'assistant, la fin de la campagne n'affirme plus
+qu'elle est partie, le voisin de la cible), les autres au backlog.
+
 ## 2026-11-24 : segments Shopify, lot 6a : « a acheté dans la collection »
 
 Le lot 6 de la feuille de route se livre en sous-lots, chacun relu et déployé (décision de Julien, en question fermée) :

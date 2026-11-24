@@ -977,7 +977,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
       <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row">
         {/* `data-canevas-edition` : c'est ce qui donne aux points de liaison leur zone de prise (globals.css).
             Mesuré le 2026-08-28 : sans elle, la tolérance de visée est de ±2 px sur un point de 5,7 px. */}
-        <div data-canevas-edition className="h-[70vh] overflow-hidden rounded-carte border border-ink-200 bg-ink-50 lg:h-auto lg:min-h-0 lg:flex-1">
+        <div data-canevas-edition data-testid="workflow-canevas" className="h-[70vh] overflow-hidden rounded-carte border border-ink-200 bg-ink-50 lg:h-auto lg:min-h-0 lg:flex-1">
           <TemplatesCtx.Provider value={tousLesTemplates}>
           <ModelesDeBlocCtx.Provider value={etatParModele}>
           <TestDepuisBlocCtx.Provider value={rappelTest}>

@@ -9,7 +9,7 @@
  * sans cadre : elle ne se ferme pas pour autant.
  */
 
-export type CleParcours = 'agent';
+export type CleParcours = 'agent' | 'shopify' | 'campagne' | 'scenario';
 
 /**
  * Quand l'étape est faite. `page` : l'adresse (chemin et requête) répond au motif ; `present` : un élément est apparu ;
@@ -34,6 +34,10 @@ export interface EtapeGuide {
 export interface Parcours { cle: CleParcours; nom: { fr: string; en: string }; etapes: readonly EtapeGuide[]; fin: { fr: string; en: string } }
 
 const FICHE_AGENT = /^\/agents\?(.*&)?id=/;
+const INTEGRATIONS = /^\/integrations(\?.*)?$/;
+const CAMPAGNE = /^\/campaigns\/nouvelle(\?.*)?$/;
+const SCENARIOS = /^\/workflows(\?.*)?$/;
+const CONTACTS = /^\/contacts(\?.*)?$/;
 
 export const PARCOURS: Readonly<Record<CleParcours, Parcours>> = {
   agent: {
@@ -82,6 +86,167 @@ export const PARCOURS: Readonly<Record<CleParcours, Parcours>> = {
         texte: {
           fr: 'L’assistant propose ce que votre agent dira. Gardez ce qui vous va, puis le bouton encadré, « … et activer ».',
           en: 'The assistant proposes what your agent will say. Keep what suits you, then the framed button, “… and activate”.',
+        },
+        passage: { type: 'clic' },
+      },
+    ],
+  },
+  shopify: {
+    cle: 'shopify',
+    nom: { fr: 'Votre boutique Shopify', en: 'Your Shopify store' },
+    fin: {
+      fr: 'Vérifiez que la boutique apparaît branchée dans le volet Shopify. Les messages de commande se règlent ensuite dans Scénario, Shopify.',
+      en: 'Check that the store shows as connected in the Shopify panel. Order messages are then set in Scenario, Shopify.',
+    },
+    etapes: [
+      {
+        page: { motif: INTEGRATIONS, href: '/integrations' },
+        cible: 'volet-shopify',
+        titre: { fr: 'Ouvrez le volet Shopify', en: 'Open the Shopify panel' },
+        texte: {
+          fr: 'Cliquez sur Shopify : le volet s’ouvre sur la marche à suivre et le formulaire de branchement.',
+          en: 'Click Shopify: the panel opens on the steps to follow and the connection form.',
+        },
+        passage: { type: 'present', testid: 'shopify-mode-operatoire' },
+      },
+      {
+        page: { motif: INTEGRATIONS, href: '/integrations' },
+        cible: 'shopify-mode-operatoire',
+        titre: { fr: 'Créez l’appli chez Shopify', en: 'Create the app at Shopify' },
+        texte: {
+          fr: 'Suivez ces étapes dans un autre onglet, chez Shopify : elles vous donnent l’identifiant et le secret de l’appli. Revenez ici ensuite.',
+          en: 'Follow these steps in another tab, at Shopify: they give you the app’s ID and secret. Then come back here.',
+        },
+        passage: { type: 'manuel' },
+      },
+      {
+        page: { motif: INTEGRATIONS, href: '/integrations' },
+        cible: 'shopify-boutique',
+        titre: { fr: 'Collez ce que Shopify vous a donné', en: 'Paste what Shopify gave you' },
+        texte: {
+          fr: 'L’adresse de la boutique, l’identifiant et le secret de l’appli, puis cochez l’attestation.',
+          en: 'The store address, the app’s ID and secret, then tick the attestation.',
+        },
+        passage: { type: 'manuel' },
+      },
+      {
+        page: { motif: INTEGRATIONS, href: '/integrations' },
+        cible: 'shopify-brancher-valider',
+        titre: { fr: 'Branchez la boutique', en: 'Connect the store' },
+        texte: {
+          fr: 'Un clic sur le bouton encadré : la console vérifie les clés et s’abonne aux commandes de la boutique.',
+          en: 'One click on the framed button: the console checks the keys and subscribes to the store’s orders.',
+        },
+        passage: { type: 'clic' },
+      },
+    ],
+  },
+  campagne: {
+    cle: 'campagne',
+    nom: { fr: 'Votre première campagne', en: 'Your first campaign' },
+    fin: {
+      fr: 'Vérifiez dans Campagnes qu’elle est partie ou programmée : son suivi y montre les envois, les lectures et les réponses.',
+      en: 'Check in Campaigns that it has been sent or scheduled: its tracking shows sends, reads and replies.',
+    },
+    etapes: [
+      {
+        page: { motif: CONTACTS, href: '/contacts' },
+        cible: 'contacts-ajouter-menu',
+        titre: { fr: 'Ajoutez vos contacts', en: 'Add your contacts' },
+        texte: {
+          fr: '« Rajouter des contacts », puis « Importer un CSV » (ou un contact à la main). Déjà des contacts ? Passez à la suite.',
+          en: '“Add contacts”, then “Import a CSV” (or one contact by hand). Already have contacts? Move on.',
+        },
+        // Arriver dans l'assistant vaut « contacts faits » (relecture du lot 4) : sinon la carte renverrait aux contacts.
+        passage: { type: 'page', motif: CAMPAGNE },
+      },
+      {
+        page: { motif: CAMPAGNE, href: '/campaigns/nouvelle' },
+        cible: 'etape-nom',
+        titre: { fr: 'Nommez votre campagne', en: 'Name your campaign' },
+        texte: {
+          fr: 'Un nom pour la retrouver dans le suivi, puis « Suivant ». Vos contacts ne le voient pas.',
+          en: 'A name to find it later in tracking, then “Next”. Your contacts do not see it.',
+        },
+        passage: { type: 'present', testid: 'etape-canal' },
+      },
+      {
+        page: { motif: CAMPAGNE, href: '/campaigns/nouvelle' },
+        cible: 'etape-canal',
+        titre: { fr: 'Choisissez le canal', en: 'Choose the channel' },
+        texte: {
+          fr: 'WhatsApp pour commencer, puis « Suivant ».',
+          en: 'WhatsApp to start with, then “Next”.',
+        },
+        passage: { type: 'present', testid: 'etape-contenu' },
+      },
+      {
+        page: { motif: CAMPAGNE, href: '/campaigns/nouvelle' },
+        cible: 'etape-contenu',
+        titre: { fr: 'Choisissez le message', en: 'Choose the message' },
+        texte: {
+          fr: 'Un premier message à une liste passe par un modèle approuvé par Meta : choisissez-en un, ou créez-le ici. L’approbation prend souvent quelques minutes.',
+          en: 'A first message to a list goes through a template approved by Meta: pick one, or create it here. Approval often takes a few minutes.',
+        },
+        passage: { type: 'present', testid: 'etape-audience' },
+      },
+      {
+        page: { motif: CAMPAGNE, href: '/campaigns/nouvelle' },
+        cible: 'etape-audience',
+        titre: { fr: 'Choisissez les destinataires', en: 'Choose the recipients' },
+        texte: {
+          fr: 'Tous vos contacts, ou une partie (une étiquette, un filtre), puis « Suivant ».',
+          en: 'All your contacts, or some of them (a tag, a filter), then “Next”.',
+        },
+        passage: { type: 'present', testid: 'etape-recap' },
+      },
+      {
+        page: { motif: CAMPAGNE, href: '/campaigns/nouvelle' },
+        cible: 'bouton-lancer',
+        titre: { fr: 'Relisez, puis lancez', en: 'Review, then launch' },
+        texte: {
+          fr: 'Le récapitulatif dit qui reçoit quoi et ce que ça coûte. Le bouton encadré envoie pour de vrai.',
+          en: 'The summary says who gets what and what it costs. The framed button really sends.',
+        },
+        passage: { type: 'clic' },
+      },
+    ],
+  },
+  scenario: {
+    cle: 'scenario',
+    nom: { fr: 'Votre premier scénario', en: 'Your first scenario' },
+    fin: {
+      fr: 'Vérifiez que le scénario est marqué publié. Il démarre ensuite selon son premier bloc.',
+      en: 'Check that the scenario is marked as published. It then starts according to its first block.',
+    },
+    etapes: [
+      {
+        page: { motif: SCENARIOS, href: '/workflows' },
+        cible: 'workflow-nouveau-nom',
+        titre: { fr: 'Créez votre scénario', en: 'Create your scenario' },
+        texte: {
+          fr: 'Donnez-lui un nom, puis « Créer un scénario ». Vos contacts ne le voient pas.',
+          en: 'Give it a name, then “Create a scenario”. Your contacts do not see it.',
+        },
+        passage: { type: 'present', testid: 'workflow-canevas' },
+      },
+      {
+        page: { motif: SCENARIOS, href: '/workflows' },
+        cible: 'workflow-canevas',
+        titre: { fr: 'Construisez-le bloc par bloc', en: 'Build it block by block' },
+        texte: {
+          fr: 'Le premier bloc dit ce qui démarre le scénario : cliquez dessus pour le régler. Tirez ensuite une flèche depuis un bloc pour ajouter le suivant (un message, une question, une attente).',
+          en: 'The first block says what starts the scenario: click it to set it. Then drag an arrow from a block to add the next one (a message, a question, a wait).',
+        },
+        passage: { type: 'manuel' },
+      },
+      {
+        page: { motif: SCENARIOS, href: '/workflows' },
+        cible: 'workflow-publier',
+        titre: { fr: 'Publiez', en: 'Publish' },
+        texte: {
+          fr: 'Tant qu’il n’est pas publié, le scénario ne démarre pour personne. Le bouton encadré le met en service.',
+          en: 'Until it is published, the scenario starts for no one. The framed button puts it into service.',
         },
         passage: { type: 'clic' },
       },

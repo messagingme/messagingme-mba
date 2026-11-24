@@ -372,7 +372,10 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   qui accompagne de page en page, en haut à droite : elle dit l'étape (« Créez votre agent », « Restez dans Construire
   en parlant », « Décrivez votre activité », « Relisez, puis activez »), encadre l'élément à toucher, passe seule à la
   suivante quand le geste est fait, propose « Y aller » si l'on s'éloigne de l'écran, se replie en pastille et se
-  quitte. Elle tient tant que l'onglet reste ouvert, rechargement compris. Les comptes qui existaient le 2026-11-19 ne voient pas la fenêtre
+  quitte. Elle tient tant que l'onglet reste ouvert, rechargement compris. Les autres étapes ont la leur (2026-11-24) :
+  **Shopify** (ouvrir le volet, créer l'appli chez Shopify, coller ses clés, brancher), **une campagne** (ajouter ses
+  contacts, puis le nom, le canal, le message, les destinataires et le lancement dans l'assistant) et **un scénario**
+  (le créer, le construire bloc par bloc, le publier). « Un autre outil » mène aux Intégrations, sans carte. Les comptes qui existaient le 2026-11-19 ne voient pas la fenêtre
   d'eux-mêmes, sauf une invitation encore en attente ce jour-là. **La visite** pointe tour à tour les zones présentes à
   l'écran (l'Accueil, l'Inbox, le mini-CRM, les Campagnes, AI Agent, Tools et l'aide pour un administrateur sur
   ordinateur ; moins sur l'Inbox ou sur un téléphone) ; elle se relance à tout moment par « Faire le tour », en haut du

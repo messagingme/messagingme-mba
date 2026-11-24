@@ -13,12 +13,13 @@ function sources(dir: string): string[] {
 }
 const CODE = [...sources(join(WEB, 'app')), ...sources(join(WEB, 'components'))].join('\n');
 
-/** La cible est posée telle quelle, ou par un gabarit `prefixe-${...}` dont la suite est une clé écrite en clair. */
+/** La cible est posée telle quelle, ou par un gabarit `prefixe-${...}` dont la suite est une clé écrite en clair (`'x'` ou `"x"`). */
 function cibleExiste(testid: string): boolean {
   if (CODE.includes(`data-testid="${testid}"`)) return true;
   for (const m of CODE.matchAll(/data-testid=\{`([a-z-]+)\$\{/g)) {
     const prefixe = m[1]!;
-    if (testid.startsWith(prefixe) && CODE.includes(`'${testid.slice(prefixe.length)}'`)) return true;
+    const suite = testid.slice(prefixe.length);
+    if (testid.startsWith(prefixe) && (CODE.includes(`'${suite}'`) || CODE.includes(`"${suite}"`))) return true;
   }
   return false;
 }
@@ -67,6 +68,12 @@ describe('les parcours guidés (plan 2026-11-24-guide-demarrage, lot 3)', () => 
     const present = (id: string) => id === 'setup-garder-activer';
     expect(avancer(etat(2), '/agents?id=a1', present).etape).toBe(3);
     expect(passageAtteint(PARCOURS.agent.etapes[3]!, '/agents?id=a1', present)).toBe(false);
+  });
+
+  it('la campagne : arriver dans l’assistant fait passer l’étape des contacts', () => {
+    const e: EtatGuide = { parcours: 'campagne', etape: 0, replie: false, fini: false };
+    expect(avancer(e, '/contacts', rien).etape).toBe(0);
+    expect(avancer(e, '/campaigns/nouvelle', rien).etape).toBe(1);
   });
 
   it('un état stocké illisible ou d’un parcours inconnu ne lance rien ; une étape hors bornes est ramenée', () => {

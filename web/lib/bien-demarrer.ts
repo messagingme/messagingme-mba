@@ -36,15 +36,18 @@ export const ETAPES: readonly Etape[] = [
     cle: 'outil', minutes: 3,
     titre: { fr: 'Brancher votre boutique ou votre CRM', en: 'Connect your store or your CRM' },
     detail: { fr: 'Shopify, HubSpot ou votre propre outil.', en: 'Shopify, HubSpot or your own tool.' },
-    gestes: [{ cle: 'outil', href: '/integrations', fr: 'Brancher', en: 'Connect' }],
+    gestes: [
+      { cle: 'shopify', href: '/integrations', fr: 'Shopify', en: 'Shopify', parcours: 'shopify' },
+      { cle: 'outil', href: '/integrations', fr: 'Un autre outil', en: 'Another tool' },
+    ],
   },
   {
     cle: 'scenarioOuCampagne', minutes: 5,
     titre: { fr: 'Premier scénario ou première campagne', en: 'First scenario or first campaign' },
     detail: { fr: 'Un message automatique, ou un envoi à vos contacts importés.', en: 'An automatic message, or a send to your imported contacts.' },
     gestes: [
-      { cle: 'scenario', href: '/workflows', fr: 'Un scénario', en: 'A scenario', fonction: 'scenarios' },
-      { cle: 'campagne', href: '/campaigns/nouvelle', fr: 'Une campagne', en: 'A campaign' },
+      { cle: 'scenario', href: '/workflows', fr: 'Un scénario', en: 'A scenario', fonction: 'scenarios', parcours: 'scenario' },
+      { cle: 'campagne', href: '/contacts', fr: 'Une campagne', en: 'A campaign', parcours: 'campagne' },
     ],
   },
   {

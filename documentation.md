@@ -4489,6 +4489,8 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
 - **Les parcours guidés** (`web/lib/guide/parcours.ts`, carte `GuideCompagnon`, montée par la coquille pour un
   administrateur) : une étape = un écran (motif sur chemin et requête), une cible (`data-testid`), un texte, et ce qui la
   fait passer (`page`, `present`, `clic` écouté en capture, `manuel`). L'état vit dans `sessionStorage` (`mba.guide`).
+  Quatre parcours : `agent`, `shopify`, `campagne` (il commence sur `/contacts`), `scenario` ; un geste de la checklist
+  les lance par son champ `parcours`.
   🔴 Une cible est un `data-testid` de la console : renommer l'un de ceux que cite un parcours casse
   `web/lib/guide/parcours.test.ts`, qui refuse une cible introuvable dans `web/app` et `web/components`.
 - **Le widget personnalisable** (`widget_personnalise`, Business et Entreprise) : hors offre, une apparence nouvelle
