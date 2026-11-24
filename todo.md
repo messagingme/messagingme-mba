@@ -1,15 +1,15 @@
 # todo.md : backlog
 
-## Les guides de la vitrine, lots 2 et 3 (plan `2026-11-24-guides-vitrine`)
+## Les guides de la vitrine, lot 3 (plan `2026-11-24-guides-vitrine`)
 
-Lot 1 en ligne le 2026-11-24 (`9724f73e3`) : Ressources › Guides, le hub `/guides/`, le comparatif RCS, SMS ou WhatsApp.
-- **Lot 2** : l'opt-in WhatsApp et la coexistence WhatsApp, en articles (le pourquoi et le choix) qui renvoient aux fiches
-  pour le pas-à-pas ; chacun entre au groupe « Tout comprendre » du menu, au hub, au pied de page et au sitemap le jour où
-  sa page est en ligne. L'opt-in cite des règles juridiques : relecture par Julien ou un DPO avant publication.
+Lots 1 et 2 en ligne le 2026-11-24 (`9724f73e3`, `e54094364`) : Ressources › Guides, le hub `/guides/`, le comparatif
+RCS, SMS ou WhatsApp, l'opt-in et la coexistence.
 - **Lot 3** : la page « API WhatsApp Business » dans le menu produit, à côté de Développeurs ; aucun compteur écrit en dur
   (points d'API, outils MCP), le même exemple de code que la page Développeurs.
-- **Hors dépôt, à Julien** : les redirections 301 de www (WordPress) et de messagingme.app vers ces pages, une fois en
-  ligne (la note d'origine porte la table), et la déclaration du sitemap dans Search Console.
+- 🟡 La version anglaise du comparatif garde l'espace insécable français devant les deux-points de la ligne
+  « Click-to-WhatsApp » (fragment « &nbsp;: » non traduit).
+- **Hors dépôt, à Julien** : les redirections 301 de www (WordPress) et de messagingme.app vers ces pages (la note
+  d'origine porte la table), la déclaration du sitemap dans Search Console, et une relecture de l'opt-in par un DPO.
 
 ## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 à 3
 

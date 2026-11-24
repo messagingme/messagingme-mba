@@ -20,6 +20,14 @@ clic dont elle ignore l'issue, l'étape 4 nomme le bouton quel que soit son libe
 autres au backlog. L'e2e du parcours a d'abord échoué sur ses propres faux (l'offre sans `assistants`, un rechargement
 avant la fin de la navigation), pas sur le moteur.
 
+## 2026-11-24 : les guides de la vitrine, lot 2 : l'opt-in et la coexistence
+
+`e54094364` : `/opt-in-whatsapp/` et `/coexistence-whatsapp/` (et leurs versions anglaises), au menu, au hub, au sitemap et
+à `llms.txt`. La coexistence garde ce qui fait décider et laisse ses 9 étapes à la fiche « Garder mon application » ;
+l'opt-in cite la règle stable de Meta plutôt que l'historique de sa politique, et se dit « pas un avis juridique ».
+Chaque fait sur le produit a été vérifié dans `features.md` avant d'être écrit (source du consentement sur la fiche,
+réabonnement par la case d'un import, STOP appris par HubSpot, désinscriptions gardées trois ans).
+
 ## 2026-11-24 : les guides de la vitrine, lot 1 : Ressources › Guides et le comparatif RCS, SMS ou WhatsApp
 
 Une note d'implémentation SEO proposée par un autre assistant voulait des guides « Tout comprendre » sur app plutôt que
