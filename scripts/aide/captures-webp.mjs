@@ -19,6 +19,12 @@ const NOM = /^etape-\d+(-console)?(-en)?\.png$/;
  * « Démarrer » (`scripts/vitrine/tunnel.ts`), `site/img/demarrer/autoriser-<n>[-en].webp`.
  */
 const AILLEURS = { 'demarrer-autoriser': { dossier: join(RACINE, 'site', 'img', 'demarrer'), prefixe: 'autoriser-' } };
+/**
+ * Les scénarios qui ne servent qu'un film : leurs captures restent dans `sortie/`, que lit l'atelier des films
+ * (`~/engageme-motion/engageme-aide/construire.cjs`), et rien n'est publié. `bienvenue` : le film de la fenêtre de
+ * bienvenue de la console (plan 2026-11-24-guide-demarrage, lot 5).
+ */
+const FILM_SEUL = new Set(['bienvenue']);
 
 if (!existsSync(SORTIE)) {
   console.error(`Aucune capture dans ${SORTIE} : lancez d'abord les scénarios (npm run aide:captures).`);
@@ -27,6 +33,7 @@ if (!existsSync(SORTIE)) {
 
 let n = 0;
 for (const cle of readdirSync(SORTIE)) {
+  if (FILM_SEUL.has(cle)) continue;
   for (const fichier of readdirSync(join(SORTIE, cle)).filter((f) => NOM.test(f))) {
     const ailleurs = AILLEURS[cle];
     const dossier = ailleurs ? ailleurs.dossier : join(CIBLE, cle);

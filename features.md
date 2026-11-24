@@ -360,7 +360,9 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   Le **journal des actions** n'est plus sur cette page : il est dans **Sécurité** (« Journaux et traces »).
 - ✅ **La fenêtre de bienvenue d'un nouveau membre** (2026-11-19, plan `2026-11-19-accueil-pro` ; refaite le 2026-11-24,
   plan `2026-11-24-guide-demarrage`) : à sa première connexion à la console (Pro, essai compris, et au-delà ; jamais en
-  Free), chaque nouveau membre d'un espace voit « Bienvenue dans votre console ». Un administrateur y trouve **« Bien
+  Free), chaque nouveau membre d'un espace voit « Bienvenue dans votre console », avec **le film de bienvenue**
+  (« Le film, 1 min » : la vraie console en six étapes, sous-titré et muet, en français ou en anglais selon la langue de
+  la console, joué dans la fenêtre). Un administrateur y trouve **« Bien
   démarrer »**, cinq étapes cochées d'elles-mêmes d'après ce que l'espace a vraiment fait : relier le numéro WhatsApp,
   brancher sa boutique ou son CRM (Shopify, HubSpot), un premier scénario ou une première campagne, un agent IA qui
   répond, la bulle WhatsApp sur le site. Chaque étape non faite a son bouton, qui mène à l'écran où la faire (le

@@ -58,6 +58,18 @@ test.describe(`L’accueil d’un nouveau membre (${AG})`, () => {
     expect(marques).toHaveLength(1);
   });
 
+  test('le film de bienvenue se lit dans la fenêtre, à la place du bandeau, servi par la console', async ({ page }) => {
+    await monter(page);
+    await page.goto('/accueil');
+    await page.getByTestId('accueil-film-lire').click();
+    const film = page.getByTestId('accueil-film');
+    await expect(film).toBeVisible();
+    await expect(film).toHaveAttribute('src', /^\/films\/bienvenue\.mp4/);
+    // Le fichier existe vraiment dans `web/public/films/` : un lien mort se verrait ici, pas chez le client.
+    const reponse = await page.request.get('/films/bienvenue.mp4');
+    expect(reponse.status()).toBe(200);
+  });
+
   test('🔴 une route absente (API plus ancienne) montre la checklist sans coche, sans erreur', async ({ page }) => {
     await monter(page, { demarrage: 'absente' });
     await page.goto('/accueil');

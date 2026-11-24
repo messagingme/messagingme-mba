@@ -18,10 +18,12 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - 🟡 Un lien vers `/api-whatsapp-business/` depuis la page Développeurs (gabarit de ~130 pages générées, jumelle anglaise
   écrite à la main) et depuis le bloc « API et serveur MCP » de l'accueil, que la note proposait.
 
-## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 à 4
+## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 à 5
 
-- Lot 5 (le film de bienvenue) ; puis l'essai réel qui clôt la feature : un compte neuf sur la SANDBOX suit la
-  checklist et les parcours (agent IA d'abord) dans la console de production.
+- L'essai réel qui clôt la feature : un compte neuf sur la SANDBOX regarde le film, suit la checklist et les parcours
+  (agent IA d'abord) dans la console de production.
+- Le film de bienvenue au centre d'aide : une fiche ne porte qu'un film, et « Me repérer dans la console » a déjà le
+  sien (la navigation). À trancher par Julien : une fiche « Bien démarrer » à part, ou remplacer l'autre film.
 - 🟡 La carte « Bien démarrer » de l'Accueil ne se relit qu'au montage et au retour sur l'onglet : une étape faite sans
   quitter la page ne se coche qu'au rechargement.
 - 🟡 Sans numéro, l'Accueil montre deux invitations qui se recouvrent : la carte « Bien démarrer » (prochaine étape :

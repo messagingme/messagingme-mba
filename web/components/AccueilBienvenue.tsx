@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Modale } from '@/components/Modale';
 import { Icone } from '@/components/Icone';
 import { classesBouton } from '@/components/Bouton';
-import { useT } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n';
 import { getDemarrage, marquerAccueil, type EtatDemarrage } from '@/lib/api';
 import { VISITE_EVENT } from '@/lib/accueil-console';
 import { progression } from '@/lib/bien-demarrer';
@@ -21,8 +21,17 @@ import { lancerParcours } from '@/components/GuideCompagnon';
  * Julien, 2026-11-19). Un marquage qui échoue n'empêche pas le geste.
  * La checklist n'est montrée qu'à un administrateur : ses gestes mènent à des écrans d'administrateur, et la route est
  * réservée aux admins. Un autre membre garde le bandeau et la visite.
- * ⚠️ Le film de bienvenue (lot 5) n'existe pas encore : le bandeau n'a pas de bouton de lecture tant qu'il manque.
  */
+/**
+ * LE FILM DE BIENVENUE (lot 5) : la vraie console, six étapes, sous-titré et MUET (l'atelier `~/engageme-motion`,
+ * `engageme-aide`, clé `bienvenue`). Servi par la console elle-même (`web/public/films/`) : la CSP n'ouvre `media-src`
+ * qu'à `'self'`. Un film remplacé sous le même nom prend un `?v=` incrémenté, sinon un navigateur garde l'ancien.
+ */
+const FILM = {
+  fr: { src: '/films/bienvenue.mp4?v=1', affiche: '/films/bienvenue.webp?v=1' },
+  en: { src: '/films/bienvenue.en.mp4?v=1', affiche: '/films/bienvenue.en.webp?v=1' },
+} as const;
+
 export function AccueilBienvenue({ tenantId, admin, fonctionOuverte, onFermer }: {
   tenantId: string;
   admin: boolean;
@@ -30,6 +39,9 @@ export function AccueilBienvenue({ tenantId, admin, fonctionOuverte, onFermer }:
   onFermer: () => void;
 }) {
   const t = useT();
+  const { locale } = useLocale();
+  const film = FILM[locale === 'en' ? 'en' : 'fr'];
+  const [enLecture, setEnLecture] = useState(false);
   const router = useRouter();
   // `undefined` : pas encore lu (rien n'est montré, pour ne pas cocher sous les yeux) ; `null` : état inconnu.
   const [etat, setEtat] = useState<EtatDemarrage | null | undefined>(admin ? undefined : null);
@@ -50,7 +62,12 @@ export function AccueilBienvenue({ tenantId, admin, fonctionOuverte, onFermer }:
 
   return (
     <Modale titre={t('Bienvenue dans votre console', 'Welcome to your console')} testId="accueil-bienvenue" sansEntete onClose={onFermer}>
-      <div className="bg-navy-800 px-6 pb-6 pt-7 text-white">
+      {enLecture ? (
+        // Le film à la place du bandeau, le temps de le regarder : la fenêtre ne s'agrandit pas.
+        <video data-testid="accueil-film" src={film.src} poster={film.affiche} controls autoPlay playsInline preload="none"
+          className="aspect-video w-full bg-navy-800" aria-label={t('Film de bienvenue', 'Welcome film')} />
+      ) : (
+      <div className="relative bg-navy-800 px-6 pb-6 pt-7 text-white">
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-200">{t('Messaging Me', 'Messaging Me')}</p>
         <h2 className="mt-2 text-2xl font-bold leading-tight">{t('Bienvenue dans votre console.', 'Welcome to your console.')}</h2>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-navy-100">
@@ -58,7 +75,14 @@ export function AccueilBienvenue({ tenantId, admin, fonctionOuverte, onFermer }:
             ? t('Cinq étapes pour que WhatsApp travaille pour vous. Chaque écran vous dit quoi faire.', 'Five steps to put WhatsApp to work for you. Each screen tells you what to do.')
             : t('Un tour rapide de la console, et vous êtes prêt à répondre à vos clients.', 'A quick tour of the console, and you are ready to answer your customers.')}
         </p>
+        {/* Dans le flux sur un téléphone (il recouvrirait la fin du texte), à droite du bandeau au-delà. */}
+        <button type="button" data-testid="accueil-film-lire" onClick={() => setEnLecture(true)}
+          className="mt-4 flex items-center gap-2 rounded-full bg-white py-2 pl-2 pr-4 text-sm font-semibold text-navy-800 shadow-mm-md hover:bg-brand-50 sm:absolute sm:bottom-6 sm:right-6 sm:mt-0">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-white"><Icone nom="ecouter" taille="petite" /></span>
+          {t('Le film, 1 min', 'The film, 1 min')}
+        </button>
       </div>
+      )}
 
       {admin && etat !== undefined && (
         <div className="px-6 pt-5" data-testid="accueil-checklist">

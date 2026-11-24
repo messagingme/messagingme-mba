@@ -5,6 +5,17 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : guide de démarrage, lot 5 : le film de bienvenue
+
+Julien a choisi le gabarit des films d'aide (la vraie console, curseur et zoom, sous-titres, muet) plutôt que le
+personnage des Reels. Six étapes : la fenêtre « Bien démarrer », Shopify, une campagne, l'agent IA (chacune avec la
+carte qui accompagne), la bulle WhatsApp, la carte de l'Accueil ; 72 s en français, 70 s en anglais, aucune piste son.
+Les captures viennent d'un scénario de capture à part (`web/e2e/captures/bienvenue.capture.ts`), qui ne sert aucune
+fiche : `scripts/aide/captures-webp.mjs` ne les publie pas (`FILM_SEUL`). L'atelier (`~/engageme-motion/engageme-aide`)
+gagne la clé `bienvenue` et des textes d'ouverture et de fin propres à un film (`textes` dans `films.json`). Le film
+est servi par la console elle-même (`web/public/films/`, la CSP n'ouvre `media-src` qu'à `'self'`) et se lit dans la
+fenêtre, à la place du bandeau. Reste à trancher sa place au centre d'aide (une fiche ne porte qu'un film).
+
 ## 2026-11-24 : le déploiement charge lui-même les fiches d'aide
 
 Julien ne lance plus `aide:charger` après un déploiement : le workflow `deploy-scaleway.yml` le fait, juste après
