@@ -240,6 +240,14 @@ WhatsApp/Meta, 3 rôles : **admin** (tout), **manager** et **agent** (inbox seul
 mêmes accès qu'un agent, PLUS les écrans de conformité depuis le 2026-09-14 (voir « Sécurité & compliance »).
 Le reste de ses prérogatives n'est toujours pas décidé.
 
+✅ **La vitrine a ses guides** (2026-11-24) : Ressources › Guides, un sous-menu à deux groupes, « Guides d'intégration »
+(Salesforce, HubSpot, toutes les intégrations, développeurs) et « Tout comprendre : WhatsApp, RCS et SMS », puis « Tous
+les guides » vers le hub `app.messagingme.fr/guides/`. Trois articles : le comparatif RCS, SMS ou WhatsApp
+(`/comparatif-rcs-sms-whatsapp/`), l'opt-in (`/opt-in-whatsapp/`) et la coexistence (`/coexistence-whatsapp/`). Un guide
+explique et aide à choisir ; le pas-à-pas reste dans la fiche d'aide, vers laquelle il renvoie. Dans Ressources aussi,
+sous la documentation développeurs, la page « API WhatsApp Business » (`/api-whatsapp-business/`) : l'API officielle,
+ses trois branchements, ce que coûtent l'abonnement et les messages. Chaque page a sa jumelle anglaise.
+
 ## Navigation (trois onglets en haut, barre latérale par onglet)
 
 - ✅ **TROIS ONGLETS EN HAUT DE LA CONSOLE** (2026-09-08) : **Console**, **Inbox** et **Performance Lab**.
