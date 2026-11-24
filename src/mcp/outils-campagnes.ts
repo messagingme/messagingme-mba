@@ -1,6 +1,6 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, DepsMcp, OutilMcp } from './outils';
-import { RefusOutil, dateAvecFuseau, entierBorne, texteObligatoire } from './saisie';
+import { RefusOutil, dateAvecFuseau, entierBorne, familleDuRefus, refusDuCoeur, texteObligatoire } from './saisie';
 import { CHAMPS_CIBLE_FILTRES, CHAMPS_CIBLE_IDENTIFIANTS, lireCibleMcp } from './cible';
 import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
 import type { AnalyseEtResume, ContactFilters } from '../crm/contact-store.pg';
@@ -119,9 +119,20 @@ const REFUS_DU_LANCEMENT: Record<'inconnue' | 'date_passee' | 'non_programmable'
   non_programmable: 'cette campagne est déjà en cours ou terminée',
 };
 
-/** Un refus d'une fonction partagée (préparation, modèle, numéro) devient un refus d'outil, avec sa phrase. */
-function refusDe(r: { refus: { message: string } } | { ok: false; body: { error: string } }): never {
-  throw new RefusOutil('refus' in r ? r.refus.message : r.body.error);
+/**
+ * Un refus d'une fonction partagée (préparation, modèle, numéro) devient un refus d'outil, avec sa phrase, sa famille
+ * (le statut et le code de la fonction) et, pour un refus d'offre, l'adresse de l'offre à proposer.
+ */
+function refusDe(
+  r: { refus: { statut: number; code: string; message: string } }
+    | { ok: false; status: number; body: { error: string; code?: string; upgradeUrl?: string } },
+): never {
+  if ('refus' in r) throw refusDuCoeur(r.refus);
+  const { error, code, upgradeUrl } = r.body;
+  throw new RefusOutil(error, familleDuRefus(r.status, code), {
+    ...(code === undefined ? {} : { cause: code }),
+    ...(upgradeUrl === undefined ? {} : { action: upgradeUrl }),
+  });
 }
 
 /**
@@ -142,10 +153,10 @@ export const MAX_CONTACTS_TROUVES = 100;
  * (`nettoyerEtiquettes`, celle de l'action en masse) ; au-delà du plafond, refusées plutôt que tronquées.
  */
 function etiquettesAPoser(v: unknown): string[] {
-  if (!Array.isArray(v) || !v.every((e) => typeof e === 'string')) throw new RefusOutil('paramètre « add_tags » : une liste d’étiquettes est attendue');
-  if (v.length > MAX_TAGS) throw new RefusOutil(`paramètre « add_tags » : ${MAX_TAGS} étiquettes au plus`);
+  if (!Array.isArray(v) || !v.every((e) => typeof e === 'string')) throw new RefusOutil('paramètre « add_tags » : une liste d’étiquettes est attendue', 'invalid_args');
+  if (v.length > MAX_TAGS) throw new RefusOutil(`paramètre « add_tags » : ${MAX_TAGS} étiquettes au plus`, 'invalid_args');
   const propres = nettoyerEtiquettes(v, MAX_TAGS);
-  if (propres.length === 0) throw new RefusOutil('paramètre « add_tags » : au moins une étiquette non vide');
+  if (propres.length === 0) throw new RefusOutil('paramètre « add_tags » : au moins une étiquette non vide', 'invalid_args');
   return propres;
 }
 
@@ -336,25 +347,25 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
         ? `${templateName} (assistant)`
         : texteObligatoire(args, 'name', LONGUEUR_MAX_NOM_CAMPAGNE);
       const paramMapping = validateParamMapping(args.variables ?? []);
-      if (paramMapping === null) throw new RefusOutil('paramètre « variables » : une entrée par variable, positions 1..N, sources valides');
+      if (paramMapping === null) throw new RefusOutil('paramètre « variables » : une entrée par variable, positions 1..N, sources valides', 'invalid_args');
       const prevueLe = dateAvecFuseau(args, 'scheduled_for') ?? null;
-      if (prevueLe !== null && prevueLe.getTime() <= Date.now()) throw new RefusOutil('paramètre « scheduled_for » : la date est passée');
+      if (prevueLe !== null && prevueLe.getTime() <= Date.now()) throw new RefusOutil('paramètre « scheduled_for » : la date est passée', 'invalid_args');
       const remplace = args.replaces === undefined || args.replaces === null ? null : args.replaces;
-      if (remplace !== null && !estUuid(remplace)) throw new RefusOutil('paramètre « replaces » : identifiant de brouillon mal formé');
+      if (remplace !== null && !estUuid(remplace)) throw new RefusOutil('paramètre « replaces » : identifiant de brouillon mal formé', 'invalid_args');
       const fonctions = (await deps.offres.offreDe(tenantId)).droits.fonctions;
       const cible = await lireCibleMcp(args, fonctions, deps, tenantId, { identifiants: true });
 
       // 🔴 Ne se remplace qu'un brouillon de l'assistant (une confirmation existe), de cet espace, jamais lancé.
       if (remplace !== null) {
         const ancien = (await c.confirmations.existe(tenantId, remplace)) ? await c.route.repo.etatPourConfirmation(tenantId, remplace) : null;
-        if (ancien === null) throw new RefusOutil('replaces : aucun brouillon préparé depuis l’assistant avec cet identifiant dans cet espace');
-        if (ancien.status !== 'draft') throw new RefusOutil('replaces : cette campagne a déjà été lancée ou programmée, elle ne se remplace plus');
+        if (ancien === null) throw new RefusOutil('replaces : aucun brouillon préparé depuis l’assistant avec cet identifiant dans cet espace', 'not_found');
+        if (ancien.status !== 'draft') throw new RefusOutil('replaces : cette campagne a déjà été lancée ou programmée, elle ne se remplace plus', 'conflict');
       }
 
       const numeros = await c.route.repo.listPhoneNumbers(tenantId);
       const demande = typeof args.phone_number_id === 'string' ? args.phone_number_id : undefined;
       if (demande === undefined && numeros.length > 1) {
-        throw new RefusOutil(`cet espace a plusieurs numéros WhatsApp : précisez phone_number_id (${numeros.map((n) => `${n.id} = ${n.displayPhoneNumber ?? n.verifiedName ?? '?'}`).join(', ')})`);
+        throw new RefusOutil(`cet espace a plusieurs numéros WhatsApp : précisez phone_number_id (${numeros.map((n) => `${n.id} = ${n.displayPhoneNumber ?? n.verifiedName ?? '?'}`).join(', ')})`, 'invalid_args');
       }
 
       await plafondCouteux(deps, tenantId);
@@ -391,7 +402,7 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       if (cree.recipientCount - desabonnes <= 0) {
         await c.route.repo.deleteDraftCampaign(cree.campaignId, tenantId);
         throw new RefusOutil(`aucun destinataire : ${ecartes('not_opted_in')} sans consentement marketing (un modèle MARKETING ne part qu'à qui a consenti), `
-          + `${desabonnes} qui ont répondu STOP, ${ecartes('missing_variable')} sans la valeur d'une variable, ${autres} écartés (bloqués, supprimés ou sans numéro). Rien n'a été créé.`);
+          + `${desabonnes} qui ont répondu STOP, ${ecartes('missing_variable')} sans la valeur d'une variable, ${autres} écartés (bloqués, supprimés ou sans numéro). Rien n'a été créé.`, 'conflict');
       }
 
       // L'ancien brouillon part APRÈS que le nouveau existe : un échec laisse deux brouillons, jamais zéro.
@@ -468,12 +479,12 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       signataire(personne);
       const c = deps.campagnes;
       const campaignId = args.campaign_id;
-      if (!estUuid(campaignId)) throw new RefusOutil('paramètre « campaign_id » : identifiant mal formé');
+      if (!estUuid(campaignId)) throw new RefusOutil('paramètre « campaign_id » : identifiant mal formé', 'invalid_args');
       const code = texteObligatoire(args, 'confirmation_code', LONGUEUR_MAX_CODE);
       // Le plafond par espace du bouton « Lancer » de la console (`couteux` sur la route `/run`).
       await plafondCouteux(deps, tenantId);
       const etat = await c.route.repo.etatPourConfirmation(tenantId, campaignId);
-      if (etat === null) throw new RefusOutil('campagne inconnue dans cet espace');
+      if (etat === null) throw new RefusOutil('campagne inconnue dans cet espace', 'not_found');
 
       // 🔴 Le code est réclamé AVANT le lancement, sur l'état relu en base : usage unique, et rien d'autre que ce qui a
       // été montré.
@@ -481,7 +492,7 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       // étant passée depuis qu'elle a démarré. Le refus d'un code se choisit sur le statut relu (`refusDuCode`).
       const reprise = etat.status === 'paused';
       const reclamation = await c.confirmations.reclamer(tenantId, campaignId, code, empreinteEtat(etat));
-      if (reclamation !== 'ok') throw new RefusOutil(refusDuCode(etat.status, reclamation));
+      if (reclamation !== 'ok') throw new RefusOutil(refusDuCode(etat.status, reclamation), reclamation === 'invalide' ? 'invalid_args' : 'conflict');
 
       const quand = reprise || etat.prevueLe === null ? null : new Date(etat.prevueLe);
       let issue: IssueLancement;
@@ -496,7 +507,7 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
         await c.confirmations.rendre(tenantId, campaignId);
         throw new RefusOutil(issue.raison === 'limite'
           ? corpsRefusLimite(new LimiteOffreError(tenantId, 'envoisModelesMois', issue.max)).error
-          : issue.raison === 'credit_whatsapp' ? messageManqueCredit(issue.manqueMicroEur) : REFUS_DU_LANCEMENT[issue.raison]);
+          : issue.raison === 'credit_whatsapp' ? messageManqueCredit(issue.manqueMicroEur) : REFUS_DU_LANCEMENT[issue.raison], issue.raison === 'limite' ? 'plan_limit' : issue.raison === 'credit_whatsapp' ? 'credit_required' : 'conflict');
       }
       return 'programmee' in issue
         ? { campaign_id: campaignId, status: 'scheduled', scheduled_for: { iso: issue.programmee.toISOString(), paris: dateDeParis(issue.programmee) } }
@@ -538,34 +549,34 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       signataire(personne);
       const c = deps.campagnes;
       const campaignId = args.campaign_id;
-      if (!estUuid(campaignId)) throw new RefusOutil('paramètre « campaign_id » : identifiant mal formé');
+      if (!estUuid(campaignId)) throw new RefusOutil('paramètre « campaign_id » : identifiant mal formé', 'invalid_args');
       const action = args.action;
       if (action !== 'pause' && action !== 'unschedule' && action !== 'prepare_resume') {
-        throw new RefusOutil('paramètre « action » : pause, unschedule ou prepare_resume');
+        throw new RefusOutil('paramètre « action » : pause, unschedule ou prepare_resume', 'invalid_args');
       }
       // L'appartenance d'abord, comme la route de la console : une campagne d'ailleurs n'existe pas.
-      if (!(await c.route.repo.campaignBelongsTo(campaignId, tenantId))) throw new RefusOutil('campagne inconnue dans cet espace');
+      if (!(await c.route.repo.campaignBelongsTo(campaignId, tenantId))) throw new RefusOutil('campagne inconnue dans cet espace', 'not_found');
       if (action === 'pause') {
         if (!(await c.route.repo.pauseCampaign(campaignId, tenantId))) {
-          throw new RefusOutil('campagne non suspendable : elle n’est pas en cours d’envoi');
+          throw new RefusOutil('campagne non suspendable : elle n’est pas en cours d’envoi', 'conflict');
         }
         return { campaign_id: campaignId, status: 'paused' };
       }
       if (action === 'unschedule') {
-        if (!(await c.route.repo.cancelSchedule(campaignId, tenantId))) throw new RefusOutil('campagne non programmée : rien à déprogrammer');
+        if (!(await c.route.repo.cancelSchedule(campaignId, tenantId))) throw new RefusOutil('campagne non programmée : rien à déprogrammer', 'conflict');
         return { campaign_id: campaignId, status: 'draft' };
       }
       const etat = await c.route.repo.etatPourConfirmation(tenantId, campaignId);
-      if (etat === null) throw new RefusOutil('campagne inconnue dans cet espace');
+      if (etat === null) throw new RefusOutil('campagne inconnue dans cet espace', 'not_found');
       if (etat.status !== 'paused') {
-        throw new RefusOutil(REFUS_HORS_PAUSE[etat.status] ?? `seule une campagne en pause se reprend (statut ${etat.status})`);
+        throw new RefusOutil(REFUS_HORS_PAUSE[etat.status] ?? `seule une campagne en pause se reprend (statut ${etat.status})`, 'conflict');
       }
       // Le motif, que la console affiche à la pause : une pause pour la qualité du numéro ne doit pas repartir sur un oui
       // donné sans son avertissement.
       const pause = await c.route.repo.pauseDe(tenantId, campaignId);
       const motif = pause?.motif ?? null;
       if (motif !== null && PAUSES_SANS_REPRISE.has(motif)) {
-        throw new RefusOutil(`${messageDePause(motif, null, undefined)} Elle ne se reprend pas par ce geste.`);
+        throw new RefusOutil(`${messageDePause(motif, null, undefined)} Elle ne se reprend pas par ce geste.`, 'conflict');
       }
       // Le code est lié à l'état relu en base, celui que `launch_campaign` relira : une reprise faite entre-temps dans la
       // console l'invalide.

@@ -574,23 +574,23 @@ export function creerAccompagnementConnexionNumeroMcp(
     async demarrer(tenantId, userId, entree) {
       const mode = entree.mode;
       if (!estModeNumero(mode)) {
-        throw new RefusOutil('mode : « fourni », « apporte », « coexistence » ou « fourni_application »');
+        throw new RefusOutil('mode : « fourni », « apporte », « coexistence » ou « fourni_application »', 'invalid_args');
       }
       const filiere = entree.filiere ?? 'api';
-      if (!estFiliereNumero(filiere)) throw new RefusOutil('filiere : « api » ou « application »');
+      if (!estFiliereNumero(filiere)) throw new RefusOutil('filiere : « api » ou « application »', 'invalid_args');
       if ((mode === 'coexistence' || mode === 'fourni_application') && filiere !== 'api') {
-        throw new RefusOutil(`${mode} : la filière est « api »`);
+        throw new RefusOutil(`${mode} : la filière est « api »`, 'invalid_args');
       }
       const etat = await deps.etat(tenantId);
       const relie = mode === 'coexistence' && etat.application !== undefined ? null : etat.connecte;
       if (relie?.aActiver) {
         throw new RefusOutil('Un numéro est déjà relié à cet espace, mais Meta ne l’a pas encore activé : il reste à finir sa '
-          + 'vérification, dans l’Accueil de la console (« Activer le numéro »).');
+          + 'vérification, dans l’Accueil de la console (« Activer le numéro »).', 'conflict');
       }
-      if (relie) throw new RefusOutil('Cet espace a déjà un numéro WhatsApp connecté : il n’y a rien à brancher.');
+      if (relie) throw new RefusOutil('Cet espace a déjà un numéro WhatsApp connecté : il n’y a rien à brancher.', 'conflict');
       if (filiere === 'api' && mode === 'fourni' && modeDeReprise(etat) === 'coexistence') {
         throw new RefusOutil(`Le numéro fourni ${etat.fourni} est déjà dans l’application WhatsApp Business (son code de `
-          + 'vérification y est arrivé) : la suite est de garder l’application, start_whatsapp_connection avec mode « coexistence ».');
+          + 'vérification y est arrivé) : la suite est de garder l’application, start_whatsapp_connection avec mode « coexistence ».', 'conflict');
       }
       const destination = destinationDuNumeroFourni(mode);
       if (filiere === 'api' && destination !== null && etat.destination !== destination) {
@@ -598,9 +598,9 @@ export function creerAccompagnementConnexionNumeroMcp(
       }
       if (filiere === 'application' && mode === 'apporte') {
         const brut = typeof entree.numero === 'string' ? entree.numero.replace(/[^0-9]/g, '') : '';
-        if (!brut) throw new RefusOutil('numero : le numéro du compte WhatsApp Business, au format international (indicatif compris)');
+        if (!brut) throw new RefusOutil('numero : le numéro du compte WhatsApp Business, au format international (indicatif compris)', 'invalid_args');
         const p = await deps.comptesApplication.preparer(tenantId, { numero: brut, fourniId: null });
-        if (!p.ok) throw new RefusOutil(phraseDuRefusDePreparation(p.raison));
+        if (!p.ok) throw new RefusOutil(phraseDuRefusDePreparation(p.raison), p.raison === 'numero_invalide' ? 'invalid_args' : 'conflict');
       }
       const ligne = filiere === 'api' && await deps.fenetrePartenaire(tenantId);
       const jeton = await deps.signerLien({ tenantId, userId, mode, ...(filiere === 'application' ? { filiere } : {}) });
@@ -621,7 +621,7 @@ export function creerAccompagnementConnexionNumeroMcp(
       const mode = typeof entree.mode === 'string' ? entree.mode : undefined;
       const connu = entree.etatConnu;
       if (connu !== undefined && (typeof connu !== 'string' || !EMPREINTE_RE.test(connu))) {
-        throw new RefusOutil('etat_connu : l’empreinte rendue par l’appel précédent (16 caractères hexadécimaux)');
+        throw new RefusOutil('etat_connu : l’empreinte rendue par l’appel précédent (16 caractères hexadécimaux)', 'invalid_args');
       }
       const debut = deps.maintenant();
       for (;;) {

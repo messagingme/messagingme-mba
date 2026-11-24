@@ -1,8 +1,7 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { DepsMcp, OutilMcp } from './outils';
-import { RefusOutil } from './saisie';
+import { RefusOutil, familleDuRefus, refusDuPlafond } from './saisie';
 import { signataire } from './outils-agent';
-import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
 import { journaliser } from '../lib/journal';
 import {
   AUTOMATIONS_DISPONIBLES, DELAI_PANIER_DEFAUT, DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_PAR_EVENEMENT, EVENEMENTS_DISPONIBLES, LIGNE_PANIER_AGENT,
@@ -63,7 +62,7 @@ async function collectionsAuMieux(deps: DepsMcp, tenantId: string) {
  */
 
 function valeur<T>(r: Issue<T>): T {
-  if (!r.ok) throw new RefusOutil(r.message);
+  if (!r.ok) throw new RefusOutil(r.message, familleDuRefus(r.statut));
   return r.valeur;
 }
 
@@ -169,7 +168,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       const vue = valeur(await connecterShopify(deps.shopify, tenantId, { boutique: args.store, clientId: args.client_id, secret: args.client_secret }, personne?.userId ?? null, 'claude_code'));
       journaliser('info', 'mcp_shopify_connectee', { tenantId, userId: personne?.userId ?? null, boutique: vue.domaine });
       if (args.customers_consent_attested === true) await attester(deps, tenantId, personne?.userId ?? null);
@@ -320,7 +319,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       const a = valeur(await apercuImportClients(deps.shopify, tenantId));
       return {
         subscribed_with_phone: a.abonnes, subscribed_without_phone: a.sansTelephone, already_in_workspace: a.dejaDansLEspace,
@@ -351,7 +350,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       // Depuis Claude, l'accord des clients importés est déclaré par le client, signé de la personne connectée (décision
       // de Julien du 2026-10-25) ; la console importe toujours sans consentement.
       const b = valeur(await importerClients(deps.shopify, tenantId, args.max_contacts, signataire(personne)));
@@ -378,7 +377,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       const a = valeur(await apercuReprise(deps.shopify.reprise, tenantId));
       return {
         window_start: a.fenetreDebut, paid_orders_read: a.lues, already_known: a.deja, attachable: a.rattachables,
@@ -403,7 +402,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId, _args, personne) {
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       const r = valeur(await lancerReprise(deps.shopify.reprise, tenantId, personne?.userId ?? null));
       journaliser('info', 'mcp_shopify_rattrapage', { tenantId, userId: personne?.userId ?? null, reprise: r.id });
       return { ...versRattrapage(r), next_step: 'get_shopify_order_history follows it: a few minutes for most stores, over an hour for the largest' };

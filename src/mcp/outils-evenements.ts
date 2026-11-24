@@ -1,8 +1,7 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { DepsMcp, OutilMcp } from './outils';
-import { RefusOutil, entierBorne, valeurOuRefus } from './saisie';
+import { RefusOutil, entierBorne, familleDuRefus, refusDuPlafond, valeurOuRefus } from './saisie';
 import { personneRequise } from './outils-agent';
-import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
 import type { AuditSink } from '../audit/journal';
 import { TYPES_ABONNABLES, TYPES_DECOCHES_PAR_DEFAUT } from '../evenements/types';
 import {
@@ -94,7 +93,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
     async executer(deps: DepsMcp, tenantId, args) {
       const id = typeof args.adresse_id === 'string' ? args.adresse_id : '';
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       const r = valeurOuRefus(await envoyerEssai(deps.evenements.gestion, tenantId, id));
       return { evenement_id: r.evenementId, livre: r.livre, code: r.code, reponse: r.reponse };
     },
@@ -149,7 +148,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       // 100 = `JOURNAL_PAGE_MAX`, écrit en clair : le test des bornes annoncées lit les littéraux (tenu ci-dessous).
       const limite = entierBorne(args, 'limit', 20, 1, 100);
       const avant = typeof args.before === 'string' ? args.before : undefined;
-      if (avant !== undefined && Number.isNaN(Date.parse(avant))) throw new RefusOutil('before : une date ISO est attendue');
+      if (avant !== undefined && Number.isNaN(Date.parse(avant))) throw new RefusOutil('before : une date ISO est attendue', 'invalid_args');
       const r = valeurOuRefus(await lireJournal(deps.evenements.gestion, tenantId, id, { avant, limite: String(limite) }));
       const envois = r.map(deliveryV1);
       return { envois, next_before: envois.length === limite ? envois[envois.length - 1]!.createdAt : null };
@@ -227,7 +226,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       // Seuls les champs donnés partent à la gestion, qui refuse toute autre clé (`saisieModification`, stricte).
       const patch = Object.fromEntries((['types', 'description', 'active'] as const).filter((k) => args[k] !== undefined).map((k) => [k, args[k]]));
       const tourner = args.rotate_secret === true;
-      if (Object.keys(patch).length === 0 && !tourner) throw new RefusOutil('rien à modifier : types, description, active ou rotate_secret');
+      if (Object.keys(patch).length === 0 && !tourner) throw new RefusOutil('rien à modifier : types, description, active ou rotate_secret', 'invalid_args');
       const g = deps.evenements.gestion;
       const p = personneRequise(personne);
       const auteur = { userId: p.userId, email: null };
@@ -242,7 +241,7 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       if (!tourner) return { adresse: webhookV1(adresse!) };
       const r = await tournerSecret(g, tenantId, id);
       if (!r.ok) {
-        throw new RefusOutil(adresse === null ? r.erreur : `la modification est enregistrée, mais le secret n’a pas tourné : ${r.erreur}`);
+        throw new RefusOutil(adresse === null ? r.erreur : `la modification est enregistrée, mais le secret n’a pas tourné : ${r.erreur}`, familleDuRefus(r.statut));
       }
       // 🔴 La rotation est faite : plus rien ne fait échouer l'outil, le secret neuf n'est montré qu'ici, une seule fois.
       // Un audit raté est journalisé en erreur (la trace manque, le secret ne se perd pas).

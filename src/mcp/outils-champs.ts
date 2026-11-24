@@ -1,6 +1,6 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, OutilMcp } from './outils';
-import { RefusOutil, texteObligatoire } from './saisie';
+import { RefusOutil, familleDuRefus, texteObligatoire } from './saisie';
 import { CHAMPS_CIBLE_FILTRES, CHAMPS_CIBLE_IDENTIFIANTS, lireCibleMcp } from './cible';
 import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
 import { creerChamp, type ChampsDep } from '../http/fields';
@@ -73,7 +73,7 @@ export const OUTILS_CHAMPS: OutilMcp[] = [
       signataire(personne);
       const label = texteObligatoire(args, 'label', LONGUEUR_MAX_LIBELLE_CHAMP);
       const r = await creerChamp(deps.champs, tenantId, label, typeof args.type === 'string' ? args.type : '');
-      if (!r.ok) throw new RefusOutil(r.erreur);
+      if (!r.ok) throw new RefusOutil(r.erreur, familleDuRefus(r.statut));
       return { key: r.champ.key, label: r.champ.label, type: r.champ.type };
     },
   },
@@ -103,8 +103,8 @@ export const OUTILS_CHAMPS: OutilMcp[] = [
       const fonctions = (await deps.offres.offreDe(tenantId)).droits.fonctions;
       const cible = await lireCibleMcp(args, fonctions, deps, tenantId, { identifiants: true });
       const def = await defPourEcriture(deps, tenantId, key);
-      if (!def) throw new RefusOutil(`champ inconnu : ${key} (list_fields donne les champs de l’espace, create_field en crée un)`);
-      if (!validateFieldValue(def.type, value)) throw new RefusOutil(`valeur invalide pour « ${def.label} » (${def.type})`);
+      if (!def) throw new RefusOutil(`champ inconnu : ${key} (list_fields donne les champs de l’espace, create_field en crée un)`, 'not_found');
+      if (!validateFieldValue(def.type, value)) throw new RefusOutil(`valeur invalide pour « ${def.label} » (${def.type})`, 'invalid_args');
       await plafondCouteux(deps, tenantId);
       const { affected } = await deps.contacts.applyEditsMany(tenantId, cible, { setField: { key, value: canonicalizeFieldValue(def.type, value) } });
       return { updated: affected };

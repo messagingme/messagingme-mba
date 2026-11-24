@@ -92,13 +92,13 @@ interface SelectionLue {
 function lireSelection(args: Record<string, unknown>): SelectionLue {
   const permises: readonly string[] = CLES_DE_SELECTION;
   const inconnues = Object.keys(args).filter((k) => !permises.includes(k));
-  if (inconnues.length > 0) throw new RefusOutil(`paramètre inconnu : ${inconnues.join(', ')} (la sélection se fait par ${permises.join(', ')})`);
-  if (present(args.tag_mode) && !present(args.tags)) throw new RefusOutil('paramètre « tag_mode » : il ne vaut qu’avec tags');
-  if (Array.isArray(args.tags) && args.tags.length === 0) throw new RefusOutil('paramètre « tags » : au moins une étiquette, ou pas de paramètre');
+  if (inconnues.length > 0) throw new RefusOutil(`paramètre inconnu : ${inconnues.join(', ')} (la sélection se fait par ${permises.join(', ')})`, 'invalid_args');
+  if (present(args.tag_mode) && !present(args.tags)) throw new RefusOutil('paramètre « tag_mode » : il ne vaut qu’avec tags', 'invalid_args');
+  if (Array.isArray(args.tags) && args.tags.length === 0) throw new RefusOutil('paramètre « tags » : au moins une étiquette, ou pas de paramètre', 'invalid_args');
   const plusAnciennes = present(args.oldest) ? limiteEntiere(args.oldest, 'oldest', 1, MAX_FICHES_PAR_SUPPRESSION) : null;
   const parCible = ['tags', 'opt_in', 'contact_ids'].some((k) => present(args[k]));
   if (!parCible && plusAnciennes === null) {
-    throw new RefusOutil('précisez au moins un critère : tags, opt_in, contact_ids ou oldest');
+    throw new RefusOutil('précisez au moins un critère : tags, opt_in, contact_ids ou oldest', 'invalid_args');
   }
   return { args, parCible, plusAnciennes };
 }
@@ -115,7 +115,7 @@ async function resoudreSelection(deps: DepsMcp, tenantId: string, s: SelectionLu
   const fiches = await deps.suppression.selection(tenantId, cible, s.plusAnciennes ?? MAX_FICHES_PAR_SUPPRESSION + 1);
   if (fiches.length > MAX_FICHES_PAR_SUPPRESSION) {
     throw new RefusOutil(`cette sélection compte plus de ${MAX_FICHES_PAR_SUPPRESSION} contacts : resserrez-la (oldest, tags), `
-      + `${MAX_FICHES_PAR_SUPPRESSION} au plus par appel`);
+      + `${MAX_FICHES_PAR_SUPPRESSION} au plus par appel`, 'invalid_args');
   }
   return fiches;
 }
@@ -153,7 +153,7 @@ export const OUTILS_SUPPRESSION: OutilMcp[] = [
       // Le plafond des opérations coûteuses, comme `prepare_campaign` : la sélection lit jusqu'au plafond de fiches, plus une.
       await plafondCouteux(deps, tenantId);
       const fiches = await resoudreSelection(deps, tenantId, selection);
-      if (fiches.length === 0) throw new RefusOutil('aucun contact de cet espace ne correspond à cette sélection : rien à supprimer');
+      if (fiches.length === 0) throw new RefusOutil('aucun contact de cet espace ne correspond à cette sélection : rien à supprimer', 'conflict');
       const { code, expireLe } = codeDeSuppression(deps.suppression.secret, tenantId, empreinteDesFiches(fiches.map((f) => f.id)), Date.now());
       return {
         count: fiches.length,
@@ -196,22 +196,22 @@ export const OUTILS_SUPPRESSION: OutilMcp[] = [
     async executer(deps, tenantId, args, personne) {
       const userId = signataire(personne);
       const code = texteObligatoire(args, 'confirmation_code', LONGUEUR_MAX_CODE_SUPPRESSION);
-      if (!codeBienForme(code)) throw new RefusOutil(REFUS_DU_CODE.invalide);
+      if (!codeBienForme(code)) throw new RefusOutil(REFUS_DU_CODE.invalide, 'invalid_args');
       const selection = lireSelection(Object.fromEntries(Object.entries(args).filter(([cle]) => cle !== 'confirmation_code')));
       // Le plafond des opérations coûteuses de la purge de la console (`couteux` sur sa route), compté AVANT les lectures.
       await plafondCouteux(deps, tenantId);
       const fiches = await resoudreSelection(deps, tenantId, selection);
       if (fiches.length === 0) {
         throw new RefusOutil('cette sélection ne désigne plus aucun contact : rien n’a été supprimé (ils l’ont peut-être déjà été, '
-          + 'par un appel précédent avec ce code)');
+          + 'par un appel précédent avec ce code)', 'conflict');
       }
       const ids = fiches.map((f) => f.id);
       // 🔴 Le code est vérifié sur les fiches RE-RÉSOLUES à l'instant : rien d'autre que ce que l'aperçu a montré ne part.
       const verdict = verifierCodeDeSuppression(deps.suppression.secret, code, tenantId, empreinteDesFiches(ids), Date.now());
-      if (verdict !== 'ok') throw new RefusOutil(REFUS_DU_CODE[verdict]);
+      if (verdict !== 'ok') throw new RefusOutil(REFUS_DU_CODE[verdict], 'conflict');
       // L'effacement partagé : la limite du jour d'abord, tout ou rien (levée au-delà de la limite de contacts), puis la purge.
       const e = await effacerContacts(deps.suppression.effacement, tenantId, ids);
-      if (!e.ok) throw new RefusOutil(corpsRefusLimite(new LimiteOffreError(tenantId, 'suppressionsJour', e.max)).error);
+      if (!e.ok) throw new RefusOutil(corpsRefusLimite(new LimiteOffreError(tenantId, 'suppressionsJour', e.max)).error, 'plan_limit');
       // L'audit de la purge de la console, signé de la personne, au mieux : un journal en panne ne défait pas l'effacement.
       const journal = makeJournal(deps.suppression.audit);
       for (const id of ids) await journal(tenantId, { auth: { userId } }, 'contact.purged', { kind: 'contact', id }, { lot: ids.length, via: 'mcp' });

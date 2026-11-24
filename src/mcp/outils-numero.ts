@@ -3,8 +3,7 @@ import {
   FILIERES_NUMERO, MODES_NUMERO, prixDuNumero, type PrixNumero,
 } from '../../web/lib/partage/parcours-numero';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
-import { RefusOutil, valeurOuRefus } from './saisie';
-import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
+import { RefusOutil, refusDuPlafond, valeurOuRefus } from './saisie';
 import type { Issue } from '../lib/issue';
 import type { EtatConnexion } from '../otp/etat-connexion';
 import type { EtatDeLEspace } from '../stripe/abonnements.pg';
@@ -83,7 +82,7 @@ const ecriture = (title: string, idempotentHint: boolean): AnnotationsMcp =>
   ({ title, readOnlyHint: false, destructiveHint: true, idempotentHint, openWorldHint: false });
 
 function signataire(personne: PersonneMcp | null): string {
-  if (personne === null) throw new RefusOutil('connexion OAuth requise : cet outil agit au nom d’une personne');
+  if (personne === null) throw new RefusOutil('connexion OAuth requise : cet outil agit au nom d’une personne', 'forbidden');
   return personne.userId;
 }
 
@@ -111,9 +110,9 @@ export const OUTILS_NUMERO: OutilMcp[] = [
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
       signataire(personne);
-      if (typeof args.rendre !== 'boolean') throw new RefusOutil('paramètre « rendre » requis : true ou false');
+      if (typeof args.rendre !== 'boolean') throw new RefusOutil('paramètre « rendre » requis : true ou false', 'invalid_args');
       if (!(await deps.numero.rendreLeNumero(tenantId, args.rendre))) {
-        throw new RefusOutil('Cet espace n’a pas de formule Pro en cours : il n’y a pas de fin de formule Pro où rendre le numéro.');
+        throw new RefusOutil('Cet espace n’a pas de formule Pro en cours : il n’y a pas de fin de formule Pro où rendre le numéro.', 'conflict');
       }
       return { rendre_numero: args.rendre };
     },
@@ -158,7 +157,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
     async executer(deps: DepsMcp, tenantId, _args, personne) {
       const payeur = signataire(personne);
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       return valeurOuRefus(await deps.numero.ouvrirPortail(tenantId, payeur));
     },
   },
@@ -178,11 +177,11 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       const a = await deps.numero.abonnement(tenantId);
       if (a === null || a.etat === 'libere') {
         throw new RefusOutil('Cet espace n’a plus d’abonnement de numéro à renouveler : pour un nouveau numéro fourni, '
-          + 'start_whatsapp_connection en mode « fourni ».');
+          + 'start_whatsapp_connection en mode « fourni ».', 'conflict');
       }
-      if (a.etat === 'actif') throw new RefusOutil('L’abonnement du numéro est actif : rien à renouveler.');
+      if (a.etat === 'actif') throw new RefusOutil('L’abonnement du numéro est actif : rien à renouveler.', 'conflict');
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       if (a.etat === 'suspendu' && a.finiLe !== null) {
         return {
           ...valeurOuRefus(await deps.numero.ouvrirAbonnement(tenantId, payeur)),

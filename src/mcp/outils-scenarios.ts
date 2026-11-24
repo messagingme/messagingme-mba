@@ -3,7 +3,7 @@ import {
   MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE,
 } from '../../web/lib/partage/message-rapide';
 import type { AnnotationsMcp, OutilMcp, ProprieteEntree } from './outils';
-import { RefusOutil, texteObligatoire } from './saisie';
+import { RefusOutil, familleDuRefus, texteObligatoire } from './saisie';
 import { ecriture, signataire } from './outils-agent';
 import { envoyerAUnePersonne } from './outils-modeles';
 import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
@@ -37,7 +37,7 @@ function valeurOuRefus<T>(r: ResultatScenario<T>): T {
   if (r.ok) return r.valeur;
   const chemin = typeof r.details?.chemin === 'string' ? ` (à ${r.details.chemin})` : '';
   const id = typeof r.details?.id === 'string' ? ` Scénario existant : ${r.details.id}.` : '';
-  throw new RefusOutil(`${r.message}${chemin}.${id}`);
+  throw new RefusOutil(`${r.message}${chemin}.${id}`, familleDuRefus(r.statut, r.code), { cause: r.code });
 }
 
 /**
@@ -199,7 +199,7 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
       // serait cherché comme un nom. Traduit ici, dans l'espace, AVANT l'envoi : un refus n'use alors ni plafond ni quota.
       if (UUID.test(scenario)) {
         const ligne = await deps.scenariosApi.scenarios.lireParApi(tenantId, scenario);
-        if (!ligne?.code) throw new RefusOutil('scénario introuvable dans cet espace (list_scenarios)');
+        if (!ligne?.code) throw new RefusOutil('scénario introuvable dans cet espace (list_scenarios)', 'not_found');
         scenario = ligne.code;
       }
       return envoyerAUnePersonne(deps, tenantId, args, personne, { target: { scenario }, category: 'utility' }, 'mcp_scenario_envoye');

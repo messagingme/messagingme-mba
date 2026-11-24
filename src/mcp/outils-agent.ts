@@ -2,8 +2,7 @@ import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { BusinessHours } from '../workflow/conditions';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp, ProprieteEntree } from './outils';
 import { z } from 'zod';
-import { RefusOutil, entierBorne, limiteEntiere, texteObligatoire, valeurOuRefus } from './saisie';
-import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
+import { RefusOutil, entierBorne, limiteEntiere, refusDuPlafond, texteObligatoire, valeurOuRefus } from './saisie';
 import type { AgentComplet, AgentResume } from '../agent/agent-store';
 import {
   AGENT_INTROUVABLE, BUDGET_CONVERSATION_MAX_MICRO_EUR, MAX_APPELS_OUTILS_AGENT, MAX_LABEL_AGENT, MAX_TOURS_AGENT, MENTIONS_IA,
@@ -181,7 +180,7 @@ const AGENT_ID: ProprieteEntree = {
  */
 export async function plafondCouteux(deps: DepsMcp, tenantId: string): Promise<void> {
   const c = await deps.couteux.consommer(tenantId);
-  if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+  if (!c.accepte) throw refusDuPlafond(c.attenteMs);
 }
 
 /**
@@ -197,7 +196,7 @@ export function signataire(personne: PersonneMcp | null): string {
  * webhook) : il le rattache à cette autorisation (lot D de l'audit). Même refus que `signataire`.
  */
 export function personneRequise(personne: PersonneMcp | null): PersonneMcp {
-  if (personne === null) throw new RefusOutil('connexion OAuth requise : cet outil agit au nom d’une personne');
+  if (personne === null) throw new RefusOutil('connexion OAuth requise : cet outil agit au nom d’une personne', 'forbidden');
   return personne;
 }
 
@@ -222,7 +221,7 @@ function budgetEnMicro(v: unknown): number {
   if (v === null) return BUDGET_CONVERSATION_MAX_MICRO_EUR;
   const max = BUDGET_CONVERSATION_MAX_MICRO_EUR / 1_000_000;
   if (typeof v !== 'number' || !Number.isFinite(v) || v < BUDGET_MIN_EUR || v > max) {
-    throw new RefusOutil(`budget_eur : un montant en euros entre ${BUDGET_MIN_EUR} et ${max}, ou null pour aucune limite de crédit`);
+    throw new RefusOutil(`budget_eur : un montant en euros entre ${BUDGET_MIN_EUR} et ${max}, ou null pour aucune limite de crédit`, 'invalid_args');
   }
   return Math.round(v * 1_000_000);
 }
@@ -253,7 +252,7 @@ function langueSaisie(args: Record<string, unknown>): LangueMentionIa | undefine
   const l = args.mention_ia_langue;
   if (l === undefined) return undefined;
   if (typeof l !== 'string' || !(LANGUES_MENTION as string[]).includes(l)) {
-    throw new RefusOutil(`mention_ia_langue : ${LANGUES_MENTION.join(' ou ')} ; un autre texte se règle dans la console`);
+    throw new RefusOutil(`mention_ia_langue : ${LANGUES_MENTION.join(' ou ')} ; un autre texte se règle dans la console`, 'invalid_args');
   }
   return l as LangueMentionIa;
 }
@@ -363,7 +362,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       const id = texteObligatoire(args, 'agent_id', 100);
       const ia = deps.agentIa;
       const agent = estUuid(id) ? await ia.gestion.agents.complet(tenantId, id) : null;
-      if (!agent) throw new RefusOutil(AGENT_INTROUVABLE);
+      if (!agent) throw new RefusOutil(AGENT_INTROUVABLE, 'not_found');
       const [outils, lint, modeles, reglages] = await Promise.all([
         ia.outils.listToutes(tenantId, id),
         manquesDeLAgent(ia.gestion, tenantId, id),
@@ -491,7 +490,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       const id = texteObligatoire(args, 'agent_id', 100);
       // Le serveur refuse déjà ces clés (même phrase) ; le filtre reste ici, devant la porte de l'administrateur.
       const interdites = Object.keys(args).filter((k) => !CLES_UPDATE_AGENT.has(k));
-      if (interdites.length > 0) throw new RefusOutil(champsNonModifiables(interdites));
+      if (interdites.length > 0) throw new RefusOutil(champsNonModifiables(interdites), 'invalid_args');
       const langue = langueSaisie(args);
       const contenu = Object.fromEntries(CHAMPS_FICHE_MCP.filter((k) => args[k] !== undefined).map((k) => [k, args[k]]));
       // La saisie de la console, telle quelle : les bornes et le contrôle de complétude sont ceux de `modifierAgent`, qui
@@ -549,7 +548,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
         ...(args.budget_eur !== undefined ? { budgetMicroEur: budgetEnMicro(args.budget_eur) } : {}),
       };
       if (Object.keys(corps).length === 0) {
-        throw new RefusOutil('au moins une limite à régler : max_turns, max_tool_calls ou budget_eur');
+        throw new RefusOutil('au moins une limite à régler : max_turns, max_tool_calls ou budget_eur', 'invalid_args');
       }
       // La porte de la console : ses bornes, et la ligne d'historique signée de la personne (`fiche_agent`).
       const auteur = { userId: signataire(personne), origine: 'mcp' as const };
@@ -695,7 +694,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
     },
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'agent_id', 100);
-      if (typeof args.active !== 'boolean') throw new RefusOutil('paramètre « active » requis (true pour activer, false pour désactiver)');
+      if (typeof args.active !== 'boolean') throw new RefusOutil('paramètre « active » requis (true pour activer, false pour désactiver)', 'invalid_args');
       const auteur = { userId: signataire(personne), origine: 'mcp' as const };
       const agent = valeurOuRefus(await changerStatut(deps.agentIa.gestion, tenantId, id, args.active ? 'active' : 'disabled', auteur));
       return { agent: vueAgent(agent) };
@@ -763,11 +762,11 @@ export const OUTILS_AGENT: OutilMcp[] = [
         // L'ancienne forme (lot 5) : `agent_id` seul, requis.
         const brut = args.agent_id;
         if (brut !== null && (typeof brut !== 'string' || brut.trim() === '' || brut.length > 100)) {
-          throw new RefusOutil('paramètre « mode » requis (« mba », « agent », « scenario », « equipe » ou « application »), ou l’ancienne forme : « agent_id » (un agent actif, ou null)');
+          throw new RefusOutil('paramètre « mode » requis (« mba », « agent », « scenario », « equipe » ou « application »), ou l’ancienne forme : « agent_id » (un agent actif, ou null)', 'invalid_args');
         }
         choix = await choixDeLAncienneFormeSousLOffre(reglage, tenantId, brut === null ? null : brut.trim());
       } else if (!estModeRepondeur(args.mode)) {
-        throw new RefusOutil('paramètre « mode » invalide : « mba », « agent », « scenario », « equipe » ou « application »');
+        throw new RefusOutil('paramètre « mode » invalide : « mba », « agent », « scenario », « equipe » ou « application »', 'invalid_args');
       } else if (args.mode === 'agent') {
         choix = { mode: 'agent', agentId: texteObligatoire(args, 'agent_id', 100) };
       } else if (args.mode === 'scenario') {
@@ -851,7 +850,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       const id = texteObligatoire(args, 'agent_id', 100);
       const limit = entierBorne(args, 'limit', 200, 1, 500);
       // L'agent d'abord : une liste vide pour un identifiant inconnu se lirait « cet agent ne sait rien ».
-      if (!estUuid(id) || !(await deps.agentIa.gestion.agents.complet(tenantId, id))) throw new RefusOutil(AGENT_INTROUVABLE);
+      if (!estUuid(id) || !(await deps.agentIa.gestion.agents.complet(tenantId, id))) throw new RefusOutil(AGENT_INTROUVABLE, 'not_found');
       const fiches = await deps.agentIa.connaissance.connaissance.lister(tenantId, id);
       return {
         fiches: fiches.slice(0, limit).map((f) => ({
@@ -1153,7 +1152,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
     async executer(deps, tenantId, args, personne) {
       const payeur = signataire(personne);
       const lu = saisieBuyCredit.safeParse(args);
-      if (!lu.success) throw new RefusOutil(`offre inconnue (${[...OFFRES_RECHARGE, ...OFFRES_WHATSAPP].join(', ')}), ou credit autre que "ia" ou "whatsapp"`);
+      if (!lu.success) throw new RefusOutil(`offre inconnue (${[...OFFRES_RECHARGE, ...OFFRES_WHATSAPP].join(', ')}), ou credit autre que "ia" ou "whatsapp"`, 'invalid_args');
       await plafondCouteux(deps, tenantId);
       const offreWa = (OFFRES_WHATSAPP as readonly string[]).includes(lu.data.offre);
       // Le solde visé : celui demandé, sinon celui de l'offre. Une offre de l'autre famille est refusée par l'ouverture.

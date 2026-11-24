@@ -74,7 +74,7 @@ export const OUTILS_OFFRE: OutilMcp[] = [
       const permis: readonly string[] = DROITS_PAR_CLAUDE;
       if (args.scopes !== undefined && (!Array.isArray(args.scopes) || !args.scopes.every((s) => typeof s === 'string' && permis.includes(s)))) {
         throw new RefusOutil('scopes : une liste de droits, parmi ' + DROITS_PAR_CLAUDE.join(', ')
-          + ' ; une clé aux droits plus larges (MCP, webhooks, suppression de contacts) se crée dans la console');
+          + ' ; une clé aux droits plus larges (MCP, webhooks, suppression de contacts) se crée dans la console', 'invalid_args');
       }
       const scopes = (args.scopes as string[] | undefined) ?? [...DROITS_CLE_APPLICATION];
       await plafondCouteux(deps, tenantId);
@@ -106,7 +106,7 @@ export const OUTILS_OFFRE: OutilMcp[] = [
     async executer(deps, tenantId, args, personne) {
       const payeur = signataire(personne);
       const periodicite = args.periodicite;
-      if (periodicite !== 'mois' && periodicite !== 'an') throw new RefusOutil('periodicite : mois ou an');
+      if (periodicite !== 'mois' && periodicite !== 'an') throw new RefusOutil('periodicite : mois ou an', 'invalid_args');
       await plafondCouteux(deps, tenantId);
       // Retour sur la page publique « paiement reçu » : la personne de Claude Code n'a pas de session de console.
       const p = valeurOuRefus(await deps.offre.pro.ouvrir(tenantId, periodicite, payeur, 'claude'));
@@ -155,7 +155,7 @@ export const OUTILS_OFFRE: OutilMcp[] = [
       const payeur = signataire(personne);
       const places = args.places ?? 1;
       if (typeof places !== 'number' || !Number.isInteger(places) || places < 1 || places > PLACES_OPTION_MAX) {
-        throw new RefusOutil(`places : un entier de 1 à ${PLACES_OPTION_MAX}`);
+        throw new RefusOutil(`places : un entier de 1 à ${PLACES_OPTION_MAX}`, 'invalid_args');
       }
       await plafondCouteux(deps, tenantId);
       // Déjà prise : son état, jamais un second paiement (la prise le refuserait, sans dire si elle est payée).

@@ -222,9 +222,9 @@ export const CHAMPS_CIBLE_IDENTIFIANTS: Record<string, ProprieteEntree> = {
 const present = (v: unknown): boolean => v !== undefined && v !== null;
 
 function identifiants(v: unknown, cle: string): string[] {
-  if (!Array.isArray(v) || v.length === 0) throw new RefusOutil(`paramètre « ${cle} » : une liste d'identifiants non vide est attendue`);
-  if (v.length > MAX_IDENTIFIANTS_CIBLE) throw new RefusOutil(`paramètre « ${cle} » : ${MAX_IDENTIFIANTS_CIBLE} identifiants au plus par appel`);
-  if (!v.every(estUuid)) throw new RefusOutil(`paramètre « ${cle} » : identifiant mal formé`);
+  if (!Array.isArray(v) || v.length === 0) throw new RefusOutil(`paramètre « ${cle} » : une liste d'identifiants non vide est attendue`, 'invalid_args');
+  if (v.length > MAX_IDENTIFIANTS_CIBLE) throw new RefusOutil(`paramètre « ${cle} » : ${MAX_IDENTIFIANTS_CIBLE} identifiants au plus par appel`, 'invalid_args');
+  if (!v.every(estUuid)) throw new RefusOutil(`paramètre « ${cle} » : identifiant mal formé`, 'invalid_args');
   return [...new Set(v)];
 }
 
@@ -241,9 +241,9 @@ export async function lireCibleMcp(
   const parFiltres = ['tags', 'tag_mode', 'opt_in', 'analysis', ...CLES_SEGMENTS].some((k) => present(args[k]));
 
   if (parContacts || parConversations) {
-    if (!opts.identifiants) throw new RefusOutil('cet outil cible par étiquettes, consentement ou analyse, pas par identifiants');
-    if (parContacts && parConversations) throw new RefusOutil('contact_ids ou conversation_ids, pas les deux');
-    if (parFiltres) throw new RefusOutil('une liste d’identifiants ne se combine pas avec des filtres : l’un ou l’autre');
+    if (!opts.identifiants) throw new RefusOutil('cet outil cible par étiquettes, consentement ou analyse, pas par identifiants', 'invalid_args');
+    if (parContacts && parConversations) throw new RefusOutil('contact_ids ou conversation_ids, pas les deux', 'invalid_args');
+    if (parFiltres) throw new RefusOutil('une liste d’identifiants ne se combine pas avec des filtres : l’un ou l’autre', 'invalid_args');
     // Résolus DANS l'espace, aux deux portes : un identifiant d'ailleurs ne désigne personne, et une liste qui ne désigne
     // personne est refusée plutôt que de répondre « 0 » (relecture du lot des campagnes, constat 2).
     const ids = parContacts
@@ -253,34 +253,34 @@ export async function lireCibleMcp(
     if (cible === null) {
       throw new RefusOutil(parContacts
         ? 'aucun de ces contacts n’existe dans cet espace'
-        : 'aucune de ces conversations n’a de contact dans cet espace');
+        : 'aucune de ces conversations n’a de contact dans cet espace', 'not_found');
     }
     return cible;
   }
 
   const tags = args.tags;
-  if (present(tags) && (!Array.isArray(tags) || !tags.every((t) => typeof t === 'string'))) throw new RefusOutil('paramètre « tags » : une liste de textes est attendue');
-  if (Array.isArray(tags) && tags.length > MAX_TAGS) throw new RefusOutil(`paramètre « tags » : ${MAX_TAGS} étiquettes au plus`);
-  if (present(args.tag_mode) && args.tag_mode !== 'all' && args.tag_mode !== 'any') throw new RefusOutil('paramètre « tag_mode » : "all" ou "any"');
+  if (present(tags) && (!Array.isArray(tags) || !tags.every((t) => typeof t === 'string'))) throw new RefusOutil('paramètre « tags » : une liste de textes est attendue', 'invalid_args');
+  if (Array.isArray(tags) && tags.length > MAX_TAGS) throw new RefusOutil(`paramètre « tags » : ${MAX_TAGS} étiquettes au plus`, 'invalid_args');
+  if (present(args.tag_mode) && args.tag_mode !== 'all' && args.tag_mode !== 'any') throw new RefusOutil('paramètre « tag_mode » : "all" ou "any"', 'invalid_args');
   if (present(args.opt_in) && !['opted_in', 'opted_out', 'unknown'].includes(args.opt_in as string)) {
-    throw new RefusOutil('paramètre « opt_in » : opted_in, opted_out ou unknown');
+    throw new RefusOutil('paramètre « opt_in » : opted_in, opted_out ou unknown', 'invalid_args');
   }
   const analyse = args.analysis;
-  if (present(analyse) && !Array.isArray(analyse)) throw new RefusOutil('paramètre « analysis » : une liste de filtres est attendue');
+  if (present(analyse) && !Array.isArray(analyse)) throw new RefusOutil('paramètre « analysis » : une liste de filtres est attendue', 'invalid_args');
   const filtresAnalyse = Array.isArray(analyse) ? analyse : [];
-  if (filtresAnalyse.length > MAX_FIELD_FILTERS) throw new RefusOutil(`paramètre « analysis » : ${MAX_FIELD_FILTERS} filtres au plus`);
-  if (filtresAnalyse.length > 0 && !fonctions.has('analyse')) throw new RefusOutil(corpsRefusFonction('analyse').error);
+  if (filtresAnalyse.length > MAX_FIELD_FILTERS) throw new RefusOutil(`paramètre « analysis » : ${MAX_FIELD_FILTERS} filtres au plus`, 'invalid_args');
+  if (filtresAnalyse.length > 0 && !fonctions.has('analyse')) throw new RefusOutil(corpsRefusFonction('analyse').error, 'plan_required', { cause: 'plan_feature_unavailable', action: corpsRefusFonction('analyse').upgradeUrl });
   const fieldFilters = filtresAnalyse.map((f: unknown) => {
     const { field, op, value } = (f !== null && typeof f === 'object' ? f : {}) as { field?: unknown; op?: unknown; value?: unknown };
     // Seuls les champs de la dernière analyse : un champ personnalisé n'est pas annoncé, donc pas accepté.
-    if (!estCleFiltrable(field)) throw new RefusOutil(`filtre d’analyse : champ inconnu (${CLES_FILTRABLES.join(', ')})`);
+    if (!estCleFiltrable(field)) throw new RefusOutil(`filtre d’analyse : champ inconnu (${CLES_FILTRABLES.join(', ')})`, 'invalid_args');
     return { key: field, op, value: typeof value === 'string' ? value : '' };
   });
 
   const segments = await lireSegmentsMcp(args, deps, tenantId);
   // Jamais tronqué : un filtre jeté élargirait l'audience.
   if (fieldFilters.length + segments.length > MAX_FIELD_FILTERS) {
-    throw new RefusOutil(`${MAX_FIELD_FILTERS} filtres au plus, analyse et critères d’achats, d’activité et de pays compris`);
+    throw new RefusOutil(`${MAX_FIELD_FILTERS} filtres au plus, analyse et critères d’achats, d’activité et de pays compris`, 'invalid_args');
   }
   let cible: BulkTarget | null;
   try {
@@ -292,12 +292,12 @@ export async function lireCibleMcp(
     });
   } catch (e) {
     // Un opérateur ou une valeur que le champ ne connaît pas : la phrase du mini-CRM, telle quelle.
-    if (e instanceof FiltreContactInvalide) throw new RefusOutil(e.message);
+    if (e instanceof FiltreContactInvalide) throw new RefusOutil(e.message, 'invalid_args');
     throw e;
   }
   // 🔴 Une cible sans critère n'est JAMAIS « tout le monde » ici, contrairement au « tout sélectionner » de la console.
   if (cible === null || !('filters' in cible) || !filtersActive(cible.filters)) {
-    throw new RefusOutil(`précisez au moins un critère : tags, opt_in, analysis, ${CLES_SEGMENTS.join(', ')}, ou une liste de contact_ids ou de conversation_ids`);
+    throw new RefusOutil(`précisez au moins un critère : tags, opt_in, analysis, ${CLES_SEGMENTS.join(', ')}, ou une liste de contact_ids ou de conversation_ids`, 'invalid_args');
   }
   return cible;
 }
@@ -327,13 +327,13 @@ async function lireSegmentsMcp(
     const brut = v as Record<string, unknown>;
     const permises = avecJours ? ['min', 'max', 'within_days'] : ['min', 'max'];
     const inconnues = Object.keys(brut).filter((k) => !permises.includes(k));
-    if (inconnues.length > 0) throw new RefusOutil(`paramètre « ${cle} » : clé inconnue (${inconnues.join(', ')}) ; seules ${permises.join(', ')}`);
+    if (inconnues.length > 0) throw new RefusOutil(`paramètre « ${cle} » : clé inconnue (${inconnues.join(', ')}) ; seules ${permises.join(', ')}`, 'invalid_args');
     return { min: brut.min, max: brut.max, ...(avecJours ? { jours: brut.within_days } : {}) };
   };
   /** Les clés annoncées d'un objet, et elles seules : une clé inconnue est refusée en la nommant. */
   const seules = (cle: string, brut: Record<string, unknown>, permises: readonly string[]): void => {
     const inconnues = Object.keys(brut).filter((k) => !permises.includes(k));
-    if (inconnues.length > 0) throw new RefusOutil(`paramètre « ${cle} » : clé inconnue (${inconnues.join(', ')}) ; seules ${permises.join(', ')}`);
+    if (inconnues.length > 0) throw new RefusOutil(`paramètre « ${cle} » : clé inconnue (${inconnues.join(', ')}) ; seules ${permises.join(', ')}`, 'invalid_args');
   };
   /** Un produit de l'outil (`product_id` ou `sku`) dans la forme de la console (`produit` ou `sku`) ; les deux restent les deux. */
   const produit = (cle: string, p: unknown): unknown => {
@@ -373,10 +373,10 @@ async function lireSegmentsMcp(
   if (CLES_COMMANDES_MCP.some((k) => present(args[k])) && (await deps.contacts.suiviSegments(tenantId)).boutique === null) {
     throw new RefusOutil('aucune boutique Shopify dans cet espace : les critères de commande (orders, spent, days_since_last_order, '
       + 'bought, not_bought, days_since_product, collections, wrote_without_order, clicked_without_order) n’ont rien à compter. '
-      + 'get_shopify_state dit comment la brancher');
+      + 'get_shopify_state dit comment la brancher', 'conflict');
   }
   const pays = args.countries;
-  if (present(pays) && (!Array.isArray(pays) || pays.length === 0)) throw new RefusOutil('paramètre « countries » : une liste non vide de codes ISO est attendue');
+  if (present(pays) && (!Array.isArray(pays) || pays.length === 0)) throw new RefusOutil('paramètre « countries » : une liste non vide de codes ISO est attendue', 'invalid_args');
   return [
     ...(present(args.orders) ? [entree(CLES_SEGMENT.commandes, plage('orders', true))] : []),
     ...(present(args.spent) ? [entree(CLES_SEGMENT.depense, plage('spent', true))] : []),

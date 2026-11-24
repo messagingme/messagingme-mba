@@ -1499,3 +1499,42 @@ describe('serveur MCP : reply_in_open_window hors des 24 heures sur un numéro r
     await server.close();
   });
 });
+
+describe('serveur MCP : un refus dit sa cause, pas seulement sa phrase (lot 1 du CSM virtuel, B0a)', () => {
+  type Rendu = { content: Array<{ type: string; text: string }>; structuredContent?: Record<string, unknown>; isError?: boolean };
+  const rendu = (res: { json: <T>() => T }): Rendu => res.json<{ result: Rendu }>().result;
+
+  it('🔴 la phrase reste le premier bloc, la cause suit dans structuredContent et, en JSON, dans le bloc suivant', async () => {
+    const { server } = app();
+    const r = rendu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('get_conversation', { conversation_id: 'inconnue' }) }));
+    expect(r.isError).toBe(true);
+    expect(r.content[0]!.text).toBe('conversation inconnue dans cet espace');
+    expect(r.structuredContent).toEqual({ code: 'not_found', message: 'conversation inconnue dans cet espace' });
+    expect(JSON.parse(r.content[1]!.text)).toEqual(r.structuredContent);
+    await server.close();
+  });
+
+  it('🔴 une clé hors du schéma de l’outil : invalid_args', async () => {
+    const { server } = app();
+    const r = rendu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('get_conversation', { conversation_id: 'cv1', inventee: 1 }) }));
+    expect(r.structuredContent?.code).toBe('invalid_args');
+    await server.close();
+  });
+
+  it('🔴 hors offre : plan_required, la cause fine de l’API et l’adresse de l’offre à proposer', async () => {
+    const base = { offreDe: async () => ({ offre: 'base' as const, droits: DROITS.base, retourEnBaseLe: null }) };
+    const { server } = app({ offres: base });
+    const r = rendu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('tag_conversation', { conversation_id: 'cv1', tags: ['chaud'] }) }));
+    expect(r.structuredContent).toMatchObject({ code: 'plan_required', cause: 'plan_feature_unavailable' });
+    expect(String(r.structuredContent?.action)).toMatch(/\/offre/);
+    await server.close();
+  });
+
+  it('un résultat qui n’est pas un refus ne change pas de forme', async () => {
+    const { server } = app();
+    const r = rendu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_conversations') }));
+    expect(r.isError).toBe(false);
+    expect(r.structuredContent).toBeUndefined();
+    await server.close();
+  });
+});

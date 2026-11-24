@@ -1,7 +1,6 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
-import { RefusOutil, entierBorne } from './saisie';
-import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
+import { RefusOutil, entierBorne, familleDuRefus, refusDuCoeur, refusDuPlafond } from './saisie';
 import { compteurEnvoiRefuse, type RapportEnvoi, type ReponseEnvoi } from '../api/envoi-public';
 import { CLE_IDEMPOTENCE_MAX } from '../api/idempotence';
 import { journaliser } from '../lib/journal';
@@ -105,11 +104,11 @@ export async function envoyerAUnePersonne(
 ): Promise<{ send_id: string; contact_created: boolean }> {
   const phone = typeof args.phone === 'string' ? args.phone : undefined;
   const contactId = typeof args.contact_id === 'string' ? args.contact_id : undefined;
-  if ((phone === undefined) === (contactId === undefined)) throw new RefusOutil('désignez la personne par phone OU par contact_id, pas les deux');
+  if ((phone === undefined) === (contactId === undefined)) throw new RefusOutil('désignez la personne par phone OU par contact_id, pas les deux', 'invalid_args');
   const values = Array.isArray(args.values) ? args.values : [];
-  if (values.some((v) => typeof v !== 'string' || v === '')) throw new RefusOutil('values : une chaîne non vide par variable');
+  if (values.some((v) => typeof v !== 'string' || v === '')) throw new RefusOutil('values : une chaîne non vide par variable', 'invalid_args');
   if (values.some((v) => !VALEUR_ACCEPTEE.test(v as string))) {
-    throw new RefusOutil('values : ni retour à la ligne, ni tabulation, ni plus de quatre espaces de suite (Meta refuserait le message)');
+    throw new RefusOutil('values : ni retour à la ligne, ni tabulation, ni plus de quatre espaces de suite (Meta refuserait le message)', 'invalid_args');
   }
   const corps = {
     idempotencyKey: args.idempotency_key,
@@ -124,19 +123,19 @@ export async function envoyerAUnePersonne(
   // coûteux, PUIS le quota d'envois du jour.
   const r = await deps.envoyerModele(tenantId, corps, async (unites) => {
     const c = await deps.couteux.consommer(tenantId);
-    if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+    if (!c.accepte) throw refusDuPlafond(c.attenteMs);
     const q = await deps.quotaEnvois(tenantId, unites);
-    if (!q.accepte) throw new RefusOutil(q.raison ?? 'quota quotidien d’envois de l’espace atteint');
+    if (!q.accepte) throw new RefusOutil(q.raison ?? 'quota quotidien d’envois de l’espace atteint', 'quota_exceeded');
     return true;
   });
-  if (compteurEnvoiRefuse(r)) throw new RefusOutil('envoi refusé par le compteur');
-  if (r.statut >= 400) throw new RefusOutil(phraseDeRefus(r));
+  if (compteurEnvoiRefuse(r)) throw new RefusOutil('envoi refusé par le compteur', 'rate_limited');
+  if (r.statut >= 400) throw refusDEnvoi(r);
   // 201 : le rapport de l'envoi, ou celui d'un envoi déjà fait avec cette clé (rejeu), qui a la même forme.
   const rapport = r.corps as RapportEnvoi;
   if (rapport.recipientCount === 0) {
     // La clé est consommée : l'envoi vide est scellé, et le même appel rejouerait ce refus.
     throw new RefusOutil(`rien n’est parti : la personne est écartée (${rapport.skipped[0]?.reason ?? 'motif inconnu'})`
-      + `${rapport.created > 0 ? ' ; sa fiche a été créée' : ''} ; une fois la cause levée, réessayer avec une NOUVELLE idempotency_key`);
+      + `${rapport.created > 0 ? ' ; sa fiche a été créée' : ''} ; une fois la cause levée, réessayer avec une NOUVELLE idempotency_key`, rapport.skipped[0]?.reason === 'opted_out' ? 'opted_out' : 'conflict');
   }
   // La trace de la personne qui a envoyé : la campagne, elle, porte le préfixe des envois de l'API.
   journaliser('info', evenement, { tenantId, userId: personne?.userId ?? null, sendId: rapport.sendId });
@@ -148,6 +147,13 @@ function phraseDeRefus(r: ReponseEnvoi): string {
   const c = r.corps as { error?: unknown; code?: unknown } | null;
   const phrase = typeof c?.error === 'string' ? c.error : `refus ${r.statut}`;
   return typeof c?.code === 'string' ? `${phrase} (${c.code})` : phrase;
+}
+
+/** Le refus d'un envoi : sa phrase (`phraseDeRefus`), sa famille et sa cause, lues dans le statut et le code de l'API. */
+function refusDEnvoi(r: ReponseEnvoi): RefusOutil {
+  const code = (r.corps as { code?: unknown } | null)?.code;
+  const cause = typeof code === 'string' ? code : undefined;
+  return new RefusOutil(phraseDeRefus(r), familleDuRefus(r.statut, cause), cause === undefined ? {} : { cause });
 }
 
 const NOM = { type: 'string' as const, minLength: 1, maxLength: BORNES_MODELE.nom, pattern: '^[a-z0-9_]+$', description: 'The template name (lowercase letters, digits and _).' };
@@ -169,7 +175,7 @@ async function ouRefusDeMeta<T>(appel: () => Promise<T>): Promise<T> {
   } catch (err) {
     const r = refusDeMeta(err);
     if (r === null) throw err;
-    throw new RefusOutil(r.message);
+    throw refusDuCoeur(r);
   }
 }
 
@@ -222,7 +228,7 @@ export const OUTILS_MODELES: OutilMcp[] = [
       const name = typeof args.name === 'string' ? args.name : '';
       const language = typeof args.language === 'string' ? args.language : undefined;
       const r = await statutsDuModele(deps.modeles, tenantId, name, language);
-      if ('refus' in r) throw new RefusOutil(r.refus.message);
+      if ('refus' in r) throw refusDuCoeur(r.refus);
       return r;
     },
   },
@@ -257,11 +263,11 @@ export const OUTILS_MODELES: OutilMcp[] = [
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const lu = schemaModeleMeta.safeParse(args.template);
-      if (!lu.success) throw new RefusOutil(`modèle invalide : ${messageDeForme(lu.error)}`);
+      if (!lu.success) throw new RefusOutil(`modèle invalide : ${messageDeForme(lu.error)}`, 'invalid_args');
       const c = await deps.couteux.consommer(tenantId);
-      if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+      if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       const r = await creerModeleDepuisMeta(deps.modeles, tenantId, lu.data);
-      if ('refus' in r) throw new RefusOutil(r.refus.message);
+      if ('refus' in r) throw refusDuCoeur(r.refus);
       await oublierLaListe(deps, tenantId);
       journaliser('info', 'mcp_modele_cree', { tenantId, userId: personne?.userId ?? null, nom: r.modele.name, langue: r.modele.language });
       // Le prix de SA catégorie, celle qui a été demandée : Meta peut la changer à sa revue, et le prix suit (list_templates).
@@ -351,11 +357,11 @@ export const OUTILS_MODELES: OutilMcp[] = [
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const lu = schemaModeleMeta.safeParse(args.template);
-      if (!lu.success) throw new RefusOutil(`modèle invalide : ${messageDeForme(lu.error)}`);
+      if (!lu.success) throw new RefusOutil(`modèle invalide : ${messageDeForme(lu.error)}`, 'invalid_args');
       const { input, enteteMedia } = versModeleConsole(lu.data);
       // L'écran ne refait pas un en-tête média (il faudrait le redéposer) : le garder ou l'ajouter le perdrait en silence.
       if (enteteMedia) {
-        throw new RefusOutil('un en-tête image, vidéo ou document ne se met pas par une correction : créez un nouveau modèle (create_template)');
+        throw new RefusOutil('un en-tête image, vidéo ou document ne se met pas par une correction : créez un nouveau modèle (create_template)', 'unsupported');
       }
       await plafondCouteux(deps, tenantId);
       const { name, language, ...champs } = input;
@@ -367,13 +373,13 @@ export const OUTILS_MODELES: OutilMcp[] = [
           return (await deps.modeles.modeles.tracking.liens.getByCode(code))?.tenantId === tenantId;
         } catch (err) {
           journaliser('error', 'mcp_modele_lien_illisible', { tenantId, nom: name, erreur: err instanceof Error ? err.message : String(err) });
-          throw new RefusOutil('les liens tracés de ce modèle n’ont pas pu être relus : réessayez dans un instant');
+          throw new RefusOutil('les liens tracés de ce modèle n’ont pas pu être relus : réessayez dans un instant', 'unavailable');
         }
       };
       await ouRefusDeMeta(async () => {
         const issue = await modifierUnModele(deps.modeles.modeles, tenantId, name, language, champs, undefined,
           (existant) => ceQueCeFormatPerdrait(existant, notreCode));
-        if ('refus' in issue) throw new RefusOutil(phraseDuRefus(issue.refus));
+        if ('refus' in issue) throw new RefusOutil(phraseDuRefus(issue.refus), familleDuRefus(issue.refus.statut));
       });
       await oublierLaListe(deps, tenantId);
       journaliser('info', 'mcp_modele_modifie', { tenantId, userId: personne?.userId ?? null, nom: name, langue: language });
@@ -398,12 +404,12 @@ export const OUTILS_MODELES: OutilMcp[] = [
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const name = typeof args.name === 'string' ? args.name : '';
-      if (!estNomDeModele(name)) throw new RefusOutil('name : un nom de modèle, en lettres minuscules, chiffres et _');
+      if (!estNomDeModele(name)) throw new RefusOutil('name : un nom de modèle, en lettres minuscules, chiffres et _', 'invalid_args');
       await plafondCouteux(deps, tenantId);
       await ouRefusDeMeta(async () => {
         const issue = await supprimerUnModele(deps.modeles.modeles, tenantId, name);
-        if ('refus' in issue) throw new RefusOutil(phraseDuRefus(issue.refus));
-        if (!issue.res.success) throw new RefusOutil('Meta n’a pas confirmé la suppression : vérifiez avec get_template_status avant de réessayer');
+        if ('refus' in issue) throw new RefusOutil(phraseDuRefus(issue.refus), familleDuRefus(issue.refus.statut));
+        if (!issue.res.success) throw new RefusOutil('Meta n’a pas confirmé la suppression : vérifiez avec get_template_status avant de réessayer', 'unavailable');
       });
       await oublierLaListe(deps, tenantId);
       journaliser('info', 'mcp_modele_supprime', { tenantId, userId: personne?.userId ?? null, nom: name });

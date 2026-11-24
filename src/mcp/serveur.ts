@@ -4,6 +4,7 @@ import { rappelDeLAbonnement, rappelDeLaSuiteDuPro } from './outils-numero';
 import { corpsRefusFonction } from '../offres/refus';
 import { phraseOutilSansObjet, sansObjetSurApplication } from '../application/garde-outils';
 import { FiltreContactInvalide } from '../crm/contact-filters';
+import type { CodeRefus, PrecisionsRefus } from './saisie';
 
 /**
  * Le transport MCP : du JSON-RPC 2.0 sur un seul POST, sans état.
@@ -152,27 +153,43 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
         deps.numero.suiteDuPro(ctx.tenantId).then(rappelDeLaSuiteDuPro).catch(() => null),
       ])).filter((r): r is string => r !== null);
       const blocs = (texte: string) => [{ type: 'text', text: texte }, ...rappels.map((r) => ({ type: 'text', text: r }))];
+      /**
+       * Un refus (lot 1 du CSM virtuel, B0a) : la phrase d'abord, telle qu'avant (un client qui ne lit qu'elle ne voit
+       * aucune différence), puis sa cause dans `structuredContent` (MCP 2025-06-18) et, comme la spécification le
+       * recommande, la même chose en JSON dans un bloc texte : un agent choisit quoi faire selon `code`, pas selon une phrase.
+       */
+      const refuser = (message: string, code: CodeRefus, p: PrecisionsRefus = {}) => {
+        const cause = {
+          code,
+          message,
+          ...(p.reessayerDansS === undefined ? {} : { retry_after_s: p.reessayerDansS }),
+          ...(p.action === undefined ? {} : { action: p.action }),
+          ...(p.cause === undefined ? {} : { cause: p.cause }),
+        };
+        const [phrase, ...suite] = blocs(message);
+        return ok(id, { content: [phrase!, { type: 'text', text: JSON.stringify(cause) }, ...suite], structuredContent: cause, isError: true });
+      };
       // Le gel de l'offre (lot 6, B2a) : l'outil reste listé, et refuse avec la phrase et le lien de l'offre.
       if (outil.fonction !== null && !(await deps.offres.offreDe(ctx.tenantId)).droits.fonctions.has(outil.fonction)) {
-        return ok(id, { content: blocs(corpsRefusFonction(outil.fonction).error), isError: true });
+        const r = corpsRefusFonction(outil.fonction);
+        return refuser(r.error, 'plan_required', { cause: r.code, action: r.upgradeUrl });
       }
       // La filière application (2026-10-22) : un outil qui n'y a pas de sens reste listé, et refuse en proposant l'API.
       const sansObjet = sansObjetSurApplication(outil.nom);
       if (sansObjet !== undefined && (await deps.application.filiere(ctx.tenantId)) === 'application') {
-        return ok(id, { content: blocs(phraseOutilSansObjet(sansObjet)), isError: true });
+        return refuser(phraseOutilSansObjet(sansObjet), 'unsupported');
       }
       try {
         // Sur le schéma que `tools/list` annonce (celui de l'instance), avant l'outil : rien ne part avec une clé inconnue.
         const refus = refusDesClesInconnues(outil, (outil.selonInstance?.(deps) ?? outil).entree, args);
-        if (refus !== null) return ok(id, { content: blocs(refus), isError: true });
+        if (refus !== null) return refuser(refus, 'invalid_args');
         const resultat = await outil.executer(deps, ctx.tenantId, args, ctx.personne);
         return ok(id, { content: blocs(JSON.stringify(resultat, null, 2)), isError: false });
       } catch (err) {
         // Un filtre de contacts refusé par le magasin (un critère de collection sans lecture aboutie, segments Shopify
         // enrichis, lot 6a) est un refus, avec sa phrase, comme sur les routes (400), jamais une « panne ».
-        if (err instanceof RefusOutil || err instanceof FiltreContactInvalide) {
-          return ok(id, { content: blocs(err.message), isError: true });
-        }
+        if (err instanceof RefusOutil) return refuser(err.message, err.code, err.precisions);
+        if (err instanceof FiltreContactInvalide) return refuser(err.message, 'invalid_args');
         // Panne : journalisée côté serveur, sans renvoyer le message d'origine (fragment SQL ou réponse Meta possible).
         // eslint-disable-next-line no-console
         console.error(`mcp: échec de l'outil ${nom} (tenant ${ctx.tenantId}):`, messageDe(err));

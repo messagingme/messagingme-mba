@@ -4978,6 +4978,13 @@ l'activer, et d'ouvrir une recharge du crédit.
   `agentsDeLaConsole` et ses voisins). Un refus devient un refus d'outil avec la phrase de l'écran, suivie de ses
   détails en JSON (la liste des manques d'une activation, le code d'un refus de paiement) : `valeurOuRefus`,
   `src/mcp/saisie.ts`.
+- 🔴 **Un refus d'outil dit sa CAUSE, pas seulement sa phrase** (lot 1 du CSM virtuel, B0a) : `RefusOutil` exige un code
+  du vocabulaire FERMÉ `CODES_REFUS` (`src/mcp/saisie.ts`), que le type impose à chaque site. Le serveur rend la phrase en
+  premier bloc, inchangée, puis `structuredContent` (`code`, `message`, et selon le cas `retry_after_s`, `action`,
+  `cause`) et la même chose en JSON dans le bloc suivant. Un refus d'une fonction partagée prend sa famille par UNE
+  traduction (`familleDuRefus` : la cause fine de l'API publique d'abord, sinon le statut ; `refusDuCoeur`,
+  `valeurOuRefus`), le plafond des opérations lourdes son délai (`refusDuPlafond`). Une famille de plus se décide dans
+  `CODES_REFUS`, jamais à un site (`tests/mcp-refus-codes.test.ts`, `tests/mcp-serveur.test.ts`).
 - 🔴 **Le plafond des opérations coûteuses est celui de la console** : `buildServer` construit UN `PlafondPartage`
   (`Gardes.plafondCouteux`), dont dérive `limiteCouteuse`, et le pose dans les dépendances du MCP au montage
   (`DepsMcp.couteux` ; le câblage fournit `CablageMcp`, sans lui). Même instance, même clé (l'espace) : les outils

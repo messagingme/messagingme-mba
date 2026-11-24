@@ -309,7 +309,7 @@ function curseurDeListe(at: string, id: string, urgente: boolean): string {
 function lireCurseurDeListe(brut: unknown): { at: string; id: string; urgente: boolean } {
   const m = typeof brut === 'string' ? /^([un])\.(.+)$/.exec(brut) : null;
   const reprise = m ? decoderCurseur(m[2]!) : null;
-  if (!m || !reprise) throw new RefusOutil('paramètre « cursor » illisible : renvoyez le next_cursor de la page précédente tel quel');
+  if (!m || !reprise) throw new RefusOutil('paramètre « cursor » illisible : renvoyez le next_cursor de la page précédente tel quel', 'invalid_args');
   return { ...reprise, urgente: m[1] === 'u' };
 }
 
@@ -317,7 +317,7 @@ function lireCurseurDeListe(brut: unknown): { at: string; id: string; urgente: b
  *  conversation d'un autre espace, donc un identifiant deviné ne dit rien de plus qu'un inexistant. */
 async function contexteOuRefus(deps: DepsMcp, tenantId: string, conversationId: string) {
   const ctx = await deps.inbox.getConversationContext(conversationId, tenantId);
-  if (ctx === null) throw new RefusOutil('conversation inconnue dans cet espace');
+  if (ctx === null) throw new RefusOutil('conversation inconnue dans cet espace', 'not_found');
   return ctx;
 }
 
@@ -584,7 +584,7 @@ export const OUTILS: OutilMcp[] = [
       const limit = entierBorne(args, 'limit', MAX_MESSAGES_MCP, 1, MAX_MESSAGES_MCP);
       const brut = args.before === undefined || args.before === null ? null : texteObligatoire(args, 'before', 200);
       const avant = brut === null ? null : decoderCurseur(brut);
-      if (brut !== null && avant === null) throw new RefusOutil('before illisible : repassez tel quel le before rendu par l’appel précédent');
+      if (brut !== null && avant === null) throw new RefusOutil('before illisible : repassez tel quel le before rendu par l’appel précédent', 'invalid_args');
       // Un de plus que rendu : c'est lui qui dit s'il en reste avant, sans compter le fil entier.
       const lus = await deps.inbox.getDerniersMessages(id, limit + 1, avant ?? undefined);
       const rendus = lus.slice(-limit);
@@ -625,7 +625,7 @@ export const OUTILS: OutilMcp[] = [
       const id = texteObligatoire(args, 'message_id', 200);
       // Le dépôt filtre sur l'espace : un message d'un autre espace est inconnu, comme un message qui n'existe pas.
       const m = await deps.messagesApi.message(tenantId, id);
-      if (!m) throw new RefusOutil('message inconnu de cet espace');
+      if (!m) throw new RefusOutil('message inconnu de cet espace', 'not_found');
       return {
         message_id: m.id, conversation_id: m.conversationId, direction: m.direction,
         status: m.status, status_at: m.statusAt, error: m.error,
@@ -677,9 +677,9 @@ export const OUTILS: OutilMcp[] = [
       // Ramené au format de la fiche : l'agent de Meta pose l'identifiant WhatsApp, sans « + », et une recherche du
       // texte tel quel ne trouvait jamais la fiche (2026-10-02).
       const phone = e164DepuisSaisie(texteObligatoire(args, 'phone', 32));
-      if (phone === null) throw new RefusOutil('numéro illisible : donnez-le au format international (+33612345678)');
+      if (phone === null) throw new RefusOutil('numéro illisible : donnez-le au format international (+33612345678)', 'invalid_args');
       const c = await deps.contacts.findByPhone(tenantId, phone);
-      if (!c) throw new RefusOutil('aucun contact avec ce numéro dans cet espace');
+      if (!c) throw new RefusOutil('aucun contact avec ce numéro dans cet espace', 'not_found');
       return contactPublic(c, await analysesOuRien(deps, tenantId, [c.id]), true);
     },
   },
@@ -710,19 +710,19 @@ export const OUTILS: OutilMcp[] = [
     async executer(deps, tenantId, args, personne) {
       const phone = typeof args.phone === 'string' ? args.phone : undefined;
       const fiche = typeof args.contact_id === 'string' ? args.contact_id : undefined;
-      if ((phone === undefined) === (fiche === undefined)) throw new RefusOutil('désignez le contact par phone OU par contact_id, pas les deux');
+      if ((phone === undefined) === (fiche === undefined)) throw new RefusOutil('désignez le contact par phone OU par contact_id, pas les deux', 'invalid_args');
       const bloque = args.blocked;
-      if (typeof bloque !== 'boolean') throw new RefusOutil('blocked : true pour bloquer, false pour débloquer');
+      if (typeof bloque !== 'boolean') throw new RefusOutil('blocked : true pour bloquer, false pour débloquer', 'invalid_args');
       // Un identifiant qui n'est pas un uuid finirait en cast SQL : refusé avant toute lecture.
-      if (fiche !== undefined && !estUuid(fiche)) throw new RefusOutil('contact_id : l’identifiant d’une fiche (un uuid)');
+      if (fiche !== undefined && !estUuid(fiche)) throw new RefusOutil('contact_id : l’identifiant d’une fiche (un uuid)', 'invalid_args');
       let id = fiche;
       if (phone !== undefined) {
         const e164 = e164DepuisSaisie(phone);
-        if (e164 === null) throw new RefusOutil('numéro illisible : donnez-le au format international (+33612345678)');
+        if (e164 === null) throw new RefusOutil('numéro illisible : donnez-le au format international (+33612345678)', 'invalid_args');
         id = (await deps.contacts.findByPhone(tenantId, e164))?.id;
       }
       if (id === undefined || !(await deps.contacts.setBlocked(tenantId, id, bloque, signataire(personne)))) {
-        throw new RefusOutil('contact inconnu dans cet espace');
+        throw new RefusOutil('contact inconnu dans cet espace', 'not_found');
       }
       return { contact_id: id, blocked: bloque };
     },
@@ -814,7 +814,7 @@ export const OUTILS: OutilMcp[] = [
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'conversation_id', 100);
       const lu = schemaContenuMeta.safeParse(args.message);
-      if (!lu.success) throw new RefusOutil(`message invalide : ${messageDeForme(lu.error)}`);
+      if (!lu.success) throw new RefusOutil(`message invalide : ${messageDeForme(lu.error)}`, 'invalid_args');
       const message = { corps: corpsPourMeta(lu.data), trace: apercuDuMessage(lu.data), type: lu.data.type };
       const res = await reponseOuRefus(() => repondreAvecUnMessage(deps, deps.envoyerMessage, tenantId, id, message, personne?.userId ?? null, 'mcp'));
       return resultatEnvoiMcp(res, id);
@@ -846,7 +846,7 @@ export const OUTILS: OutilMcp[] = [
       const bruts = Array.isArray(args.tags) ? args.tags : [args.tags];
       // Le nettoyage de toute pose (espaces, 64 caractères, vides et doublons), puis la borne de CET outil : dix.
       const tags = nettoyerEtiquettes(bruts.filter((x): x is string => typeof x === 'string'), 10);
-      if (tags.length === 0) throw new RefusOutil('paramètre « tags » requis (au moins un tag non vide)');
+      if (tags.length === 0) throw new RefusOutil('paramètre « tags » requis (au moins un tag non vide)', 'invalid_args');
       const ctx = await contexteOuRefus(deps, tenantId, id);
       // 🔴 `publier: false` : un tag posé par un assistant classe, il ne réveille aucune automation (voir l'en-tête).
       const { nouvelles } = await deps.etiquettes.poser(tenantId, ctx.waId, tags, { publier: false });
@@ -876,7 +876,7 @@ export const OUTILS: OutilMcp[] = [
       // `null` explicite = libérer. Toute autre forme qu'une chaîne non vide est refusée, l'absence comprise : une
       // valeur bancale ou oubliée ne doit pas devenir une libération silencieuse, qui rouvre le fil à tout le monde.
       if (brut !== null && (typeof brut !== 'string' || brut.trim() === '')) {
-        throw new RefusOutil('paramètre « member_id » invalide (identifiant de membre, ou null pour libérer)');
+        throw new RefusOutil('paramètre « member_id » invalide (identifiant de membre, ou null pour libérer)', 'invalid_args');
       }
       const membre = typeof brut === 'string' ? brut.trim() : null;
       // Avec un jeton OAuth, la personne qui l'a autorisé est l'acteur. Avec une clé, pas un collaborateur : un
@@ -884,7 +884,7 @@ export const OUTILS: OutilMcp[] = [
       // « ancien collaborateur ».
       const par = personne ? { collaborateur: personne.userId } : parCause('agent tiers (MCP)');
       const ok = await deps.inbox.setAssignee(tenantId, id, membre, par);
-      if (!ok) throw new RefusOutil('conversation inconnue, ou membre étranger à cet espace');
+      if (!ok) throw new RefusOutil('conversation inconnue, ou membre étranger à cet espace', 'not_found');
       return { conversation_id: id, assigned_to: membre };
     },
   },
@@ -921,7 +921,7 @@ export const OUTILS: OutilMcp[] = [
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'conversation_id', 100);
       const action = args.action;
-      if (action !== 'take_over' && action !== 'hand_back') throw new RefusOutil('paramètre « action » : take_over ou hand_back');
+      if (action !== 'take_over' && action !== 'hand_back') throw new RefusOutil('paramètre « action » : take_over ou hand_back', 'invalid_args');
       const ctx = await contexteOuRefus(deps, tenantId, id);
       // Le même auteur qu'`assign_conversation` : la personne du jeton OAuth, sinon un agent tiers derrière une clé.
       const par = personne ? { collaborateur: personne.userId } : parCause('agent tiers (MCP)');
@@ -931,7 +931,7 @@ export const OUTILS: OutilMcp[] = [
         if ((await deps.fil.reprendreLaMain(tenantId, ctx.waId, par)) === 'refuse') {
           throw new RefusOutil('Meta n’a pas cédé la conversation : son agent peut encore répondre, et rien n’a changé de '
             + 'notre côté. Réessayez dans un instant ; si la personne veut répondre au contact maintenant, sa réponse '
-            + '(reply_in_open_window) prendra aussi la conversation.');
+            + '(reply_in_open_window) prendra aussi la conversation.', 'unavailable');
         }
         return { conversation_id: id, handled_by: 'app_human' };
       }
@@ -951,13 +951,13 @@ export const OUTILS: OutilMcp[] = [
       const stop = await deps.estDesabonne(tenantId, ctx.waId);
       if (stop && !sansRepondeur) {
         throw new RefusOutil('ce contact a demandé à ne plus recevoir de messages (STOP) : aucun robot ne reprendra sa '
-          + 'conversation. Si l’agent de Meta la tient encore, take_over la lui reprend, sans rien écrire au contact');
+          + 'conversation. Si l’agent de Meta la tient encore, take_over la lui reprend, sans rien écrire au contact', 'opted_out');
       }
       const bloque = !stop && await deps.contacts.isBlockedByWaId(tenantId, ctx.waId);
       if (bloque && !sansRepondeur) {
         throw new RefusOutil('ce contact est bloqué : aucun robot ne reprendra sa conversation. Si l’agent de Meta la tient '
           + 'encore, take_over la lui reprend, sans rien écrire au contact. Une personne connectée peut le débloquer d’abord '
-          + '(block_contact, blocked false), si c’est sa décision');
+          + '(block_contact, blocked false), si c’est sa décision', 'conflict');
       }
       let detenteur: IssueRendreLaMain | 'contact_muet';
       try {
@@ -967,19 +967,19 @@ export const OUTILS: OutilMcp[] = [
         console.error(`mcp: control_conversation, Meta n’a pas repris la conversation (${tenantId}/${id}):`, err instanceof Error ? err.message : err);
         if (err instanceof AgentDeMetaGardeLeFil) {
           throw new RefusOutil('l’agent de Meta tient cette conversation, et Meta a refusé de la lui reprendre : il la garde, '
-            + 'réessayez dans un instant.');
+            + 'réessayez dans un instant.', 'unavailable');
         }
-        throw new RefusOutil('Meta n’a pas repris la conversation : elle reste à l’équipe, réessayez dans un instant.');
+        throw new RefusOutil('Meta n’a pas repris la conversation : elle reste à l’équipe, réessayez dans un instant.', 'unavailable');
       }
       if (detenteur === 'contact_muet') {
         // Le fil a refusé de confier ce contact à l'agent de Meta : le mode est passé à `mba` entre les deux lectures, ou
         // le contact a dit STOP ou a été bloqué entre-temps. Rien n'a changé.
         throw new RefusOutil('ce contact a dit STOP ou est bloqué : la conversation n’est confiée à aucun robot, rien n’a '
-          + 'changé.');
+          + 'changé.', 'opted_out');
       }
       if (detenteur === 'aucun_numero') {
         throw new RefusOutil('Aucun numéro WhatsApp n’est connecté : l’agent de Meta ne peut pas reprendre la conversation, '
-          + 'elle reste à l’équipe.');
+          + 'elle reste à l’équipe.', 'conflict');
       }
       // L'agent de Meta tient le fil : le fil a relu `mba` après la lecture d'ici (le mode a changé entre-temps). Aucune
       // phrase sur le mode « équipe », qui ne vaut plus.
@@ -1213,33 +1213,33 @@ async function reponseOuRefus(envoi: () => Promise<ResultatReponse>): Promise<Ex
   try {
     res = await envoi();
   } catch (err) {
-    if (err instanceof NumeroBloqueError) throw new RefusOutil(err.message);
+    if (err instanceof NumeroBloqueError) throw new RefusOutil(err.message, 'conflict');
     // Le Crédit WhatsApp a refusé : la phrase dit quoi faire (recharger), l'agent ne réessaie pas.
-    if (err instanceof CreditWhatsappRefus) throw new RefusOutil(err.message);
+    if (err instanceof CreditWhatsappRefus) throw new RefusOutil(err.message, 'credit_required');
     // Meta refuse le contenu : un refus lisible, sinon l'agent lirait une panne et renverrait le même message.
     if (err instanceof MetaApiError && err.httpStatus >= 400 && err.httpStatus < 500 && !err.retryable) {
-      throw new RefusOutil(`Meta a refusé le message : ${(err.userMessage ?? err.message).slice(0, 300)}`);
+      throw new RefusOutil(`Meta a refusé le message : ${(err.userMessage ?? err.message).slice(0, 300)}`, 'invalid_args', { cause: 'meta_rejected' });
     }
     throw err;
   }
   if (!('refus' in res)) return res;
-  if (res.refus.motif === 'conversation_inconnue') throw new RefusOutil('conversation inconnue dans cet espace');
-  if (res.refus.motif === 'aucun_numero') throw new RefusOutil('aucun numéro WhatsApp rattaché à cet espace');
-  if (res.refus.motif === 'application_indisponible') throw new RefusOutil(phraseApplicationIndisponible(res.refus.raison));
-  if (res.refus.motif === 'format_non_pris_en_charge') throw new RefusOutil(`${PHRASE_FORMAT_APPLICATION} : utilisez reply_in_open_window`);
+  if (res.refus.motif === 'conversation_inconnue') throw new RefusOutil('conversation inconnue dans cet espace', 'not_found');
+  if (res.refus.motif === 'aucun_numero') throw new RefusOutil('aucun numéro WhatsApp rattaché à cet espace', 'conflict');
+  if (res.refus.motif === 'application_indisponible') throw new RefusOutil(phraseApplicationIndisponible(res.refus.raison), 'unavailable');
+  if (res.refus.motif === 'format_non_pris_en_charge') throw new RefusOutil(`${PHRASE_FORMAT_APPLICATION} : utilisez reply_in_open_window`, 'invalid_args');
   // Hors des 24 heures sur la filière application : la porte « écrire en premier » a refusé, sa phrase dit pourquoi.
-  if (res.refus.motif === 'premier_message') throw new RefusOutil(phrasePremierMessage(res.refus.refus, 'mcp'));
+  if (res.refus.motif === 'premier_message') throw new RefusOutil(phrasePremierMessage(res.refus.refus, 'mcp'), 'window_closed');
   // 🔴 Une machine ne parle pas à quelqu'un qui a dit STOP. Le message donne la raison et l'issue (un opérateur peut
   // encore répondre), sinon l'agent conclurait à une panne et réessaierait.
   if (res.refus.motif === 'contact_desabonne') {
     throw new RefusOutil(
       'ce contact a demandé à ne plus recevoir de messages (opt-out) : aucun envoi automatique ne lui '
-      + 'est adressé. Un opérateur peut encore lui répondre à la main depuis la console.',
+      + 'est adressé. Un opérateur peut encore lui répondre à la main depuis la console.', 'opted_out',
     );
   }
   throw new RefusOutil(
     'fenêtre de 24 h fermée : le contact n’a pas écrit récemment, WhatsApp refuse le message libre. '
-    + 'Il faut un template approuvé, envoyé depuis la console.',
+    + 'Il faut un template approuvé, envoyé depuis la console.', 'window_closed',
   );
 }
 

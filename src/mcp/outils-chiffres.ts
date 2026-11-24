@@ -93,14 +93,14 @@ export const ENTREE_PERIODE: Record<string, ProprieteEntree> = {
 export function lirePeriode(args: Record<string, unknown>): { range: DateRange; maille: Maille } {
   const absente = args.maille === undefined || args.maille === null || args.maille === '';
   if (!absente && (typeof args.maille !== 'string' || !(MAILLES as readonly string[]).includes(args.maille))) {
-    throw new RefusOutil(`maille : ${MAILLES.join(', ')}`);
+    throw new RefusOutil(`maille : ${MAILLES.join(', ')}`, 'invalid_args');
   }
   const r = parseRange({ from: args.du, to: args.au });
-  if ('error' in r) throw new RefusOutil(r.error.replace(/\bfrom\b/g, 'du').replace(/\bto\b/g, 'au').replace('YYYY-MM-DD', 'AAAA-MM-JJ'));
+  if ('error' in r) throw new RefusOutil(r.error.replace(/\bfrom\b/g, 'du').replace(/\bto\b/g, 'au').replace('YYYY-MM-DD', 'AAAA-MM-JJ'), 'invalid_args');
   const longue = inclusiveDays(r.range.from, r.range.to) > MAX_JOURS_MAILLE_JOUR;
   if (absente) return { range: r.range, maille: longue ? 'semaine' : 'jour' };
   if (args.maille === 'jour' && longue) {
-    throw new RefusOutil(`la maille jour couvre ${MAX_JOURS_MAILLE_JOUR} jours au plus : choisir semaine ou mois`);
+    throw new RefusOutil(`la maille jour couvre ${MAX_JOURS_MAILLE_JOUR} jours au plus : choisir semaine ou mois`, 'invalid_args');
   }
   return { range: r.range, maille: args.maille as Maille };
 }
@@ -213,7 +213,7 @@ export const OUTILS_CHIFFRES: OutilMcp[] = [
         if (range.from < premier) {
           throw new RefusOutil(
             `Votre offre lit les ${jours} derniers jours (du ${premier} au ${aujourdhui}). `
-            + `Passez en Pro pour remonter plus loin : ${adresseOffre()}`,
+            + `Passez en Pro pour remonter plus loin : ${adresseOffre()}`, 'plan_limit',
           );
         }
       }
@@ -297,7 +297,7 @@ export const OUTILS_CHIFFRES: OutilMcp[] = [
       if (args.campaign_id !== undefined && args.campaign_id !== null && args.campaign_id !== '') {
         const id = String(args.campaign_id);
         const fiche = estUuid(id) ? await c.stats.ficheCampagne(tenantId, id) : null;
-        if (!fiche) throw new RefusOutil('campagne introuvable dans cet espace');
+        if (!fiche) throw new RefusOutil('campagne introuvable dans cet espace', 'not_found');
         const f = await c.stats.getCampaignFunnel(tenantId, id);
         return {
           campagne: { id: fiche.id, nom: fiche.nom, modele: fiche.template, scenario: fiche.workflowId !== null },
