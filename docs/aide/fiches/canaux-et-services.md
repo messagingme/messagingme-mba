@@ -1,7 +1,7 @@
 ---
 ecran: accueil
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 618175
+source_empreinte: 30d6bd
 ---
 # Les canaux et services de l'espace : allumer, éteindre, délier
 
@@ -9,9 +9,11 @@ Sur l'Accueil, le bloc « Canaux et services » montre d'un coup d'œil chaque c
 le coupe.
 
 **Le bloc « Canaux et services »** rassemble une carte par canal ou service (numéro WhatsApp, canal RCS, chaîne,
-compte publicitaire, HubSpot), chacune avec son logo, son interrupteur et une pastille d'état ; les cartes Chaîne,
-Compte publicitaire et HubSpot portent aussi le lien vers leur écran (le détail du numéro et du canal RCS est plus
-bas sur l'Accueil). Les cartes WhatsApp et RCS montrent les messages envoyés et reçus ces 30 derniers jours, envois
+compte publicitaire, HubSpot, Shopify), chacune avec son logo, son interrupteur et une pastille d'état ; les cartes
+Chaîne, Compte publicitaire, HubSpot et Shopify portent aussi le lien vers leur écran (le détail du numéro et du canal
+RCS est plus bas sur l'Accueil). L'interrupteur Shopify est allumé quand une boutique est branchée ; il ouvre le
+réglage Shopify de Tools > Intégrations, où la boutique se branche et se coupe. Les autres intégrations sont à un
+clic, par le lien « Autres intégrations » en tête du bloc. Les cartes WhatsApp et RCS montrent les messages envoyés et reçus ces 30 derniers jours, envois
 de campagne compris ; celle du numéro compte tout le canal WhatsApp de l'espace. La carte Chaîne montre le nombre de
 publications. La pastille du numéro est verte quand il est relié, ambre quand Meta signale un problème sur le compte
 (la même alerte que la carte du numéro, plus bas). Rallumer ne demande rien ; éteindre demande une confirmation qui

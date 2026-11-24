@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Toggle } from '@/components/Toggle';
-import { LogoWhatsApp, LogoGoogleMessages, LogoChaineWhatsApp, LogoMeta, LogoHubSpot } from '@/components/LogosCanaux';
+import { LogoWhatsApp, LogoGoogleMessages, LogoChaineWhatsApp, LogoMeta, LogoHubSpot, LogoShopify } from '@/components/LogosCanaux';
 import { DOT_HEX } from '@/lib/ui';
 import { useT, useLocale } from '@/lib/i18n';
 import { dateHeure } from '@/lib/day';
@@ -13,10 +13,11 @@ import { delierNumero, relierNumero, setHubspotActif, getVolumesCanaux, type Acc
 import { lireVolumesCanaux, phraseVolume, phrasePublications, type Volume, type VolumesCanaux } from '@/lib/chiffres-canaux';
 import { getConnexionChaine, listerPostsChaine, debrancherChaine, nomDeLaChaine, type ReponseConnexionChaine } from '@/lib/api-chaine';
 import { getEtatPubs, deconnecterPubs, type EtatPubs } from '@/lib/api-pubs';
+import { lireShopify, type EtatShopifyVue } from '@/lib/api-shopify';
 import type { CanalRcs } from '@/components/RcsChannelCard';
 import type { ConnexionNumero } from '@/lib/connexion-numero';
 import {
-  demandeConfirmation, ligneNumero, ligneRcs, ligneChaine, lignePublicites, ligneHubspot, nombreDePublications, routeInconnue, teinte,
+  demandeConfirmation, ligneNumero, ligneRcs, ligneChaine, lignePublicites, ligneHubspot, ligneShopify, nombreDePublications, routeInconnue, teinte,
   numeroASurveiller, type Geste, type Ligne, type Teinte,
 } from '@/lib/canaux-services';
 import { Bouton } from '@/components/Bouton';
@@ -33,7 +34,7 @@ import { phraseInclusDans, type FonctionOffre, type VueOffre } from '@/lib/offre
  * (`lib/chiffres-canaux.ts`, depuis le 2026-09-25) et, pour la chaîne, les publicités et HubSpot, le lien vers leur
  * écran (WhatsApp et RCS n'en ont plus : leur détail est plus bas sur l'Accueil). Les gestes n'ont pas bougé.
  *
- * Cinq lignes, cinq interrupteurs, chacun branché sur un geste qui existe (ou sur l'un des deux neufs : délier le
+ * Six cartes (Shopify depuis le 2026-11-24), six interrupteurs, chacun branché sur un geste qui existe (ou sur l'un des deux neufs : délier le
  * numéro, débrancher la chaîne). Les décisions vivent dans `lib/canaux-services.ts`, testées sans navigateur ;
  * ce composant ne fait que dire, confirmer et appeler.
  *
@@ -43,7 +44,7 @@ import { phraseInclusDans, type FonctionOffre, type VueOffre } from '@/lib/offre
  * admins côté serveur, et deux de ses lectures aussi (les publicités, l'état du compte).
  */
 
-type Service = 'numero' | 'rcs' | 'chaine' | 'publicites' | 'hubspot';
+type Service = 'numero' | 'rcs' | 'chaine' | 'publicites' | 'hubspot' | 'shopify';
 type Lecture<T> = T | 'echec' | null;
 /** La ligne de chiffre d'une carte : le chiffre, et ce qu'il compte (au survol). */
 interface Chiffre { texte: string; aide: string }
@@ -69,6 +70,7 @@ export function CanauxServices(p: {
   const [chaine, setChaine] = useState<Lecture<ReponseConnexionChaine>>(null);
   const [publications, setPublications] = useState<number | null>(null);
   const [pubs, setPubs] = useState<Lecture<EtatPubs | 'absent'>>(null);
+  const [shopify, setShopify] = useState<Lecture<EtatShopifyVue | 'absent'>>(null);
   const [confirmation, setConfirmation] = useState<Geste | null>(null);
   const [enCours, setEnCours] = useState<Service | null>(null);
   const [erreurs, setErreurs] = useState<Partial<Record<Service, string>>>({});
@@ -101,6 +103,16 @@ export function CanauxServices(p: {
     }
   }, [p.tenantId]);
 
+  /** Shopify : un 404 du routeur est une instance sans Shopify (ou une API plus ancienne), pas une panne. */
+  const chargerShopify = useCallback(async () => {
+    try {
+      setShopify((await lireShopify(p.tenantId)) ?? 'echec');
+    } catch (err) {
+      if (!estAnnulation(err)) setShopify(routeInconnue(err) ? 'absent' : 'echec');
+    }
+  }, [p.tenantId]);
+  useEffect(() => { void chargerShopify(); }, [chargerShopify]);
+
   /**
    * Envoyés et reçus sur 30 jours, pour les cartes WhatsApp et RCS (Julien, 2026-09-25). 🔴 Tout échec, 404 de
    * routeur compris (la console publiée avant l'API), laisse `null` : la carte n'affiche PAS de chiffre, et
@@ -125,6 +137,7 @@ export function CanauxServices(p: {
     rcs: ligneRcs(p.rcs.etat),
     chaine: ligneChaine(chaine === 'echec' ? null : chaine),
     publicites: lignePublicites(pubs === 'echec' ? null : pubs),
+    shopify: ligneShopify(shopify),
     hubspot: ligneHubspot({ actif: p.hubspotActif, portailRelie: p.compte ? p.compte.hubspotPortal?.connected === true : undefined, reveil: p.compte?.hubspotPortal?.reveil === true }),
   };
 
@@ -136,7 +149,7 @@ export function CanauxServices(p: {
   }
 
   const serviceDe = (g: Geste): Service =>
-    g.endsWith('_numero') ? 'numero' : g.endsWith('_rcs') ? 'rcs' : g.endsWith('_chaine') ? 'chaine' : g.endsWith('_publicites') ? 'publicites' : 'hubspot';
+    g.endsWith('_numero') ? 'numero' : g.endsWith('_rcs') ? 'rcs' : g.endsWith('_chaine') ? 'chaine' : g.endsWith('_publicites') ? 'publicites' : g.endsWith('_shopify') ? 'shopify' : 'hubspot';
 
   async function executer(g: Geste): Promise<void> {
     const s = serviceDe(g);
@@ -171,6 +184,7 @@ export function CanauxServices(p: {
         case 'debrancher_chaine': await debrancherChaine(p.tenantId); await chargerChaine(); break;
         case 'ouvrir_publicites': router.push('/publicites'); break;
         case 'deconnecter_publicites': await deconnecterPubs(p.tenantId); await chargerPubs(); break;
+        case 'ouvrir_shopify': router.push('/integrations#integration-shopify'); break;
         case 'allumer_hubspot':
         case 'eteindre_hubspot': {
           const r = await setHubspotActif(p.tenantId, g === 'allumer_hubspot');
@@ -261,6 +275,19 @@ export function CanauxServices(p: {
     return t('Allumé : le bloc HubSpot s’affiche sur l’Accueil.', 'On: the HubSpot block shows on the Home page.');
   };
 
+  const shopifyBoutique = shopify !== null && shopify !== 'echec' && shopify !== 'absent' ? shopify.boutique : null;
+  const phraseShopify = (): string => {
+    if (shopify === null) return lecture;
+    if (shopify === 'echec') return inconnu;
+    if (shopify === 'absent') return t('Indisponible sur cette instance pour le moment.', 'Not available on this instance yet.');
+    const b = shopify.boutique;
+    if (!b || b.etat === 'coupee') return t('Non branchée. L’allumer ouvre le réglage Shopify.', 'Not connected. Turning it on opens the Shopify setting.');
+    const nom = b.nom ?? b.domaine;
+    return b.pauseLe
+      ? t(`Branchée : ${nom}, en pause (aucun message ne part).`, `Connected: ${nom}, paused (no message goes out).`)
+      : t(`Branchée : ${nom}.`, `Connected: ${nom}.`);
+  };
+
   // « À terminer » : la même condition que la phrase « Connexion à terminer » de `phrasePubs`.
   const pubsATerminer = pubs !== null && pubs !== 'echec' && pubs !== 'absent' && !!pubs.connexion && !pubs.connexion.comptePubId;
 
@@ -322,6 +349,12 @@ export function CanauxServices(p: {
       lien: pubsHorsOffre?.lien ?? { href: '/publicites', texte: t('Ouvrir l’écran Publicités', 'Open the Ads screen') }, chiffre: null, Logo: LogoMeta, aTerminer: pubsATerminer,
     },
     { service: 'hubspot', titre: 'HubSpot', phrase: phraseHubspot(), lien: { href: '/integrations#integration-hubspot', texte: t('Ouvrir le réglage', 'Open the setting') }, chiffre: null, Logo: LogoHubSpot },
+    {
+      service: 'shopify', titre: 'Shopify', phrase: phraseShopify(),
+      lien: { href: '/integrations#integration-shopify', texte: t('Ouvrir le réglage', 'Open the setting') }, chiffre: null, Logo: LogoShopify,
+      // En pause : ambre, la boutique est branchée mais rien ne part.
+      aTerminer: shopifyBoutique?.etat === 'connectee' && shopifyBoutique.pauseLe !== null,
+    },
   ];
 
   // ⚠️ Les erreurs de la fenêtre Meta et de la clé RCS restent dans LEUR carte (la zone de connexion, la carte
@@ -332,7 +365,14 @@ export function CanauxServices(p: {
 
   return (
     <section data-testid="canaux-services">
-      <h3 className="text-sm font-semibold text-ink-900">{t('Canaux et services', 'Channels and services')}</h3>
+      {/* « Autres intégrations » était la sixième case de la grille ; Shopify l'a prise (Julien, 2026-11-24), le lien
+          vers Tools > Intégrations passe dans l'en-tête du bloc. */}
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-semibold text-ink-900">{t('Canaux et services', 'Channels and services')}</h3>
+        <Link href="/integrations" data-testid="canal-autres-lien" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:underline">
+          {t('Autres intégrations', 'Other integrations')}<Icone nom="ajouter" />
+        </Link>
+      </div>
       {info && <p data-testid="canaux-info" className="mt-3 rounded-controle bg-succes-50 px-3 py-2 text-xs text-succes-700">{info}</p>}
       {/* ⚠️ 3 colonnes à partir de `xl` et non de `lg` : la colonne latérale (240 px) apparaît à `lg`, et trois
           cartes y tomberaient sous 230 px, trop étroites pour une phrase d'état et un interrupteur. */}
@@ -390,17 +430,6 @@ export function CanauxServices(p: {
             </li>
           );
         })}
-        {/* La sixième case : les intégrations qui n'ont pas de carte ici. Pas un service, donc ni interrupteur ni
-            pastille. Elle mène à leur écran, Tools > Intégrations, depuis qu'il existe (2026-10-26). */}
-        <li data-testid="canal-autres">
-          <Link
-            href="/integrations"
-            data-testid="canal-autres-lien"
-            className="flex h-full min-h-[7.5rem] items-center justify-center gap-1.5 rounded-carte border border-dashed border-ink-300 p-4 text-sm font-semibold text-brand-600 transition-colors duration-150 hover:border-brand-300 hover:bg-brand-50"
-          >
-            {t('Autres intégrations', 'Other integrations')}<Icone nom="ajouter" />
-          </Link>
-        </li>
       </ul>
 
       {confirmation !== null && (

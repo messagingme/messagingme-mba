@@ -98,6 +98,8 @@ export async function mockAccueil(
       posts?: unknown[];
       /** Réponse de `GET /pubs/connexion`, ou `'absent'` : la route rend le 404 du routeur. */
       pubs?: Record<string, unknown> | 'absent';
+      /** Réponse de `GET /shopify` (la carte Shopify de l'Accueil, 2026-11-24). */
+      shopify?: Record<string, unknown>;
       /** Les routes NEUVES (délier, relier, débrancher la chaîne) rendent le 404 du routeur : l'API plus ancienne. */
       routesAbsentes?: boolean;
       /** Rempli par le mock : « VERBE chemin » de chaque geste reçu. */
@@ -178,6 +180,7 @@ export async function mockAccueil(
         if (methode === 'GET' && vivant.pubs === 'absent') return routeur404();
         if (methode === 'GET' && vivant.pubs) return json(vivant.pubs);
       }
+      if (methode === 'GET' && chemin.endsWith('/shopify') && canaux.shopify) return json(canaux.shopify);
       if (methode === 'PATCH' && chemin.endsWith('/settings/hubspot-actif')) {
         geste();
         const b = (route.request().postDataJSON() ?? {}) as { actif?: boolean };

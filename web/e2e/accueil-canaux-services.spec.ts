@@ -23,6 +23,8 @@ const PUBS = {
   connexion: { comptePubId: 'act_1', compteNom: 'GMC', pageId: 'p1', pageNom: 'Page', pageLiee: 'oui', jetonRejeteLe: null },
   compte: null,
 };
+/** La réponse de `GET /shopify` : une boutique branchée, pas en pause. */
+const SHOPIFY = { boutique: { domaine: 'ma-boutique.myshopify.com', nom: 'Ma boutique', etat: 'connectee', origine: 'console', pauseLe: null } };
 /** La réponse de `GET /accueil/volumes` (2026-09-25). Des milliers, pour voir le groupement ; un zéro MESURÉ en RCS. */
 const VOLUMES = { jours: 30, whatsapp: { envoyes: 1234, recus: 567 }, rcs: { envoyes: 12, recus: 0 } };
 
@@ -36,10 +38,10 @@ const ligne = (page: Page, service: string) => ({
 });
 
 test.describe('Accueil : Canaux et services', () => {
-  test('les cinq lignes, leur état en une phrase, et le lien vers leur écran', async ({ page }) => {
+  test('les six cartes, leur état en une phrase, et le lien vers leur écran', async ({ page }) => {
     await mockAccueil(page, {
       settings: { ...REGLAGES, hubspotActif: false },
-      canaux: { rcs: { active: true, channel: { agentId: 'a', brandName: 'Marque', displayName: 'Mon agent', status: 'launched', checkedAt: null } }, chaine: CHAINE, posts: [{}, {}, {}], pubs: PUBS },
+      canaux: { rcs: { active: true, channel: { agentId: 'a', brandName: 'Marque', displayName: 'Mon agent', status: 'launched', checkedAt: null } }, chaine: CHAINE, posts: [{}, {}, {}], pubs: PUBS, shopify: SHOPIFY },
       volumes: VOLUMES,
     });
     await expect(page.getByTestId('canaux-services')).toBeVisible();
@@ -53,7 +55,11 @@ test.describe('Accueil : Canaux et services', () => {
     await expect(ligne(page, 'rcs').chiffre).toHaveText('12 envoyés · 0 reçu (30 j)');
     await expect(ligne(page, 'publicites').etat).toHaveText('Connecté : GMC.');
     await expect(ligne(page, 'hubspot').etat).toContainText('Éteint');
-    for (const [s, allume] of [['numero', 'true'], ['rcs', 'true'], ['chaine', 'true'], ['publicites', 'true'], ['hubspot', 'false']] as const) {
+    // Shopify a pris la sixième case (2026-11-24) : branchée, son interrupteur est allumé.
+    await expect(ligne(page, 'shopify').etat).toHaveText('Branchée : Ma boutique.');
+    await expect(page.getByTestId('canal-shopify-lien')).toHaveAttribute('href', '/integrations#integration-shopify');
+    await expect(ligne(page, 'shopify').toggle).toBeEnabled();
+    for (const [s, allume] of [['numero', 'true'], ['rcs', 'true'], ['chaine', 'true'], ['publicites', 'true'], ['hubspot', 'false'], ['shopify', 'true']] as const) {
       await expect(ligne(page, s).toggle, s).toHaveAttribute('aria-pressed', allume);
     }
     await expect(page.getByTestId('canal-chaine-lien')).toHaveAttribute('href', '/chaine');

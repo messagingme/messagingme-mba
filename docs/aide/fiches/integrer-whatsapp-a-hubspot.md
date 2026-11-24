@@ -3,7 +3,7 @@ description: WhatsApp dans HubSpot : chaque conversation analysée devient une a
 ecran: integrations
 ancre_console: integration-hubspot
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 618175
+source_empreinte: 30d6bd
 publique: oui
 rubrique: demarrer-console
 rang: 7

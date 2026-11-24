@@ -17,7 +17,8 @@ export type Geste =
   | 'activer_rcs' | 'couper_rcs'
   | 'ouvrir_chaine' | 'debrancher_chaine'
   | 'ouvrir_publicites' | 'deconnecter_publicites'
-  | 'allumer_hubspot' | 'eteindre_hubspot';
+  | 'allumer_hubspot' | 'eteindre_hubspot'
+  | 'ouvrir_shopify';
 
 /** Les gestes qui ÉTEIGNENT : les seuls qui passent par une confirmation. */
 const EXTINCTIONS: ReadonlySet<Geste> = new Set<Geste>(['delier_numero', 'couper_rcs', 'debrancher_chaine', 'deconnecter_publicites', 'eteindre_hubspot']);
@@ -102,6 +103,17 @@ export function ligneHubspot(p: { actif: boolean | undefined; portailRelie: bool
   if (p.actif === undefined) return SANS_INTERRUPTEUR;
   if (!p.actif) return { allume: false, geste: 'allumer_hubspot' };
   return { allume: true, geste: 'eteindre_hubspot' };
+}
+
+/**
+ * SHOPIFY (Julien, 2026-11-24 : la carte prend la place de « Autres intégrations »). Branchée : allumée. Dans les deux
+ * sens, l'interrupteur OUVRE le réglage de Tools > Intégrations, sans rien couper ici : la coupure retire l'app chez
+ * Shopify et ce réglage la guide. ⚠️ Pas de geste nul quand elle est branchée : l'interrupteur serait grisé et ne se
+ * lirait plus comme allumé. Lecture en cours, échouée, ou route absente (instance sans Shopify) : pas d'interrupteur.
+ */
+export function ligneShopify(etat: { boutique: { etat: 'connectee' | 'coupee' } | null } | 'echec' | 'absent' | null): Ligne {
+  if (etat === null || etat === 'echec' || etat === 'absent') return SANS_INTERRUPTEUR;
+  return { allume: etat.boutique?.etat === 'connectee', geste: 'ouvrir_shopify' };
 }
 
 /**

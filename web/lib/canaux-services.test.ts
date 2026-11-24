@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  demandeConfirmation, ligneNumero, ligneRcs, ligneChaine, lignePublicites, ligneHubspot, nombreDePublications, routeInconnue, teinte, numeroASurveiller, type Geste,
+  demandeConfirmation, ligneNumero, ligneRcs, ligneChaine, lignePublicites, ligneHubspot, ligneShopify, nombreDePublications, routeInconnue, teinte, numeroASurveiller, type Geste,
 } from './canaux-services';
 
 describe('ligneNumero', () => {
@@ -79,6 +79,20 @@ describe('lignePublicites', () => {
   });
 });
 
+describe('ligneShopify', () => {
+  it('branchée : allumée ; l’interrupteur ouvre le réglage, sans rien couper ici (ni confirmation)', () => {
+    expect(ligneShopify({ boutique: { etat: 'connectee' } })).toEqual({ allume: true, geste: 'ouvrir_shopify' });
+    expect(demandeConfirmation('ouvrir_shopify')).toBe(false);
+  });
+  it('aucune boutique ou boutique coupée : éteinte, l’allumer ouvre le réglage', () => {
+    expect(ligneShopify({ boutique: null })).toEqual({ allume: false, geste: 'ouvrir_shopify' });
+    expect(ligneShopify({ boutique: { etat: 'coupee' } })).toEqual({ allume: false, geste: 'ouvrir_shopify' });
+  });
+  it('lecture en cours, échouée ou route absente : pas d’interrupteur', () => {
+    for (const e of [null, 'echec', 'absent'] as const) expect(ligneShopify(e)).toEqual({ allume: null, geste: null });
+  });
+});
+
 describe('ligneHubspot', () => {
   it('éteint : le rallumer l’allume ; allumé sans portail : l’éteindre l’éteint', () => {
     expect(ligneHubspot({ actif: false, portailRelie: false })).toEqual({ allume: false, geste: 'allumer_hubspot' });
@@ -104,7 +118,7 @@ describe('ligneHubspot', () => {
 describe('demandeConfirmation', () => {
   it('🔴 éteindre se confirme, rallumer jamais', () => {
     const eteindre: Geste[] = ['delier_numero', 'couper_rcs', 'debrancher_chaine', 'deconnecter_publicites', 'eteindre_hubspot'];
-    const allumer: Geste[] = ['relier_numero', 'connecter_numero', 'activer_rcs', 'ouvrir_chaine', 'ouvrir_publicites', 'allumer_hubspot'];
+    const allumer: Geste[] = ['relier_numero', 'connecter_numero', 'activer_rcs', 'ouvrir_chaine', 'ouvrir_publicites', 'allumer_hubspot', 'ouvrir_shopify'];
     for (const g of eteindre) expect(demandeConfirmation(g), g).toBe(true);
     for (const g of allumer) expect(demandeConfirmation(g), g).toBe(false);
   });

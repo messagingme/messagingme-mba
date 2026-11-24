@@ -2752,11 +2752,14 @@ scénario, comment importer des contacts.
   l'espace, le compte HubSpot étant lié à l'espace et non à un numéro). Si aucun portail -> un bouton
   **« Connecter HubSpot »** qui lance l'installation OAuth et relie ce numéro.
 - ✅ **Canaux et services** (2026-09-25) : sur l'Accueil, une grille de cartes, une par canal ou service
-  (numéro WhatsApp, canal RCS, chaîne WhatsApp, compte publicitaire, HubSpot), sur 3 colonnes en grand écran, 2 en
+  (numéro WhatsApp, canal RCS, chaîne WhatsApp, compte publicitaire, HubSpot, Shopify), sur 3 colonnes en grand écran, 2 en
   moyen, 1 sur mobile. Chaque carte montre le logo du canal, son interrupteur, une pastille d'état (vert : allumé
   ou relié ; gris : éteint ; ambre : à terminer ou à regarder, par exemple un compte publicitaire connecté dont le
   compte et la Page restent à choisir, ou un numéro relié que Meta signale), la phrase d'état et, pour la chaîne,
-  les publicités et HubSpot, le lien vers leur écran. Les cartes « Numéro WhatsApp » et « Canal RCS » affichent
+  les publicités, HubSpot et Shopify, le lien vers leur écran. La carte Shopify (2026-11-24, à la place de la case
+  « Autres intégrations », devenue un lien en tête du bloc) a son interrupteur allumé quand une boutique est branchée
+  (ambre si elle est en pause) ; dans les deux sens, il ouvre le réglage Shopify de Tools > Intégrations, où la boutique
+  se branche et se coupe. Les cartes « Numéro WhatsApp » et « Canal RCS » affichent
   les messages envoyés et reçus sur ce canal ces 30 derniers jours (envois de campagne compris ; la carte du
   numéro compte tout le canal WhatsApp de l'espace ; conversations marquées comme test avant le 2026-10-03 exclues) ; la carte « Chaîne » affiche le nombre total de publications faites depuis la console. Quand
   l'agent de Meta répond, son cadre affiche « Messages écrits par le MBA » : les messages écrits par l'agent de Meta
