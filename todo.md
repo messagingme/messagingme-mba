@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 « Votre agent est prêt » remplacé pendant l'entretien : la relecture (2026-11-24, aucun rouge)
+
+- Un faux positif d'`annonceUneFin` jette tout le message du modèle, accusé de réception et question compris : la
+  phrase du serveur et sa question le remplacent (l'entretien avance quand même).
+- Dernier point déjà répondu mais jamais posé : la relance le pose, le tour finit, et la synthèse écrase « Il me manque
+  encore… » ; sans synthèse, le client lit « il me manque » puis la proposition. Rien de bloquant.
+- La phrase « J'importe les pages… » arrive après la question du serveur : la question n'est plus la dernière ligne.
+- Faux négatifs connus : « c'est prêt », « félicitations », « il est désormais en place ». La consigne reste le premier
+  rempart.
+
 ## 🟡 Le oui aux données de la fiche lu dans tout le message : la relecture (2026-11-24, aucun rouge)
 
 - Sans marque recopiée, chaque ligne du message se lit : une ligne d'accusé recopiée (« Parfait, … ») vaut oui, une

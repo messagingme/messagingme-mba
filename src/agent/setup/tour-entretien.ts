@@ -11,7 +11,7 @@ import { construireMessages, inventaireDe, type ContexteConstruction } from './c
 import {
   accordDonneesClient, actionChoisie, basculesDuTour, CODE_DONNEES_CLIENT, fusionner, fusionnerBascules, momentDuPoint,
   momentsDesReponses, outilLireFiche, poseUneQuestion, prochainPoint, questionDeRelance, questionOuiOuNonMontree,
-  reponseOuiOuNon, sansSesQuestions,
+  reponseOuiOuNon, sansSesQuestions, annonceUneFin, PAS_ENCORE_FINI,
   urlDeConnaissance,
 } from './couverture';
 import {
@@ -263,7 +263,14 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
        * Saint-Honoré, des messages à deux questions, le client répondait à l'autre, et l'entretien ne finissait jamais.
        */
       const forcerLaMarque = ouvertApres?.code === CODE_DONNEES_CLIENT && accordLu === null;
-      const relance = ouvertApres && (!poseUneQuestion(propose.data.message) || forcerLaMarque) ? ouvertApres : null;
+      /**
+       * 🔴 « VOTRE AGENT EST PRÊT » PENDANT L'ENTRETIEN EST FAUX : le modèle ne sait pas ce que le serveur attend encore.
+       * Son message part entier et la question du serveur prend sa place (Maison Saint-Honoré, 2026-11-24 : deux
+       * « Votre agent est prêt ! 🎉 » de suite, sans proposition ni bouton pour l'activer).
+       */
+      const finPrematuree = ouvertApres !== null && annonceUneFin(propose.data.message);
+      const relance = ouvertApres && (!poseUneQuestion(propose.data.message) || forcerLaMarque || finPrematuree)
+        ? ouvertApres : null;
       const posesApres = relance && !poses.includes(relance.code) ? [...poses, relance.code] : poses;
       const etatApres: EntretienComplet = {
         messages: filComplet,
@@ -276,7 +283,8 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       const enEntretien = suivi.manquants.length > 0;
 
       let propositionFinale = propose.data;
-      const avantRelance = forcerLaMarque ? sansSesQuestions(propose.data.message) : propose.data.message;
+      const avantRelance = finPrematuree ? PAS_ENCORE_FINI
+        : forcerLaMarque ? sansSesQuestions(propose.data.message) : propose.data.message;
       let message = relance
         ? [avantRelance, questionDeRelance(relance, etatApres)].filter(Boolean).join('\n\n')
         : propose.data.message;

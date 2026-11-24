@@ -1433,6 +1433,26 @@ describe('le oui aux données de la fiche pose l’outil', () => {
     expect(res.message).not.toContain('conversation réussie');
   });
 
+  it('🔴 « Votre agent est prêt » pendant l’entretien ne part pas : le serveur dit ce qui manque et pose sa question', async () => {
+    const pretTropTot = reponse(JSON.stringify({
+      message: 'Votre agent est prêt ! 🎉\n\nConseiller virtuel, courtois et professionnel. À bientôt ! 📦', reponses: [], fiche: {},
+    }));
+    const res = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [pretTropTot, muet] }).executer('Vouvoiement');
+    expect(res.couverture.manquants).toEqual(['donnees_client']);
+    expect(res.message).not.toContain('prêt');
+    expect(res.message).not.toContain('À bientôt');
+    expect(res.message).toContain('Il me manque encore quelques réponses');
+    expect(res.message).toContain('Répondez oui ou non.');
+  });
+
+  it('une fois tout couvert, l’annonce de fin reste celle du modèle', async () => {
+    const fini = reponse(JSON.stringify({ message: 'Votre agent est prêt.', reponses: [], fiche: {} }));
+    const res = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [fini, fini] }).executer('oui');
+    expect(res.couverture.manquants).toEqual([]);
+    expect(res.message).toContain('Votre agent est prêt.');
+    expect(res.message).not.toContain('Il me manque encore');
+  });
+
   it('déjà actif avec les bons mots : rien à enregistrer pour lui', async () => {
     const premier = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] }).executer('oui');
     const carte = premier.proposition.outils.find((o: { handler: string }) => o.handler === 'lire_contact')!;

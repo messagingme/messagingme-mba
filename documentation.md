@@ -1728,7 +1728,8 @@ lisible la question revient. La réponse se cherche dans TOUT le message (`repon
 dernière marque recopiée, coupé aux lignes, aux flèches et aux « ? », et un oui avec un non ne décide rien. Tant que le
 point est ouvert, c'est le serveur qui pose sa question, SEULE : elle remplace celles du modèle, dont il ne garde que
 l'accusé de réception (`sansSesQuestions`) ; deux questions dans un message, le client répond à l'autre et l'entretien ne
-finit jamais. Sur un oui, l'entretien fini, le serveur met dans la
+finit jamais. Seul le serveur dit que l'agent est prêt : pendant l'entretien, un message du modèle qui l'annonce
+(`annonceUneFin`) part entier, remplacé par `PAS_ENCORE_FINI` et la question du point ouvert. Sur un oui, l'entretien fini, le serveur met dans la
 proposition l'outil `lire_contact` avec des mots qu'il écrit lui-même (`outilLireFiche`) : UN outil généraliste, qui rend
 toute la fiche, et une description qui sert de CARTE (quand l'appeler, où regarder : `shopify_lien_suivi` et
 `expediee_le` pour une livraison, chaque champ HubSpot par sa clé et son libellé), plus un « ne pas utiliser » qui

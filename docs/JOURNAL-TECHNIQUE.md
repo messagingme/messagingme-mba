@@ -5,6 +5,16 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : « Votre agent est prêt » ne s'annonce plus pendant l'entretien
+
+Suite de Maison Saint-Honoré : une fois son oui lu, l'entretien a repris sur les moments (ceux donnés pendant le
+blocage étaient perdus, le serveur ne les range qu'au tour qui les demande), et le modèle a encore écrit « Votre agent
+est prêt ! 🎉 » au-dessus de la question. Seul le serveur sait si tout est couvert. Désormais, tant qu'un point reste
+ouvert, un message du modèle qui annonce une fin (`annonceUneFin`) part entier, remplacé par une phrase du serveur et la
+question du point ouvert ; la consigne lui interdit aussi de l'annoncer. Le test a trouvé un piège en route : `\b` ne
+connaît pas les lettres accentuées, « est configuré. » échappait ; les bords se lisent en Unicode. Deux mutations
+rouges.
+
 ## 2026-11-24 : segments Shopify, lot 5b : « Rattraper » fait entrer les acheteurs
 
 Après le premier rattrapage réel de Maison Saint-Honoré (39 commandes, 4 fiches dans l'espace, 34 acheteurs au numéro

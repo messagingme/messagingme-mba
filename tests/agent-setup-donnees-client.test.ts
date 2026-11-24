@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AGENDA, CODE_DONNEES_CLIENT, CODES_POINTS, INVENTAIRE_VIDE, accordDonneesClient, agendaEffectif, fusionner,
   manquesDeCouverture, MARQUE_OUI_OU_NON, ouiOuNon, outilLireFiche, questionOuiOuNonMontree,
-  pointDonneesClient, reponseOuiOuNon, sansSesQuestions, type Inventaire,
+  pointDonneesClient, reponseOuiOuNon, sansSesQuestions, annonceUneFin, type Inventaire,
 } from '../src/agent/setup/couverture';
 import { consigneDuTour, inventaireDe, type ContexteConstruction } from '../src/agent/setup/conversation';
 import { BORNES_PROPOSITION, differences, type EtatCourant } from '../src/agent/setup/proposition';
@@ -136,6 +136,15 @@ describe('le oui se lit sans le modèle', () => {
     const reste = sansSesQuestions(modele);
     expect(reste).toBe('Noté. Pour la demande de contact : l’agent donne l’email.');
     expect(sansSesQuestions('Quel ton ? Vouvoiement ?')).toBe('');
+  });
+
+  it('🔴 une annonce de fin se reconnaît : les messages réels de Maison Saint-Honoré (2026-11-24)', () => {
+    for (const t of ['Votre agent est prêt ! 🎉', 'Parfait ! Voici votre agent configuré. ✨', 'Votre agent est maintenant configuré.',
+      'C’est tout bon, tout est en place.']) expect(annonceUneFin(t), t).toBe(true);
+    for (const t of ['Noté : 2 heures, c’est 120 minutes.', 'Pour que votre agent soit prêt à répondre, j’ai besoin de votre site.',
+      'Compris. L’humain reprend à n’importe quel moment.', 'Une dernière question avant de finaliser : vouvoiement ?',
+      'Noté : l’agent sera configuré pour vouvoyer.', 'Quand l’agent sera prêt, vous recevrez la proposition.',
+      'Tout est réglé de ce côté ?']) expect(annonceUneFin(t), t).toBe(false);
   });
 
   it('l’accord se relit dans la réponse rangée, quelle que soit sa tournure', () => {

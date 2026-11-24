@@ -345,6 +345,23 @@ export function sansSesQuestions(message: string): string {
     .join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+/**
+ * 🔴 LE MODÈLE ANNONCE-T-IL QUE L'AGENT EST FINI ? Seul le serveur sait si l'entretien est couvert : tant qu'un point
+ * reste, « Votre agent est prêt ! » est faux, et le client attend un bouton qui ne viendra pas (Maison Saint-Honoré,
+ * 2026-11-24). Une annonce de fin pendant l'entretien est remplacée par la question du serveur.
+ */
+export function annonceUneFin(message: string): boolean {
+  // Une annonce est AFFIRMÉE et AU PRÉSENT : une question (« tout est réglé de ce côté ? ») ou un futur (« l'agent sera
+  // configuré pour vouvoyer ») n'en est pas une. `\b` ignore les lettres accentuées (« configuré. » n'a pas de
+  // frontière) : les bords se lisent en Unicode.
+  return message.split(/(?<=[.!?…])\s+|\n/).filter((p) => !p.includes('?')).some((p) =>
+    /(?<!\p{L})est\s+(maintenant\s+|désormais\s+|enfin\s+)?(prêt|prête|configuré|configurée|opérationnel|opérationnelle|terminé|finalisé)(?!\p{L})/iu.test(p)
+    || /voici votre agent|c['’]est (tout bon|terminé|fini)|tout est (prêt|bon|réglé|en place)/i.test(p));
+}
+
+/** Ce que le serveur dit à la place d'une annonce de fin prématurée, avant sa question. */
+export const PAS_ENCORE_FINI = 'Il me manque encore quelques réponses avant de vous montrer ce que j’ai compris.';
+
 /** L'accord du client sur l'usage des données de la fiche, tel qu'il est rangé, ou `null` s'il n'a rien dit. */
 export function accordDonneesClient(reponses: readonly Reponse[]): 'oui' | 'non' | null {
   const r = retenues(reponses).find((x) => x.point === CODE_DONNEES_CLIENT);
