@@ -1,7 +1,7 @@
 ---
 description: Console, Inbox et Performance Lab : les trois onglets de la console Messaging Me, ce que chacun range, et où trouver le compte et les paramètres.
 source_section: Navigation (trois onglets en haut, barre latérale par onglet)
-source_empreinte: 24036f
+source_empreinte: 71148e
 publique: oui
 rubrique: demarrer-console
 rang: 6
@@ -68,7 +68,16 @@ l'envoyer à un collègue, elle rouvre la même page.
 **Un opérateur ne voit qu'un onglet, l'Inbox.** Lui en montrer trois dont deux le renverraient aussitôt à l'Inbox
 serait lui promettre deux portes fermées.
 
-**La visite de la console.** À votre première connexion, une fenêtre de bienvenue vous propose « Faire le tour » : une
-bulle vous montre tour à tour les zones de votre écran : l'Accueil, l'Inbox, le mini-CRM, les Campagnes, AI Agent, Tools
-et l'aide. Vous pouvez la
-refaire à tout moment par « Faire le tour », en haut du panneau d'aide.
+**Bien démarrer.** À votre première connexion, une fenêtre de bienvenue vous montre cinq étapes, cochées d'elles-mêmes
+d'après ce que votre espace a déjà fait : relier votre numéro WhatsApp, brancher votre boutique ou votre CRM, un premier
+scénario ou une première campagne, un agent IA qui répond, la bulle WhatsApp sur votre site. Chaque étape restante a
+son bouton. Une fois la fenêtre fermée, la carte « Bien démarrer » en haut de l'Accueil la rouvre par « Continuer »,
+tout comme « Bien démarrer » en haut du panneau d'aide.
+
+**Être guidé pas à pas.** « Me guider » ouvre une carte en haut à droite qui vous accompagne d'un écran à l'autre : elle
+dit quoi faire, encadre le bouton à toucher et passe à l'étape suivante dès que le geste est fait (une étape qui
+explique attend « Suivant »). Si vous vous éloignez, « Y aller » vous ramène ; son bouton de repli la range en pastille.
+
+**La visite de la console.** « Faire le tour de la console », dans la fenêtre de bienvenue, lance une bulle qui vous
+montre tour à tour les zones de votre écran : l'Accueil, l'Inbox, le mini-CRM, les Campagnes, AI Agent, Tools et
+l'aide. Vous pouvez la refaire à tout moment par « Faire le tour », en haut du panneau d'aide.

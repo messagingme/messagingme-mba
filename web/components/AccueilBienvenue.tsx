@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n';
 import { getDemarrage, marquerAccueil, type EtatDemarrage } from '@/lib/api';
 import { VISITE_EVENT } from '@/lib/accueil-console';
 import { progression } from '@/lib/bien-demarrer';
+import { lancerParcours } from '@/components/GuideCompagnon';
 
 /**
  * LA FENÊTRE DE BIENVENUE (plan 2026-11-24-guide-demarrage, lot 2, maquette validée par Julien le 2026-11-24) : un
@@ -95,7 +96,7 @@ export function AccueilBienvenue({ tenantId, admin, fonctionOuverte, onFermer }:
                       {e.gestes.map((g) => (
                         <button key={g.cle} type="button" data-testid={`accueil-geste-${g.cle}`}
                           className={classesBouton(prochaine ? 'principal' : 'secondaire', 'petite')}
-                          onClick={() => { void choisir(() => router.push(g.href)); }}>
+                          onClick={() => { void choisir(() => { if (g.parcours) lancerParcours(g.parcours); router.push(g.href); }); }}>
                           {t(g.fr, g.en)}
                         </button>
                       ))}

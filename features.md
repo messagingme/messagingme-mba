@@ -360,7 +360,11 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   d'administrateur). La fenêtre revient à chaque connexion tant qu'aucun choix n'est fait (un bouton d'étape, « Faire
   le tour de la console » ou « Plus tard ») ; la fermer par la croix ne compte pas. Ensuite, **une carte « Bien
   démarrer, N étapes sur 5 »** en haut de l'Accueil la rouvre par « Continuer », jusqu'à ce que tout soit fait ; le
-  panneau d'aide la rouvre aussi (« Bien démarrer »). Les comptes qui existaient le 2026-11-19 ne voient pas la fenêtre
+  panneau d'aide la rouvre aussi (« Bien démarrer »). **« Me guider »** (pour l'agent IA, 2026-11-24) lance une carte
+  qui accompagne de page en page, en haut à droite : elle dit l'étape (« Créez votre agent », « Restez dans Construire
+  en parlant », « Décrivez votre activité », « Relisez, puis activez »), encadre l'élément à toucher, passe seule à la
+  suivante quand le geste est fait, propose « Y aller » si l'on s'éloigne de l'écran, se replie en pastille et se
+  quitte. Elle tient tant que l'onglet reste ouvert, rechargement compris. Les comptes qui existaient le 2026-11-19 ne voient pas la fenêtre
   d'eux-mêmes, sauf une invitation encore en attente ce jour-là. **La visite** pointe tour à tour les zones présentes à
   l'écran (l'Accueil, l'Inbox, le mini-CRM, les Campagnes, AI Agent, Tools et l'aide pour un administrateur sur
   ordinateur ; moins sur l'Inbox ou sur un téléphone) ; elle se relance à tout moment par « Faire le tour », en haut du

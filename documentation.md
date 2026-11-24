@@ -4450,6 +4450,13 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   délié compris, comme `hasNumber`), `outil` (boutique Shopify `connectee`, ou `hubspot_connected` sur un numéro, que la
   pause remet à faux), `scenarioOuCampagne` (un scénario publié hors `systeme`, ou une campagne programmée, en cours, en
   pause ou terminée), `agent` (un agent `active`), `bulle` (une bulle `actif`). Une progression, jamais un compteur.
+  La console (`web/lib/bien-demarrer.ts`) en fait la checklist de la fenêtre de bienvenue, de la carte de l'Accueil et
+  de l'entrée de l'aide, montrées sous UNE condition (`bienDemarrerOuvert`, `AppShell` : ni Free, ni observation).
+- **Les parcours guidés** (`web/lib/guide/parcours.ts`, carte `GuideCompagnon`, montée par la coquille pour un
+  administrateur) : une étape = un écran (motif sur chemin et requête), une cible (`data-testid`), un texte, et ce qui la
+  fait passer (`page`, `present`, `clic` écouté en capture, `manuel`). L'état vit dans `sessionStorage` (`mba.guide`).
+  🔴 Une cible est un `data-testid` de la console : renommer l'un de ceux que cite un parcours casse
+  `web/lib/guide/parcours.test.ts`, qui refuse une cible introuvable dans `web/app` et `web/components`.
 - **Le widget personnalisable** (`widget_personnalise`, Business et Entreprise) : hors offre, une apparence nouvelle
   (couleur, position, libellé, avatar) est refusée en 402, une valeur standard ou déjà enregistrée passe sans rien changer
   (`src/widgets/gestion.ts`), et le script public sert l'apparence standard (`APPARENCE_STANDARD`,

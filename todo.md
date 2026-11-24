@@ -11,18 +11,22 @@ Lot 1 en ligne le 2026-11-24 (`9724f73e3`) : Ressources › Guides, le hub `/gui
 - **Hors dépôt, à Julien** : les redirections 301 de www (WordPress) et de messagingme.app vers ces pages, une fois en
   ligne (la note d'origine porte la table), et la déclaration du sitemap dans Search Console.
 
-## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 et 2
+## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 à 3
 
-- Lot 3 (le moteur de la carte qui accompagne, et le parcours agent IA), lot 4 (Shopify, campagne, scénario), lot 5
-  (le film de bienvenue) ; puis l'essai réel qui clôt la feature : un compte neuf sur la SANDBOX suit la checklist et le
-  parcours agent IA dans la console de production.
-- 🟡 La fiche publique « Me repérer dans la console » ne parle que de « Faire le tour » : ni la checklist « Bien
-  démarrer », ni la carte de l'Accueil, ni l'entrée de l'aide (fiche relue, empreinte seule, `eb5fa05bd`). À reprendre
-  avec le lot 3, `npm run vitrine:aide`, la version `en/` et `aide:charger`.
+- Lot 4 (parcours Shopify, campagne, scénario), lot 5 (le film de bienvenue) ; puis l'essai réel qui clôt la feature :
+  un compte neuf sur la SANDBOX suit la checklist et le parcours agent IA dans la console de production.
+- `aide:charger` en production pour la fiche « Me repérer dans la console » (réécrite au lot 3), après avoir comparé
+  `docs/aide` à origin.
 - 🟡 La carte « Bien démarrer » de l'Accueil ne se relit qu'au montage et au retour sur l'onglet : une étape faite sans
   quitter la page ne se coche qu'au rechargement.
 - 🟡 Sans numéro, l'Accueil montre deux invitations qui se recouvrent : la carte « Bien démarrer » (prochaine étape :
   relier le numéro) et « Votre numéro WhatsApp n'est pas encore connecté ».
+- 🟡 La carte qui accompagne et le panneau d'aide sont tous deux `fixed right-5 z-40` : ouvert pendant un parcours, le
+  panneau est recouvert sur l'Inbox (`top-16`) et recouvre la carte ailleurs sur un écran bas. Replier la carte à
+  l'ouverture de l'aide, ou la décaler.
+- 🟡 La carte couvre le haut à droite de l'écran (sur la fiche d'un agent, le bouton « Supprimer ») ; elle se replie.
+- 🟡 La relecture de la carte (400 ms) tourne aussi onglet masqué ; « Y aller » paraît une fraction de seconde au
+  premier rendu, avant la première relecture.
 
 ## La carte Shopify de l'Accueil (2026-11-24, `1f0f19723`)
 

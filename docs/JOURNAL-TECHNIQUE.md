@@ -5,6 +5,21 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : guide de démarrage, lot 3 : la carte qui accompagne, parcours agent IA
+
+« Me guider » sur l'étape agent IA de « Bien démarrer » lance une carte en haut à droite (`GuideCompagnon`, monté par la
+coquille pour un administrateur, sous `bienDemarrerOuvert`) : quatre étapes (créer l'agent, rester dans « Construire en
+parlant », décrire son activité, « … et activer »), le cadre pulsé sur la cible, le passage seul à l'étape suivante
+(adresse atteinte, élément apparu, clic écouté en capture), « Y aller » loin de l'écran, repli en pastille, état dans
+`sessionStorage`. Les cibles sont des `data-testid` existants : la fiche de l'agent n'est pas touchée (la session de
+l'assistant de construction y travaillait), et `web/lib/guide/parcours.test.ts` refuse une cible introuvable (vu rouge
+avec une cible inventée, fichier restauré à l'identique). La fiche publique « Me repérer dans la console » (français et
+anglais) dit la checklist et la carte, pages de la vitrine régénérées ; `aide:charger` reste à faire en production.
+Relecture sans rouge ; trois jaunes de texte pris avant le push (la fin ne dit plus « votre agent est actif » sur un
+clic dont elle ignore l'issue, l'étape 4 nomme le bouton quel que soit son libellé, deux imprécisions de la fiche), les
+autres au backlog. L'e2e du parcours a d'abord échoué sur ses propres faux (l'offre sans `assistants`, un rechargement
+avant la fin de la navigation), pas sur le moteur.
+
 ## 2026-11-24 : les guides de la vitrine, lot 1 : Ressources › Guides et le comparatif RCS, SMS ou WhatsApp
 
 Une note d'implémentation SEO proposée par un autre assistant voulait des guides « Tout comprendre » sur app plutôt que

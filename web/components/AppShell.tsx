@@ -11,6 +11,7 @@ import { LienCommentFaire } from './LienCommentFaire';
 import { BoutonAide } from './BoutonAide';
 import { AccueilBienvenue } from './AccueilBienvenue';
 import { VisiteConsole } from './VisiteConsole';
+import { GuideCompagnon } from './GuideCompagnon';
 import { BIENVENUE_EVENT, VISITE_EVENT } from '@/lib/accueil-console';
 import { BandeauAbonnement } from './BandeauAbonnement';
 import { BandeauLigneCredit } from './BandeauLigneCredit';
@@ -736,6 +737,8 @@ export function AppShell({ active, fullBleed = false, pleineLargeur = false, fon
           onFermer={() => { bienvenueFermeeIci = true; setBienvenue(false); }} />
       )}
       {visite && <VisiteConsole onFin={() => setVisite(false)} />}
+      {/* La carte qui accompagne un parcours (plan 2026-11-24-guide-demarrage, lot 3) : ses écrans sont d'administrateur. */}
+      {bienDemarrerOuvert && session.role === 'admin' && <GuideCompagnon />}
     </div>
   );
 }

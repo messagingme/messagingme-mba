@@ -6,11 +6,15 @@
  * ⚠️ À NE PAS CONFONDRE avec `lib/demarrer.ts`, la page finale du tunnel de la Base.
  */
 import type { EtatDemarrage } from './api/compte';
+import type { CleParcours } from './guide/parcours';
 
 export type CleEtape = keyof EtatDemarrage;
 
-/** Un geste d'une étape : son écran. `fonction` : la fonction d'offre qu'il demande (absente = toujours ouverte). */
-export interface Geste { cle: string; href: string; fr: string; en: string; fonction?: 'scenarios' }
+/**
+ * Un geste d'une étape : son écran. `fonction` : la fonction d'offre qu'il demande (absente = toujours ouverte).
+ * `parcours` : la carte qui accompagne (lot 3) se lance avant d'y aller.
+ */
+export interface Geste { cle: string; href: string; fr: string; en: string; fonction?: 'scenarios'; parcours?: CleParcours }
 
 export interface Etape {
   cle: CleEtape;
@@ -47,7 +51,7 @@ export const ETAPES: readonly Etape[] = [
     cle: 'agent', minutes: 4,
     titre: { fr: 'Un agent IA qui répond à vos clients', en: 'An AI agent that answers your customers' },
     detail: { fr: 'Vous décrivez votre activité, il s’écrit tout seul.', en: 'You describe your business, it writes itself.' },
-    gestes: [{ cle: 'agent', href: '/agents', fr: 'Construire', en: 'Build' }],
+    gestes: [{ cle: 'agent', href: '/agents', fr: 'Me guider', en: 'Guide me', parcours: 'agent' }],
   },
   {
     cle: 'bulle', minutes: 2,
