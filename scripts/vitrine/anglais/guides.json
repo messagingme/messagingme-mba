@@ -304,10 +304,6 @@
     "en": ": WhatsApp, with an AI agent and handover to your team."
   },
   {
-    "fr": "Publicité qui ouvre une conversation",
-    "en": "Ad that opens a conversation"
-  },
-  {
     "fr": "Ne plus choisir&nbsp;: WhatsApp et RCS, avec repli",
     "en": "Stop choosing: WhatsApp and RCS, with fallback"
   },
@@ -902,5 +898,261 @@
   {
     "fr": "Que perd l’application WhatsApp Business en coexistence ?",
     "en": "What does the WhatsApp Business app lose with coexistence?"
+  },
+  {
+    "fr": "L’API WhatsApp Business officielle, branchée en une session.",
+    "en": "The official WhatsApp Business API, connected in one session."
+  },
+  {
+    "fr": "Envoyez vos modèles, lisez vos conversations et recevez chaque message par webhook, avec l’API officielle de WhatsApp. La formule Free est gratuite, sans limite de durée.",
+    "en": "Send your templates, read your conversations and receive every message by webhook, with the official WhatsApp API. The Free plan is free, with no time limit."
+  },
+  {
+    "fr": "Lire la documentation",
+    "en": "Read the documentation"
+  },
+  {
+    "fr": "Ce que vous obtenez",
+    "en": "What you get"
+  },
+  {
+    "fr": "L’API officielle de WhatsApp, celle de Meta&nbsp;: Messaging&nbsp;Me est Tech Provider de Meta.",
+    "en": "The official WhatsApp API, Meta’s own: Messaging&nbsp;Me is a Meta Tech Provider."
+  },
+  {
+    "fr": "Une API REST décrite par un",
+    "en": "A REST API described by an"
+  },
+  {
+    "fr": ", et un SDK TypeScript typé depuis ce contrat.",
+    "en": ", and a TypeScript SDK typed from that contract."
+  },
+  {
+    "fr": "Des webhooks signés, qui poussent vers votre application les messages de vos clients.",
+    "en": "Signed webhooks that push your customers’ messages to your app."
+  },
+  {
+    "fr": "Des envois rejouables sans doublon, avec une clé d’idempotence.",
+    "en": "Sends you can retry without duplicates, with an idempotency key."
+  },
+  {
+    "fr": "Un serveur MCP, pour piloter WhatsApp depuis Claude, ChatGPT, Mistral, Perplexity, Codex ou Cursor.",
+    "en": "An MCP server, to run WhatsApp from Claude, ChatGPT, Mistral, Perplexity, Codex or Cursor."
+  },
+  {
+    "fr": "La coexistence avec l’application WhatsApp Business",
+    "en": "Coexistence with the WhatsApp Business app"
+  },
+  {
+    "fr": ", si vous gardez votre numéro actuel.",
+    "en": ", if you keep your current number."
+  },
+  {
+    "fr": "Le RCS sur la même plateforme, avec repli entre les deux canaux (offre Entreprise).",
+    "en": "RCS on the same platform, with fallback between the two channels (Enterprise plan)."
+  },
+  {
+    "fr": "Une API officielle, un compte qui reste à vous",
+    "en": "An official API, an account that stays yours"
+  },
+  {
+    "fr": "Votre compte WhatsApp Business vit dans votre compte Meta Business, et il reste à vous. Pas encore de compte Meta Business&nbsp;? La fenêtre de Meta le crée en chemin, pendant la connexion de votre numéro.",
+    "en": "Your WhatsApp Business account lives in your Meta Business account, and it stays yours. No Meta Business account yet? Meta’s window creates it along the way, while you connect your number."
+  },
+  {
+    "fr": "Trois façons de brancher WhatsApp",
+    "en": "Three ways to connect WhatsApp"
+  },
+  {
+    "fr": "Par le code.",
+    "en": "With code."
+  },
+  {
+    "fr": "Envoyez un modèle quand un client prend rendez-vous dans votre application, créez ou mettez à jour sa fiche avec son consentement, et recevez sa réponse par un webhook signé.",
+    "en": "Send a template when a customer books an appointment in your app, create or update their record with their consent, and receive their reply through a signed webhook."
+  },
+  {
+    "fr": "Depuis votre IA.",
+    "en": "From your AI."
+  },
+  {
+    "fr": "Ajoutez le connecteur MCP de Messaging&nbsp;Me dans votre assistant, autorisez, puis demandez en une phrase&nbsp;: créer un scénario, lancer une campagne, répondre à une conversation, lire vos chiffres. Dans Claude Code et Codex, un plugin fait toute la mise en service&nbsp;: numéro, agent IA, bulle WhatsApp sur votre site.",
+    "en": "Add the Messaging&nbsp;Me MCP connector to your assistant, authorize it, then ask in one sentence: create a scenario, launch a campaign, reply to a conversation, read your numbers. In Claude Code and Codex, a plugin handles the whole setup: number, AI agent, WhatsApp bubble on your website."
+  },
+  {
+    "fr": "Depuis la console, pour votre équipe.",
+    "en": "From the console, for your team."
+  },
+  {
+    "fr": "À partir de la formule Pro, la console ouvre l’Inbox partagée, les scénarios, les campagnes, les tableaux de bord et les agents IA.",
+    "en": "From the Pro plan, the console opens the shared Inbox, scenarios, campaigns, dashboards and AI agents."
+  },
+  {
+    "fr": "Votre numéro, ou le nôtre",
+    "en": "Your number, or ours"
+  },
+  {
+    "fr": "Branchez un numéro libre, gardez celui de votre application WhatsApp Business avec la coexistence, ou prenez un numéro fourni par Messaging&nbsp;Me&nbsp;:",
+    "en": "Connect a free number, keep the one from your WhatsApp Business app with coexistence, or take a number provided by Messaging&nbsp;Me:"
+  },
+  {
+    "fr": "&nbsp;€ par mois, inclus dans la formule Pro.",
+    "en": "&nbsp;€ per month, included in the Pro plan."
+  },
+  {
+    "fr": "Ce que ça coûte",
+    "en": "What it costs"
+  },
+  {
+    "fr": "La formule Free est gratuite, sans limite de durée&nbsp;: l’API, le serveur MCP et",
+    "en": "The Free plan is free, with no time limit: the API, the MCP server and"
+  },
+  {
+    "fr": "&nbsp;webhook. La formule Pro coûte",
+    "en": "&nbsp;webhook. The Pro plan costs"
+  },
+  {
+    "fr": "&nbsp;€ HT par mois, avec",
+    "en": "&nbsp;€ excl. VAT per month, with a"
+  },
+  {
+    "fr": "&nbsp;jours d’essai, et ouvre la console à votre équipe.",
+    "en": "-day trial, and opens the console to your team."
+  },
+  {
+    "fr": "Toutes les formules",
+    "en": "All plans"
+  },
+  {
+    "fr": "Les messages.",
+    "en": "The messages."
+  },
+  {
+    "fr": "Meta facture ses messages directement à votre entreprise, selon sa grille par pays et par catégorie, sauf avec la ligne de crédit (formule Pro ou Business), prépayée chez Messaging&nbsp;Me. En France, une réponse à un client coûte 0,0248&nbsp;€, avec 1&nbsp;000&nbsp;réponses offertes par mois et par numéro.",
+    "en": "Meta bills its messages directly to your business, according to its rate card by country and category, except with the credit line (Pro or Business plan), prepaid at Messaging&nbsp;Me. In France, a reply to a customer costs €0.0248, with 1,000 free replies per month and per number."
+  },
+  {
+    "fr": "Données et conformité",
+    "en": "Data and compliance"
+  },
+  {
+    "fr": "Hébergement dans l’Union européenne, chez Scaleway, à Amsterdam.",
+    "en": "Hosting in the European Union, at Scaleway, in Amsterdam."
+  },
+  {
+    "fr": "Le contenu des messages gardé par Meta en Allemagne, pour chaque numéro connecté.",
+    "en": "Message content kept by Meta in Germany, for each connected number."
+  },
+  {
+    "fr": "Messaging&nbsp;Me est votre sous-traitant au sens du RGPD (article&nbsp;28).",
+    "en": "Messaging&nbsp;Me is your processor under the GDPR (article&nbsp;28)."
+  },
+  {
+    "fr": "Aucun modèle d’IA entraîné sur les données de nos clients.",
+    "en": "No AI model trained on our customers’ data."
+  },
+  {
+    "fr": "Le STOP vérifié avant chaque envoi.",
+    "en": "STOP checked before every send."
+  },
+  {
+    "fr": "Le Centre de confiance",
+    "en": "The Trust center"
+  },
+  {
+    "fr": "Démarrer en trois étapes",
+    "en": "Get started in three steps"
+  },
+  {
+    "fr": "Créez votre espace, gratuitement, avec votre compte Google ou une adresse e-mail.",
+    "en": "Create your workspace, for free, with your Google account or an email address."
+  },
+  {
+    "fr": "Reliez votre numéro par la fenêtre de Meta.",
+    "en": "Connect your number through Meta’s window."
+  },
+  {
+    "fr": "Créez une clé d’API et envoyez votre premier modèle, ou branchez le serveur MCP.",
+    "en": "Create an API key and send your first template, or connect the MCP server."
+  },
+  {
+    "fr": "C’est l’API officielle de WhatsApp ?",
+    "en": "Is it the official WhatsApp API?"
+  },
+  {
+    "fr": "Oui : celle de Meta. Messaging Me est Tech Provider de Meta, et votre compte WhatsApp Business reste dans votre compte Meta Business.",
+    "en": "Yes: Meta’s own. Messaging Me is a Meta Tech Provider, and your WhatsApp Business account stays in your Meta Business account."
+  },
+  {
+    "fr": "Combien coûte l’API WhatsApp Business avec Messaging Me ?",
+    "en": "How much does the WhatsApp Business API cost with Messaging Me?"
+  },
+  {
+    "fr": "La formule Free est gratuite, sans limite de durée. Meta facture les messages selon sa grille : en France, une réponse à un client coûte 0,0248 €, avec 1 000 réponses offertes par mois et par numéro.",
+    "en": "The Free plan is free, with no time limit. Meta bills messages according to its rate card: in France, a reply to a customer costs €0.0248, with 1,000 free replies per month and per number."
+  },
+  {
+    "fr": "Oui, mais rien à préparer : la fenêtre de Meta le crée pendant la connexion de votre numéro.",
+    "en": "Yes, but there’s nothing to prepare: Meta’s window creates it while you connect your number."
+  },
+  {
+    "fr": "Puis-je garder mon numéro de l’application WhatsApp Business ?",
+    "en": "Can I keep my WhatsApp Business app number?"
+  },
+  {
+    "fr": "Oui, avec la coexistence : le même numéro reste dans l’application de votre téléphone et passe aussi par l’API.",
+    "en": "Yes, with coexistence: the same number stays in the app on your phone and also goes through the API."
+  },
+  {
+    "fr": "Je n’ai pas de numéro : comment faire ?",
+    "en": "I don’t have a number: what do I do?"
+  },
+  {
+    "fr": "Messaging Me vous fournit un numéro dédié, inclus dans la formule Pro.",
+    "en": "Messaging Me provides you with a dedicated number, included in the Pro plan."
+  },
+  {
+    "fr": "Comment recevoir les messages de mes clients dans mon application ?",
+    "en": "How do I receive my customers’ messages in my app?"
+  },
+  {
+    "fr": "Par un webhook signé : chaque message d’un client est poussé vers l’adresse de votre application.",
+    "en": "Through a signed webhook: every customer message is pushed to your app’s address."
+  },
+  {
+    "fr": "Avec votre IA",
+    "en": "With your AI"
+  },
+  {
+    "fr": "Les guides",
+    "en": "The guides"
+  },
+  {
+    "fr": "L’API officielle de WhatsApp par Messaging Me, Tech Provider de Meta : API REST, SDK TypeScript, webhooks signés, serveur MCP. Gratuit pour démarrer.",
+    "en": "The official WhatsApp API by Messaging Me, a Meta Tech Provider: REST API, TypeScript SDK, signed webhooks, MCP server. Free to get started."
+  },
+  {
+    "fr": "contrat OpenAPI",
+    "en": "OpenAPI contract"
+  },
+  {
+    "fr": "L’abonnement.",
+    "en": "The plan."
+  },
+  {
+    "fr": "Faut-il un compte Meta Business ?",
+    "en": "Do you need a Meta Business account?"
+  },
+  {
+    "fr": "API WhatsApp Business officielle · Messaging Me",
+    "en": "Official WhatsApp Business API · Messaging Me"
+  },
+  {
+    "fr": "API WhatsApp Business",
+    "en": "WhatsApp Business API"
+  },
+  {
+    "contexte": "<strong>Publicité qui ouvre une conversation</strong>&nbsp;: ",
+    "en": "<strong>Ad that opens a conversation</strong>: "
   }
 ]

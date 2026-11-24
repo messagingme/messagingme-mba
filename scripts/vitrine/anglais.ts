@@ -69,6 +69,8 @@ export const JUMELLES: Readonly<Record<string, string>> = {
   '/comparatif-rcs-sms-whatsapp/': '/en/rcs-sms-whatsapp-comparison/',
   '/opt-in-whatsapp/': '/en/whatsapp-opt-in/',
   '/coexistence-whatsapp/': '/en/whatsapp-coexistence/',
+  // La page produit de l'API (lot 3) : dans Ressources, juste après la documentation développeurs.
+  '/api-whatsapp-business/': '/en/whatsapp-business-api/',
   // Le centre d'aide : ses deux langues viennent des fiches et de leur version anglaise (npm run vitrine:aide).
   ...jumellesAide(),
 };

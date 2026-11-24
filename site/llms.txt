@@ -183,6 +183,12 @@
 - [Les intégrations](https://app.messagingme.fr/integrations/) : Messaging Me s’installe dans Salesforce (Marketing Cloud et Sales Cloud), Dynamics 365 et HubSpot, où WhatsApp devient une étape des parcours et les réponses reviennent dans la fiche ; il se branche à Shopify, à Claude Code et à Codex ; l’API, les webhooks et le serveur MCP relient le reste.
 - [Integrations](https://app.messagingme.fr/en/integrations/) : the same page in English.
 
+## API WhatsApp Business
+
+- [API WhatsApp Business](https://app.messagingme.fr/api-whatsapp-business/) : l’API officielle de WhatsApp par Messaging Me, Tech Provider de Meta : API REST et contrat OpenAPI, SDK TypeScript, webhooks signés, serveur MCP, coexistence, numéro fourni, ce que coûtent l’abonnement et les messages.
+
+- [WhatsApp Business API (English)](https://app.messagingme.fr/en/whatsapp-business-api/) : the official WhatsApp API by Messaging Me, a Meta Tech Provider: REST API and OpenAPI contract, TypeScript SDK, signed webhooks, MCP server, coexistence, provided number, and what the plan and the messages cost.
+
 ## Guides
 
 - [Guides](https://app.messagingme.fr/guides/) : brancher WhatsApp à Salesforce, HubSpot, Shopify ou une application, et comprendre WhatsApp, le RCS et le SMS avant de choisir.

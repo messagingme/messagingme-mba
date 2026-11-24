@@ -134,9 +134,12 @@ describe('le menu en cascade', () => {
       expect(pages).toContain(`${langue === 'fr' ? '' : '/en'}/integrations/`);
       expect(pages.at(-1)).toBe(`${langue === 'fr' ? '' : '/en'}/guides/`);
       for (const a of pages) expect(existsSync(join(SITE, a, 'index.html')), a).toBe(true);
-      // Les liens directs : l'aide, la confiance, le blog.
+      // Les liens directs : la page API WhatsApp Business (lot 3 des guides), l'aide, la confiance, le blog.
       const directs = ressources.replace(/<details class="menu-cascade"[\s\S]*?<\/details>/g, '');
-      expect(adresses(directs)).toHaveLength(3);
+      expect(adresses(directs)).toHaveLength(4);
+      const api = adresses(directs)[0]!;
+      expect(api).toBe(langue === 'fr' ? '/api-whatsapp-business/' : '/en/whatsapp-business-api/');
+      expect(existsSync(join(SITE, api, 'index.html')), api).toBe(true);
     });
 
     it(`${langue} : le pied de page mène à « ${L.premier[3]} »`, () => {

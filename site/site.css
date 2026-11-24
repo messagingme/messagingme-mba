@@ -2247,6 +2247,9 @@ html[data-ou="console"] .aide-une .appels .bouton-trait[data-voie="console"]{bac
 .confiance-tableau tbody th{padding:13px 18px;border-bottom:1px solid var(--line);color:var(--ink);font-size:.93rem;letter-spacing:0;text-transform:none;vertical-align:top;line-height:1.45}
 .confiance-tableau tr:last-child th{border-bottom:0}
 .confiance-tableau + p{margin-top:16px}
+.confiance-detail .guide-code{max-width:44em;margin:4px 0 20px}
+.confiance-detail .api-etapes{max-width:44em;margin:0 0 20px;padding-left:22px;color:var(--muted);line-height:1.6}
+.confiance-detail .api-etapes li{margin:0 0 6px}
 .confiance-tableau td:first-child{font-weight:700}
 .confiance-detail section.confiance-large{max-width:none}
 .confiance-large .confiance-tableau table{min-width:780px}
