@@ -1,5 +1,23 @@
 # todo.md : backlog
 
+## 🟡 CSM virtuel, B0b à B0d (`871f9bd06`, `5877b47a8`, `ca7ecb841`) : la relecture (2026-11-24, aucun rouge)
+
+Partent avec B2 (lot de fonctionnalité qui ajoute des outils et leurs écrans), pas en lot à part.
+- Écrans : ne pas en rendre à la Free hors de `/offre`, `/developers/keys`, `/connecter-whatsapp` (la console lui est
+  fermée) ; `set_transfer_mode` vers `/securite/ia`, `set_default_responder` vers `/accueil` ; les onglets de l'agent
+  (`perimetre` pour les limites, `tester`, `objectif`) et de l'offre (`?tab=credit`, `?tab=whatsapp`) ; des exemptions
+  motivées pour les outils qui rendent déjà un lien (connexion du numéro, Stripe) ; `ident` sur la valeur nettoyée ;
+  nommer l'espace (un admin de plusieurs espaces) ; peut-être `_meta.ecran` pour une lecture par programme.
+- Robustesse : envelopper `outil.ecran` et `adresseEcran` dans un `try` qui rend `undefined` (une écriture faite ne doit
+  jamais revenir en « échec interne », que l'agent rejouerait), et le tester.
+- Trace : nommer la clé d'API (`cleIdDe`, `ContexteMcp`) ; la cible = l'objet quand l'outil la déclare (une fonction
+  `objet(args, resultat)` dont dérivent l'écran et la cible, pour le filtre et l'index du journal) ; une exemption
+  déclarée pour le bruit (`watch_whatsapp_connection` appelé en boucle, `test_agent`) ; les messages, à l'arbitrage de
+  Julien ; documenter la double trace des outils qui tracent déjà.
+- `template_category_unknown` définitif (modele-envoi.ts:162) : un code distinct de celui, passager, de la ligne 158.
+- Le refus B0d : proposer `{"type":"attribute"}` pour `name` et `phone`, et les champs proches.
+- Tests : `mcp-modification` sur `^(update|set)_` avec exemptions motivées ; `params.get('tab')` des agents.
+
 ## 🟡 CSM virtuel, B0a (les refus codés, `1c3d919f9`) : ce qui reste de la relecture (2026-11-24, aucun rouge)
 
 Passés avec B0b : les causes manquantes, `Object.hasOwn`, la campagne inconnue, les motifs d’écart, le format non pris
