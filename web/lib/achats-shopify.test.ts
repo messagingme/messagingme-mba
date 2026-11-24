@@ -30,6 +30,13 @@ describe('lireAchatsShopify', () => {
     expect(lireAchatsShopify(COMPLET)?.commandes[0]).not.toHaveProperty('lignes');
   });
 
+  it('les étiquettes Shopify de la fiche (lot 6b) se lisent ; absentes ou illisibles, l’écran n’en dit rien', () => {
+    const avec = { ...COMPLET, etiquettesShopify: { etiquettes: ['VIP', '', 3, 'Grossiste'], synchroLe: '2026-11-24T08:00:00.000Z' } };
+    expect(lireAchatsShopify(avec)?.etiquettesShopify).toEqual({ etiquettes: ['VIP', 'Grossiste'], synchroLe: '2026-11-24T08:00:00.000Z' });
+    expect(lireAchatsShopify(COMPLET)).not.toHaveProperty('etiquettesShopify');
+    expect(lireAchatsShopify({ ...COMPLET, etiquettesShopify: { etiquettes: ['VIP'] } })).not.toHaveProperty('etiquettesShopify');
+  });
+
   it('un espace sans boutique se lit tel quel', () => {
     expect(lireAchatsShopify({ ...COMPLET, boutique: null, commandes: [], paniers: [] })?.boutique).toBeNull();
   });

@@ -355,7 +355,9 @@ export class PgVentesStore {
     ]);
     const r = resume.rows[0];
     const lignes = await this.lignesDesCommandes(tenantId, commandes.rows.map((x) => x.commande_id));
+    const etiquettesShopify = await this.etiquettesShopifyDuContact(tenantId, contactId);
     return {
+      ...(etiquettesShopify ? { etiquettesShopify } : {}),
       boutique: {
         nom: b.nom, domaine: b.domaine, devise: b.devise, commandesDepuis: b.commandes_depuis.toISOString(), coupeeLe: b.coupee_le?.toISOString() ?? null,
       },
@@ -373,6 +375,29 @@ export class PgVentesStore {
         ouvertLe: x.ouvert_le.toISOString(), relanceLe: x.relance_le?.toISOString() ?? null, fermeLe: x.ferme_le?.toISOString() ?? null, issue: x.issue,
       })),
     };
+  }
+
+  /**
+   * LES ÉTIQUETTES SHOPIFY DE LA FICHE (segments Shopify enrichis, lot 6b), AU MIEUX : celles que la dernière
+   * synchronisation aboutie a lues sur son client, dans l'ordre alphabétique sans la casse, et la date de cette
+   * synchronisation. `null` sans synchronisation aboutie, ou sur une panne (l'onglet reste celui d'avant). Dans l'espace.
+   */
+  private async etiquettesShopifyDuContact(tenantId: string, contactId: string): Promise<{ etiquettes: string[]; synchroLe: string } | null> {
+    try {
+      const synchro = await this.pool.query<{ synchro_le: Date | null }>(
+        `select synchro_le from shopify_etiquettes_synchro where tenant_id = $1`, [tenantId],
+      );
+      const le = synchro.rows[0]?.synchro_le ?? null;
+      if (le === null) return null;
+      const res = await this.pool.query<{ etiquette: string }>(
+        `select etiquette from shopify_etiquettes where tenant_id = $1 and contact_id = $2 order by lower(etiquette), etiquette`,
+        [tenantId, contactId],
+      );
+      return { etiquettes: res.rows.map((x) => x.etiquette), synchroLe: le.toISOString() };
+    } catch (err) {
+      journaliser('warn', 'shopify_etiquettes_fiche_illisibles', { tenantId, erreur: messageDe(err) });
+      return null;
+    }
   }
 
   /**

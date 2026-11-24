@@ -1,8 +1,8 @@
 import { getCountryCallingCode, isSupportedCountry, parsePhoneNumberFromString } from 'libphonenumber-js';
 import metadonnees from 'libphonenumber-js/min/metadata';
 import {
-  CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, plagePosee, type AchatsVises, type CleSegment, type CollectionsVisees, type Plage, type PlageSurJours, type ProduitVise,
-  type Reassort,
+  CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, plagePosee, type AchatsVises, type CleSegment, type CollectionsVisees,
+  type EtiquettesShopifyVisees, type Plage, type PlageSurJours, type ProduitVise, type Reassort,
 } from '../../web/lib/partage/segments';
 import type { ContactFieldFilter } from '../../web/lib/partage/contact-filters';
 
@@ -38,6 +38,11 @@ export interface SuiviSegments {
      * aboutie (le critère de collection est alors refusé), ou quand sa lecture a échoué.
      */
     collectionsLuesLe?: Date;
+    /**
+     * La dernière synchronisation ABOUTIE des étiquettes Shopify (lot 6b, migration 0319) ; absente sans synchronisation
+     * aboutie (le critère d'étiquette Shopify est alors refusé), ou quand sa lecture a échoué.
+     */
+    etiquettesSynchroLe?: Date;
   } | null;
 }
 
@@ -161,6 +166,40 @@ export function collectionsDesFiltres(fieldFilters: readonly ContactFieldFilter[
   return [...new Set(ids)];
 }
 
+/**
+ * Les fiches qui portent l'une de ces étiquettes Shopify (lot 6b), comparées sans la casse. 🔴 L'expression de l'index
+ * `shopify_etiquettes_etiquette` (migration 0319, `(tenant_id, lower(etiquette))`) est reprise mot pour mot, et la
+ * sous-requête nomme l'espace. Jamais `contacts.tags` : ce sont les étiquettes de Shopify, pas celles de Messaging Me.
+ * Exporté pour le test qui tient ce contrat.
+ */
+export function ficheAvecEtiquetteShopify(etiquettes: readonly string[], add: (v: unknown) => string): string {
+  return `id in (select e.contact_id from shopify_etiquettes e where e.tenant_id = $1 `
+    + `and lower(e.etiquette) in (${etiquettes.map((x) => `lower(${add(x)})`).join(', ')}))`;
+}
+
+/** Une valeur « a l'étiquette Shopify » déjà validée, ou `null` (qui vise PERSONNE). */
+function etiquettesShopifyLues(v: unknown): EtiquettesShopifyVisees | null {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return null;
+  const e = v as Partial<EtiquettesShopifyVisees>;
+  return Array.isArray(e.etiquettes) && e.etiquettes.length > 0 && e.etiquettes.every((x) => typeof x === 'string' && x !== '')
+    && (e.mode === 'toutes' || e.mode === 'une')
+    ? e as EtiquettesShopifyVisees : null;
+}
+
+/**
+ * Les étiquettes Shopify que des filtres visent (lot 6b) : `PgContactStore` exige, avant toute lecture, qu'une
+ * synchronisation des étiquettes ait abouti dès qu'il y en a une. Une valeur illisible n'en vise aucune (elle vise
+ * personne, `clauseSegment`).
+ */
+export function etiquettesShopifyDesFiltres(fieldFilters: readonly ContactFieldFilter[] | undefined): string[] {
+  const etiquettes = (fieldFilters ?? []).filter((f) => f.key === CLES_SEGMENT.etiquetteShopify && f.op === OP_SEGMENT).flatMap((f) => {
+    let v: unknown;
+    try { v = JSON.parse(f.value) as unknown; } catch { return []; }
+    return etiquettesShopifyLues(v)?.etiquettes ?? [];
+  });
+  return [...new Set(etiquettes)];
+}
+
 /** Les jours depuis la dernière commande : exige une commande connue. */
 function clauseDerniereCommande(p: Plage, add: (v: unknown) => string): string {
   const bornes = [
@@ -210,6 +249,16 @@ export function clauseSegment(cle: CleSegment, valeur: string, add: (v: unknown)
       return c
         ? `(${c.collections.map((id) => `id in (${fichesAyantAchete(ligneDansLaCollection(id, add), c.jours, add)})`).join(' and ')})`
         : 'false';
+    }
+    case CLES_SEGMENT.etiquetteShopify: {
+      // TOUTES les étiquettes (une sous-requête par étiquette, jointes par `and`) ou l'une d'elles (une sous-requête). Qu'une
+      // synchronisation ait abouti est exigé AVANT (`PgContactStore`, refus) : ici, une étiquette que personne ne porte ne
+      // trouve personne, et c'est juste (la synchronisation l'a lue, même à zéro fiche).
+      const e = etiquettesShopifyLues(v);
+      if (!e) return 'false';
+      return e.mode === 'une'
+        ? ficheAvecEtiquetteShopify(e.etiquettes, add)
+        : `(${e.etiquettes.map((x) => ficheAvecEtiquetteShopify([x], add)).join(' and ')})`;
     }
     case CLES_SEGMENT.reassort: {
       // Le DERNIER achat de ce produit dans la plage : exige un achat connu (« il y a au moins 180 jours » ne retient pas

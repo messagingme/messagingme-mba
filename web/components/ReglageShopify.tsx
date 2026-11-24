@@ -14,10 +14,12 @@ import { fmtMontant } from '@/lib/ventes';
 import { ShopifyBrancher } from '@/components/ShopifyBrancher';
 import { ShopifyImport } from '@/components/ShopifyImport';
 import { ShopifyRattrapage } from '@/components/ShopifyRattrapage';
+import { ShopifyEtiquettes } from '@/components/ShopifyEtiquettes';
 
 /**
  * TOOLS > INTÉGRATIONS > SHOPIFY : brancher la boutique, la mettre en pause, importer ses clients abonnés, rattraper ses
- * commandes des 60 derniers jours (segments Shopify enrichis, lot 5), couper
+ * commandes des 60 derniers jours (segments Shopify enrichis, lot 5), synchroniser les étiquettes de ses clients (lot 6b),
+ * couper
  * (conception 2026-10-22, maquette validée par Julien). Sans boutique, le mode opératoire chez Shopify puis les clés
  * (`ShopifyBrancher`). Ses messages sont devenus des automations (menu « Scénario », lot 5) : ils se règlent sur leur page,
  * Scénario > Automation > Shopify (lot 7), chacun dans son scénario, plus par un assistant. Claude Code fait la même chose
@@ -215,6 +217,8 @@ export function ReglageShopify({ tenantId, siAbsente = null }: { tenantId: strin
           )}
           {/* Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5). */}
           {b.etat === 'connectee' && <ShopifyRattrapage tenantId={tenantId} onLance={(texte) => setMessage({ genre: 'ok', texte })} />}
+          {/* Les étiquettes des clients (segments Shopify enrichis, lot 6b) : le réglage et le bouton « maintenant ». */}
+          {b.etat === 'connectee' && <ShopifyEtiquettes tenantId={tenantId} onMessage={setMessage} />}
           {b.origine === 'console' && (
             <p className="text-ink-500" data-testid="integration-shopify-rgpd">
               {t(

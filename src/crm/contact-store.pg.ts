@@ -12,10 +12,11 @@ import { journaliser } from '../lib/journal';
 import type { LigneDeLaListe } from '../mba/liste';
 import type { CleFicheFixe } from './champs-fiche';
 import { clauseFiltreFiche, estCleFiltrable, estOperateurFicheSeul } from './filtre-fiche';
-import { clauseSegment, collectionsDesFiltres, type SuiviSegments } from './segments';
+import { clauseSegment, collectionsDesFiltres, etiquettesShopifyDesFiltres, type SuiviSegments } from './segments';
 import { estCleSegment, type ProduitVuVue } from '../../web/lib/partage/segments';
 import { FiltreContactInvalide } from './contact-filters';
 import { refusDesCollections } from '../shopify/collections.pg';
+import { refusDesEtiquettesShopify } from '../shopify/etiquettes-garde';
 import { COLONNES_ANALYSE_FICHE, analyseDeLaLigne, type AnalyseDeFiche, type LigneAnalyseFiche } from '../analysis/fiche';
 import { LimiteOffreError } from '../offres/refus';
 import { DROITS, contactsToutesOrigines, droitsDe, estOffre, offreRemplaceLesAnciens, type LimiteContacts } from '../offres/offres';
@@ -1692,21 +1693,24 @@ export class PgContactStore implements ContactStore {
    * 🔴 LE SEUL PASSAGE DES LECTURES PAR FILTRES VERS `buildContactWhere` (et `selecteurDeMasse` vers `buildBulkSelector`) :
    * le critère « a acheté dans la collection » (segments Shopify enrichis, lot 6a) y est REFUSÉ, jamais « personne »,
    * quand aucune lecture des collections n'a abouti pour l'espace ou qu'une collection demandée n'est pas connue
-   * (`refusDesCollections`). Le refus est un `FiltreContactInvalide` : 400 aux routes, refus de l'outil au MCP. Sans ce
-   * critère, rien n'est lu. `tests/collections-refus.test.ts` exige qu'aucune lecture de ce magasin ne l'esquive.
+   * (`refusDesCollections`) ; de même le critère d'étiquette Shopify (lot 6b) tant qu'aucune synchronisation des étiquettes
+   * n'a abouti (`refusDesEtiquettesShopify`). Le refus est un `FiltreContactInvalide` : 400 aux routes, refus de l'outil au
+   * MCP. Sans ces critères, rien n'est lu. `tests/collections-refus.test.ts` et `tests/etiquettes-refus.test.ts` exigent
+   * qu'aucune lecture de ce magasin ne l'esquive.
    */
   private async ouFiltres(tenantId: string, filters: ContactFilters): Promise<{ where: string; params: unknown[] }> {
-    await this.exigerCollectionsConnues(tenantId, filters);
+    await this.exigerSegmentsShopifyLus(tenantId, filters);
     return buildContactWhere(tenantId, filters);
   }
 
   private async selecteurDeMasse(tenantId: string, target: BulkTarget): Promise<{ where: string; params: unknown[] }> {
-    if ('filters' in target) await this.exigerCollectionsConnues(tenantId, target.filters);
+    if ('filters' in target) await this.exigerSegmentsShopifyLus(tenantId, target.filters);
     return buildBulkSelector(tenantId, target);
   }
 
-  private async exigerCollectionsConnues(tenantId: string, filters: ContactFilters): Promise<void> {
-    const refus = await refusDesCollections(this.pool, tenantId, collectionsDesFiltres(filters.fieldFilters));
+  private async exigerSegmentsShopifyLus(tenantId: string, filters: ContactFilters): Promise<void> {
+    const refus = await refusDesCollections(this.pool, tenantId, collectionsDesFiltres(filters.fieldFilters))
+      ?? await refusDesEtiquettesShopify(this.pool, tenantId, etiquettesShopifyDesFiltres(filters.fieldFilters));
     if (refus !== null) throw new FiltreContactInvalide(refus);
   }
 
@@ -1772,15 +1776,32 @@ export class PgContactStore implements ContactStore {
     );
     const b = res.rows[0];
     if (!b) return { boutique: null };
-    const [rattrapage, collectionsLuesLe] = await Promise.all([this.dernierRattrapage(tenantId, b.commandes_depuis), this.collectionsLuesLe(tenantId)]);
+    const [rattrapage, collectionsLuesLe, etiquettesSynchroLe] = await Promise.all([
+      this.dernierRattrapage(tenantId, b.commandes_depuis), this.collectionsLuesLe(tenantId), this.etiquettesSynchroLe(tenantId),
+    ]);
     // `coupee_le` ne vaut que pour une boutique coupée : un rebranchement la remet à nul, mais rien ne coûte de le redire.
     return {
       boutique: {
         devise: b.devise, commandesDepuis: b.commandes_depuis, coupeeLe: b.etat === 'coupee' ? b.coupee_le : null,
         ...(rattrapage ? { rattrapage } : {}),
         ...(collectionsLuesLe ? { collectionsLuesLe } : {}),
+        ...(etiquettesSynchroLe ? { etiquettesSynchroLe } : {}),
       },
     };
+  }
+
+  /**
+   * La dernière synchronisation ABOUTIE des étiquettes Shopify (segments Shopify enrichis, lot 6b, migration 0319). AU
+   * MIEUX, comme les collections : une lecture en panne la tait, elle ne fait jamais échouer le suivi.
+   */
+  private async etiquettesSynchroLe(tenantId: string): Promise<Date | null> {
+    try {
+      const res = await this.pool.query<{ synchro_le: Date | null }>(`select synchro_le from shopify_etiquettes_synchro where tenant_id = $1`, [tenantId]);
+      return res.rows[0]?.synchro_le ?? null;
+    } catch (err) {
+      journaliser('warn', 'suivi_etiquettes_illisible', { tenantId, erreur: messageDe(err) });
+      return null;
+    }
   }
 
   /**
@@ -2222,6 +2243,12 @@ export class PgContactStore implements ContactStore {
       if (e164.length > 0) {
         await client.query(`delete from shopify_paniers where tenant_id = $1 and telephone = any($2::text[])`, [tenantId, e164]);
       }
+      // Les étiquettes Shopify (segments Shopify enrichis, lot 6b, migration 0319) : le lien au client Shopify, la marque de
+      // la recherche par téléphone, les étiquettes lues. Dans l'ordre des verrous de la synchronisation (le lien, la marque,
+      // les étiquettes : `src/shopify/etiquettes.pg.ts`), sans quoi les deux pourraient s'interbloquer.
+      await client.query(`delete from shopify_clients where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
+      await client.query(`delete from shopify_fiches_cherchees where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
+      await client.query(`delete from shopify_etiquettes where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
 
       // La ligne de campagne reste (statut, horodatage, livraison) ; son numéro et ses variables partent :
       // `resolved_params` porte les valeurs injectées (typiquement le prénom), `variables` ce que l'intégrateur a

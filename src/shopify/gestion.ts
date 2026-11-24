@@ -20,6 +20,7 @@ import {
 import { prefixeShopify } from './lignes';
 import type { DepsReprise } from './reprise';
 import type { DepsCollections } from './collections';
+import type { DepsEtiquettes } from './etiquettes';
 import type { ChiffreVentes, Montant } from './chiffre';
 import { addDays, todayParis, type DateRange } from '../stats/range';
 
@@ -60,6 +61,12 @@ export interface DepsGestionShopify {
    * `./collections.ts`. `get_shopify_state` et le volet Shopify des filtres la lisent et l'enfilent.
    */
   collections: DepsCollections;
+  /**
+   * La synchronisation des étiquettes des clients Shopify (segments Shopify enrichis, lot 6b) : `cablerEtiquettes`,
+   * `./etiquettes.ts`. La carte Shopify et `sync_shopify_customer_tags` l'allument et la lancent ; le volet Shopify des
+   * filtres et `get_shopify_state` lisent ce qu'elle a lu.
+   */
+  etiquettes: DepsEtiquettes;
 }
 
 // Le refus d'un message Shopify sur un numéro relié par QR code vit avec l'interrupteur des lignes, qui l'emploie aussi.

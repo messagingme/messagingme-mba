@@ -327,3 +327,48 @@ describe('le critère de collection : forme canonique et refus', () => {
     expect(() => parGet([champ])).toThrow(FiltreContactInvalide);
   });
 });
+
+/**
+ * « A L'ÉTIQUETTE SHOPIFY » (segments Shopify enrichis, lot 6b) : `{ etiquettes, mode }`, 1 à 20 étiquettes de 1 à 255
+ * caractères (la borne de Shopify), mode `toutes` (le défaut) ou `une`. Même règle que les autres critères : la forme
+ * canonique, ou le refus par les deux portes. Qu'une synchronisation ait abouti se juge en base
+ * (`tests/etiquettes-refus.test.ts`).
+ */
+describe('le critère d’étiquette Shopify : forme canonique et refus', () => {
+  const S = CLES_SEGMENT;
+  const brut = (key: string, value: unknown) => ({ key, op: 'segment', value: JSON.stringify(value) });
+  const parGet = (champs: unknown[]): unknown => parseFilters({ fields: JSON.stringify(champs) });
+  const parCorps = (champs: unknown[]): unknown => parseBulkTarget({ filters: { fieldFilters: champs } });
+
+  it('survit au round-trip sous sa forme canonique, dans les deux modes', () => {
+    const toutes: ContactFilters = { fieldFilters: [filtreSegment(S.etiquetteShopify, { etiquettes: ['VIP', 'Grossiste'], mode: 'toutes' })] };
+    expect(roundTrip(toutes)).toEqual(toutes);
+    const une: ContactFilters = { fieldFilters: [filtreSegment(S.etiquetteShopify, { etiquettes: ['VIP'], mode: 'une' })] };
+    expect(roundTrip(une)).toEqual(une);
+  });
+
+  it('la valeur est ramenée à sa forme : espaces de bord retirés, doublons sans la casse fusionnés, mode « toutes » par défaut', () => {
+    expect(parCorps([brut(S.etiquetteShopify, { etiquettes: [' VIP ', 'vip', 'Grossiste'] })]))
+      .toEqual({ filters: { fieldFilters: [filtreSegment(S.etiquetteShopify, { etiquettes: ['VIP', 'Grossiste'], mode: 'toutes' })] }, excludeIds: [] });
+    // 255 caractères en points de code passent, même quand l'UTF-16 en compte plus.
+    const longue = '😀'.repeat(255);
+    expect(parCorps([brut(S.etiquetteShopify, { etiquettes: [longue], mode: 'une' })]))
+      .toEqual({ filters: { fieldFilters: [filtreSegment(S.etiquetteShopify, { etiquettes: [longue], mode: 'une' })] }, excludeIds: [] });
+  });
+
+  const malformes: Array<[string, unknown]> = [
+    ['aucune étiquette', brut(S.etiquetteShopify, { etiquettes: [] })],
+    ['étiquettes absentes', brut(S.etiquetteShopify, { mode: 'une' })],
+    ['21 étiquettes', brut(S.etiquetteShopify, { etiquettes: Array.from({ length: 21 }, (_, i) => `e${i}`) })],
+    ['256 caractères', brut(S.etiquetteShopify, { etiquettes: ['a'.repeat(256)] })],
+    ['une étiquette vide', brut(S.etiquetteShopify, { etiquettes: ['   '] })],
+    ['un nombre au lieu d’un texte', brut(S.etiquetteShopify, { etiquettes: [42] })],
+    ['un mode inconnu', brut(S.etiquetteShopify, { etiquettes: ['VIP'], mode: 'aucune' })],
+    ['clé inconnue', brut(S.etiquetteShopify, { etiquettes: ['VIP'], jours: 3 })],
+    ['une liste au lieu d’un objet', brut(S.etiquetteShopify, ['VIP'])],
+  ];
+  it.each(malformes)('🔴 refusé par les deux portes : %s', (_nom, champ) => {
+    expect(() => parCorps([champ])).toThrow(FiltreContactInvalide);
+    expect(() => parGet([champ])).toThrow(FiltreContactInvalide);
+  });
+});

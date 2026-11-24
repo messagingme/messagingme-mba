@@ -750,7 +750,17 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     un produit commandé n'a jamais été lu ou date de plus de 24 h (« lecture en cours », quelques minutes) ; sans le droit
     `read_products` sur l'app de la boutique, le volet dit comment l'ajouter. Tant qu'aucune lecture n'a abouti, ou pour
     une collection qui n'est plus connue, le critère est **refusé**, jamais « personne ». Claude Code a le même
-    (`collections`), et `get_shopify_state` lui donne les collections lues. Depuis le lot 4, deux **boutons prêts**,
+    (`collections`), et `get_shopify_state` lui donne les collections lues. Depuis le lot 6b (2026-11-24), un bloc
+    « **Étiquettes Shopify** » filtre par les étiquettes que le marchand pose sur ses clients DANS SHOPIFY (VIP,
+    grossiste...), 🔴 à part des étiquettes Messaging Me du bloc « Étiquettes » : un même mot des deux côtés fait deux
+    critères, et la synchronisation ne copie jamais une étiquette Shopify dans les étiquettes Messaging Me. On choisit
+    parmi les étiquettes lues (avec le nombre de fiches qui les portent) : toutes, ou l'une d'elles, sans tenir compte de
+    la casse, telles que la dernière synchronisation les a lues (le bloc dit sa date). Tant qu'aucune synchronisation n'a
+    abouti, le critère est **refusé**, jamais « personne » ; ensuite il s'applique, même à une étiquette que personne ne
+    porte. Seul pont vers les étiquettes Messaging Me : « **Copier en étiquette Messaging Me** », qui pose maintenant
+    l'étiquette nommée par le marchand sur les fiches de cette étiquette Shopify, sans suivi ensuite et sans
+    consentement. Claude Code a le même critère (`shopify_tags`, la date dans `shopify_tags_synced_at`), et copie par
+    `tag_contacts`. Depuis le lot 4, deux **boutons prêts**,
     sans aucun réglage : « **A écrit sans commander** » (au moins un message reçu encore connu, une réaction ou un
     bouton touché comptent) et « **A cliqué sans commander** » (au moins un clic sur un lien suivi), avec, pour les
     deux, aucune commande enregistrée pour le contact. Un clic pose le bouton, un second le retire, les deux se
@@ -3331,6 +3341,19 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   2026-11-24 : `read_all_orders`**, qui ouvrira les commandes de plus de 60 jours ; une app créée dans l'organisation du
   marchand l'obtient sans validation de Shopify, et si Shopify refuse la version (une app d'organisation partenaire), on
   le retire : rien d'autre n'en a besoin aujourd'hui.
+- **Les étiquettes des clients Shopify** (2026-11-24, segments Shopify enrichis, lot 6b) : pour cibler par étiquette
+  Shopify (détail dans « Contacts & CRM »), le réglage « **Synchroniser les étiquettes** » de la carte, **éteint par
+  défaut** : seul le marchand l'allume, jamais le branchement. Allumé, une première lecture part aussitôt, en arrière-plan,
+  puis une relecture au plus toutes les 24 h en Pro, Business et Entreprise, et « Synchroniser maintenant » la relance ;
+  la carte dit la dernière synchronisation et ses comptes (clients lus, fiches qui portent une étiquette). Elle cherche une
+  fois chaque fiche sans client par son téléphone : un client ne se relie qu'à la fiche de SON téléphone chez Shopify,
+  jamais par une commande (dont la fiche est celle du téléphone de livraison : un cadeau donnerait les étiquettes de la
+  cliente au destinataire), jamais par une adresse ; les étiquettes d'une fiche sont remplacées à chaque lecture. Aucune
+  fiche n'est créée, aucune fiche supprimée n'est touchée, et un client sans fiche est compté puis oublié. Le droit `read_customers` suffit.
+  Les étiquettes partent avec la fiche (suppression, demande d'effacement de Shopify) et avec l'effacement de la boutique ;
+  une boutique coupée garde ce qui a été lu. L'onglet Shopify d'une fiche montre les étiquettes Shopify de son client.
+  Depuis Claude Code, `sync_shopify_customer_tags` allume et lance (ou éteint), toutes offres : la Free lit à la demande,
+  au plus une fois par 24 h, sans relecture quotidienne ; `get_shopify_state` en dit l'état et les étiquettes lues.
 
 ## API publique `/v1` (intégrateurs externes)
 

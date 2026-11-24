@@ -380,3 +380,64 @@ describe('les segments de l’assistant', () => {
     expect(sans).not.toHaveProperty('collections_read_at');
   });
 });
+
+/**
+ * LES ÉTIQUETTES SHOPIFY DANS LA CIBLE DE L'ASSISTANT (segments Shopify enrichis, lot 6b) : `shopify_tags` traduit dans le
+ * contrat commun, ses bornes annoncées par chaque outil de la cible, refusé sans boutique, et la date de la synchronisation
+ * dans la réponse de `find_contacts`. Jamais mêlé au `tags` des étiquettes Messaging Me.
+ */
+describe('les étiquettes Shopify de l’assistant', () => {
+  const BOUTIQUE_6B: SuiviSegments['boutique'] = { devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null };
+
+  it('🔴 traduites dans le contrat commun, à part des étiquettes Messaging Me du même mot', async () => {
+    const { d } = deps({ boutique: BOUTIQUE_6B });
+    expect(await lireCibleMcp({ tags: ['VIP'], shopify_tags: { tags: ['VIP', 'Grossiste'], mode: 'any' } }, PRO, d, T, { identifiants: true })).toEqual({
+      filters: { tags: ['VIP'], fieldFilters: [filtreSegment(S.etiquetteShopify, { etiquettes: ['VIP', 'Grossiste'], mode: 'une' })] },
+      excludeIds: [],
+    });
+    expect(await lireCibleMcp({ shopify_tags: { tags: ['VIP'] } }, PRO, d, T, { identifiants: false })).toEqual({
+      filters: { fieldFilters: [filtreSegment(S.etiquetteShopify, { etiquettes: ['VIP'], mode: 'toutes' })] }, excludeIds: [],
+    });
+  });
+
+  it('🔴 sans boutique : refusé avant toute lecture des contacts', async () => {
+    const { d, lus } = deps();
+    await expect(lireCibleMcp({ shopify_tags: { tags: ['VIP'] } }, PRO, d, T, { identifiants: false })).rejects.toThrow(/étiquettes Shopify \(shopify_tags\)/);
+    expect(lus.map((l) => l.quoi)).toEqual(['suivi']);
+  });
+
+  it.each([
+    { shopify_tags: { tags: [] } }, { shopify_tags: { tags: ['   '] } }, { shopify_tags: { tags: ['a'.repeat(256)] } },
+    { shopify_tags: { tags: ['VIP'], mode: 'aucune' } }, { shopify_tags: { tags: ['VIP'], jours: 3 } }, { shopify_tags: ['VIP'] },
+    { shopify_tags: { tags: Array.from({ length: BORNES_SEGMENTS.etiquettesShopifyMax + 1 }, (_, i) => `e${i}`) } },
+  ])('🔴 étiquettes Shopify refusées, jamais ignorées : %j', async (args) => {
+    const { d } = deps({ boutique: BOUTIQUE_6B });
+    await expect(lireCibleMcp(args, PRO, d, T, { identifiants: true })).rejects.toThrow(RefusOutil);
+  });
+
+  it('🔴 chaque borne est annoncée dans le schéma, sur chaque outil de la cible ; la description dit que ce ne sont pas les étiquettes Messaging Me', () => {
+    for (const nom of ['find_contacts', 'tag_contacts', 'prepare_campaign', 'set_contact_field']) {
+      const c = OUTILS.find((o) => o.nom === nom)!.entree.properties.shopify_tags!;
+      expect(c, nom).toMatchObject({ type: 'object', required: ['tags'], additionalProperties: false });
+      expect(c.properties!.tags, nom).toMatchObject({
+        type: 'array', minItems: 1, maxItems: BORNES_SEGMENTS.etiquettesShopifyMax,
+        items: { type: 'string', minLength: 1, maxLength: BORNES_SEGMENTS.etiquetteShopifyMax, pattern: '\\S' },
+      });
+      expect(c.properties!.mode, nom).toMatchObject({ type: 'string', enum: ['all', 'any'] });
+      expect(c.description, nom).toMatch(/NOT the Messaging Me tags/);
+      expect(c.description, nom).toMatch(/tag_contacts/);
+      expect(c.description, nom).toMatch(/shopify_tags_synced_at in the answer of find_contacts/);
+    }
+  });
+
+  it('🔴 find_contacts rend la date de la synchronisation, seulement si le critère est posé ; un critère d’étiquettes seul ne dit rien des commandes', async () => {
+    const le = new Date('2026-11-24T08:00:00Z');
+    const avec = deps({ boutique: { ...BOUTIQUE_6B, etiquettesSynchroLe: le } });
+    const r = (await outil.executer(avec.d, T, { shopify_tags: { tags: ['VIP'] } }, null)) as Record<string, unknown>;
+    expect(r).toMatchObject({ shopify_tags_synced_at: le.toISOString() });
+    expect(r).not.toHaveProperty('orders_recorded_since');
+    const sans = (await outil.executer(avec.d, T, { orders: { min: 1 } }, null)) as Record<string, unknown>;
+    expect(sans).not.toHaveProperty('shopify_tags_synced_at');
+    expect(sans).toHaveProperty('orders_recorded_since');
+  });
+});

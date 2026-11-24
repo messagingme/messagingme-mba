@@ -9,6 +9,7 @@ import { monterLignes } from './shopify-lignes-faux';
 import { commandeLue, monterReprise, page } from './reprise-faux';
 import { PHRASE_ATTESTATION_RATTRAPAGE } from '../src/shopify/reprise';
 import { collectionsInertes } from './routes-inertes';
+import { monterEtiquettes } from './etiquettes-faux';
 import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 
 /**
@@ -34,12 +35,14 @@ const VUE: VueBoutique = {
   connecteeLe: '2026-10-22T00:00:00.000Z', dernierEvenementLe: null, delaiPanierMinutes: 60, origine: 'console', pauseLe: null,
 };
 
-function monter(o: { reprise?: Parameters<typeof monterReprise>[0] } = {}) {
+function monter(o: { reprise?: Parameters<typeof monterReprise>[0]; etiquettes?: Parameters<typeof monterEtiquettes>[0] } = {}) {
   const trace = { connexions: [] as Connexion[], abonnements: [] as unknown[], audit: [] as Array<{ action: string; cible: unknown; detail: unknown }> };
   // La boutique vit dans le faux des lignes : la gestion, les lignes et la pause lisent la MÊME.
   const lignes = monterLignes({ vue: null });
   // Le rattrapage des commandes (segments Shopify, lot 5) : sa propre boutique, ses pages et ses reprises en mémoire.
   const reprise = monterReprise(o.reprise);
+  // Les étiquettes Shopify (segments Shopify, lot 6b) : leur magasin et leur boutique en mémoire.
+  const etiquettes = monterEtiquettes(o.etiquettes);
   const non = async (): Promise<never> => { throw new Error('hors de ce test'); };
   const store = {
     lire: () => lignes.store.lire(),
@@ -66,11 +69,12 @@ function monter(o: { reprise?: Parameters<typeof monterReprise>[0] } = {}) {
       lignes: lignes.deps,
       reprise: reprise.deps,
       collections: collectionsInertes,
+      etiquettes: etiquettes.deps,
     },
     audit: async (_t, _acteur, action, cible, detail) => { trace.audit.push({ action, cible, detail }); },
   };
   const app = buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET }, shopify: deps });
-  return { app, trace, lignes, reprise, brancher: () => { lignes.store.vue = VUE; } };
+  return { app, trace, lignes, reprise, etiquettes, brancher: () => { lignes.store.vue = VUE; } };
 }
 
 describe('le branchement depuis la console', () => {
@@ -301,5 +305,59 @@ describe('le rattrapage des commandes', () => {
     }
     expect(reprise.lignes).toEqual([]);
     expect(reprise.trace.lectures).toEqual([]);
+  });
+});
+
+/**
+ * LES ÉTIQUETTES DES CLIENTS SHOPIFY (segments Shopify enrichis, lot 6b) : le réglage « Synchroniser les étiquettes » et le
+ * bouton « maintenant » de la carte, admin seulement, corps stricts, journalisés ; la MÊME gestion que l'outil MCP.
+ */
+describe('la synchronisation des étiquettes', () => {
+  const URL_REGLAGE = `${URL_T1}/etiquettes`;
+  const URL_MAINTENANT = `${URL_T1}/etiquettes/synchro`;
+
+  it('🔴 allumer : 202, la synchronisation part, le journal le dit ; éteindre : 200, rien ne part', async () => {
+    const { app, etiquettes, trace } = monter();
+    const r = await app.inject({ method: 'PUT', url: URL_REGLAGE, ...en(admin), payload: { allumee: true } });
+    expect(r.statusCode).toBe(202);
+    expect(r.json().synchro).toMatchObject({ allumee: true, enCours: true, lancee: true });
+    expect(etiquettes.trace.jobs).toHaveLength(1);
+    expect(trace.audit).toEqual([{ action: 'shopify.etiquettes', cible: CIBLE, detail: { allumee: true } }]);
+    const off = await app.inject({ method: 'PUT', url: URL_REGLAGE, ...en(admin), payload: { allumee: false } });
+    expect(off.statusCode).toBe(200);
+    expect(off.json().synchro).toMatchObject({ allumee: false, lancee: false });
+    expect(etiquettes.trace.jobs).toHaveLength(1);
+  });
+
+  it('« maintenant » : 202 quand elle part, 200 quand elle tourne déjà ; éteinte ou sans boutique : 409 avec la phrase', async () => {
+    const { app, etiquettes, trace } = monter({ etiquettes: { etat: { allumee: true } } });
+    const r = await app.inject({ method: 'POST', url: URL_MAINTENANT, ...en(admin), payload: {} });
+    expect(r.statusCode).toBe(202);
+    expect(trace.audit).toEqual([{ action: 'shopify.etiquettes_synchro', cible: CIBLE, detail: {} }]);
+    const deja = await app.inject({ method: 'POST', url: URL_MAINTENANT, ...en(admin), payload: {} });
+    expect(deja.statusCode).toBe(200);
+    expect(deja.json().synchro).toMatchObject({ enCours: true, lancee: false });
+    expect(etiquettes.trace.jobs).toHaveLength(1);
+    expect(trace.audit).toHaveLength(1);
+
+    const eteinte = monter({ etiquettes: { etat: { allumee: false } } });
+    const e = await eteinte.app.inject({ method: 'POST', url: URL_MAINTENANT, ...en(admin), payload: {} });
+    expect([e.statusCode, e.json().error]).toEqual([409, expect.stringMatching(/éteinte/)]);
+    const sans = monter({ etiquettes: { boutique: null } });
+    const s = await sans.app.inject({ method: 'PUT', url: URL_REGLAGE, ...en(admin), payload: { allumee: true } });
+    expect([s.statusCode, s.json().error]).toEqual([409, expect.stringMatching(/Aucune boutique Shopify/)]);
+  });
+
+  it('🔴 un agent et l’espace d’un autre client sont refusés ; un corps hors contrat : 400 ; rien ne s’allume', async () => {
+    const { app, etiquettes } = monter();
+    for (const jeton of [agent, autreEspace]) {
+      expect((await app.inject({ method: 'PUT', url: URL_REGLAGE, ...en(jeton), payload: { allumee: true } })).statusCode).toBe(403);
+      expect((await app.inject({ method: 'POST', url: URL_MAINTENANT, ...en(jeton), payload: {} })).statusCode).toBe(403);
+    }
+    expect((await app.inject({ method: 'PUT', url: URL_REGLAGE, ...en(admin), payload: { allumee: 'oui' } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'PUT', url: URL_REGLAGE, ...en(admin), payload: { allumee: true, tous: true } })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'POST', url: URL_MAINTENANT, ...en(admin), payload: { jours: 1 } })).statusCode).toBe(400);
+    expect(etiquettes.etat()).toBeNull();
+    expect(etiquettes.trace.jobs).toEqual([]);
   });
 });

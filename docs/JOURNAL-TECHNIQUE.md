@@ -5,6 +5,34 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : segments Shopify, lot 6b : les étiquettes des clients Shopify
+
+Les étiquettes que le marchand pose sur ses clients DANS Shopify deviennent un critère des contacts, à part des
+étiquettes Messaging Me (`segment_etiquette_shopify` : toutes ou l'une, sans la casse). La synchronisation est éteinte
+par défaut ; elle s'allume sur la carte Shopify ou par l'outil `sync_shopify_customer_tags` (file
+`shopify-etiquettes`). Elle relie chaque client par son propre téléphone, une seule fois par fiche (25 téléphones par
+requête, chaque client revérifié, deux clients au même téléphone ne relient rien), et lit les étiquettes par
+identifiant (`nodes`, 250 par lot). Relue chaque jour en Pro, Business et Entreprise par le balayage horaire ; en Free,
+à la demande et au plus une fois par 24 h. Le critère est refusé tant qu'aucune synchronisation n'a abouti ; la copie
+vers une étiquette Messaging Me passe seulement par un geste explicite, sans consentement. Bornes lues dans la
+référence REST Admin 2026-10 (ressource Customer) : 250 étiquettes par client, 255 caractères par étiquette ; la
+référence GraphQL ne dit ni borne ni casse. Migration 0319, BLOQUANTE (la purge et l'effacement du branchement nomment
+ses tables) : poussée seule (`96392732a`, CI verte) et appliquée avant le code. Le lot a été mené en parallèle du lot 5b,
+dans sa propre copie, puis reconstruit sur la tête (les lots voisins des packs de contacts et du CSM) ; la sonde 15 de
+l'auto-attaque a dû relever le plafond par minute de sa clé, le nouvel outil portant la liste à 61 appels. Mesure :
+51 mutations scriptées, 41 rouges, 10 survivantes attendues (8 mutants équivalents de prédicats doublés, 2 de
+concurrence que le banc PGlite ne voit pas). Leçon : une mutation de prédicat SQL garde ses paramètres nommés
+(`$1::uuid is not null`) ; retirer le seul usage de `$1` fait refuser la requête (42P18), et le test rougit pour cette
+erreur, pas pour la fuite : le premier passage de mutations a été jeté pour cette raison.
+La relecture indépendante a trouvé deux rouges, corrigés et prouvés dans les deux sens par mutation, sans seconde
+relecture : une synchronisation dont le job mourait restait bloquée pour toujours (une comparaison à un bail nul vaut
+NULL en SQL, et « maintenant » ne relançait plus rien : `coalesce(..., false)`) ; et le lien par les commandes déjà
+notées donnait les étiquettes d'une cliente à la fiche du destinataire de son cadeau (la commande suit le numéro de
+livraison). La décision de Julien pour le lot 5b (le numéro de l'acheteur, jamais la livraison) s'applique : le lien ne
+passe plus que par le téléphone du client lui-même. Migration 0320, non bloquante : trois index sur `contact_id`, pour
+que la cascade d'une fiche supprimée ne balaie pas ces tables. Reconstruit sur le lot 2 des packs de contacts : les
+suppressions des étiquettes vivent dans `purgerDans`.
+
 ## 2026-11-25 : CSM virtuel, lot E : la Question et l'Action dans la recette
 
 Plan `docs/superpowers/plans/2026-11-24-csm-lot1-e-recette-pilote.md`, après le lot D (le brouillon, `26fb1f783`, qui

@@ -1,7 +1,8 @@
 import { request } from './http';
 import {
-  BORNES_SEGMENTS, type BoutonsSansCommandeVue, type CollectionLueVue, type CollectionsLuesVue, type LectureCollectionsVue,
-  type PlageSurJours, type ProduitVuVue, type SuiviSegmentsVue,
+  BORNES_SEGMENTS, type BoutonsSansCommandeVue, type CollectionLueVue, type CollectionsLuesVue, type EtiquetteShopifyVue,
+  type EtiquettesShopifyLuesVue, type LectureCollectionsVue, type PlageSurJours, type ProduitVuVue, type SuiviSegmentsVue,
+  type SynchroEtiquettesVue,
 } from './partage/segments';
 
 /**
@@ -13,10 +14,12 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   if (typeof o.activiteCompleteDepuis !== 'string') return null;
-  // Les critères produit (lot 3) et de collection (lot 6a) : seulement si l'API le dit, en toutes lettres.
+  // Les critères produit (lot 3), de collection (lot 6a) et d'étiquette Shopify (lot 6b) : seulement si l'API le dit, en
+  // toutes lettres.
   const annonces = {
     ...(o.produits === true ? { produits: true } : {}),
     ...(o.collections === true ? { collections: true } : {}),
+    ...(o.etiquettesShopify === true ? { etiquettesShopify: true } : {}),
   };
   if (o.boutique === null) return { boutique: null, activiteCompleteDepuis: o.activiteCompleteDepuis, ...annonces };
   const b = o.boutique as Record<string, unknown> | undefined;
@@ -108,6 +111,61 @@ export async function chercherCollections(tenantId: string, recherche: string): 
   try {
     const q = recherche.trim() === '' ? '' : `?q=${encodeURIComponent(recherche.trim().slice(0, 80))}`;
     return collectionsLuesDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/collections${q}`));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * L'état de la synchronisation des étiquettes Shopify (lot 6b), lu défensivement : `null` s'il ne se lit pas (la route ne
+ * répond pas comme elle le doit : rien n'est proposé). Un compte illisible vaut zéro.
+ */
+export function synchroEtiquettesDe(v: unknown): SynchroEtiquettesVue | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const s = v as Record<string, unknown>;
+  if (typeof s.allumee !== 'boolean' || typeof s.enCours !== 'boolean') return null;
+  const codes: ReadonlyArray<string> = ['sans_droit', 'refusee', 'erreur'];
+  const refus = s.refus && typeof s.refus === 'object' ? s.refus as Record<string, unknown> : null;
+  const c = s.comptes && typeof s.comptes === 'object' ? s.comptes as Record<string, unknown> : {};
+  const entier = (x: unknown): number => (typeof x === 'number' && Number.isInteger(x) && x >= 0 ? x : 0);
+  return {
+    allumee: s.allumee,
+    synchroLe: typeof s.synchroLe === 'string' ? s.synchroLe : null,
+    enCours: s.enCours,
+    refus: refus && typeof refus.code === 'string' && codes.includes(refus.code) && typeof refus.message === 'string'
+      ? { code: refus.code as 'sans_droit' | 'refusee' | 'erreur', message: refus.message }
+      : null,
+    comptes: {
+      clientsLus: entier(c.clientsLus), trouvesParTelephone: entier(c.trouvesParTelephone), sansFiche: entier(c.sansFiche),
+      fichesEtiquetees: entier(c.fichesEtiquetees),
+    },
+  };
+}
+
+/**
+ * Les étiquettes Shopify lues et l'état de leur synchronisation (lot 6b), lus défensivement : une étiquette qui ne se lit
+ * pas est écartée seule ; un état illisible rend `null`.
+ */
+export function etiquettesShopifyLuesDe(v: unknown): EtiquettesShopifyLuesVue | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const synchro = synchroEtiquettesDe(o.synchro);
+  if (!Array.isArray(o.etiquettes) || synchro === null) return null;
+  const etiquettes = o.etiquettes.flatMap((e): EtiquetteShopifyVue[] => {
+    if (!e || typeof e !== 'object') return [];
+    const x = e as Record<string, unknown>;
+    if (typeof x.etiquette !== 'string' || x.etiquette === '') return [];
+    const fiches = typeof x.fiches === 'number' && Number.isInteger(x.fiches) && x.fiches >= 0 ? x.fiches : 0;
+    return [{ etiquette: x.etiquette, fiches }];
+  });
+  return { etiquettes, synchro };
+}
+
+/** Cherche parmi les étiquettes Shopify lues ; `null` si la route ne répond pas. Une lecture seule, qui ne lance rien. */
+export async function chercherEtiquettesShopify(tenantId: string, recherche: string): Promise<EtiquettesShopifyLuesVue | null> {
+  try {
+    const q = recherche.trim() === '' ? '' : `?q=${encodeURIComponent(recherche.trim().slice(0, 80))}`;
+    return etiquettesShopifyLuesDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/etiquettes-shopify${q}`));
   } catch {
     return null;
   }

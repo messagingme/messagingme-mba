@@ -28,6 +28,12 @@ export const CLES_SEGMENT = {
    */
   collection: 'segment_collection',
   /**
+   * Segments Shopify enrichis, lot 6b : les étiquettes que le marchand a posées sur ses clients DANS SHOPIFY, lues par la
+   * synchronisation (`shopify_etiquettes`). 🔴 Jamais les étiquettes Messaging Me (`ContactFilters.tags`) : un même mot des
+   * deux côtés fait deux critères.
+   */
+  etiquetteShopify: 'segment_etiquette_shopify',
+  /**
    * Segments Shopify enrichis, lot 4 : les deux boutons prêts, valeur `true` et rien d'autre. Un message reçu (ou un
    * clic attribué) connu, et aucune commande enregistrée pour la fiche dans l'espace.
    */
@@ -50,6 +56,11 @@ export const CLES_COMMANDES: readonly CleSegment[] = [
   CLES_SEGMENT.achete, CLES_SEGMENT.pasAchete, CLES_SEGMENT.reassort, CLES_SEGMENT.collection,
   CLES_SEGMENT.ecritSansCommande, CLES_SEGMENT.clicSansCommande,
 ];
+/**
+ * Les critères du volet Shopify des filtres : ceux des commandes, et les étiquettes Shopify (lot 6b), qui ne lisent pas les
+ * commandes mais demandent aussi une boutique. Un critère posé ouvre le volet.
+ */
+export const CLES_SHOPIFY: readonly CleSegment[] = [...CLES_COMMANDES, CLES_SEGMENT.etiquetteShopify];
 export const CLES_ACTIVITE: readonly CleSegment[] = [CLES_SEGMENT.actif, CLES_SEGMENT.inactif];
 
 /** Au moins `min`, au plus `max`, l'un ou l'autre ou les deux. */
@@ -77,9 +88,21 @@ export interface CollectionsVisees { collections: string[]; jours?: number }
 /** L'identifiant Shopify d'une collection, en chiffres : la règle de la validation et du schéma de l'outil MCP. */
 export const MOTIF_ID_COLLECTION = '^\\d{1,19}$';
 
-/** Bornes d'une donnée cliente, refusées au-delà (jamais tronquées : un critère tronqué vise une autre population). */
+/**
+ * « A l'étiquette Shopify » (lot 6b) : TOUTES ces étiquettes (`toutes`) ou l'une d'elles (`une`), comparées sans la casse,
+ * telles que la dernière synchronisation les a lues sur les clients de la boutique.
+ */
+export interface EtiquettesShopifyVisees { etiquettes: string[]; mode: 'toutes' | 'une' }
+
+/**
+ * Bornes d'une donnée cliente, refusées au-delà (jamais tronquées : un critère tronqué vise une autre population).
+ * `etiquetteShopifyMax` est la borne de Shopify, lue dans sa documentation (REST Admin 2026-10, ressource Customer, mise à
+ * jour d'un client : « Each tag can have up to 255 characters »), comptée en caractères (points de code), comme le CHECK de
+ * la migration 0319.
+ */
 export const BORNES_SEGMENTS = {
   joursMax: 3650, commandesMax: 1000, depenseMax: 10_000_000, paysMax: 20, produitsMax: 20, skuMax: 255, collectionsMax: 20,
+  etiquettesShopifyMax: 20, etiquetteShopifyMax: 255,
 } as const;
 
 /** Ce que l'API sait cibler pour un espace (`GET /tenants/:id/contacts/segments`). */
@@ -101,6 +124,12 @@ export interface SuiviSegmentsVue {
    * 🔴 Absent d'une API plus ancienne : la console ne propose alors aucun critère de collection.
    */
   collections?: boolean;
+  /**
+   * L'API sait cibler par étiquette Shopify (lot 6b) et lister les étiquettes lues
+   * (`GET .../contacts/segments/etiquettes-shopify`). 🔴 Absent d'une API plus ancienne : la console ne propose alors aucun
+   * critère d'étiquette Shopify, qu'une telle API chercherait dans les champs perso, où il n'est jamais.
+   */
+  etiquettesShopify?: boolean;
   /**
    * Le compte de chaque bouton prêt (lot 4), le bouton SEUL, jamais croisé avec les autres filtres (décision de Julien du
    * 2026-11-23). Présent seulement avec une boutique et quand les deux comptes ont pu se lire : absent, la console ne
@@ -147,6 +176,29 @@ export interface LectureCollectionsVue {
 /** Ce que rend `GET .../contacts/segments/collections` : les collections lues (50 au plus) et l'état de la lecture. */
 export interface CollectionsLuesVue { collections: CollectionLueVue[]; lecture: LectureCollectionsVue }
 
+/** Une étiquette Shopify lue (lot 6b) : son texte (l'écriture la plus fréquente, la casse ne comptant pas) et ses fiches. */
+export interface EtiquetteShopifyVue { etiquette: string; fiches: number }
+
+/** L'état de la synchronisation des étiquettes Shopify d'un espace (lot 6b). */
+export interface SynchroEtiquettesVue {
+  /** Allumée par le marchand (carte Shopify ou outil MCP) : en Pro et au-dessus, une relecture au plus toutes les 24 h. */
+  allumee: boolean;
+  /** La dernière synchronisation aboutie ; nulle : aucune, et le critère d'étiquette Shopify est refusé. */
+  synchroLe: string | null;
+  /** Une synchronisation tourne. */
+  enCours: boolean;
+  /** La dernière synchronisation refusée : le droit `read_customers` manque (`sans_droit`), Shopify a refusé, ou une panne. */
+  refus: { code: 'sans_droit' | 'refusee' | 'erreur'; message: string } | null;
+  /**
+   * Les comptes de la synchronisation en cours, ou de la dernière : les clients lus chez Shopify, les fiches reliées par
+   * leur téléphone, les clients lus dont la fiche n'existait plus (oubliés), les fiches qui portent au moins une étiquette.
+   */
+  comptes: { clientsLus: number; trouvesParTelephone: number; sansFiche: number; fichesEtiquetees: number };
+}
+
+/** Ce que rend `GET .../contacts/segments/etiquettes-shopify` : les étiquettes lues (50 au plus) et l'état de la synchronisation. */
+export interface EtiquettesShopifyLuesVue { etiquettes: EtiquetteShopifyVue[]; synchro: SynchroEtiquettesVue }
+
 /** Une plage posée : au moins une borne. */
 export function plagePosee(p: Plage | undefined): boolean {
   return p !== undefined && (p.min !== undefined || p.max !== undefined);
@@ -156,7 +208,9 @@ export function plagePosee(p: Plage | undefined): boolean {
  * Un critère de segment dans la forme du fil : sa valeur en JSON (une plage, des jours, des pays, des produits, ou `true`
  * pour un bouton prêt).
  */
-export function filtreSegment(cle: CleSegment, valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | true): ContactFieldFilter {
+export function filtreSegment(
+  cle: CleSegment, valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | true,
+): ContactFieldFilter {
   return { key: cle, op: OP_SEGMENT, value: JSON.stringify(valeur) };
 }
 

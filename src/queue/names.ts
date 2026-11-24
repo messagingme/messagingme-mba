@@ -7,7 +7,7 @@
  * Les files travaillées par le worker. `analyze-conversation` et `push-analysis` ne sont enregistrées que si la
  * fonction est activée, mais la file existe côté /ops même désactivée : on les liste inconditionnellement.
  */
-export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'hubspot-stop', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta', 'agent-evenement-issue', 'shopify-sans-whatsapp', 'shopify-reprise', 'shopify-collections'] as const;
+export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'hubspot-stop', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta', 'agent-evenement-issue', 'shopify-sans-whatsapp', 'shopify-reprise', 'shopify-collections', 'shopify-etiquettes'] as const;
 
 /**
  * Le nom de la DLQ d'une file, défini une seule fois : `PgBossQueue.ensure()` l'importe pour la créer, donc le nom
@@ -76,6 +76,9 @@ export const QUEUE_POLLING_SECONDS: Record<(typeof BASE_QUEUES)[number], number>
   // La lecture des collections des produits achetés (segments Shopify, lot 6a) : enfilée quand le marchand ouvre le volet
   // Shopify des filtres ; dix secondes avant le premier lot ne se ressentent pas, la console dit « lecture en cours ».
   'shopify-collections': 10,
+  // La synchronisation des étiquettes Shopify (segments Shopify, lot 6b) : lancée par le marchand (carte, outil) ou par la
+  // relecture quotidienne ; dix secondes avant le premier lot ne se ressentent pas, la carte dit « en cours ».
+  'shopify-etiquettes': 10,
 };
 
 /**
@@ -112,6 +115,7 @@ export const FILES_NOTIFIEES: Record<(typeof BASE_QUEUES)[number], boolean> = {
   'shopify-sans-whatsapp': false, // une fiche morte supprimée : la place revient dans la minute, personne n'attend (2026-11-23)
   'shopify-reprise': false, // le rattrapage des commandes : un travail de fond de plusieurs minutes, sa cadence suffit (2026-11-23)
   'shopify-collections': false, // la lecture des collections : un travail de fond, sa cadence suffit (2026-11-24)
+  'shopify-etiquettes': false, // la synchronisation des étiquettes Shopify : un travail de fond, sa cadence suffit (2026-11-24)
 };
 
 /**

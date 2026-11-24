@@ -21,6 +21,7 @@ import { nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite } from '../offres/refus';
 import { lireCollections, type DepsCollections } from '../shopify/collections';
+import { lireEtiquettes, type DepsEtiquettes } from '../shopify/etiquettes';
 
 /** Ce que les routes de liste lisent du dépôt des contacts, en plus de ce que l'import y écrit. */
 export interface ContactsListeDep extends ContactStore {
@@ -48,6 +49,11 @@ export interface ImportRouteDeps extends ImportDeps {
    * volet Shopify : la liste enfile la lecture quand un produit l'attend (`lireCollections`).
    */
   collections: Pick<DepsCollections, 'magasin' | 'etatBoutique' | 'enfiler' | 'maintenant'>;
+  /**
+   * Les étiquettes Shopify lues et l'état de leur synchronisation (segments Shopify enrichis, lot 6b), pour le volet Shopify
+   * et la carte : une LECTURE seule, qui n'enfile rien (la synchronisation s'allume sur la carte).
+   */
+  etiquettesShopify: Pick<DepsEtiquettes, 'magasin' | 'maintenant'>;
   /**
    * Journal d'audit (les fixtures qui ne l'observent pas passent `journalMuet`). Un import fait entrer des personnes
    * par milliers : sans trace, personne ne peut dire d'où vient un contact ni qui l'a chargé.
@@ -199,6 +205,8 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
       produits: true,
       // Le critère de collection et la liste des collections lues (lot 6a) : de même.
       collections: true,
+      // Le critère d'étiquette Shopify et la liste des étiquettes lues (lot 6b) : de même.
+      etiquettesShopify: true,
       ...(boutons ? { boutons } : {}),
     };
     return reply.code(200).send(vue);
@@ -226,6 +234,18 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
     const q = (req.query as Record<string, unknown>).q;
     const recherche = typeof q === 'string' ? q.slice(0, 80) : undefined;
     return reply.code(200).send(await lireCollections(deps.collections, espaceVerifie(req), recherche));
+  });
+
+  /**
+   * Les étiquettes Shopify lues sur les clients de la boutique (segments Shopify enrichis, lot 6b), pour le critère
+   * « étiquette Shopify » et la carte : 50 au plus, celles que portent le plus de fiches d'abord, avec l'état de la
+   * synchronisation (allumée, aboutie le, en cours, refusée). Une lecture seule. `q` cherche dans le texte (80 caractères au
+   * plus, au-delà coupé).
+   */
+  app.get('/tenants/:tenantId/contacts/segments/etiquettes-shopify', opts, async (req, reply) => {
+    const q = (req.query as Record<string, unknown>).q;
+    const recherche = typeof q === 'string' ? q.slice(0, 80) : undefined;
+    return reply.code(200).send(await lireEtiquettes(deps.etiquettesShopify, espaceVerifie(req), recherche));
   });
 
   // Compteur seul (rapide) : « N contacts correspondent » avant de fixer le débit / lancer.

@@ -49,7 +49,14 @@ export function lireAchatsShopify(brut: unknown): AchatsShopifyVue | null {
     : null;
   if (b !== null && boutique === null) return null;
   const r = brut.resume;
+  // Les étiquettes Shopify de la fiche (lot 6b) : absentes d'une API plus ancienne ou sans synchronisation aboutie ; l'écran
+  // n'en dit alors rien. Une étiquette qui ne se lit pas est écartée seule.
+  const e = brut.etiquettesShopify;
+  const etiquettesShopify = estObjet(e) && typeof e.synchroLe === 'string' && Array.isArray(e.etiquettes)
+    ? { etiquettes: e.etiquettes.filter((x): x is string => typeof x === 'string' && x !== ''), synchroLe: e.synchroLe }
+    : null;
   return {
+    ...(etiquettesShopify ? { etiquettesShopify } : {}),
     boutique,
     resume: { commandes: entier(r.commandes), commandesTest: entier(r.commandesTest), depense: decimal(r.depense) ?? '0', derniereLe: texte(r.derniereLe) },
     rapporte: liste(brut.rapporte, (x) => {

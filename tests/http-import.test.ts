@@ -8,9 +8,10 @@ import type { UserFieldStore } from '../src/crm/fields';
 import type { UserFieldDef } from '../src/crm/types';
 import type { ContactFilters } from '../src/crm/contact-store.pg';
 import type { ImportRouteDeps } from '../src/http/import';
-import { collectionsInertes, journalMuet } from './routes-inertes';
+import { collectionsInertes, etiquettesInertes, journalMuet } from './routes-inertes';
 import { MIDI_COLLECTIONS, T_COLLECTIONS, monterCollections } from './collections-faux';
 import { traiterCollections } from '../src/shopify/collections';
+import { MIDI_ETIQUETTES, monterEtiquettes } from './etiquettes-faux';
 import { csvLent, retardPendant } from './boucle';
 import { LimiteOffreError } from '../src/offres/refus';
 import { ACTIVITE_COMPLETE_DEPUIS } from '../src/crm/segments';
@@ -82,7 +83,10 @@ type QueryCapture = {
 /** Trace d'audit telle que la route l'écrit. `journal` est fourni par les tests qui l'observent. */
 interface Trace { action: string; target: { kind: string; id: string }; detail: Record<string, unknown>; actor: { userId: string | null } }
 
-function inject(contacts: ContactStore, userFields: UserFieldStore, cap?: QueryCapture, journal?: Trace[], collections?: ImportRouteDeps['collections']) {
+function inject(
+  contacts: ContactStore, userFields: UserFieldStore, cap?: QueryCapture, journal?: Trace[], collections?: ImportRouteDeps['collections'],
+  etiquettesShopify?: ImportRouteDeps['etiquettesShopify'],
+) {
   return buildServer({
     queue: new FakeQueue(),
     auth: { users: noUsers, secret: SECRET },
@@ -107,6 +111,7 @@ function inject(contacts: ContactStore, userFields: UserFieldStore, cap?: QueryC
       userFields,
       audit: journalMuet,
       collections: collections ?? collectionsInertes,
+      etiquettesShopify: etiquettesShopify ?? etiquettesInertes,
       ...(journal ? { audit: async (_t: string, actor: { userId: string | null }, action: string, target: { kind: string; id: string }, detail: Record<string, unknown> = {}) => { journal.push({ action, target, detail, actor }); } } : {}),
     },
   });
@@ -244,6 +249,8 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
       produits: true,
       // 🔴 Et celle du critère de collection (lot 6a), de même.
       collections: true,
+      // 🔴 Et celle du critère d'étiquette Shopify (lot 6b), de même.
+      etiquettesShopify: true,
       // Les pastilles des deux boutons prêts (lot 4) : le faux compte rend 3.
       boutons: { ecritSansCommande: 3, clicSansCommande: 3 },
     });
@@ -300,6 +307,31 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     });
     expect(c.trace.jobs).toHaveLength(1);
     expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/collections' })).statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('🔴 GET des étiquettes Shopify lues (lot 6b) : la liste et l’état de la synchronisation, une lecture seule qui ne lance rien, la recherche bornée à 80 caractères ; 401 sans session', async () => {
+    const e = monterEtiquettes({ etat: { allumee: true, synchroLe: new Date(MIDI_ETIQUETTES) } });
+    e.etiquettes.set('c1', ['VIP']);
+    e.etiquettes.set('c2', ['vip']);
+    const recherches: Array<string | undefined> = [];
+    const lire = e.deps.magasin.etiquettes;
+    e.deps.magasin.etiquettes = async (t, q, limite) => { recherches.push(q); return lire(t, q, limite); };
+    const app = inject(new FakeContacts(), new FakeFields(), undefined, undefined, undefined, e.deps);
+    const res = await app.inject({ method: 'GET', url: `/tenants/t1/contacts/segments/etiquettes-shopify?q=${encodeURIComponent(`vip${'x'.repeat(100)}`)}`, headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      etiquettes: [],
+      synchro: {
+        allumee: true, synchroLe: new Date(MIDI_ETIQUETTES).toISOString(), enCours: false, refus: null,
+        comptes: { clientsLus: 0, trouvesParTelephone: 0, sansFiche: 0, fichesEtiquetees: 0 },
+      },
+    });
+    expect(recherches).toEqual([`vip${'x'.repeat(77)}`]);
+    const toutes = await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/etiquettes-shopify', headers: { authorization: `Bearer ${token}` } });
+    expect(toutes.json().etiquettes).toEqual([{ etiquette: 'VIP', fiches: 2 }]);
+    expect(e.trace.jobs).toEqual([]);
+    expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/etiquettes-shopify' })).statusCode).toBe(401);
     await app.close();
   });
 

@@ -16,6 +16,7 @@ import { LimiteOffreError } from '../src/offres/refus';
 import type { LectureModele } from '../src/api/modele-envoi';
 import type { AccesBoutique, MessageBranche, VueBoutique } from '../src/shopify/store.pg';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
+import { RefusOutil } from '../src/mcp/saisie';
 import type { Filiere } from '../src/application/comptes';
 import { MESSAGE_OPERATIONS_LOURDES } from '../src/auth/plafond-partage';
 import { addDays, todayParis, type DateRange } from '../src/stats/range';
@@ -29,6 +30,8 @@ import { modeleMeta, monterLignes } from './shopify-lignes-faux';
 import { monterReprise } from './reprise-faux';
 import { MIDI_COLLECTIONS, T_COLLECTIONS, monterCollections } from './collections-faux';
 import { traiterCollections } from '../src/shopify/collections';
+import { MIDI_ETIQUETTES, T_ETIQUETTES, monterEtiquettes } from './etiquettes-faux';
+import { traiterEtiquettes } from '../src/shopify/etiquettes';
 
 const DOMAINE = 'b.myshopify.com';
 
@@ -99,6 +102,8 @@ function monter(o: {
     reprise: monterReprise().deps,
     // Les collections (lot 6a) : éprouvées par `tests/shopify-collections.test.ts` ; une lecture fausse, vide, ici.
     collections: monterCollections().deps,
+    // Les étiquettes Shopify (lot 6b) : éprouvées par `tests/shopify-etiquettes.test.ts` ; une synchronisation fausse, vide, ici.
+    etiquettes: monterEtiquettes().deps,
   };
   return { deps, journal, lignes };
 }
@@ -728,5 +733,81 @@ describe('l’import des clients abonnés (lot 3)', () => {
     const imp = OUTILS.find((x) => x.nom === 'import_shopify_customers')!;
     expect(imp.entree.required).toEqual(['max_contacts']);
     expect([imp.entree.properties.max_contacts!.minimum, imp.entree.properties.max_contacts!.maximum]).toEqual([1, IMPORT_MAX]);
+  });
+});
+
+/**
+ * LA SYNCHRONISATION DES ÉTIQUETTES SHOPIFY DEPUIS L'ASSISTANT (segments Shopify enrichis, lot 6b) : `sync_shopify_customer_tags`
+ * allume et lance, ou éteint, par la MÊME gestion que la carte ; ses refus portent une famille de `CODES_REFUS` ;
+ * `get_shopify_state` en dit l'état et les étiquettes lues, sans rien lancer.
+ */
+describe('les étiquettes Shopify depuis l’assistant', () => {
+  const outil = OUTILS.find((x) => x.nom === 'sync_shopify_customer_tags')!;
+  const avec = (e: ReturnType<typeof monterEtiquettes>, offre: Offre = 'pro', accepte = true): DepsMcp => {
+    const { deps } = monter();
+    return { ...mcpDe({ ...deps, etiquettes: e.deps }, offre), couteux: { consommer: async () => ({ accepte, attenteMs: 3000 }) } } as unknown as DepsMcp;
+  };
+
+  it('🔴 un outil d’écriture, personne nommée, toutes offres, son écran est la carte Shopify ; enabled seul, annoncé', () => {
+    expect(outil).toMatchObject({ scope: 'mcp:write', exigePersonne: true, fonction: null });
+    expect(outil.ecran!({}, null)).toBe('/integrations');
+    expect(outil.entree).toMatchObject({ type: 'object', properties: { enabled: { type: 'boolean' } }, additionalProperties: false });
+    expect(outil.description).toMatch(/NOT the Messaging Me tags/);
+    expect(outil.description).toMatch(/tag_contacts/);
+  });
+
+  it('🔴 allume et lance la synchronisation ; une seconde demande pendant qu’elle tourne n’en lance pas une autre', async () => {
+    const e = monterEtiquettes();
+    const d = avec(e);
+    expect(await outil.executer(d, T, {}, PERSONNE)).toMatchObject({ enabled: true, syncing: true, reading_started: true, synced_at: null });
+    expect(e.trace.jobs).toHaveLength(1);
+    expect(await outil.executer(d, T, { enabled: true }, PERSONNE)).toMatchObject({ syncing: true, reading_started: false });
+    expect(e.trace.jobs).toHaveLength(1);
+  });
+
+  it('🔴 la Free : une lecture au plus toutes les 24 h, refusée avant (rate_limited, avec le délai)', async () => {
+    const e = monterEtiquettes({ offre: 'base', fiches: {} });
+    const d = avec(e, 'base');
+    await outil.executer(d, T, {}, PERSONNE);
+    // Le faux ne tient qu'un espace : le job porte son identifiant (un uuid), la gestion celui du test.
+    await traiterEtiquettes(e.deps, { tenantId: T_ETIQUETTES });
+    const refus = await outil.executer(d, T, {}, PERSONNE).then(() => null, (err: unknown) => err);
+    expect(refus).toBeInstanceOf(RefusOutil);
+    expect(refus).toMatchObject({ code: 'rate_limited', precisions: { reessayerDansS: 24 * 3600 } });
+  });
+
+  it('🔴 sans boutique : refusé (conflict) ; le plafond des opérations lourdes refuse aussi, avant tout', async () => {
+    const sans = monterEtiquettes({ boutique: null });
+    await expect(outil.executer(avec(sans), T, {}, PERSONNE)).rejects.toMatchObject({ code: 'conflict' });
+    const plein = monterEtiquettes();
+    await expect(outil.executer(avec(plein, 'pro', false), T, {}, PERSONNE)).rejects.toMatchObject({ code: 'rate_limited' });
+    expect(plein.etat()).toBeNull();
+  });
+
+  it('enabled false éteint la relecture quotidienne et ne lance rien ; les étiquettes lues restent', async () => {
+    const e = monterEtiquettes({ etat: { allumee: true } });
+    e.etiquettes.set('c1', ['VIP']);
+    expect(await outil.executer(avec(e), T, { enabled: false }, PERSONNE)).toMatchObject({ enabled: false, reading_started: false });
+    expect(e.trace.jobs).toEqual([]);
+    expect(e.etiquettes.get('c1')).toEqual(['VIP']);
+  });
+
+  it('🔴 get_shopify_state dit l’état de la synchronisation et les étiquettes lues, sans rien lancer ; une panne rend null', async () => {
+    const etat = OUTILS.find((x) => x.nom === 'get_shopify_state')!;
+    const e = monterEtiquettes({ etat: { allumee: true, synchroLe: new Date(MIDI_ETIQUETTES) } });
+    e.etiquettes.set('c1', ['VIP']);
+    e.etiquettes.set('c2', ['vip', 'Grossiste']);
+    const d = { ...avec(e), contacts: { produitsVus: async () => [] } } as unknown as DepsMcp;
+    expect(await etat.executer(d, T, {}, PERSONNE)).toMatchObject({
+      shopify_tags: {
+        enabled: true, synced_at: new Date(MIDI_ETIQUETTES).toISOString(), syncing: false, refused: null,
+        list: [{ tag: 'VIP', records: 2 }, { tag: 'Grossiste', records: 1 }],
+      },
+    });
+    expect(e.trace.jobs).toEqual([]);
+    const panne = monterEtiquettes();
+    panne.deps.magasin.etat = async () => { throw new Error('relation "shopify_etiquettes_synchro" does not exist'); };
+    const enPanne = { ...avec(panne), contacts: { produitsVus: async () => [] } } as unknown as DepsMcp;
+    expect(await etat.executer(enPanne, T, {}, PERSONNE)).toMatchObject({ store: 'b.myshopify.com', shopify_tags: null });
   });
 });

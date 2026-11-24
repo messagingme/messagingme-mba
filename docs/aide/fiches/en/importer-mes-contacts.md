@@ -1,6 +1,6 @@
 ---
 slug: import-my-contacts
-traduit_de: 6d8967
+traduit_de: 2f22f5
 ---
 # Add or import my contacts
 
@@ -48,7 +48,7 @@ on a record, one at a time, triggers it. To reach a whole list, a campaign is wh
 
 The “Purchases and activity” part of the filters works in every workspace: the contacts who were active (wrote to you
 or clicked a tracked link) in the last days, or inactive for a number of days, those who never did anything included.
-The order criteria (number of paid orders, amount spent, date of the last order, products bought, collections, and the “wrote” or
+The order criteria (number of paid orders, amount spent, date of the last order, products bought, collections, the tags of your customers in Shopify, and the “wrote” or
 “clicked” without ordering buttons) are in the **Shopify** section of the
 filters, folded until you open it. It needs a **connected Shopify store** (Tools > Integrations): we only know about an
 order because Shopify sends it to us. Without a store, it does not appear. With one, its criteria count the orders paid

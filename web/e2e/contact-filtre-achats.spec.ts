@@ -355,3 +355,173 @@ test.describe('Contacts : le critère de collection du volet Shopify', () => {
     await pasDeDebordement(page);
   });
 });
+
+/**
+ * LES ÉTIQUETTES SHOPIFY DU VOLET (segments Shopify enrichis, lot 6b) : les étiquettes posées sur les clients DANS SHOPIFY,
+ * lues par la synchronisation, dans un bloc à part des étiquettes Messaging Me. 🔴 Une API qui ne l'annonce pas n'en montre
+ * aucune ; sans synchronisation aboutie, la phrase dit où l'allumer ; la copie vers une étiquette Messaging Me est un geste
+ * explicite et nommé, qui part par l'action en masse et ne pose aucun critère.
+ */
+test.describe('Contacts : les étiquettes Shopify du volet Shopify', () => {
+  test.use({ viewport: TREIZE_POUCES });
+  const AVEC_ETIQUETTES = { ...AVEC_BOUTIQUE, etiquettesShopify: true };
+  const SYNCHRO = {
+    allumee: true, synchroLe: '2026-11-24T08:00:00.000Z', enCours: false, refus: null,
+    comptes: { clientsLus: 12, trouvesParTelephone: 3, sansFiche: 4, fichesEtiquetees: 6 },
+  };
+  const LUES_ETIQUETTES = { etiquettes: [{ etiquette: 'VIP', fiches: 4 }, { etiquette: 'Grossiste', fiches: 1 }], synchro: SYNCHRO };
+  const JAMAIS = { etiquettes: [], synchro: { ...SYNCHRO, allumee: false, synchroLe: null, comptes: { clientsLus: 0, trouvesParTelephone: 0, sansFiche: 0, fichesEtiquetees: 0 } } };
+  const dernier = (requetes: URLSearchParams[]) => segments(requetes.at(-1) ?? new URLSearchParams());
+
+  /**
+   * La route des étiquettes lues (sa réponse, ou une fonction du numéro de l'appel) et l'action en masse, tracées. Posées
+   * APRÈS `mock`, elles passent avant lui.
+   */
+  async function etiquettes(page: import('@playwright/test').Page, reponse: unknown): Promise<{ masse: unknown[]; lectures: string[] }> {
+    const trace = { masse: [] as unknown[], lectures: [] as string[] };
+    let appels = 0;
+    await page.route((u) => u.pathname.endsWith('/contacts/segments/etiquettes-shopify'), async (route) => {
+      appels += 1;
+      trace.lectures.push(new URL(route.request().url()).searchParams.get('q') ?? '');
+      const corps = typeof reponse === 'function' ? (reponse as (appel: number) => unknown)(appels) : reponse;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corps) });
+    });
+    await page.route((u) => u.pathname.endsWith('/contacts/bulk'), async (route) => {
+      trace.masse.push(route.request().postDataJSON());
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ affected: 4 }) });
+    });
+    return trace;
+  }
+
+  test('🔴 « a l’étiquette Shopify » : cibler pose le critère, deux se cumulent, le mode change, retirer le retire ; jamais une étiquette Messaging Me', async ({ page }) => {
+    const requetes = await mock(page, AVEC_ETIQUETTES);
+    await etiquettes(page, LUES_ETIQUETTES);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtres-etiquettes-shopify')).toContainText('distinctes de vos étiquettes Messaging Me');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-resultat')).toHaveCount(2);
+    await expect(page.getByTestId('filtre-etiquettes-shopify-resultat').first()).toContainText('VIP');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-resultat').first()).toContainText('4 fiches');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-resultat').nth(1)).toContainText('1 fiche');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-synchro-le')).toContainText('Étiquettes lues chez Shopify le');
+    await page.getByTestId('etiquette-shopify-cibler').first().click();
+    await expect(page.getByTestId('filtre-etiquette-shopify-puce')).toHaveText(/VIP/);
+    await expect.poll(() => dernier(requetes).segment_etiquette_shopify).toBe('{"etiquettes":["VIP"],"mode":"toutes"}');
+    // 🔴 Le critère voyage en segment, à part : aucune étiquette Messaging Me n'entre dans la requête.
+    expect(requetes.at(-1)?.get('tags')).toBeNull();
+    await expect(page.getByTestId('filtre-etiquette-shopify-mode')).toHaveCount(0);
+    await page.getByTestId('etiquette-shopify-cibler').nth(1).click();
+    await expect.poll(() => dernier(requetes).segment_etiquette_shopify).toBe('{"etiquettes":["VIP","Grossiste"],"mode":"toutes"}');
+    await page.getByTestId('filtre-etiquette-shopify-mode').selectOption('une');
+    await expect.poll(() => dernier(requetes).segment_etiquette_shopify).toBe('{"etiquettes":["VIP","Grossiste"],"mode":"une"}');
+    // Cibler une étiquette déjà posée ne la double pas.
+    await page.getByTestId('etiquette-shopify-cibler').first().click();
+    await expect(page.getByTestId('filtre-etiquette-shopify-puce')).toHaveCount(2);
+    await page.getByTestId('filtre-etiquette-shopify-retirer').first().click();
+    await expect.poll(() => dernier(requetes).segment_etiquette_shopify).toBe('{"etiquettes":["Grossiste"],"mode":"une"}');
+    await page.getByTestId('filtre-etiquette-shopify-retirer').first().click();
+    await expect.poll(() => dernier(requetes).segment_etiquette_shopify).toBeUndefined();
+    await expect(page.getByTestId('filtre-etiquette-shopify')).toHaveCount(0);
+  });
+
+  test('🔴 la copie en étiquette Messaging Me : un geste nommé, par l’action en masse sur cette étiquette Shopify, qui ne pose aucun critère', async ({ page }) => {
+    const requetes = await mock(page, AVEC_ETIQUETTES);
+    const trace = await etiquettes(page, LUES_ETIQUETTES);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('etiquette-shopify-copier').first().click();
+    await expect(page.getByTestId('etiquette-shopify-copie')).toContainText('elle ne suivra pas Shopify ensuite, et elle ne donne aucun consentement');
+    await expect(page.getByTestId('etiquette-shopify-copie-nom')).toHaveValue('VIP');
+    await page.getByTestId('etiquette-shopify-copie-nom').fill('   ');
+    await expect(page.getByTestId('etiquette-shopify-copie-valider')).toBeDisabled();
+    await page.getByTestId('etiquette-shopify-copie-nom').fill('Clients VIP');
+    expect(trace.masse).toHaveLength(0);
+    await page.getByTestId('etiquette-shopify-copie-valider').click();
+    await expect(page.getByTestId('etiquette-shopify-copiee')).toContainText('Étiquette Messaging Me « Clients VIP » posée sur 4 fiches');
+    await expect(page.getByTestId('etiquette-shopify-copiee')).toContainText('Elle ne suivra pas l’étiquette Shopify ensuite');
+    expect(trace.masse).toEqual([{
+      target: { filters: { fieldFilters: [{ key: 'segment_etiquette_shopify', op: 'segment', value: '{"etiquettes":["VIP"],"mode":"toutes"}' }] } },
+      action: { type: 'add_tag', tags: ['Clients VIP'] },
+    }]);
+    await expect(page.getByTestId('etiquette-shopify-copie')).toHaveCount(0);
+    expect(dernier(requetes).segment_etiquette_shopify).toBeUndefined();
+  });
+
+  test('annuler la copie n’envoie rien', async ({ page }) => {
+    await mock(page, AVEC_ETIQUETTES);
+    const trace = await etiquettes(page, LUES_ETIQUETTES);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('etiquette-shopify-copier').nth(1).click();
+    await expect(page.getByTestId('etiquette-shopify-copie-nom')).toHaveValue('Grossiste');
+    await page.getByTestId('etiquette-shopify-copie-annuler').click();
+    await expect(page.getByTestId('etiquette-shopify-copie')).toHaveCount(0);
+    expect(trace.masse).toHaveLength(0);
+  });
+
+  test('🔴 jamais synchronisées : la phrase dit où l’allumer, aucune étiquette n’est proposée', async ({ page }) => {
+    await mock(page, AVEC_ETIQUETTES);
+    await etiquettes(page, JAMAIS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-etiquettes-shopify-jamais')).toContainText('allumez « Synchroniser les étiquettes » sur la carte Shopify');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-jamais').getByRole('link')).toHaveAttribute('href', '/integrations#integration-shopify');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-resultat')).toHaveCount(0);
+    await expect(page.getByTestId('filtre-etiquettes-shopify-aucune')).toHaveCount(0);
+    await expect(page.getByTestId('filtre-etiquettes-shopify-synchro-le')).toHaveCount(0);
+  });
+
+  test('🔴 une synchronisation en cours se dit, et la liste se relit seule jusqu’à son issue', async ({ page }) => {
+    await mock(page, AVEC_ETIQUETTES);
+    await etiquettes(page, (appel: number) => (appel === 1 ? { etiquettes: [], synchro: { ...JAMAIS.synchro, allumee: true, enCours: true } } : LUES_ETIQUETTES));
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-etiquettes-shopify-en-cours')).toContainText('Synchronisation des étiquettes de vos clients en cours');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-resultat')).toHaveCount(2, { timeout: 15_000 });
+    await expect(page.getByTestId('filtre-etiquettes-shopify-en-cours')).toHaveCount(0);
+  });
+
+  test('une synchronisation refusée le dit, avec la phrase du serveur', async ({ page }) => {
+    await mock(page, AVEC_ETIQUETTES);
+    await etiquettes(page, { etiquettes: [], synchro: { ...JAMAIS.synchro, allumee: true, refus: { code: 'sans_droit', message: 'ajoutez le droit read_customers.' } } });
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-etiquettes-shopify-refus')).toContainText('La dernière synchronisation des étiquettes a échoué : ajoutez le droit read_customers.');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-jamais')).toHaveCount(0);
+  });
+
+  test('la recherche passe à l’API ; une liste illisible le dit', async ({ page }) => {
+    await mock(page, AVEC_ETIQUETTES);
+    const trace = await etiquettes(page, (appel: number) => (appel === 1 ? LUES_ETIQUETTES : { illisible: true }));
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-etiquettes-shopify-resultat')).toHaveCount(2);
+    await page.getByTestId('filtre-etiquettes-shopify-recherche').fill('vi');
+    await expect.poll(() => trace.lectures.at(-1)).toBe('vi');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-indisponible')).toContainText('n’a pas pu être lue');
+    await expect(page.getByTestId('filtre-etiquettes-shopify-resultat')).toHaveCount(0);
+  });
+
+  test('🔴 une API qui n’annonce pas les étiquettes Shopify : aucun bloc, aucune lecture, le reste du volet est là', async ({ page }) => {
+    await mock(page, AVEC_BOUTIQUE);
+    const trace = await etiquettes(page, LUES_ETIQUETTES);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-commandes-min')).toBeVisible();
+    await expect(page.getByTestId('filtres-etiquettes-shopify')).toHaveCount(0);
+    expect(trace.lectures).toHaveLength(0);
+  });
+
+  test('sur un 13 pouces, le bloc des étiquettes Shopify ne fait pas déborder le panneau', async ({ page }) => {
+    await mock(page, AVEC_ETIQUETTES);
+    await etiquettes(page, LUES_ETIQUETTES);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('etiquette-shopify-cibler').first().click();
+    await page.getByTestId('etiquette-shopify-cibler').nth(1).click();
+    await expect(page.getByTestId('filtre-etiquette-shopify-mode')).toBeVisible();
+    await page.getByTestId('etiquette-shopify-copier').first().click();
+    await expect(page.getByTestId('etiquette-shopify-copie')).toBeVisible();
+    await pasDeDebordement(page);
+  });
+});

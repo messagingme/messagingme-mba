@@ -89,7 +89,7 @@ compteur vous dit en direct combien de contacts correspondent.
 
 La partie « Achats et activité » des filtres ajoute les contacts actifs ou inactifs depuis un nombre de jours, dans
 tous les espaces. Le nombre de commandes, le montant dépensé, la date de la dernière commande, les produits achetés, les
-collections et les boutons « a écrit » ou « a cliqué » sans commander sont dans le volet
+collections, les étiquettes de vos clients dans Shopify et les boutons « a écrit » ou « a cliqué » sans commander sont dans le volet
 **Shopify** des filtres, qui demande une **boutique Shopify branchée** ; le bouton **Shopify** de l'audience montre
 la même liste, ce volet ouvert. Sans boutique, ni l'un ni l'autre n'apparaît (voir la fiche « Brancher ma boutique
 Shopify »).

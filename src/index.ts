@@ -124,6 +124,8 @@ import { FILE_REPRISE, cablerReprise } from './shopify/reprise';
 import { PgReprisesStore } from './shopify/reprises.pg';
 import { FILE_COLLECTIONS, cablerCollections } from './shopify/collections';
 import { PgCollectionsStore } from './shopify/collections.pg';
+import { FILE_ETIQUETTES, cablerEtiquettes } from './shopify/etiquettes';
+import { PgEtiquettesStore } from './shopify/etiquettes.pg';
 import { FILE_OUBLI_MODELE } from './shopify/preparation';
 import { CHAMP_LIEN_SUIVI, traiterWebhookShopify, type DepsTraitementShopify } from './shopify/traitement';
 import { relancerPaniers, type DepsRelance } from './shopify/relance';
@@ -1808,6 +1810,15 @@ async function main(): Promise<void> {
       boutiques: shopifyStore,
       enfiler: async (job, quand) => { await queue.enqueue(FILE_COLLECTIONS, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
     }),
+    // La synchronisation des étiquettes des clients Shopify (segments Shopify enrichis, lot 6b) : la carte et l'outil
+    // l'allument et la lancent ici ; le job et la relecture quotidienne dans le worker, par le MÊME câblage
+    // (`cablerEtiquettes`). L'offre en cache court : la Free synchronise au plus une fois par 24 h.
+    etiquettes: cablerEtiquettes({
+      magasin: new PgEtiquettesStore(pool),
+      boutiques: shopifyStore,
+      offre: async (t) => (await offres.offreDe(t)).offre,
+      enfiler: async (job, quand) => { await queue.enqueue(FILE_ETIQUETTES, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
+    }),
   };
   const traitementShopify: DepsTraitementShopify = {
     store: shopifyStore,
@@ -2280,6 +2291,8 @@ async function main(): Promise<void> {
       audit: auditSink,
       // Les collections lues du volet Shopify (segments Shopify enrichis, lot 6a) : le MÊME objet que `get_shopify_state`.
       collections: gestionShopify.collections,
+      // Les étiquettes Shopify lues (lot 6b) : le MÊME objet que la carte et `get_shopify_state`.
+      etiquettesShopify: gestionShopify.etiquettes,
     },
     // Le MÊME objet que les campagnes de l'assistant (`mcp.campagnes`, plus bas) : un seul câblage, une seule vérité.
     campaigns: depsCampagnes,

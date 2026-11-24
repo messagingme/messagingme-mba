@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import { ajoutSchema, patchSchema } from '../../src/http/agent-tools';
-import { corpsBranchement, corpsImport, corpsRattrapage } from '../../src/http/shopify';
+import { corpsBranchement, corpsEtiquettes, corpsImport, corpsRattrapage, corpsSynchroEtiquettes } from '../../src/http/shopify';
 import { corpsSchema, corpsRendreSchema } from '../../src/http/offre-paiement';
 import { corpsQuiRepond, corpsRepondeur } from '../../src/http/agents';
 import { CORPS_OPTION } from '../../src/http/credit-whatsapp';
@@ -55,6 +55,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'POST /integrations/shopify': { schema: corpsBranchement, noms: { boutique: 'store', secret: 'client_secret' } },
   'POST /integrations/shopify/clients/import': { schema: corpsImport, noms: { maximum: 'max_contacts' } },
   'POST /integrations/shopify/commandes/rattrapage': { schema: corpsRattrapage },
+  'PUT /integrations/shopify/etiquettes': { schema: corpsEtiquettes, noms: { allumee: 'enabled' } },
+  'POST /integrations/shopify/etiquettes/synchro': { schema: corpsSynchroEtiquettes },
 
   // Le numéro : la page du lien de `start_whatsapp_connection`, et le portail de l'abonnement
   'POST /numero-fourni': PAR_LA_PAGE,

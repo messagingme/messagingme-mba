@@ -173,18 +173,22 @@ function analyseVue(ar: AnalyseEtResume | undefined): Record<string, unknown> | 
  * Ce que l'assistant doit savoir pour lire un segment (spec du 2026-10-31) : depuis quand TOUTES les commandes sont
  * suivies (et la coupure d'une boutique coupée), depuis quand l'activité est complète. Seulement si le critère est posé.
  * Depuis le lot 5 des segments Shopify enrichis, la fenêtre du dernier rattrapage TERMINÉ, que le suivi lit au mieux.
+ * Depuis le lot 6b, la date de la dernière synchronisation des étiquettes Shopify, quand leur critère est posé.
  */
 async function suiviDeLaReponse(deps: DepsMcp, tenantId: string, f: ContactFilters): Promise<Record<string, string>> {
   const cles = (f.fieldFilters ?? []).filter((x) => x.op === OP_SEGMENT).map((x) => x.key);
   const commandes = cles.some((k) => (CLES_COMMANDES as readonly string[]).includes(k));
   const activite = cles.some((k) => (CLES_ACTIVITE as readonly string[]).includes(k));
-  const boutique = commandes ? (await deps.contacts.suiviSegments(tenantId)).boutique : null;
+  // Les étiquettes Shopify (lot 6b) : « telles que la dernière synchronisation les a lues », avec sa date.
+  const etiquettes = cles.includes(CLES_SEGMENT.etiquetteShopify);
+  const boutique = commandes || etiquettes ? (await deps.contacts.suiviSegments(tenantId)).boutique : null;
   // La date de la lecture des collections (lot 6a) : « telles qu'elles sont dans la boutique à la dernière lecture ».
   const collection = cles.includes(CLES_SEGMENT.collection);
   return {
-    ...(boutique ? { orders_recorded_since: boutique.commandesDepuis.toISOString() } : {}),
+    ...(commandes && boutique ? { orders_recorded_since: boutique.commandesDepuis.toISOString() } : {}),
     ...(collection && boutique?.collectionsLuesLe ? { collections_read_at: boutique.collectionsLuesLe.toISOString() } : {}),
-    ...(boutique?.rattrapage ? { orders_backfilled_since: boutique.rattrapage.depuis.toISOString(), orders_backfilled_at: boutique.rattrapage.le.toISOString() } : {}),
+    ...(etiquettes && boutique?.etiquettesSynchroLe ? { shopify_tags_synced_at: boutique.etiquettesSynchroLe.toISOString() } : {}),
+    ...(commandes && boutique?.rattrapage ? { orders_backfilled_since: boutique.rattrapage.depuis.toISOString(), orders_backfilled_at: boutique.rattrapage.le.toISOString() } : {}),
     ...(boutique?.coupeeLe ? { shop_cut_at: boutique.coupeeLe.toISOString() } : {}),
     ...(activite ? { activity_complete_since: ACTIVITE_COMPLETE_DEPUIS } : {}),
   };
@@ -198,7 +202,9 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       'Finds the contacts of a target, the way the console\'s contact list filters them: tags (all or any), marketing '
       + 'consent, Shopify orders (count, amount spent, days since the last one), Shopify products (bought, not bought, '
       + 'days since the last purchase of one product), Shopify collections (bought in each of them, as they are in the '
-      + 'store at the last reading, date given: collections_read_at), the one-click "wrote without ordering" and "clicked without '
+      + 'store at the last reading, date given: collections_read_at), Shopify customer tags (the tags put on customers in '
+      + 'Shopify, read by sync_shopify_customer_tags, date given: shopify_tags_synced_at; not the Messaging Me tags), the '
+      + 'one-click "wrote without ordering" and "clicked without '
       + 'ordering", activity (wrote or clicked a tracked link '
       + 'within N days, or not for N days), country by phone calling code, and on the Enterprise plan the fields of the '
       + 'latest conversation analysis (intent, sentiment, satisfaction, urgency, resolved...). Criteria combine: "customers '
@@ -246,7 +252,9 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
     description:
       'Adds tags to every contact of a target (same filters as find_contacts) or to a list of contacts or of '
       + 'conversations. A segment IS a tag: tag the contacts, then target the tag in prepare_campaign. Goes through '
-      + 'the console\'s bulk action: it starts no automation and no scenario. Returns how many contacts were tagged. '
+      + 'the console\'s bulk action: it starts no automation and no scenario. It is also the only way to copy Shopify '
+      + 'customer tags into a Messaging Me tag: target shopify_tags and add the tag of your choice; the copy is made now, '
+      + 'for the records of that moment, and is never kept in sync (it gives no consent either). Returns how many contacts were tagged. '
       + LOURDE,
     annotations: ecriture('Tag contacts', true, false),
     entree: {

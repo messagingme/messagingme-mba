@@ -6,7 +6,7 @@ import type { ContactFieldFilter } from '@/lib/api';
 import { inputClsAuto } from '@/lib/ui';
 import { formatDate } from '@/lib/day';
 import {
-  BORNES_SEGMENTS, CLES_COMMANDES, CLES_SEGMENT, filtreSegment, valeurSegment,
+  BORNES_SEGMENTS, CLES_SEGMENT, CLES_SHOPIFY, filtreSegment, valeurSegment,
   type BoutonsSansCommandeVue, type CleSegment, type PlageSurJours, type SuiviSegmentsVue,
 } from '@/lib/partage/segments';
 import { lirePlageSaisie, saisieDePlage, type SaisiePlage } from '@/lib/segments';
@@ -14,6 +14,7 @@ import { Icone } from '@/components/Icone';
 import { LogoShopify } from '@/components/LogosCanaux';
 import { FiltresProduitsShopify } from '@/components/FiltresProduitsShopify';
 import { FiltresCollectionsShopify } from '@/components/FiltresCollectionsShopify';
+import { FiltresEtiquettesShopify } from '@/components/FiltresEtiquettesShopify';
 
 /**
  * LE VOLET « SHOPIFY » DU PANNEAU DE FILTRES (spec du 2026-11-21, lot 1, décision d'ergonomie de Julien du
@@ -39,9 +40,10 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const posee = segments.some((s) => (CLES_COMMANDES as readonly string[]).includes(s.key));
+  const posee = segments.some((s) => (CLES_SHOPIFY as readonly string[]).includes(s.key));
   const produitPose = segments.some((s) => s.key === CLES_SEGMENT.achete || s.key === CLES_SEGMENT.pasAchete || s.key === CLES_SEGMENT.reassort);
   const collectionPosee = segments.some((s) => s.key === CLES_SEGMENT.collection);
+  const etiquettePosee = segments.some((s) => s.key === CLES_SEGMENT.etiquetteShopify);
   const [ouvert, setOuvert] = useState(force || posee);
   useEffect(() => {
     if (force || posee) setOuvert(true);
@@ -89,6 +91,8 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
         {(suivi?.produits === true || produitPose) && <FiltresProduitsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
         {/* La collection (lot 6a) : annoncée par l'API, ou déjà posée (pour la retirer). */}
         {(suivi?.collections === true || collectionPosee) && <FiltresCollectionsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
+        {/* Les étiquettes Shopify (lot 6b), un bloc à part des étiquettes Messaging Me : annoncées par l'API, ou déjà posées. */}
+        {(suivi?.etiquettesShopify === true || etiquettePosee) && <FiltresEtiquettesShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
         <BoutonsSansCommande segments={segments} onChange={onChange} comptes={suivi?.boutons ?? null} />
         {boutique && (
           <p className="text-xs text-ink-500" data-testid="filtres-achats-suivi">

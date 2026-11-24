@@ -1154,6 +1154,10 @@ async function main(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d: any = {
       queue: new FakeQueue(),
+      // Le débit de la clé ne doit jamais répondre à la place du refus : la sonde fait la liste, puis un appel par outil
+      // qui exige une personne, et leur nombre a passé les 60 appels par minute d'une clé (lot 6b, 2026-11-24). Un 429
+      // n'a ni code ni message JSON-RPC : la sonde le lisait comme un outil APPELÉ.
+      plafonds: { apiParMinute: OUTILS.length + 10 },
       v1: {
         apiKeys: {
           findActiveByHash: async (h: string) => (h === sha256Hex(cleSonde) ? { id: 'k-sonde', tenantId: tenantA, scopes: ['mcp:read', 'mcp:write'] } : null),

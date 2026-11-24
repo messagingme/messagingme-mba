@@ -101,6 +101,23 @@ test.describe('Fiche contact : l’onglet Shopify', () => {
     await expect(page.getByTestId('fiche-shopify-commandes')).toContainText('Panier abandonné');
   });
 
+  test('🔴 les étiquettes Shopify du client (lot 6b) : à part de ses étiquettes Messaging Me, avec la date de leur lecture', async ({ page }) => {
+    await mock(page, AVEC_BOUTIQUE, { ...ACHATS, etiquettesShopify: { etiquettes: ['Grossiste', 'VIP'], synchroLe: '2026-11-24T08:00:00.000Z' } });
+    await ouvrirFiche(page);
+    await page.getByTestId('fiche-onglet-shopify').click();
+    await expect(page.getByTestId('fiche-shopify-etiquettes')).toContainText('Grossiste · VIP');
+    await expect(page.getByTestId('fiche-shopify-etiquettes')).toContainText('Lues chez Shopify le');
+    await expect(page.getByTestId('fiche-shopify-etiquettes')).toContainText('à part de ses étiquettes Messaging Me');
+  });
+
+  test('aucune synchronisation des étiquettes (ou une API d’avant le lot 6b) : aucune ligne d’étiquettes', async ({ page }) => {
+    await mock(page, AVEC_BOUTIQUE, ACHATS);
+    await ouvrirFiche(page);
+    await page.getByTestId('fiche-onglet-shopify').click();
+    await expect(page.getByTestId('fiche-shopify-resume')).toBeVisible();
+    await expect(page.getByTestId('fiche-shopify-etiquettes')).toHaveCount(0);
+  });
+
   test('🔴 sans boutique : pas d’onglet Shopify', async ({ page }) => {
     await mock(page, SANS_BOUTIQUE, ACHATS);
     await ouvrirFiche(page);

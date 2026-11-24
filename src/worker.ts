@@ -33,6 +33,8 @@ import { FILE_REPRISE, cablerReprise, traiterReprise } from './shopify/reprise';
 import { PgReprisesStore } from './shopify/reprises.pg';
 import { FILE_COLLECTIONS, cablerCollections, traiterCollections } from './shopify/collections';
 import { PgCollectionsStore } from './shopify/collections.pg';
+import { FILE_ETIQUETTES, cablerEtiquettes, relancerEtiquettesDues, traiterEtiquettes } from './shopify/etiquettes';
+import { PgEtiquettesStore } from './shopify/etiquettes.pg';
 import type { SansWhatsappSink } from './webhooks/delivery';
 import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
 import { FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsOubli, type ProgrammerOubli } from './shopify/preparation';
@@ -612,6 +614,20 @@ export async function demarrerWorker(): Promise<void> {
     enfiler: async (job, quand) => { await queue.enqueue(FILE_COLLECTIONS, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
   });
   await queue.work(FILE_COLLECTIONS, async (data) => { await traiterCollections(depsCollections, data); });
+
+  /**
+   * La synchronisation des étiquettes des clients Shopify (segments Shopify enrichis, lot 6b) : le MÊME câblage que l'API
+   * (`cablerEtiquettes`), qui l'allume et la lance depuis la carte et l'outil. Le job tient la synchronisation par un bail,
+   * se réenfile après deux minutes ; la relecture quotidienne part du balayage horaire de Shopify, plus bas. Les magasins
+   * ENTIERS, leurs méthodes lisent `this`.
+   */
+  const depsEtiquettes = cablerEtiquettes({
+    magasin: new PgEtiquettesStore(pool),
+    boutiques: new PgShopifyStore(pool, config.ENCRYPTION_KEY),
+    offre: async (t) => (await offres.offreDe(t)).offre,
+    enfiler: async (job, quand) => { await queue.enqueue(FILE_ETIQUETTES, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
+  });
+  await queue.work(FILE_ETIQUETTES, async (data) => { await traiterEtiquettes(depsEtiquettes, data); });
 
   /**
    * L'issue d'un événement envoyé à l'agent de Meta, relue 20 s après, et une relance sur une panne passagère de Meta
@@ -1856,9 +1872,16 @@ export async function demarrerWorker(): Promise<void> {
       journaliser('warn', 'shopify_joignabilite_en_echec', { quoi: 'purge', erreur: messageDe(err) });
       return { commandes: 0, envois: 0 };
     });
+    // La relecture quotidienne des étiquettes Shopify (segments Shopify enrichis, lot 6b) : les espaces dont le marchand a
+    // ALLUMÉ la synchronisation, en Pro et au-dessus, jamais toutes les boutiques. Au mieux et APRÈS les purges : une panne
+    // de la relecture n'arrête pas leur purge.
+    const e = await relancerEtiquettesDues(depsEtiquettes).catch((err: unknown) => {
+      journaliser('warn', 'shopify_etiquettes_en_echec', { quoi: 'relecture', erreur: messageDe(err) });
+      return 0;
+    });
     // eslint-disable-next-line no-console
-    if (n + p > 0) console.log(`shopify-sweep: ${n} événement(s) et ${p} panier(s) Shopify purgé(s)`);
-    return n + p + j.commandes + j.envois;
+    if (n + p + e > 0) console.log(`shopify-sweep: ${n} événement(s) et ${p} panier(s) Shopify purgé(s), ${e} synchronisation(s) des étiquettes relancée(s)`);
+    return n + p + j.commandes + j.envois + e;
   };
   taches.programmer('shopify-evenements', 60 * 60 * 1000, shopifySweep, { immediat: true, enEchec: echecDeBalayage('shopify-sweep', 'sweeper:shopify') });
 

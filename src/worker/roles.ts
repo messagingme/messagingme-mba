@@ -77,6 +77,9 @@ export const FILES_PAR_ROLE: Record<NomDeFile, Appartenance> = {
   // La lecture des collections des produits achetés (segments Shopify, lot 6a) : des lots de produits lus chez Shopify,
   // personne n'attend derrière, et un lot lent ne doit pas retarder un message entrant.
   'shopify-collections': 'analyse',
+  // La synchronisation des étiquettes Shopify (segments Shopify, lot 6b) : des lots de clients lus chez Shopify, personne
+  // n'attend derrière, et un lot lent ne doit pas retarder un message entrant.
+  'shopify-etiquettes': 'analyse',
   'push-analysis': 'analyse',
   'hubspot-catchup': 'analyse',
 };

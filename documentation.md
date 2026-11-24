@@ -3401,6 +3401,55 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   branchement emporte les trois tables (migration BLOQUANTE pour cette raison) ; le simple Couper les garde, sans relecture.
   `read_all_orders` entre dans la liste des droits (console, skill) sans que rien ne le lise encore : la reprise au-delà
   de 60 jours (lot 7) s'en servira ;
+- 🔴 **les étiquettes des clients Shopify** (segments Shopify enrichis, lot 6b, migration 0319, `src/shopify/etiquettes.ts`) :
+  les étiquettes que le marchand pose sur ses clients DANS SHOPIFY, dans une table à part, JAMAIS dans `contacts.tags`
+  (les étiquettes Messaging Me) : un même mot des deux côtés fait deux critères, et le magasin
+  (`src/shopify/etiquettes.pg.ts`) n'écrit jamais `contacts` (tenu par `tests/migration-0319.test.ts`). Quatre tables :
+  `shopify_clients` (un client Shopify relié à UNE fiche, et une fiche à UN client, `vu_le`), `shopify_etiquettes`
+  (les étiquettes d'une fiche à la dernière lecture de son client, REMPLACÉES en bloc, 255 caractères au plus, la borne
+  de Shopify, index `(tenant_id, lower(etiquette))`), `shopify_fiches_cherchees` (une fiche cherchée par son téléphone,
+  pour ne la chercher qu'une fois ; ni le téléphone ni le résultat) et `shopify_etiquettes_synchro` (l'état par espace :
+  `allumee`, ÉTEINTE par défaut, `synchro_le` la dernière synchronisation ABOUTIE, la demande, la synchronisation en
+  cours, son dernier client lu, l'issue, les comptes, le bail et le jeton ; jamais une colonne de `shopify_boutiques`).
+  Les trois tables de la fiche cascadent avec elle, chacune par un index sur `contact_id` seul (migration 0320 : leurs clés
+  commencent par `tenant_id`, la cascade ne nomme que `contact_id`) ; `purgeMany` (qui anonymise sans supprimer) et `effacerBranchement`
+  les nomment, l'état d'abord (l'ordre des verrous de l'écriture), d'où la migration BLOQUANTE ; `contactsLies`
+  (`customers/redact`) retrouve aussi la fiche par `shopify_clients`. La synchronisation s'allume sur la carte
+  (`PUT .../integrations/shopify/etiquettes`, qui lance aussitôt) ou par `sync_shopify_customer_tags` ; « maintenant »
+  (`POST .../etiquettes/synchro`) ; une seule vit à la fois (`demander`, `synchroVivante` : commencée, et un bail qui court
+  ou un progrès de moins de 15 minutes ; 🔴 chaque terme sous `coalesce(..., false)`, sans quoi une synchronisation
+  périmée au bail nul, ce que laisse toute panne, valait NULL et ne se relançait plus jamais), et la Free n'en demande qu'une par 24 h (429,
+  `rate_limited` au MCP, avec le délai). La relecture quotidienne part du balayage horaire de Shopify du worker
+  (`relancerEtiquettesDues`, `dues` : la seule requête transverse, les espaces ALLUMÉS, boutique branchée, offre autre que
+  `base` par `offre_de_l_espace`, dernière demande de plus de 24 h ; `for update skip locked`), jamais un passage de toutes
+  les boutiques. Le job (file `shopify-etiquettes`, rôle `analyse`) 🔴 prend la synchronisation par un BAIL (`prendre`,
+  `for update skip locked`, 180 s, un jeton) ; chaque écriture verrouille d'abord la ligne d'état PAR CE JETON (un porteur
+  dont le bail a été repris n'écrit plus rien), puis les fiches visées `for key share` en ne gardant que les ACTIVES (en
+  conflit avec le `for update` de `purgeMany` : une fiche purgée n'est jamais écrite). Il lit d'abord les droits (sans
+  `read_customers`, issue `sans_droit`), puis en deux temps repris au passage suivant. 🔴 Un client ne se relie à une fiche
+  QUE par son propre téléphone chez Shopify, JAMAIS par une commande : la fiche d'une commande est celle du téléphone de
+  livraison d'abord (`telephoneDeCommande`), un cadeau donnerait les étiquettes de la cliente au destinataire (la règle
+  du lot 5b : le numéro de l'acheteur, jamais la livraison). Il cherche UNE fois les fiches sans client par leur
+  téléphone (`aChercher`, le prédicat de `contacts_tenant_phone_uidx` repris ; 25 par recherche
+  `phone:... OR phone:...`, chaque client REVÉRIFIÉ sur son `defaultPhoneNumber` normalisé au pays de la boutique,
+  deux clients au même téléphone ne relient rien, une page
+  incomplète se redemande plus petite), puis lit les clients reliés par lots de 250 depuis le dernier lu (`nodes(ids:)`,
+  `src/shopify/etiquettes-lues.ts`, par `fetchPublic`, chaque réponse par Zod, une réponse qui n'a pas un nœud par client
+  ou qui porte une erreur ne s'écrit pas). Un nœud nul (client supprimé ou fusionné chez Shopify) perd son lien, ses
+  étiquettes et la marque de sa fiche ; un client dont la fiche n'existe plus est compté puis oublié. La boutique est
+  relue avant chaque écriture ; le frein de Shopify est respecté, le coût du premier lot de chaque temps journalisé
+  (`shopify_etiquettes_cout`), un passage dure 2 minutes au plus puis se réenfile ; toute panne rend le bail avant de
+  remonter. La synchronisation est aboutie (`lue`) quand le dernier client relié est lu. Le critère
+  `segment_etiquette_shopify` (`{ etiquettes: 1 à 20 textes de 1 à 255 caractères, mode: toutes | une }`, `lireSegment`,
+  dédupliquées sans la casse) compare SANS LA CASSE (`ficheAvecEtiquetteShopify`, l'expression de l'index reprise mot pour
+  mot, `tenant_id = $1`) ; 🔴 il est REFUSÉ, jamais « personne », tant qu'aucune synchronisation n'a abouti
+  (`refusDesEtiquettesShopify`, `src/shopify/etiquettes-garde.ts`, posée avec celle des collections dans
+  `exigerSegmentsShopifyLus` de `PgContactStore`), puis s'applique même à une étiquette que personne ne porte. La console
+  ne le propose que sur `etiquettesShopify: true` de `GET .../contacts/segments` ; `GET .../contacts/segments/etiquettes-shopify`
+  rend les 50 étiquettes que portent le plus de fiches et l'état (une lecture seule, qui n'enfile rien) ; `find_contacts`
+  rend `shopify_tags_synced_at`, `get_shopify_state` l'état et la liste (`shopify_tags`). La copie vers une étiquette
+  Messaging Me est l'action en masse (ou `tag_contacts`) sur la cible du critère : jamais la synchronisation. L'onglet
+  Shopify de la fiche lit ses étiquettes au mieux ;
 - **le secret qui vérifie doit être celui de la boutique relue** : le cache d'une minute ne laisse pas passer un
   webhook de l'ancienne app après une reconnexion, et `shop/redact` n'efface jamais une boutique `connectee` ;
 - 🔴 **la relance de panier est balayée DANS L'API** (`src/shopify/relance.ts`, la minuterie d'une minute de

@@ -1,6 +1,6 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { DepsMcp, OutilMcp } from './outils';
-import { RefusOutil, familleDuRefus, refusDuPlafond } from './saisie';
+import { RefusOutil, familleDuRefus, refusDuCoeur, refusDuPlafond } from './saisie';
 import { signataire } from './outils-agent';
 import { journaliser } from '../lib/journal';
 import {
@@ -13,7 +13,9 @@ import { reglerAttestation, type EtatLigne } from '../shopify/lignes-gestion';
 import type { MessageBranche } from '../shopify/store.pg';
 import { apercuReprise, etatReprise, lancerReprise, PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE, type IssueRattrapage } from '../shopify/reprise';
 import { lireCollections } from '../shopify/collections';
+import { lireEtiquettes, reglerEtiquettes } from '../shopify/etiquettes';
 import type { RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
+import type { SynchroEtiquettesVue } from '../../web/lib/partage/segments';
 import { messageDe } from '../lib/erreur';
 import { LISTES } from './ecran';
 
@@ -47,6 +49,31 @@ async function collectionsAuMieux(deps: DepsMcp, tenantId: string) {
     };
   } catch (err) {
     journaliser('warn', 'mcp_collections_illisibles', { tenantId, erreur: messageDe(err) });
+    return null;
+  }
+}
+
+/** L'état de la synchronisation des étiquettes Shopify (segments Shopify enrichis, lot 6b), sous les noms de l'outil. */
+const versSynchro = (v: SynchroEtiquettesVue) => ({
+  enabled: v.allumee, synced_at: v.synchroLe, syncing: v.enCours,
+  refused: v.refus === null ? null : { reason: v.refus.code, message: v.refus.message },
+  counts: {
+    customers_read: v.comptes.clientsLus, records_found_by_phone: v.comptes.trouvesParTelephone,
+    customers_without_record: v.comptes.sansFiche, records_tagged: v.comptes.fichesEtiquetees,
+  },
+});
+
+/**
+ * Les étiquettes Shopify lues et l'état de leur synchronisation (segments Shopify enrichis, lot 6b), pour le critère
+ * `shopify_tags` de l'assistant : la MÊME lecture que le volet Shopify de la console, qui n'enfile rien. AU MIEUX : une
+ * panne rend `null`, jamais un outil en échec.
+ */
+async function etiquettesAuMieux(deps: DepsMcp, tenantId: string) {
+  try {
+    const v = await lireEtiquettes(deps.shopify.etiquettes, tenantId, undefined);
+    return { ...versSynchro(v.synchro), list: v.etiquettes.map((e) => ({ tag: e.etiquette, records: e.fiches })) };
+  } catch (err) {
+    journaliser('warn', 'mcp_etiquettes_illisibles', { tenantId, erreur: messageDe(err) });
     return null;
   }
 }
@@ -298,7 +325,12 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'holding the most ordered products (collection_id, title, products_seen): the ids for the collections criterion. '
       + 'Reading this tool starts a reading when an ordered product was never read or was read over 24 hours ago (reading: '
       + 'true, a few minutes); refused says why the last one failed (sans_droit: the store app lacks the read_products '
-      + 'scope, which the shopify skill adds); incomplete: a product is in more than 50 collections, the list is not exhaustive.',
+      + 'scope, which the shopify skill adds); incomplete: a product is in more than 50 collections, the list is not exhaustive. '
+      + 'shopify_tags: the tags the merchant put on their customers in Shopify, read by the sync of sync_shopify_customer_tags '
+      + '(NOT the Messaging Me tags of the contacts): enabled (off until the merchant turns it on), synced_at (the last sync '
+      + 'that succeeded; null: none yet, and the shopify_tags criterion is refused), syncing, refused (why the last one '
+      + 'failed), counts (customers read, records found by their phone, customers whose record no longer exists, records '
+      + 'carrying a tag), and list: the 50 tags carried by the most records (tag, records). Reading this tool starts nothing.',
     annotations: { title: 'Get the Shopify connection', readOnlyHint: true, openWorldHint: false },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
@@ -325,6 +357,57 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         store_apps_page: e.pageApps,
         products_seen: await produitsVusAuMieux(deps, tenantId),
         collections: await collectionsAuMieux(deps, tenantId),
+        shopify_tags: await etiquettesAuMieux(deps, tenantId),
+      };
+    },
+  },
+  {
+    ...ficheOutilMcp('sync_shopify_customer_tags'),
+    fonction: null,
+    description:
+      'Reads the tags the merchant put on their customers in Shopify (customer tags) into a list of their own. They are NOT '
+      + 'the Messaging Me tags of the contacts (the tags parameter of find_contacts; tag_contacts adds those), and the sync '
+      + 'never turns them into Messaging Me tags. enabled true (default) turns the sync on and starts a reading now: once '
+      + 'each record without a customer is matched by the customer\'s own phone at Shopify (defaultPhoneNumber), never by '
+      + 'an order (its phone is the delivery one) nor an address. No record is created; a customer without a record is '
+      + 'counted and '
+      + 'forgotten. On the Pro, Business and Enterprise plans the sync then refreshes itself at most every 24 hours; on the '
+      + 'Free plan it reads on demand only, at most once every 24 hours (refused before, with the delay). enabled false '
+      + 'turns the daily refresh off and keeps the tags already read. The reading runs in the background, a few minutes: '
+      + 'get_shopify_state follows it (shopify_tags) and lists the tags read with how many records carry each. Then target '
+      + 'them with shopify_tags in find_contacts, tag_contacts or prepare_campaign (Pro plan and above), refused until a '
+      + 'sync has succeeded. To freeze the target of a campaign, tag its contacts with tag_contacts: copying Shopify tags '
+      + 'to Messaging Me tags is always an explicit step, never automatic. Needs the read_customers scope only. Counts '
+      + 'toward the workspace\'s heavy operations.',
+    annotations: { title: 'Sync the Shopify customer tags', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    entree: {
+      type: 'object',
+      properties: {
+        enabled: {
+          type: 'boolean',
+          description: 'true (default): turn the sync on and read now. false: turn the daily refresh off, keeping the tags read.',
+        },
+      },
+      additionalProperties: false,
+    },
+    ecran: () => LISTES.integrations,
+    async executer(deps: DepsMcp, tenantId, args, personne) {
+      const allumee = args.enabled !== false;
+      if (allumee) {
+        const c = await deps.couteux.consommer(tenantId);
+        if (!c.accepte) throw refusDuPlafond(c.attenteMs);
+      }
+      const r = await reglerEtiquettes(deps.shopify.etiquettes, tenantId, allumee);
+      if (!r.ok) throw refusDuCoeur(r);
+      journaliser('info', 'mcp_shopify_etiquettes', { tenantId, userId: personne?.userId ?? null, allumee, lancee: r.valeur.lancee });
+      return {
+        ...versSynchro(r.valeur),
+        reading_started: r.valeur.lancee,
+        next_step: !allumee
+          ? 'the daily refresh is off; the tags already read stay, and the shopify_tags criterion keeps working with synced_at'
+          : r.valeur.lancee || r.valeur.enCours
+            ? 'get_shopify_state follows the reading (shopify_tags.syncing, then synced_at): a few minutes for most stores'
+            : 'get_shopify_state lists the tags read (shopify_tags.list)',
       };
     },
   },

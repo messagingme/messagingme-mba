@@ -104,7 +104,7 @@ describe('la garde du critère de collection', () => {
     // Dans la classe, un seul appel de chacun, dans les deux passages gardés.
     expect(corps.match(/buildContactWhere\(/g)).toHaveLength(1);
     expect(corps.match(/buildBulkSelector\(/g)).toHaveLength(1);
-    expect(corps).toContain('await this.exigerCollectionsConnues(tenantId, filters); return buildContactWhere(tenantId, filters);');
-    expect(corps).toContain("if ('filters' in target) await this.exigerCollectionsConnues(tenantId, target.filters); return buildBulkSelector(tenantId, target);");
+    expect(corps).toContain('await this.exigerSegmentsShopifyLus(tenantId, filters); return buildContactWhere(tenantId, filters);');
+    expect(corps).toContain("if ('filters' in target) await this.exigerSegmentsShopifyLus(tenantId, target.filters); return buildBulkSelector(tenantId, target);");
   });
 });

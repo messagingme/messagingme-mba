@@ -37,7 +37,7 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
       </p>
     );
   }
-  const { boutique, resume, rapporte, commandes, paniers } = etat.achats;
+  const { boutique, resume, rapporte, commandes, paniers, etiquettesShopify } = etat.achats;
   if (!boutique) {
     return (
       <p className="mt-4 text-sm text-ink-500" data-testid="fiche-shopify-sans-boutique">
@@ -82,6 +82,20 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
         <span className="text-ink-900">{montant(resume.depense, boutique.devise)}</span>
         <span className="text-ink-500">{t('Dernière commande', 'Last order')}</span>
         <span className="text-ink-900">{resume.derniereLe ? formatDate(resume.derniereLe, locale) : '-'}</span>
+        {/* Les étiquettes posées sur ce client DANS SHOPIFY (lot 6b), à la dernière synchronisation : jamais ses étiquettes Messaging Me. */}
+        {etiquettesShopify && (
+          <>
+            <span className="text-ink-500">{t('Étiquettes Shopify', 'Shopify tags')}</span>
+            <span className="text-ink-900" data-testid="fiche-shopify-etiquettes">
+              {etiquettesShopify.etiquettes.length === 0
+                ? <span className="text-ink-500">{t('Aucune', 'None')}</span>
+                : etiquettesShopify.etiquettes.join(' · ')}
+              <span className="block text-xs text-ink-500">
+                {t(`Lues chez Shopify le ${formatDate(etiquettesShopify.synchroLe, locale)}, à part de ses étiquettes Messaging Me.`, `Read at Shopify on ${formatDate(etiquettesShopify.synchroLe, locale)}, separate from their Messaging Me tags.`)}
+              </span>
+            </span>
+          </>
+        )}
         <span className="text-ink-500">{t('Rapporté par WhatsApp', 'Brought in by WhatsApp')}</span>
         <span className="text-ink-900" data-testid="fiche-shopify-rapporte">
           {rapporte.length === 0

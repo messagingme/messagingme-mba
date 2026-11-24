@@ -211,6 +211,21 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 6b (les étiquettes des clients Shopify) : ce qui reste (2026-11-24)
+
+- Le refus « pas encore lu » des segments Shopify (collections et étiquettes) remonte au MCP en `invalid_args` ;
+  `conflict` dirait mieux qu'il faut attendre ou lancer une lecture.
+- Un refus de Shopify sur la seule recherche par téléphone fait échouer toute la synchronisation des étiquettes
+  (`refusee`) : garder la lecture par identifiant.
+- `skip locked` (prendre, dues) et `for key share` (verrou des fiches) ne sont prouvés par aucun test : un test à deux
+  connexions dans le job integration, sur le modèle de `agent-catalog.integration.test.ts`.
+- Les captures de l'étape 10 de « Brancher ma boutique Shopify » et de la carte ne montrent pas « Synchroniser les
+  étiquettes » (`npm run aide:captures`). Aucun texte propre à `sync_shopify_customer_tags` dans
+  `scripts/vitrine/boutique-textes.ts`.
+- Essai réel : sur la boutique de développement, une étiquette « VIP » posée sur un client chez Shopify, la
+  synchronisation allumée, le filtre « Étiquette Shopify : VIP » qui retient sa fiche et elle seule, la copie explicite.
+- Fraîcheur des étiquettes entre deux relectures : les webhooks d'étiquettes (lot 4b de la spec).
+
 ## 🟡 Segments Shopify, lot 5b (« Rattraper » fait entrer les acheteurs) : la relecture (2026-11-24, un rouge corrigé)
 
 - La trace des numéros effacés ne bloque que la CRÉATION : une commande d'avant l'effacement rejoint une fiche qui

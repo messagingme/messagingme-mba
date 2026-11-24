@@ -38,6 +38,14 @@ const REPRISE = {
 };
 /** La relance aussi en service : la carte dit alors la ligne des paniers. */
 const RELANCE_ACTIVE = { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned')] };
+/** La synchronisation des étiquettes (lot 6b), telle que le serveur la rend : jamais allumée, puis lue. */
+const ETIQUETTES_ETEINTES = {
+  allumee: false, synchroLe: null, enCours: false, refus: null, comptes: { clientsLus: 0, trouvesParTelephone: 0, sansFiche: 0, fichesEtiquetees: 0 },
+};
+const ETIQUETTES_LUES = {
+  allumee: true, synchroLe: '2026-11-24T08:00:00.000Z', enCours: false, refus: null as null | { code: string; message: string },
+  comptes: { clientsLus: 12, trouvesParTelephone: 3, sansFiche: 4, fichesEtiquetees: 6 },
+};
 
 interface Trace {
   branchements: unknown[];
@@ -48,6 +56,9 @@ interface Trace {
   posts: string[];
   /** Les lancements du rattrapage des commandes (lot 5). */
   rattrapages: number;
+  /** Les réglages de la synchronisation des étiquettes (corps du PUT) et ses lancements « maintenant » (lot 6b). */
+  reglagesEtiquettes: unknown[];
+  synchrosEtiquettes: number;
 }
 
 async function monter(page: Page, o: {
@@ -67,9 +78,16 @@ async function monter(page: Page, o: {
     /** L'aperçu refusé (409) avec ce message : celui du serveur sans l'attestation du consentement des clients. */
     refusApercu?: string;
   };
+  /**
+   * La synchronisation des étiquettes (segments Shopify, lot 6b) : son état (`absente` : le 404 du routeur, une API plus
+   * ancienne), un refus du serveur aux gestes (le 429 de l'offre Free), et `dejaEnCours` : le serveur rend `lancee: false`,
+   * une synchronisation tournait déjà.
+   */
+  etiquettes?: { synchro?: Record<string, unknown> | 'absente'; refus?: { statut: number; error: string }; dejaEnCours?: boolean };
 }): Promise<Trace> {
-  const trace: Trace = { branchements: [], pauses: [], lignes: [], attestations: [], posts: [], rattrapages: 0 };
+  const trace: Trace = { branchements: [], pauses: [], lignes: [], attestations: [], posts: [], rattrapages: 0, reglagesEtiquettes: [], synchrosEtiquettes: 0 };
   let rattrapage = o.rattrapage?.etat ?? null;
+  let synchroEtiquettes = o.etiquettes?.synchro;
   const session = { token: 'e2e-token', email: 'moi@e2e.test', role: o.role ?? 'admin', tenantId: 't-e2e' };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), session);
   let etat = o.etat ?? BRANCHEE;
@@ -96,6 +114,27 @@ async function monter(page: Page, o: {
     if (chemin.endsWith('/integrations/shopify/commandes/apercu')) {
       if (o.rattrapage?.refusApercu) return json({ error: o.rattrapage.refusApercu }, 409);
       return json(o.rattrapage?.apercu ?? APERCU_RATTRAPAGE);
+    }
+    if (chemin.endsWith('/contacts/segments/etiquettes-shopify')) {
+      if (synchroEtiquettes === 'absente') return json({ message: 'Route GET not found', error: 'Not Found', statusCode: 404 }, 404);
+      return synchroEtiquettes === undefined ? json({}) : json({ etiquettes: [], synchro: synchroEtiquettes });
+    }
+    if (chemin.endsWith('/integrations/shopify/etiquettes') && req.method() === 'PUT') {
+      const corps = req.postDataJSON() as { allumee: boolean };
+      trace.reglagesEtiquettes.push(corps);
+      if (o.etiquettes?.refus) return json({ error: o.etiquettes.refus.error }, o.etiquettes.refus.statut);
+      if (synchroEtiquettes !== undefined && synchroEtiquettes !== 'absente') {
+        synchroEtiquettes = { ...synchroEtiquettes, allumee: corps.allumee, enCours: corps.allumee };
+      }
+      const lancee = corps.allumee && o.etiquettes?.dejaEnCours !== true;
+      return json({ synchro: { ...(synchroEtiquettes as Record<string, unknown>), lancee } }, lancee ? 202 : 200);
+    }
+    if (chemin.endsWith('/integrations/shopify/etiquettes/synchro') && req.method() === 'POST') {
+      trace.synchrosEtiquettes += 1;
+      if (o.etiquettes?.refus) return json({ error: o.etiquettes.refus.error }, o.etiquettes.refus.statut);
+      if (synchroEtiquettes !== undefined && synchroEtiquettes !== 'absente') synchroEtiquettes = { ...synchroEtiquettes, enCours: true };
+      const lancee = o.etiquettes?.dejaEnCours !== true;
+      return json({ synchro: { ...(synchroEtiquettes as Record<string, unknown>), lancee } }, lancee ? 202 : 200);
     }
     if (chemin.endsWith('/integrations/shopify') && req.method() === 'PATCH') {
       trace.pauses.push(req.postDataJSON());
@@ -359,6 +398,67 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await monter(page, { rattrapage: { etat: 'absente' } });
     await expect(page.getByTestId('integration-shopify-etat')).toBeVisible();
     await expect(page.getByTestId('integration-shopify-rattrapage')).toHaveCount(0);
+  });
+
+  test('🔴 les étiquettes Shopify (lot 6b) : allumer part une fois et lance la lecture ; la carte dit qu’elle tourne', async ({ page }) => {
+    const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_ETEINTES } });
+    const bloc = page.getByTestId('integration-shopify-etiquettes');
+    await expect(bloc).toContainText('Elles restent à part de vos étiquettes Messaging Me');
+    await expect(bloc.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
+    expect(trace.reglagesEtiquettes).toHaveLength(0);
+    await bloc.getByTestId('integration-shopify-etiquettes-interrupteur').click();
+    await expect(page.getByTestId('integration-shopify-message')).toContainText('Synchronisation des étiquettes allumée');
+    expect(trace.reglagesEtiquettes).toEqual([{ allumee: true }]);
+    await expect(bloc.getByTestId('integration-shopify-etiquettes-en-cours')).toContainText('Synchronisation en cours : 0 client lu.');
+    await expect(bloc.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
+  });
+
+  test('🔴 allumée : la carte dit la dernière synchronisation et ses comptes ; « maintenant » part une fois', async ({ page }) => {
+    const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES } });
+    const etat = page.getByTestId('integration-shopify-etiquettes-etat');
+    await expect(etat).toContainText('Dernière synchronisation le');
+    await expect(etat).toContainText('12 clients lus, 6 fiches portent au moins une étiquette, 4 clients sans fiche, oubliés. Relue chaque jour.');
+    await page.getByTestId('integration-shopify-etiquettes-maintenant').click();
+    await expect(page.getByTestId('integration-shopify-message')).toContainText('Synchronisation lancée');
+    expect(trace.synchrosEtiquettes).toBe(1);
+    await expect(page.getByTestId('integration-shopify-etiquettes-en-cours')).toContainText('12 clients lus, 3 fiches reliées par leur téléphone.');
+    await expect(page.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
+  });
+
+  test('🔴 « maintenant » quand une synchronisation tourne déjà (lancee: false) : la carte ne dit pas « lancée »', async ({ page }) => {
+    const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES, dejaEnCours: true } });
+    await page.getByTestId('integration-shopify-etiquettes-maintenant').click();
+    await expect(page.getByTestId('integration-shopify-message')).toHaveText('Une synchronisation tourne déjà : elle continue.');
+    expect(trace.synchrosEtiquettes).toBe(1);
+  });
+
+  test('éteindre garde les étiquettes lues, et la carte le dit', async ({ page }) => {
+    const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES } });
+    await page.getByTestId('integration-shopify-etiquettes-interrupteur').click();
+    await expect(page.getByTestId('integration-shopify-message')).toContainText('celles déjà lues restent');
+    expect(trace.reglagesEtiquettes).toEqual([{ allumee: false }]);
+    await expect(page.getByTestId('integration-shopify-etiquettes-etat')).toContainText('Éteinte : plus de relecture.');
+    await expect(page.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
+  });
+
+  test('🔴 un refus du serveur (l’offre Free, une fois par 24 heures) se dit sur la carte, et l’état reste', async ({ page }) => {
+    const refus = 'Sur l’offre Free, les étiquettes Shopify se synchronisent au plus une fois toutes les 24 heures : réessayez dans 5 heures.';
+    const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES, refus: { statut: 429, error: refus } } });
+    await page.getByTestId('integration-shopify-etiquettes-maintenant').click();
+    await expect(page.getByTestId('integration-shopify-message')).toContainText('au plus une fois toutes les 24 heures');
+    expect(trace.synchrosEtiquettes).toBe(1);
+    await expect(page.getByTestId('integration-shopify-etiquettes-etat')).toContainText('Dernière synchronisation le');
+  });
+
+  test('une synchronisation refusée par Shopify se dit, avec la phrase du serveur', async ({ page }) => {
+    await monter(page, { etiquettes: { synchro: { ...ETIQUETTES_LUES, synchroLe: null, refus: { code: 'sans_droit', message: 'ajoutez le droit read_customers.' } } } });
+    await expect(page.getByTestId('integration-shopify-etiquettes-refus')).toContainText('La dernière synchronisation a échoué : ajoutez le droit read_customers.');
+  });
+
+  test('🔴 l’API sans les routes des étiquettes (404 du routeur) : la carte n’en dit rien', async ({ page }) => {
+    await monter(page, { etiquettes: { synchro: 'absente' } });
+    await expect(page.getByTestId('integration-shopify-etat')).toBeVisible();
+    await expect(page.getByTestId('integration-shopify-etiquettes')).toHaveCount(0);
   });
 
   test('🔴 API pas encore déployée (404 du routeur) : AUCUNE carte', async ({ page }) => {

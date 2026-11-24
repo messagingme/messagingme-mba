@@ -1,6 +1,6 @@
 ---
 name: shopify
-description: Connects the user's Shopify store to Messaging Me so that customers receive WhatsApp messages when an order is paid or shipped, and a reminder when they abandon a checkout, imports the store's customers who subscribed to marketing, and catches up the paid orders of the last 60 days for the segments, with the records of their buyers - creates the store app with the Shopify CLI in the merchant's own organization, installs it with one click, keeps its secret and sets the messages. Use when the user wants to connect Shopify, send order confirmations, shipping updates or abandoned checkout reminders on WhatsApp, import their Shopify customers, bring their past orders into their segments, know how much revenue their WhatsApp messages brought in, or check or cut the Shopify connection.
+description: Connects the user's Shopify store to Messaging Me so that customers receive WhatsApp messages when an order is paid or shipped, and a reminder when they abandon a checkout, imports the store's customers who subscribed to marketing, catches up the paid orders of the last 60 days for the segments, with the records of their buyers, and syncs the tags put on its customers in Shopify to target them - creates the store app with the Shopify CLI in the merchant's own organization, installs it with one click, keeps its secret and sets the messages. Use when the user wants to connect Shopify, send order confirmations, shipping updates or abandoned checkout reminders on WhatsApp, import their Shopify customers, bring their past orders into their segments, target their Shopify customer tags, know how much revenue their WhatsApp messages brought in, or check or cut the Shopify connection.
 allowed-tools: mcp__plugin_messagingme_messagingme__get_shopify_state, mcp__plugin_messagingme_messagingme__get_revenue_stats, mcp__plugin_messagingme_messagingme__preview_shopify_customers, mcp__plugin_messagingme_messagingme__preview_shopify_order_history, mcp__plugin_messagingme_messagingme__get_shopify_order_history, mcp__plugin_messagingme_messagingme__list_templates, mcp__plugin_messagingme_messagingme__get_template_status, mcp__plugin_messagingme_messagingme__get_setup_state
 ---
 
@@ -281,6 +281,26 @@ not as they were on the day of the order: say so to the user. Calling `get_shopi
 ordered product was never read or was read over 24 hours ago (`collections.reading`: a few minutes). Until a reading has
 succeeded the criterion is refused; without read_products it never succeeds: add the scope first (Add a scope to an app
 already installed, above).
+
+## Target by Shopify customer tags
+
+The tags the merchant puts on their customers in Shopify (VIP, wholesale...) are a list of their own: they are NOT the
+Messaging Me tags of the contacts, and the same word on both sides is two different criteria. Never present one as the
+other.
+
+1. `sync_shopify_customer_tags` turns the sync on (off until the merchant asks) and reads now, in the background: once
+   each record without a customer is matched by the customer's own phone at Shopify, never by an order (whose phone is
+   the delivery one) nor an address. No record is created; a customer without a record is counted and forgotten.
+   read_customers is enough. On the Pro, Business and Enterprise plans it then refreshes every 24 hours; on the Free plan it reads on
+   demand only, at most once every 24 hours (the tool refuses before, with the delay).
+2. `get_shopify_state` follows it (`shopify_tags.syncing`, then `shopify_tags.synced_at`) and lists the tags read
+   with how many records carry each (`shopify_tags.list`). Say the date: a tag counts as it was at that sync.
+3. `find_contacts` (and `tag_contacts`, `prepare_campaign`, Pro plan and above) targets them with `shopify_tags`: the tags,
+   all of them (default) or any (`"mode":"any"`), compared without case. Refused until a sync has succeeded; after that
+   it applies, even to a tag no record carries. The answer of `find_contacts` says the date of that sync.
+4. To keep a target fixed, or to use these customers as a Messaging Me tag, copy them explicitly: `tag_contacts` with
+   `shopify_tags` and the tag of the merchant's choice. The copy is made now and is never kept in sync; it gives no
+   consent: a marketing campaign still reaches only the opted-in contacts.
 
 ## What WhatsApp brought in
 

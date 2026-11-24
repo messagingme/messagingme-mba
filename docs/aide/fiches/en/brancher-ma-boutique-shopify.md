@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 8a99bf
+traduit_de: 4706a7
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -159,6 +159,14 @@ And collections: those who bought at least one product of each of the chosen col
 your products already ordered, when you open the section, which says “reading” while they are read. A collection counts
 as it is in your store at that reading, whose date the section gives, not as it was on the day of the order: a product
 taken out of a collection no longer counts in it.
+
+And the tags you put on your customers in Shopify (VIP, wholesale...), in the “Shopify tags” block, apart from your
+Messaging Me tags: the same word on both sides makes two criteria. They are read when you turn on “Sync the tags” on
+the Shopify card: the first reading starts at once, then every day, and “Sync now” starts it again. A customer is
+matched to the record of their own phone at Shopify, never to the phone of a delivery: a gift does not give your tags
+to its recipient. Target one or more (all of them, or any of them); the block gives the date of the last reading.
+“Copy as a Messaging Me tag” adds now the tag of your choice to the records that carry this Shopify tag, a copy that
+does not follow Shopify afterwards. No record is created, and neither the reading nor the copy gives consent.
 
 And two ready-made buttons, with no setting: “Wrote without ordering” (at least one message still known) and “Clicked
 without ordering” (at least one tracked link click), for contacts with no order recorded. One click sets the button, a

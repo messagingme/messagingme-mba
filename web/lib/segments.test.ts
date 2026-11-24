@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collectionsLuesDe, lirePlageSaisie, produitsVusDe, saisieDePlage, suiviSegmentsDe } from './segments';
+import { collectionsLuesDe, etiquettesShopifyLuesDe, lirePlageSaisie, produitsVusDe, saisieDePlage, suiviSegmentsDe, synchroEtiquettesDe } from './segments';
 
 /**
  * Les segments côté console (spec du 2026-10-31). 🔴 Deux gardes : une réponse illisible de la route rend `null` (le
@@ -93,6 +93,41 @@ describe('les collections lues (lot 6a)', () => {
     expect(lecture({ code: 'inconnu', message: 'm' })).toBeNull();
     expect(lecture({ code: 'erreur' })).toBeNull();
     for (const v of [null, {}, { collections: [] }, { collections: 'x', lecture: {} }, []]) expect(collectionsLuesDe(v), JSON.stringify(v)).toBeNull();
+  });
+});
+
+/** Les étiquettes Shopify (lot 6b) : annoncées en toutes lettres, la liste et l'état de la synchronisation lus défensivement. */
+describe('les étiquettes Shopify lues (lot 6b)', () => {
+  const SYNCHRO = {
+    allumee: true, synchroLe: '2026-11-24T08:00:00.000Z', enCours: false, refus: null,
+    comptes: { clientsLus: 12, trouvesParTelephone: 3, sansFiche: 1, fichesEtiquetees: 9 },
+  };
+
+  it('🔴 le critère ne s’annonce que sur un `true` en toutes lettres', () => {
+    const base = { boutique: null, activiteCompleteDepuis: '2026-11-03' };
+    expect(suiviSegmentsDe({ ...base, etiquettesShopify: true })).toEqual({ ...base, etiquettesShopify: true });
+    for (const etiquettesShopify of [undefined, false, 'true', 1]) {
+      expect(suiviSegmentsDe({ ...base, etiquettesShopify }), String(etiquettesShopify)).toEqual(base);
+    }
+  });
+
+  it('lit les étiquettes et l’état ; une étiquette vide s’écarte seule, un compte illisible vaut zéro', () => {
+    expect(etiquettesShopifyLuesDe({ etiquettes: [{ etiquette: 'VIP', fiches: 4 }, { etiquette: '', fiches: 1 }, { fiches: 2 }, { etiquette: 'Grossiste', fiches: -1 }], synchro: SYNCHRO }))
+      .toEqual({ etiquettes: [{ etiquette: 'VIP', fiches: 4 }, { etiquette: 'Grossiste', fiches: 0 }], synchro: SYNCHRO });
+    expect(synchroEtiquettesDe({ ...SYNCHRO, comptes: { clientsLus: 'x' } })?.comptes).toEqual({ clientsLus: 0, trouvesParTelephone: 0, sansFiche: 0, fichesEtiquetees: 0 });
+  });
+
+  it('un refus se lit avec un code connu, sinon il n’y en a pas', () => {
+    const refus = (r: unknown) => synchroEtiquettesDe({ ...SYNCHRO, refus: r })?.refus;
+    expect(refus({ code: 'sans_droit', message: 'm' })).toEqual({ code: 'sans_droit', message: 'm' });
+    expect(refus({ code: 'inconnu', message: 'm' })).toBeNull();
+    expect(refus({ code: 'erreur' })).toBeNull();
+  });
+
+  it('🔴 une réponse illisible rend null : rien n’est proposé', () => {
+    for (const v of [null, {}, { etiquettes: [] }, { etiquettes: 'x', synchro: SYNCHRO }, { etiquettes: [], synchro: { allumee: 'oui', enCours: false } }, []]) {
+      expect(etiquettesShopifyLuesDe(v), JSON.stringify(v)).toBeNull();
+    }
   });
 });
 

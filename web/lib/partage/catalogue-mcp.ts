@@ -129,6 +129,11 @@ export const CATALOGUE_MCP = {
   preview_shopify_order_history: { scope: 'mcp:read', exigePersonne: true },
   import_shopify_order_history: { scope: 'mcp:write', exigePersonne: true },
   get_shopify_order_history: { scope: 'mcp:read', exigePersonne: true },
+  /**
+   * La synchronisation des étiquettes des clients Shopify (segments Shopify enrichis, lot 6b) : l'allumer et la lancer, ou
+   * l'éteindre ; `get_shopify_state` en dit l'état et les étiquettes lues.
+   */
+  sync_shopify_customer_tags: { scope: 'mcp:write', exigePersonne: true },
 } as const satisfies Record<string, { scope: ScopeMcp; exigePersonne?: true }>;
 
 export type NomOutilMcp = keyof typeof CATALOGUE_MCP;

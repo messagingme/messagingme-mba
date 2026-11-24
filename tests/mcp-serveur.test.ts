@@ -977,6 +977,9 @@ describe('serveur MCP : cohérence du catalogue', () => {
       // Le rattrapage des commandes (segments Shopify, lot 5) : relancé, il relit la même fenêtre et réécrit les mêmes
       // rattachements ; il lit chez Shopify.
       import_shopify_order_history: [true, true, true],
+      // La synchronisation des étiquettes (segments Shopify, lot 6b) : rejouée, elle allume ce qui l'est déjà et relit les
+      // mêmes étiquettes, une synchronisation à la fois ; elle lit chez Shopify.
+      sync_shopify_customer_tags: [true, true, true],
       // Offres v2 : une clé de plus à chaque appel, rien chez un tiers ; le Pro ouvre une session chez Stripe à chaque appel.
       create_api_key: [true, false, false],
       subscribe_pro: [true, false, true],

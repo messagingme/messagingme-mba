@@ -81,6 +81,9 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /integrations/shopify/commandes/apercu': outil('preview_shopify_order_history'),
   'POST /integrations/shopify/commandes/rattrapage': outil('import_shopify_order_history'),
   'GET /integrations/shopify/commandes/rattrapage': outil('get_shopify_order_history'),
+  // Les étiquettes des clients Shopify (segments Shopify enrichis, lot 6b) : allumer et lancer, ou éteindre.
+  'PUT /integrations/shopify/etiquettes': outil('sync_shopify_customer_tags'),
+  'POST /integrations/shopify/etiquettes/synchro': outil('sync_shopify_customer_tags'),
 
   // L'abonnement du numéro fourni (abonnementNumero)
   'GET /abonnement-numero': outil('get_number_subscription'),
@@ -266,6 +269,8 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /contacts/segments': SHOPIFY,
   'GET /contacts/segments/produits': SHOPIFY,
   'GET /contacts/segments/collections': SHOPIFY,
+  // Les étiquettes Shopify lues et l'état de leur synchronisation (lot 6b) : `get_shopify_state` les rend (shopify_tags).
+  'GET /contacts/segments/etiquettes-shopify': outil('get_shopify_state'),
   'GET /contacts/count': outil('find_contacts'),
   'GET /contacts/ids': outil('find_contacts'),
   'POST /contacts/import/preview': aFaire('B10', 'contacts : aperçu d’un import'),

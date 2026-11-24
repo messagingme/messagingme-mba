@@ -7,7 +7,8 @@ import { estCleFiltrable, estOperateurFicheSeul, lireFiltreFiche } from './filtr
 import { paysConnu, paysPrincipalDe } from './segments';
 import {
   BORNES_SEGMENTS, CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, estCleSegment,
-  type AchatsVises, type CleSegment, type CollectionsVisees, type PlageSurJours, type ProduitVise, type Reassort,
+  type AchatsVises, type CleSegment, type CollectionsVisees, type EtiquettesShopifyVisees, type PlageSurJours, type ProduitVise,
+  type Reassort,
 } from '../../web/lib/partage/segments';
 
 /**
@@ -89,7 +90,7 @@ export function normalizeFieldFilters(raw: unknown[]): ContactFieldFilter[] {
 const NOMS_SEGMENT: Record<CleSegment, string> = {
   [CLES_SEGMENT.commandes]: 'commandes', [CLES_SEGMENT.depense]: 'dépense', [CLES_SEGMENT.derniereCommande]: 'dernière commande',
   [CLES_SEGMENT.achete]: 'a acheté', [CLES_SEGMENT.pasAchete]: 'n’a pas acheté', [CLES_SEGMENT.reassort]: 'réassort',
-  [CLES_SEGMENT.collection]: 'a acheté dans la collection',
+  [CLES_SEGMENT.collection]: 'a acheté dans la collection', [CLES_SEGMENT.etiquetteShopify]: 'étiquette Shopify',
   [CLES_SEGMENT.ecritSansCommande]: 'a écrit sans commander', [CLES_SEGMENT.clicSansCommande]: 'a cliqué sans commander',
   [CLES_SEGMENT.actif]: 'actif', [CLES_SEGMENT.inactif]: 'inactif', [CLES_SEGMENT.pays]: 'pays',
 };
@@ -99,7 +100,9 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
  * ignorée : JSON illisible, clé inconnue, borne hors plage, minimum au-dessus du maximum, pays inconnu, et pour le nombre
  * de commandes et la dépense « au moins 0 » sans maximum, qui viserait tout l'espace.
  */
-export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | true {
+export function lireSegment(
+  cle: CleSegment, brut: unknown,
+): PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | true {
   const nom = NOMS_SEGMENT[cle];
   let v: unknown;
   try { v = typeof brut === 'string' ? JSON.parse(brut) as unknown : undefined; } catch { v = undefined; }
@@ -112,6 +115,7 @@ export function lireSegment(cle: CleSegment, brut: unknown): PlageSurJours | num
     case CLES_SEGMENT.pasAchete: return lireAchats(v, nom);
     case CLES_SEGMENT.reassort: return lireReassort(v, nom);
     case CLES_SEGMENT.collection: return lireCollections(v, nom);
+    case CLES_SEGMENT.etiquetteShopify: return lireEtiquettesShopify(v, nom);
     case CLES_SEGMENT.ecritSansCommande:
     case CLES_SEGMENT.clicSansCommande:
       // Un bouton prêt : `true` et rien d'autre (spec, « Les deux boutons prêts ») ; aucun réglage ne s'y glisse.
@@ -191,6 +195,37 @@ function lireCollections(v: unknown, nom: string): CollectionsVisees {
   }))];
   const jours = o.jours !== undefined && o.jours !== null ? lireJours(o.jours, nom) : undefined;
   return { collections, ...(jours !== undefined ? { jours } : {}) };
+}
+
+/**
+ * « A l'étiquette Shopify » (lot 6b) : `{ etiquettes, mode? }`, de 1 à `etiquettesShopifyMax` étiquettes, chacune un texte
+ * de 1 à `etiquetteShopifyMax` caractères (la borne de Shopify) une fois ses espaces de bord retirées, dédupliquées sans la
+ * casse (le critère compare sans elle) ; `mode` vaut `toutes` (le défaut) ou `une`. 🔴 La forme seule se juge ici ; qu'une
+ * synchronisation des étiquettes ait abouti se juge en base, à l'entrée de chaque lecture par filtres (`PgContactStore`). Le
+ * texte d'une étiquette n'est qu'une donnée : une étiquette qui s'appelle comme une clé réservée ne pose aucun critère.
+ */
+function lireEtiquettesShopify(v: unknown, nom: string): EtiquettesShopifyVisees {
+  const refus = (raison: string): never => { throw new FiltreContactInvalide(`filtre « ${nom} » : ${raison}`); };
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return refus('un objet { etiquettes, mode } est attendu');
+  const o = v as Record<string, unknown>;
+  const inconnues = Object.keys(o).filter((k) => k !== 'etiquettes' && k !== 'mode');
+  if (inconnues.length > 0) refus(`clé inconnue (${inconnues.join(', ')}) ; seules etiquettes, mode`);
+  if (!Array.isArray(o.etiquettes) || o.etiquettes.length === 0) refus('au moins une étiquette');
+  const liste = o.etiquettes as unknown[];
+  if (liste.length > BORNES_SEGMENTS.etiquettesShopifyMax) refus(`${BORNES_SEGMENTS.etiquettesShopifyMax} étiquettes au plus`);
+  const vues = new Set<string>();
+  const etiquettes: string[] = [];
+  for (const e of liste) {
+    const texte = typeof e === 'string' ? e.trim() : '';
+    if (texte === '' || Array.from(texte).length > BORNES_SEGMENTS.etiquetteShopifyMax) {
+      refus(`chaque étiquette est un texte de 1 à ${BORNES_SEGMENTS.etiquetteShopifyMax} caractères`);
+    }
+    if (vues.has(texte.toLowerCase())) continue;
+    vues.add(texte.toLowerCase());
+    etiquettes.push(texte);
+  }
+  if (o.mode !== undefined && o.mode !== null && o.mode !== 'toutes' && o.mode !== 'une') refus('« mode » : toutes, ou une');
+  return { etiquettes, mode: o.mode === 'une' ? 'une' : 'toutes' };
 }
 
 /** Un nombre de jours : entier de 1 à `joursMax`. */

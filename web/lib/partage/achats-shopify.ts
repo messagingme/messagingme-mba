@@ -61,6 +61,12 @@ export interface AchatsShopifyVue {
   commandes: CommandeShopifyVue[];
   /** Les paniers de son numéro, les plus récents d'abord ; purgés à 7 jours. */
   paniers: PanierShopifyVue[];
+  /**
+   * Les étiquettes que le marchand a posées sur ce client DANS SHOPIFY (segments Shopify enrichis, lot 6b), à la dernière
+   * synchronisation aboutie (`synchroLe`), jamais les étiquettes Messaging Me de la fiche. ABSENT : aucune synchronisation
+   * n'a abouti, une API plus ancienne, ou une lecture en panne ; l'écran n'en dit alors rien.
+   */
+  etiquettesShopify?: { etiquettes: string[]; synchroLe: string };
 }
 
 /** Les bornes de la lecture, partagées pour que l'écran dise « les 100 plus récentes ». */

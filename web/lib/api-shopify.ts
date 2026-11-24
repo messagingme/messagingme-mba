@@ -3,6 +3,8 @@
 import { request } from './http';
 import { estAutomationShopify, type AutomationShopify } from './partage/shopify-messages';
 import type { ApercuRepriseVue, RepriseShopifyVue } from './partage/reprise-shopify';
+import type { SynchroEtiquettesVue } from './partage/segments';
+import { etiquettesShopifyLuesDe, synchroEtiquettesDe } from './segments';
 
 /**
  * LE CONNECTEUR SHOPIFY : la carte de Tools > Intégrations (plan 2026-10-21, lot 1 ; conception 2026-10-22) et la section
@@ -242,4 +244,35 @@ export async function lancerRattrapageShopify(tenantId: string): Promise<Reprise
 
 export async function lireRattrapageShopify(tenantId: string): Promise<RepriseShopifyVue | null> {
   return (await request<{ reprise: RepriseShopifyVue | null }>(`${base(tenantId)}/commandes/rattrapage`)).reprise ?? null;
+}
+
+/**
+ * LES ÉTIQUETTES DES CLIENTS SHOPIFY (segments Shopify enrichis, lot 6b) : le réglage « Synchroniser les étiquettes »
+ * (allumer lance aussitôt une synchronisation) et le bouton « maintenant ». L'état se relit par
+ * `chercherEtiquettesShopify` (`@/lib/segments`). Une réponse illisible rend une vue `null` : la carte relit l'état.
+ * `lancee` dit si CE geste a lancé une lecture : faux quand une synchronisation tournait déjà, la carte ne dit alors pas
+ * « lancée ».
+ */
+export interface GesteEtiquettesShopify { vue: SynchroEtiquettesVue | null; lancee: boolean }
+
+export function gesteEtiquettesDe(v: unknown): GesteEtiquettesShopify {
+  const synchro = v && typeof v === 'object' && !Array.isArray(v) ? (v as { synchro?: unknown }).synchro : undefined;
+  const lancee = synchro !== null && typeof synchro === 'object' && (synchro as { lancee?: unknown }).lancee === true;
+  return { vue: synchroEtiquettesDe(synchro), lancee };
+}
+
+export async function reglerEtiquettesShopify(tenantId: string, allumee: boolean): Promise<GesteEtiquettesShopify> {
+  return gesteEtiquettesDe(await request<unknown>(`${base(tenantId)}/etiquettes`, { method: 'PUT', body: JSON.stringify({ allumee }) }));
+}
+
+export async function synchroniserEtiquettesShopify(tenantId: string): Promise<GesteEtiquettesShopify> {
+  return gesteEtiquettesDe(await request<unknown>(`${base(tenantId)}/etiquettes/synchro`, { method: 'POST', body: '{}' }));
+}
+
+/**
+ * L'état de la synchronisation, pour la carte : la MÊME route que le volet des filtres, dont l'erreur remonte (une API plus
+ * ancienne rend 404, que la carte reconnaît par `routeInconnue` pour ne rien montrer).
+ */
+export async function lireSynchroEtiquettesShopify(tenantId: string): Promise<SynchroEtiquettesVue | null> {
+  return etiquettesShopifyLuesDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/etiquettes-shopify`))?.synchro ?? null;
 }

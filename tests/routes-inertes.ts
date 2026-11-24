@@ -40,6 +40,7 @@ import type { DepsScenariosApi } from '../src/workflow/scenarios-api';
 import { depsScenarios } from './aide/scenarios-api';
 import type { DepsReprise } from '../src/shopify/reprise';
 import type { DepsCollections } from '../src/shopify/collections';
+import type { DepsEtiquettes } from '../src/shopify/etiquettes';
 
 /**
  * LES DÉPENDANCES DE ROUTES DEVENUES REQUISES, EN VALEURS INERTES NOMMÉES (lot 3 de l'audit ponytail, 2026-09-26).
@@ -1061,6 +1062,36 @@ export const collectionsInertes: DepsCollections = {
   enfiler: neDevraitPasEtreAppelee('shopify.collections.enfiler'),
 };
 
+/**
+ * La synchronisation des étiquettes Shopify (segments Shopify enrichis, lot 6b) : aucune boutique, aucune étiquette, aucune
+ * synchronisation ; rien ne s'enfile, ne s'allume ni ne s'écrit.
+ */
+export const etiquettesInertes: DepsEtiquettes = {
+  magasin: {
+    etat: async () => null,
+    regler: neDevraitPasEtreAppelee('shopify.etiquettes.regler'),
+    demander: neDevraitPasEtreAppelee('shopify.etiquettes.demander'),
+    annulerDemande: neDevraitPasEtreAppelee('shopify.etiquettes.annulerDemande'),
+    dues: async () => [],
+    prendre: neDevraitPasEtreAppelee('shopify.etiquettes.prendre'),
+    relacher: neDevraitPasEtreAppelee('shopify.etiquettes.relacher'),
+    aChercher: neDevraitPasEtreAppelee('shopify.etiquettes.aChercher'),
+    ecrireRecherche: neDevraitPasEtreAppelee('shopify.etiquettes.ecrireRecherche'),
+    clientsALire: neDevraitPasEtreAppelee('shopify.etiquettes.clientsALire'),
+    ecrireClients: neDevraitPasEtreAppelee('shopify.etiquettes.ecrireClients'),
+    finir: neDevraitPasEtreAppelee('shopify.etiquettes.finir'),
+    etiquettes: async () => [],
+  },
+  boutique: async () => null,
+  etatBoutique: async () => null,
+  jeton: neDevraitPasEtreAppelee('shopify.etiquettes.jeton'),
+  droits: neDevraitPasEtreAppelee('shopify.etiquettes.droits'),
+  lireClients: neDevraitPasEtreAppelee('shopify.etiquettes.lireClients'),
+  chercher: neDevraitPasEtreAppelee('shopify.etiquettes.chercher'),
+  offre: async () => 'entreprise',
+  enfiler: neDevraitPasEtreAppelee('shopify.etiquettes.enfiler'),
+};
+
 /** Le connecteur Shopify (2026-10-21) : aucune boutique, et rien ne s'écrit. */
 export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
   shopify: {
@@ -1105,6 +1136,7 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
     },
     reprise: repriseInerte,
     collections: collectionsInertes,
+    etiquettes: etiquettesInertes,
   },
 };
 

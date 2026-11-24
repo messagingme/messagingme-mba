@@ -10,6 +10,7 @@ import { AUTOMATIONS_DISPONIBLES, estAutomationShopify } from '../shopify/donnee
 import { reglerAttestation, reglerLigne, reglerPause } from '../shopify/lignes-gestion';
 import { reglerMessage } from '../shopify/preparation';
 import { apercuReprise, etatReprise, lancerReprise } from '../shopify/reprise';
+import { reglerEtiquettes, synchroniserEtiquettes } from '../shopify/etiquettes';
 
 /**
  * PARAMÈTRES > INTÉGRATIONS > SHOPIFY : la carte de la console (plan 2026-10-21, lot 1 ; conception 2026-10-22). Une
@@ -51,6 +52,9 @@ const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int()
 const corpsAttestation = z.object({ coche: z.boolean(), langue: z.enum(['fr', 'en']).optional() }).strict();
 // Le rattrapage des commandes (lot 5) : aucun réglage, la fenêtre est celle de Shopify (60 jours).
 export const corpsRattrapage = z.object({}).strict();
+// Les étiquettes des clients (segments Shopify enrichis, lot 6b) : le réglage du marchand ; « maintenant » ne prend rien.
+export const corpsEtiquettes = z.object({ allumee: z.boolean() }).strict();
+export const corpsSynchroEtiquettes = z.object({}).strict();
 
 const raisonCorps = (e: z.ZodError): string => {
   const i = e.issues[0];
@@ -183,5 +187,29 @@ export function registerShopify(app: FastifyInstance, deps: ShopifyRouteDeps, ga
   app.get('/tenants/:tenantId/integrations/shopify/commandes/rattrapage', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     return reply.code(200).send({ reprise: await etatReprise(deps.gestion.reprise, tenant) });
+  });
+
+  // LES ÉTIQUETTES DES CLIENTS SHOPIFY (segments Shopify enrichis, lot 6b) : le réglage « Synchroniser les étiquettes »
+  // (allumer lance aussitôt une synchronisation, éteindre arrête la relecture quotidienne) et le bouton « maintenant ». La
+  // synchronisation tourne dans le worker (202 quand elle part) ; l'état et les étiquettes lues se relisent par
+  // `GET .../contacts/segments/etiquettes-shopify`. Les MÊMES fonctions que `sync_shopify_customer_tags`.
+  app.put('/tenants/:tenantId/integrations/shopify/etiquettes', optsLourds, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const corps = corpsEtiquettes.safeParse(req.body ?? {});
+    if (!corps.success) return reply.code(400).send({ error: raisonCorps(corps.error) });
+    const r = await reglerEtiquettes(deps.gestion.etiquettes, tenant, corps.data.allumee);
+    if (!r.ok) return reply.code(r.statut).send({ error: r.message, ...(r.reessayerDansS ? { reessayerDansS: r.reessayerDansS } : {}) });
+    await journal(tenant, req, 'shopify.etiquettes', CIBLE, { allumee: corps.data.allumee });
+    return reply.code(r.valeur.lancee ? 202 : 200).send({ synchro: r.valeur });
+  });
+
+  app.post('/tenants/:tenantId/integrations/shopify/etiquettes/synchro', optsLourds, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const corps = corpsSynchroEtiquettes.safeParse(req.body ?? {});
+    if (!corps.success) return reply.code(400).send({ error: raisonCorps(corps.error) });
+    const r = await synchroniserEtiquettes(deps.gestion.etiquettes, tenant);
+    if (!r.ok) return reply.code(r.statut).send({ error: r.message, ...(r.reessayerDansS ? { reessayerDansS: r.reessayerDansS } : {}) });
+    if (r.valeur.lancee) await journal(tenant, req, 'shopify.etiquettes_synchro', CIBLE);
+    return reply.code(r.valeur.lancee ? 202 : 200).send({ synchro: r.valeur });
   });
 }

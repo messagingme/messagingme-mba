@@ -301,7 +301,7 @@ export class PgShopifyStore {
 
   /**
    * `shop/redact` : le branchement part entier (secret, messages, paniers, événements, commandes, joignabilité, cache des
-   * collections), les fiches restent.
+   * collections, étiquettes Shopify et leurs liens), les fiches restent.
    */
   async effacerBoutique(tenantId: string): Promise<void> {
     await enTransaction(this.pool, (client) => effacerBranchement(client, tenantId));
@@ -727,11 +727,17 @@ export class PgShopifyStore {
     }
   }
 
-  /** Les fiches liées à ces commandes ou à ce client Shopify, dans l'espace. */
+  /**
+   * Les fiches liées à ces commandes ou à ce client Shopify, dans l'espace : par ses commandes, et depuis le lot 6b des
+   * segments Shopify enrichis par le lien que la synchronisation des étiquettes a posé (`shopify_clients`, son téléphone).
+   */
   async contactsLies(tenantId: string, commandeIds: readonly string[], clientId: string | null): Promise<string[]> {
     const res = await this.pool.query<{ contact_id: string }>(
-      `select distinct contact_id from shopify_commandes
-        where tenant_id = $1 and (commande_id = any($2::text[]) or ($3::text is not null and client_id = $3))`,
+      `select contact_id from shopify_commandes
+        where tenant_id = $1 and (commande_id = any($2::text[]) or ($3::text is not null and client_id = $3))
+       union
+       select contact_id from shopify_clients
+        where tenant_id = $1 and $3::text is not null and client_id = $3`,
       [tenantId, commandeIds, clientId],
     );
     return res.rows.map((r) => r.contact_id);
@@ -787,15 +793,20 @@ async function ecrireLignes(q: Pick<PoolClient, 'query'>, tenantId: string, comm
  * perdent leur commande et leur contact, et restent anonymes (spec du 2026-10-28) ; un chiffre déjà lu ne change pas. Les
  * lignes (lot 5) restent, ÉTEINTES : une configuration sans donnée personnelle, dont le scénario (au nom unique dans son
  * rayon) resservira à la reconnexion. Le cache des collections et l'état de leur lecture (segments Shopify enrichis, lot
- * 6a, migration 0314, BLOQUANTE pour cette raison) partent avec la boutique : rebranchée, elle relit ses collections.
+ * 6a, migration 0314, BLOQUANTE pour cette raison) partent avec la boutique : rebranchée, elle relit ses collections. De
+ * même les étiquettes Shopify, leurs liens, leurs marques et l'état de leur synchronisation (lot 6b, migration 0319,
+ * BLOQUANTE) : rebranchée, la boutique est relue quand le marchand rallume la synchronisation.
  */
 async function effacerBranchement(client: PoolClient, tenantId: string): Promise<void> {
   await client.query(`update ventes_attribuees set commande_id = null, contact_id = null where tenant_id = $1`, [tenantId]);
   await client.query(`update shopify_lignes set actif = false, modifie_le = now() where tenant_id = $1 and actif`, [tenantId]);
   // Les produits AVANT leurs collections (la cascade les emporte) : l'ordre des verrous de l'écriture d'une lecture
-  // (`ecrire`, produit puis collections), sans quoi les deux s'interbloqueraient.
+  // (`ecrire`, produit puis collections), sans quoi les deux s'interbloqueraient. Pour la même raison, l'état de la
+  // synchronisation des étiquettes AVANT ses liens, ses marques et ses étiquettes : chaque écriture de la synchronisation
+  // verrouille d'abord sa ligne d'état (`src/shopify/etiquettes.pg.ts`), et ne trouve plus rien à écrire une fois effacée.
   for (const table of [
     'shopify_messages', 'shopify_messages_attente', 'shopify_paniers', 'shopify_evenements', 'shopify_commandes',
+    'shopify_etiquettes_synchro', 'shopify_clients', 'shopify_fiches_cherchees', 'shopify_etiquettes',
     'shopify_produits', 'shopify_produit_collections', 'shopify_collections_lecture', 'shopify_boutiques',
   ]) {
     await client.query(`delete from ${table} where tenant_id = $1`, [tenantId]);

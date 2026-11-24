@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: ae59f8
+source_empreinte: 83a5df
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -169,6 +169,15 @@ Et les collections : ceux qui ont acheté au moins un produit de chacune des col
 Shopify sur vos produits déjà commandés, quand vous ouvrez le volet, et le volet dit « lecture en cours » le temps de
 les lire. Une collection compte telle qu'elle est dans votre boutique à cette lecture, dont le volet donne la date, pas
 telle qu'elle était le jour de la commande : un produit sorti d'une collection n'y compte plus.
+
+Et les étiquettes que vous posez sur vos clients dans Shopify (VIP, grossiste...), dans le bloc « Étiquettes Shopify »,
+à part de vos étiquettes Messaging Me : un même mot des deux côtés fait deux critères. Elles se lisent quand vous
+allumez « Synchroniser les étiquettes » sur la carte Shopify : la première lecture part aussitôt, puis chaque jour, et
+« Synchroniser maintenant » la relance. Un client est relié à la fiche de son propre téléphone chez Shopify, jamais à
+celle du téléphone d'une livraison : un cadeau ne donne pas vos étiquettes à son destinataire. Ciblez-en une ou
+plusieurs (toutes, ou l'une d'elles) ; le bloc dit la date de la dernière lecture. « Copier en étiquette Messaging Me »
+pose maintenant l'étiquette de votre choix sur les fiches qui portent cette étiquette Shopify, une copie qui ne suit
+pas Shopify ensuite. Aucune fiche n'est créée, et ni la lecture ni la copie ne donnent de consentement.
 
 Et deux boutons prêts, sans réglage : « A écrit sans commander » (au moins un message reçu encore connu) et « A cliqué
 sans commander » (au moins un clic sur un lien suivi), pour les contacts sans aucune commande enregistrée. Un clic pose
