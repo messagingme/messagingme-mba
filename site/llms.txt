@@ -193,6 +193,14 @@
 
 - [RCS, SMS or WhatsApp: the comparison (English)](https://app.messagingme.fr/en/rcs-sms-whatsapp-comparison/) : formats, reach, price and consent of the three channels, which channel for which use, and sending on WhatsApp and RCS with fallback.
 
+- [Opt-in WhatsApp](https://app.messagingme.fr/opt-in-whatsapp/) : où recueillir l’accord, comment le formuler, le premier message, la preuve du consentement et le STOP.
+
+- [WhatsApp opt-in (English)](https://app.messagingme.fr/en/whatsapp-opt-in/) : where to collect consent, how to word it, the first message, proof of consent and STOP.
+
+- [Coexistence WhatsApp](https://app.messagingme.fr/coexistence-whatsapp/) : garder l’application WhatsApp Business et brancher l’API sur le même numéro, ce qui change, et quand choisir un numéro dédié.
+
+- [WhatsApp coexistence (English)](https://app.messagingme.fr/en/whatsapp-coexistence/) : keeping the WhatsApp Business app and connecting the API on the same number, what changes, and when to choose a dedicated number.
+
 ## Centre de confiance
 
 - [Centre de confiance](https://app.messagingme.fr/confiance/) : comment Messaging Me protège les conversations WhatsApp : le chemin d’un message, qui fait quoi entre Meta, Messaging Me et le client, les certifications des fournisseurs (ISO 27001, SOC 2 Type II), le chiffrement, les accès, l’exploitation, et les documents sur demande.

@@ -72,10 +72,6 @@
     "en": "A project to scope?"
   },
   {
-    "fr": "Brancher WhatsApp à Salesforce, HubSpot ou votre application, et choisir entre WhatsApp, le RCS et le SMS : les guides de Messaging Me.",
-    "en": "Connect WhatsApp to Salesforce, HubSpot or your app, and choose between WhatsApp, RCS and SMS: Messaging Me guides."
-  },
-  {
     "fr": "RCS, SMS ou WhatsApp : le comparatif · Messaging Me",
     "en": "RCS, SMS or WhatsApp: the comparison · Messaging Me"
   },
@@ -446,5 +442,465 @@
   {
     "fr": "RCS, SMS ou WhatsApp : le comparatif",
     "en": "RCS, SMS or WhatsApp: the comparison"
+  },
+  {
+    "fr": "Recueillir, prouver et respecter le consentement, avec des exemples de premiers messages.",
+    "en": "Collect, prove and respect consent, with first-message examples."
+  },
+  {
+    "fr": "Garder votre application WhatsApp Business et brancher l’API sur le même numéro.",
+    "en": "Keep your WhatsApp Business app and connect the API on the same number."
+  },
+  {
+    "fr": "Brancher WhatsApp à Salesforce, HubSpot ou votre application, et tout comprendre sur WhatsApp, le RCS, le SMS, l’opt-in et la coexistence.",
+    "en": "Connect WhatsApp to Salesforce, HubSpot or your app, and understand WhatsApp, RCS, SMS, opt-in and coexistence."
+  },
+  {
+    "fr": "Opt-in WhatsApp : recueillir et prouver le consentement · Messaging Me",
+    "en": "WhatsApp opt-in: collect and prove consent · Messaging Me"
+  },
+  {
+    "fr": "Opt-in WhatsApp&nbsp;: recueillir, prouver et respecter le consentement.",
+    "en": "WhatsApp opt-in: collect, prove and respect consent."
+  },
+  {
+    "fr": "Où demander l’accord de vos clients, comment le formuler, quoi écrire dans le premier message, et comment le prouver le jour où on vous le demande.",
+    "en": "Where to ask your customers for consent, how to word it, what to write in the first message, and how to prove it the day someone asks."
+  },
+  {
+    "fr": "Qu’est-ce que l’opt-in WhatsApp&nbsp;?",
+    "en": "What is WhatsApp opt-in?"
+  },
+  {
+    "fr": "L’opt-in WhatsApp est l’accord explicite d’une personne pour recevoir les messages de votre entreprise sur WhatsApp. Sans lui, pas de campagne.",
+    "en": "WhatsApp opt-in is a person’s explicit consent to receive your business’s messages on WhatsApp. Without it, no campaign."
+  },
+  {
+    "fr": "C’est une obligation légale, une règle de Meta, et la condition d’un canal qui reste lu&nbsp;: un client qui n’a rien demandé bloque ou signale votre numéro, et Meta en tient compte dans la qualité de ce numéro.",
+    "en": "It’s a legal obligation, a Meta rule, and the condition for a channel that stays read: a customer who asked for nothing blocks or reports your number, and Meta takes it into account in that number’s quality."
+  },
+  {
+    "fr": "Ce que disent la loi et Meta",
+    "en": "What the law and Meta say"
+  },
+  {
+    "fr": "Le RGPD.",
+    "en": "GDPR."
+  },
+  {
+    "fr": "En Europe, le consentement marketing se recueille canal par canal&nbsp;: un accord donné pour l’e-mail ou le SMS ne vaut pas pour WhatsApp. Vous êtes responsable de traitement&nbsp;: c’est à vous de recueillir ce consentement et de pouvoir le prouver.",
+    "en": "In Europe, marketing consent is collected channel by channel: consent given for email or SMS does not cover WhatsApp. You are the data controller: it’s up to you to collect this consent and be able to prove it."
+  },
+  {
+    "fr": "Sa politique de messagerie demande que la personne vous ait donné son numéro et ait accepté d’être contactée par vous sur WhatsApp. La ligne de conduite est donc simple&nbsp;: un accord explicite pour WhatsApp, et sa trace.",
+    "en": "Its messaging policy requires that the person gave you their number and agreed to be contacted by you on WhatsApp. So the rule of thumb is simple: explicit consent for WhatsApp, and a record of it."
+  },
+  {
+    "fr": "Ce guide n’est pas un avis juridique&nbsp;: pour un cas particulier, votre DPO tranche.",
+    "en": "This guide is not legal advice: for a specific case, your DPO decides."
+  },
+  {
+    "fr": "Où recueillir l’opt-in",
+    "en": "Where to collect opt-in"
+  },
+  {
+    "fr": "Sur votre site",
+    "en": "On your website"
+  },
+  {
+    "fr": "&nbsp;: une case dédiée à WhatsApp dans un formulaire, ou la",
+    "en": ": a WhatsApp-specific checkbox in a form, or the"
+  },
+  {
+    "fr": ", où le client vous écrit lui-même.",
+    "en": ", where the customer writes to you first."
+  },
+  {
+    "fr": "Dans votre application ou votre espace client",
+    "en": "In your app or customer account"
+  },
+  {
+    "fr": ", au même titre que les autres préférences de contact.",
+    "en": ", alongside the other contact preferences."
+  },
+  {
+    "fr": "&nbsp;: un message qui propose de passer sur WhatsApp, avec une réponse «&nbsp;OUI&nbsp;».",
+    "en": ": a message offering to switch to WhatsApp, with a “YES” reply."
+  },
+  {
+    "fr": "&nbsp;: un QR code qui ouvre la conversation.",
+    "en": ": a QR code that opens the conversation."
+  },
+  {
+    "fr": "Par une publicité",
+    "en": "Through a"
+  },
+  {
+    "fr": "&nbsp;: la personne qui clique vous écrit en premier.",
+    "en": " ad: the person who clicks writes to you first."
+  },
+  {
+    "fr": "Quand un client vous écrit le premier, vous lui répondez librement pendant 24&nbsp;heures. Pour lui écrire plus tard en marketing, demandez-lui son accord dans la conversation.",
+    "en": "When a customer writes to you first, you can reply freely for 24&nbsp;hours. To send them marketing messages later, ask for their consent in the conversation."
+  },
+  {
+    "fr": "Écrire un opt-in clair",
+    "en": "Writing a clear opt-in"
+  },
+  {
+    "fr": "Un bon opt-in dit trois choses&nbsp;: le canal (WhatsApp), la nature des messages (offres, suivi de commande, rappels), et la façon de se désinscrire. La case n’est jamais précochée.",
+    "en": "A good opt-in says three things: the channel (WhatsApp), the kind of messages (offers, order tracking, reminders), and how to unsubscribe. The box is never pre-ticked."
+  },
+  {
+    "fr": "«&nbsp;J’accepte de recevoir les offres et actualités de [Marque] sur WhatsApp. Je peux me désinscrire à tout moment en répondant STOP.&nbsp;»",
+    "en": "“I agree to receive offers and news from [Brand] on WhatsApp. I can unsubscribe at any time by replying STOP.”"
+  },
+  {
+    "fr": "Le premier message&nbsp;: rappeler l’accord",
+    "en": "The first message: remind people of their consent"
+  },
+  {
+    "fr": "Le premier message rappelle pourquoi la personne le reçoit et lui offre une sortie simple. Comme vous écrivez en premier, c’est un modèle approuvé par Meta.",
+    "en": "The first message reminds the person why they receive it and gives them an easy way out. Since you write first, it’s a Meta-approved template."
+  },
+  {
+    "fr": "«&nbsp;Bonjour Camille, vous avez accepté de recevoir nos offres sur WhatsApp lors de votre commande. Pour ne plus les recevoir, répondez STOP.&nbsp;»",
+    "en": "“Hello Camille, you agreed to receive our offers on WhatsApp when you placed your order. To stop receiving them, reply STOP.”"
+  },
+  {
+    "fr": "«&nbsp;Vous recevez nos offres par SMS. Souhaitez-vous les recevoir sur WhatsApp&nbsp;? Répondez OUI pour confirmer.&nbsp;»",
+    "en": "“You receive our offers by SMS. Would you like to receive them on WhatsApp? Reply YES to confirm.”"
+  },
+  {
+    "fr": "Si un client refuse WhatsApp, gardez ses préférences pour les autres canaux, sauf s’il demande à ne plus être contacté du tout.",
+    "en": "If a customer declines WhatsApp, keep their preferences for the other channels, unless they ask not to be contacted at all."
+  },
+  {
+    "fr": "Prouver le consentement et respecter le STOP",
+    "en": "Prove consent and respect STOP"
+  },
+  {
+    "fr": "Gardez pour chaque contact la date, la source (formulaire, magasin, conversation) et le texte accepté. Dans Messaging&nbsp;Me, chaque fiche porte son consentement marketing et la source de ce consentement.",
+    "en": "Keep for each contact the date, the source (form, store, conversation) and the accepted text. In Messaging&nbsp;Me, each contact record carries its marketing consent and the source of that consent."
+  },
+  {
+    "fr": "Un contact qui répond STOP n’est plus contacté&nbsp;: la vérification a lieu avant chaque envoi, qu’il parte d’une campagne, d’un scénario, de l’agent IA ou de votre équipe. Les désinscriptions sont gardées trois ans, pour ne plus jamais écrire à qui a dit stop.",
+    "en": "A contact who replies STOP is no longer contacted: the check runs before every send, whether it comes from a campaign, a scenario, the AI agent or your team. Unsubscribes are kept for three years, so you never write again to someone who said stop."
+  },
+  {
+    "fr": "Les erreurs qui coûtent cher",
+    "en": "Costly mistakes"
+  },
+  {
+    "fr": "Importer une base SMS ou e-mail et lancer une campagne WhatsApp sans accord pour WhatsApp.",
+    "en": "Importing an SMS or email list and launching a WhatsApp campaign without consent for WhatsApp."
+  },
+  {
+    "fr": "Déclarer tout un fichier consentant «&nbsp;par défaut&nbsp;»&nbsp;: dans Messaging&nbsp;Me, la case opt-in d’un import réabonne aussi les personnes qui avaient répondu STOP.",
+    "en": "Marking a whole file as consenting “by default”: in Messaging&nbsp;Me, the opt-in box of an import also resubscribes people who had replied STOP."
+  },
+  {
+    "fr": "Importer ses contacts, pas à pas",
+    "en": "Import your contacts, step by step"
+  },
+  {
+    "fr": "Un premier message promotionnel sans rappel de l’accord ni désinscription.",
+    "en": "A promotional first message with no reminder of consent and no opt-out."
+  },
+  {
+    "fr": "Classer un message promotionnel en utility&nbsp;: Meta le reclasse en marketing.",
+    "en": "Classifying a promotional message as utility: Meta reclassifies it as marketing."
+  },
+  {
+    "fr": "Le consentement est porté par chaque fiche, et une campagne marketing ne cible que les contacts qui l’ont donné.",
+    "en": "Consent is carried by each contact record, and a marketing campaign only targets the contacts who gave it."
+  },
+  {
+    "fr": "Le STOP est vérifié avant chaque envoi, et HubSpot l’apprend de lui-même quand il est branché.",
+    "en": "STOP is checked before every send, and HubSpot learns it on its own when it’s connected."
+  },
+  {
+    "fr": "Vos données sont hébergées dans l’Union européenne, et Messaging&nbsp;Me est votre sous-traitant (article&nbsp;28 du RGPD).",
+    "en": "Your data is hosted in the European Union, and Messaging&nbsp;Me is your processor (GDPR article&nbsp;28)."
+  },
+  {
+    "fr": "Un opt-in SMS suffit-il pour envoyer des messages WhatsApp ?",
+    "en": "Is an SMS opt-in enough to send WhatsApp messages?"
+  },
+  {
+    "fr": "Non. Le consentement marketing se recueille canal par canal. Recueillez un accord pour WhatsApp, et rappelez-le dans votre premier message.",
+    "en": "No. Marketing consent is collected channel by channel. Collect consent for WhatsApp, and remind people of it in your first message."
+  },
+  {
+    "fr": "Peut-on répondre à un client qui nous écrit sans opt-in ?",
+    "en": "Can you reply to a customer who writes to you without opt-in?"
+  },
+  {
+    "fr": "Oui. Quand un client vous écrit, vous lui répondez librement pendant 24 heures. Pour lui envoyer plus tard des messages marketing, demandez son accord.",
+    "en": "Yes. When a customer writes to you, you can reply freely for 24 hours. To send them marketing messages later, ask for their consent."
+  },
+  {
+    "fr": "Comment prouver le consentement WhatsApp ?",
+    "en": "How do you prove WhatsApp consent?"
+  },
+  {
+    "fr": "Gardez la date, la source et le texte accepté pour chaque contact. Dans Messaging Me, le consentement et sa source vivent sur la fiche du contact.",
+    "en": "Keep the date, the source and the accepted text for each contact. In Messaging Me, consent and its source live on the contact record."
+  },
+  {
+    "fr": "Il n’est plus contacté. Messaging Me vérifie la désinscription avant chaque envoi et la garde trois ans.",
+    "en": "They are no longer contacted. Messaging Me checks the unsubscribe before every send and keeps it for three years."
+  },
+  {
+    "fr": "Le RGPD",
+    "en": "GDPR"
+  },
+  {
+    "fr": "Où recueillir l’opt-in WhatsApp, comment le formuler, quoi écrire dans le premier message, et comment prouver le consentement et respecter le STOP.",
+    "en": "Where to collect WhatsApp opt-in, how to word it, what to write in the first message, and how to prove consent and respect STOP."
+  },
+  {
+    "fr": "Coexistence WhatsApp : garder l’application et l’API · Messaging Me",
+    "en": "WhatsApp coexistence: keep the app and the API · Messaging Me"
+  },
+  {
+    "fr": "Coexistence WhatsApp&nbsp;: gardez votre application Business et branchez l’API.",
+    "en": "WhatsApp coexistence: keep your Business app and connect the API."
+  },
+  {
+    "fr": "Le même numéro dans l’application WhatsApp Business de votre téléphone et dans l’API officielle&nbsp;: ce que vous y gagnez, ce qui change, et quand choisir plutôt un numéro dédié.",
+    "en": "The same number in the WhatsApp Business app on your phone and in the official API: what you gain, what changes, and when to choose a dedicated number instead."
+  },
+  {
+    "fr": "La coexistence, en une phrase",
+    "en": "Coexistence in one sentence"
+  },
+  {
+    "fr": "La coexistence est le mode de Meta qui permet d’utiliser le même numéro dans l’application WhatsApp Business et dans l’API officielle de WhatsApp. Vous continuez à répondre depuis l’application, et Messaging&nbsp;Me envoie les messages de votre site, de votre logiciel ou de votre boutique.",
+    "en": "Coexistence is Meta’s mode that lets you use the same number in the WhatsApp Business app and in the official WhatsApp API. You keep replying from the app, and Messaging&nbsp;Me sends the messages from your website, your software or your store."
+  },
+  {
+    "fr": "Vous gardez le numéro que vos clients connaissent déjà.",
+    "en": "You keep the number your customers already know."
+  },
+  {
+    "fr": "Les messages que vous tapez dans l’application restent gratuits.",
+    "en": "Messages you type in the app stay free."
+  },
+  {
+    "fr": "Vous ajoutez ce que l’application ne sait pas faire&nbsp;: campagnes, scénarios, bulle WhatsApp sur votre site, agent IA, branchement à votre CRM et à votre boutique.",
+    "en": "You add what the app can’t do: campaigns, scenarios, a WhatsApp bubble on your website, an AI agent, a connection to your CRM and your store."
+  },
+  {
+    "fr": "Ce qui change dans l’application",
+    "en": "What changes in the app"
+  },
+  {
+    "fr": "Elle perd ses listes de diffusion, son catalogue, son message d’absence et ses étiquettes, et ses appareils liés sont déliés.",
+    "en": "It loses its broadcast lists, its catalog, its away message and its labels, and its linked devices are unlinked."
+  },
+  {
+    "fr": "Ouvrez-la au moins toutes les deux semaines.",
+    "en": "Open it at least every two weeks."
+  },
+  {
+    "fr": "Ce que vous tapez dans l’application n’apparaît pas encore dans Messaging&nbsp;Me&nbsp;: si un agent IA répond à vos clients, il ne voit pas vos réponses et peut répondre en même temps que vous.",
+    "en": "What you type in the app doesn’t show in Messaging&nbsp;Me yet: if an AI agent answers your customers, it doesn’t see your replies and may answer at the same time as you."
+  },
+  {
+    "fr": "Vos contacts et vos anciennes conversations restent dans l’application&nbsp;: Messaging&nbsp;Me ne les reprend pas.",
+    "en": "Your contacts and past conversations stay in the app: Messaging&nbsp;Me doesn’t import them."
+  },
+  {
+    "fr": "Le nom et la photo du numéro se règlent dans l’application, sur votre téléphone.",
+    "en": "The number’s name and photo are set in the app, on your phone."
+  },
+  {
+    "fr": "Les messages que vous tapez dans l’application restent gratuits. Ceux qui partent de Messaging&nbsp;Me sont facturés par Meta, selon sa grille, sur la carte de votre compte Meta Business&nbsp;: avec l’application, la ligne de crédit de Messaging&nbsp;Me n’est pas possible.",
+    "en": "Messages you type in the app stay free. Those sent from Messaging&nbsp;Me are billed by Meta, according to its rate card, to the card on your Meta Business account: with the app, the Messaging&nbsp;Me credit line isn’t available."
+  },
+  {
+    "fr": "Coexistence ou numéro dédié à l’API&nbsp;: que choisir&nbsp;?",
+    "en": "Coexistence or a number dedicated to the API: which one?"
+  },
+  {
+    "fr": "Coexistence (application et API)",
+    "en": "Coexistence (app and API)"
+  },
+  {
+    "fr": "Numéro relié directement à l’API",
+    "en": "Number connected directly to the API"
+  },
+  {
+    "fr": "Le numéro",
+    "en": "The number"
+  },
+  {
+    "fr": "Votre numéro actuel, gardé dans l’application",
+    "en": "Your current number, kept in the app"
+  },
+  {
+    "fr": "Un numéro libre, ou fourni par Messaging&nbsp;Me",
+    "en": "A free number, or one provided by Messaging&nbsp;Me"
+  },
+  {
+    "fr": "Répondre depuis le téléphone",
+    "en": "Replying from the phone"
+  },
+  {
+    "fr": "Payer les messages chez Meta",
+    "en": "Paying Meta for messages"
+  },
+  {
+    "fr": "Par carte, ou avec la ligne de crédit (formule Pro ou Business)",
+    "en": "By card, or with the credit line (Pro or Business plan)"
+  },
+  {
+    "fr": "Les fonctions de l’application",
+    "en": "The app’s features"
+  },
+  {
+    "fr": "Listes de diffusion, catalogue, absence et étiquettes perdus",
+    "en": "Broadcast lists, catalog, away message and labels lost"
+  },
+  {
+    "fr": "Sans objet",
+    "en": "Not applicable"
+  },
+  {
+    "fr": "Idéal pour",
+    "en": "Best for"
+  },
+  {
+    "fr": "Une petite équipe qui répond déjà depuis l’application",
+    "en": "A small team already replying from the app"
+  },
+  {
+    "fr": "Une équipe qui travaille dans une Inbox partagée",
+    "en": "A team working in a shared Inbox"
+  },
+  {
+    "fr": "Pas encore de numéro&nbsp;? Installez-en un à vous dans l’application WhatsApp Business, tout de suite&nbsp;: un numéro neuf se garde aussi. Ou",
+    "en": "No number yet? Install one of your own in the WhatsApp Business app, right away: a new number can be kept too. Or"
+  },
+  {
+    "fr": "prenez un numéro fourni par Messaging&nbsp;Me",
+    "en": "take a number provided by Messaging&nbsp;Me"
+  },
+  {
+    "fr": "La mise en place",
+    "en": "Setup"
+  },
+  {
+    "fr": "Il vous faut le numéro actif dans l’application WhatsApp Business, votre profil Facebook et le téléphone à portée de main. Le compte Meta Business se crée en chemin s’il manque. La fenêtre de Meta vous guide ensuite, et vous reliez l’application en scannant un code QR.",
+    "en": "You need the number active in the WhatsApp Business app, your Facebook profile and your phone at hand. The Meta Business account is created along the way if it’s missing. Meta’s window then guides you, and you link the app by scanning a QR code."
+  },
+  {
+    "fr": "Garder mon application, pas à pas",
+    "en": "Keep my app, step by step"
+  },
+  {
+    "fr": "Qu’est-ce que la coexistence WhatsApp ?",
+    "en": "What is WhatsApp coexistence?"
+  },
+  {
+    "fr": "C’est le mode de Meta qui permet d’utiliser le même numéro dans l’application WhatsApp Business et dans l’API officielle de WhatsApp.",
+    "en": "It’s Meta’s mode that lets you use the same number in the WhatsApp Business app and in the official WhatsApp API."
+  },
+  {
+    "fr": "Les messages envoyés depuis l’application restent-ils gratuits ?",
+    "en": "Do messages sent from the app stay free?"
+  },
+  {
+    "fr": "Oui. Les messages tapés dans l’application restent gratuits ; ceux qui partent de Messaging Me sont facturés par Meta, selon sa grille.",
+    "en": "Yes. Messages typed in the app stay free; those sent from Messaging Me are billed by Meta, according to its rate card."
+  },
+  {
+    "fr": "Ses listes de diffusion, son catalogue, son message d’absence et ses étiquettes, et ses appareils liés sont déliés.",
+    "en": "Its broadcast lists, its catalog, its away message and its labels, and its linked devices are unlinked."
+  },
+  {
+    "fr": "Mes anciennes conversations sont-elles reprises ?",
+    "en": "Are my past conversations imported?"
+  },
+  {
+    "fr": "Non. Vos contacts et vos anciennes conversations restent dans l’application : Messaging Me ne les reprend pas.",
+    "en": "No. Your contacts and past conversations stay in the app: Messaging Me doesn’t import them."
+  },
+  {
+    "fr": "Puis-je payer Meta avec la ligne de crédit en coexistence ?",
+    "en": "Can I pay Meta with the credit line with coexistence?"
+  },
+  {
+    "fr": "Non. Avec l’application WhatsApp Business, les messages se paient toujours par carte, sur votre compte Meta Business.",
+    "en": "No. With the WhatsApp Business app, messages are always paid by card, on your Meta Business account."
+  },
+  {
+    "fr": "Faut-il attendre avant de relier un numéro neuf ?",
+    "en": "Do you have to wait before connecting a new number?"
+  },
+  {
+    "fr": "Non. Un numéro neuf installé dans l’application WhatsApp Business se relie tout de suite, comme un numéro plus ancien.",
+    "en": "No. A new number installed in the WhatsApp Business app connects right away, just like an older number."
+  },
+  {
+    "fr": "Garder votre application WhatsApp Business et brancher l’API sur le même numéro : ce que vous y gagnez, ce qui change, et quand choisir un numéro dédié.",
+    "en": "Keep your WhatsApp Business app and connect the API on the same number: what you gain, what changes, and when to choose a dedicated number."
+  },
+  {
+    "fr": "Opt-in WhatsApp",
+    "en": "WhatsApp opt-in"
+  },
+  {
+    "fr": "Coexistence WhatsApp",
+    "en": "WhatsApp coexistence"
+  },
+  {
+    "fr": "bulle WhatsApp",
+    "en": "WhatsApp bubble"
+  },
+  {
+    "fr": "Par SMS ou par e-mail",
+    "en": "By SMS or email"
+  },
+  {
+    "fr": "En magasin ou au guichet",
+    "en": "In store or at the counter"
+  },
+  {
+    "fr": "Ce que fait Messaging&nbsp;Me",
+    "en": "What Messaging&nbsp;Me does"
+  },
+  {
+    "fr": "Importer mes contacts",
+    "en": "Import my contacts"
+  },
+  {
+    "fr": "RCS, SMS ou WhatsApp",
+    "en": "RCS, SMS or WhatsApp"
+  },
+  {
+    "fr": "Pourquoi garder l’application",
+    "en": "Why keep the app"
+  },
+  {
+    "fr": "Ce que Meta facture",
+    "en": "What Meta bills"
+  },
+  {
+    "fr": "Oui, gratuitement",
+    "en": "Yes, for free"
+  },
+  {
+    "fr": "Non&nbsp;: depuis l’Inbox de Messaging&nbsp;Me",
+    "en": "No: from the Messaging&nbsp;Me Inbox"
+  },
+  {
+    "fr": "Par carte uniquement",
+    "en": "By card only"
+  },
+  {
+    "fr": "Que perd l’application WhatsApp Business en coexistence ?",
+    "en": "What does the WhatsApp Business app lose with coexistence?"
   }
 ]

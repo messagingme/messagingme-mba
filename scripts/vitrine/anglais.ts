@@ -67,6 +67,8 @@ export const JUMELLES: Readonly<Record<string, string>> = {
   // Les guides (2026-11-24, plan docs/superpowers/plans/2026-11-24-guides-vitrine.md) : le hub et ses articles.
   '/guides/': '/en/guides/',
   '/comparatif-rcs-sms-whatsapp/': '/en/rcs-sms-whatsapp-comparison/',
+  '/opt-in-whatsapp/': '/en/whatsapp-opt-in/',
+  '/coexistence-whatsapp/': '/en/whatsapp-coexistence/',
   // Le centre d'aide : ses deux langues viennent des fiches et de leur version anglaise (npm run vitrine:aide).
   ...jumellesAide(),
 };
