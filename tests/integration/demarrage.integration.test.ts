@@ -54,7 +54,8 @@ describe.skipIf(!url)('« Bien démarrer », en base', () => {
     [tenant, `itest-${randomUUID().slice(0, 8)}`, status],
   );
   const bulle = (tenant: string, actif: boolean) => pool.query(
-    `insert into widgets (tenant_id, code, nom, phrase, actif) values ($1, gen_random_uuid()::text, 'itest', 'itest', $2)`,
+    // La phrase est unique par espace (`widgets_phrase_key`) : une par bulle.
+    `insert into widgets (tenant_id, code, nom, phrase, actif) values ($1, gen_random_uuid()::text, 'itest', gen_random_uuid()::text, $2)`,
     [tenant, actif],
   );
 
