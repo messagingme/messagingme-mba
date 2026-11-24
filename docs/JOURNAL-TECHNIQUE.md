@@ -5,6 +5,16 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : le déploiement charge lui-même les fiches d'aide
+
+Julien ne lance plus `aide:charger` après un déploiement : le workflow `deploy-scaleway.yml` le fait, juste après
+l'API et la migration d'après, avec l'image déployée. Le chargeur est idempotent par la clé et ne vectorise rien :
+sans fiche changée, rien ne bouge. Sa sortie reste sur la machine (`/root/aide-<sha>.log`), seul le compte remonte
+dans le journal public, comme pour `migrate` ; un échec est un avertissement, il ne rend pas rouge un déploiement
+déjà en service. Le même jour, deux règles d'autorisation de Julien laissent Claude lancer lui-même le déploiement
+et la publication du plugin ; l'approbation de l'environnement `scaleway`, dans GitHub, reste son clic. Tenu par
+`tests/deploy-scaleway.test.ts`, vérifié dans les deux sens (le repli en avertissement retiré, le test est rouge).
+
 ## 2026-11-24 : guide de démarrage, lot 4 : les parcours Shopify, campagne et scénario
 
 Trois parcours de plus pour la carte qui accompagne, lancés depuis « Bien démarrer » : Shopify (ouvrir le volet, créer

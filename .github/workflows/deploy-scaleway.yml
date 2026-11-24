@@ -328,6 +328,16 @@ jobs:
         if: env.MIGRATION == 'apres'
         run: |
           ssh workers "umask 077; docker run --rm --env-file /opt/messagingme/.env.prod '$REGISTRE/$IMAGE:$SHA' npm run migrate > /root/migrate-$SHA.log 2>&1; c=\$?; grep -oE '^-> [^ ]+( \(hors transaction\))? \.\.\. (ok|ECHEC)?|^[0-9]+ migration\(s\) appliquée\(s\)$|^à jour, rien à appliquer$|^ +(code|table|constraint|schema|column): .*' /root/migrate-$SHA.log; [ \$c -eq 0 ] || echo \"migration en echec (code \$c) : journal complet sur la machine, /root/migrate-$SHA.log\"; exit \$c"
+      # LES FICHES D'AIDE DE CETTE VERSION (2026-11-24, Julien : plus aucune commande a lancer apres un deploiement).
+      # Apres l'API et la migration d'apres. Le chargeur est idempotent par la cle et ne vectorise rien (le balayage s'en
+      # charge) : sans fiche changee, rien ne bouge. Sa sortie reste sur la machine, comme celle de `migrate` : seul le
+      # compte remonte. Un echec ne fait pas echouer un deploiement deja en service : il se dit en avertissement. ⚠️ Il
+      # charge les fiches de CETTE image : deployer un commit plus ancien que celui dont un pair a charge les fiches (par
+      # montage de `docs/aide`, DEPLOY.md) les ramene a la version de l'image.
+      - name: Charger les fiches d'aide de cette version
+        run: |
+          ssh workers "umask 077; docker run --rm --env-file /opt/messagingme/.env.prod '$REGISTRE/$IMAGE:$SHA' npm run aide:charger > /root/aide-$SHA.log 2>&1; c=\$?; grep -E '^fiches d.aide : ' /root/aide-$SHA.log; exit \$c" \
+            || echo "::warning::le chargement des fiches d'aide a echoue : deploiement bon, aide:charger a relancer (journal sur la machine, /root/aide-$SHA.log)"
       # 🔴 LA MACHINE PURGE SES IMAGES, SUR UN DEPLOIEMENT REUSSI SEULEMENT (2026-11-06 : 56 images jamais purgees ont
       # rempli son disque, et le `pull` du connecteur HubSpot a echoue ; le filtre `until=168h` d'avant gardait toute
       # image CONSTRUITE dans la semaine). Apres les workers ET l'API : tant que le nouveau n'est pas prouve, l'image

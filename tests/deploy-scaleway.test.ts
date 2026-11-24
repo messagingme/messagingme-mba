@@ -158,6 +158,23 @@ describe('le workflow de déploiement Scaleway', () => {
       .toBeLessThan(WORKFLOW.indexOf('- name: L\'API passe sur la nouvelle image'));
   });
 
+  it('🔴 les fiches d’aide de la version déployée se chargent seules, sortie sur la machine, sans jamais faire échouer le déploiement', () => {
+    // 2026-11-24 : Julien ne lance plus `aide:charger` après un déploiement. Le journal du workflow est public : seul le
+    // compte en remonte, comme pour `migrate`. Le code est déjà en service à cette étape : un échec se dit en
+    // avertissement, il ne rend pas rouge un déploiement réussi.
+    const aide = etape('Charger les fiches d\'aide de cette version');
+    expect(aide).toMatch(/umask 077; docker run --rm --env-file \/opt\/messagingme\/\.env\.prod '\$REGISTRE\/\$IMAGE:\$SHA' npm run aide:charger > \/root\/aide-\$SHA\.log 2>&1;/);
+    expect(aide).toMatch(/grep -E '\^fiches d\.aide : ' \/root\/aide-\$SHA\.log; exit \\\$c" \\\n +\|\| echo "::warning::/);
+    expect(aide).not.toMatch(/^ {8}(if|continue-on-error):/m);
+    const appels = WORKFLOW.split('\n').filter((l) => !/^\s*#/.test(l) && l.includes('npm run aide:charger'));
+    expect(appels.length, 'un seul chargement, celui de cette étape').toBe(1);
+    // Après l'API et la migration d'après (une migration peut toucher la table des fiches), avant la purge.
+    const position = WORKFLOW.indexOf('- name: Charger les fiches d\'aide de cette version');
+    expect(position).toBeGreaterThan(WORKFLOW.indexOf('- name: L\'API passe sur la nouvelle image'));
+    expect(position).toBeGreaterThan(WORKFLOW.indexOf('- name: Migration apres le deploiement'));
+    expect(position).toBeLessThan(WORKFLOW.indexOf('- name: Purger les images que plus aucun conteneur n\'utilise'));
+  });
+
   it('⚠️ la machine purge ses images à la fin d’un déploiement RÉUSSI seulement, sans jamais le faire échouer', () => {
     // 2026-11-06 : 56 images jamais purgées ont rempli le disque de `mm-workers`, partagé avec le connecteur HubSpot.
     // L'ancien `until=168h` gardait toute image construite dans la semaine, et tournait avant l'API.

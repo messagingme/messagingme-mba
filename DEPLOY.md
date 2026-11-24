@@ -4,7 +4,8 @@
 serverless `mba-api` derrière Cloudflare (`api.messagingme.app` en CNAME vers lui, la règle « Jeton d'origine api »
 pose son jeton d'accès), les workers et `mba-application` sur la machine `mm-workers`, la base `mm-prod-db` (base
 `rdb`, adresse privée seule). On déploie par le workflow (section « Scaleway », plus bas), et les gestes d'après sont
-les mêmes qu'avant (la fumée, les fiches OAuth, `aide:charger` sur la machine).
+la fumée et les fiches OAuth ; depuis le 2026-11-24, le workflow charge lui-même les fiches d'aide de la version
+déployée (étape « Charger les fiches d'aide de cette version »).
 - **Lire la production** : jamais d'un poste, dont le `DATABASE_URL` est l'ANCIENNE base (Supabase). Par la machine,
   avec l'image en service : `ssh -J bastion@<ip de la passerelle>:61000 root@<ip privée> "docker run --rm --env-file
   /opt/messagingme/.env.prod rg.nl-ams.scw.cloud/messagingme/mba:<sha> npm run migrations"`. Les journaux des workers
@@ -778,8 +779,10 @@ run `waiting` se règle d'abord, et Julien reçoit les deux liens.
 **Après un déploiement, les gestes qui restent à la main** (les mêmes qu'au temps du VPS) :
 - le contrôle de fumée public, `node scripts/fumee.mjs`, depuis le poste ;
 - `npm run oauth:fiches`, depuis le poste ;
-- si un fichier de `docs/aide/fiches/` a bougé, `aide:charger` sur la machine, avec l'image déployée, étiquetée au
-  SHA COMPLET du commit :
+- les fiches d'aide : le workflow les charge lui-même depuis le 2026-11-24 (étape « Charger les fiches d'aide de
+  cette version », après l'API ; un échec y est un avertissement, journal sur la machine dans `/root/aide-<sha>.log`).
+  À la main, seulement pour relancer après cet avertissement, avec l'image déployée, étiquetée au SHA COMPLET du
+  commit :
   `ssh -J bastion@<ip de la passerelle>:61000 root@<ip privée> "docker run --rm --env-file /opt/messagingme/.env.prod rg.nl-ams.scw.cloud/messagingme/mba:<sha complet> npm run aide:charger"`.
   Sa relecture en lecture seule passe par un script envoyé sur la machine et monté dans le conteneur
   (`-v /root/<script>:/app/<script>:ro`, puis `npx tsx <script>`) : l'utilisateur du conteneur n'est pas root, et un
