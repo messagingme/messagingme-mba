@@ -18,6 +18,16 @@
 | CI | lue job par job sur `gh run view <id> --json jobs`, jamais sur le code de sortie du watch ; un rouge `toomanyrequests` (Docker Hub) n'a rien vérifié ; un rouge `unauthorized` sur la connexion à Docker Hub = jeton expiré ou révoqué, ou secret absent (CLAUDE.md) |
 | Le récit | les lots déployés sont sortis de ce fichier le 2026-10-10, texte d'origine, vers [docs/JOURNAL-TECHNIQUE.md](docs/JOURNAL-TECHNIQUE.md) ; les essais dus vivent dans `docs/prive/ESSAIS-REELS.md`, les restes dans [todo.md](todo.md) |
 
+## LE CSM VIRTUEL, LOT 1 « TOUT EN OUTILS » (EN COURS)
+
+Le plan du lot vit sur claude.ai (« Lot 1 : tout en outils », https://claude.ai/artifact/LfwZTpZXFZ6sNALo6jsGAw) ; les
+plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien du 2026-11-24).
+- B1, parité des adresses : `tests/parite-adresses.test.ts` et sa table `tests/parite/adresses.ts`, qui EST la liste
+  de travail du lot (ses `aFaire` et ses `reste`). Plan : `2026-11-24-csm-lot1-b1-parite.md`.
+- Ensuite : B1, parité des champs ; puis B0 (contrats partagés), après les arbitrages de Julien sur les formats.
+- À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
+  ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
+
 ## LE CENTRE D'AIDE (EN COURS)
 
 Le plan : [docs/superpowers/plans/2026-10-20-centre-d-aide.md](docs/superpowers/plans/2026-10-20-centre-d-aide.md) ; ce
