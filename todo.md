@@ -53,8 +53,6 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 
 - L'essai réel qui clôt la feature : un compte neuf sur la SANDBOX regarde le film, suit la checklist et les parcours
   (agent IA d'abord) dans la console de production.
-- `aide:charger` en production pour les fiches « Bien démarrer » (neuve) et « Me repérer dans la console » (renvoi),
-  si aucun déploiement d'API ne les emporte d'ici là (le workflow les charge désormais lui-même).
 - 🟡 La carte « Bien démarrer » de l'Accueil ne se relit qu'au montage et au retour sur l'onglet : une étape faite sans
   quitter la page ne se coche qu'au rechargement.
 - 🟡 Sans numéro, l'Accueil montre deux invitations qui se recouvrent : la carte « Bien démarrer » (prochaine étape :
