@@ -550,11 +550,10 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     await a.close();
   });
 
-  it('refuse sans note, un identifiant qui n’est pas de Meta, un champ de trop, un espace mal formé', async () => {
+  it('refuse un identifiant qui n’est pas de Meta, un champ de trop, un espace mal formé (la note est facultative)', async () => {
     let lu = false;
     const a = app({}, true, { numeroDeLEspace: async () => { lu = true; return NUMERO; } });
     for (const payload of [
-      corpsLigne(true, '  '),
       { ...corpsLigne(), phoneNumberId: '+33612345678' },
       { ...corpsLigne(), poser: 'oui' },
       { ...corpsLigne(), origine: 'option' },

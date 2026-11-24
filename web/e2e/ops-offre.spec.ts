@@ -61,9 +61,8 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     await expect(modale.getByTestId('offre-actuelle')).toContainText(/10 utilisateurs au plus|10 users at most/);
   });
 
-  test('🔴 les contacts et la commission du devis (spec offres v2) ne partent que si on coche « Régler »', async ({ page }) => {
+  test('🔴 les contacts et la commission du devis (spec offres v2) s’affichent d’office et ne partent que s’ils changent', async ({ page }) => {
     const { modale, ecrits } = await ouvrir(page, { entreprise: true, utilisateurs: 10, conservationJours: null, contacts: null, commissionPct: null });
-    await modale.getByTestId('offre-changer-devis').check();
     await modale.getByTestId('offre-commission').fill('7.5');
     // Une commission décimale rendrait la vue illisible : rien ne part.
     await modale.getByTestId('offre-note').fill('Devis signé');
@@ -79,7 +78,6 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     const { modale, ecrits } = await ouvrir(page, {
       entreprise: true, utilisateurs: 10, conservationJours: null, contacts: null, commissionPct: null, commissionMessagesPct: null,
     });
-    await modale.getByTestId('offre-changer-devis').check();
     // Toute Entreprise est illimitée (décision du 2026-11-02) : plus rien à cocher.
     await expect(modale.getByTestId('offre-open-bar')).toHaveCount(0);
     await modale.getByTestId('offre-commission-messages').fill('2.5');
@@ -89,7 +87,7 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     await modale.getByTestId('offre-enregistrer').click();
     await expect(modale.getByTestId('offre-message')).toBeVisible();
     expect(ecrits).toEqual([{
-      entreprise: true, utilisateurs: 10, contacts: null, commissionPct: null, commissionMessagesPct: 3,
+      entreprise: true, utilisateurs: 10, commissionMessagesPct: 3,
       note: 'Devis signé, messages facturés après',
     }]);
   });
@@ -98,7 +96,6 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     const { modale, ecrits } = await ouvrir(page, {
       entreprise: true, utilisateurs: 10, conservationJours: null, contacts: null, commissionPct: null, plafondIaMoisEuros: 150,
     });
-    await modale.getByTestId('offre-changer-devis').check();
     await expect(modale.getByTestId('offre-plafond-ia')).toHaveValue('150');
     await modale.getByTestId('offre-note').fill('Client prévenu, plafond relevé');
     await modale.getByTestId('offre-plafond-ia').fill('0');
@@ -107,24 +104,22 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     await modale.getByTestId('offre-enregistrer').click();
     await expect(modale.getByTestId('offre-message')).toBeVisible();
     expect(ecrits).toEqual([{
-      entreprise: true, utilisateurs: 10, contacts: null, commissionPct: null, plafondIaMoisEuros: 400,
+      entreprise: true, utilisateurs: 10, plafondIaMoisEuros: 400,
       note: 'Client prévenu, plafond relevé',
     }]);
   });
 
-  // Inchangé, il ne part pas : le cas de la commission des messages, plus haut, coche « Régler » sans y toucher.
-  test('vidé, le plafond de l’IA revient au défaut de l’instance (`null` part)', async ({ page }) => {
+  // Inchangé, il ne part pas : le cas de la commission des messages, plus haut. Et un réglage de l'offre en place n'exige
+  // pas de note (Julien, 2026-11-24) : seule la pose ou le retrait d'une offre la demande.
+  test('vidé, le plafond de l’IA revient au défaut de l’instance (`null` part), sans note', async ({ page }) => {
     const { modale, ecrits } = await ouvrir(page, {
       entreprise: true, utilisateurs: 10, conservationJours: null, contacts: null, commissionPct: null, plafondIaMoisEuros: 150,
     });
-    await modale.getByTestId('offre-changer-devis').check();
     await modale.getByTestId('offre-plafond-ia').fill('');
-    await modale.getByTestId('offre-note').fill('Retour au plafond par défaut');
     await modale.getByTestId('offre-enregistrer').click();
     await expect(modale.getByTestId('offre-message')).toBeVisible();
     expect(ecrits).toEqual([{
-      entreprise: true, utilisateurs: 10, contacts: null, commissionPct: null, plafondIaMoisEuros: null,
-      note: 'Retour au plafond par défaut',
+      entreprise: true, utilisateurs: 10, plafondIaMoisEuros: null, note: '',
     }]);
   });
 

@@ -352,8 +352,8 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
     if (!estUuid(tenantId)) return reply.code(404).send({ error: 'espace inconnu' });
     const c = CORPS_LIGNE.safeParse(req.body);
     if (!c.success) return reply.code(400).send({ error: 'corps invalide : phoneNumberId (l’identifiant Meta du numéro), poser (booléen) et une note sont attendus' });
+    // Note facultative (Julien, 2026-11-24) : la trace porte l'auteur, la note n'ajoute qu'un contexte.
     const note = c.data.note.trim().slice(0, 500);
-    if (note.length < MIN_NOTE) return reply.code(400).send({ error: 'note requise : pourquoi ce numéro' });
     const { phoneNumberId, poser } = c.data;
     const forcer = c.data.forcer === true;
     const par = auteurOps(req);

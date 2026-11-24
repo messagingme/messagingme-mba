@@ -51,7 +51,6 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
     return () => { vivant = false; };
   }, [jeton, tenantId]);
 
-  const noteValide = note.trim().length >= 3;
 
   /** Toutes les pages du mois, puis un CSV : l'heure de Paris, la catégorie, le pays, le montant, l'état, et l'envoi chez Meta. */
   async function exporter() {
@@ -122,12 +121,12 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
         <ul className="grid gap-1" data-testid="ligne-credit-numeros">
           {numeros.map((n) => (
             <Numero key={n.phoneNumberId} n={n} ligne={lignes.find((l) => l.phoneNumberId === n.phoneNumberId) ?? null}
-              actif={noteValide && !envoi} onGeste={(poser) => { void geste(n.phoneNumberId, poser); }} />
+              actif={!envoi} onGeste={(poser) => { void geste(n.phoneNumberId, poser); }} />
           ))}
           {lignesOrphelines.map((l) => (
             <li key={l.id} className="flex items-center justify-between gap-2 text-xs text-ink-700">
               <span>{t(`Numéro sorti de l’espace (${l.phoneNumberId}), encore sur la ligne`, `Number no longer in the workspace (${l.phoneNumberId}), still on the line`)}</span>
-              <Bouton variante="secondaire" taille="petite" disabled={!noteValide || envoi} onClick={() => { void geste(l.phoneNumberId, false); }} data-testid="ligne-credit-retirer">
+              <Bouton variante="secondaire" taille="petite" disabled={envoi} onClick={() => { void geste(l.phoneNumberId, false); }} data-testid="ligne-credit-retirer">
                 {t('Retirer', 'Remove')}
               </Bouton>
             </li>
@@ -136,9 +135,8 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
       )}
 
       <label className="grid gap-1">
-        <span className="text-xs font-medium text-ink-500">{t('Note (obligatoire) : pourquoi poser ou retirer ce numéro', 'Note (required): why put on or remove this number')}</span>
+        <span className="text-xs font-medium text-ink-500">{t('Note (facultative) : pourquoi poser ou retirer ce numéro', 'Note (optional): why put on or remove this number')}</span>
         <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} data-testid="ligne-credit-note" />
-        {!noteValide && <span className="text-xs text-ink-500" data-testid="ligne-credit-note-requise">{t('Écrivez d’abord la note (3 caractères au moins) : les boutons s’activent ensuite.', 'Write the note first (3 characters at least): the buttons then become active.')}</span>}
       </label>
 
       {!entreprise && vue.places !== undefined && (

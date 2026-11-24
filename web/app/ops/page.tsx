@@ -1534,8 +1534,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   const [utilisateurs, setUtilisateurs] = useState('');
   const [changerConservation, setChangerConservation] = useState(false);
   const [conservation, setConservation] = useState('');
-  // Spec offres v2 : les contacts et la commission du devis ne partent que si on coche « Régler », comme la conservation.
-  const [changerDevis, setChangerDevis] = useState(false);
+  // Les réglages du devis s'affichent toujours, remplis de leur valeur en place, et ne partent que s'ils changent
+  // (Julien, 2026-11-24 : une case « Régler » cachait ce qui était réglé).
   const [contacts, setContacts] = useState('');
   const [commission, setCommission] = useState('');
   // La commission des messages WhatsApp de l'Entreprise (plan du 2026-10-30) : part avec le devis, comme celle du crédit IA.
@@ -1562,7 +1562,6 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
     setUtilisateurs(String(r.utilisateurs ?? r.utilisateursProposes));
     setChangerConservation(false);
     setConservation(r.conservationJours === null ? '' : String(r.conservationJours));
-    setChangerDevis(false);
     setContacts(r.contacts == null ? '' : String(r.contacts));
     setCommission(r.commissionPct == null ? '' : String(r.commissionPct));
     setCommissionMessages(r.commissionMessagesPct == null ? '' : String(r.commissionMessagesPct));
@@ -1588,14 +1587,16 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   const conservationValide = nouvelleConservation !== 'invalide';
   const purge = etat !== null && nouvelleConservation !== undefined && nouvelleConservation !== 'invalide'
     && conservationPeutPurger(etat.conservationJours, nouvelleConservation);
-  const devis = entreprise && changerDevis;
+  const devis = entreprise;
   const nouveauxContacts = devis ? lireContactsEntreprise(contacts) : undefined;
   const nouvelleCommission = devis ? lireCommissionEntreprise(commission) : undefined;
   const nouvelleCommissionMessages = devis ? lireCommissionMessages(commissionMessages) : undefined;
   const nouveauPlafondIa = devis ? lirePlafondIa(plafondIa) : undefined;
   const devisValide = nouveauxContacts !== 'invalide' && nouvelleCommission !== 'invalide' && nouvelleCommissionMessages !== 'invalide'
     && nouveauPlafondIa !== 'invalide';
-  const noteValide = note.trim().length >= 3;
+  // La note n'est exigée que pour poser ou retirer une offre, comme le serveur (`src/http/ops-offre.ts`).
+  const offreChange = etat !== null && (entreprise !== etat.entreprise || business !== (etat.business === true));
+  const noteValide = !offreChange || note.trim().length >= 3;
   const nouveauxUtilisateursBusiness = business ? lireUtilisateursBusiness(utilisateursBusiness) : undefined;
   const businessValide = nouveauxUtilisateursBusiness !== 'invalide';
   // L'essai ne part qu'avec un Business coché, et seulement s'il change (absent = inchangé côté serveur, qui refuse une date
@@ -1633,8 +1634,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
         utilisateurs: entreprise ? limite : null,
         ...(nouvelleConservation !== undefined ? { conservationJours: nouvelleConservation } : {}),
         // `pret` a déjà écarté une saisie invalide (le compilateur le sait).
-        ...(nouveauxContacts !== undefined ? { contacts: nouveauxContacts } : {}),
-        ...(nouvelleCommission !== undefined ? { commissionPct: nouvelleCommission } : {}),
+        ...(nouveauxContacts !== undefined && nouveauxContacts !== (etat?.contacts ?? null) ? { contacts: nouveauxContacts } : {}),
+        ...(nouvelleCommission !== undefined && nouvelleCommission !== (etat?.commissionPct ?? null) ? { commissionPct: nouvelleCommission } : {}),
         // La commission des messages ne part que si elle change, comme le Business (absente = inchangée côté serveur).
         ...(nouvelleCommissionMessages !== undefined && nouvelleCommissionMessages !== (etat?.commissionMessagesPct ?? null)
           ? { commissionMessagesPct: nouvelleCommissionMessages } : {}),
@@ -1747,15 +1748,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
                   {!limiteValide && <span className="text-xs text-danger-700">{t('Un entier de 1 à 10 000.', 'A whole number from 1 to 10,000.')}</span>}
                 </label>
               )}
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={changerDevis} onChange={(e) => setChangerDevis(e.target.checked)} data-testid="offre-changer-devis" className="h-4 w-4" />
-                <span className="text-ink-900">
-                  {t(`Régler les contacts et la commission du devis (actuellement : ${etat.contacts == null ? 'contacts sans limite' : `${etat.contacts} contacts`}, ${etat.commissionPct == null ? 'commission par défaut' : `${etat.commissionPct} %`})`,
-                    `Set the quote’s contacts and commission (now: ${etat.contacts == null ? 'no contact limit' : `${etat.contacts} contacts`}, ${etat.commissionPct == null ? 'default commission' : `${etat.commissionPct}%`})`)}
-                </span>
-              </label>
-              {changerDevis && (
-                <div className="grid gap-2 pl-6">
+              <div className="grid gap-2" data-testid="offre-devis">
                   <label className="grid gap-1">
                     <span className="text-xs font-medium text-ink-500">{t('Contacts créés au plus (vide = sans limite)', 'Created contacts at most (empty = no limit)')}</span>
                     <input className={`${inputCls} w-40`} inputMode="numeric" value={contacts} onChange={(e) => setContacts(e.target.value)} data-testid="offre-contacts" />
@@ -1776,8 +1769,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
                     <input className={`${inputCls} w-32`} inputMode="numeric" value={plafondIa} onChange={(e) => setPlafondIa(e.target.value)} data-testid="offre-plafond-ia" />
                     {nouveauPlafondIa === 'invalide' && <span className="text-xs text-danger-700">{t('Un entier de 1 à 1 000 000, ou vide.', 'A whole number from 1 to 1,000,000, or empty.')}</span>}
                   </label>
-                </div>
-              )}
+              </div>
             </div>
           )}
           {coupeLeNumero && (
@@ -1835,7 +1827,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
             )}
           </div>
           <label className="grid gap-1">
-            <span className="text-xs font-medium text-ink-900">{t('Note (obligatoire) : pourquoi ce changement', 'Note (required): why this change')}</span>
+            <span className="text-xs font-medium text-ink-900">{offreChange ? t('Note (obligatoire) : pourquoi ce changement d’offre', 'Note (required): why this plan change') : t('Note (facultative)', 'Note (optional)')}</span>
             <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} data-testid="offre-note" placeholder={t('Devis signé le…', 'Quote signed on…')} />
             {bloquants.length > 0 && !envoi && (
               <span className="text-xs text-alerte-700" data-testid="offre-bloquants">

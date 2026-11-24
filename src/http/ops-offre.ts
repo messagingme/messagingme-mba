@@ -135,10 +135,14 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
       return reply.code(400).send({ error: 'une seule offre posée à la main : l’Entreprise ou le Business, pas les deux' });
     }
     const note = lu.data.note.trim().slice(0, 500);
-    if (note.length < MIN_NOTE) return reply.code(400).send({ error: 'note requise : pourquoi cette offre' });
 
     const avant = await deps.store.lireEntreprise(tenantId);
     if (avant === null) return reply.code(404).send({ error: 'espace inconnu' });
+    // La note n'est exigée que pour POSER ou RETIRER une offre (Julien, 2026-11-24 : « hyper chiant » à chaque réglage) ;
+    // un réglage de l'offre en place reste tracé avec son auteur, sa note est facultative.
+    const offreChange = lu.data.entreprise !== avant.entreprise
+      || (lu.data.business !== undefined && lu.data.business !== avant.business);
+    if (offreChange && note.length < MIN_NOTE) return reply.code(400).send({ error: 'note requise : pourquoi cette offre' });
     // 🟡 Une date d'essai du Business ne s'écrit que sur un Business, jugé sur l'état EFFECTIF après l'écriture (le Business
     // demandé, ou celui d'avant quand il n'est pas dit) : sinon elle dormirait, et rendrait « en essai » un Business posé
     // plus tard (jaune 5 de la relecture du lot A). La confirmation (`null`) passe partout.

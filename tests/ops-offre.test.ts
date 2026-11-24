@@ -409,6 +409,18 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     await server.close();
   });
 
+  it('🔴 un réglage de l’offre en place passe SANS note ; poser ou retirer une offre la demande toujours (2026-11-24)', async () => {
+    const { server, magasin } = monter();
+    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...SANS_CREDIT_WA, entreprise: true, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null });
+    const reglage = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, plafondIaMoisEuros: 50, note: '' } });
+    expect(reglage.statusCode).toBe(200);
+    const retrait = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, note: '' } });
+    expect(retrait.statusCode).toBe(400);
+    const versBusiness = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: true, note: '' } });
+    expect(versBusiness.statusCode).toBe(400);
+    await server.close();
+  });
+
   it('⚠️ sans dépendance câblée, la route n’existe pas', async () => {
     const server = buildServer({ queue: new FakeQueue(), auth: acces.auth });
     expect((await server.inject({ method: 'GET', url: `/ops/offre/${T1}`, headers: ops })).statusCode).toBe(404);

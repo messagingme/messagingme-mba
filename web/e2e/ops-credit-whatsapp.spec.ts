@@ -236,10 +236,9 @@ test.describe('Ops : les numéros d’un espace sur la ligne de crédit', () => 
     await expect(modale.getByTestId('ligne-credit-numero-333')).toContainText('coexistence');
     await expect(modale.getByTestId('ligne-credit-numero-333').getByRole('button')).toHaveCount(0);
 
-    // La note d'abord : le bouton le dit au lieu de rester grisé sans raison.
+    // La note est facultative (2026-11-24) : le bouton est actif d'emblée.
     const poser = modale.getByTestId('ligne-credit-numero-444').getByTestId('ligne-credit-poser');
-    await expect(poser).toBeDisabled();
-    await expect(modale.getByTestId('ligne-credit-note-requise')).toBeVisible();
+    await expect(poser).toBeEnabled();
     await modale.getByTestId('ligne-credit-note').fill('essai du calcul');
     await poser.click();
     await expect(modale.getByTestId('ligne-credit-message')).toContainText('posé sur la ligne');

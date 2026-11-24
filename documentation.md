@@ -4459,7 +4459,7 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   la coquille remplace l'écran fermé par `EncartOffre`, et un 402 sur un GESTE (pas sur une lecture) affiche un avis
   au-dessus des fenêtres. Un écran ouvert qui lit au chargement une fonction gardée attend `useFermeture` et dit
   « Inclus dans l'offre ». 🔴 Une offre illisible ou une route absente (404) veut dire « inconnue », donc tout ouvert.
-- **L'Entreprise se pose dans `/ops`** (`PUT /ops/offre/:tenantId`, note obligatoire, trace `ops_offre` signée de son
+- **L'Entreprise se pose dans `/ops`** (`PUT /ops/offre/:tenantId`, note obligatoire pour poser ou retirer l'offre, facultative pour la régler, trace `ops_offre` signée de son
   auteur), avec sa limite d'utilisateurs et `tenant_settings.conversation_retention_days`. 🔴 La conservation ABSENTE
   du corps reste telle quelle : changer d'offre ne déclenche jamais la purge (irréversible) des conversations. Deux
   réglages de devis s'y ajoutent (spec offres v2, migration 0240) : les contacts créés (`tenants.entreprise_contacts`) et
