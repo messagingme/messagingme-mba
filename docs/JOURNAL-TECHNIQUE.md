@@ -20,6 +20,16 @@ clic dont elle ignore l'issue, l'étape 4 nomme le bouton quel que soit son libe
 autres au backlog. L'e2e du parcours a d'abord échoué sur ses propres faux (l'offre sans `assistants`, un rechargement
 avant la fin de la navigation), pas sur le moteur.
 
+## 2026-11-24 : les guides de la vitrine, lot 3 : la page API WhatsApp Business
+
+`38c6eec3a` : `/api-whatsapp-business/` et `/en/whatsapp-business-api/`, dans Ressources sous la documentation
+développeurs (la note voulait un « menu produit » que le site n'a pas) et au pied de page. Ses chiffres portent
+`data-offre` (vitrine-seo les compare au code) ; la note écrivait en dur « 31 points d'API, 72 outils MCP » et un SLA
+« à confirmer », retirés. L'extrait de code est tiré ligne à ligne de `EXEMPLES_SDK.premierAppel`, compilé par la CI :
+`tests/vitrine-api-whatsapp.test.ts` l'exige, vérifié dans les deux sens. La page a dû naître en deux langues : le
+générateur d'en-tête refuse une page sans jumelle. Piège évité au rendu : une classe CSS `guide-etapes` existait
+déjà (centre d'aide), la liste s'affichait en colonnes étroites ; renommée `api-etapes`.
+
 ## 2026-11-24 : les guides de la vitrine, lot 2 : l'opt-in et la coexistence
 
 `e54094364` : `/opt-in-whatsapp/` et `/coexistence-whatsapp/` (et leurs versions anglaises), au menu, au hub, au sitemap et
