@@ -37,8 +37,10 @@
 - La file `shopify-reprise` est servie un job à la fois (`src/worker.ts`, aucune `concurrency`) : vers huit rattrapages
   simultanés, celui qui attend son tour dépasse 15 minutes sans passage, se dit « interrompu » et peut être relancé de
   zéro. Sans effet au volume actuel ; `concurrency` 2 ou 3 avec `groupConcurrency: 1` (le `groupId` est déjà l'espace).
-- La taille des pages (`PAR_PAGE_REPRISE`, 5) est une estimation du coût GraphQL : la régler sur `shopify_reprise_cout`
-  (coût demandé et réel de la première page de chaque passage), relevé dans les journaux après le premier rattrapage.
+- La taille des pages (`PAR_PAGE_REPRISE`, 5) : mesurée le 2026-11-24 sur la boutique d'essai, la première page de
+  5 commandes a demandé 86 points et en a coûté 26 (`shopify_reprise_cout`). 25 par page resterait vers 450 points
+  demandés, sous le plafond de 1 000 par requête : à relever avec le prochain lot de fonctionnalité qui touche le
+  rattrapage, après une mesure sur une boutique aux commandes plus longues (plus de lignes).
 - La raison d'un arrêt (`erreur` de la reprise) est écrite en français, et s'affiche telle quelle dans la console anglaise.
 - `read_products` est demandé depuis le 2026-11-24 (lot 5, suite) : le lot 6 (collections) n'a plus à l'ajouter aux
   listes de droits, seulement à s'en servir ; les apps branchées avant doivent l'ajouter (la fiche et la skill le disent).

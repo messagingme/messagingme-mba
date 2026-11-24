@@ -61,6 +61,16 @@ Shopify, jamais par une cause devinée. Le droit entre dans le gabarit de l'app 
 la console ; la skill sait l'ajouter à une app déjà installée (portées, `app deploy`, lien d'installation pour
 l'accepter). La fiche « Brancher ma boutique Shopify » (français et anglais) et la page « Depuis Claude » le disent ; la
 capture de l'étape 2 est refaite. Quatre mutations de plus, toutes rouges, chacune sur le test qui la vise.
+En production le même jour : `a74c4df70` par le run 45355305895 (`migration=aucune`, lancé et approuvé par Julien,
+derrière le déploiement d'une session voisine ; fumée et fiches OAuth conformes). Le plugin 0.3.61 est publié (run
+45355835389), quelques minutes AVANT l'API, la commande d'après-déploiement étant partie trop tôt : sans effet, le
+rattrapage refusait de toute façon partout. Relu par le vrai code de l'image, en lecture seule, sur les deux boutiques
+branchées : celle dont l'app n'a pas `read_products` refuse (409, la phrase neuve, rien de lu) ; celle de « Messaging
+Me demo », après une nouvelle version de son app portant le droit et sa réinstallation, compte 12 commandes payées sur
+60 jours (7 déjà notées, 0 à rattacher, 1 sans fiche, 4 sans numéro), tout lu en 1,3 s. Coût de la première page de
+5 commandes : 86 points demandés, 26 réels. `aide:charger` : 362 lignes, 0 retirée. Essai réel par Julien sur
+« Messaging Me demo » : le rattrapage lancé depuis la console a abouti. Leçon : un mécanisme qui lit une API tierce
+n'est éprouvé qu'après une lecture réelle ; les faux reproduisaient ce que la spec croyait.
 
 ## 2026-11-24 : « Enregistrer et activer » à la fin de l'entretien
 
