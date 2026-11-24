@@ -5,6 +5,16 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : guide de démarrage, la fiche « Bien démarrer » et son film
+
+Julien a choisi une fiche à part pour le film de bienvenue (une fiche ne porte qu'un film, et « Me repérer dans la
+console » garde le sien). Fiche publique `bien-demarrer` (« Getting started »), rubrique « Démarrer dans la console »,
+six étapes calquées sur le film, ses captures publiées (`site/img/aide/bien-demarrer/`) et son film dans
+`site/films/aide-bien-demarrer[-en].mp4`. La clé des captures et du film passe de `bienvenue` à `bien-demarrer`, et
+l'exclusion `FILM_SEUL` de `captures-webp.mjs`, ajoutée au lot 5, disparaît : ces captures servent désormais une fiche.
+« Me repérer dans la console » renvoie à la nouvelle fiche au lieu de redire la checklist (zéro redite). Les comptes de
+`tests/vitrine-aide.test.ts` passent à 47 pages et 420 captures.
+
 ## 2026-11-24 : guide de démarrage, lot 5 : le film de bienvenue
 
 Julien a choisi le gabarit des films d'aide (la vraie console, curseur et zoom, sous-titres, muet) plutôt que le

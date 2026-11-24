@@ -29,8 +29,8 @@ describe('le centre d’aide de la vitrine', () => {
     // 22 avec « Le bloc Message rapide », première fiche par bloc du constructeur (2026-11-17) ; 27 avec les cinq du lot 2 ;
     // 38 avec les dix du lot 3 et « Créer un scénario », devenue publique ; 39 avec « Brancher un connecteur API » (2026-11-19) ;
     // 43 avec les quatre fiches par sujet de l'agent IA (base de connaissance, outils, essai, modèle et crédit), le même jour ;
-    // 46 avec Make, n8n, Zapier et les deux sens du webhook (2026-11-20).
-    expect(centre.length).toBe(46);
+    // 46 avec Make, n8n, Zapier et les deux sens du webhook (2026-11-20) ; 47 avec « Bien démarrer » (2026-11-24).
+    expect(centre.length).toBe(47);
     // L’accueil, le guide du numéro et le dépannage (lot 4a), les pages composées de sources (4a-2), une page par fiche,
     // une par page Claude Code : dans chaque langue.
     expect(generees.length).toBe(2 * (1 + 2 + PAGES_SOURCES.length + centre.length + PAGES_CLAUDE.length));
@@ -168,8 +168,8 @@ describe('le centre d’aide de la vitrine', () => {
     // avec l'étape « Prévoir l'échec de livraison » de l'Envoi template, dans les deux langues (2026-11-20) ; 406 avec les 20 des deux
     // fiches webhook, dans les deux langues (le même jour : recevoir 6, envoyer 4) ; 408 avec l'étape « Rattraper les
     // commandes des 60 derniers jours » de « Brancher ma boutique Shopify », dans les deux langues (2026-11-23, segments
-    // Shopify enrichis, lot 5).
-    expect(vues).toBe(408);
+    // Shopify enrichis, lot 5) ; 420 avec les six étapes de « Bien démarrer », dans les deux langues (2026-11-24).
+    expect(vues).toBe(420);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {

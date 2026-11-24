@@ -187,6 +187,8 @@ describe('les fiches publiques', () => {
     'connecter-mon-numero-whatsapp': ['demarrer-console', 3],
     'garder-mon-application-whatsapp-business': ['demarrer-claude', 5],
     'me-reperer-dans-la-console': ['demarrer-console', 6],
+    // « Bien démarrer » (2026-11-24, guide de démarrage) : la checklist de la console et son film, choisie par Julien.
+    'bien-demarrer': ['demarrer-console', 2],
     'repondre-dans-l-inbox': ['parler-aux-clients', 1],
     'la-fenetre-de-24-heures': ['parler-aux-clients', 2],
     'faire-approuver-un-modele': ['parler-aux-clients', 3],

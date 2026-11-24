@@ -4,12 +4,12 @@ import { NAVIGATEUR, REGLAGES_ACCUEIL, REGLAGES_DEMO, capturer, chiffresAccueil,
 import { AG, agentDemo, simulerAgent } from './agent-ia-demo';
 
 /**
- * LE FILM DE BIENVENUE de la console (plan 2026-11-24-guide-demarrage, lot 5) : ses captures ne servent AUCUNE fiche,
- * seulement le film (`~/engageme-motion/engageme-aide`, clé `bienvenue`) ; `scripts/aide/captures-webp.mjs` ne les publie
- * pas. Six étapes : la fenêtre « Bien démarrer », puis chaque grande étape avec la carte qui accompagne, puis la carte de
- * l'Accueil. Rien n'est branché, rien n'est envoyé.
+ * « BIEN DÉMARRER » (plan 2026-11-24-guide-demarrage, lot 5) : les captures de la fiche du même nom, et du film de
+ * bienvenue de la console (`~/engageme-motion/engageme-aide`, clé `bien-demarrer`). Six étapes : la fenêtre « Bien
+ * démarrer », puis chaque grande étape avec la carte qui accompagne, puis la carte de l'Accueil. Rien n'est branché,
+ * rien n'est envoyé.
  */
-const CLE = 'bienvenue';
+const CLE = 'bien-demarrer';
 const COMPTE = { number: '+33 6 39 98 01 00', verifiedName: 'Votre marque', ownerBusinessName: 'Votre marque', phoneNumberId: 'pn-demo' };
 const SHOPIFY_VIDE = { boutique: null, compteurs: {}, paniers: { relances: {}, fermesATemps: 0, enAttente: 0 }, pageApps: null, lignes: [] };
 const NOM_CAMPAGNE: Record<Locale, string> = { fr: 'Soldes d’hiver', en: 'Winter sale' };

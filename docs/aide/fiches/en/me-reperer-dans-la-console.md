@@ -1,7 +1,7 @@
 ---
 description: Console, Inbox and Performance Lab: the three tabs of the Messaging Me console, what each one holds, and where the account and settings are.
 slug: find-your-way-around-the-console
-traduit_de: 21b6b2
+traduit_de: 48b0d5
 ---
 # Find your way around the console
 
@@ -60,15 +60,8 @@ page.
 **An operator only sees one tab, the Inbox.** Showing them three, two of which would send them straight back to the
 Inbox, would be promising them two closed doors.
 
-**Getting started.** When you first sign in, a welcome window shows you five steps, ticked on their own from what your
-workspace has already done: connect your WhatsApp number, connect your store or your CRM, a first scenario or a first
-campaign, an AI agent that answers, the WhatsApp bubble on your website. Each remaining step has its button. Once the
-window is closed, the “Getting started” card at the top of Home reopens it with “Continue”, as does “Getting started”
-at the top of the help panel.
-
-**Guided step by step.** “Guide me” opens a card at the top right that goes with you from one screen to the next: it
-says what to do, frames the button to press and moves on to the next step as soon as it is done (a step that explains
-waits for “Next”). If you wander off, “Go there” brings you back; its collapse button folds it into a badge.
+**Getting started.** The five steps of the welcome window, and the card that guides you screen by screen, have their
+own page: “Getting started”.
 
 **The console tour.** “Take the console tour”, in the welcome window, starts a bubble that shows you, one after the
 other, the areas of your screen: Home, the Inbox, the mini-CRM, Campaigns, AI Agent, Tools and the help. You can take it
