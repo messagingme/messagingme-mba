@@ -1,5 +1,16 @@
 # todo.md : backlog
 
+## Les guides de la vitrine, lots 2 et 3 (plan `2026-11-24-guides-vitrine`)
+
+Lot 1 en ligne le 2026-11-24 (`9724f73e3`) : Ressources › Guides, le hub `/guides/`, le comparatif RCS, SMS ou WhatsApp.
+- **Lot 2** : l'opt-in WhatsApp et la coexistence WhatsApp, en articles (le pourquoi et le choix) qui renvoient aux fiches
+  pour le pas-à-pas ; chacun entre au groupe « Tout comprendre » du menu, au hub, au pied de page et au sitemap le jour où
+  sa page est en ligne. L'opt-in cite des règles juridiques : relecture par Julien ou un DPO avant publication.
+- **Lot 3** : la page « API WhatsApp Business » dans le menu produit, à côté de Développeurs ; aucun compteur écrit en dur
+  (points d'API, outils MCP), le même exemple de code que la page Développeurs.
+- **Hors dépôt, à Julien** : les redirections 301 de www (WordPress) et de messagingme.app vers ces pages, une fois en
+  ligne (la note d'origine porte la table), et la déclaration du sitemap dans Search Console.
+
 ## Guide de démarrage (plan `2026-11-24-guide-demarrage`) : la suite, et les jaunes des lots 1 et 2
 
 - Lot 3 (le moteur de la carte qui accompagne, et le parcours agent IA), lot 4 (Shopify, campagne, scénario), lot 5

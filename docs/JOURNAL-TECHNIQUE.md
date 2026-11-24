@@ -5,6 +5,18 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : les guides de la vitrine, lot 1 : Ressources › Guides et le comparatif RCS, SMS ou WhatsApp
+
+Une note d'implémentation SEO proposée par un autre assistant voulait des guides « Tout comprendre » sur app plutôt que
+sur www. Relue avec Julien : un guide est un ARTICLE qui explique et aide à choisir, la fiche d'aide garde le pas-à-pas,
+et le guide y renvoie sans recopier ses étapes. Écarté de la note : les tableaux de prix remplis de « à confirmer » (un
+seul tarif de Meta, la réponse en France), les chiffres non sourcés (part des téléphones RCS), les compteurs en dur.
+
+Livré (`9724f73e3`) : le sous-menu Guides de Ressources (deux groupes titrés, une première pour le menu en cascade), le
+hub `/guides/` et `/comparatif-rcs-sms-whatsapp/`, versions anglaises générées. Le test `etapes-meta` a refusé la
+phrase « Meta facture directement à votre entreprise » sans l'exception de la ligne de crédit : corrigée avant le push.
+Un guide n'entre au menu que le jour où sa page existe (le test du menu vérifie chaque adresse).
+
 ## 2026-11-24 : guide de démarrage, lots 1 et 2 : « Bien démarrer » remplace la fenêtre de bienvenue
 
 Julien trouvait la fenêtre de bienvenue « vraiment pourrie » (un titre, une phrase, quatre boutons gris). Cadrage en
