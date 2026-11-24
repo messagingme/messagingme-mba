@@ -5,6 +5,41 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : CSM virtuel, lot D : Claude écrit en brouillon
+
+Plan `docs/superpowers/plans/2026-11-24-csm-lot1-d-brouillon.md`, après le lot C (en production le même jour).
+
+**B4, le brouillon des outils.** `create_scenario` et `update_scenario` prennent `brouillon` : la recette ne va que dans
+`draft_graph`, y compris sur un scénario dessiné dans la console tant qu'une recette sait le dire, et la mise en ligne
+d'un admin la publie (`propose_go_live`, action « publier », lot C). Sans le paramètre, rien ne change. Ce que
+l'écriture a tranché : une création en brouillon garde le graphe publié vide (aucune version, rien ne peut la lancer,
+rien au journal) ; un remplacement en brouillon compare l'empreinte au brouillon en cours, ou au publié sans
+brouillon, sous le verrou de la ligne ; un brouillon qui redit le publié à la disposition près disparaît (la règle de
+l'éditeur) ; `get_scenario` rend `publie`, la recette publiée (nulle pour un brouillon jamais publié) et le brouillon.
+Le nom unique reste la clé d'idempotence d'une création. L'option de `/v1` et sa route de publication, que le plan
+range dans B4, sont reportées après le pilote (`todo.md`) : l'option seule laisserait un intégrateur avec un brouillon
+qu'il ne peut pas publier. 🔴 Trouvé en relisant qui lit la vue d'un scénario : `/v1` renvoyait la vue du service
+telle quelle, donc il aurait rendu les champs du brouillon, et une recette nulle pour un scénario jamais publié, que
+le contrat recopié dans le SDK promet remplie. `/v1` garde désormais sa forme exacte (`versV1`), testée clé par clé au
+`POST`, au `GET` et au `PUT`, et refuse un tel scénario (`scenario_not_describable`). Aucune migration.
+
+**La relecture indépendante, sur l'arbre construit : deux rouges, réglés avant de pousser.** (1) Le nom n'a pas de
+brouillon : une écriture en brouillon renommait le scénario EN LIGNE, sans clic, et un envoi `/v1/sends` qui le vise
+par son nom (Make, Zapier) serait tombé en 404 ; le nom d'un scénario publié ne change plus en brouillon (refusé sur
+`nom`), il reste libre tant que rien n'est publié. (2) La réécriture d'un scénario de la console changeait l'id de
+CHACUN de ses blocs : la console les nomme par UUID, et la compilation ne reprenait du graphe remplacé que le code
+`nod_` ; publiée, elle aurait fait perdre leur bloc à tous les parcours en cours (un clic monté à l'équipe sans
+réponse). Un bloc au même chemin, de même type et de mêmes sorties garde désormais son id et sa place (`signatureDe`,
+jumelle des signatures de `poser`). Réglés aussi : les commentaires et descriptions qui disaient que toute écriture
+publie, la phrase d'`update_scenario` que la vitrine coupait au point-virgule, le refus « seule la console le
+modifie ». Les autres jaunes sont au `todo.md`.
+Preuves : 24 mutations nommées, toutes rouges (14 du lot, 3 de `/v1` et du refus, 7 des deux correctifs), fichiers
+restaurés à l'identique ; le fichier d'intégration du magasin sur le banc PGlite (7 tests, dont la création et le
+remplacement en brouillon, versions comprises). Dans une copie d'origin portant tout le lot : typecheck et lint
+(racine et console), l'auto-attaque (2 218 sondes, aucune trouvaille), la suite de la console (1 398 tests), la suite
+racine (19 075 tests ; un seul rouge, la latence sur une vraie connexion, vert seul trois fois de suite). Deux fiches
+d'aide publiques citent la section de `features.md` modifiée : relues, leur empreinte suit.
+
 ## 2026-11-24 : CSM virtuel, lot C : les versions de scénario et le oui de mise en ligne
 
 Plan `docs/superpowers/plans/2026-11-24-csm-lot1-c-clic-et-versions.md`, après B0 (en production le même jour, `79666e5b8`,

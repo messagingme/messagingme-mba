@@ -2,7 +2,7 @@
 description: Envoyer les événements de la console (message reçu, lien cliqué, désabonnement…) à votre outil par un webhook sortant : l’adresse, l’essai, le journal.
 ecran: webhooks-sortants
 source_section: API publique `/v1` (intégrateurs externes)
-source_empreinte: 880de4
+source_empreinte: 78f978
 publique: oui
 comment_faire: oui
 rubrique: parler-aux-clients

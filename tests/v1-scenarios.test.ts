@@ -7,7 +7,8 @@ import type { ApiKeyLookup } from '../src/auth/api-key-store.pg';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { depsScenarios, recette } from './aide/scenarios-api';
-import type { DepsScenariosApi } from '../src/workflow/scenarios-api';
+import { creerScenario, type DepsScenariosApi } from '../src/workflow/scenarios-api';
+import { vueScenario } from '../src/api/openapi/reponses';
 
 /**
  * LES SCÉNARIOS PAR L'API (spec 2026-11-02-scenarios-api) : `POST|GET|PUT|DELETE /v1/scenarios`, sous le droit NEUF
@@ -107,6 +108,29 @@ describe('/v1/scenarios', () => {
     const r2 = await appel('PUT', `/v1/scenarios/${cree.id}`, { ...recette(), empreinte: e1 });
     expect(r2.statusCode).toBe(200);
     expect((await appel('PUT', `/v1/scenarios/${cree.id}`, autre(), AUTEUR, { 'if-match': e1 })).json()).toMatchObject({ code: 'scenario_changed' });
+    await server.close();
+  });
+
+  it('🔴 /v1 garde son contrat : les clés exactes de vueScenario, sans le brouillon des outils (CSM, B4)', async () => {
+    const { appel, server } = monter();
+    const cree = await appel('POST', '/v1/scenarios', recette());
+    const { id, empreinte } = cree.json<{ id: string; empreinte: string }>();
+    const lu = await appel('GET', `/v1/scenarios/${id}`);
+    const remplace = await appel('PUT', `/v1/scenarios/${id}`, autre(), AUTEUR, { 'if-match': empreinte });
+    expect(remplace.statusCode).toBe(200);
+    for (const res of [cree, lu, remplace]) expect(Object.keys(res.json()).sort()).toEqual(Object.keys(vueScenario.shape).sort());
+    expect(vueScenario.strict().safeParse(lu.json()).success).toBe(true);
+    await server.close();
+  });
+
+  it('🔴 un scénario qui n’existe qu’en brouillon (écrit par Claude) : 409 scenario_not_describable, jamais une recette nulle', async () => {
+    const { appel, server, store } = monter();
+    const d = { ...depsScenarios().d, scenarios: store as never };
+    const brouillon = await creerScenario(d, 't-1', recette(), 'mcp', undefined, { brouillon: true });
+    if (!brouillon.ok) throw new Error(brouillon.message);
+    const res = await appel('GET', `/v1/scenarios/${brouillon.valeur.id}`);
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: 'scenario_not_describable' });
     await server.close();
   });
 

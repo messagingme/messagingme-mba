@@ -147,6 +147,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
 
   // Les scénarios
   'POST /workflows': A_LA_MAIN,
+  // Le brouillon de la console (un graphe) et celui de l'outil (une recette, `brouillon: true`) n'ont pas la même forme.
+  'PATCH /workflows/:id': A_LA_MAIN,
   'DELETE /workflows/:id': SANS_CORPS,
   // Publier : rien dans le corps ; le brouillon publié est celui que montre la mise en ligne (`propose_go_live`).
   'POST /workflows/:id/publish': SANS_CORPS,

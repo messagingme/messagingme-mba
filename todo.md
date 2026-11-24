@@ -64,6 +64,30 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot D (le brouillon) : ce qui est reporté (2026-11-24)
+
+- `/v1/scenarios` : l'option `brouillon` (corps de `POST` et `PUT`) et `POST /v1/scenarios/{id}/publish`, que le plan du
+  lot range dans B4. Reportées après le pilote (B9), qui passe par Claude : l'option seule, sans la route, laisserait un
+  intégrateur avec un brouillon qu'il ne peut pas mettre en ligne, et la route doit câbler la publication (un template
+  en revue la programme), un code de refus neuf, la doc des développeurs (« Pas de brouillon ») et le SDK.
+- De la relecture du lot D (deux rouges réglés avant de pousser : le nom qui se renommait en ligne, les ids des blocs
+  d'un scénario de la console perdus à la publication ; réglés aussi les commentaires et descriptions périmés et la
+  phrase d'`update_scenario` coupée par la vitrine). Reste :
+  - L'éditeur ouvert et Claude : « Publier » de la console publie le brouillon du SERVEUR (celui de Claude, que l'écran
+    ne montre pas), et l'enregistrement automatique écrase le brouillon de Claude sans contrôle d'empreinte.
+  - `/v1` bloqué par un brouillon de Claude : le `PUT` est refusé tant que personne ne publie, `GET /v1` ne le montre
+    pas, et « l'abandonner dans la console » n'est pas un geste qui existe (phrase d'avant B4).
+  - `versionDeTravail` (`scenarios-api.ts`) et `grapheEditable` (le magasin) n'ont pas la même règle : un brouillon VIDE
+    de la console est ignoré par la première, donc remplaçable avec l'empreinte du publié.
+  - Une écriture en brouillon réussie revient en refus (`scenario_not_describable`) si la version publiée ne se décrit
+    pas (la relecture finale de `remplacerLeBrouillon`) ; peu atteignable, `get_scenario` refusant déjà de la lire.
+  - Un scénario de la console VIDE : Claude ne peut ni le remplir (aucune empreinte) ni le recréer sous son nom.
+  - Une réécriture identique d'un scénario de la console laisse un brouillon sans effet (les ids d'arêtes et les données
+    des blocs propres à la console diffèrent).
+  - `plugin/README.md` (« construit par Claude, puis envoyé à un contact pour l'essayer ») : une mise en ligne passe
+    désormais entre les deux ; avec la compétence du CSM (B9).
+  - Le bout en bout « brouillon, proposition, clic » que le plan annonçait n'est pas un test : il se joue à l'essai réel.
+
 ## 🟡 CSM virtuel, lot C (le oui de mise en ligne, les versions) : ce qui reste après l'écriture (2026-11-24)
 
 - Une mise en ligne interrompue ne se reprend que par un clic : la reprise par le worker part avec B8 (les envois au oui
@@ -71,7 +95,8 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - Le récapitulatif écrit par le serveur est en français seulement : la console anglaise le montre tel quel.
 - Les mises en ligne gardent les graphes montrés (`actions`) sans durée de rétention : une purge (90 jours ?) à décider.
 - Les versions d'un scénario ne se voient pas dans la console (le cadrage les y veut) : un écran et sa route, avec B10.
-- La compétence du plugin n'apprend pas encore le bouton : avec B4, quand Claude écrira en brouillon.
+- La compétence du plugin n'apprend pas encore le bouton : depuis B4, les descriptions des outils le disent (écrire en
+  brouillon, puis `propose_go_live`) ; la compétence du CSM l'apprendra avec le pilote (B9).
 - De la relecture du lot C (aucun rouge ; réglés avant de pousser : la reprise après un refus noté, l'offre revérifiée
   pour toute action, la lecture sans `as`, la version du plugin, quatre commentaires périmés). Reste :
   - « Reprendre » n'a ni échéance ni revérification : une exécution coupée, reprise des jours plus tard, republie le

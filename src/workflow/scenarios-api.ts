@@ -21,8 +21,10 @@ import { entreeDuGraphe } from '../../web/lib/partage/ouverture-scenario';
  * n'ont aucune logique à eux. Une route et un outil qui jugeraient différemment la même recette seraient le défaut
  * corrigé par `ouvertureApi`.
  *
- * 🔴 TOUTE ÉCRITURE PUBLIE (décision de Julien) : aucun brouillon par l'API. Un template qui n'est pas approuvé fait
- * refuser l'appel entier, rien n'est enregistré.
+ * Sans option, TOUTE ÉCRITURE PUBLIE (décision de Julien pour l'API). Avec `brouillon` (lot 1 du CSM virtuel, B4), seule
+ * la version de travail s'écrit, y compris sur un scénario de la console : rien ne la lance, et la mise en ligne
+ * d'un admin la publie (`src/mise-en-ligne/`). Un template qui n'est pas approuvé fait refuser l'appel entier, rien
+ * n'est enregistré.
  */
 
 export type { LigneApi };
@@ -31,6 +33,9 @@ export interface MagasinScenariosApi {
   creerPublieParApi(tenantId: string, nom: string, graphe: WorkflowGraph): Promise<{ id: string; code: string } | { nomPris: string }>;
   lireParApi(tenantId: string, ref: string): Promise<LigneApi | null>;
   remplacerPublieParApi<R>(id: string, tenantId: string, nom: string, graphe: WorkflowGraph, controle: (l: LigneApi) => R | null):
+    Promise<'ok' | 'inconnu' | { nomPris: string } | { refus: R }>;
+  creerBrouillonParApi(tenantId: string, nom: string, graphe: WorkflowGraph): Promise<{ id: string; code: string } | { nomPris: string }>;
+  remplacerBrouillonParApi<R>(id: string, tenantId: string, nom: string, graphe: WorkflowGraph, controle: (l: LigneApi) => R | null):
     Promise<'ok' | 'inconnu' | { nomPris: string } | { refus: R }>;
   supprimerParApi(id: string, tenantId: string): Promise<'ok' | 'inconnu' | 'console' | { utilise: string[] }>;
 }
@@ -66,18 +71,37 @@ export type Origine = 'api' | 'mcp';
 export interface Auteur { userId: string | null; acces: string | null }
 const ANONYME: Auteur = { userId: null, acces: null };
 
+/** `brouillon` : n'écrire que la version de travail (CSM, B4). Absent : l'écriture publie, comme avant. */
+export interface OptionsEcriture { brouillon?: boolean }
+
+const VIDE: WorkflowGraph = { nodes: [], edges: [] };
+/** Deux noms de scénario désignent le même quand ils ne diffèrent que par la casse et les espaces aux bords (`nomPrisSousVerrou`). */
+const memeNom = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+/** Ce qu'un brouillon remplace : le brouillon en cours s'il y en a un, sinon la version publiée. */
+const versionDeTravail = (l: Pick<LigneApi, 'graph' | 'draftGraph'>): WorkflowGraph =>
+  (l.draftGraph && l.draftGraph.nodes.length > 0 ? l.draftGraph : l.graph);
+
 /** Ce que rendent la création, la lecture et le remplacement. */
 export interface VueScenario {
   id: string;
   code: string;
   nom: string;
   origine: 'console' | 'api';
-  /** Le code `nod_` du bloc d'entrée : `/v1/sends` le vise pour un scénario qui ouvre par un message. */
+  /** Il a une version publiée ; sinon il n'existe qu'en brouillon, et rien ne peut le lancer. */
+  publie: boolean;
+  /** Le code `nod_` du bloc d'entrée publié : `/v1/sends` le vise pour un scénario qui ouvre par un message. */
   entreeCode: string | null;
-  recette: Recette;
+  /** La recette PUBLIÉE ; `null` pour un scénario qui n'existe qu'en brouillon. */
+  recette: Recette | null;
   /** À renvoyer au remplacement (`If-Match`) : il est refusé si la recette a changé entre-temps. */
-  empreinte: string;
+  empreinte: string | null;
   ouverture: OuvertureApi | null;
+  /**
+   * Le brouillon en attente de publication (CSM, B4) : sa recette et son empreinte, celle qu'un remplacement en brouillon
+   * renvoie ; `null` sans brouillon. `brouillonNonDecrit` : un brouillon de la console que la recette ne sait pas dire.
+   */
+  brouillon: { recette: Recette; empreinte: string } | null;
+  brouillonNonDecrit: boolean;
 }
 
 export type ResultatScenario<T> =
@@ -170,33 +194,48 @@ async function preparer(deps: DepsScenariosApi, tenantId: string, corps: unknown
   return { ok: true, valeur: { recette, graphe } };
 }
 
-/** La vue rendue à l'appelant, relue depuis le graphe enregistré : ce qu'il lit est ce qui tourne. */
-function vueDe(l: Pick<LigneApi, 'id' | 'code' | 'name' | 'origine' | 'graph'>): ResultatScenario<VueScenario> {
-  const entree = decompilerGraphe(l.graph);
-  if (!entree.ok) return echec(entree.code, entree.message);
-  const ouverture = ouvertureApi(l.graph);
+/** La vue rendue à l'appelant, relue depuis les graphes enregistrés : ce qu'il lit est ce qui tourne, et ce qui attend. */
+function vueDe(l: Pick<LigneApi, 'id' | 'code' | 'name' | 'origine' | 'graph' | 'draftGraph'>): ResultatScenario<VueScenario> {
+  const publie = l.graph.nodes.length > 0;
+  let recette: Recette | null = null;
+  let empreinte: string | null = null;
+  if (publie) {
+    const entree = decompilerGraphe(l.graph);
+    if (!entree.ok) return echec(entree.code, entree.message);
+    recette = { nom: l.name, entree: entree.valeur };
+    empreinte = empreinteRecette(entree.valeur);
+  }
+  const travail = l.draftGraph && l.draftGraph.nodes.length > 0 ? decompilerGraphe(l.draftGraph) : null;
   return {
     ok: true,
     valeur: {
-      id: l.id, code: l.code ?? '', nom: l.name, origine: l.origine,
-      entreeCode: (entreeDuGraphe(l.graph)?.data.code as string | undefined) ?? null,
-      recette: { nom: l.name, entree: entree.valeur }, empreinte: empreinteRecette(entree.valeur),
-      ouverture: ouverture.ouverture,
+      id: l.id, code: l.code ?? '', nom: l.name, origine: l.origine, publie,
+      entreeCode: publie ? ((entreeDuGraphe(l.graph)?.data.code as string | undefined) ?? null) : null,
+      recette, empreinte,
+      ouverture: publie ? ouvertureApi(l.graph).ouverture : null,
+      brouillon: travail?.ok ? { recette: { nom: l.name, entree: travail.valeur }, empreinte: empreinteRecette(travail.valeur) } : null,
+      brouillonNonDecrit: travail !== null && !travail.ok,
     },
   };
 }
 
 export async function creerScenario(
-  deps: DepsScenariosApi, tenantId: string, corps: unknown, origine: Origine, auteur: Auteur = ANONYME,
+  deps: DepsScenariosApi, tenantId: string, corps: unknown, origine: Origine, auteur: Auteur = ANONYME, options: OptionsEcriture = {},
 ): Promise<ResultatScenario<VueScenario>> {
   const offre = await horsOffre(deps, tenantId);
   if (offre) return offre;
   const p = await preparer(deps, tenantId, corps, null);
   if (!p.ok) return p;
+  if (options.brouillon === true) {
+    const brouillon = await deps.scenarios.creerBrouillonParApi(tenantId, p.valeur.recette.nom, p.valeur.graphe);
+    if ('nomPris' in brouillon) return echec('scenario_name_taken', `un scénario de l’espace s’appelle déjà « ${p.valeur.recette.nom} »`, { id: brouillon.nomPris });
+    // Rien n'est publié : aucune ligne au journal (l'enregistrement d'un brouillon de la console n'en écrit pas non plus).
+    return vueDe({ id: brouillon.id, code: brouillon.code, name: p.valeur.recette.nom, origine: 'api', graph: VIDE, draftGraph: p.valeur.graphe });
+  }
   const cree = await deps.scenarios.creerPublieParApi(tenantId, p.valeur.recette.nom, p.valeur.graphe);
   if ('nomPris' in cree) return echec('scenario_name_taken', `un scénario de l’espace s’appelle déjà « ${p.valeur.recette.nom} »`, { id: cree.nomPris });
   await deps.journal(tenantId, 'workflow.published', cree.id, { origine, blocs: p.valeur.graphe.nodes.length }, auteur);
-  return vueDe({ id: cree.id, code: cree.code, name: p.valeur.recette.nom, origine: 'api', graph: p.valeur.graphe });
+  return vueDe({ id: cree.id, code: cree.code, name: p.valeur.recette.nom, origine: 'api', graph: p.valeur.graphe, draftGraph: null });
 }
 
 export async function lireScenario(deps: DepsScenariosApi, tenantId: string, ref: string): Promise<ResultatScenario<VueScenario>> {
@@ -214,16 +253,17 @@ const empreinteDe = (g: WorkflowGraph): string | null => {
 
 export async function remplacerScenario(
   deps: DepsScenariosApi, tenantId: string, ref: string, corps: unknown, empreinte: string | undefined, origine: Origine,
-  auteur: Auteur = ANONYME,
+  auteur: Auteur = ANONYME, options: OptionsEcriture = {},
 ): Promise<ResultatScenario<VueScenario>> {
   const offre = await horsOffre(deps, tenantId);
   if (offre) return offre;
   if (empreinte === undefined || empreinte.trim() === '') {
     return echec('precondition_required', 'l’empreinte lue manque : passez celle de GET /v1/scenarios/{id} dans If-Match ou dans « empreinte »');
   }
+  if (options.brouillon === true) return remplacerLeBrouillon(deps, tenantId, ref, corps, empreinte.trim());
   const avant = await deps.scenarios.lireParApi(tenantId, ref);
   if (!avant) return introuvable();
-  if (avant.origine !== 'api') return echec('scenario_managed_in_console', 'ce scénario a été créé dans la console : seule la console le modifie');
+  if (avant.origine !== 'api') return echec('scenario_managed_in_console', 'ce scénario a été créé dans la console : seule la console le publie (Claude peut en écrire le brouillon)');
   const p = await preparer(deps, tenantId, corps, avant.graph);
   if (!p.ok) return p;
 
@@ -231,14 +271,20 @@ export async function remplacerScenario(
   // console a pu publier ou enregistrer un brouillon.
   type Refus = ResultatScenario<never>;
   const controle = (l: LigneApi): Refus | null => {
-    if (l.origine !== 'api') return echec('scenario_managed_in_console', 'ce scénario a été créé dans la console : seule la console le modifie');
+    if (l.origine !== 'api') return echec('scenario_managed_in_console', 'ce scénario a été créé dans la console : seule la console le publie (Claude peut en écrire le brouillon)');
     const publie = empreinteDe(l.graph);
-    if (publie === null) return echec('scenario_not_describable', 'modifié dans la console, ce scénario ne se décrit plus par une recette : seule la console le modifie');
+    if (publie === null) {
+      // Un scénario écrit en brouillon par Claude (CSM, B4) n'a pas encore de version publiée : il ne se remplace qu'en
+      // brouillon, puis se publie par une mise en ligne.
+      return echec('scenario_not_describable', l.graph.nodes.length === 0
+        ? 'ce scénario n’existe qu’en brouillon : il se modifie en brouillon et se publie par une mise en ligne, jamais par un remplacement direct'
+        : 'modifié dans la console, ce scénario ne se décrit plus par une recette : seule la console le modifie');
+    }
     if (publie !== empreinte.trim()) return echec('scenario_changed', 'le scénario a changé depuis votre lecture : relisez-le et renvoyez sa nouvelle empreinte');
     // Un brouillon de la console qui décrit autre chose serait effacé par la publication : refusé. Un brouillon qui
     // n'a bougé que des blocs (l'éditeur réenregistre à l'ouverture) ne bloque rien.
     if (l.draftGraph && l.draftGraph.nodes.length > 0 && empreinteDe(l.draftGraph) !== publie) {
-      return echec('scenario_changed', 'une modification de la console attend d’être publiée sur ce scénario : publiez-la ou abandonnez-la dans la console, puis relisez-le');
+      return echec('scenario_changed', 'un brouillon attend d’être publié sur ce scénario (fait dans la console, ou par Claude) : publiez-le ou abandonnez-le dans la console, puis relisez-le');
     }
     return null;
   };
@@ -247,7 +293,43 @@ export async function remplacerScenario(
   if (r !== 'ok' && 'nomPris' in r) return echec('scenario_name_taken', `un autre scénario de l’espace s’appelle déjà « ${p.valeur.recette.nom} »`, { id: r.nomPris });
   if (r !== 'ok') return r.refus;
   await deps.journal(tenantId, 'workflow.published', avant.id, { origine, blocs: p.valeur.graphe.nodes.length }, auteur);
-  return vueDe({ id: avant.id, code: avant.code ?? '', name: p.valeur.recette.nom, origine: 'api', graph: p.valeur.graphe });
+  return vueDe({ id: avant.id, code: avant.code ?? '', name: p.valeur.recette.nom, origine: 'api', graph: p.valeur.graphe, draftGraph: null });
+}
+
+/**
+ * Remplace le BROUILLON seul (CSM, B4), sur un scénario de l'API ou de la console : la version publiée ne bouge pas. Le
+ * contrôle tourne sous le verrou de la ligne : l'empreinte est celle du brouillon en cours, ou de la version publiée
+ * sans brouillon, et un état que la recette ne décrit pas (vide, ou retouché dans la console au-delà) est refusé.
+ */
+async function remplacerLeBrouillon(
+  deps: DepsScenariosApi, tenantId: string, ref: string, corps: unknown, empreinte: string,
+): Promise<ResultatScenario<VueScenario>> {
+  const avant = await deps.scenarios.lireParApi(tenantId, ref);
+  if (!avant) return introuvable();
+  const p = await preparer(deps, tenantId, corps, versionDeTravail(avant));
+  if (!p.ok) return p;
+  const controle = (l: LigneApi): ResultatScenario<never> | null => {
+    const travail = versionDeTravail(l);
+    const actuelle = travail.nodes.length > 0 ? empreinteDe(travail) : null;
+    if (actuelle === null) {
+      return echec('scenario_not_describable', 'ce scénario ne se décrit pas par une recette (vide, ou retouché dans la console au-delà de ce qu’une recette dit) : seule la console le modifie');
+    }
+    if (actuelle !== empreinte) {
+      return echec('scenario_changed', 'le scénario a changé depuis votre lecture : relisez-le et renvoyez l’empreinte de son brouillon, ou de sa version publiée s’il n’en a pas');
+    }
+    // 🔴 Le nom n'a pas de brouillon : l'écrire renommerait le scénario EN LIGNE, sans clic, et un envoi qui le vise par son
+    // nom (`/v1/sends`, Make, Zapier) tomberait en 404 (relecture du lot D). Libre tant que rien n'est publié.
+    if (l.graph.nodes.length > 0 && !memeNom(l.name, p.valeur.recette.nom)) {
+      return echec('invalid_body', `en brouillon, le nom d’un scénario en ligne ne change pas : gardez « ${l.name} » (un nouveau nom se donne dans la console)`, { chemin: 'nom' });
+    }
+    return null;
+  };
+  const r = await deps.scenarios.remplacerBrouillonParApi(avant.id, tenantId, p.valeur.recette.nom, p.valeur.graphe, controle);
+  if (r === 'inconnu') return introuvable();
+  if (r !== 'ok' && 'nomPris' in r) return echec('scenario_name_taken', `un autre scénario de l’espace s’appelle déjà « ${p.valeur.recette.nom} »`, { id: r.nomPris });
+  if (r !== 'ok') return r.refus;
+  const apres = await deps.scenarios.lireParApi(tenantId, avant.id);
+  return apres ? vueDe(apres) : introuvable();
 }
 
 export async function supprimerScenario(

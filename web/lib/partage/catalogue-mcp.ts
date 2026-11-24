@@ -32,8 +32,8 @@ export const CATALOGUE_MCP = {
   list_widgets: { scope: 'mcp:read' },
   list_scenarios: { scope: 'mcp:read' },
   /**
-   * Les scénarios par leur recette (spec 2026-11-02-scenarios-api) : toute écriture publie et écrit à de vrais contacts,
-   * donc au nom d'une personne, jamais d'une clé.
+   * Les scénarios par leur recette (spec 2026-11-02-scenarios-api) : une écriture sans brouillon publie, donc écrit à de
+   * vrais contacts, et un brouillon se met en ligne sur le clic d'un admin : au nom d'une personne, jamais d'une clé.
    */
   get_scenario: { scope: 'mcp:read' },
   create_scenario: { scope: 'mcp:write', exigePersonne: true },

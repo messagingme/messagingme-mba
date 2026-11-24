@@ -257,6 +257,30 @@ describe('les identifiants au remplacement', () => {
     expect(bloc(g2, (n) => n.data.body === 'Dommage').id).toBe(bloc(g1, (n) => n.data.body === 'Dommage').id);
   });
 
+  it('🔴 un scénario de la console (blocs en UUID) garde l’id et la place de chaque bloc inchangé (relecture du lot D, CSM B4)', () => {
+    // La console nomme ses blocs par UUID et les place à la main : on en fabrique un depuis la recette de référence.
+    const g = compile(complete());
+    const uuid = new Map(g.nodes.map((n, i) => [n.id, `${String(i).padStart(8, '0')}-aaaa-4bbb-8ccc-dddddddddddd`]));
+    const dessine: WorkflowGraph = {
+      nodes: g.nodes.map((n, i) => ({ ...n, id: uuid.get(n.id)!, position: { x: 1000 + i, y: 2000 + i } })),
+      edges: g.edges.map((e, i) => ({ ...e, id: `xy-edge-${i}`, source: uuid.get(e.source)!, target: uuid.get(e.target)! })),
+    };
+    const ids = (x: WorkflowGraph) => x.nodes.map((n) => n.id).sort();
+    const meme = compile(complete(), dessine);
+    expect(ids(meme)).toEqual(ids(dessine));
+    expect(meme.nodes.find((n) => n.type === 'agent')!.position).toEqual(dessine.nodes.find((n) => n.type === 'agent')!.position);
+    // Corriger le texte d'un message garde son id : le texte n'est pas une sortie, un contact qui attend dessus reprend là.
+    const corrigee = complete() as Extract<Etape, { template: unknown }>;
+    (corrigee.boutons![1]!.suite as Extract<Etape, { message: unknown }>).message.texte = 'Voici notre brochure';
+    expect(ids(compile(corrigee, dessine))).toEqual(ids(dessine));
+    // Changer les sorties d'un message lui donne un id neuf, à lui seul ; ses suites gardent les leurs.
+    const reponses = complete() as Extract<Etape, { template: unknown }>;
+    (reponses.boutons![1]!.suite as Extract<Etape, { message: unknown }>).reponses![1]!.texte = 'Rappelez-moi';
+    const apres = compile(reponses, dessine);
+    const neufs = apres.nodes.filter((n) => !dessine.nodes.some((d) => d.id === n.id));
+    expect(neufs.map((n) => n.data.body)).toEqual(['Voici la brochure', 'Je vous rappelle.']);
+  });
+
   it('deux textes qui se ressemblent une fois concaténés ne fabriquent pas le même id', () => {
     const e: Etape = {
       message: { texte: 'Choix' },

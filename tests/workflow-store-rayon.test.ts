@@ -50,6 +50,9 @@ const API: Record<string, (s: PgWorkflowStore) => Promise<unknown>> = {
   creerPublieParApi: (s) => s.creerPublieParApi('t1', 'nom', { nodes: [], edges: [] }),
   lireParApi: (s) => s.lireParApi('t1', 'w1'),
   remplacerPublieParApi: (s) => s.remplacerPublieParApi('w1', 't1', 'nom', { nodes: [], edges: [] }, () => null),
+  // Le brouillon de l'API (CSM, B4) : les mêmes filtres que ses jumelles qui publient.
+  creerBrouillonParApi: (s) => s.creerBrouillonParApi('t1', 'nom', { nodes: [], edges: [] }),
+  remplacerBrouillonParApi: (s) => s.remplacerBrouillonParApi('w1', 't1', 'nom', { nodes: [], edges: [] }, () => null),
   supprimerParApi: (s) => s.supprimerParApi('w1', 't1'),
 };
 

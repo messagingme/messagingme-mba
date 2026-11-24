@@ -884,11 +884,14 @@ session ferait refuser tout le démarrage.
 🔴 **Les identifiants des blocs dérivent de leur chemin dans la recette et de leur type** (empreinte de l'entrée, du
 texte de chaque bouton suivi). Un remplacement redonne donc le même id à un bloc resté au même endroit, et son code
 `nod_` est repris du graphe publié : un contact arrêté dessus reprend au bon endroit (`grapheDuRun` lit le publié), et
-`/v1/sends` comme les « Aller à » qui visent ce code continuent de le trouver.
+`/v1/sends` comme les « Aller à » qui visent ce code continuent de le trouver. 🔴 À chemin, type et sorties égaux, un
+bloc du graphe remplacé garde aussi son id et sa place (`signatureDe`, `src/workflow/recette-graphe.ts`) : un scénario
+dessiné dans la console nomme ses blocs par UUID, et sans cette reprise sa réécriture par Claude (lot 1 du CSM virtuel,
+B4) changeait l'id de chaque bloc, donc faisait perdre le sien à chaque parcours en cours une fois publiée.
 
-🔴 **Toute écriture publie** (`creerPublieParApi`, `remplacerPublieParApi`, `src/workflow/store.pg.ts`) : `graph` et
-`published_at`, jamais `draft_graph`. `workflows.origine` (migration 0267) vaut `api` pour ces scénarios, `console`
-pour les autres, que l'API ne remplace ni ne supprime. Le nom est unique dans l'espace, comparé comme `/v1/sends` le
+🔴 **Sans option, toute écriture publie** (`creerPublieParApi`, `remplacerPublieParApi`, `src/workflow/store.pg.ts`) :
+`graph` et `published_at`, jamais `draft_graph`. `workflows.origine` (migration 0267) vaut `api` pour ces scénarios,
+`console` pour les autres, que l'API ne remplace ni ne supprime (sauf leur brouillon, ci-dessous). Le nom est unique dans l'espace, comparé comme `/v1/sends` le
 résout (casse et espaces aux bords ignorés), sous un verrou consultatif de l'espace.
 
 🔴 **Le remplacement est gardé par l'empreinte de la RECETTE, pas du graphe** : la console réenregistre un scénario à la
@@ -896,6 +899,24 @@ simple ouverture (les positions bougent). L'empreinte (`empreinteRecette`) se ca
 (`decompilerGraphe`) et se contrôle sous le verrou de la ligne ; un brouillon de la console qui décrit une autre
 recette fait aussi refuser. Un graphe que la recette ne sait plus dire (bloc hors des quatre formes, branches qui se
 rejoignent, bloc isolé) rend `scenario_not_describable`.
+
+🔴 **Le brouillon (lot 1 du CSM virtuel, B4) ne passe que par les outils MCP** : `brouillon: true` sur `create_scenario`
+et `update_scenario` ; `/v1/scenarios` n'a pas l'option (reportée, `todo.md`). `creerBrouillonParApi` crée la ligne avec
+le `graph` vide de la colonne et la recette dans `draft_graph` : rien ne peut la lancer, et le déclencheur des versions
+(0315) n'en fait aucune. `remplacerBrouillonParApi` n'écrit que `draft_graph` et le nom, sur tout scénario du Builder,
+console comprise, et efface le brouillon quand il redit le publié à la disposition près (la règle de `update`). Son
+contrôle, sous le verrou de la ligne, compare l'empreinte au BROUILLON en cours, ou au publié sans brouillon : un
+brouillon de la console enregistré entre la lecture et l'écriture fait refuser, et un état qu'une recette ne dit pas
+rend `scenario_not_describable`. La vue (`vueDe`) rend `publie`, la recette et l'empreinte publiées (nulles sans
+publication), et `brouillon` (sa recette et son empreinte), ou `brouillonNonDecrit` pour un brouillon de la console
+qu'une recette ne dit pas. Rien n'est écrit au journal : la publication, elle, passe par la mise en ligne
+(`propose_go_live`, action `publier`), qui l'y inscrit. 🔴 Le nom n'a pas de brouillon : en brouillon, celui d'un
+scénario publié ne change pas (refusé sur `nom`), sinon il serait renommé en ligne sans clic et un envoi `/v1/sends` qui
+le vise par son nom tomberait en 404 ; libre tant que rien n'est publié. 🔴 `/v1` garde son contrat (`versV1`,
+`src/http/v1-scenarios.ts`, tenu par `tests/v1-scenarios.test.ts`) : sa vue n'a ni `publie` ni `brouillon`, et un
+scénario qui n'existe qu'en brouillon y est refusé (`scenario_not_describable`) plutôt que rendu avec une recette nulle
+que le contrat du SDK promet remplie. Remplacer en publiant un tel scénario est refusé de même, et un brouillon en
+attente (console ou Claude) fait refuser la publication directe qui l'effacerait.
 
 🔴 **Le fichier d'un message se lit à chaque envoi** et se vérifie une fois à l'écriture par le MÊME chemin que l'envoi
 (`lireFichierDuBloc`, `src/meta/template-media.ts` : fiche de la médiathèque de l'espace, sinon téléchargement gardé),

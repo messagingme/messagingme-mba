@@ -98,7 +98,10 @@ export interface WorkflowRow {
    * change que par une publication explicite (`publish`, l'API) ou par la mise en ligne d'une version programmée.
    */
   graph: WorkflowGraph;
-  /** Le brouillon en attente de publication. null = aucun, le publié fait foi. Seul l'éditeur le lit. */
+  /**
+   * Le brouillon en attente de publication. null = aucun, le publié fait foi. L'éditeur, la mise en ligne et les outils
+   * de Claude le lisent ; rien ne le lance, sauf le lien de test.
+   */
   draftGraph?: WorkflowGraph | null;
   /** Dernière mise en ligne. null = jamais publié depuis l'arrivée du bouton (lignes antérieures comprises). */
   publishedAt?: string | null;
@@ -613,7 +616,8 @@ export class PgWorkflowStore {
   /**
    * ─── L'API des scénarios (spec 2026-11-02-scenarios-api) ───
    *
-   * 🔴 Toute écriture PUBLIE (`graph`), jamais le brouillon, et la marque `origine = 'api'` est posée à la création
+   * 🔴 Ces deux écritures PUBLIENT (`graph`), jamais le brouillon (leurs jumelles `…BrouillonParApi`, CSM B4, n'écrivent
+   * que lui), et la marque `origine = 'api'` est posée à la création
    * seulement. Le nom est unique (`nomPrisSousVerrou`), et 🔴 toute requête de l'opération passe par le client qui tient
    * le verrou, jamais par `this.pool`.
    */
@@ -639,6 +643,55 @@ export class PgWorkflowStore {
     );
     const l = r.rows[0];
     return l ? { ...toRow(l), origine: l.origine } : null;
+  }
+
+  /**
+   * Crée en BROUILLON (lot 1 du CSM virtuel, B4) : la recette compilée part dans `draft_graph`, le graphe publié reste
+   * vide (la colonne par défaut), donc rien ne peut lancer ce scénario et le déclencheur des versions n'en fait aucune.
+   * Le nom reste unique dans le Builder, comme pour une création publiée : un rejeu rend le scénario déjà créé.
+   */
+  async creerBrouillonParApi(tenantId: string, nom: string, graphe: WorkflowGraph): Promise<{ id: string; code: string } | { nomPris: string }> {
+    return enTransaction(this.pool, async (c) => {
+      const pris = await nomPrisSousVerrou(c, tenantId, nom, null, 'general');
+      if (pris) return { nomPris: pris };
+      const code = makeCode('scn', await resolveTenantCode(c, tenantId));
+      const r = await c.query<{ id: string; code: string }>(
+        `insert into workflows (tenant_id, name, draft_graph, code, origine, rayon)
+         values ($1, $2, $3::jsonb, $4, 'api', 'general') returning id, code`,
+        [tenantId, nom, JSON.stringify(graphe), code],
+      );
+      return r.rows[0]!;
+    });
+  }
+
+  /**
+   * Remplace le BROUILLON seul (CSM, B4), sur un scénario du Builder, console comprise : le publié ne bouge pas. Un
+   * brouillon de même forme que le publié n'en est pas un (la règle de `update`). `controle` juge la ligne SOUS SON
+   * VERROU : un brouillon de la console enregistré entre la lecture de l'appelant et cette écriture est vu ici.
+   */
+  async remplacerBrouillonParApi<R>(
+    id: string, tenantId: string, nom: string, graphe: WorkflowGraph, controle: (l: LigneApi) => R | null,
+  ): Promise<'ok' | 'inconnu' | { nomPris: string } | { refus: R }> {
+    return enTransaction(this.pool, async (c) => {
+      const r = await c.query<Row & { origine: 'console' | 'api' }>(
+        `select ${COLS}, origine from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} and ${DU_BUILDER} for update`,
+        [id, tenantId],
+      );
+      const l = r.rows[0];
+      if (!l) return 'inconnu' as const;
+      const refus = controle({ ...toRow(l), origine: l.origine });
+      if (refus !== null) return { refus };
+      const pris = await nomPrisSousVerrou(c, tenantId, nom, id, 'general');
+      if (pris) return { nomPris: pris };
+      await c.query(
+        `update workflows w set name = $3,
+                draft_graph = case when ${forme('$4::jsonb')} = ${forme('w.graph')} then null else $4::jsonb end,
+                updated_at = now()
+          where w.id = $1 and w.tenant_id = $2 and w.${PUBLIC} and w.${DU_BUILDER}`,
+        [id, tenantId, nom, JSON.stringify(graphe)],
+      );
+      return 'ok' as const;
+    });
   }
 
   /**

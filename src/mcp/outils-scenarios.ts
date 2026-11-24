@@ -80,29 +80,52 @@ const SCENARIO: ProprieteEntree = {
   description: 'The scenario id, or its scn_ code (create_scenario, get_scenario, list_scenarios).',
 };
 
-const PUBLIE = 'Every write PUBLISHES at once, there is no draft: a published scenario writes to nobody until a send '
+const PUBLIE = 'Without brouillon, the write PUBLISHES at once: a published scenario writes to nobody until a send '
   + '(send_scenario_to_contact, launch_campaign, POST /v1/sends) or the default responder (set_default_responder) starts it. '
+  + 'With brouillon: true, only the DRAFT is written and nothing can start it: propose_go_live (action "publier") then '
+  + 'shows it to an administrator, whose click publishes it. Prepare every change for a person that way. '
   + 'A rule added to an AI agent after the write is not wired: it goes to the team until the scenario is replaced.';
+
+/** `brouillon` (lot 1 du CSM virtuel, B4) : n'écrire que la version de travail. Absent ou faux : l'écriture publie. */
+const BROUILLON: ProprieteEntree = {
+  type: 'boolean',
+  description: 'true: write the DRAFT only (nothing published, nothing starts it; propose_go_live publishes it on an '
+    + 'administrator\'s click). Absent or false: the write publishes at once.',
+};
+
+/** Le booléen `brouillon`, ou un refus : jamais deviné. */
+function optionBrouillon(args: Record<string, unknown>): { brouillon: boolean } {
+  const b = args.brouillon;
+  if (b === undefined || b === null) return { brouillon: false };
+  if (typeof b !== 'boolean') throw new RefusOutil('paramètre « brouillon » : true ou false', 'invalid_args');
+  return { brouillon: b };
+}
 
 export const OUTILS_SCENARIOS: OutilMcp[] = [
   {
     ...ficheOutilMcp('create_scenario'),
     fonction: 'scenarios',
-    description: 'Creates a scenario from a recipe and publishes it. Returns the recipe read back, its id and scn_ code, '
-      + 'entreeCode (the nod_ code of the first step), empreinte (to replace it later) and ouverture. ' + PUBLIE,
+    description: 'Creates a scenario from a recipe. Returns its id and scn_ code, publie, and the published recipe read '
+      + 'back with entreeCode (the nod_ code of the first step), empreinte and ouverture; with brouillon, these are null '
+      + 'and brouillon holds the recipe and the empreinte to pass to update_scenario. ' + PUBLIE,
     annotations: ecriture('Create a scenario', false, false),
-    entree: { type: 'object', properties: RECETTE, required: ['nom', 'entree'], additionalProperties: false },
+    entree: { type: 'object', properties: { ...RECETTE, brouillon: BROUILLON }, required: ['nom', 'entree'], additionalProperties: false },
     ecran: (_args, r) => ECRANS.scenario(lire(r, 'id')),
     async executer(deps, tenantId, args, personne) {
       const auteur = { userId: signataire(personne), acces: null };
-      return valeurOuRefus(await creerScenario(deps.scenariosApi, tenantId, args, 'mcp', auteur));
+      const options = optionBrouillon(args);
+      const { brouillon: _b, ...recette } = args;
+      return valeurOuRefus(await creerScenario(deps.scenariosApi, tenantId, recette, 'mcp', auteur, options));
     },
   },
   {
     ...ficheOutilMcp('get_scenario'),
     fonction: 'scenarios',
-    description: 'Reads a scenario as a recipe, with its empreinte, needed by update_scenario. A scenario edited in the '
-      + 'console beyond what a recipe can say is refused: only the console edits it.',
+    description: 'Reads a scenario as a recipe, with its empreinte, needed by update_scenario: publie (it has a published '
+      + 'version), recette and empreinte of the published version (null for a scenario that only exists as a draft), '
+      + 'and brouillon, the draft waiting to be published, with its own recette and empreinte (null without draft; '
+      + 'brouillonNonDecrit: a draft from the console that a recipe cannot say). A published scenario edited in the console '
+      + 'beyond what a recipe can say is refused: only the console edits it.',
     annotations: lecture('Read a scenario'),
     entree: { type: 'object', properties: { scenario: SCENARIO }, required: ['scenario'], additionalProperties: false },
     async executer(deps, tenantId, args) {
@@ -112,17 +135,20 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
   {
     ...ficheOutilMcp('update_scenario'),
     fonction: 'scenarios',
-    description: 'Replaces a WHOLE scenario created through the API or by Claude, and publishes it. Pass the empreinte read '
-      + 'by get_scenario: if the scenario changed in the meantime (in the console too), the call is refused instead of '
-      + 'overwriting. A step left at the same place keeps its id, so a contact in the middle of the scenario resumes '
-      + 'there. ' + PUBLIE,
+    description: 'Replaces a WHOLE scenario. Without brouillon, only a scenario created through the API or by Claude, '
+      + 'and it is published. With brouillon: true, any scenario of the Builder, the console\'s included, as long as a '
+      + 'recipe can say it: only its draft changes. Pass the empreinte read by get_scenario (the draft\'s when it has one, '
+      + 'otherwise the published one): if the scenario changed in the meantime (in the console too), the call is refused '
+      + 'instead of overwriting. A step left at the same place keeps its id, so a contact in the middle of the scenario '
+      + 'resumes there. With brouillon, the name of a published scenario cannot change (a send may target it by name). ' + PUBLIE,
     annotations: ecriture('Replace a scenario', true, false),
     entree: {
       type: 'object',
       properties: {
         scenario: SCENARIO,
         ...RECETTE,
-        empreinte: { type: 'string', minLength: 1, maxLength: 100, description: 'The empreinte returned by get_scenario or by the last write.' },
+        empreinte: { type: 'string', minLength: 1, maxLength: 100, description: 'The empreinte read by get_scenario or returned by the last write: brouillon.empreinte when the scenario has a draft, otherwise empreinte.' },
+        brouillon: BROUILLON,
       },
       required: ['scenario', 'nom', 'entree', 'empreinte'],
       additionalProperties: false,
@@ -131,9 +157,10 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
     async executer(deps, tenantId, args, personne) {
       const auteur = { userId: signataire(personne), acces: null };
       const ref = texteObligatoire(args, 'scenario', 100);
-      const { scenario: _ref, empreinte, ...recette } = args;
+      const options = optionBrouillon(args);
+      const { scenario: _ref, empreinte, brouillon: _b, ...recette } = args;
       return valeurOuRefus(await remplacerScenario(
-        deps.scenariosApi, tenantId, ref, recette, typeof empreinte === 'string' ? empreinte : undefined, 'mcp', auteur,
+        deps.scenariosApi, tenantId, ref, recette, typeof empreinte === 'string' ? empreinte : undefined, 'mcp', auteur, options,
       ));
     },
   },

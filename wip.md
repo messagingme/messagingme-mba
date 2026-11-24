@@ -35,7 +35,10 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   scénario (0315, `6e519ca31` et `5a0860749`) ; B2, le oui de mise en ligne (0316, `2aa69b7be`, run 45475739722 : la
   page `/mise-en-ligne`, `propose_go_live`, `get_go_live`, `list_scenario_versions`) ; plugin 0.3.64. Relu sans rouge,
   les jaunes au `todo.md`. Reste l'essai réel (285, `docs/prive/ESSAIS-REELS.md`).
-- Ensuite : le chemin du pilote (B4 à B6, B9).
+- Lot D (plan `2026-11-24-csm-lot1-d-brouillon.md`) : B4, le brouillon des outils (`brouillon` sur `create_scenario` et
+  `update_scenario`, console comprise), sans migration. L'option de `/v1` et sa route de publication sont reportées
+  après le pilote (`todo.md`).
+- Ensuite : le chemin du pilote (B5, B6, B9).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 

@@ -41,6 +41,25 @@ export function magasin() {
       return 'ok' as const;
     }),
     supprimerParApi: vi.fn(async () => 'ok' as const),
+    // Le brouillon (CSM, B4) : le graphe publié vide à la création ; au remplacement, le publié ne bouge pas, et un
+    // brouillon de même forme que lui (positions mises à part) n'en est pas un, comme dans `PgWorkflowStore`.
+    creerBrouillonParApi: vi.fn(async (tenantId: string, nom: string, graphe: WorkflowGraph) => {
+      const pris = [...lignes.values()].find((l) => l.tenantId === tenantId && l.name.trim().toLowerCase() === nom.trim().toLowerCase());
+      if (pris) return { nomPris: pris.id };
+      n += 1;
+      const id = `00000000-0000-4000-8000-00000000000${n}`;
+      lignes.set(id, { id, tenantId, name: nom, code: `scn_t1_${n}`, graph: { nodes: [], edges: [] }, draftGraph: graphe, publishedAt: null, createdAt: 'x', updatedAt: 'x', origine: 'api', rayon: 'general' });
+      return { id, code: `scn_t1_${n}` };
+    }),
+    remplacerBrouillonParApi: vi.fn(async <R>(id: string, tenantId: string, nom: string, graphe: WorkflowGraph, controle: (l: LigneApi) => R | null) => {
+      const l = lignes.get(id);
+      if (!l || l.tenantId !== tenantId) return 'inconnu' as const;
+      const refus = controle(l);
+      if (refus !== null) return { refus };
+      const forme = (g: WorkflowGraph) => JSON.stringify({ edges: g.edges, nodes: g.nodes.map(({ position: _p, ...x }) => x) });
+      lignes.set(id, { ...l, name: nom, draftGraph: forme(graphe) === forme(l.graph) ? null : graphe });
+      return 'ok' as const;
+    }),
   };
 }
 

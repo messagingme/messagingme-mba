@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { OUTILS, outilsPour, RefusOutil, type DepsMcp } from '../src/mcp/outils';
-import { creerScenario } from '../src/workflow/scenarios-api';
+import { creerScenario, type VueScenario } from '../src/workflow/scenarios-api';
 import {
   LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX, PROFONDEUR_MAX_RECETTE,
 } from '../src/workflow/recette';
@@ -81,6 +81,83 @@ describe('les outils MCP des scénarios', () => {
     }
     // update_scenario annonce la même recette.
     expect(JSON.stringify(outil('update_scenario').entree.properties.entree)).toBe(JSON.stringify(outil('create_scenario').entree.properties.entree));
+  });
+});
+
+/**
+ * LE BROUILLON (lot 1 du CSM virtuel, B4) : `brouillon: true` n'écrit que la version de travail, que la mise en ligne d'un
+ * admin publie (`propose_go_live`). Sans le paramètre, rien ne change : l'écriture publie. Le service est prouvé dans
+ * `tests/workflow-scenarios-api.test.ts` ; ici, ce que les outils en font : le paramètre lu, retiré de la recette, refusé
+ * s'il n'est pas un booléen, et annoncé.
+ */
+describe('le paramètre brouillon des outils (CSM, B4)', () => {
+  const autre = () => recette({
+    template: { nom: 'relance', langue: 'fr' },
+    boutons: [{ texte: 'Oui', suite: { humain: {} } }, { texte: 'Non', suite: { humain: {} } }],
+  });
+
+  it('🔴 create_scenario avec brouillon : rien de publié ni au journal, la recette lue SANS le paramètre', async () => {
+    const { deps, store, journal } = monter();
+    const vue = await outil('create_scenario').executer(deps, TENANT, { ...recette(), brouillon: true }, MOI) as VueScenario;
+    expect(store.creerPublieParApi).not.toHaveBeenCalled();
+    expect(store.creerBrouillonParApi).toHaveBeenCalledTimes(1);
+    expect(journal).not.toHaveBeenCalled();
+    expect(vue).toMatchObject({ publie: false, recette: null, empreinte: null, brouillonNonDecrit: false });
+    expect(vue.brouillon?.recette.nom).toBe('Relance');
+    expect(store.lignes.get(vue.id)!.graph.nodes).toEqual([]);
+  });
+
+  it('sans le paramètre, ou à false, l’écriture publie comme avant', async () => {
+    for (const args of [recette(), { ...recette(), brouillon: false }, { ...recette(), brouillon: null }]) {
+      const { deps, store } = monter();
+      const vue = await outil('create_scenario').executer(deps, TENANT, args, MOI) as VueScenario;
+      expect(store.creerPublieParApi).toHaveBeenCalledTimes(1);
+      expect(store.creerBrouillonParApi).not.toHaveBeenCalled();
+      expect(vue).toMatchObject({ publie: true, brouillon: null });
+    }
+  });
+
+  it('🔴 update_scenario avec brouillon : le publié ne bouge pas, get_scenario rend le brouillon, son empreinte prend le relais', async () => {
+    const { deps, store } = monter();
+    const cree = await outil('create_scenario').executer(deps, TENANT, recette(), MOI) as VueScenario;
+    const publie = store.lignes.get(cree.id)!.graph;
+    const un = await outil('update_scenario').executer(deps, TENANT, { scenario: cree.id, ...autre(), empreinte: cree.empreinte, brouillon: true }, MOI) as VueScenario;
+    expect(store.remplacerPublieParApi).not.toHaveBeenCalled();
+    expect(store.lignes.get(cree.id)!.graph).toBe(publie);
+    expect(un).toMatchObject({ publie: true, empreinte: cree.empreinte });
+    const lu = await outil('get_scenario').executer(deps, TENANT, { scenario: cree.code }, null) as VueScenario;
+    expect(lu.brouillon?.empreinte).toBe(un.brouillon?.empreinte);
+    // L'empreinte du publié ne vaut plus une fois le brouillon posé : la recette a changé depuis cette lecture.
+    await expect(outil('update_scenario').executer(deps, TENANT, { scenario: cree.id, ...recette(), empreinte: cree.empreinte, brouillon: true }, MOI))
+      .rejects.toMatchObject({ precisions: { cause: 'scenario_changed' } });
+    await outil('update_scenario').executer(deps, TENANT, { scenario: cree.id, ...recette(), empreinte: un.brouillon!.empreinte, brouillon: true }, MOI);
+  });
+
+  it('🔴 un brouillon qui n’est pas un booléen est refusé avant toute écriture', async () => {
+    const { deps, store } = monter();
+    const cree = await outil('create_scenario').executer(deps, TENANT, recette(), MOI) as VueScenario;
+    store.creerPublieParApi.mockClear();
+    for (const brouillon of ['true', 1, 'oui', {}]) {
+      await expect(outil('create_scenario').executer(deps, TENANT, { ...autre(), nom: 'Autre', brouillon }, MOI))
+        .rejects.toMatchObject({ code: 'invalid_args', message: expect.stringContaining('brouillon') });
+      await expect(outil('update_scenario').executer(deps, TENANT, { scenario: cree.id, ...autre(), empreinte: cree.empreinte, brouillon }, MOI))
+        .rejects.toMatchObject({ code: 'invalid_args' });
+    }
+    expect(store.creerPublieParApi).not.toHaveBeenCalled();
+    expect(store.creerBrouillonParApi).not.toHaveBeenCalled();
+    expect(store.remplacerPublieParApi).not.toHaveBeenCalled();
+    expect(store.remplacerBrouillonParApi).not.toHaveBeenCalled();
+  });
+
+  it('les deux écritures annoncent brouillon et disent comment publier, plus que toute écriture publie', () => {
+    for (const nom of ['create_scenario', 'update_scenario']) {
+      const o = outil(nom);
+      expect(o.entree.properties.brouillon, nom).toMatchObject({ type: 'boolean' });
+      expect(o.entree.required ?? [], nom).not.toContain('brouillon');
+      expect(o.description, nom).toContain('propose_go_live');
+      expect(o.description, nom).not.toMatch(/there is no draft/i);
+    }
+    expect(outil('get_scenario').description).toContain('brouillon');
   });
 });
 

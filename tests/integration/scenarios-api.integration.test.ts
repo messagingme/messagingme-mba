@@ -79,6 +79,53 @@ describe.skipIf(!url)('scénarios écrits par l’API (Postgres)', () => {
     expect(await store.remplacerPublieParApi(r.id, autreTenantId, 'x', graphe('v3'), () => null)).toBe('inconnu');
   });
 
+  /** Les versions d'un scénario (migration 0315) : seule une écriture de `graph` en fait une, jamais un brouillon. */
+  const versions = async (id: string) =>
+    (await pool.query<{ n: number }>('select count(*)::int as n from workflow_versions where workflow_id = $1', [id])).rows[0]!.n;
+
+  it('🔴 créer en BROUILLON (CSM, B4) : le publié reste vide, la recette attend en brouillon, aucune version', async () => {
+    const r = await store.creerBrouillonParApi(tenantId, 'En brouillon', graphe('b1'));
+    if ('nomPris' in r) throw new Error('nom attendu libre');
+    const l = (await store.lireParApi(tenantId, r.id))!;
+    expect(l).toMatchObject({ origine: 'api', name: 'En brouillon', publishedAt: null });
+    expect(l.graph.nodes).toEqual([]);
+    expect(l.draftGraph!.nodes[0]!.data.body).toBe('b1');
+    expect(r.code).toMatch(/^scn_/);
+    expect(await versions(r.id)).toBe(0);
+    // Le nom reste unique dans le Builder, publié ou non : un rejeu rend le scénario déjà créé.
+    expect(await store.creerBrouillonParApi(tenantId, ' en BROUILLON ', graphe('b2'))).toEqual({ nomPris: r.id });
+    expect(await store.creerPublieParApi(tenantId, 'En brouillon', graphe('b2'))).toEqual({ nomPris: r.id });
+  });
+
+  it('🔴 remplacer le BROUILLON (CSM, B4) : le publié ne bouge pas, console comprise ; un brouillon égal au publié disparaît', async () => {
+    const r = await store.creerPublieParApi(tenantId, 'Travail', graphe('en ligne')) as { id: string };
+    let vu: string | undefined;
+    expect(await store.remplacerBrouillonParApi(r.id, tenantId, 'Travail', graphe('à venir'), (l) => { vu = l.graph.nodes[0]?.data.body as string; return null; })).toBe('ok');
+    expect(vu).toBe('en ligne');
+    let l = (await store.lireParApi(tenantId, r.id))!;
+    expect(l.graph.nodes[0]!.data.body).toBe('en ligne');
+    expect(l.draftGraph!.nodes[0]!.data.body).toBe('à venir');
+    expect(await versions(r.id)).toBe(1);
+    // Redire le publié, positions mises à part : il ne reste aucun brouillon (la règle de `update`).
+    const deplace = graphe('en ligne');
+    deplace.nodes[0]!.position = { x: 120, y: 40 };
+    expect(await store.remplacerBrouillonParApi(r.id, tenantId, 'Travail', deplace, () => null)).toBe('ok');
+    expect((await store.lireParApi(tenantId, r.id))!.draftGraph).toBeNull();
+    // Le contrôle refuse : rien n'est écrit. Un nom pris, un autre espace : refusés.
+    expect(await store.remplacerBrouillonParApi(r.id, tenantId, 'Travail', graphe('non'), () => 'non')).toEqual({ refus: 'non' });
+    expect((await store.lireParApi(tenantId, r.id))!.draftGraph).toBeNull();
+    expect(await store.remplacerBrouillonParApi(r.id, tenantId, 'Publié', graphe('x'), () => null)).toMatchObject({ nomPris: expect.any(String) });
+    expect(await store.remplacerBrouillonParApi(r.id, autreTenantId, 'x', graphe('x'), () => null)).toBe('inconnu');
+    // Un scénario fait dans la console : son brouillon se remplace aussi, et rien n'est publié.
+    const { id } = await store.insert(tenantId, 'Console B4', graphe('console'), 'general');
+    expect(await store.remplacerBrouillonParApi(id, tenantId, 'Console B4', graphe('par Claude'), () => null)).toBe('ok');
+    l = (await store.lireParApi(tenantId, id))!;
+    expect(l).toMatchObject({ origine: 'console', publishedAt: null });
+    expect(l.graph.nodes).toEqual([]);
+    expect(l.draftGraph!.nodes[0]!.data.body).toBe('par Claude');
+    expect(await versions(id)).toBe(0);
+  });
+
   it('🔴 ce qui utilise un scénario bloque sa suppression : automation, widget, répondeur, « Aller à »', async () => {
     const r = await store.creerPublieParApi(tenantId, 'Utilisé', graphe('u', 'nod_itest_01HZZZZZZZZZZZZZZZZZZZZZZZ')) as { id: string };
     expect(await store.utilisationsDuScenario(tenantId, r.id)).toEqual([]);

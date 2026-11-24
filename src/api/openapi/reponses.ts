@@ -221,7 +221,7 @@ export const journalWebhook = z.object({ data: z.array(deliveryV1), nextBefore: 
 export const rejeu = z.object({ replayed: z.literal(true) });
 export const rejeuEchecs = z.object({ replayed: z.number().describe('How many deliveries were replayed.') });
 
-/** Un scénario écrit ou lu par `/v1/scenarios` (`VueScenario`, `src/workflow/scenarios-api.ts`). */
+/** Un scénario écrit ou lu par `/v1/scenarios` : `VueScenario` sans le brouillon des outils (`versV1`, `src/http/v1-scenarios.ts`). */
 export const vueScenario = z.object({
   id: z.string(),
   code: z.string().describe('The scn_ code, usable wherever a scenario is designated.'),

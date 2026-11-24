@@ -64,13 +64,41 @@ interface Chantier {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   rang: number;
-  /** Les blocs du graphe remplacé, par chemin : leur code `nod_` se reprend à type égal. */
+  /**
+   * Les blocs du graphe remplacé, par chemin : leur code `nod_` se reprend à type égal, leur id et leur place à type et
+   * signature égaux (`signatureDe`).
+   */
   precedents: ReadonlyMap<string, WorkflowNode>;
 }
 
 /**
- * Compile une recette déjà lue (`lireRecette`). `precedent` : le graphe publié qu'elle remplace, dont les codes `nod_`
- * sont repris par chemin. Les blocs sans code en reçoivent un ensuite (`mintNodeCodes`, par l'appelant).
+ * La signature qu'aurait un bloc du graphe remplacé une fois compilé : la même que celle que `poser` reçoit pour son
+ * type (le template et ses boutons, les réponses rapides, l'agent et ses sorties, rien pour l'équipe et la fin). À
+ * chemin, type et signature égaux, c'est le même bloc, et il garde son id : un contact qui attend dessus reprend là.
+ * 🔴 Sans elle, seul le code `nod_` était repris, et un scénario dessiné dans la console, dont les blocs portent des UUID,
+ * changeait l'id de CHACUN à sa réécriture par Claude : publiée, elle faisait perdre leur bloc à tous les parcours en
+ * cours (relecture du lot D du CSM, B4). `tests/workflow-recette-graphe.test.ts` tient la parité avec `poser`.
+ */
+function signatureDe(n: WorkflowNode): string {
+  if (n.type === 'template') {
+    const boutons = Array.isArray(n.data.templateButtons) ? (n.data.templateButtons as Array<{ type?: unknown; text?: unknown }>) : [];
+    return JSON.stringify([String(n.data.templateName ?? '').trim(), String(n.data.language ?? 'fr'), boutons.map((b) => [b.type, b.text])]);
+  }
+  if (n.type === 'quick_message') {
+    const textes = Array.isArray(n.data.quickReplies) ? (n.data.quickReplies as unknown[]).map((q) => String(q ?? '').trim()) : [];
+    return JSON.stringify(textes);
+  }
+  if (n.type === 'agent') {
+    const sorties = Array.isArray(n.data.sorties) ? (n.data.sorties as Array<{ code?: unknown }>).map((s) => s.code) : [];
+    return JSON.stringify([String(n.data.agentId ?? '').trim(), sorties]);
+  }
+  return '';
+}
+
+/**
+ * Compile une recette déjà lue (`lireRecette`). `precedent` : le graphe qu'elle remplace (le publié, ou le brouillon en
+ * cours pour une écriture en brouillon), dont les codes `nod_` sont repris par chemin, et les ids et places des blocs
+ * inchangés (`signatureDe`). Les blocs sans code en reçoivent un ensuite (`mintNodeCodes`, par l'appelant).
  */
 export function compilerRecette(entree: Etape, refs: ReferencesResolues, precedent: WorkflowGraph | null): Lu<WorkflowGraph> {
   const chantier: Chantier = { nodes: [], edges: [], rang: 0, precedents: precedent ? decompiler(precedent).chemins : new Map() };
@@ -83,10 +111,12 @@ export function compilerRecette(entree: Etape, refs: ReferencesResolues, precede
 function poser(
   chantier: Chantier, chemin: Chemin, type: WorkflowNode['type'], profondeur: number, data: Record<string, unknown>, signature = '',
 ): string {
-  const id = idDe(chemin, type, signature);
   const avant = chantier.precedents.get(cle(chemin));
+  const meme = avant !== undefined && avant.type === type && signatureDe(avant) === signature;
+  const id = meme ? avant.id : idDe(chemin, type, signature);
   const code = avant?.type === type && typeof avant.data.code === 'string' && avant.data.code !== '' ? avant.data.code : null;
-  chantier.nodes.push({ id, type, position: { x: profondeur * PAS_X, y: chantier.rang * PAS_Y }, data: code ? { ...data, code } : data });
+  const position = meme && avant.position ? { x: avant.position.x, y: avant.position.y } : { x: profondeur * PAS_X, y: chantier.rang * PAS_Y };
+  chantier.nodes.push({ id, type, position, data: code ? { ...data, code } : data });
   chantier.rang += 1;
   return id;
 }

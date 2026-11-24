@@ -3494,13 +3494,20 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   parcours simple sans ouvrir la console : un template approuvé et une suite par réponse rapide, des messages à
   réponses rapides avec une image, une vidéo ou un PDF, un agent IA, l'équipe. Le serveur le compile dans le même
   graphe que la console dessine. Réservé aux offres qui ont les scénarios.
-  🔴 **Toute écriture publie aussitôt**, sans brouillon : le scénario n'écrit à personne tant qu'un envoi ou le
-  répondeur ne le lance pas. Un template encore en revue chez Meta fait refuser l'appel entier.
+  🔴 **Par l'API, toute écriture publie aussitôt**, sans brouillon : le scénario n'écrit à personne tant qu'un envoi
+  ou le répondeur ne le lance pas. Un template encore en revue chez Meta fait refuser l'appel entier.
   ⚠️ **L'API ne modifie et ne supprime que ses propres scénarios** : un scénario dessiné dans la console reste à la
-  console. Un remplacement exige l'empreinte lue, et il est refusé si quelqu'un a changé le scénario entre-temps ;
-  un contact en cours de parcours reprend où il était quand son étape n'a pas bougé. Une suppression est refusée
-  tant qu'une automation, le répondeur, une campagne, une publicité, un widget ou un « Aller à » utilise le
-  scénario, et la console applique désormais la même garde.
+  console, sauf son brouillon (ci-dessous). Un remplacement exige l'empreinte lue, et il est refusé si quelqu'un a
+  changé le scénario entre-temps ; un contact en cours de parcours reprend où il était quand son étape n'a pas bougé.
+  Une suppression est refusée tant qu'une automation, le répondeur, une campagne, une publicité, un widget ou un
+  « Aller à » utilise le scénario, et la console applique désormais la même garde.
+  ✅ **Claude écrit en brouillon** (2026-11-24, lot 1 du CSM virtuel, plan
+  `docs/superpowers/plans/2026-11-24-csm-lot1-d-brouillon.md`) : avec `brouillon`, `create_scenario` et
+  `update_scenario` n'écrivent que la version de travail, y compris sur un scénario dessiné dans la console tant
+  qu'une recette sait le dire. Rien ne la lance avant qu'un administrateur clique sur la mise en ligne que Claude
+  prépare (`propose_go_live`), qui publie le brouillon tel qu'il l'a vu. La liste des scénarios de la console le
+  marque « brouillon non publié ». Sans le paramètre, l'écriture publie aussitôt, comme par l'API, qui n'a pas
+  l'option.
   ✅ **Claude fait partir un scénario vers une personne** (2026-11-03, plan
   `docs/superpowers/plans/2026-11-03-outil-envoyer-scenario.md`) : `send_scenario_to_contact`, le même envoi que
   `send_template_to_contact` (consentement déclaré par le client, STOP, quota), cible un scénario publié qui ouvre
