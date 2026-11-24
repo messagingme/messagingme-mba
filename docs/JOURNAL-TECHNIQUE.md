@@ -85,6 +85,12 @@ rattrapage gagnent les fiches créées et celles que le plafond a empêchées (m
 Leçon : un test qui simule un état par une écriture directe (`update deleted_at`) prouve un chemin que la production
 n'emprunte plus ; il faut passer par le vrai chemin (`purgeMany`). 37 mutations sur 39 rouges, les deux vertes
 expliquées ; en local, trois tests ne dépassent que leur délai, la CI tranche.
+En production le même jour : la 0317 seule (run 45458113489), relue en base ; puis le code et la 0318 (run 45463867521,
+qui emportait le lot « fiche d'offre /ops » d'une session voisine), relue en base ; l'aide chargée par le workflow
+lui-même (371 lignes, première fois) ; plugin 0.3.63. Essai réel par Julien sur Maison Saint-Honoré, relu en base :
+39 commandes lues, 27 fiches créées (consentantes, source « rattrapage Shopify », étiquette « Shopify », avec un nom),
+28 commandes rattachées avec leurs lignes, 6 sans fiche (seul le numéro de livraison était renseigné : la règle du
+cadeau), 5 sans numéro, 0 au-delà du plafond ; l'espace passe de 4 à 31 fiches.
 
 ## 2026-11-24 : le oui aux données de la fiche, jamais lu chez Maison Saint-Honoré
 
