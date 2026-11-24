@@ -1,5 +1,10 @@
 # todo.md : backlog
 
+## La carte Shopify de l'Accueil (2026-11-24, `1f0f19723`)
+
+- `aide:charger` en production pour la fiche « Canaux et services » (elle parle désormais de la carte Shopify), après
+  avoir comparé `docs/aide` à origin.
+
 ## 🟡 Le oui aux données de la fiche pose l'outil : la relecture (2026-11-23, aucun rouge)
 
 - Tant que « Lire la fiche du contact » n'est pas actif, sa ligne d'activation revient dans le diff à chaque message

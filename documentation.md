@@ -7036,7 +7036,11 @@ Ajouté par le lot 4 de l'API publique :
    déduit de son interrupteur par `teinte(ligne, aTerminer)` (`web/lib/canaux-services.ts`) : `null` quand l'état est
    inconnu, jamais un gris (un gris dirait « éteint », ce qu'on n'a pas lu) ; `ligneRcs('echec')` ne donne ni
    interrupteur ni pastille ; la pastille du numéro passe à l'ambre quand `status.dot` est rouge ou ambre
-   (`numeroASurveiller`). Les logos vivent dans
+   (`numeroASurveiller`). La carte Shopify lit `GET /tenants/:tenantId/integrations/shopify` (`ligneShopify`) : un 404
+   de routeur (instance sans Shopify) ou une lecture en échec ne donne pas d'interrupteur ; sinon son geste
+   `ouvrir_shopify` vaut dans les deux sens, sans confirmation, et mène à Tools > Intégrations, seul endroit qui
+   coupe une boutique (la coupure retire l'app chez Shopify). ⚠️ Jamais un geste nul pour une boutique branchée :
+   `Toggle` désactivé se peint grisé et ne se lit plus comme allumé. Les logos vivent dans
    `web/components/LogosCanaux.tsx` (SVG inline, tracés Simple Icons ; icône de la Chaîne WhatsApp dessinée maison) ;
    `LogoHubSpot` y sert aussi le bloc HubSpot de l'Accueil.
    Les chiffres des cartes : `GET /tenants/:tenantId/accueil/volumes` (module stats, garde admin) rend `{ jours,

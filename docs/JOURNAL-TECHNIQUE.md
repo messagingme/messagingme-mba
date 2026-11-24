@@ -5,6 +5,20 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : la carte Shopify à la place de « Autres intégrations »
+
+Demande de Julien : dans « Canaux et services », la sixième case de la grille (le lien en pointillés « Autres
+intégrations ») devient une carte Shopify, interrupteur allumé quand une boutique est branchée. Le lien vers Tools >
+Intégrations passe dans l'en-tête du bloc. Commit `1f0f19723`, console seule : la route lue existait déjà en production.
+
+Premier essai calqué sur HubSpot relié (allumé, geste nul) : la capture montrait un interrupteur pâle, grisé par
+`disabled`, qui ne se lisait pas comme allumé. Le geste `ouvrir_shopify` vaut donc dans les deux sens et ouvre le
+réglage, où se fait la coupure. Vérifié : unitaires, typecheck, lint, e2e de l'Accueil (23 tests) sur une copie à part
+construite sur le port 3200 (le 3100 et le `.next` de l'arbre partagé servaient une autre session), capture, et le clic
+qui mène à `/integrations#integration-shopify`. La suite racine locale avait trois rouges hors périmètre
+(`sdk-contrat`, un plafond de `mcp-agent`), verts en CI sur `origin`. Fiche « Canaux et services » réécrite, empreinte
+de la section Accueil reportée sur les six fiches qui la citent ; `aide:charger` reste à faire (todo.md).
+
 ## 2026-11-24 : segments Shopify, lot 5 (suite) : le rattrapage demande le droit read_products
 
 Le lot 5 est parti en production par le run 45345072980 (`migration=avant`, « 0313_shopify_reprises.sql ... ok »,
