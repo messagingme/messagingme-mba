@@ -421,7 +421,7 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await page.getByTestId('integration-shopify-etiquettes-maintenant').click();
     await expect(page.getByTestId('integration-shopify-message')).toContainText('Synchronisation lancée');
     expect(trace.synchrosEtiquettes).toBe(1);
-    await expect(page.getByTestId('integration-shopify-etiquettes-en-cours')).toContainText('12 clients lus, 3 fiches reliées par leur téléphone.');
+    await expect(page.getByTestId('integration-shopify-etiquettes-en-cours')).toContainText('12 clients lus, 3 fiches reliées par leur numéro.');
     await expect(page.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
   });
 
