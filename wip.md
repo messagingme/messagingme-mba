@@ -41,9 +41,12 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   l'Action dans la recette. Essai réel fait sur la SANDBOX (le brouillon, le lien de test, la mise en ligne d'un clic,
   la version 1), sauf le répondeur et la restauration, qui se jouent avec le pilote. L'option `brouillon` de `/v1` est
   reportée après le pilote (`todo.md`).
-- Lot F (plan `2026-11-25-csm-lot1-f-simulation-deroule.md`), le chemin du pilote : B6a, la simulation d'un parcours
-  (`simulate_scenario`, `41cecf994`, en production le 2026-11-25, run 45648987719) ; B6b, le lien de test (`get_scenario_test_link`), le déroulé d'un contact
-  (`get_contact_journey`) et les deux journaux d'erreurs (`list_delivery_errors`, `list_system_errors`).
+- Lot F (plan `2026-11-25-csm-lot1-f-simulation-deroule.md`), le chemin du pilote : en production le 2026-11-25. B6a,
+  la simulation d'un parcours (`simulate_scenario`, `41cecf994`, run 45648987719) ; B6b, le lien de test
+  (`get_scenario_test_link`), le déroulé d'un contact (`get_contact_journey`) et les deux journaux d'erreurs
+  (`list_delivery_errors`, `list_system_errors`) (`d0e95ba24`, run 45676216975, plugin 0.3.70). Relu sans rouge à B6b,
+  un rouge corrigé avant de pousser à B6a, les jaunes au `todo.md`. Essai réel fait sur la SANDBOX (289,
+  `docs/prive/ESSAIS-REELS.md`).
 - Ensuite : B9, le pilote.
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.

@@ -5,6 +5,17 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : CSM virtuel, lot F en production, son essai réel fait
+
+B6b (`d0e95ba24`) est en production par le run 45676216975 et le plugin 0.3.70 est publié (run 45686447751) ; B6a
+(`41cecf994`) l'était depuis le run 45648987719. L'essai réel, sur la SANDBOX : la simulation, jouée en production sur
+le scénario du pilote pour un lead chaud, un contact sans réponse et un lead froid, colle aux parcours vécus au
+téléphone ; le lien de test que Claude obtient porte le même mot que la console et vise le numéro de Meta ; Julien joue
+la branche « Moins de 1 000 € », jamais jouée jusque-là, et sa fiche porte ce que la simulation annonçait ;
+`get_contact_journey` relit ses deux parcours du jour, chaque passage nommé par son bloc, et les erreurs de son numéro
+exact. Deux faits de passage : la publication du plugin de B6a n'a pas démarré pendant un incident de GitHub (elle est
+partie avec la suivante), et CodeQL, tombé pendant le même incident, est vert à la relance.
+
 ## 2026-11-25 : le passage de main de l'agent de Meta s'écrit complet (MUTAC)
 
 **Le symptôme.** Chez MUTAC, choisir le message de passage à un humain (« Vue d'ensemble » de l'agent) rendait : « Your
