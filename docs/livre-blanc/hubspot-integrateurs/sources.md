@@ -21,8 +21,8 @@ d'utilisateurs (Meta, 2026), 83 % (enquête Kantar pour Meta, étude BCG et Meta
 Repris de `site/solutions/deep-hubspot-integration/`, sauf la ligne de l'agent IA. **Le natif a un agent IA sur
 WhatsApp** : Breeze Customer Agent se déploie sur le canal WhatsApp de HubSpot (offres Pro ou Enterprise),
 d'après `knowledge.hubspot.com/customer-agent/deploy-the-customer-agent-to-channels`, relevé le 2026-11-25. La ligne
-dit donc oui des deux côtés, avec l'offre HubSpot qu'il faut. ⚠️ La page de la vitrine marque encore cette ligne
-« non » : elle est à corriger.
+dit donc oui des deux côtés, avec l'offre HubSpot qu'il faut. La page de la vitrine dit la même chose depuis
+d329a4b67 (« Un agent IA sur WhatsApp, avec toutes les offres HubSpot »).
 
 ## Les prérequis HubSpot (page 4)
 
