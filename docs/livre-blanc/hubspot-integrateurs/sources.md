@@ -14,7 +14,8 @@ node scripts/livre-blanc/imprimer.mjs docs/livre-blanc/hubspot-integrateurs/livr
 
 Repris tels quels du livre blanc des écoles, avec leurs sources (`../whatsapp-education/sources.md`) : 56 M
 d'utilisateurs (Meta, 2026), 83 % (enquête Kantar pour Meta, étude BCG et Meta du 2026-04-09), ×4,5 Air France (même
-étude). Le « 96 % de taux de lecture » du livre blanc des écoles, sans source, n'est pas repris.
+étude). **+30 % de réachat** chez les clients qui ont échangé plus de 3 messages avec la marque : mesure
+Messaging Me chez un client assureur, donnée par Julien le 2026-11-25, la marque jamais citée. Le « 96 % de taux de lecture » du livre blanc des écoles, sans source, n'est pas repris.
 
 ## Le tableau face au canal natif (page 3)
 

@@ -51,10 +51,11 @@ figcaption b{color:var(--encre)}
 
 /* ---------- 1. Couverture ---------- */
 .couv{padding:16mm 16mm 18mm;gap:0}
+.couv > *{flex-shrink:0}
 .couv .haut{display:flex;justify-content:space-between;align-items:center}
 .couv .haut img{height:8mm}
 .couv .pastille{font-size:7.6pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--nuit);border:.35mm solid var(--nuit);border-radius:99px;padding:1.8mm 4mm}
-.couv .bande{margin:16mm -16mm 0;padding:14mm 16mm 13mm;background:var(--nuit);color:#fff;position:relative;overflow:hidden}
+.couv .bande{margin:12mm -16mm 0;padding:11mm 16mm 10mm;background:var(--nuit);color:#fff;position:relative;overflow:hidden}
 .couv .bande::before{content:"";position:absolute;inset:-30%;background:radial-gradient(38% 46% at 86% 20%,rgb(26 47 184 / .95),transparent 70%),radial-gradient(28% 40% at 6% 100%,rgb(37 211 102 / .22),transparent 72%)}
 .couv .bande > *{position:relative}
 .couv .sur{font-size:9pt;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--ciel)}
@@ -63,7 +64,7 @@ figcaption b{color:var(--encre)}
 .couv h1 .wa{color:var(--wa)}
 .couv h1 .hs{color:var(--hs)}
 .couv .sous{font-family:var(--accent);font-style:italic;font-size:18pt;line-height:1.2;color:rgb(255 255 255 / .86);margin-top:6mm;max-width:150mm}
-.couv .pourquoi{margin-top:11mm;display:grid;grid-template-columns:1fr 1fr;gap:9mm;align-items:start}
+.couv .pourquoi{margin-top:7mm;display:grid;grid-template-columns:1fr 1fr;gap:9mm;align-items:start}
 .couv .pourquoi h2{font-size:21pt;line-height:1.04;margin:1.6mm 0 3.4mm}
 .couv .pourquoi p{font-size:10pt;line-height:1.58;color:var(--texte-c)}
 .couv .pourquoi p + p{margin-top:2.6mm}
@@ -79,7 +80,7 @@ figcaption b{color:var(--encre)}
 .couv .sources .note{max-width:120mm}
 .couv .sources strong{font-size:8pt;color:var(--encre);white-space:nowrap}
 
-.couv .sommaire{margin-top:12mm;background:var(--voile);border-radius:4mm;padding:4.6mm 5.4mm}
+.couv .sommaire{margin-top:6mm;background:var(--voile);border-radius:4mm;padding:4.6mm 5.4mm}
 .couv .sommaire ol{list-style:none;display:grid;grid-template-columns:repeat(5,1fr);gap:3mm;margin-top:2.6mm}
 .couv .sommaire li{font-size:8.6pt;line-height:1.32;font-weight:600;color:var(--encre)}
 .couv .sommaire li b{display:block;font-family:var(--titre);font-weight:800;font-size:15pt;color:var(--wa-fonce);margin-bottom:.8mm}
@@ -94,7 +95,7 @@ figcaption b{color:var(--encre)}
 .meta-l{display:grid;grid-template-columns:auto 1fr;gap:4mm;align-items:center;background:var(--voile);border-radius:4mm;padding:3.6mm 5mm}
 .meta-l .eti{white-space:nowrap}
 .meta-l p{font-size:8.8pt;line-height:1.45;color:var(--texte-c)}
-.moment-g{display:grid;grid-template-columns:1fr 44mm;gap:7mm;align-items:start;flex:1}
+.moment-g{display:grid;grid-template-columns:1fr 41mm;gap:7mm;align-items:start;flex:1}
 .moment-g h3{font-family:var(--titre);font-weight:800;font-variation-settings:"wdth" 86;font-size:16pt;line-height:1.08;margin:1.4mm 0 2mm}
 .moment-g > div > p{font-size:9.4pt;line-height:1.5;color:var(--texte-c);margin-bottom:3.4mm}
 .frise{list-style:none;position:relative;display:flex;flex-direction:column;gap:2.4mm}
@@ -104,8 +105,15 @@ figcaption b{color:var(--encre)}
 .frise b{display:block;font-size:8.6pt;font-weight:800;color:var(--encre)}
 .frise span{display:block;font-size:8.4pt;line-height:1.38;color:var(--texte-c)}
 .frise span i{font-style:normal;color:var(--wa-fonce);font-weight:700}
-.iphone{width:44mm;display:block;filter:drop-shadow(0 3mm 6mm rgb(1 6 48 / .28))}
+.iphone{width:41mm;display:block;filter:drop-shadow(0 3mm 6mm rgb(1 6 48 / .28))}
 .moment-g figcaption{text-align:center}
+
+.role-meta{background:var(--voile);border-radius:4mm;padding:4mm 5mm;display:flex;flex-direction:column;gap:2.6mm}
+.roles4{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm}
+.roles4 div{background:#fff;border-radius:3mm;padding:2.8mm 3.2mm}
+.roles4 b{display:block;font-size:8.8pt;font-weight:800;color:var(--nuit);margin-bottom:.6mm}
+.roles4 span{display:block;font-size:7.8pt;line-height:1.38;color:var(--texte-c)}
+.role-meta > p{font-size:8.6pt;line-height:1.45;color:var(--texte-c)}
 
 /* ---------- 3. Plus-value ---------- */
 .etapes{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;counter-reset:e}
@@ -217,7 +225,7 @@ td small{display:block;font-size:6.6pt;line-height:1.3;color:var(--gris);margin-
   <div class="bande">
     <div class="sur">Pour les intégrateurs HubSpot</div>
     <h1 class="titre"><span class="wa">WhatsApp</span>, au cœur du <span class="hs">HubSpot</span> de vos clients.</h1>
-    <p class="sous">Pourquoi WhatsApp, comment il marche avec Meta, et ce que Messaging Me ajoute au canal natif. En six pages.</p>
+    <p class="sous">Pourquoi WhatsApp, quel rôle pour Meta, et ce que Messaging Me ajoute au canal natif. En six pages.</p>
   </div>
   <div class="pourquoi">
     <div>
@@ -225,18 +233,19 @@ td small{display:block;font-size:6.6pt;line-height:1.3;color:var(--gris);margin-
       <h2 class="titre">Le CRM sait tout du client. Il lui manque le canal où le client répond.</h2>
       <p>Vos clients HubSpot ont des fiches propres, des transactions suivies, des workflows qui tournent. Leurs messages partent par e-mail, et attendent.</p>
       <p>Sur WhatsApp, la même relance arrive là où leurs clients passent leur journée, et elle appelle une réponse : un bouton, une question, une photo, un document. <strong>Chaque réponse revient dans HubSpot</strong>, sur la fiche, prête pour le commercial ou pour le workflow suivant.</p>
+      <p><strong>Et la conversation fait revenir le client</strong> : WhatsApp est un levier de fidélisation autant que de développement.</p>
     </div>
     <div class="chiffres">
       <div class="chiffre"><b>56 M</b><span>d’utilisateurs de WhatsApp en France.<sup>1</sup></span></div>
       <div class="chiffre"><b>83 %</b><span>des Français sont ouverts aux messages des entreprises, quand ils sont pertinents.<sup>2</sup></span></div>
       <div class="chiffre"><b>×4,5</b><span>de clics pour Air France sur WhatsApp que par e-mail.<sup>3</sup></span></div>
-      <div class="chiffre"><b>24 h</b><span>d’échange libre après chaque message du client.</span></div>
+      <div class="chiffre"><b>+30 %</b><span>de réachat chez les clients d’un assureur qui ont échangé plus de 3 messages avec lui.<sup>4</sup></span></div>
     </div>
   </div>
   <div class="sommaire">
     <span class="eti">Dans ce livre blanc</span>
     <ol>
-      <li><b>01</b>Comment ça marche avec Meta</li>
+      <li><b>01</b>Le rôle de Meta</li>
       <li><b>02</b>Ce que nous ajoutons au canal natif</li>
       <li><b>03</b>HubSpot, seule interface de l’équipe</li>
       <li><b>04</b>Les campagnes lancées depuis HubSpot</li>
@@ -244,14 +253,14 @@ td small{display:block;font-size:6.6pt;line-height:1.3;color:var(--gris);margin-
     </ol>
   </div>
   <div class="sources">
-    <p class="note">1. Meta, 2026. 2. Enquête Kantar pour Meta, citée dans l’étude BCG et Meta du 9 avril 2026. 3. Étude BCG et Meta, 9 avril 2026.</p>
+    <p class="note">1. Meta, 2026. 2. Enquête Kantar pour Meta, citée dans l’étude BCG et Meta du 9 avril 2026. 3. Étude BCG et Meta, 9 avril 2026. 4. Mesure Messaging Me chez un client du secteur de l’assurance.</p>
     <strong>app.messagingme.fr</strong>
   </div>
 </section>
 
-<!-- ============ 2. COMMENT ÇA MARCHE AVEC META ============ -->
+<!-- ============ 2. LE RÔLE DE META ============ -->
 <section class="page">
-  <div class="course"><span class="chap">01 · Comment ça marche</span><span>WhatsApp dans HubSpot</span></div>
+  <div class="course"><span class="chap">01 · Le rôle de Meta</span><span>WhatsApp dans HubSpot</span></div>
   <h2 class="titre">Le client écrit, ou l’entreprise écrit. <em>Meta fixe les règles</em>.</h2>
   <p class="chapo">Une entreprise qui automatise WhatsApp passe par l’API officielle de Meta. Deux sens de conversation, et une règle simple qui les relie : <strong>une fenêtre de 24 heures</strong> s’ouvre chaque fois que le client écrit.</p>
   <div class="sens">
@@ -260,10 +269,9 @@ td small{display:block;font-size:6.6pt;line-height:1.3;color:var(--gris);margin-
       <h3>Le client écrit le premier.</h3>
       <ul>
         <li>Depuis la bulle WhatsApp du site, un QR code, un lien dans un e-mail ou une signature.</li>
-        <li>Depuis une publicité Facebook ou Instagram dont le bouton ouvre la conversation (Click-to-WhatsApp).</li>
-        <li>Le contact est créé ou retrouvé dans HubSpot par son numéro.</li>
+        <li>Depuis une publicité Facebook ou Instagram qui ouvre la conversation (Click-to-WhatsApp).</li>
+        <li>Pendant 24 heures, on lui répond librement : texte, documents, boutons.</li>
       </ul>
-      <p class="fenetre">Pendant 24 heures, on lui répond librement : texte, documents, boutons, questions.</p>
     </div>
     <div class="bloc">
       <div class="fleche-s"><i>↗</i>Le push</div>
@@ -271,14 +279,19 @@ td small{display:block;font-size:6.6pt;line-height:1.3;color:var(--gris);margin-
       <ul>
         <li>Par un <strong>modèle de message</strong> approuvé par Meta, avec ses variables tirées de la fiche HubSpot.</li>
         <li>Un modèle de service (un devis, un rendez-vous, une commande) ou marketing (une offre), celui-ci seulement à qui a donné son accord.</li>
-        <li>Qui répond STOP ne reçoit plus rien, et HubSpot le sait.</li>
+        <li>Dès que le client répond, la fenêtre de 24 heures s’ouvre. Qui répond STOP ne reçoit plus rien.</li>
       </ul>
-      <p class="fenetre">Dès que le client répond, la fenêtre de 24 heures s’ouvre et la conversation continue.</p>
     </div>
   </div>
-  <div class="meta-l">
-    <span class="eti">Chez Meta</span>
-    <p>Un portefeuille Meta Business, un numéro dédié (ou celui déjà sur l’application WhatsApp Business, que le client garde) et un nom d’affichage. Le numéro se connecte par la fenêtre officielle de Meta, depuis Messaging Me.</p>
+  <div class="role-meta">
+    <div class="eti">Le rôle de Meta</div>
+    <div class="roles4">
+      <div><b>Il opère l’API</b><span>WhatsApp Business Platform porte chaque message, entrant comme sortant.</span></div>
+      <div><b>Il vérifie l’entreprise</b><span>Son portefeuille Meta Business, son numéro, son nom d’affichage.</span></div>
+      <div><b>Il approuve les modèles</b><span>Chaque message de push est relu avant son premier envoi.</span></div>
+      <div><b>Il veille à la qualité</b><span>Un modèle trop souvent bloqué ou signalé est mis en pause.</span></div>
+    </div>
+    <p>Messaging Me se branche sur cette API : le numéro du client (un nouveau, ou celui de son application WhatsApp Business, qu’il garde) se connecte par la fenêtre officielle de Meta, puis Messaging Me le relie à HubSpot.</p>
   </div>
   <div class="moment-g">
     <div>
@@ -302,8 +315,8 @@ td small{display:block;font-size:6.6pt;line-height:1.3;color:var(--gris);margin-
 <!-- ============ 3. NOTRE PLUS-VALUE ============ -->
 <section class="page">
   <div class="course"><span class="chap">02 · Ce que nous ajoutons</span><span>WhatsApp dans HubSpot</span></div>
-  <h2 class="titre">Le canal natif branche WhatsApp. Messaging Me <em>mène la conversation</em>.</h2>
-  <p class="chapo">Un agent IA ou un scénario répond au client, pose les bonnes questions et range les réponses dans HubSpot. <strong>L’équipe n’intervient que quand c’est utile</strong>, avec l’action à mener déjà écrite sur la fiche : créer le devis, rappeler, reprendre la main.</p>
+  <h2 class="titre">Le maillon manquant entre <em>la conversation et HubSpot</em>.</h2>
+  <p class="chapo">Le canal natif branche WhatsApp sur HubSpot. Messaging Me mène la conversation : un agent IA ou un scénario répond au client, pose les bonnes questions et range les réponses dans HubSpot. <strong>L’équipe n’intervient que quand c’est utile</strong>, avec l’action à mener déjà écrite sur la fiche : créer le devis, rappeler, reprendre la main.</p>
   <div class="etapes">
     <div class="etape"><h3>Répondre</h3><p>Un agent IA nourri du site et des documents du client répond à toute heure.</p></div>
     <div class="etape"><h3>Récolter</h3><p>Les réponses (le besoin, le budget, la date, un document) s’écrivent dans les propriétés HubSpot du contact.</p></div>
