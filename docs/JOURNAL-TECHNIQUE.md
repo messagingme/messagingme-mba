@@ -5,6 +5,38 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : les packs de contacts du Pro, et le plus ancien qui laisse sa place en Business et en Entreprise
+
+Plan `docs/superpowers/plans/2026-11-24-contacts-packs-et-remplacement.md`, décisions de Julien du 2026-11-24 (la limite de
+10 000 contacts posée sur MUTAC et la question du 10 001e). Implémenteur par lot, une relecture du diff en fin de lot.
+
+**Lot 1, les packs (`67136525c`, migration 0321).** Un Pro achète des packs de 1 000 contacts, 20 € HT par mois ou 240 € HT
+par an, en quantité sur son abonnement Stripe, calqués sur les sièges : Stripe d'abord, prorata payé ou rien, prix relu,
+état de départ, idempotence, relecture. La limite s'ajoute dans `droitsDe` seul ; la porte de l'espace plein relit les
+packs en base. Retrait refusé tant que les contacts ne tiennent pas, rien n'est effacé. Relecture : aucun rouge ; un jaune
+corrigé dans le lot (le 402 d'une création à la main reprend la phrase du magasin, qui connaît l'offre et propose le pack),
+les autres au backlog. CI : l'e2e neuf a rougi sur `web (2/2)`, sa vue de test n'avait pas la ligne de l'Entreprise et la
+console la jugeait illisible (`03fa151d9`, rejoué en local 5 sur 5).
+
+**Lot 2, le plus ancien laisse sa place (`37e17ce29`, migration 0322).** Une option du Business et de l'Entreprise, cochée
+dans Paramètres ou dans la fiche d'offre de `/ops` : un espace plein purge le contact compté le plus ancien pour chaque
+nouveau, par la purge existante, sous un verrou d'avis par espace, imports compris, l'entrant d'un Business aussi. Une
+décision prise en écrivant : jamais dans la transaction d'un appelant (le rattrapage Shopify compte « au-delà du
+plafond » comme avant), sans quoi une purge serait tracée et retirée chez Meta même si l'appelant annulait. Prouvé sur le
+banc PGlite (8 tests, 8 mutations rouges, 404 tests d'intégration voisins verts ; les 3 rouges restants le sont aussi
+sans le lot : deux courses qu'une session unique ne joue pas, un délai de panier). Relecture : aucun rouge, jaunes au
+backlog, dont un à trancher par Julien (un tiers qui écrit depuis N numéros fait purger N clients d'un Business coché).
+CI : `integration` rouge sur `37e17ce29`, `lireEntreprise` rendait une clé de plus que deux attentes figées de
+`offres.integration.test.ts` (le piège déjà noté « retour d'un store : grep l'intégration ») ; corrigé par `d5e7d8f32`.
+
+**En production le 2026-11-25** : un seul déploiement pour les deux lots et les lots D et E du CSM (run 45510634701,
+`d5e7d8f32`, `migration=avant`, le run du lot 1 seul annulé avant approbation), « -> 0319 ... ok », « -> 0321 ... ok »,
+« -> 0322 ... ok ». Relu en base par la machine des workers : `packs_contacts` integer non nul défaut 0 et sa contrainte
+`CHECK (packs_contacts >= 0 AND packs_contacts <= 1000)`, `contacts_remplacer_anciens` boolean non nul défaut false, la
+lecture de l'offre et la requête de la garde de création jouées telles quelles, aucun pack ni aucune case cochée, aucune
+transaction longue ni verrou en attente ; fumée verte. Les packs ne sont pas encore en vente : les deux prix Stripe
+attendent le geste de Julien, à poser après ce déploiement. Essais réels 286 et 287 dans la liste privée.
+
 ## 2026-11-24 : segments Shopify, lot 6b : les étiquettes des clients Shopify
 
 Les étiquettes que le marchand pose sur ses clients DANS Shopify deviennent un critère des contacts, à part des
