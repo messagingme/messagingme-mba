@@ -3542,6 +3542,13 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   prépare (`propose_go_live`), qui publie le brouillon tel qu'il l'a vu. La liste des scénarios de la console le
   marque « brouillon non publié ». Sans le paramètre, l'écriture publie aussitôt, comme par l'API, qui n'a pas
   l'option.
+  ✅ **Claude joue un scénario avant de le proposer** (2026-11-25, lot 1 du CSM virtuel, plan
+  `docs/superpowers/plans/2026-11-25-csm-lot1-f-simulation-deroule.md`) : `simulate_scenario` joue le brouillon, ou la
+  version publiée, pour un contact fictif dont Claude écrit les réponses (un choix, une réponse écrite, pas de
+  réponse), sans rien envoyer à personne ni rien écrire. Avant la mise en ligne, Claude montre ainsi ce que vivent un
+  contact qui va au bout et un autre qui finit chez l'équipe : les messages et les questions reçus, les étiquettes et
+  les champs posés, la branche prise par chaque réponse, et ce qui n'est pas joué (un appel API, un message RCS),
+  nommé comme tel.
   ✅ **Claude fait partir un scénario vers une personne** (2026-11-03, plan
   `docs/superpowers/plans/2026-11-03-outil-envoyer-scenario.md`) : `send_scenario_to_contact`, le même envoi que
   `send_template_to_contact` (consentement déclaré par le client, STOP, quota), cible un scénario publié qui ouvre

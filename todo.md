@@ -155,6 +155,24 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot F (B6a, la simulation) : ce qui reste de la relecture (2026-11-25, un rouge corrigé avant de pousser)
+
+- L'agent de Meta en répondeur : `simulerParcours` appelle `walk` sans `mbaActif`, alors qu'en production un template
+  sans bouton n'attend pas quand l'agent de Meta répond (`etapeOffreUnChoix`). Lire `mbaActifPour` de l'espace et le
+  passer (avec B6b, qui touche le câblage du MCP) ; d'ici là, la description de l'outil le dit.
+- Les heures ouvrées de l'espace : à lire et à passer (`businessHours`), pour l'Attente « jusqu'aux heures ouvrées »,
+  aujourd'hui un passe-plat, et les Conditions sur elles.
+- Le nom, le numéro, la langue et le dernier message du contact fictif : réglables par `contact` (une Condition
+  « pays = FR » lit le numéro), vides aujourd'hui et dits comme tels.
+- Un formulaire rempli et une pièce reçue par une Question : une forme de réponse de plus (`{ formulaire: true }`,
+  `{ fichier: genre }`).
+- L'extraction JSON sans les types des champs (`typesChamps`) ; deux lignes vers le même champ montrent la valeur
+  finale ; le bouton de lien et les `{{variables}}` d'un message rapide ne sont pas montrés.
+- `finDe` (`tests/workflow-simulation.test.ts`) confond « terminé » et « répondeur » : les distinguer par l'appel qui
+  rend la main à l'agent de Meta.
+- Le choix de la version jouée recopie `versionDeTravail` (`src/workflow/scenarios-api.ts`) : l'exporter et s'en servir.
+- L'ordre de publication : la vitrine et `/developers/mcp` annoncent l'outil dès le push, l'API le sert au déploiement.
+
 ## 🟡 CSM virtuel, lot E (la recette du pilote) : ce qui reste hors du lot (2026-11-24)
 
 - La recette complète (attente, condition, appel API, fonction JS, « Aller à », e-mail, RCS, formulaire, envoi au MBA) :

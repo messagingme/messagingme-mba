@@ -9,6 +9,7 @@ import { envoyerAUnePersonne } from './outils-modeles';
 import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
 import { CLE_IDEMPOTENCE_MAX } from '../api/idempotence';
 import { MAX_NODES } from '../workflow/graph';
+import { SORTIE_MAX, simulerParcours, type ContactFictif, type ReponseSimulee } from '../workflow/simulation';
 import { ECRANS, LISTES, lire } from './ecran';
 import {
   BOUTON_MENU_MAX, DESCRIPTION_LIGNE_MAX, ECHEANCE_MAX_JOURS, ETIQUETTE_MAX, LIGNES_MENU_MAX, LISTE_OPERATION_MAX,
@@ -109,6 +110,68 @@ const BROUILLON: ProprieteEntree = {
     + 'administrator\'s click). Absent or false: the write publishes at once.',
 };
 
+/**
+ * La simulation (lot 1 du CSM virtuel, B6) : ses bornes, annoncées dans le schéma et la description de l'outil.
+ * 🔴 Les valeurs de la fiche fictive sont bornées comme celles d'une vraie fiche (`VALEUR_CHAMP_RECETTE_MAX`, la borne
+ * d'un champ texte) : sans borne, des blocs « Extraire du JSON » recopiaient une valeur de plusieurs centaines de Ko
+ * à chaque ligne et figeaient la copie de l'API (relecture du lot F) ; la sortie a en plus son budget (`SORTIE_MAX`).
+ */
+const REPONSES_SIMULEES_MAX = 20;
+const CHAMPS_FICTIFS_MAX = 50;
+/** Un choix se donne par son texte (une ligne de menu en a 24, un bouton 20, une réponse de template 25). */
+const CHOIX_SIMULE_MAX = 200;
+/** Une réponse écrite : la longueur d'un message texte WhatsApp. */
+const TEXTE_SIMULE_MAX = 4096;
+
+/** Les réponses du contact fictif, chacune d'une seule forme, ou un refus qui dit laquelle ne va pas, et pourquoi. */
+function reponsesSimulees(brut: unknown): ReponseSimulee[] {
+  if (!Array.isArray(brut)) throw new RefusOutil('paramètre « reponses » : une liste', 'invalid_args');
+  if (brut.length > REPONSES_SIMULEES_MAX) throw new RefusOutil(`paramètre « reponses » : ${REPONSES_SIMULEES_MAX} au plus`, 'invalid_args');
+  return brut.map((r, i) => {
+    const o = r !== null && typeof r === 'object' && !Array.isArray(r) ? (r as Record<string, unknown>) : {};
+    const cles = Object.keys(o);
+    const trop = (cle: string, max: number): never => {
+      throw new RefusOutil(`paramètre « reponses[${i}].${cle} » : ${max} caractères au plus`, 'invalid_args');
+    };
+    if (cles.length === 1 && typeof o.choix === 'string' && o.choix.trim() !== '') return o.choix.length <= CHOIX_SIMULE_MAX ? { choix: o.choix } : trop('choix', CHOIX_SIMULE_MAX);
+    if (cles.length === 1 && typeof o.texte === 'string' && o.texte.trim() !== '') return o.texte.length <= TEXTE_SIMULE_MAX ? { texte: o.texte } : trop('texte', TEXTE_SIMULE_MAX);
+    if (cles.length === 1 && o.sans_reponse === true) return { sans_reponse: true as const };
+    throw new RefusOutil(`paramètre « reponses[${i}] » : exactement un de { "choix": texte }, { "texte": texte }, { "sans_reponse": true }`, 'invalid_args');
+  });
+}
+
+/** La fiche de départ du contact fictif : des valeurs de champ en texte et des étiquettes, bornées. */
+function contactFictif(brut: unknown): ContactFictif {
+  if (brut === undefined || brut === null) return {};
+  if (typeof brut !== 'object' || Array.isArray(brut)) throw new RefusOutil('paramètre « contact » : un objet { champs?, etiquettes? }', 'invalid_args');
+  const o = brut as Record<string, unknown>;
+  const inconnue = Object.keys(o).find((k) => k !== 'champs' && k !== 'etiquettes');
+  if (inconnue !== undefined) throw new RefusOutil(`paramètre « contact » : clé inconnue « ${inconnue} »`, 'invalid_args');
+  const champs: Record<string, string> = {};
+  if (o.champs !== undefined) {
+    if (o.champs === null || typeof o.champs !== 'object' || Array.isArray(o.champs)) throw new RefusOutil('paramètre « contact.champs » : un objet clé vers valeur', 'invalid_args');
+    const entrees = Object.entries(o.champs as Record<string, unknown>);
+    if (entrees.length > CHAMPS_FICTIFS_MAX) throw new RefusOutil(`paramètre « contact.champs » : ${CHAMPS_FICTIFS_MAX} au plus`, 'invalid_args');
+    for (const [k, v] of entrees) {
+      if (k.length > LONGUEUR_CHAMP_MAX) throw new RefusOutil(`paramètre « contact.champs » : une clé de ${LONGUEUR_CHAMP_MAX} caractères au plus`, 'invalid_args');
+      if (typeof v !== 'string') throw new RefusOutil(`paramètre « contact.champs.${k} » : une valeur en texte`, 'invalid_args');
+      if (v.length > VALEUR_CHAMP_RECETTE_MAX) {
+        throw new RefusOutil(`paramètre « contact.champs.${k} » : ${VALEUR_CHAMP_RECETTE_MAX} caractères au plus, comme sur une fiche`, 'invalid_args');
+      }
+      champs[k] = v;
+    }
+  }
+  let etiquettes: string[] = [];
+  if (o.etiquettes !== undefined) {
+    if (!Array.isArray(o.etiquettes) || o.etiquettes.length > CHAMPS_FICTIFS_MAX
+      || o.etiquettes.some((e) => typeof e !== 'string' || e.length > ETIQUETTE_MAX)) {
+      throw new RefusOutil(`paramètre « contact.etiquettes » : une liste de ${CHAMPS_FICTIFS_MAX} textes de ${ETIQUETTE_MAX} caractères au plus`, 'invalid_args');
+    }
+    etiquettes = o.etiquettes as string[];
+  }
+  return { champs, etiquettes };
+}
+
 /** Le booléen `brouillon`, ou un refus : jamais deviné. */
 function optionBrouillon(args: Record<string, unknown>): { brouillon: boolean } {
   const b = args.brouillon;
@@ -146,6 +209,83 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
     entree: { type: 'object', properties: { scenario: SCENARIO }, required: ['scenario'], additionalProperties: false },
     async executer(deps, tenantId, args) {
       return valeurOuRefus(await lireScenario(deps.scenariosApi, tenantId, texteObligatoire(args, 'scenario', 100)));
+    },
+  },
+  {
+    ...ficheOutilMcp('simulate_scenario'),
+    fonction: 'scenarios',
+    description: 'Plays a scenario for a FICTITIOUS contact and sends nothing, calls no connector, writes nothing: returns '
+      + 'each step (the effects planned: messages, questions, tags, fields), what the scenario then waits for (the choices '
+      + 'offered, the no-answer delay), the exit each answer takes and the field it fills, and how it ends (fin.etat: '
+      + 'equipe, termine, repondeur, agent_ia, agent_de_meta, autre_scenario, attend_une_reponse, reponse_impossible). '
+      + 'version: "brouillon" or "publie"; absent, the draft when there is one, otherwise the published version. '
+      + `reponses: the contact's answers in order, ${REPONSES_SIMULEES_MAX} at most, each EXACTLY one of { "choix": the text `
+      + 'of a button, quick reply or menu line }, { "texte": a written answer }, { "sans_reponse": true } (the no-answer '
+      + 'delay runs out). The contact has just written when the scenario starts; a wait or a delay of 24 hours or more '
+      + 'without a reply closes the WhatsApp window, as in production. An API call or a JS function is named, not run: '
+      + 'the field it would fill keeps the contact\'s starting value, so give one in contact.champs to try a branch. Not '
+      + 'simulated, so said here: a filled form (only a written answer), a file sent to a Question, the space\'s business '
+      + 'hours (a Condition on them takes the closed branch, a wait until they open does not wait), the contact\'s name, '
+      + 'phone and language (empty for a Condition), and Meta\'s agent as the space\'s responder (a template without a '
+      + 'button waits here, while in production the next step leaves at once). The output stops at '
+      + `${SORTIE_MAX} characters. Show the person two contacts (one who goes to the end, one who goes to the team) `
+      + 'before propose_go_live.',
+    annotations: lecture('Simulate a scenario'),
+    entree: {
+      type: 'object',
+      properties: {
+        scenario: SCENARIO,
+        version: { type: 'string', enum: ['brouillon', 'publie'], description: 'Which version to play. Absent: the draft, otherwise the published one.' },
+        reponses: {
+          type: 'array', maxItems: REPONSES_SIMULEES_MAX,
+          description: 'The fictitious contact\'s answers, in order: each exactly one of choix, texte, sans_reponse.',
+          items: {
+            type: 'object',
+            properties: {
+              choix: { type: 'string', maxLength: CHOIX_SIMULE_MAX, description: 'The text of a button, quick reply or menu line.' },
+              texte: { type: 'string', maxLength: TEXTE_SIMULE_MAX, description: 'A written answer.' },
+              sans_reponse: { type: 'boolean', enum: [true], description: 'The no-answer delay runs out.' },
+            },
+            additionalProperties: false,
+          },
+        },
+        contact: {
+          type: 'object',
+          description: 'Optional starting record, read by the conditions.',
+          properties: {
+            champs: {
+              type: 'object',
+              description: `Field key (${LONGUEUR_CHAMP_MAX} characters at most) to text value (${VALEUR_CHAMP_RECETTE_MAX} characters at most, as on a real record), ${CHAMPS_FICTIFS_MAX} at most.`,
+            },
+            etiquettes: {
+              type: 'array', maxItems: CHAMPS_FICTIFS_MAX, items: { type: 'string', maxLength: ETIQUETTE_MAX },
+              description: 'The contact\'s tags.',
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      required: ['scenario', 'reponses'],
+      additionalProperties: false,
+    },
+    async executer(deps, tenantId, args) {
+      const ref = texteObligatoire(args, 'scenario', 100);
+      const reponses = reponsesSimulees(args.reponses);
+      const contact = contactFictif(args.contact);
+      const version = args.version;
+      if (version !== undefined && version !== 'brouillon' && version !== 'publie') {
+        throw new RefusOutil('paramètre « version » : brouillon ou publie', 'invalid_args');
+      }
+      const ligne = await deps.scenariosApi.scenarios.lireParApi(tenantId, ref);
+      if (!ligne) throw new RefusOutil('scénario introuvable dans cet espace', 'not_found');
+      const brouillon = ligne.draftGraph && ligne.draftGraph.nodes.length > 0 ? ligne.draftGraph : null;
+      const publie = ligne.graph.nodes.length > 0 ? ligne.graph : null;
+      const graphe = version === 'publie' ? publie : version === 'brouillon' ? brouillon : (brouillon ?? publie);
+      if (graphe === null) {
+        throw new RefusOutil(version === 'publie' || (version === undefined && brouillon === null)
+          ? 'ce scénario n’a pas de version publiée' : 'ce scénario n’a pas de brouillon', 'conflict');
+      }
+      return { scenario: ligne.id, version: graphe === brouillon ? 'brouillon' : 'publie', ...simulerParcours(graphe, reponses, contact) };
     },
   },
   {

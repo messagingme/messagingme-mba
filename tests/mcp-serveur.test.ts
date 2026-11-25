@@ -1163,6 +1163,8 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   send_scenario_to_contact: 'scenarios',
   // Les versions et le oui de mise en ligne (CSM, B2 et B3) : la fonction qui garde les scénarios de la console.
   list_scenario_versions: 'scenarios', propose_go_live: 'scenarios', get_go_live: 'scenarios',
+  // La simulation d'un parcours (CSM, B6) : une lecture, sous la même fonction que les scénarios qu'elle joue.
+  simulate_scenario: 'scenarios',
 };
 
 describe('serveur MCP : les outils et l’offre (lot 6, B2a)', () => {

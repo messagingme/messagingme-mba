@@ -3,10 +3,11 @@ import { OUTILS, outilsPour, RefusOutil, type DepsMcp } from '../src/mcp/outils'
 import { creerScenario, type VueScenario } from '../src/workflow/scenarios-api';
 import {
   BOUTON_MENU_MAX, DESCRIPTION_LIGNE_MAX, ECHEANCE_MAX_JOURS, ETIQUETTE_MAX, LIGNES_MENU_MAX, LISTE_OPERATION_MAX,
-  LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX, OPERATIONS_MAX,
-  PROFONDEUR_MAX_RECETTE, TEXTE_QUESTION_MAX, TITRE_LIGNE_MAX, UNITES_ECHEANCE, VALEUR_CHAMP_RECETTE_MAX,
+  LONGUEUR_CHAMP_MAX, LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX,
+  OPERATIONS_MAX, PROFONDEUR_MAX_RECETTE, TEXTE_QUESTION_MAX, TITRE_LIGNE_MAX, UNITES_ECHEANCE, VALEUR_CHAMP_RECETTE_MAX,
 } from '../src/workflow/recette';
 import { MAX_NODES } from '../src/workflow/graph';
+import { SORTIE_MAX } from '../src/workflow/simulation';
 import {
   MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE,
 } from '../web/lib/partage/message-rapide';
@@ -167,6 +168,90 @@ describe('le paramètre brouillon des outils (CSM, B4)', () => {
       expect(o.description, nom).not.toMatch(/there is no draft/i);
     }
     expect(outil('get_scenario').description).toContain('brouillon');
+  });
+});
+
+/**
+ * LA SIMULATION (lot 1 du CSM virtuel, B6) : `simulate_scenario` joue un scénario pour un contact fictif. La simulation
+ * elle-même et sa parité avec l'exécuteur sont prouvées dans `tests/workflow-simulation.test.ts` ; ici, ce que l'outil
+ * en fait : la version jouée, les refus, les bornes annoncées, et rien d'écrit.
+ */
+describe('simulate_scenario (CSM, B6)', () => {
+  const qualification = () => ({
+    nom: 'Qualification',
+    entree: {
+      message: { texte: 'Un choix ?' },
+      reponses: [{ texte: 'Oui', suite: { action: [{ etiquette: 'oui' }], suite: { humain: {} } } }, { texte: 'Non', suite: { message: { texte: 'Dommage.' } } }],
+    },
+  });
+
+  it('🔴 une lecture, sous la fonction « scénarios » : une clé d’API la voit, et rien n’est écrit', async () => {
+    expect(outil('simulate_scenario')).toMatchObject({ scope: 'mcp:read', fonction: 'scenarios' });
+    expect(outilsPour({ scopes: ['mcp:read'], personne: null } as never).map((o) => o.nom)).toContain('simulate_scenario');
+    const { deps, store } = monter();
+    const cree = await outil('create_scenario').executer(deps, TENANT, { ...qualification(), brouillon: true }, MOI) as VueScenario;
+    const ecritures = [store.creerPublieParApi, store.remplacerPublieParApi, store.creerBrouillonParApi, store.remplacerBrouillonParApi, store.supprimerParApi]
+      .map((f) => f.mock.calls.length);
+    const r = await outil('simulate_scenario').executer(deps, TENANT, { scenario: cree.id, reponses: [{ choix: 'Oui' }] }, null) as Record<string, unknown>;
+    expect(r).toMatchObject({ scenario: cree.id, version: 'brouillon', fin: { etat: 'equipe' } });
+    expect([store.creerPublieParApi, store.remplacerPublieParApi, store.creerBrouillonParApi, store.remplacerBrouillonParApi, store.supprimerParApi]
+      .map((f) => f.mock.calls.length)).toEqual(ecritures);
+  });
+
+  it('joue le brouillon par défaut, la version publiée sur demande, et refuse celle qui n’existe pas', async () => {
+    const { deps } = monter();
+    const brouillon = await outil('create_scenario').executer(deps, TENANT, { ...qualification(), brouillon: true }, MOI) as VueScenario;
+    await expect(outil('simulate_scenario').executer(deps, TENANT, { scenario: brouillon.id, version: 'publie', reponses: [] }, null))
+      .rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('pas de version publiée') });
+    const publie = await outil('create_scenario').executer(deps, TENANT, { ...qualification(), nom: 'Publié' }, MOI) as VueScenario;
+    expect(await outil('simulate_scenario').executer(deps, TENANT, { scenario: publie.code, reponses: [{ choix: 'Non' }] }, null))
+      .toMatchObject({ version: 'publie', fin: { etat: 'termine' } });
+    await expect(outil('simulate_scenario').executer(deps, TENANT, { scenario: publie.id, version: 'brouillon', reponses: [] }, null))
+      .rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('pas de brouillon') });
+    await expect(outil('simulate_scenario').executer(deps, TENANT, { scenario: '00000000-0000-4000-8000-0000000000ff', reponses: [] }, null))
+      .rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('🔴 sans version, le brouillon en attente est joué, pas la version publiée', async () => {
+    const { deps } = monter();
+    const cree = await outil('create_scenario').executer(deps, TENANT, qualification(), MOI) as VueScenario;
+    // Le brouillon change la suite de « Oui » : un message, puis la fin, au lieu de l'équipe.
+    const entree = { message: { texte: 'Un choix ?' }, reponses: [{ texte: 'Oui', suite: { message: { texte: 'Merci.' } } }, { texte: 'Non', suite: { message: { texte: 'Dommage.' } } }] };
+    await outil('update_scenario').executer(deps, TENANT, { scenario: cree.id, nom: 'Qualification', entree, empreinte: cree.empreinte, brouillon: true }, MOI);
+    expect(await outil('simulate_scenario').executer(deps, TENANT, { scenario: cree.id, reponses: [{ choix: 'Oui' }] }, null))
+      .toMatchObject({ version: 'brouillon', fin: { etat: 'termine' } });
+    expect(await outil('simulate_scenario').executer(deps, TENANT, { scenario: cree.id, version: 'publie', reponses: [{ choix: 'Oui' }] }, null))
+      .toMatchObject({ version: 'publie', fin: { etat: 'equipe' } });
+  });
+
+  it('refuse une réponse mal formée, en disant laquelle, et borne la liste', async () => {
+    const { deps } = monter();
+    const cree = await outil('create_scenario').executer(deps, TENANT, qualification(), MOI) as VueScenario;
+    const simuler = (reponses: unknown, contact?: unknown) => outil('simulate_scenario').executer(deps, TENANT, { scenario: cree.id, reponses, ...(contact === undefined ? {} : { contact }) }, null);
+    await expect(simuler([{ choix: 'Oui', texte: 'x' }])).rejects.toMatchObject({ code: 'invalid_args', message: expect.stringContaining('reponses[0]') });
+    await expect(simuler([{ choix: 'Oui' }, { sans_reponse: false }])).rejects.toMatchObject({ code: 'invalid_args', message: expect.stringContaining('reponses[1]') });
+    await expect(simuler(Array.from({ length: 21 }, () => ({ texte: 'x' })))).rejects.toMatchObject({ code: 'invalid_args' });
+    await expect(simuler([], { champs: { ville: 3 } })).rejects.toMatchObject({ code: 'invalid_args', message: expect.stringContaining('contact.champs.ville') });
+    await expect(simuler([], { autre: 1 })).rejects.toMatchObject({ code: 'invalid_args' });
+    // Une réponse trop longue dit sa borne, au lieu de « exactement un de… ».
+    await expect(simuler([{ choix: 'x'.repeat(201) }])).rejects.toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/reponses\[0\]\.choix.*200/) });
+    await expect(simuler([{ texte: 'x'.repeat(4097) }])).rejects.toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/reponses\[0\]\.texte.*4096/) });
+    // 🔴 Une valeur de la fiche fictive est bornée comme sur une fiche : sans borne, des extractions la recopiaient sans
+    // fin et figeaient la copie de l'API (relecture du lot F).
+    await expect(simuler([], { champs: { ville: 'x'.repeat(VALEUR_CHAMP_RECETTE_MAX + 1) } }))
+      .rejects.toMatchObject({ code: 'invalid_args', message: expect.stringMatching(new RegExp(`contact\\.champs\\.ville.*${VALEUR_CHAMP_RECETTE_MAX}`)) });
+    expect(await simuler([{ choix: 'Oui' }], { champs: { ville: 'x'.repeat(VALEUR_CHAMP_RECETTE_MAX) } })).toMatchObject({ fin: { etat: 'equipe' } });
+    await expect(simuler([], { champs: { ['k'.repeat(LONGUEUR_CHAMP_MAX + 1)]: 'x' } })).rejects.toMatchObject({ code: 'invalid_args' });
+    await expect(simuler([], { etiquettes: ['x'.repeat(ETIQUETTE_MAX + 1)] })).rejects.toMatchObject({ code: 'invalid_args' });
+    expect(await simuler([{ choix: 'Oui' }], { champs: { ville: 'Paris' }, etiquettes: ['vip'] })).toMatchObject({ fin: { etat: 'equipe' } });
+  });
+
+  it('🔴 la description annonce ses bornes et ses formes de réponse', () => {
+    const annonce = JSON.stringify([outil('simulate_scenario').entree, outil('simulate_scenario').description]);
+    for (const borne of [20, 50, 200, 4096, VALEUR_CHAMP_RECETTE_MAX, ETIQUETTE_MAX, LONGUEUR_CHAMP_MAX, SORTIE_MAX]) {
+      expect(annonce, String(borne)).toMatch(new RegExp(`(^|[^0-9])${borne}([^0-9]|$)`));
+    }
+    for (const mot of ['choix', 'texte', 'sans_reponse', 'brouillon', 'publie', 'propose_go_live', '24 hours']) expect(annonce, mot).toContain(mot);
   });
 });
 

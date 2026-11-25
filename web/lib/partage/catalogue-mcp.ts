@@ -36,6 +36,8 @@ export const CATALOGUE_MCP = {
    * vrais contacts, et un brouillon se met en ligne sur le clic d'un admin : au nom d'une personne, jamais d'une clé.
    */
   get_scenario: { scope: 'mcp:read' },
+  /** Jouer un scénario pour un contact fictif (lot 1 du CSM virtuel, B6) : une lecture, rien n'est envoyé ni écrit. */
+  simulate_scenario: { scope: 'mcp:read' },
   create_scenario: { scope: 'mcp:write', exigePersonne: true },
   update_scenario: { scope: 'mcp:write', exigePersonne: true },
   delete_scenario: { scope: 'mcp:write', exigePersonne: true },

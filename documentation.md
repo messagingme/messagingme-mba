@@ -951,6 +951,32 @@ d'une Question comme ses sorties. Les champs connus d'une recette sont ceux de l
 l'échéance, la fenêtre de 24 h est souvent close : une relance en message libre ou en Question n'atteint le contact
 que dans les 24 h de son dernier message, au-delà seul un template l'atteint (le moteur passe sinon à l'équipe).
 
+🔴 **La simulation d'un parcours (lot 1 du CSM virtuel, B6)** : `simulate_scenario` (lecture, `src/mcp/outils-scenarios.ts`)
+joue le brouillon, sinon la version publiée, pour un contact fictif dont Claude écrit les réponses (`simulerParcours`,
+`src/workflow/simulation.ts`). La fonction est PURE : elle ne reçoit aucune dépendance, donc elle ne peut ni envoyer,
+ni appeler un connecteur, ni écrire, et un test refuse tout import hors du moteur. La marche est celle de la production
+(`walk`, et `applyToWork` exporté pour elle) ; l'aiguillage d'une réponse (`advance`) et la reprise d'une échéance ou
+d'une Attente (`reprendre`) sont recopiés dans `aiguiller`, et 🔴 **c'est la parité de
+`tests/workflow-simulation.test.ts` qui les tient égaux** : elle joue le `WorkflowExecutor` réel sur les mêmes réponses
+(choix de menu, bouton de template derrière un bouton de lien, réponse rapide, réponse écrite avec et sans sortie
+libre, choix sans sortie à lui, échéance avec et sans sa sortie, bloc Attente, extraction JSON, Condition qui lit la
+réponse rangée, fenêtre close ou rouverte par une réponse), sur une fiche que ses écritures tiennent à jour, et exige
+les mêmes effets et la même fin. Un changement de l'aiguillage de l'exécuteur se reporte dans `aiguiller`, et une sorte
+de réponse neuve entre dans la parité. Les réponses rapides sont celles que Meta montre (trois au plus, titres de 20
+caractères, `sendInteractive`) ; un bloc qui n'a rien envoyé ne propose aucun choix ; une Attente ou une échéance fait
+avancer l'horloge des Conditions de date et du champ « maintenant ». La fenêtre de 24 h est jouée : le contact vient
+d'écrire, chaque réponse la rouvre, une Attente ou une échéance la fait courir, et une reprise hors fenêtre retient les
+messages de session et finit à l'équipe, comme `reprendre`. Ce que la simulation ne joue pas est nommé dans sa sortie
+ou dans la description de l'outil, jamais deviné : un appel API, une fonction JS ou le consentement (`non_joue` ; le
+champ qu'un appel remplirait garde la valeur de départ du contact fictif, que `contact.champs` peut donner), un message
+RCS (`non_simule`), un « Aller à » vers un autre scénario (arrêt au seuil), un formulaire rempli, une pièce reçue, un
+clic sur un message plus ancien, les heures ouvrées de l'espace, le nom, le numéro et la langue du contact, et l'agent
+de Meta en répondeur (un template sans bouton attend en simulation quand sa suite part aussitôt en production).
+🔴 **Les entrées sont bornées comme une vraie fiche et la sortie a un budget** : une valeur de champ fictive tient en
+1 000 caractères (`VALEUR_CHAMP_RECETTE_MAX`), un choix en 200, une réponse écrite en 4 096 ; 20 réponses, 60 reprises,
+et `SORTIE_MAX` (100 000 caractères), au-delà duquel la simulation s'arrête et le dit. Sans eux, des blocs « Extraire
+du JSON » qui recopient une longue valeur à chaque ligne figeraient la copie de l'API qui joue la simulation.
+
 🔴 **Le fichier d'un message se lit à chaque envoi** et se vérifie une fois à l'écriture par le MÊME chemin que l'envoi
 (`lireFichierDuBloc`, `src/meta/template-media.ts` : fiche de la médiathèque de l'espace, sinon téléchargement gardé),
 sans être stocké. **Ce qui utilise un scénario** (`utilisationsDuScenario` : automation, campagne qui peut encore

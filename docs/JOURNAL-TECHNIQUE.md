@@ -5,6 +5,46 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : CSM virtuel, lot F (B6a) : Claude simule un parcours avant de le proposer
+
+Plan `docs/superpowers/plans/2026-11-25-csm-lot1-f-simulation-deroule.md`, après le lot E (la recette du pilote, en
+production le même jour).
+
+**B6a, `simulate_scenario`.** Claude joue un scénario pour un contact fictif avant de proposer sa mise en ligne : le
+brouillon par défaut, sinon la version publiée, avec les réponses qu'il écrit (un choix par son texte, une réponse
+écrite, « pas de réponse ») et une fiche de départ facultative (champs, étiquettes). L'outil rend les effets prévus,
+ce que le parcours attend (les choix offerts, l'échéance), la sortie prise par chaque réponse et le champ rangé, puis
+la fin (l'équipe, terminé, le répondeur, un agent, un autre scénario, l'attente d'une réponse, une réponse impossible).
+La simulation est une fonction pure (`src/workflow/simulation.ts`), sans aucune dépendance : la marche est celle du
+moteur (`walk`, et `applyToWork`, exporté pour elle), l'aiguillage d'une réponse et la reprise d'une échéance ou d'une
+Attente reprennent ceux de l'exécuteur, que ce lot ne touche pas, et la fenêtre de 24 h est jouée. Une parité joue
+l'exécuteur RÉEL sur les mêmes réponses, sur une fiche que ses écritures tiennent à jour, et exige la même trace, en
+19 cas : le parcours du pilote (un lead chaud, un lead froid, sans réponse en deux heures puis en deux jours, une
+réponse écrite), les réponses rapides, un bouton de template derrière un bouton de lien, deux échéances séparées par
+une réponse, une Attente de deux heures et de deux jours, une échéance de la console sans sa sortie, un choix sans
+sortie à lui, une Condition qui lit la réponse rangée, une extraction JSON, un choix qui ne mène nulle part. Aucune
+migration, aucun câblage ; le plugin monte d'une version.
+
+**La relecture indépendante, sur l'arbre construit : un rouge, corrigé avant de pousser.** Les valeurs de la fiche
+fictive n'étaient pas bornées : un brouillon de blocs « Extraire du JSON » qui recopient une longue valeur à chaque
+ligne, joué par un admin ou par une clé de lecture de l'espace, aurait figé la copie de l'API qui le jouait (mesuré
+par le relecteur : 20 blocs et 200 Ko d'entrée, 159 Mo de tas, 80 Mo de sortie, près d'une seconde de calcul
+bloquant). Une valeur tient désormais en 1 000 caractères, comme sur une fiche, et la sortie a un budget de 100 000
+caractères, au-delà duquel la simulation s'arrête et le dit ; chacun a son test, rouge sans son correctif. Réglés aussi
+avant de pousser : les deux tests que le lot faisait rougir (la fonction de l'outil dans la table écrite à la main ; le
+nombre d'outils des tarifs et leur dictionnaire anglais, 95 en Pro et Business, 96 en Entreprise), les bornes de
+l'outil annoncées dans son schéma avec un refus qui les nomme, l'horloge qui avance avec une Attente ou une échéance,
+les réponses rapides telles que Meta les montre (trois, titres de 20 caractères), un bloc qui n'a rien envoyé, la
+constante de la fenêtre reprise du moteur, et une parité qui évalue enfin les Conditions (deux mutations y restaient
+vertes). Le reste est au `todo.md` (l'agent de Meta en répondeur, les heures ouvrées de l'espace, l'identité du contact
+fictif, le formulaire rempli) ; la description de l'outil le dit en attendant.
+
+Preuves : 31 tests neufs et 27 mutations nommées, toutes rouges.
+Dans une copie d'origin portant tout le lot : typecheck et lint (racine et console), l'auto-attaque (2 242 sondes,
+aucune trouvaille), la suite racine (19 310 tests ; seuls les deux du dictionnaire des tarifs, réglés depuis et
+rejoués), la suite de la console (1 403 tests). Les deux fiches d'aide qui citent la section API de `features.md`
+prennent sa nouvelle empreinte, relues (rien sur les scénarios de Claude).
+
 ## 2026-11-25 : un connecteur se connecte par identifiant et mot de passe, et une pièce part en fichier
 
 Essai avec Everial (Wizidee, reconnaissance de pièces) : leur API n'accepte pas de lien (réponse d'Everial du jour) et

@@ -937,7 +937,7 @@ export function valeurPourCible(valeur: string, type: UserFieldType | undefined)
   return validateFieldValue(type, valeur) ? canonicalizeFieldValue(type, valeur) : '';
 }
 
-function applyToWork(work: EvalContext, a: WorkflowAction): void {
+export function applyToWork(work: EvalContext, a: WorkflowAction): void {
   if (a.kind === 'tag') {
     const t = normaliserEtiquette(a.tag);
     if (t !== '' && !work.tags.includes(t)) work.tags.push(t);

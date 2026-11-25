@@ -41,7 +41,9 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   l'Action dans la recette. Essai réel fait sur la SANDBOX (le brouillon, le lien de test, la mise en ligne d'un clic,
   la version 1), sauf le répondeur et la restauration, qui se jouent avec le pilote. L'option `brouillon` de `/v1` est
   reportée après le pilote (`todo.md`).
-- Ensuite : le chemin du pilote, B6 (la simulation d'un parcours, le lien de test, le déroulé d'un contact), puis B9.
+- Lot F (plan `2026-11-25-csm-lot1-f-simulation-deroule.md`), le chemin du pilote : B6a, la simulation d'un parcours
+  (`simulate_scenario`), en cours ; puis B6b, le lien de test, le déroulé d'un contact et les deux journaux d'erreurs.
+- Ensuite : B9, le pilote.
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 
