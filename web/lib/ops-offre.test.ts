@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lireFinEssaiBusiness, lirePlafondIa, lireUtilisateursBusiness, retraitCoupeLeNumero } from './ops-offre';
+import { lireConservation, conservationPeutPurger, lireLimiteContacts, lireCommissionEntreprise, lireCommissionMessages, lireFinEssaiBusiness, lirePlafondIa, lireUtilisateursBusiness, retraitCoupeLeNumero } from './ops-offre';
 
 /** L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : sa date de fin, saisie dans /ops. */
 describe('la fin de l’essai du Business saisie', () => {
@@ -12,9 +12,9 @@ describe('la fin de l’essai du Business saisie', () => {
 /** Les réglages de devis d'une Entreprise (spec offres v2) : vide = le défaut, sinon un entier dans ses bornes. */
 describe('les contacts et la commission saisis', () => {
   it('contacts : vide = sans limite, un entier de 1 à 100 000 000 passe, le reste est refusé', () => {
-    expect(lireContactsEntreprise('')).toBeNull();
-    expect(lireContactsEntreprise(' 20000 ')).toBe(20000);
-    for (const s of ['0', '-5', '2.5', '100000001', 'beaucoup']) expect(lireContactsEntreprise(s), s).toBe('invalide');
+    expect(lireLimiteContacts('')).toBeNull();
+    expect(lireLimiteContacts(' 20000 ')).toBe(20000);
+    for (const s of ['0', '-5', '2.5', '100000001', 'beaucoup']) expect(lireLimiteContacts(s), s).toBe('invalide');
   });
 
   it('commission : vide = 10 %, un entier de 0 à 100 passe, une décimale ou plus de 100 est refusée', () => {

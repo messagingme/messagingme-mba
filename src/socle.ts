@@ -242,7 +242,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
   const contactStore = new PgContactStore(
     pool,
     annonceHubspotStop ? annoncerAussiAHubspot(annonceOptOut, annonceHubspotStop) : annonceOptOut,
-    // La limite de contacts de l'offre (lot 6), avec l'offre qui dit ce qu'elle compte (`contactsToutesOrigines`) : vérifiée
+    // La limite de contacts de l'offre (lot 6), sur les fiches actives de toute origine (2026-11-25) : vérifiée
     // par les trois chemins de création, et lue par la porte d'un espace plein (`inconnusRefuses`), jamais par l'entrant.
     async (tenant) => limiteContactsDe(await offres.offreDe(tenant)),
     annonceHubspotStop ?? undefined,

@@ -26,7 +26,7 @@ export interface DepsPacksContacts {
   payeurAutorise(userId: string): Promise<boolean>;
   /** Le Pro vivant d'un espace EN PRO (`PgAbonnementsOffreStore.deLEspace`, non fini) ; `null` sinon. */
   proVivant(tenantId: string): Promise<{ abonnementId: string; periodicite: 'mois' | 'an' } | null>;
-  /** Les contacts que la limite compte (`PgOffresStore.usage`, sur `ficheComptee`) : ceux qu'un retrait doit laisser tenir. */
+  /** Les contacts que la limite compte (`PgOffresStore.usage`, sur `ficheActive`) : ceux qu'un retrait doit laisser tenir. */
   contacts(tenantId: string): Promise<number>;
   /** `PgAbonnementsOffreStore.noterPacksContacts` : `null` si le Pro a fini entre-temps. */
   noterPacks(abonnementId: string, packs: number): Promise<{ tenantId: string } | null>;

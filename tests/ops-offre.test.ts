@@ -26,7 +26,7 @@ const SANS_ALERTE: AlertesOffreManuelle = {
  * Les champs du Business (spec du 2026-10-27) d'un espace qui ne l'a jamais eu, et l'option « le plus ancien laisse sa
  * place » décochée (lot 2 du 2026-11-24).
  */
-const SANS_BUSINESS = { business: false, utilisateursBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false } as const;
+const SANS_BUSINESS = { business: false, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false } as const;
 /**
  * Les réglages de crédit du devis d'une Entreprise qui n'en a négocié aucun : la commission des messages WhatsApp (plan du
  * 2026-10-30, tâche 8) et le plafond de sécurité de l'IA (Entreprise illimitée, lot B).
@@ -66,6 +66,7 @@ class MagasinMemoire {
             // Une seule offre posée à la main : l'Entreprise fait tomber le Business (`PgOffresStore.ecrireEntreprise`).
             business: r.entreprise ? false : r.business === undefined ? avant.business : r.business,
             utilisateursBusiness: r.utilisateursBusiness === undefined ? avant.utilisateursBusiness : r.utilisateursBusiness,
+            contactsBusiness: r.contactsBusiness === undefined ? avant.contactsBusiness : r.contactsBusiness,
             // L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : l'Entreprise posée ou le Business retiré
             // l'effacent ; sinon, absent = inchangé.
             businessEssaiFinLe: r.entreprise || r.business === false ? null
@@ -340,7 +341,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
       expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload })).statusCode, payload.note).toBe(400);
     }
     // Un Business que l'Entreprise demandée fait tomber : la date n'a plus de Business où s'écrire.
-    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
     const versEntreprise = { entreprise: true, utilisateurs: null, businessEssaiFinLe: FIN, note: 'Entreprise et essai sur un Business' };
     expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: versEntreprise })).statusCode).toBe(400);
     expect(magasin.ecritures).toEqual([]);
@@ -355,7 +356,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
 
   it('🔴 PUT retire le Business : la fin du numéro fourni est demandée, à la date du retrait', async () => {
     const { server, magasin } = monter();
-    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
     const avant = Date.now();
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: false, note: 'fin de l’essai' } });
     expect(res.statusCode).toBe(200);
@@ -365,12 +366,27 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     await server.close();
   });
 
+  it('🔴 la limite de contacts du Business (2026-11-25) : écrite donnée, inchangée absente, la grille rendue par null', async () => {
+    const { server, magasin } = monter();
+    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: false, business: true });
+    const poser = async (corps: Record<string, unknown>) => server.inject({
+      method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, note: '', ...corps },
+    });
+    expect((await poser({ contactsBusiness: 6000 })).json()).toMatchObject({ business: true, contactsBusiness: 6000 });
+    expect((await poser({ utilisateursBusiness: 7 })).json()).toMatchObject({ contactsBusiness: 6000, utilisateursBusiness: 7 });
+    expect((await poser({ contactsBusiness: null })).json()).toMatchObject({ contactsBusiness: null });
+    expect(magasin.ecritures.map((e) => e.reglage.contactsBusiness)).toEqual([6000, undefined, null]);
+    expect(magasin.audits[0]!.detail).toMatchObject({ contactsBusiness: 6000, contactsBusinessAvant: null });
+    expect(magasin.invalides).toEqual([T1, T1, T1]);
+    await server.close();
+  });
+
   it('🔴 l’Entreprise et le Business demandés ensemble : 400, rien d’écrit ni de geste', async () => {
     const { server, magasin } = monter();
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, business: true, note: 'les deux' } });
     expect(res.statusCode).toBe(400);
     expect([magasin.ecritures.length, magasin.invalides.length, magasin.gestesJoues.length]).toEqual([0, 0, 0]);
-    for (const extra of [{ business: 'oui' }, { utilisateursBusiness: 0 }, { utilisateursBusiness: 2.5 }]) {
+    for (const extra of [{ business: 'oui' }, { utilisateursBusiness: 0 }, { utilisateursBusiness: 2.5 }, { contactsBusiness: 0 }, { contactsBusiness: 5000.5 }]) {
       expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { ...BASE, ...extra } })).statusCode, JSON.stringify(extra)).toBe(400);
     }
     await server.close();
@@ -378,7 +394,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
 
   it('PUT pose l’Entreprise sur un Business : le Business tombe, sans geste de fin (l’Entreprise couvre le numéro)', async () => {
     const { server, magasin } = monter();
-    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: 6, businessEssaiFinLe: null, remplacerAnciens: false });
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: 6, contactsBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: 20, note: 'devis Entreprise signé' } });
     expect(res.statusCode).toBe(200);
     expect(magasin.reglages.get(T1)).toMatchObject({ entreprise: true, business: false });
@@ -460,6 +476,7 @@ describe('l’offre posée par l’exploitation, au journal des actions de l’e
         entreprise: false, utilisateurs: null, conservationJours: 365, contacts: null, commissionPct: null,
         entrepriseAvant: true, utilisateursAvant: null, conservationJoursAvant: null, contactsAvant: null, commissionPctAvant: null,
         business: false, utilisateursBusiness: null, businessAvant: false, utilisateursBusinessAvant: null,
+        contactsBusiness: null, contactsBusinessAvant: null,
         businessEssaiFinLe: null, businessEssaiFinLeAvant: null,
         commissionMessagesPct: null, commissionMessagesPctAvant: null,
         plafondIaMoisEuros: null, plafondIaMoisEurosAvant: null,

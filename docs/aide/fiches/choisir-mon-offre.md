@@ -2,7 +2,7 @@
 description: Free, Pro, Business ou Entreprise : ce que chaque offre de Messaging Me ouvre, ses limites, et comment changer d'offre ou gérer l'abonnement.
 ecran: offre
 source_section: Offres (menu « Paramètres » > Offre)
-source_empreinte: 537520
+source_empreinte: 6a93cb
 publique: oui
 rubrique: demarrer-console
 rang: 1
@@ -62,12 +62,12 @@ Agent, l'assistant d'aide, des widgets personnalisables et sans limite de nombre
 prioritaire ; un utilisateur de plus s'y demande au Support. Les publicités, les chaînes, le RCS, Salesforce et Batch,
 et le Performance Lab complet demandent l'Entreprise.
 
-**Ce que compte la limite de contacts.** En formules Free, Pro et Business, tous vos contacts comptent, ceux qui vous
+**Ce que compte la limite de contacts.** Quelle que soit votre offre, tous vos contacts comptent, ceux qui vous
 écrivent les premiers compris. Quand votre espace est plein, créer ou importer un contact est refusé, et un nouveau
 client qui vous écrit n'entre pas dans Messaging Me : son message n'est pas enregistré et votre agent IA ne lui répond
 pas. Un e-mail vous prévient, une fois par jour au plus. Vos contacts déjà présents vous écrivent comme avant, et un
-contact supprimé libère sa place : demandez à Claude de supprimer ceux dont vous n'avez plus besoin. En Entreprise, le
-nombre de contacts se règle avec vous, et un contact qui vous écrit le premier n'est jamais refusé.
+contact supprimé libère sa place : demandez à Claude de supprimer ceux dont vous n'avez plus besoin. En Business, des
+contacts de plus se demandent au Support ; en Entreprise, leur nombre se règle avec vous, ou reste sans limite.
 
 **En Business et en Entreprise : effacer le plus ancien plutôt que refuser.** Dans Paramètres, la case « Quand l'espace
 est plein, le contact le plus ancien laisse sa place » fait entrer chaque nouveau contact en effaçant définitivement votre

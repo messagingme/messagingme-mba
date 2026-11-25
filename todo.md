@@ -1,5 +1,22 @@
 # todo.md : backlog
 
+## 🟡 Un contact est un contact, et la limite du Business dans /ops (lot 3 du plan `2026-11-24-contacts-packs-et-remplacement`) : la relecture (2026-11-25, aucun rouge)
+
+🔴 **Avant de poser une limite de contacts sur un vrai client Entreprise**, les points 1 et 2 (aujourd'hui seule MUTAC en a
+une : 10 000 pour 9 contacts).
+
+1. **L'e-mail `espace_plein_entrant` parle d'offre supérieure** (`src/emails-produit/catalogue.ts`, son `quand` et le
+   commentaire au-dessus) : une Entreprise limitée, ou un Business à limite relevée, pleine, lit « Passez à l'offre
+   supérieure ». Une variante qui dit « demandez au Support de relever la limite », sans nommer d'offre.
+2. **Aucune alerte à 80 % ni à 100 % pour une Entreprise limitée** (`limitesAlertables`, `src/emails-produit/alertes.ts`,
+   rend `contacts: null` en Entreprise) : elle refuse l'entrant, case décochée, et le seul signal est l'e-mail du point 1.
+3. **`src/http/contacts.ts` lève `LimiteOffreError` sans l'offre** : la phrase retombe sur la grille, un Business réglé à
+   1 000 lirait « Passez en Business ». Propager l'offre (`placesContacts` la connaît) et la passer.
+4. **`business_contacts` survit au retrait du Business**, comme `business_utilisateurs` : un Business reposé plus tard
+   retrouve l'ancienne limite (la fiche de `/ops` l'affiche). L'effacer au retrait, ou le laisser dit.
+5. **Une limite baissée sous l'usage, case cochée**, purge tout l'excès au prochain contact (le choix de Julien) :
+   irréversible, à poser avec prudence sur un espace réel.
+
 ## 🟡 La proposition de l'entretien gardée : la relecture (2026-11-24, un rouge corrigé dans le lot)
 
 - `oublierProposition` part sans être attendue, et un tour sans proposition recopie l'ancienne : si l'oubli échoue, une

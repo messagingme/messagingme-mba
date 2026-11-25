@@ -151,6 +151,14 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     expect(await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null, business: true, utilisateursBusiness: 6 })).toBe(true);
     expect(await offres.lireEntreprise(t)).toMatchObject({ entreprise: false, business: true, utilisateursBusiness: 6, businessEssaiFinLe: null });
     expect((await offres.offreDe(t)).droits.limites.utilisateurs).toBe(6);
+    // Sa limite de contacts (0324, 2026-11-25) : écrite donnée, inchangée absente, la grille rendue par null.
+    expect(await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null, contactsBusiness: 6000 })).toBe(true);
+    expect(await offres.lireEntreprise(t)).toMatchObject({ business: true, utilisateursBusiness: 6, contactsBusiness: 6000 });
+    expect((await offres.offreDe(t)).droits.limites.contacts).toBe(6000);
+    expect(await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null })).toBe(true);
+    expect((await offres.offreDe(t)).droits.limites.contacts).toBe(6000);
+    expect(await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null, contactsBusiness: null })).toBe(true);
+    expect((await offres.offreDe(t)).droits.limites.contacts).toBe(5000);
     expect((await etat()).q).toBeNull();
     await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null });
     expect((await etat()).b).toBe(true);
@@ -300,8 +308,8 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
       await contacts.upsertByPhoneReturningId({ tenantId: t, phoneE164: tel(n), profileName: null, fields: {}, optInStatus: 'unknown' });
     }
     await pool.query('update contacts set deleted_at = now() where tenant_id = $1 and phone_e164 = $2', [t, tel(3)]);
-    // Née d'un entrant : comptée en Free et en Pro (décisions de Julien du 2026-10-25 et du 2026-11-13), jamais en
-    // Entreprise (plus bas).
+    // Née d'un entrant : comptée dans toutes les offres (décisions de Julien du 2026-10-25, du 2026-11-13 et du
+    // 2026-11-25).
     await contacts.upsertFromInbound(t, tel(4).slice(1), 'Inconnu');
 
     const wf = (await pool.query<{ id: string }>(`insert into workflows (tenant_id, name) values ($1, 'itest-usage') returning id`, [t])).rows[0]!.id;
@@ -327,24 +335,24 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     // En Pro (2026-11-13), la fiche née d'un entrant compte aussi.
     await pro(t, 'sub_itestoffreusage', null);
     expect(await offres.usage(t)).toEqual({ contacts: 3, automations: 1, membres: 2 });
-    // En Entreprise, réglée sur devis, elle ne compte plus.
+    // 🔴 En Entreprise aussi, depuis le 2026-11-25.
     expect(await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: null, conservationJours: null })).toBe(true);
-    expect(await offres.usage(t)).toEqual({ contacts: 2, automations: 1, membres: 2 });
+    expect(await offres.usage(t)).toEqual({ contacts: 3, automations: 1, membres: 2 });
   });
 
   it('🔴 l’exploitation pose puis retire l’Entreprise, sa limite et sa conservation, sans toucher aux autres réglages', async () => {
     const t = await espace('itest-offre-ops');
     // Un espace sans ligne de réglages (7 sur 9 en production) : l'écriture la crée.
-    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, businessEssaiFinLe: null, commissionMessagesPct: null, plafondIaMoisEuros: null, remplacerAnciens: false });
+    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, commissionMessagesPct: null, plafondIaMoisEuros: null, remplacerAnciens: false });
     expect(await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: 10, conservationJours: 365 })).toBe(true);
-    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: true, utilisateurs: 10, conservationJours: 365, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, businessEssaiFinLe: null, commissionMessagesPct: null, plafondIaMoisEuros: null, remplacerAnciens: false });
+    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: true, utilisateurs: 10, conservationJours: 365, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, commissionMessagesPct: null, plafondIaMoisEuros: null, remplacerAnciens: false });
     expect((await offres.offreDe(t)).droits.limites.utilisateurs).toBe(10);
     // La conservation posée est celle que la vue affiche (relecture finale du lot 6).
     expect((await offres.offreDe(t)).droits.limites.conservationJours).toBe(365);
 
     await pool.query('update tenant_settings set agents_peuvent_prendre = true where tenant_id = $1', [t]);
     expect(await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null, conservationJours: null })).toBe(true);
-    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, businessEssaiFinLe: null, commissionMessagesPct: null, plafondIaMoisEuros: null, remplacerAnciens: false });
+    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, commissionMessagesPct: null, plafondIaMoisEuros: null, remplacerAnciens: false });
     expect((await offres.offreDe(t)).offre).toBe('base');
     const r = await pool.query<{ p: boolean }>('select agents_peuvent_prendre as p from tenant_settings where tenant_id = $1', [t]);
     expect(r.rows[0]!.p).toBe(true);
@@ -395,7 +403,7 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     const t = await espace('itest-offre-conservation');
     expect(await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: null, conservationJours: 0 })).toBe(true);
     expect(await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null })).toBe(true);
-    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: 0, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, businessEssaiFinLe: null, commissionMessagesPct: null, plafondIaMoisEuros: null, remplacerAnciens: false });
+    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: 0, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, commissionMessagesPct: null, plafondIaMoisEuros: null, remplacerAnciens: false });
   });
 
   it('🔴 un Pro vivant couvre le numéro dans etatDeLEspace, sur le vrai SQL : ni fin ni libération (lot 6, B1, vigilance 4)', async () => {

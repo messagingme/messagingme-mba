@@ -638,8 +638,8 @@ export const CATALOGUE = [
       },
     },
   },
-  // La Free compte tous ses contacts, ceux qui écrivent les premiers compris (décision de Julien du 2026-10-25,
-  // `contactsToutesOrigines`) ; le Pro et le Business, plus bas, de même depuis le 2026-11-13.
+  // La Free compte tous ses contacts, ceux qui écrivent les premiers compris (décision de Julien du 2026-10-25) ; le Pro
+  // et le Business, plus bas, de même depuis le 2026-11-13, et toutes les offres depuis le 2026-11-25.
   {
     cle: 'limite_contacts_80',
     categorie: 'service',

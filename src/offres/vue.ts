@@ -1,6 +1,6 @@
 import {
   DROITS, ESSAI_PRO_JOURS, FONCTIONS, PRIX_BUSINESS_HT_CENTIMES, PRIX_PRO_HT_CENTIMES, PRIX_SIEGE_BUSINESS_HT_CENTIMES,
-  PRIX_SIEGE_HT_CENTIMES, CONTACTS_PAR_PACK, PRIX_PACK_CONTACTS_HT_CENTIMES, contactsToutesOrigines, type Fonction, type Limites, type Offre,
+  PRIX_SIEGE_HT_CENTIMES, CONTACTS_PAR_PACK, PRIX_PACK_CONTACTS_HT_CENTIMES, type Fonction, type Limites, type Offre,
 } from './offres';
 import type { SourceOffres } from './offre.pg';
 import type { ResumePro } from './abonnements-offre.pg';
@@ -47,12 +47,12 @@ export interface VueOffre {
   limites: LimitesVue;
   usage: UsageOffre;
   /**
-   * Ce que compte la limite de contacts de l'espace (`contactsToutesOrigines`, décisions de Julien du 2026-10-25 et du
-   * 2026-11-13) : vrai en Free, en Pro et en Business, où tous les contacts comptent, ceux qui ont écrit les premiers
-   * compris, et où un inconnu qui écrit à un espace plein n'entre pas ; faux en Entreprise, où seules les fiches créées
-   * comptent. La console et Claude le lisent ici, sans recopier la règle.
+   * Ce que compte la limite de contacts : TOUJOURS VRAI depuis le 2026-11-25 (décision de Julien, Entreprise comprise).
+   * Tous les contacts comptent, ceux qui ont écrit les premiers compris, et un inconnu qui écrit à un espace plein n'entre
+   * pas (sauf l'option « le plus ancien laisse sa place »). Gardé pour qui le lit déjà (`get_plan`, une console plus
+   * ancienne), qui y prendrait un champ absent pour un faux.
    */
-  contactsToutesOrigines: boolean;
+  contactsToutesOrigines: true;
   /**
    * Les fiches comptées au-delà de la limite de contacts (plan du 2026-10-26), 0 sous la limite ou pile à elle, et sans
    * limite : ce qu'il faut supprimer pour y revenir. Un espace revenu en Free avec 3 000 contacts en a 2 900 ; tant qu'il en
@@ -206,8 +206,8 @@ export function creerVueOffre(d: DepsVueOffre): (tenantId: string) => Promise<Vu
       fonctions: FONCTIONS.filter((f) => droits.fonctions.has(f)),
       limites: limitesVue(droits.limites),
       usage: { envoisModelesMois: mois === null ? null : mois.max - mois.reste, ...usage },
-      contactsToutesOrigines: contactsToutesOrigines(offre),
-      // L'usage compte comme la limite (`PgOffresStore.usage`, sur `ficheComptee`) : l'écart est celui de la porte.
+      contactsToutesOrigines: true,
+      // L'usage compte comme la limite (`PgOffresStore.usage`, sur `ficheActive`) : l'écart est celui de la porte.
       contactsEnTrop: droits.limites.contacts === null ? 0 : Math.max(0, usage.contacts - droits.limites.contacts),
       grille: grilleDesOffres(),
       prixPro: d.proEnVente ? { moisCentimes: PRIX_PRO_HT_CENTIMES.mois, anCentimes: PRIX_PRO_HT_CENTIMES.an } : null,

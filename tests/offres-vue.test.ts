@@ -57,12 +57,11 @@ describe('creerVueOffre', () => {
     expect(v.upgradeUrl).toMatch(/\/offre$/);
   });
 
-  it('🔴 la vue dit ce que compte la limite de contacts : tous en Free, Pro et Business, les fiches créées en Entreprise (2026-11-13)', async () => {
-    // La console et Claude le lisent ici, jamais en recopiant la règle : `contactsToutesOrigines` la décide seule.
-    expect((await vue('base', null)('t1')).contactsToutesOrigines).toBe(true);
-    expect((await vue('pro', null)('t1')).contactsToutesOrigines).toBe(true);
-    expect((await vue('business', null)('t1')).contactsToutesOrigines).toBe(true);
-    expect((await vue('entreprise', null)('t1')).contactsToutesOrigines).toBe(false);
+  it('🔴 la vue dit ce que compte la limite de contacts : tous, dans toutes les offres, Entreprise comprise (2026-11-25)', async () => {
+    // Gardé pour qui le lit déjà (`get_plan`, une console plus ancienne) : toujours vrai.
+    for (const offre of ['base', 'pro', 'business', 'entreprise'] as const) {
+      expect((await vue(offre, null)('t1')).contactsToutesOrigines, offre).toBe(true);
+    }
   });
 
   it('🔴 la vue dit combien de contacts dépassent la limite (2026-10-26) : 0 sous elle et pile à elle, 0 sans limite', async () => {

@@ -220,8 +220,8 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
 
   const libelleLimite = (k: (typeof LIGNES_LIMITES)[number]): string => ({
     utilisateurs: t('Utilisateurs', 'Users'),
-    // La grille compare les offres : Free, Pro et Business comptent aussi ceux qui écrivent (`contactsToutesOrigines`,
-    // 2026-10-25 puis 2026-11-13) ; l'Entreprise y est sans limite.
+    // Toutes les offres comptent aussi ceux qui écrivent (2026-10-25, 2026-11-13 puis 2026-11-25) ; l'Entreprise est
+    // sans limite dans la grille.
     contacts: t('Contacts (ceux qui vous écrivent compris)', 'Contacts (including those who write to you)'),
     envoisModelesMois: t('Modèles envoyés par mois', 'Templates sent per month'),
     automations: t('Automations allumées', 'Active automations'),
@@ -268,22 +268,15 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
    */
   const enTrop = vue.contactsEnTrop;
   const [fr, en, s] = [fmtNum(enTrop, 'fr'), fmtNum(enTrop, 'en'), enTrop > 1 ? 's' : ''];
-  const alerteContacts = enTrop === 0 ? undefined : vue.contactsToutesOrigines
-    ? t(`Votre espace compte ${fr} contact${s} de trop : tant qu’il est plein, aucun contact ne peut être créé ni importé, et un nouveau client qui vous écrit n’entre pas. Demandez à Claude d’en supprimer au moins ${fr}, et quelques-uns de plus pour laisser entrer de nouveaux clients (par exemple les plus anciens, ou ceux d’une étiquette) : tant que l’espace dépasse sa limite, ces suppressions ne sont pas limitées par jour.`,
-      `Your workspace has ${en} contact${s} too many: as long as it is full, no contact can be created or imported, and a new customer who writes to you does not get in. Ask Claude to delete at least ${en} of them, and a few more to let new customers in (for example the oldest, or those with a tag): as long as the workspace is above its limit, these deletions are not capped per day.`)
-    : t(`Votre espace a créé ${fr} contact${s} de trop : tant qu’il est plein, aucun contact ne peut être créé ni importé. Supprimez-en au moins ${fr}, et quelques-uns de plus pour pouvoir en créer de nouveaux, depuis la liste des contacts ou en le demandant à Claude.`,
-      `Your workspace has created ${en} contact${s} too many: as long as it is full, no contact can be created or imported. Delete at least ${en} of them, and a few more to be able to create new ones, from the contact list or by asking Claude.`);
+  const alerteContacts = enTrop === 0 ? undefined
+    : t(`Votre espace compte ${fr} contact${s} de trop : tant qu’il est plein, aucun contact ne peut être créé ni importé, et un nouveau client qui vous écrit n’entre pas. Demandez à Claude d’en supprimer au moins ${fr}, et quelques-uns de plus pour laisser entrer de nouveaux clients (par exemple les plus anciens, ou ceux d’une étiquette) : tant que l’espace dépasse sa limite, ces suppressions ne sont pas limitées par jour.`,
+      `Your workspace has ${en} contact${s} too many: as long as it is full, no contact can be created or imported, and a new customer who writes to you does not get in. Ask Claude to delete at least ${en} of them, and a few more to let new customers in (for example the oldest, or those with a tag): as long as the workspace is above its limit, these deletions are not capped per day.`);
   const jauges: Array<{ cle: string; libelle: string; utilise: number | null; max: number | null; note?: string; alerte?: string }> = [
-    // Ce qui compte vient du serveur (`contactsToutesOrigines`) : en Free, en Pro et en Business, tous les contacts, ceux
-    // qui écrivent compris.
-    vue.contactsToutesOrigines
-      ? { cle: 'contacts', libelle: t('Contacts', 'Contacts'), utilise: vue.usage.contacts, max: vue.limites.contacts,
-        note: t('Tous comptent, ceux qui vous écrivent compris : au-delà, un nouveau client qui vous écrit n’entre pas dans Messaging Me.',
-          'All of them count, including those who write to you: beyond that, a new customer who writes to you does not get into Messaging Me.'),
-        alerte: alerteContacts }
-      : { cle: 'contacts', libelle: t('Contacts créés', 'Contacts created'), utilise: vue.usage.contacts, max: vue.limites.contacts,
-        note: t('Un contact qui vous écrit le premier n’est jamais compté.', 'A contact who writes to you first is never counted.'),
-        alerte: alerteContacts },
+    // Tous les contacts comptent, ceux qui écrivent compris, dans toutes les offres (2026-11-25).
+    { cle: 'contacts', libelle: t('Contacts', 'Contacts'), utilise: vue.usage.contacts, max: vue.limites.contacts,
+      note: t('Tous comptent, ceux qui vous écrivent compris : au-delà, un nouveau client qui vous écrit n’entre pas dans Messaging Me.',
+        'All of them count, including those who write to you: beyond that, a new customer who writes to you does not get into Messaging Me.'),
+      alerte: alerteContacts },
     { cle: 'modeles', libelle: t('Modèles envoyés ce mois-ci', 'Templates sent this month'), utilise: vue.usage.envoisModelesMois, max: vue.limites.envoisModelesMois,
       note: t('Les réponses dans les 24 h qui suivent un message du client ne sont jamais comptées.', 'Replies within 24 hours of a customer message are never counted.') },
     { cle: 'automations', libelle: t('Automations allumées', 'Active automations'), utilise: vue.usage.automations, max: vue.limites.automations },

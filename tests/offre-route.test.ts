@@ -100,11 +100,12 @@ describe('l’outil MCP get_plan', () => {
     expect(outil!.description).toContain('24-hour window');
   });
 
-  it('🔴 sa description dit ce que compte la limite de contacts, et ce que devient un nouveau client d’un espace plein (2026-11-13)', () => {
-    expect(outil!.description).toContain('contactsToutesOrigines');
-    expect(outil!.description).toMatch(/in Free, Pro and Business every contact counts, including those who wrote first/);
+  it('🔴 sa description dit ce que compte la limite de contacts, et ce que devient un nouveau client d’un espace plein (2026-11-25)', () => {
+    expect(outil!.description).toContain('contactsToutesOrigines is always true');
+    expect(outil!.description).toMatch(/in every plan, every contact counts, including those who wrote first/);
     expect(outil!.description).toMatch(/a full workspace does not let a new customer in/);
-    expect(outil!.description).toMatch(/in Entreprise only the contacts created count/);
+    expect(outil!.description).toMatch(/its oldest contact makes room/);
+    expect(outil!.description).not.toMatch(/only the contacts created count/);
     expect(outil!.description).not.toMatch(/contacts created, automations on/);
   });
 

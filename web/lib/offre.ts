@@ -76,11 +76,6 @@ export interface VueOffre {
   limites: LimitesOffre;
   usage: UsageOffre;
   /**
-   * Ce que compte la limite de contacts, tel que le serveur le décide (`contactsToutesOrigines`, 2026-10-25) : vrai en Free,
-   * où ceux qui écrivent les premiers comptent aussi. Faux sur une API plus ancienne, qui ne les comptait pas.
-   */
-  contactsToutesOrigines: boolean;
-  /**
    * Les contacts comptés au-delà de la limite (2026-10-26), tels que le serveur les compte : ce qu'il faut supprimer pour
    * y revenir. 0 sous la limite, et sur une API plus ancienne qui ne le porte pas (la page n'en dit alors rien).
    */
@@ -213,7 +208,6 @@ export function lireVueOffre(brut: unknown): VueOffre | null {
   return {
     offre, fonctions: ouvrir(fonctions), limites,
     usage: { envoisModelesMois: u.envoisModelesMois, contacts: u.contacts, automations: u.automations, membres: u.membres },
-    contactsToutesOrigines: brut.contactsToutesOrigines === true,
     contactsEnTrop: entier(brut.contactsEnTrop) ? brut.contactsEnTrop : 0,
     grille: grille as VueOffre['grille'],
     prixPro: lirePrixPro(brut.prixPro),

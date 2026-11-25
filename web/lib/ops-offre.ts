@@ -21,8 +21,11 @@ function lireEntier(saisie: string, min: number, max: number): number | null | '
   return n >= min && n <= max ? n : 'invalide';
 }
 
-/** Les contacts créés d'une Entreprise (spec offres v2) : vide = sans limite, sinon de 1 à 100 000 000 (les bornes du serveur). */
-export const lireContactsEntreprise = (saisie: string): number | null | 'invalide' => lireEntier(saisie, 1, 100_000_000);
+/**
+ * La limite de contacts posée dans /ops, ceux qui écrivent compris (2026-11-25) : vide = sans limite pour une Entreprise, les
+ * 5 000 de la grille pour un Business ; sinon de 1 à 100 000 000 (les bornes du serveur).
+ */
+export const lireLimiteContacts = (saisie: string): number | null | 'invalide' => lireEntier(saisie, 1, 100_000_000);
 
 /** La commission négociée d'une Entreprise : vide = 10 %, sinon un ENTIER de 0 à 100 (une décimale rendrait la vue illisible). */
 export const lireCommissionEntreprise = (saisie: string): number | null | 'invalide' => lireEntier(saisie, 0, 100);

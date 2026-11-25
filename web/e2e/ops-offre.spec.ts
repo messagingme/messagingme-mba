@@ -31,6 +31,7 @@ async function ouvrir(page: import('@playwright/test').Page, offre: Record<strin
           tenantId: 't-essai', entreprise: corps.entreprise, utilisateurs: corps.utilisateurs,
           conservationJours: 'conservationJours' in corps ? corps.conservationJours : offre.conservationJours, utilisateursProposes: 10,
           business, utilisateursBusiness: 'utilisateursBusiness' in corps ? corps.utilisateursBusiness : (offre.utilisateursBusiness ?? null),
+          contactsBusiness: 'contactsBusiness' in corps ? corps.contactsBusiness : (offre.contactsBusiness ?? null),
           businessEssaiFinLe: 'businessEssaiFinLe' in corps ? corps.businessEssaiFinLe : (offre.businessEssaiFinLe ?? null),
           alertes: offre.alertes, ...(offre.gestes ? { gestes: offre.gestes } : {}),
         });
@@ -220,6 +221,27 @@ test.describe('Ops : le Business d’un espace (spec Business)', () => {
     await expect(modale.getByTestId('offre-message')).toContainText(/Business/);
     await expect(modale.getByTestId('offre-message')).toContainText(/9[.,]00/);
     expect(ecrits).toEqual([{ entreprise: false, utilisateurs: null, business: true, utilisateursBusiness: 7, note: 'Contrat Business signé' }]);
+  });
+
+  test('🔴 la limite de contacts d’un Business (2026-11-25) : lue, envoyée seulement changée ; vide, la grille', async ({ page }) => {
+    const { modale, ecrits } = await ouvrir(page, {
+      entreprise: false, utilisateurs: null, conservationJours: 90, business: true, utilisateursBusiness: null, contactsBusiness: 6000, alertes: ALERTES,
+    });
+    await expect(modale.getByTestId('offre-contacts-business')).toHaveValue('6000');
+    await modale.getByTestId('offre-contacts-business').fill('0');
+    await expect(modale.getByTestId('offre-enregistrer')).toBeDisabled();
+    await expect(modale).toContainText('corrigez les limites du Business');
+    await modale.getByTestId('offre-contacts-business').fill('7000');
+    await modale.getByTestId('offre-enregistrer').click();
+    await expect.poll(() => ecrits.length).toBe(1);
+    await expect(modale.getByTestId('offre-contacts-business')).toHaveValue('7000');
+    await modale.getByTestId('offre-contacts-business').fill('');
+    await modale.getByTestId('offre-enregistrer').click();
+    await expect.poll(() => ecrits.length).toBe(2);
+    expect(ecrits).toEqual([
+      { entreprise: false, utilisateurs: null, utilisateursBusiness: null, contactsBusiness: 7000, note: '' },
+      { entreprise: false, utilisateurs: null, utilisateursBusiness: null, contactsBusiness: null, note: '' },
+    ]);
   });
 
   test('🔴 poser un Business en essai (révision du 2026-11-04) : la case et sa date partent ensemble ; sans date, rien ne part', async ({ page }) => {

@@ -282,10 +282,9 @@ describe('l’aperçu', () => {
     // Deux places, deux fiches : l'offre est pleine ensuite ; une place, une fiche et le reste hors plafond : pleine aussi.
     expect(await apercu({ limite: 2 })).toMatchObject({ fichesACreer: 2, placesLibres: 2, remplitLesPlaces: true });
     expect(await apercu({ limite: 1 })).toMatchObject({ fichesACreer: 1, horsPlafond: 1, remplitLesPlaces: true });
-    // Une place de reste, sans limite, ou une offre qui ne compte que les fiches créées (l'Entreprise) : rien à dire.
+    // Une place de reste, ou sans limite : rien à dire.
     expect(await apercu({ limite: 3 })).toMatchObject({ remplitLesPlaces: false });
     expect(await apercu({})).toMatchObject({ placesLibres: null, remplitLesPlaces: false });
-    expect(await apercu({ limite: 2, toutesOrigines: false })).toMatchObject({ remplitLesPlaces: false });
     // Déjà pleine, il ne crée rien : ce n'est pas lui qui la remplit.
     expect(await apercu({ limite: 0 })).toMatchObject({ fichesACreer: 0, horsPlafond: 2, remplitLesPlaces: false });
   });
@@ -680,7 +679,7 @@ describe('le câblage commun de l’API et du worker', () => {
       async fichesParNumeros() { return this.fiches; }
       async numerosEnRefus() { return this.refus; }
       async effacementsDesNumeros() { return this.effaces; }
-      async placesContacts() { return { limite: 100, comptees: this.fiches.size, presents: new Set<string>(), toutesOrigines: true }; }
+      async placesContacts() { return { limite: 100, comptees: this.fiches.size, presents: new Set<string>() }; }
       async upsertManyByPhone() { return ['created' as const]; }
     }
     const jobs: Array<Date | undefined> = [];
@@ -699,7 +698,7 @@ describe('le câblage commun de l’API et du worker', () => {
     expect(await deps.fichesParNumeros(T, [])).toEqual(new Map([['+41790000000', 'fiche']]));
     expect(await deps.numerosEnRefus(T, [])).toEqual(new Set(['+41791111111']));
     expect(await deps.effacements(T, [])).toEqual(new Map([['+41792222222', new Date('2026-11-10T08:00:00Z')]]));
-    expect(await deps.places(T)).toEqual({ limite: 100, comptees: 1, toutesOrigines: true });
+    expect(await deps.places(T)).toEqual({ limite: 100, comptees: 1 });
     expect(await deps.commandesSansWhatsapp(T, ['9'])).toEqual(new Set(['9']));
     await deps.ecrirePage(T, { fiches: [], source: SOURCE_REPRISE, liaisons: [{ commandeId: '1', clientId: null, contactId: 'fiche', details: { payeeLe: new Date(), montant: null, devise: null, test: false } }] });
     expect(await deps.boutique(T)).toMatchObject({ devise: 'ecrite' });

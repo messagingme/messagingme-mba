@@ -34,8 +34,10 @@ export interface Limites {
   utilisateurs: number | null;
   admins: number | null;
   /**
-   * Les fiches vivantes que l'offre compte (`contactsToutesOrigines`) : en Free, Pro et Business, toutes, nées d'un message
-   * entrant comprises ; en Entreprise réglée sur devis, celles créées par import, API, MCP, console ou scénario.
+   * 🔴 Les fiches actives (`ficheActive`), quelle que soit leur origine, dans TOUTES les offres (décision de Julien du
+   * 2026-11-25 : « un contact importé, un contact inconnu qui t'écrit, c'est un contact »). Plein, un espace refuse la
+   * création, l'import et l'inconnu qui écrit (`src/webhooks/espace-plein.ts`), sauf s'il a coché « le plus ancien laisse
+   * sa place » (`offreRemplaceLesAnciens`). L'Entreprise sans limite posée dans `/ops` n'a rien à compter.
    */
   contacts: number | null;
   /**
@@ -95,7 +97,10 @@ export interface SurchargeEntreprise {
    * le défaut de l'offre, `0` = jamais purgée. La vue de l'offre l'affiche telle que la purge la lit.
    */
   conservationJours: number | null;
-  /** Les contacts créés, réglés sur devis (spec offres v2) : absent ou `null` = le défaut de l'Entreprise (sans limite). */
+  /**
+   * La limite de contacts posée dans `/ops` : sur devis en Entreprise (spec offres v2, absent ou `null` = sans limite), et en
+   * Business depuis le 2026-11-25 (migration 0324, absent ou `null` = les 5 000 de la grille).
+   */
   contacts?: number | null;
   /** La commission sur le crédit IA, négociée sur devis : un entier de 0 à 100 ; absent ou `null` = le défaut (10 %). */
   commissionPct?: number | null;
@@ -155,27 +160,13 @@ export const DROITS: Readonly<Record<Offre, Droits>> = {
 };
 
 /**
- * 🔴 CE QUE COMPTE LA LIMITE DE CONTACTS, ET LE SEUL ENDROIT QUI LE DÉCIDE (décision de Julien du 2026-10-25, plan
- * `docs/superpowers/plans/2026-10-25-free-100-contacts.md`). La Free ne gère jamais plus de contacts différents que sa
- * limite, quelle que soit leur origine : une fiche née d'un message entrant y compte, et un inconnu qui écrit à une Free
- * pleine n'entre pas (`src/webhooks/espace-plein.ts`). 🔴 Depuis le 2026-11-13 (décision de Julien : « en Pro c'est 1000
- * en tout »), le Pro et le Business comptent de même : 1 000 et 5 000 contacts en tout, et un inconnu qui écrit à l'un
- * d'eux plein n'entre pas non plus. Seule l'Entreprise réglée sur devis ne compte que les fiches créées, sans jamais
- * refuser un entrant. Les gardes du magasin des contacts (`PgContactStore`), l'usage de la vue de l'offre
- * (`PgOffresStore.usage`, donc ses courriels de franchissement) et la phrase du refus (`phraseLimite`) le lisent ici.
- */
-export function contactsToutesOrigines(offre: Offre): boolean {
-  return offre !== 'entreprise';
-}
-
-/**
  * Les offres où l'option « le plus ancien laisse sa place » joue (décision de Julien du 2026-11-24, lot 2) : le Business et
  * l'Entreprise. Lue avec l'offre : un espace redescendu en Pro ou en Free garde la case cochée en base, sans effet. Le
  * magasin des contacts (`PgContactStore.faireDeLaPlace`), la route de Réglages et la fiche d'offre de `/ops` la lisent ici.
  */
 export const offreRemplaceLesAnciens = (offre: Offre): boolean => offre === 'business' || offre === 'entreprise';
 
-/** La limite de contacts d'un espace, et l'offre qui la fixe : c'est elle qui dit ce qu'on compte (`contactsToutesOrigines`). */
+/** La limite de contacts d'un espace, et l'offre qui la fixe : elle dit si l'espace plein remplace ses plus anciens (`offreRemplaceLesAnciens`). */
 export interface LimiteContacts {
   max: number;
   offre: Offre;
@@ -267,6 +258,7 @@ export function droitsDe(offre: Offre, surcharge: SurchargeEntreprise | null, si
   if (offre === 'pro' && limites.utilisateurs !== null) limites.utilisateurs += Math.max(0, sieges);
   if (offre === 'pro' && limites.contacts !== null) limites.contacts += CONTACTS_PAR_PACK * Math.max(0, packsContacts);
   if (offre === 'business' && surcharge?.utilisateurs != null) limites.utilisateurs = surcharge.utilisateurs;
+  if (offre === 'business' && surcharge?.contacts != null) limites.contacts = surcharge.contacts;
   if (offre === 'entreprise' && surcharge !== null) {
     limites.utilisateurs = surcharge.utilisateurs;
     if (surcharge.conservationJours !== null) limites.conservationJours = surcharge.conservationJours;

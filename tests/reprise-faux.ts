@@ -91,8 +91,6 @@ export function monterReprise(o: {
   /** La limite de contacts de l'offre (`null` ou absente : sans limite), et les fiches comptées hors de celles du faux. */
   limite?: number | null;
   autresFiches?: number;
-  /** L'offre compte tous les contacts (Free, Pro, Business) ; par défaut oui, `false` : l'Entreprise. */
-  toutesOrigines?: boolean;
   /** Le temps que prend chaque page lue, sur l'horloge du faux. */
   msParPage?: number;
 } = {}) {
@@ -233,7 +231,7 @@ export function monterReprise(o: {
       trace.sansWhatsapp.push([...ids]);
       return new Set(ids.filter((id) => o.sansWhatsapp?.includes(id)));
     },
-    places: async () => { trace.places += 1; return { limite: o.limite ?? null, comptees: comptees(), toutesOrigines: o.toutesOrigines ?? true }; },
+    places: async () => { trace.places += 1; return { limite: o.limite ?? null, comptees: comptees() }; },
     ecrirePage: async (tenantId, p) => {
       trace.ecrites.push(p);
       // Le filet de `upsertManyByPhone` : la limite revérifiée sur les numéros sans fiche active.

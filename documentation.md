@@ -3481,8 +3481,8 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   Julien du 2026-10-25), autorité `import` (un STOP reste un STOP), étiquette `Shopify`, aucun événement d'automation.
   `send_template_to_contact` déclare de même l'accord de la personne (`consent: opted_in` dans le corps de
   `POST /v1/sends`, signé), que `appliquerConsentement` refuse sur une fiche désabonnée. L'aperçu compte les
-  places par `placesContacts`, sur les MÊMES prédicats que `verifierPlaceContacts` (`ficheComptee` selon l'offre,
-  `FICHE_ACTIVE`) : l'annonce et le refus comptent pareil. Un nombre au-delà des places libres est refusé avant d'écrire. Le jeton
+  places par `placesContacts`, sur les MÊMES prédicats que `verifierPlaceContacts` (`FICHE_ACTIVE`,
+  toutes origines) : l'annonce et le refus comptent pareil. Un nombre au-delà des places libres est refusé avant d'écrire. Le jeton
   `client_credentials` se redemande à chaque appel (`demanderJeton`), avec le secret que `acces` déchiffre pour
   l'espace.
 
@@ -3726,7 +3726,7 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
     contacts du Pro lue dans `DROITS`), le Pro (ses contacts seuls, `limite_contacts_pro_*`, qui renvoient au Business)
     et le Business (`limite_contacts_business_*`, qui renvoient à l'Entreprise ; ses seuils sont ceux de la famille
     `contacts_pro`) ; l'Entreprise, dont la limite se règle sur devis, n'en reçoit aucune. Les contacts s'y comptent par
-    `PgOffresStore.usage`, donc comme la limite (`contactsToutesOrigines`). Au-dessus de 100 %, la Free a un seuil de
+    `PgOffresStore.usage`, donc comme la limite (toutes les fiches actives, `ficheActive`). Au-dessus de 100 %, la Free a un seuil de
     plus, `depassee` (strictement plus de fiches que la limite, `SEUILS_CONTACTS`) : un espace revenu en Free avec
     3 000 contacts franchit les trois d'un coup et ne reçoit que `limite_contacts_depassee`, qui cite le nombre de
     contacts et celui à supprimer. 🔴 Les seuils de la famille qui n'est pas celle de l'offre se relâchent TOUS,
@@ -4555,26 +4555,28 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   une route lue aussi par un écran ouvert à la Base (l'accueil, la page Campagnes) reste ouverte, et c'est la
   console qui grise l'écran payant ; la table complète est tenue par `tests/offres-fonctions.test.ts`, qui lit
   `src/http/stats.ts`.
-- 🔴 **Ce que compte la limite de contacts, une seule fonction le décide** : `contactsToutesOrigines(offre)`
-  (`src/offres/offres.ts`, décisions de Julien du 2026-10-25 et du 2026-11-13). En Free, en Pro et en Business, toutes
-  les fiches actives comptent, nées d'un message entrant comprises ; en Entreprise (limite sur devis), une fiche
-  `ne_entrant` ne compte jamais (la mise à jour ne touche pas ce drapeau). La limite voyage avec son offre (`LimiteContacts`, `limiteContactsDe`, câblée par le socle) ; le
-  prédicat SQL s'écrit une fois (`ficheComptee`, `src/crm/contact-store.pg.ts`), lu par les gardes du magasin et par
-  `PgOffresStore.usage`, qui lit l'offre par `offre_de_l_espace` dans la même requête. La vue de l'offre le dit
-  (`contactsToutesOrigines`), et la phrase du refus aussi (« ceux qui vous écrivent compris », sauf en Entreprise). La vue porte
+- 🔴 **Ce que compte la limite de contacts : toutes les fiches actives, dans toutes les offres** (décisions de Julien
+  du 2026-10-25, du 2026-11-13 et du 2026-11-25), nées d'un message entrant comprises. `contacts.ne_entrant` s'écrit
+  toujours, mais aucun compte ne le lit. La limite voyage avec son offre (`LimiteContacts`, `limiteContactsDe`, câblée par
+  le socle) ; le prédicat SQL s'écrit une fois (`ficheActive`, `src/crm/contact-store.pg.ts`), lu par les gardes du
+  magasin et par `PgOffresStore.usage`. La vue de l'offre porte `contactsToutesOrigines`, toujours vrai, pour qui le lit
+  déjà (`get_plan`), et la phrase du refus dit « ceux qui vous écrivent compris » ; pour un Business ou une Entreprise,
+  elle renvoie au Support, qui relève la limite dans `/ops` (la grille ne la devine pas d'une limite posée). La vue porte
   aussi `contactsEnTrop` (2026-10-26), l'usage au-delà de la limite (0 sous elle, pile à elle, ou sans limite) : la
   page `/offre` le dit sous la jauge des contacts, avec la marche à suivre, et `get_plan` le rend ; la console le lit
   en tolérant son absence (0), elle est publiée avant l'API. Les textes publics qui disent ce que compte cette limite
   (Tarifs, pages développeurs, Shopify, cas d'usage, README et FAQ du plugin) la suivent, tenus par
   `tests/vitrine-contacts-origines.test.ts`.
-- 🔴 **La porte d'un espace plein** (`src/webhooks/espace-plein.ts`) : quand les fiches actives d'une Free, d'un Pro ou
-  d'un Business remplissent sa limite, le message d'un inconnu (aucune fiche active ne porte son `wa_id`, numéro ou BSUID) n'entre pas, sur les trois
+- 🔴 **La porte d'un espace plein** (`src/webhooks/espace-plein.ts`) : quand les fiches actives d'un espace remplissent
+  sa limite (une Entreprise comprise, depuis le 2026-11-25, si une limite est posée dans `/ops`), le message d'un inconnu (aucune fiche active ne porte son `wa_id`, numéro ou BSUID) n'entre pas, sur les trois
   portes : la file `webhook` (Meta et 360dialog), juste après l'écart des numéros déliés et avant le journal brut, et la
   file `application-entrant`, avant l'ingestion commune. `PgContactStore.inconnusRefuses` décide, en une requête par
-  espace et par lot (rien n'est lu en Entreprise) ; les places qui restent vont aux premiers inconnus du lot. 🔴 Elle
+  espace et par lot (rien n'est lu sans limite) ; les places qui restent vont aux premiers inconnus du lot. 🔴 Elle
   relit l'offre EN BASE dans la même requête (le cache du worker retarde de 30 s sur un paiement ou un changement
-  d'offre) et prend la limite de CETTE offre dans la grille, jamais celle du cache : sans quoi un espace passé de Free
-  à Pro refuserait encore ses clients à 100. Le STOP d'un
+  d'offre) et, si elle a changé, prend la limite de CETTE offre par `droitsDe` (la grille, ou la limite posée dans
+  `/ops` pour le Business et l'Entreprise, relue dans la même requête), jamais celle du cache : sans quoi un espace passé
+  de Free à Pro refuserait encore ses clients à 100. Le Pro relit toujours ses packs. Une offre inchangée garde la
+  limite du cache : une limite changée dans `/ops` vaut à la réception au plus 30 s plus tard. Le STOP d'un
   inconnu écarté est retenu par les deux écritures de `processInbound` (la fiche, puis le refus), et rien d'autre.
   L'écart est journalisé `entrant_ecarte_espace_plein`, sans le numéro ni le texte. La porte ne lève jamais : une lecture
   en échec laisse entrer. Requise dans `WebhookJobDeps` et `DepsEntrantApplication` (`aucunEspacePlein` dans les tests).
@@ -4582,14 +4584,14 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
 - 🔴 **Le plus ancien laisse sa place** (décision de Julien du 2026-11-24, migration 0322
   `tenant_settings.contacts_remplacer_anciens`) : en Business et en Entreprise (`offreRemplaceLesAnciens`), l'option cochée
   remplace le refus d'un espace plein par la purge des plus anciens. Un seul mécanisme, `PgContactStore.faireDeLaPlace` :
-  une transaction, un verrou d'avis par espace (`contacts-place:<espace>`), le recompte SOUS le verrou (`ficheComptee`),
+  une transaction, un verrou d'avis par espace (`contacts-place:<espace>`), le recompte SOUS le verrou (`ficheActive`),
   les `n` plus anciens par `created_at` puis `id` hors des fiches que la création vise (un import ne purge pas une fiche
   qu'il met à jour, l'entrant ne purge pas qui écrit dans le même lot), puis `purgeMany` par le même client
   (`purgerDans`). L'appelant crée ensuite, hors du verrou : deux créations simultanées ne purgent jamais deux fois la même
   place, mais l'espace peut dépasser d'une fiche, que la création suivante résorbe. Ce qui ne tient pas une fois tout
   purgé est refusé (`LimiteOffreError`), sans rien purger. L'option se relit EN BASE dans la requête qui compte
   (`verifierPlaceContacts`, `placesContacts`, `inconnusRefuses`), jamais dans le cache de l'offre. Les trois gardes de
-  création la suivent ; la porte de l'entrant, en Business seulement, purge puis laisse entrer, et un échec du
+  création la suivent ; la porte de l'entrant, en Business et en Entreprise, purge puis laisse entrer, et un échec du
   remplacement laisse entrer aussi. 🔴 Jamais dans la transaction d'un appelant (`q`, le rattrapage Shopify) : la purge y
   serait tracée et retirée chez Meta même si l'appelant annulait ; le rattrapage compte alors « au-delà du plafond ».
   Après le `commit`, `apresRemplacement` (`src/socle.ts`) retire chez Meta les lignes de la liste de l'agent, puis écrit
@@ -4619,12 +4621,13 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
 - **L'Entreprise se pose dans `/ops`** (`PUT /ops/offre/:tenantId`, note obligatoire pour poser ou retirer l'offre, facultative pour la régler, trace `ops_offre` signée de son
   auteur), avec sa limite d'utilisateurs et `tenant_settings.conversation_retention_days`. 🔴 La conservation ABSENTE
   du corps reste telle quelle : changer d'offre ne déclenche jamais la purge (irréversible) des conversations. Deux
-  réglages de devis s'y ajoutent (spec offres v2, migration 0240) : les contacts créés (`tenants.entreprise_contacts`) et
+  réglages de devis s'y ajoutent (spec offres v2, migration 0240) : les contacts, toutes origines (`tenants.entreprise_contacts`), et
   la commission sur le crédit IA (`tenants.entreprise_commission_pct`, un ENTIER de 0 à 100) ; absents du corps,
   inchangés ; `null`, le défaut de l'Entreprise (sans limite, 10 %). Une offre illisible se replie sur l'Entreprise PAR
   DÉFAUT : une Entreprise négociée sous 10 % paie 10 % le temps de la panne.
-- **Le Business se pose par la même route** (spec du 2026-10-27, migration 0257) : `business` (booléen) et
-  `utilisateursBusiness` (vide = les cinq de la grille), une seule offre posée à la main à la fois (`entreprise` et
+- **Le Business se pose par la même route** (spec du 2026-10-27, migration 0257) : `business` (booléen),
+  `utilisateursBusiness` (vide = les cinq de la grille) et `contactsBusiness` (`tenants.business_contacts`, migration
+  0324, vide = les 5 000 de la grille, lue par `droitsDe`), une seule offre posée à la main à la fois (`entreprise` et
   `business` vrais ensemble : 400 ; poser l'Entreprise retire le Business). `business_quitte_le` date la sortie, comme
   `entreprise_quittee_le`, pour la grâce de la conservation et la couverture du numéro. Le GET et le PUT rendent les
   `alertes` (`PgOffresStore.alertes` : Pro payé vivant, numéro payé à part, numéro fourni sans couverture au retrait) ;
@@ -7806,7 +7809,7 @@ avec elle) garde son test de parité.
 | `src/agent/mcp/rafraichissement.ts` -> `creerRafraichissementMcp` | l'aperçu et l'import d'un serveur MCP externe, par la même préparation : source, type, connexion, catalogue, plan de changement, adresses publiques, écriture transactionnelle |
 | `src/email/resolver.ts` -> `EmailAccountResolver.prepareSend` | l'envoi SMTP d'une boîte : une fonction d'envoi prête, sans exposer à l'appelant le mot de passe déchiffré ni le transport ; partagé par la route de la console et les scénarios, son cache invalidé à chaque écriture de compte |
 | `src/crm/contact-store.pg.ts` -> `MATCH_BY_WAID_SQL` | résoudre un contact par `wa_id` (E.164 exact, chiffres nus, BSUID) |
-| `src/offres/offres.ts` -> `contactsToutesOrigines` ; `src/crm/contact-store.pg.ts` -> `ficheComptee` | 🔴 ce que compte la limite de contacts (toutes les fiches actives en Free, Pro et Business, les créées en Entreprise) et son prédicat SQL : les gardes du magasin, `PgOffresStore.usage`, la vue de l'offre et la phrase du refus les lisent, jamais une copie |
+| `src/crm/contact-store.pg.ts` -> `ficheActive` | 🔴 ce que compte la limite de contacts (toutes les fiches actives, dans toutes les offres, 2026-11-25) et son prédicat SQL : les gardes du magasin et `PgOffresStore.usage` le lisent, jamais une copie |
 | `src/workflow/engine.ts` -> `cibleDuSaut`, `blocDuCode` ; `src/workflow/aller-a.ts` | 🔴 où mène un « Aller à » : dans le graphe joué d'abord, ailleurs par `resoudreBloc`. `aller-a.ts` porte ce qui lit plusieurs scénarios : `MAX_SAUTS_SANS_PAUSE` et `refusDePublication`. Voir § 4.3 |
 | `src/workflow/conditions.ts` -> `sortiesDeCondition`, `famillesDeCondition` | 🔴 les sorties d'un bloc Condition (une par famille, puis « Sinon ») et la lecture de ses familles, compatibilité des blocs d'avant comprise. Aucun lecteur du graphe n'écrit `true` / `false` : voir § 4.3 |
 | `src/crm/identity.ts` -> `waIdOfTarget` | la règle wa_id pour une cible d'envoi |

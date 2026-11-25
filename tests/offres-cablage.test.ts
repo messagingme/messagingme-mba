@@ -35,7 +35,7 @@ describe('le câblage de l’offre', () => {
     const socle = lire('socle.ts');
     const api = lire('index.ts');
     // Les contacts, les automations et les webhooks entrants : dans le socle, partagé par l'API et le worker. Les contacts
-    // reçoivent aussi l'offre, qui dit ce que la limite compte (`contactsToutesOrigines`, 2026-10-25).
+    // reçoivent aussi l'offre, qui dit si l'espace plein remplace ses plus anciens (`offreRemplaceLesAnciens`, 2026-11-24).
     expect(socle).toMatch(/async \(tenant\) => limiteContactsDe\(await offres\.offreDe\(tenant\)\),/);
     expect(socle).toMatch(/new PgAutomationStore\(pool, async \(tenant\) => \(await offres\.offreDe\(tenant\)\)\.droits\.limites\.automations\)/);
     expect(socle).toMatch(/new PgWebhookStore\(pool, async \(tenant\) => \(await offres\.offreDe\(tenant\)\)\.droits\.limites\.automations\)/);

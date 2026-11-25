@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { enTransaction } from '../db/transaction';
-import { ficheComptee } from '../crm/contact-store.pg';
-import { contactsToutesOrigines, droitsDe, type Droits, type Offre } from './offres';
+import { ficheActive } from '../crm/contact-store.pg';
+import { droitsDe, type Droits, type Offre } from './offres';
 import { automationComptee } from './automations';
 import { SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
 
@@ -39,10 +39,12 @@ export class PgOffresStore implements SourceOffres {
       offre: string; entreprise_utilisateurs: number | null; entreprise_contacts: number | null;
       entreprise_commission_pct: number | null; conservation: number | null; dernier_fini: Date | null;
       sieges: number | null; packs_contacts: number | null; periodicite: 'mois' | 'an' | null; business_utilisateurs: number | null;
+      business_contacts: number | null;
     }>(
       `select offre_de_l_espace($1::uuid) as offre,
               (select t.entreprise_utilisateurs from tenants t where t.id = $1::uuid) as entreprise_utilisateurs,
               (select t.business_utilisateurs from tenants t where t.id = $1::uuid) as business_utilisateurs,
+              (select t.business_contacts from tenants t where t.id = $1::uuid) as business_contacts,
               (select t.entreprise_contacts from tenants t where t.id = $1::uuid) as entreprise_contacts,
               (select t.entreprise_commission_pct from tenants t where t.id = $1::uuid) as entreprise_commission_pct,
               (select s.conversation_retention_days from tenant_settings s where s.tenant_id = $1::uuid) as conservation,
@@ -65,8 +67,10 @@ export class PgOffresStore implements SourceOffres {
           utilisateurs: l?.entreprise_utilisateurs ?? null, conservationJours: l?.conservation ?? null,
           contacts: l?.entreprise_contacts ?? null, commissionPct: l?.entreprise_commission_pct ?? null,
         }
-        // Le Business ne prend de /ops que sa limite d'utilisateurs (`droitsDe`) : vide, les 5 de la grille.
-        : offre === 'business' ? { utilisateurs: l?.business_utilisateurs ?? null, conservationJours: null } : null,
+        // Le Business ne prend de /ops que ses limites d'utilisateurs et de contacts (`droitsDe`) : vides, la grille.
+        : offre === 'business'
+          ? { utilisateurs: l?.business_utilisateurs ?? null, conservationJours: null, contacts: l?.business_contacts ?? null }
+          : null,
       pro?.sieges ?? 0, pro?.packsContacts ?? 0),
       retourEnBaseLe: offre === 'base' ? (l?.dernier_fini ?? null) : null,
       pro,
@@ -74,27 +78,21 @@ export class PgOffresStore implements SourceOffres {
   }
 
   /**
-   * Ce que l'espace a consommé de ses limites, en une requête : les fiches que la limite de contacts compte (toutes les
-   * fiches actives en Free, les créées ailleurs : `contactsToutesOrigines`, sur l'offre lue par la seule définition), les
-   * automations allumées du client (aucun propriétaire, rayon général), les membres actifs (invitations en attente comprises).
+   * Ce que l'espace a consommé de ses limites, en une requête : les fiches que la limite de contacts compte (les fiches
+   * actives, quelle que soit leur origine et dans toutes les offres, décision de Julien du 2026-11-25), les automations allumées du client (aucun propriétaire, rayon général), les membres actifs (invitations en attente comprises).
    * Les mêmes comptes que les gardes (`PgContactStore.verifierPlaceContacts` et `src/offres/automations.ts`, dont les
    * prédicats sont importés, `src/offres/membres.ts`) ; ce que voient la console et `get_plan`, et ce que lisent les courriels
    * de franchissement.
    */
   async usage(tenantId: string): Promise<{ contacts: number; automations: number; membres: number }> {
-    const r = await this.pool.query<{ offre: string; toutes_origines: number; creees: number; automations: number; membres: number }>(
-      `select offre_de_l_espace($1::uuid) as offre,
-              (select count(*) from contacts c where c.tenant_id = $1::uuid and ${ficheComptee('c', true)})::int as toutes_origines,
-              (select count(*) from contacts c where c.tenant_id = $1::uuid and ${ficheComptee('c', false)})::int as creees,
+    const r = await this.pool.query<{ contacts: number; automations: number; membres: number }>(
+      `select (select count(*) from contacts c where c.tenant_id = $1::uuid and ${ficheActive('c')})::int as contacts,
               (select count(*) from automations a where a.tenant_id = $1::uuid and ${automationComptee('a')})::int as automations,
               (select count(*) from users u where u.tenant_id = $1::uuid and u.disabled_at is null)::int as membres`,
       [tenantId],
     );
     const l = r.rows[0];
-    if (!l) return { contacts: 0, automations: 0, membres: 0 };
-    // Une offre inconnue se lit comme la Base, comme dans `offreDe`.
-    const offre: Offre = OFFRES.has(l.offre) ? (l.offre as Offre) : 'base';
-    return { contacts: contactsToutesOrigines(offre) ? l.toutes_origines : l.creees, automations: l.automations, membres: l.membres };
+    return l ? { contacts: l.contacts, automations: l.automations, membres: l.membres } : { contacts: 0, automations: 0, membres: 0 };
   }
 
   /**
@@ -107,10 +105,10 @@ export class PgOffresStore implements SourceOffres {
       entreprise_contacts: number | null; entreprise_commission_pct: number | null;
       offre_business: boolean; business_utilisateurs: number | null; offre_business_essai_fin_le: Date | null;
       entreprise_commission_messages_pct: number | null; entreprise_plafond_ia_micro_eur: string | null;
-      contacts_remplacer_anciens: boolean | null;
+      contacts_remplacer_anciens: boolean | null; business_contacts: number | null;
     }>(
       `select t.offre_entreprise, t.entreprise_utilisateurs, s.conversation_retention_days,
-              t.entreprise_contacts, t.entreprise_commission_pct, t.offre_business, t.business_utilisateurs,
+              t.entreprise_contacts, t.entreprise_commission_pct, t.offre_business, t.business_utilisateurs, t.business_contacts,
               t.offre_business_essai_fin_le, t.entreprise_commission_messages_pct, t.entreprise_plafond_ia_micro_eur,
               s.contacts_remplacer_anciens
          from tenants t left join tenant_settings s on s.tenant_id = t.id
@@ -122,7 +120,8 @@ export class PgOffresStore implements SourceOffres {
       ? {
         entreprise: l.offre_entreprise, utilisateurs: l.entreprise_utilisateurs, conservationJours: l.conversation_retention_days,
         contacts: l.entreprise_contacts, commissionPct: l.entreprise_commission_pct,
-        business: l.offre_business, utilisateursBusiness: l.business_utilisateurs, businessEssaiFinLe: l.offre_business_essai_fin_le,
+        business: l.offre_business, utilisateursBusiness: l.business_utilisateurs, contactsBusiness: l.business_contacts,
+        businessEssaiFinLe: l.offre_business_essai_fin_le,
         commissionMessagesPct: l.entreprise_commission_messages_pct,
         remplacerAnciens: l.contacts_remplacer_anciens === true,
         // En euros entiers à l'écran, en micro-euros en base (0268) : la colonne n'accepte que des euros ronds d'ici.
@@ -188,7 +187,8 @@ export class PgOffresStore implements SourceOffres {
                 offre_business_essai_fin_le = case
                   when $2 or $8::boolean = false then null when $15 then $16::timestamptz else offre_business_essai_fin_le end,
                 entreprise_commission_messages_pct = case when $11 then $12::int else entreprise_commission_messages_pct end,
-                entreprise_plafond_ia_micro_eur = case when $13 then $14::bigint else entreprise_plafond_ia_micro_eur end
+                entreprise_plafond_ia_micro_eur = case when $13 then $14::bigint else entreprise_plafond_ia_micro_eur end,
+                business_contacts = case when $17 then $18::int else business_contacts end
           where id = $1`,
         [
           tenantId, r.entreprise, r.utilisateurs, r.contacts !== undefined, r.contacts ?? null, r.commissionPct !== undefined,
@@ -196,6 +196,7 @@ export class PgOffresStore implements SourceOffres {
           r.commissionMessagesPct !== undefined, r.commissionMessagesPct ?? null,
           r.plafondIaMoisEuros !== undefined, r.plafondIaMoisEuros == null ? null : r.plafondIaMoisEuros * 1_000_000,
           r.businessEssaiFinLe !== undefined, r.businessEssaiFinLe ?? null,
+          r.contactsBusiness !== undefined, r.contactsBusiness ?? null,
         ],
       );
       if ((maj.rowCount ?? 0) === 0) return false;
@@ -233,6 +234,8 @@ export interface EcritureEntreprise {
   business?: boolean;
   /** La limite d'utilisateurs du Business : absente = inchangée, `null` = les 5 de la grille. */
   utilisateursBusiness?: number | null;
+  /** La limite de contacts du Business (0324, 2026-11-25) : absente = inchangée, `null` = les 5 000 de la grille. */
+  contactsBusiness?: number | null;
   /**
    * L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : une date = en essai jusqu'à elle, `null` = confirmé ;
    * absente = inchangée. L'Entreprise posée ou le Business retiré l'effacent.
@@ -272,9 +275,10 @@ export interface ReglageEntreprise {
   conservationJours: number | null;
   contacts: number | null;
   commissionPct: number | null;
-  /** Le Business posé à la main, et sa limite d'utilisateurs (`null` = les 5 de la grille). */
+  /** Le Business posé à la main, et ses limites d'utilisateurs et de contacts (`null` = celles de la grille). */
   business: boolean;
   utilisateursBusiness: number | null;
+  contactsBusiness: number | null;
   /**
    * La fin de l'essai du Business, tant que Julien ne l'a pas confirmé (`null` : confirmé, ou sans Business). Tant
    * qu'elle n'est pas effacée, même passée, l'option Crédit WhatsApp ne s'ouvre pas (`formulePayee`).

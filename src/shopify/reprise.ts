@@ -115,10 +115,10 @@ export interface DepsReprise {
   /** Les commandes dont un message Shopify a échoué en 131026 sur une fiche supprimée depuis : leur numéro n'est pas sur WhatsApp. */
   commandesSansWhatsapp(tenantId: string, commandeIds: readonly string[]): Promise<Set<string>>;
   /**
-   * Les places de l'offre : sa limite de contacts (`null` sans limite), les fiches qu'elle compte, comme elle les compte, et
-   * si elle compte tous les contacts (pleine, elle refuse alors un inconnu qui écrit le premier).
+   * Les places de l'offre : sa limite de contacts (`null` sans limite) et les fiches qu'elle compte, comme elle les compte.
+   * Pleine, elle refuse un inconnu qui écrit le premier, dans toutes les offres (2026-11-25).
    */
-  places(tenantId: string): Promise<{ limite: number | null; comptees: number; toutesOrigines: boolean }>;
+  places(tenantId: string): Promise<{ limite: number | null; comptees: number }>;
   /** UNE transaction : les fiches de la page (le chemin de l'import des abonnés), puis chaque commande et ses lignes. */
   ecrirePage(tenantId: string, p: PageAEcrire): Promise<{ creees: number }>;
   enfiler(job: JobReprise, dansSecondes: number): Promise<void>;
@@ -158,7 +158,7 @@ export function cablerReprise(o: {
     commandesSansWhatsapp: (tenantId, ids) => joignabilite.commandesSansWhatsapp(tenantId, ids),
     places: async (tenantId) => {
       const p = await o.contacts.placesContacts(tenantId, []);
-      return { limite: p.limite, comptees: p.comptees, toutesOrigines: p.toutesOrigines };
+      return { limite: p.limite, comptees: p.comptees };
     },
     ecrirePage: (tenantId, p) => enTransaction(o.pool, async (client) => {
       let creees = 0;
@@ -409,7 +409,7 @@ export async function apercuReprise(deps: DepsReprise, tenantId: string): Promis
   const placesLibres = p.limite === null ? null : Math.max(0, p.limite - p.comptees);
   const simulation: Simulation = { libres: placesLibres ?? Infinity, creees: new Set(), refusees: new Set() };
   const total = { ...zero(), ecartees: 0 };
-  const vue = (complet: boolean) => vueApercu(fenetre, total, complet, placesLibres, p.toutesOrigines);
+  const vue = (complet: boolean) => vueApercu(fenetre, total, complet, placesLibres);
   let apres: string | null = null;
   let parPage = PAR_PAGE_REPRISE;
   let pages = 0;
@@ -434,13 +434,13 @@ export async function apercuReprise(deps: DepsReprise, tenantId: string): Promis
 }
 
 function vueApercu(
-  fenetre: Date, t: ComptesReprise & { ecartees: number }, complet: boolean, placesLibres: number | null, toutesOrigines: boolean,
+  fenetre: Date, t: ComptesReprise & { ecartees: number }, complet: boolean, placesLibres: number | null,
 ): ApercuRepriseVue {
   return {
     fenetreDebut: fenetre.toISOString(), lues: t.lues, deja: t.deja, rattachables: t.rattachees, fichesACreer: t.fichesCreees,
     horsPlafond: t.horsPlafond, placesLibres,
-    // 🔴 Les DERNIÈRES places d'une offre qui compte tous les contacts : ensuite, un inconnu qui écrit le premier n'entre plus.
-    remplitLesPlaces: toutesOrigines && placesLibres !== null && t.fichesCreees > 0 && t.fichesCreees >= placesLibres,
+    // 🔴 Les DERNIÈRES places de l'offre : ensuite, un inconnu qui écrit le premier n'entre plus.
+    remplitLesPlaces: placesLibres !== null && t.fichesCreees > 0 && t.fichesCreees >= placesLibres,
     sansFiche: t.sansFiche, sansNumero: t.sansNumero, ecartees: t.ecartees, complet,
   };
 }

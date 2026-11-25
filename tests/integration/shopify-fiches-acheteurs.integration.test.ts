@@ -257,7 +257,7 @@ describe.skipIf(!url)('les fiches d’acheteurs du rattrapage (Postgres)', () =>
     try {
       const [b, c] = [telephone(), telephone()];
       const [x, y] = [idCommande(), idCommande()];
-      expect(await deps.places(ici)).toEqual({ limite, comptees, toutesOrigines: true });
+      expect(await deps.places(ici)).toEqual({ limite, comptees });
       expect(await rattacher(deps, ici, [commandeLue(x, { telephone: b }), commandeLue(y, { telephone: c })], BOUTIQUE, { source: SOURCE }))
         .toEqual({ ...zero, lues: 2, rattachees: 1, fichesCreees: 1, horsPlafond: 1 });
       expect(await fiches(ici, c)).toEqual([]);

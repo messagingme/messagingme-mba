@@ -5277,9 +5277,9 @@ du 2026-10-27.
   mais leurs automations se taisent, comme en Free. Côté statistiques : l'accueil, les coûts de chaque campagne et le
   journal des erreurs restent ouverts à tous ; le Quantitatif est au Pro ; la Synthèse, l'analyse des
   conversations et « Mes tableaux » sont à l'Entreprise.
-- ✅ **Free, Pro et Business ne gèrent jamais plus de contacts que leur limite, quelle que soit leur origine**
-  (décisions de Julien, 2026-10-25 pour la formule Free, 2026-11-13 pour les formules Pro et Business : 100, 1 000 et 5 000 contacts en
-  tout) : importés, créés par l'API, par Claude ou par un scénario, ou venus d'eux-mêmes en écrivant les premiers, tous
+- ✅ **Aucun espace ne gère plus de contacts que sa limite, quelle que soit leur origine** (décisions de Julien,
+  2026-10-25 pour la formule Free, 2026-11-13 pour les formules Pro et Business, 2026-11-25 pour l'Entreprise : 100,
+  1 000 et 5 000 contacts en tout, et le nombre réglé sur devis en Entreprise) : importés, créés par l'API, par Claude ou par un scénario, ou venus d'eux-mêmes en écrivant les premiers, tous
   comptent. Quand l'espace est plein, créer ou importer un contact est refusé, et **un nouveau client qui écrit
   n'entre pas** : ni fiche, ni conversation, ni réponse de l'agent IA, ni scénario, ni automation. Les administrateurs
   reçoivent un e-mail, une fois par jour au plus, qui propose de passer à l'offre supérieure ou de supprimer des
@@ -5288,16 +5288,16 @@ du 2026-10-27.
   (elle ne reçoit rien et ne libère aucune place). Un contact déjà présent écrit et reçoit comme avant, et une fiche
   supprimée libère sa place. Ce qui compte vient de l'offre de l'espace, sur la réception de Meta, celle de 360dialog et
   l'application WhatsApp Business reliée par QR code.
-- ✅ **En Entreprise, seuls les contacts créés comptent** (leur nombre se règle sur devis) : un client qui écrit le
-  premier n'y est jamais compté (même complété ensuite), ni jamais refusé.
+- ✅ **En Business et en Entreprise, la limite de contacts se règle dans `/ops`** (décision de Julien du 2026-11-25) : un
+  Business garde les 5 000 de la grille tant qu'aucune n'est posée ; une Entreprise sans limite posée n'en a pas, et rien
+  n'y est compté ni refusé.
 - ✅ **En Business et en Entreprise, le plus ancien peut laisser sa place** (décision de Julien du 2026-11-24) : une option,
   décochée par défaut, qu'un administrateur coche dans Paramètres (après une confirmation qui dit l'irréversible) ou que
   nous cochons dans la fiche d'offre de `/ops`. Cochée, un espace plein ne refuse plus : chaque nouveau contact compté
   efface définitivement le contact compté le plus ancien en création (sa conversation, ses messages, son analyse), autant
   de fois qu'il faut, imports compris. Aucun contact n'est protégé, ni en plein scénario, ni visé par une campagne
   programmée ; un contact qui avait dit STOP le reste s'il revient, et un numéro effacé n'est jamais recréé par le
-  rattrapage Shopify. En Business, un nouveau client qui écrit entre donc toujours ; en Entreprise, l'option ne joue que
-  sur les créations. L'aperçu d'un import CSV ou des clients Shopify dit combien des plus anciens seront effacés avant la
+  rattrapage Shopify. Un nouveau client qui écrit entre donc toujours, en Business comme en Entreprise. L'aperçu d'un import CSV ou des clients Shopify dit combien des plus anciens seront effacés avant la
   confirmation, et chaque remplacement entre au journal des actions de l'espace (le nombre et les identifiants internes,
   jamais un numéro ni un nom). Un espace redescendu en Pro ou en Free garde la case, sans effet.
 - ✅ **Les widgets WhatsApp suivent l'offre** (décision de Julien, 2026-11-13) : un en formule Free, cinq en formule Pro, sans limite en
@@ -5311,8 +5311,8 @@ du 2026-10-27.
   d'une fonction fermée (RCS, chaîne, publicités, agent de Meta, Batch) disent l'offre qui l'ouvre. Un geste
   refusé (une fiche au-delà de la limite, par exemple) affiche la raison et un bouton « Voir les offres », au-dessus de la fenêtre
   ouverte.
-- ✅ **La page Offre** (admins) : l'offre de l'espace, ce qu'il consomme de chaque limite (avec une jauge ; en Free,
-  celle des contacts dit que ceux qui écrivent les premiers comptent aussi, et, au-delà de la limite, combien en
+- ✅ **La page Offre** (admins) : l'offre de l'espace, ce qu'il consomme de chaque limite (avec une jauge ; celle
+  des contacts dit que ceux qui écrivent les premiers comptent aussi, et, au-delà de la limite, combien en
   supprimer et comment), la grille des quatre offres, le passage en Pro, et « Nous contacter » vers le Support pour le
   Business et l'Entreprise (une demande d'un espace Business y part marquée prioritaire).
   Deux onglets depuis le 2026-10-26 : **Offre** et **Crédit IA** (voir « Crédit IA »), sauf en Free, qui n'a pas l'écran du
@@ -5406,7 +5406,7 @@ du 2026-10-27.
   la limite du jour reprend. Dès qu'une place se libère sous la limite, un nouveau client qui écrit entre de nouveau.
 - ✅ **Par l'API et Claude** : un refus rend le statut **402** avec un code, `plan_feature_unavailable` (fonction
   absente de l'offre) ou `plan_limit_reached` (limite atteinte), et le lien `upgradeUrl`. L'outil MCP `get_plan`
-  rend l'offre, ses limites, ce qui est consommé, ce que compte la limite de contacts (`contactsToutesOrigines`), les
+  rend l'offre, ses limites, ce qui est consommé, ce que compte la limite de contacts (`contactsToutesOrigines`, toujours vrai depuis le 2026-11-25), les
   contacts au-delà de la limite (`contactsEnTrop`) et la grille. Étiqueter et affecter une conversation restent listés
   en Free et refusent avec le lien de l'offre ; LIRE les fils et leurs messages (`list_conversations`,
   `get_conversation`, `get_messages`, et l'API `/v1/conversations`) et y RÉPONDRE dans la fenêtre de 24 h

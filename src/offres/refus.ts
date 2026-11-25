@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { CONTACTS_PAR_PACK, DROITS, PRIX_PACK_CONTACTS_HT_CENTIMES, PRIX_SIEGE_BUSINESS_HT_CENTIMES, contactsToutesOrigines, type Fonction, type Limites, type Offre } from './offres';
+import { CONTACTS_PAR_PACK, DROITS, PRIX_PACK_CONTACTS_HT_CENTIMES, PRIX_SIEGE_BUSINESS_HT_CENTIMES, type Fonction, type Limites, type Offre } from './offres';
 import { refus, type Refus } from '../lib/issue';
 
 /**
@@ -53,11 +53,8 @@ const nb = (m: number): string => m.toLocaleString('fr-FR');
 const LIBELLE_LIMITE: Record<NomLimite, (max: number, contexte: ContexteLimite) => string> = {
   utilisateurs: (m) => `${m} utilisateur${m > 1 ? 's' : ''}`,
   admins: (m) => `${m} administrateur${m > 1 ? 's' : ''}`,
-  // Ce qui compte dépend de l'offre (`contactsToutesOrigines`) : celle que le refus connaît, sinon celle dont c'est la limite
-  // dans la grille ; une limite hors grille (une Entreprise réglée sur devis) ne compte pas ceux qui écrivent.
-  contacts: (m, c) => (contactsToutesOrigines(c.offre ?? offreDeLaLimite('contacts', m) ?? 'entreprise')
-    ? `${nb(m)} contacts, ceux qui vous écrivent compris`
-    : `${nb(m)} contacts créés (ceux qui vous écrivent ne comptent pas)`),
+  // Toutes les offres comptent ceux qui écrivent (décision de Julien du 2026-11-25), Entreprise comprise.
+  contacts: (m) => `${nb(m)} contacts, ceux qui vous écrivent compris`,
   envoisModelesMois: (m) => `${nb(m)} envois de modèles par mois (les réponses dans les 24 h ne comptent pas)`,
   automations: (m) => `${nb(m)} automations`,
   suppressionsJour: (m) => `${nb(m)} suppressions de contacts par jour`,
@@ -120,6 +117,12 @@ export function phraseLimite(limite: NomLimite, max: number, contexte: ContexteL
       ? `Ajoutez ${nb(CONTACTS_PAR_PACK)} contacts depuis la page Offre (${nb(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100)} € HT par mois, `
         + `${nb(PRIX_PACK_CONTACTS_HT_CENTIMES.an / 100)} € HT par an avec la formule Pro annuelle), ou passez en Business`
       : 'Passez en Business pour la lever';
+    return `Limite de votre offre atteinte : ${LIBELLE_LIMITE[limite](max, contexte)}. ${suite} : ${adresseOffre()}`;
+  }
+  // Les contacts d'un Business ou d'une Entreprise (2026-11-25) : Julien relève leur limite dans /ops, sur demande. La
+  // grille ne la devine plus (un Business réglé à 1 000 contacts lirait « passez en Business »), l'offre connue décide.
+  if (limite === 'contacts' && (contexte.offre === 'business' || contexte.offre === 'entreprise')) {
+    const suite = contexte.offre === 'business' ? 'Demandez plus de contacts depuis le Support, ou passez en Entreprise' : 'Demandez plus de contacts depuis le Support';
     return `Limite de votre offre atteinte : ${LIBELLE_LIMITE[limite](max, contexte)}. ${suite} : ${adresseOffre()}`;
   }
   // Les utilisateurs d'un Business (spec Business) : Julien relève la limite dans /ops, facturée hors Stripe, quelle

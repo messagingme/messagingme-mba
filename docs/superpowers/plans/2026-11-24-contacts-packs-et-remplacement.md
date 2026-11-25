@@ -102,3 +102,29 @@ espace, `ficheComptee`. Les critères se testent, mais il faut un œil sur les c
 - **Tests** : unitaires (choix du plus ancien, Pro et Free jamais touchés, Entreprise sans entrant, journal sans numéro),
   intégration sur le vrai `pg` (verrou, ordre, purge et création, concurrence à la dernière place), e2e (case de
   Réglages, case de `/ops`, aperçu de l'import).
+
+## Lot 3 : une seule définition du contact, et la limite du Business réglable (décisions du 2026-11-25)
+
+Julien : « un contact importé, un contact inconnu qui t'écrit, c'est un contact », pour toutes les offres ; « en
+Entreprise, si dans /ops c'est coché et que j'ai mis 10 000, le 10 001e vire le 1er ; si rien n'est précisé dans /ops, ça
+rentre de manière infinie » ; « pour Business, si je veux, dans /ops passer à 6 000 je peux le faire ». Et, quand un espace
+cochée se retrouve au-dessus de sa limite (limite baissée dans /ops), le contact suivant fait purger tout l'excès d'un
+coup (son choix, contre la recommandation « un entre, un sort ») : c'est déjà le comportement de `faireDeLaPlace`.
+
+- **Une définition** : toutes les fiches actives comptent, Entreprise comprise. `contactsToutesOrigines` et la branche
+  `ne_entrant` de `ficheComptee` disparaissent ; la porte de l'espace plein lit aussi l'Entreprise (sans limite dans
+  `/ops`, rien n'est lu, l'espace est infini). Une Entreprise limitée et non cochée refuse l'entrant au-delà, comme le
+  Business ; cochée, l'entrant fait sortir le plus ancien. `VueOffre.contactsToutesOrigines` reste, toujours vrai, pour les
+  lecteurs (console, `get_plan`).
+- **La limite du Business dans `/ops`** : `tenants.business_contacts` (migration 0324, `avant`, NULL = les 5 000 de la
+  grille), lue par `droitsDe` sous le Business, réglée dans la fiche d'offre.
+- **Mesuré avant le déploiement** (2026-11-25, en lecture seule) : seule MUTAC a une limite (10 000) et compte 9 contacts
+  toutes origines ; aucun espace Business posé à la main. Le changement de définition ne met aucun espace au-dessus de sa
+  limite.
+- **Promesses à reprendre** : `features.md`, la fiche « Choisir mon offre » et sa version anglaise, `documentation.md`, la
+  description de `get_plan`, la phrase du refus (`phraseLimite`).
+- **Tests** : unitaires (la phrase, `droitsDe` du Business, la vue), intégration sur le vrai `pg` (l'Entreprise compte
+  l'entrant, la porte la lit, le remplacement d'un entrant en Entreprise, la limite du Business dans `/ops`), e2e de la
+  fiche d'offre de `/ops`.
+- **Essai réel** : dans `/ops`, MUTAC garde ses 10 000 ; un espace de test en Entreprise à 3 contacts, case cochée, reçoit
+  un message d'un numéro inconnu depuis un téléphone : le premier créé sort, le nouveau entre.

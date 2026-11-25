@@ -31,7 +31,7 @@ import { alerte, brand, danger, ink, succes } from '@/lib/couleurs';
 import { useConfirmation } from '@/components/Confirmation';
 import { Squelette } from '@/components/Squelette';
 import { Nd } from '@/components/Nd';
-import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lirePlafondIa } from '@/lib/ops-offre';
+import { lireConservation, conservationPeutPurger, lireLimiteContacts, lireCommissionEntreprise, lireCommissionMessages, lirePlafondIa } from '@/lib/ops-offre';
 import { lireFinEssaiBusiness, lireUtilisateursBusiness, retraitCoupeLeNumero } from '@/lib/ops-offre';
 import { OpsEmailsCard } from '@/components/OpsEmailsCard';
 import { lienGmail } from '@/lib/ops-email';
@@ -1546,6 +1546,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   // Le Business (spec Business) : une seule offre posée à la main, exclusive de l'Entreprise.
   const [business, setBusiness] = useState(false);
   const [utilisateursBusiness, setUtilisateursBusiness] = useState('');
+  // Sa limite de contacts (2026-11-25) : vide = les 5 000 de la grille.
+  const [contactsBusiness, setContactsBusiness] = useState('');
   // L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : coché = en essai jusqu'à la date, et l'option Crédit
   // WhatsApp reste fermée ; décoché = confirmé.
   const [businessEssai, setBusinessEssai] = useState(false);
@@ -1570,6 +1572,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
     setPlafondIa(r.plafondIaMoisEuros == null ? '' : String(r.plafondIaMoisEuros));
     setBusiness(r.business === true);
     setUtilisateursBusiness(r.utilisateursBusiness == null ? '' : String(r.utilisateursBusiness));
+    setContactsBusiness(r.contactsBusiness == null ? '' : String(r.contactsBusiness));
     setBusinessEssai(r.businessEssaiFinLe != null);
     setBusinessEssaiFin(r.businessEssaiFinLe ? r.businessEssaiFinLe.slice(0, 10) : '');
     setRemplacerAnciens(r.remplacerAnciens === true);
@@ -1591,7 +1594,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   const purge = etat !== null && nouvelleConservation !== undefined && nouvelleConservation !== 'invalide'
     && conservationPeutPurger(etat.conservationJours, nouvelleConservation);
   const devis = entreprise;
-  const nouveauxContacts = devis ? lireContactsEntreprise(contacts) : undefined;
+  const nouveauxContacts = devis ? lireLimiteContacts(contacts) : undefined;
   const nouvelleCommission = devis ? lireCommissionEntreprise(commission) : undefined;
   const nouvelleCommissionMessages = devis ? lireCommissionMessages(commissionMessages) : undefined;
   const nouveauPlafondIa = devis ? lirePlafondIa(plafondIa) : undefined;
@@ -1601,7 +1604,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   const offreChange = etat !== null && (entreprise !== etat.entreprise || business !== (etat.business === true));
   const noteValide = !offreChange || note.trim().length >= 3;
   const nouveauxUtilisateursBusiness = business ? lireUtilisateursBusiness(utilisateursBusiness) : undefined;
-  const businessValide = nouveauxUtilisateursBusiness !== 'invalide';
+  const nouveauxContactsBusiness = business ? lireLimiteContacts(contactsBusiness) : undefined;
+  const businessValide = nouveauxUtilisateursBusiness !== 'invalide' && nouveauxContactsBusiness !== 'invalide';
   // L'essai ne part qu'avec un Business coché, et seulement s'il change (absent = inchangé côté serveur, qui refuse une date
   // hors Business) ; retirer le Business l'efface côté serveur.
   const finEssaiSaisie = business && businessEssai ? lireFinEssaiBusiness(businessEssaiFin) : null;
@@ -1619,7 +1623,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   const bloquants = [
     !noteValide ? t('écrivez la note (3 caractères au moins)', 'write the note (3 characters at least)') : '',
     !limiteValide ? t('corrigez le nombre d’utilisateurs', 'fix the number of users') : '',
-    !businessValide ? t('corrigez les utilisateurs du Business', 'fix the Business users') : '',
+    !businessValide ? t('corrigez les limites du Business', 'fix the Business limits') : '',
     !finEssaiValide ? t('corrigez la date de fin de l’essai du Business', 'fix the end date of the Business trial') : '',
     !devisValide ? t('corrigez les champs du devis', 'fix the quote fields') : '',
     !conservationValide ? t('corrigez la durée de conservation', 'fix the retention') : '',
@@ -1647,6 +1651,9 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
         // Le Business ne part que s'il change, sa limite que s'il est coché (absents = inchangés côté serveur).
         ...(business !== (etat?.business === true) ? { business } : {}),
         ...(business && nouveauxUtilisateursBusiness !== undefined ? { utilisateursBusiness: nouveauxUtilisateursBusiness } : {}),
+        // Sa limite de contacts ne part que si elle change : une API d'avant elle la refuserait (schéma strict).
+        ...(business && nouveauxContactsBusiness !== undefined
+          && nouveauxContactsBusiness !== (etat?.contactsBusiness ?? null) ? { contactsBusiness: nouveauxContactsBusiness } : {}),
         ...(finEssaiChange && finEssaiSaisie !== 'invalide' ? { businessEssaiFinLe: finEssaiSaisie } : {}),
         // Ne part que s'il change, et décoché hors Business et Entreprise (le serveur refuserait la case cochée).
         ...((entreprise || business ? remplacerAnciens : false) !== (etat?.remplacerAnciens === true)
@@ -1710,7 +1717,12 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
               <label className="grid gap-1">
                 <span className="text-xs font-medium text-ink-500">{t('Utilisateurs au plus (vide = les cinq de la grille)', 'Users at most (empty = the five of the grid)')}</span>
                 <input className={`${inputCls} w-32`} inputMode="numeric" value={utilisateursBusiness} onChange={(e) => setUtilisateursBusiness(e.target.value)} data-testid="offre-utilisateurs-business" />
-                {!businessValide && <span className="text-xs text-danger-700">{t('Un entier de 1 à 10 000, ou vide.', 'A whole number from 1 to 10,000, or empty.')}</span>}
+                {nouveauxUtilisateursBusiness === 'invalide' && <span className="text-xs text-danger-700">{t('Un entier de 1 à 10 000, ou vide.', 'A whole number from 1 to 10,000, or empty.')}</span>}
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs font-medium text-ink-500">{t('Contacts au plus, ceux qui écrivent compris (vide = les 5 000 de la grille)', 'Contacts at most, including those who write (empty = the 5,000 of the grid)')}</span>
+                <input className={`${inputCls} w-40`} inputMode="numeric" value={contactsBusiness} onChange={(e) => setContactsBusiness(e.target.value)} data-testid="offre-contacts-business" />
+                {nouveauxContactsBusiness === 'invalide' && <span className="text-xs text-danger-700">{t('Un entier de 1 à 100 000 000, ou vide.', 'A whole number from 1 to 100,000,000, or empty.')}</span>}
               </label>
               <label className="flex flex-wrap items-center gap-2">
                 <input type="checkbox" checked={businessEssai} onChange={(e) => setBusinessEssai(e.target.checked)} data-testid="offre-business-essai" className="h-4 w-4" />
@@ -1756,7 +1768,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
               )}
               <div className="grid gap-2" data-testid="offre-devis">
                   <label className="grid gap-1">
-                    <span className="text-xs font-medium text-ink-500">{t('Contacts créés au plus (vide = sans limite)', 'Created contacts at most (empty = no limit)')}</span>
+                    <span className="text-xs font-medium text-ink-500">{t('Contacts au plus, ceux qui écrivent compris (vide = sans limite)', 'Contacts at most, including those who write (empty = no limit)')}</span>
                     <input className={`${inputCls} w-40`} inputMode="numeric" value={contacts} onChange={(e) => setContacts(e.target.value)} data-testid="offre-contacts" />
                     {nouveauxContacts === 'invalide' && <span className="text-xs text-danger-700">{t('Un entier de 1 à 100 000 000, ou vide.', 'A whole number from 1 to 100,000,000, or empty.')}</span>}
                   </label>

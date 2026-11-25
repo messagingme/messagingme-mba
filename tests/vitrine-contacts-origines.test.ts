@@ -1,20 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { contactsToutesOrigines } from '../src/offres/offres';
 import { FAQ } from '../scripts/plugin/faq';
 import { lire, pagesHtml } from './vitrine-lecture';
 
 /**
  * CE QUE COMPTE LA LIMITE DE CONTACTS, DIT COMME LE CODE LE DÉCIDE (décisions de Julien du 2026-10-25, plan
- * `docs/superpowers/plans/2026-10-25-free-100-contacts.md`, et du 2026-11-13). Un seul endroit le décide,
- * `contactsToutesOrigines` : en Free, en Pro et en Business, ceux qui écrivent les premiers comptent ; en Entreprise, non. La vitrine est du HTML statique et le plugin un texte
- * publié : rien ne les relie au code, sauf ce test. Une règle qui change rend ces phrases fausses, et ce test rouge.
+ * `docs/superpowers/plans/2026-10-25-free-100-contacts.md`, du 2026-11-13 et du 2026-11-25) : dans toutes les offres, ceux
+ * qui écrivent les premiers comptent (`ficheActive`, `src/crm/contact-store.pg.ts`). La vitrine est du HTML statique et le
+ * plugin un texte publié : rien ne les relie au code, sauf ce test. Une règle qui change rend ces phrases fausses.
  */
 
-const FREE = contactsToutesOrigines('base');
-const PRO = contactsToutesOrigines('pro');
-const BUSINESS = contactsToutesOrigines('business');
+const FREE = true;
+const PRO = true;
+const BUSINESS = true;
 /** « Ceux qui vous écrivent comptent », dans chaque tournure de la vitrine et du plugin, en français et en anglais. */
 const COMPTENT = /ceux qui vous écrivent compris|including those who write to you|those who write to you included|ceux qui vous écrivent comptent aussi|chaque personne qui vous écrit aussi|including those who write to you|those who write to you count too|so does each person who writes to you/;
 const ENTRANTS_ILLIMITES = /contacts entrants (sont )?illimités|unlimited inbound contacts|inbound contacts are unlimited/i;

@@ -38,7 +38,7 @@ const modeles = (limite: number | null, langue: 'fr' | 'en'): string => limite =
 const UTILISATEURS_FREE = DROITS.base.limites.utilisateurs;
 const UTILISATEURS_PRO = DROITS.pro.limites.utilisateurs;
 const CONTACTS_FREE = DROITS.base.limites.contacts!;
-/** Les contacts du Pro, ceux qui écrivent compris depuis le 2026-11-13 (`contactsToutesOrigines`). */
+/** Les contacts du Pro, ceux qui écrivent compris depuis le 2026-11-13 (toutes les offres depuis le 2026-11-25). */
 const CONTACTS_PRO = DROITS.pro.limites.contacts!;
 /** Le prix d'un utilisateur en plus du Pro, au mois (livraison 7), en euros entiers. */
 const SIEGE_MOIS = PRIX_SIEGE_HT_CENTIMES.mois / 100;

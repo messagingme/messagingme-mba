@@ -638,7 +638,7 @@ export async function demarrerWorker(): Promise<void> {
   /**
    * 🔴 LA PORTE D'UNE FREE PLEINE (décision de Julien du 2026-10-25, `src/webhooks/espace-plein.ts`), sur les deux files
    * qui enregistrent des entrants : `webhook` (Meta et 360dialog) et `application-entrant`. Le compte est celui du magasin
-   * des contacts (l'offre en cache, `contactsToutesOrigines`) ; l'alerte part par les e-mails du produit, une par jour.
+   * des contacts (la limite de l'offre, toutes les fiches actives) ; l'alerte part par les e-mails du produit, une par jour.
    */
   const espacesPleins: EspacesPleins = {
     refuses: (t, waIds) => contactStore.inconnusRefuses(t, waIds),

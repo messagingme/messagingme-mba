@@ -5,9 +5,9 @@ import { extractInbound, type InboundContactUpsert, type InboundMessage, type In
 import { rattacherLesEntrants, type EntrantRattache, type EspaceDuNumero } from './rattachement';
 
 /**
- * 🔴 LA PORTE D'UN ESPACE PLEIN (décisions de Julien du 2026-10-25 et du 2026-11-13, plan `docs/superpowers/plans/2026-10-25-free-100-contacts.md`).
- * Free, Pro et Business ne gèrent jamais plus de contacts différents que leur limite, quelle que soit leur origine
- * (`contactsToutesOrigines`, `src/offres/offres.ts`). Quand ses fiches actives la remplissent, le message d'un inconnu
+ * 🔴 LA PORTE D'UN ESPACE PLEIN (décisions de Julien du 2026-10-25, du 2026-11-13 et du 2026-11-25, plan
+ * `docs/superpowers/plans/2026-10-25-free-100-contacts.md`). Aucun espace ne gère plus de contacts différents que sa limite,
+ * quelle que soit leur origine (`Limites.contacts`, `src/offres/offres.ts`). Quand ses fiches actives la remplissent, le message d'un inconnu
  * (aucune fiche active ne porte son `wa_id`) n'entre pas : ni fiche, ni conversation, ni message, ni journal brut, ni avance
  * de scénario, ni agent IA, ni automation. Il est retiré AVANT, comme l'entrant d'un numéro délié (`./numeros-delies.ts`),
  * et journalisé sans le numéro de qui écrit. Les administrateurs sont prévenus, au plus une fois par jour et par espace
@@ -19,7 +19,8 @@ import { rattacherLesEntrants, type EntrantRattache, type EspaceDuNumero } from 
  * STOP qui ne s'écrit pas n'est pas écarté : le chemin commun le refait, et garde son message. Un STOP seul ne prévient
  * pas les administrateurs : l'alerte parle d'un client qui n'est pas entré.
  *
- * L'Entreprise n'est jamais refusée (`PgContactStore.inconnusRefuses` ne lit même rien pour elle). Ne lève
+ * Une Entreprise sans limite posée dans `/ops` n'est jamais refusée (`PgContactStore.inconnusRefuses` ne lit même rien
+ * pour elle), et un Business ou une Entreprise qui a coché « le plus ancien laisse sa place » non plus. Ne lève
  * jamais : une lecture en échec laisse tout entrer, puisqu'une limite commerciale ne coupe jamais la réception. Deux
  * portes l'appellent : la réception de Meta et de 360dialog (`handleWebhookJob`, sur la même file) et la filière
  * application (`traiterEntrantApplication`).
@@ -33,7 +34,8 @@ import { rattacherLesEntrants, type EntrantRattache, type EspaceDuNumero } from 
 export interface EspacesPleins {
   /**
    * Parmi ces `wa_id` qui écrivent à l'espace, ceux qui n'y entrent pas, et la limite qui les refuse
-   * (`PgContactStore.inconnusRefuses`) ; `null` quand aucun ne l'est (Entreprise, sans limite, sous la limite, tous connus).
+   * (`PgContactStore.inconnusRefuses`) ; `null` quand aucun ne l'est (sans limite, une Entreprise sans limite posée dans
+   * `/ops` comprise ; sous la limite ; tous connus ; ou le plus ancien a laissé sa place).
    */
   refuses(tenantId: string, waIds: readonly string[]): Promise<{ waIds: ReadonlySet<string>; limite: number } | null>;
   /** Prévient les administrateurs, au plus une fois par jour et par espace (`creerAlerteEspacePlein`). */

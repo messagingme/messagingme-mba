@@ -6,10 +6,10 @@ import { PgContactStore } from '../../src/crm/contact-store.pg';
 import { LimiteOffreError } from '../../src/offres/refus';
 
 /**
- * LA LIMITE DE CONTACTS DE L'OFFRE (lot 6, tâche 5), sur une vraie base. Une fiche créée par import, API, console ou
- * scénario compte ; en Pro, une fiche née d'un message entrant ne compte jamais, et elle n'est jamais refusée. En Free
- * (décision de Julien du 2026-10-25), toutes comptent, et un inconnu qui écrit à une Free pleine est refusé à la porte
- * (`inconnusRefuses`). Mettre à jour une fiche existante n'est jamais refusé ; une fiche supprimée libère sa place.
+ * LA LIMITE DE CONTACTS DE L'OFFRE (lot 6, tâche 5), sur une vraie base. Toutes les fiches actives comptent, quelle que
+ * soit leur origine, dans toutes les offres (décisions de Julien du 2026-10-25, du 2026-11-13 et du 2026-11-25), et un
+ * inconnu qui écrit à un espace plein est refusé à la porte (`inconnusRefuses`), jamais par `upsertFromInbound`. Mettre à
+ * jour une fiche existante n'est jamais refusé ; une fiche supprimée libère sa place.
  *
  * ⚠️ Ne PAS le lancer en local : le `DATABASE_URL` du `.env` local pointe sur la base de PRODUCTION. La CI monte un
  * Postgres jetable pour ça (job `integration`).
@@ -22,10 +22,7 @@ const waId = (n: number) => tel(n).slice(1);
 
 describe.skipIf(!url)('la limite de contacts de l’offre', () => {
   let pool: Pool;
-  /**
-   * Une Entreprise réglée sur devis à une limite basse : la règle des fiches créées seules, la seule offre qui la garde
-   * depuis le 2026-11-13 (le Pro et le Business comptent tout, comme la Free).
-   */
+  /** Une Entreprise réglée sur devis à une limite basse : toutes les origines comptent aussi (2026-11-25). */
   let store: PgContactStore;
   /** Un Pro, à la même limite : toutes les origines comptent (2026-11-13). */
   let pro: PgContactStore;
@@ -66,17 +63,18 @@ describe.skipIf(!url)('la limite de contacts de l’offre', () => {
       .toEqual(['updated']);
   });
 
-  it('🔴 vigilance 1 : une fiche née d’un entrant n’est jamais refusée ni comptée, même complétée ensuite', async () => {
+  it('🔴 vigilance 1 : `upsertFromInbound` ne refuse jamais (la porte est avant lui), et la fiche née d’un entrant compte, même complétée ensuite', async () => {
     for (let n = 1; n <= LIMITE; n++) await creer(n);
     expect(await store.upsertFromInbound(t, tel(50).slice(1), 'Inconnu')).toBe('created');
-    // Complétée par la console : elle reste « née d'un entrant », donc hors du compte.
+    // Complétée par la console : elle reste « née d'un entrant », et elle compte (2026-11-25).
     await store.upsertByPhoneReturningId({ tenantId: t, phoneE164: tel(50), profileName: 'Connu', fields: {}, optInStatus: 'unknown' });
     const r = await pool.query<{ ne_entrant: boolean }>('select ne_entrant from contacts where tenant_id = $1 and phone_e164 = $2', [t, tel(50)]);
     expect(r.rows[0]!.ne_entrant).toBe(true);
+    expect((await store.placesContacts(t, [])).comptees).toBe(LIMITE + 1);
     await expect(creer(51)).rejects.toBeInstanceOf(LimiteOffreError);
   });
 
-  it('🔴 Free : une fiche née d’un entrant compte, et la création suivante est refusée ; le Pro la compte aussi, l’Entreprise sur devis non', async () => {
+  it('🔴 Free : une fiche née d’un entrant compte, et la création suivante est refusée ; le Pro et l’Entreprise la comptent aussi (2026-11-25)', async () => {
     await creer(1);
     await creer(2);
     expect(await free.upsertFromInbound(t, waId(50), 'Inconnu')).toBe('created');
@@ -84,7 +82,8 @@ describe.skipIf(!url)('la limite de contacts de l’offre', () => {
       .rejects.toBeInstanceOf(LimiteOffreError);
     expect(await free.placesContacts(t, [tel(50)])).toMatchObject({ limite: LIMITE, comptees: 3 });
     expect((await pro.placesContacts(t, [tel(50)])).comptees).toBe(3);
-    expect((await store.placesContacts(t, [tel(50)])).comptees).toBe(2);
+    expect((await store.placesContacts(t, [tel(50)])).comptees).toBe(3);
+    await expect(store.creerFicheApi(t, { phoneE164: tel(52) })).rejects.toBeInstanceOf(LimiteOffreError);
   });
 
   it('🔴 la porte d’une Free pleine : l’inconnu est refusé, le connu entre par son numéro comme par son BSUID', async () => {
@@ -94,8 +93,23 @@ describe.skipIf(!url)('la limite de contacts de l’offre', () => {
     // Pleine : trois fiches actives sur trois, dont deux nées d'un entrant.
     expect(await free.inconnusRefuses(t, [waId(1), waId(50), 'BSUID.itest.limite', waId(70)]))
       .toEqual({ waIds: new Set([waId(70)]), limite: LIMITE });
-    // L'Entreprise sur devis, pleine de la même façon, ne refuse jamais l'entrant.
-    expect(await store.inconnusRefuses(t, [waId(70)])).toBeNull();
+  });
+
+  it('🔴 la porte d’une Entreprise limitée dans /ops refuse l’inconnu au-delà, comme le Business ; sans limite, elle ne lit rien (2026-11-25)', async () => {
+    await pool.query('update tenants set offre_entreprise = true, entreprise_contacts = $2 where id = $1', [t, LIMITE]);
+    try {
+      await creer(1);
+      expect(await store.upsertFromInbound(t, waId(50), 'Inconnu')).toBe('created');
+      expect(await store.upsertFromInbound(t, 'BSUID.itest.limite.e', null)).toBe('created');
+      expect(await store.inconnusRefuses(t, [waId(1), waId(50), 'BSUID.itest.limite.e', waId(70)]))
+        .toEqual({ waIds: new Set([waId(70)]), limite: LIMITE });
+      // Sa limite retirée dans /ops : la base dit « sans limite » (une offre lue autre que celle du cache relit la sienne).
+      await pool.query('update tenants set entreprise_contacts = null where id = $1', [t]);
+      expect(await free.inconnusRefuses(t, [waId(70)])).toBeNull();
+      expect(await new PgContactStore(pool, undefined, async () => null).inconnusRefuses(t, [waId(70)])).toBeNull();
+    } finally {
+      await pool.query('update tenants set offre_entreprise = false, entreprise_contacts = null where id = $1', [t]);
+    }
   });
 
   it('🔴 la porte d’une Free : une fiche supprimée libère une place, qui va au premier inconnu du lot', async () => {
@@ -119,8 +133,8 @@ describe.skipIf(!url)('la limite de contacts de l’offre', () => {
     await pool.query('update contacts set deleted_at = now() where tenant_id = $1 and phone_e164 = $2', [t, tel(2)]);
     const p = await store.placesContacts(t, [tel(1), tel(2), tel(50), tel(9)]);
     expect(p.limite).toBe(LIMITE);
-    // Seule tel(1) compte : la fiche née d'un entrant ne compte jamais, la supprimée a libéré sa place.
-    expect(p.comptees).toBe(1);
+    // tel(1) et la fiche née d'un entrant comptent (2026-11-25) ; la supprimée a libéré sa place.
+    expect(p.comptees).toBe(2);
     // Portés par une fiche ACTIVE : l'entrant oui, la supprimée non (l'importer la rétablit, comme un fichier).
     expect([...p.presents].sort()).toEqual([tel(1), tel(50)]);
     expect((await new PgContactStore(pool).placesContacts(t, [])).limite).toBeNull();

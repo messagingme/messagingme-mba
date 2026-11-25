@@ -5,33 +5,31 @@ import { LimiteOffreError } from '../src/offres/refus';
 import type { LimiteContacts } from '../src/offres/offres';
 
 /**
- * FREE, PRO ET BUSINESS NE GÈRENT JAMAIS PLUS DE CONTACTS QUE LEUR LIMITE, QUELLE QUE SOIT LEUR ORIGINE (décisions de
- * Julien du 2026-10-25, plan `docs/superpowers/plans/2026-10-25-free-100-contacts.md`, et du 2026-11-13, plan
- * `docs/superpowers/plans/2026-11-13-grille-des-formules.md`), sur un faux pool. Seule l'Entreprise réglée sur devis ne
- * compte que les fiches créées.
- *
- * Le faux compte comme la base compterait D'APRÈS LE PRÉDICAT QUE PORTE LA REQUÊTE : 100 fiches vivantes, dont 40 nées
- * d'un message entrant, donc 60 si la requête exclut `ne_entrant`. Ce que la vraie base fait de ces requêtes est dans
- * `tests/integration/contacts-limite.integration.test.ts`, en CI.
+ * AUCUN ESPACE NE GÈRE PLUS DE CONTACTS QUE SA LIMITE, QUELLE QUE SOIT LEUR ORIGINE (décisions de Julien du 2026-10-25,
+ * plan `docs/superpowers/plans/2026-10-25-free-100-contacts.md`, du 2026-11-13 pour le Pro et le Business, et du
+ * 2026-11-25 pour l'Entreprise, plan `docs/superpowers/plans/2026-11-24-contacts-packs-et-remplacement.md`, lot 3), sur un
+ * faux pool. Ce que la vraie base fait de ces requêtes est dans `tests/integration/contacts-limite.integration.test.ts`, en
+ * CI.
  */
 const T = '11111111-1111-4111-8111-111111111111';
 const VIVANTES = 100;
-const NEES_D_UN_ENTRANT = 40;
 
-/** `offreEnBase` : ce que `offre_de_l_espace` rend, que la porte relit dans sa requête (le cache peut retarder). */
-function pool(connus: string[] = [], vivantes = VIVANTES, offreEnBase = 'base') {
+/**
+ * `offreEnBase` : ce que `offre_de_l_espace` rend, que la porte relit dans sa requête (le cache peut retarder), avec les
+ * limites posées dans `/ops` (`colonnes` : `business_contacts`, `entreprise_contacts`) relues dans la même requête.
+ */
+function pool(connus: string[] = [], vivantes = VIVANTES, offreEnBase = 'base', colonnes: Record<string, unknown> = {}) {
   const appels: Array<{ sql: string; params: unknown[] }> = [];
-  const compte = (sql: string) => (sql.includes('not x.ne_entrant') ? vivantes - NEES_D_UN_ENTRANT : vivantes);
   const p = {
     query: async (sql: string, params: unknown[] = []) => {
       appels.push({ sql, params });
       if (sql.includes('as connus')) {
         const lot = params[1] as string[];
         const offre = sql.includes('offre_de_l_espace($1::uuid) as offre') ? offreEnBase : undefined;
-        return { rows: [{ offre, comptees: compte(sql), connus: lot.filter((w) => connus.includes(w)) }], rowCount: 1 };
+        return { rows: [{ offre, comptees: vivantes, connus: lot.filter((w) => connus.includes(w)), ...colonnes }], rowCount: 1 };
       }
-      if (sql.includes('as presents')) return { rows: [{ comptees: compte(sql), presents: [] }], rowCount: 1 };
-      return { rows: [{ crees: compte(sql), nouveaux: 1 }], rowCount: 1 };
+      if (sql.includes('as presents')) return { rows: [{ comptees: vivantes, presents: [] }], rowCount: 1 };
+      return { rows: [{ crees: vivantes, nouveaux: 1 }], rowCount: 1 };
     },
   };
   return { p: p as unknown as Pool, appels };
@@ -39,8 +37,8 @@ function pool(connus: string[] = [], vivantes = VIVANTES, offreEnBase = 'base') 
 
 const limite = (l: LimiteContacts | null) => async () => l;
 
-describe('🔴 le compte de la limite dépend de l’offre (`contactsToutesOrigines`)', () => {
-  it('Free à 100 fiches dont 40 nées d’un entrant : la 101e création est refusée, et le refus dit ce qui compte', async () => {
+describe('🔴 la limite compte toutes les fiches actives, dans toutes les offres', () => {
+  it('Free à 100 fiches : la 101e création est refusée, et le refus dit ce qui compte', async () => {
     const { p } = pool();
     const store = new PgContactStore(p, undefined, limite({ max: 100, offre: 'base' }));
     const refus = await store.verifierPlaceContacts(T, ['+33600000101']).catch((e: unknown) => e);
@@ -49,26 +47,24 @@ describe('🔴 le compte de la limite dépend de l’offre (`contactsToutesOrigi
     expect((refus as LimiteOffreError).message).toMatch(/100 contacts, ceux qui vous écrivent compris\. Passez en Pro/);
   });
 
-  it('🔴 le Pro et le Business dans le même état refusent aussi (2026-11-13) ; seule l’Entreprise sur devis ne compte pas ceux qui écrivent', async () => {
-    const { p } = pool();
-    // Une limite basse, pour que seul le prédicat décide : 100 fiches vivantes, dont 60 créées, pour 100 places.
-    for (const offre of ['pro', 'business'] as const) {
+  it('🔴 le Pro, le Business et l’Entreprise dans le même état refusent aussi (2026-11-25), sans distinguer l’origine', async () => {
+    const { p, appels } = pool();
+    for (const offre of ['pro', 'business', 'entreprise'] as const) {
       const refus = await new PgContactStore(p, undefined, limite({ max: 100, offre })).verifierPlaceContacts(T, ['+33600000101']).catch((e: unknown) => e);
       expect(refus, offre).toBeInstanceOf(LimiteOffreError);
       expect((refus as LimiteOffreError).message, offre).toMatch(/ceux qui vous écrivent compris/);
     }
-    await expect(new PgContactStore(p, undefined, limite({ max: 100, offre: 'entreprise' })).verifierPlaceContacts(T, ['+33600000101'])).resolves.toBeUndefined();
+    expect(appels).toHaveLength(3);
+    for (const a of appels) expect(a.sql).not.toContain('ne_entrant');
   });
 
-  it('les places que l’import Shopify annonce comptent comme le refus : toutes les fiches en Free, Pro et Business, les créées en Entreprise', async () => {
-    const { p } = pool();
-    // `toutesOrigines` : pleine, l'offre refuse un inconnu qui écrit le premier (l'aperçu du rattrapage le dit, lot 5b).
+  it('les places que l’import Shopify annonce comptent comme le refus : toutes les fiches actives, dans toutes les offres', async () => {
+    const { p, appels } = pool();
     expect(await new PgContactStore(p, undefined, limite({ max: 100, offre: 'base' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 100, comptees: 100, presents: new Set(), toutesOrigines: true, remplacer: false });
-    expect(await new PgContactStore(p, undefined, limite({ max: 1000, offre: 'pro' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 1000, comptees: 100, presents: new Set(), toutesOrigines: true, remplacer: false });
+      .toEqual({ limite: 100, comptees: 100, presents: new Set(), remplacer: false });
     expect(await new PgContactStore(p, undefined, limite({ max: 5000, offre: 'entreprise' })).placesContacts(T, ['+33600000101']))
-      .toEqual({ limite: 5000, comptees: 60, presents: new Set(), toutesOrigines: false, remplacer: false });
+      .toEqual({ limite: 5000, comptees: 100, presents: new Set(), remplacer: false });
+    for (const a of appels) expect(a.sql).not.toContain('ne_entrant');
   });
 
   it('sans limite, rien n’est lu ni refusé', async () => {
@@ -129,9 +125,32 @@ describe('🔴 la porte d’un espace plein : qui n’y entre pas (`inconnusRefu
     }
   });
 
-  it('🔴 l’Entreprise, sans limite ou sans personne : rien n’est refusé ni même lu', async () => {
-    const { p, appels } = pool([], 5000);
-    expect(await new PgContactStore(p, undefined, limite({ max: 100, offre: 'entreprise' })).inconnusRefuses(T, ['33622222222'])).toBeNull();
+  it('🔴 un Business réglé à 6 000 contacts dans /ops : sa limite, relue en base quand le cache retarde sur l’offre (2026-11-25)', async () => {
+    const business = limite({ max: 6000, offre: 'business' });
+    expect(await new PgContactStore(pool([], 5000, 'business', { business_contacts: 6000 }).p, undefined, business).inconnusRefuses(T, ['33622222222'])).toBeNull();
+    expect(await new PgContactStore(pool([], 6000, 'business', { business_contacts: 6000 }).p, undefined, business).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 6000 });
+    // Passé en Business pendant que le cache le croit en Pro : la limite posée dans /ops, pas les 5 000 de la grille.
+    const pro = limite({ max: 1000, offre: 'pro' });
+    expect(await new PgContactStore(pool([], 5000, 'business', { business_contacts: 6000 }).p, undefined, pro).inconnusRefuses(T, ['33622222222'])).toBeNull();
+    expect(await new PgContactStore(pool([], 5000, 'business', { business_contacts: null }).p, undefined, pro).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 5000 });
+  });
+
+  it('🔴 une Entreprise limitée dans /ops refuse l’inconnu au-delà, comme le Business (2026-11-25)', async () => {
+    const entreprise = limite({ max: 10_000, offre: 'entreprise' });
+    expect(await new PgContactStore(pool([], 10_000, 'entreprise', { entreprise_contacts: 10_000 }).p, undefined, entreprise).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 10_000 });
+    expect(await new PgContactStore(pool([], 9_999, 'entreprise', { entreprise_contacts: 10_000 }).p, undefined, entreprise).inconnusRefuses(T, ['33622222222'])).toBeNull();
+    // Passée en Entreprise pendant que le cache la croit en Free : sa limite relue en base ; sans limite, personne n'est refusé.
+    const free = limite({ max: 100, offre: 'base' });
+    expect(await new PgContactStore(pool([], 10_000, 'entreprise', { entreprise_contacts: 10_000 }).p, undefined, free).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 10_000 });
+    expect(await new PgContactStore(pool([], 10_000, 'entreprise', { entreprise_contacts: null }).p, undefined, free).inconnusRefuses(T, ['33622222222'])).toBeNull();
+  });
+
+  it('🔴 une Entreprise sans limite, ou personne : rien n’est refusé ni même lu', async () => {
+    const { p, appels } = pool([], 5000, 'entreprise');
     expect(await new PgContactStore(p, undefined, limite(null)).inconnusRefuses(T, ['33622222222'])).toBeNull();
     expect(await new PgContactStore(p).inconnusRefuses(T, ['33622222222'])).toBeNull();
     expect(await new PgContactStore(p, undefined, limite({ max: 100, offre: 'base' })).inconnusRefuses(T, [])).toBeNull();

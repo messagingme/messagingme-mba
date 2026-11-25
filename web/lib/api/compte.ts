@@ -973,7 +973,8 @@ export interface OffreEntrepriseOps {
   utilisateurs: number | null;
   conservationJours: number | null;
   /**
-   * Les contacts créés et la commission réglés sur devis (spec offres v2) : `null` = le défaut (sans limite, 10 %).
+   * Les contacts (ceux qui écrivent compris) et la commission réglés sur devis (spec offres v2) : `null` = le défaut (sans
+   * limite, 10 %).
    * Absents sur une API plus ancienne (la console est publiée avant l'API) : lus comme `null`.
    */
   contacts?: number | null;
@@ -986,6 +987,8 @@ export interface OffreEntrepriseOps {
    */
   business?: boolean;
   utilisateursBusiness?: number | null;
+  /** La limite de contacts du Business (2026-11-25) : `null` = les 5 000 de la grille ; absente sur une API d'avant elle. */
+  contactsBusiness?: number | null;
   /**
    * L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : sa fin (ISO) tant qu'il n'est pas confirmé, `null` une
    * fois confirmé. Absent sur une API d'avant lui : lu comme `null`.
@@ -1031,6 +1034,8 @@ export function ecrireOffreOps(sessionOps: string, tenantId: string, corps: {
   contacts?: number | null; commissionPct?: number | null; note: string;
   /** Absent = inchangé (spec Business) ; vrai avec `entreprise` vrai : refusé par le serveur (400). */
   business?: boolean; utilisateursBusiness?: number | null;
+  /** Absente = inchangée, `null` = les 5 000 de la grille. Une API d'avant le 2026-11-25 la refuse (400). */
+  contactsBusiness?: number | null;
   /** L'essai du Business : une date ISO = en essai jusqu'à elle, `null` = confirmé, absente = inchangée (400 hors Business). */
   businessEssaiFinLe?: string | null;
   /** Absente = inchangée ; sans effet hors Entreprise. */

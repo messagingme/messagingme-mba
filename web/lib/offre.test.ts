@@ -62,16 +62,6 @@ describe('lireVueOffre', () => {
     }
   });
 
-  it('🔴 ce que compte la limite de contacts (2026-10-25) : lu quand l’API le dit ; absent ou illisible, la règle d’avant', () => {
-    expect(lireVueOffre({ ...BASE, contactsToutesOrigines: true })!.contactsToutesOrigines).toBe(true);
-    expect(lireVueOffre({ ...BASE, contactsToutesOrigines: false })!.contactsToutesOrigines).toBe(false);
-    // Une API plus ancienne ne compte pas ceux qui écrivent : la console, publiée avant elle, le dit comme elle.
-    for (const v of [undefined, null, 'oui', 1]) {
-      const vue = lireVueOffre({ ...BASE, contactsToutesOrigines: v });
-      expect(vue, JSON.stringify(v)).not.toBeNull();
-      expect(vue!.contactsToutesOrigines).toBe(false);
-    }
-  });
 
   it('🔴 les contacts au-delà de la limite (2026-10-26) : lus quand l’API les porte ; absents ou illisibles, 0, et la vue reste lisible', () => {
     expect(lireVueOffre({ ...BASE, contactsEnTrop: 2900 })!.contactsEnTrop).toBe(2900);

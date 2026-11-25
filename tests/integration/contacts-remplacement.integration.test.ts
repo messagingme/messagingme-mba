@@ -115,15 +115,34 @@ describe.skipIf(!url)('le plus ancien laisse sa place', () => {
     expect(traces).toEqual([]);
   });
 
-  it('🔴 l’Entreprise ne compte que les créées : la fiche née d’un entrant, même plus ancienne, n’est jamais choisie', async () => {
+  it('🔴 l’Entreprise compte aussi l’entrant (2026-11-25) : la fiche née d’un entrant, la plus ancienne, laisse sa place', async () => {
     const store = magasin('entreprise');
     expect(await store.upsertFromInbound(t, waId(50), 'Inconnu')).toBe('created');
     await pool.query(`update contacts set created_at = now() - interval '1 day' where tenant_id = $1`, [t]);
-    const ids = await remplir(store, [1, 2, 3]);
+    const entrant = (await pool.query<{ id: string }>('select id from contacts where tenant_id = $1 and phone_e164 = $2', [t, tel(50)])).rows[0]!.id;
+    await remplir(store, [1, 2]);
     traces.length = 0;
     await store.creerFicheApi(t, { phoneE164: tel(4) });
-    expect(await actives()).toEqual([tel(2), tel(3), tel(4), tel(50)]);
-    expect(traces).toEqual([{ tenantId: t, contactIds: [ids[1]], chemin: 'api', listeAgent: [] }]);
+    expect(await actives()).toEqual([tel(1), tel(2), tel(4)]);
+    expect(traces).toEqual([{ tenantId: t, contactIds: [entrant], chemin: 'api', listeAgent: [] }]);
+  });
+
+  it('🔴 l’entrant d’une Entreprise pleine, cochée, entre : le plus ancien laisse sa place (2026-11-25)', async () => {
+    await pool.query('update tenants set offre_entreprise = true, entreprise_contacts = $2 where id = $1', [t, LIMITE]);
+    try {
+      const store = magasin('entreprise');
+      const ids = await remplir(store, [1, 2, 3]);
+      traces.length = 0;
+      expect(await store.inconnusRefuses(t, [waId(70)])).toBeNull();
+      expect(await actives()).toEqual([tel(2), tel(3)]);
+      expect(traces).toEqual([{ tenantId: t, contactIds: [ids[1]], chemin: 'entrant', listeAgent: [] }]);
+      // Décochée : l'inconnu est refusé, comme le Business.
+      await pool.query('update tenant_settings set contacts_remplacer_anciens = false where tenant_id = $1', [t]);
+      await remplir(store, [4]);
+      expect(await store.inconnusRefuses(t, [waId(71)])).toEqual({ waIds: new Set([waId(71)]), limite: LIMITE });
+    } finally {
+      await pool.query('update tenants set offre_entreprise = false, entreprise_contacts = null where id = $1', [t]);
+    }
   });
 
   it('🔴 l’entrant d’un Business plein entre : le plus ancien qui n’écrit pas dans ce lot laisse sa place', async () => {

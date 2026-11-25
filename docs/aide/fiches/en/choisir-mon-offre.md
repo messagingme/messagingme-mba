@@ -1,7 +1,7 @@
 ---
 description: Free, Pro, Business or Enterprise: what each Messaging Me plan opens, its limits, and how to change plan or manage the subscription.
 slug: choose-my-plan
-traduit_de: c62bfb
+traduit_de: 6643d0
 ---
 # Choose my plan
 
@@ -56,12 +56,12 @@ onboarding and priority support;
 an extra user is requested through Support. Ads, channels, RCS, Salesforce and Batch, and the full Performance Lab
 require Enterprise.
 
-**What the contact limit counts.** On Free, Pro and Business, all your contacts count, including those who write to you
+**What the contact limit counts.** Whatever your plan, all your contacts count, including those who write to you
 first. When your workspace is full, creating or importing a contact is refused, and a new customer who writes to you
 does not get into Messaging Me: their message is not recorded and your AI agent does not reply to them. An email lets
 you know, at most once a day. Your existing contacts write to you as before, and a deleted contact frees its place: ask
-Claude to delete the ones you no longer need. On Enterprise, the number of contacts is agreed with you, and a contact
-who writes to you first is never refused.
+Claude to delete the ones you no longer need. On Business, more contacts can be requested from Support; on Enterprise,
+their number is agreed with you, or stays unlimited.
 
 **On Business and Enterprise: delete the oldest instead of refusing.** In Settings, the box "When the workspace is full,
 the oldest contact makes room" lets each new contact in by permanently deleting your oldest contact, with its

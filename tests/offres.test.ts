@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DROITS, contactsToutesOrigines, droitsDe, FONCTIONS, limiteContactsDe, type Fonction, type Limites, type Offre } from '../src/offres/offres';
+import { DROITS, droitsDe, FONCTIONS, limiteContactsDe, type Fonction, type Limites, type Offre } from '../src/offres/offres';
 import { corpsRefusFonction, phraseLimite } from '../src/offres/refus';
 import { config } from '../src/config';
 
@@ -56,10 +56,11 @@ describe('la grille des offres', () => {
     expect(droitsDe('business', null).limites.utilisateurs).toBe(5);
     expect(droitsDe('business', { utilisateurs: null, conservationJours: null }).limites.utilisateurs).toBe(5);
     expect(droitsDe('business', { utilisateurs: 7, conservationJours: null }).limites.utilisateurs).toBe(7);
-    // La conservation, les contacts et la commission d'un Business ne se règlent pas dans /ops : la grille, toujours.
+    // La conservation et la commission d'un Business ne se règlent pas dans /ops : la grille, toujours. Ses contacts, si,
+    // depuis le 2026-11-25 (0324).
     const d = droitsDe('business', { utilisateurs: 7, conservationJours: 365, contacts: 99, commissionPct: 0 });
     expect(d.limites.conservationJours).toBe(90);
-    expect(d.limites.contacts).toBe(5000);
+    expect(d.limites.contacts).toBe(99);
     expect(d.limites.commissionPct).toBe(15);
   });
 
@@ -147,8 +148,8 @@ describe('les refus nomment l’offre qui lève la limite ou ouvre la fonction (
       const p = phraseLimite('contacts', 1000, { offre: 'pro' });
       expect(p).toMatch(/1.000 contacts, ceux qui vous écrivent compris\. Ajoutez 1.000 contacts depuis la page Offre \(20 € HT par mois, 240 € HT par an/);
       expect(p).toMatch(/ou passez en Business : https?:\/\/.*\/offre$/);
-      // Le Business n'a pas de packs : sa phrase ne change pas.
-      expect(phraseLimite('contacts', 5000, { offre: 'business' })).toMatch(/Passez en Entreprise/);
+      // Le Business n'a pas de packs : Julien relève sa limite dans /ops (2026-11-25).
+      expect(phraseLimite('contacts', 5000, { offre: 'business' })).toMatch(/Demandez plus de contacts depuis le Support, ou passez en Entreprise/);
     } finally {
       Object.assign(config, { STRIPE_SECRET_KEY: avant.cle, STRIPE_PRIX_PACK_CONTACTS_MOIS: avant.mois, STRIPE_PRIX_PACK_CONTACTS_AN: avant.an });
     }
@@ -163,16 +164,21 @@ describe('les refus nomment l’offre qui lève la limite ou ouvre la fonction (
 });
 
 /**
- * CE QUE COMPTE LA LIMITE DE CONTACTS (décisions de Julien du 2026-10-25 et du 2026-11-13) : Free, Pro et Business ne
- * gèrent jamais plus de contacts que leur limite, quelle que soit leur origine ; seule l'Entreprise réglée sur devis ne
- * compte que les fiches créées. Une seule fonction le dit, et la phrase du refus la suit.
+ * CE QUE COMPTE LA LIMITE DE CONTACTS (décisions de Julien du 2026-10-25, du 2026-11-13 et du 2026-11-25) : aucun espace ne
+ * gère plus de contacts que sa limite, quelle que soit leur origine, Entreprise comprise. La limite du Business se règle
+ * dans /ops (2026-11-25), comme celle de l'Entreprise, et la phrase du refus le dit.
  */
-describe('🔴 ce que compte la limite de contacts : toutes les origines, sauf en Entreprise', () => {
-  it('Free, Pro et Business comptent toutes les origines ; l’Entreprise, seulement les fiches créées', () => {
-    expect(contactsToutesOrigines('base')).toBe(true);
-    expect(contactsToutesOrigines('pro')).toBe(true);
-    expect(contactsToutesOrigines('business')).toBe(true);
-    expect(contactsToutesOrigines('entreprise')).toBe(false);
+describe('🔴 la limite de contacts : toutes les origines, dans toutes les offres', () => {
+  it('🔴 la limite de contacts du Business posée dans /ops (0324) ; vide, la grille ; sans effet sur une autre offre', () => {
+    const surcharge = (contacts: number | null) => ({ utilisateurs: null, conservationJours: null, contacts });
+    expect(droitsDe('business', surcharge(6000)).limites.contacts).toBe(6000);
+    expect(droitsDe('business', surcharge(null)).limites.contacts).toBe(DROITS.business.limites.contacts);
+    expect(droitsDe('business', null).limites.contacts).toBe(5000);
+    // Ses utilisateurs restent les siens : l'une ne touche pas l'autre.
+    expect(droitsDe('business', { ...surcharge(6000), utilisateurs: 7 }).limites).toMatchObject({ contacts: 6000, utilisateurs: 7 });
+    expect(droitsDe('business', surcharge(6000)).limites.utilisateurs).toBe(DROITS.business.limites.utilisateurs);
+    expect(droitsDe('pro', surcharge(6000)).limites.contacts).toBe(1000);
+    expect(droitsDe('base', surcharge(6000)).limites.contacts).toBe(100);
   });
 
   it('la limite de contacts des droits, avec l’offre qui la fixe ; sans limite, rien', () => {
@@ -183,13 +189,16 @@ describe('🔴 ce que compte la limite de contacts : toutes les origines, sauf e
     expect(limiteContactsDe({ offre: 'entreprise', droits: devis })).toEqual({ max: 300, offre: 'entreprise' });
   });
 
-  it('la phrase du refus dit ce qui compte : ceux qui écrivent compris, sauf en Entreprise', () => {
+  it('🔴 la phrase du refus dit ce qui compte, ceux qui écrivent compris, dans toutes les offres ; l’offre connue dit qui la lève', () => {
     expect(phraseLimite('contacts', DROITS.base.limites.contacts!)).toMatch(/100 contacts, ceux qui vous écrivent compris\. Passez en Pro/);
     expect(phraseLimite('contacts', DROITS.pro.limites.contacts!)).toMatch(/1.000 contacts, ceux qui vous écrivent compris\. Passez en Business/);
     expect(phraseLimite('contacts', DROITS.business.limites.contacts!)).toMatch(/5.000 contacts, ceux qui vous écrivent compris\. Passez en Entreprise/);
-    // L'offre connue prime sur la grille : une Entreprise réglée à 100 contacts ne compte pas ceux qui lui écrivent.
-    expect(phraseLimite('contacts', 100, { offre: 'entreprise' })).toMatch(/100 contacts créés \(ceux qui vous écrivent ne comptent pas\)/);
-    expect(phraseLimite('contacts', 123_456)).toMatch(/contacts créés \(ceux qui vous écrivent ne comptent pas\)/);
+    expect(phraseLimite('contacts', 123_456)).toMatch(/123.456 contacts, ceux qui vous écrivent compris\. Contactez-nous/);
+    // L'offre connue prime sur la grille (2026-11-25) : une Entreprise réglée à 100 contacts ne lit pas « passez en Pro »,
+    // un Business réglé à 1 000 pas « passez en Business ». Julien relève leur limite dans /ops.
+    expect(phraseLimite('contacts', 100, { offre: 'entreprise' })).toMatch(/100 contacts, ceux qui vous écrivent compris\. Demandez plus de contacts depuis le Support : /);
+    expect(phraseLimite('contacts', 1000, { offre: 'business' })).toMatch(/1.000 contacts, ceux qui vous écrivent compris\. Demandez plus de contacts depuis le Support, ou passez en Entreprise : /);
+    expect(phraseLimite('contacts', 100, { offre: 'entreprise' })).not.toMatch(/Passez en/);
   });
 });
 

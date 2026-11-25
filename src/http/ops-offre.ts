@@ -87,7 +87,7 @@ const corpsSchema = z.object({
   entreprise: z.boolean(),
   utilisateurs: z.number().int().min(1).max(10_000).nullable(),
   conservationJours: z.number().int().min(0).max(3650).nullable().optional(),
-  // Spec offres v2 : les contacts créés et la commission d'une Entreprise, réglés sur devis. Facultatifs, absents =
+  // Spec offres v2 : les contacts et la commission d'une Entreprise, réglés sur devis. Facultatifs, absents =
   // inchangés, `null` = le défaut (sans limite, 10 %). La commission est un ENTIER : la vue de la console refuse une
   // décimale, et une vue illisible ouvre tout.
   contacts: z.number().int().min(1).max(100_000_000).nullable().optional(),
@@ -95,6 +95,9 @@ const corpsSchema = z.object({
   // Le Business (spec du 2026-10-27) : absent = inchangé ; sa limite d'utilisateurs, absente = inchangée, `null` = les 5.
   business: z.boolean().optional(),
   utilisateursBusiness: z.number().int().min(1).max(10_000).nullable().optional(),
+  // Sa limite de contacts (0324, 2026-11-25) : absente = inchangée, `null` = les 5 000 de la grille, bornée comme celle
+  // de l'Entreprise.
+  contactsBusiness: z.number().int().min(1).max(100_000_000).nullable().optional(),
   // L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : une date ISO = en essai jusqu'à elle, `null` =
   // confirmé, absente = inchangée. Tant qu'il n'est pas confirmé, l'option Crédit WhatsApp ne s'ouvre pas.
   businessEssaiFinLe: horodatageIso().nullable().optional(),
@@ -130,7 +133,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
     const lu = corpsSchema.safeParse(req.body ?? {});
     if (!lu.success) {
       return reply.code(400).send({
-        error: 'entreprise (booléen) et utilisateurs (entier positif ou null) requis, avec une note ; facultatifs, absents = inchangés : conservationJours (0 à 3650, ou null), contacts (entier positif, ou null), commissionPct (entier de 0 à 100, ou null), commissionMessagesPct (entier de 0 à 100, ou null), plafondIaMoisEuros (entier de 1 à 1 000 000, ou null)',
+        error: 'entreprise (booléen) et utilisateurs (entier positif ou null) requis, avec une note ; facultatifs, absents = inchangés : conservationJours (0 à 3650, ou null), contacts et contactsBusiness (entier positif, ou null), commissionPct (entier de 0 à 100, ou null), commissionMessagesPct (entier de 0 à 100, ou null), plafondIaMoisEuros (entier de 1 à 1 000 000, ou null)',
       });
     }
     if (lu.data.entreprise && lu.data.business === true) {
@@ -164,6 +167,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
       ...(lu.data.commissionPct !== undefined ? { commissionPct: lu.data.commissionPct } : {}),
       ...(lu.data.business !== undefined ? { business: lu.data.business } : {}),
       ...(lu.data.utilisateursBusiness !== undefined ? { utilisateursBusiness: lu.data.utilisateursBusiness } : {}),
+      ...(lu.data.contactsBusiness !== undefined ? { contactsBusiness: lu.data.contactsBusiness } : {}),
       ...(lu.data.businessEssaiFinLe !== undefined
         ? { businessEssaiFinLe: lu.data.businessEssaiFinLe === null ? null : new Date(lu.data.businessEssaiFinLe) } : {}),
       ...(lu.data.commissionMessagesPct !== undefined ? { commissionMessagesPct: lu.data.commissionMessagesPct } : {}),
@@ -182,6 +186,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
       contactsAvant: avant.contacts, commissionPctAvant: avant.commissionPct,
       business: apres.business, utilisateursBusiness: apres.utilisateursBusiness,
       businessAvant: avant.business, utilisateursBusinessAvant: avant.utilisateursBusiness,
+      contactsBusiness: apres.contactsBusiness, contactsBusinessAvant: avant.contactsBusiness,
       businessEssaiFinLe: apres.businessEssaiFinLe, businessEssaiFinLeAvant: avant.businessEssaiFinLe,
       commissionMessagesPct: apres.commissionMessagesPct, commissionMessagesPctAvant: avant.commissionMessagesPct,
       plafondIaMoisEuros: apres.plafondIaMoisEuros, plafondIaMoisEurosAvant: avant.plafondIaMoisEuros,
