@@ -4534,9 +4534,10 @@ réponse qui part, un outil qui s'exécute, une sortie qui reprend le scénario,
   proposable dans un scénario, ou pour répondre au client ». Répondre à tout est un second choix, fait sur
   l'Accueil (« Qui répond au client »).
 - ✅ **L'activation refuse un agent incomplet, et dit quoi faire.** Au lieu de « agent incomplet », l'écran
-  liste ce qui manque, et **chaque ligne est un lien vers l'onglet où ça se corrige** : objectif vide, aucune
-  règle de transfert, aucune règle d'arrêt, base de connaissance vide, aucun outil actif. Le blocage porte sur
-  des champs vides, jamais sur la qualité de ce qui est écrit.
+  liste ce qui manque, et **chaque ligne est un lien vers l'onglet où ça se corrige** : objectif vide, base de
+  connaissance vide, ou base remplie sans l'outil de recherche actif. Le blocage porte sur des champs vides, jamais sur
+  la qualité de ce qui est écrit. Depuis le 2026-11-25 (décision de Julien), ni règle de transfert, ni règle d'arrêt,
+  ni outil actif ne sont exigés : sans règle d'arrêt, l'agent sort par les sorties automatiques du bloc.
 - ✅ **Supprimer un agent** emporte ses conversations, ses outils et sa base de connaissance, et les blocs de
   scénario qui l'utilisent cessent de répondre. La confirmation le dit avant le clic, et dit aussi, si c'est
   l'agent qui répond au client, que les messages que personne ne tient iront à l'équipe. Le bouton est **sur

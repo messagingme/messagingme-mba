@@ -5,6 +5,18 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : activer un agent IA n'exige plus de règle d'arrêt, de transfert ni d'outil
+
+Julien, devant les « 4 étapes à finir » de Maison Saint-Honoré : « Aucune règle d'arrêt : l'agent n'a aucune façon de
+finir et de rendre la main au scénario, c'est un comble de manque de clarté ». Décision (questions fermées) : seuls
+l'objectif et la base de connaissance (avec l'outil de recherche quand elle est remplie) restent exigés ; sans règle
+d'arrêt l'agent sort par les sorties automatiques du bloc. C'est le lot 1 du plan
+`docs/superpowers/plans/2026-11-25-agent-objectif-seul-outils.md` (l'onglet « Objectif » seul, le transfert et les
+règles d'arrêt dans les outils). Le contrôle de la recherche ne dépend plus de « il y a d'autres outils » : c'est le
+manque « aucun outil actif », retiré, qui couvrait une base remplie sans aucun outil. Méthode : en direct, une relecture
+indépendante (aucun rouge : un agent sans outil ni règle répond en texte, sans boucle ; quatre jaunes rangés dans les
+lots suivants du plan) ; deux mutations rouges.
+
 ## 2026-11-24 : la proposition de l'entretien survit à un onglet rouvert
 
 Toujours chez Maison Saint-Honoré : le dernier message disait « Relisez la proposition ci-dessous » au-dessus de rien.

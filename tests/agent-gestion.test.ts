@@ -102,11 +102,11 @@ describe('🔴 le contrôle de complétude, sur un agent ACTIF qu’on modifie',
   it('…et par la route de la console : 422, la liste des manques dans le corps', async () => {
     const m = monter({ statut: 'active' });
     const res = await m.srv().inject({
-      method: 'PATCH', url: `/tenants/t1/agents/${AG}`, ...h(adminTok), payload: { contenu: { sorties: [] } },
+      method: 'PATCH', url: `/tenants/t1/agents/${AG}`, ...h(adminTok), payload: { contenu: { objectif: '' } },
     });
     expect(res.statusCode).toBe(422);
     expect(res.json().error).toContain('agent actif');
-    expect(res.json().manques.map((x: { message: string }) => x.message).join(' ')).toContain('règle d’arrêt');
+    expect(res.json().manques.map((x: { message: string }) => x.message).join(' ')).toContain('objectif');
     expect(m.cap.patches).toHaveLength(0);
   });
 

@@ -2,7 +2,7 @@
 description: Créer un agent IA WhatsApp, le régler en parlant à l'assistant ou onglet par onglet, l'activer, puis le faire répondre à vos clients.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: da6514
+source_empreinte: a88617
 publique: oui
 rubrique: parler-aux-clients
 rang: 10
@@ -121,9 +121,9 @@ puis « Ajouter ». Une règle d'arrêt, c'est « quand l'agent a fini de faire 
 **10. Lire l'en-tête et finir les étapes.** En haut de la fiche : le logo du modèle, le nom de l'agent, son modèle, sa
 pastille, et « n étapes à finir ». Chaque étape mène à l'onglet où elle se règle.
 
-- Une étape, c'est un champ vide qui empêche l'activation : objectif, règle de transfert, règle d'arrêt, base de
-  connaissance, outil actif. Jamais un jugement sur ce que vous avez écrit. « Tout est réglé » quand il n'en reste
-  aucune.
+- Une étape, c'est un champ vide qui empêche l'activation : l'objectif, la base de connaissance, et l'outil de
+  recherche quand la base est remplie. Jamais un jugement sur ce que vous avez écrit. « Tout est réglé » quand il n'en
+  reste aucune. Règles de transfert et d'arrêt sont facultatives.
 - Le nombre de messages échangés sur 30 jours compte tout le fil des conversations que l'agent a tenues, campagnes et
   messages de votre équipe compris : ce n'est pas ce que l'agent a écrit lui-même, ni le même compte que l'Accueil. Vos
   essais n'y entrent pas, et tant qu'il n'est pas connu, rien ne s'affiche.

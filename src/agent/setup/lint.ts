@@ -3,8 +3,12 @@ import type { FicheAgentContenu } from '../fiche';
 /**
  * Le blocage dur avant activation, sur des champs vides, jamais sur une qualité sémantique : un détecteur
  * qui refuserait un objectif « mal écrit » serait un mur arbitraire. Chaque manque bloqué rend l'agent
- * incapable de tenir sa promesse (sans règle d'arrêt, `terminer` n'est même pas exposé ; sans fiche de
- * connaissance, tout sort par « Aucune source »).
+ * incapable de tenir sa promesse (sans objectif, il ne sait pas ce qu'il fait ; sans fiche de connaissance,
+ * tout sort par « Aucune source »).
+ *
+ * 🔴 DEPUIS LE 2026-11-25 (décision de Julien), ni la règle de transfert, ni une règle d'arrêt, ni un outil actif ne
+ * sont plus exigés : un agent sans règle d'arrêt sort par les sorties automatiques du bloc, et passer la main se
+ * règle dans l'outil du même nom. Les exiger faisait croire qu'un agent ne pouvait pas répondre sans elles.
  *
  * Il bloque l'activation, pas l'écriture : un brouillon se remplit dans n'importe quel ordre, par petites
  * touches de la conversation de construction.
@@ -56,29 +60,20 @@ export function manquesAvantActivation(etat: EtatPourLint): ManqueFiche[] {
   if (etat.fiche.objectif.trim() === '') {
     out.push({ onglet: 'objectif', message: 'L’objectif de l’agent est vide : c’est le champ qui pèse le plus sur ce qu’il répondra.' });
   }
-  if (etat.fiche.reglesTransfert.trim() === '') {
-    out.push({ onglet: 'objectif', message: 'Personne n’a écrit quand l’agent doit passer la main à un humain.' });
-  }
-  if (etat.fiche.sorties.length === 0) {
-    out.push({ onglet: 'objectif', message: 'Aucune règle d’arrêt : l’agent n’a aucune façon de finir et de rendre la main au scénario.' });
-  }
   if (etat.fichesConnaissance === 0) {
     out.push({ onglet: 'connaissance', message: 'La base de connaissance est vide : l’agent transférerait toutes les questions de fond.' });
   }
   /**
-   * Une base remplie que l'agent ne peut pas lire : les deux contrôles voisins laissaient passer des fiches
-   * sans outil de recherche, et l'agent transférerait toutes les questions de fond. Seulement s'il y a des
-   * outils : sinon le contrôle voisin le dit déjà.
+   * Une base remplie que l'agent ne peut pas lire : l'agent transférerait toutes les questions de fond. Depuis le
+   * 2026-11-25, sans condition sur les autres outils : « aucun outil actif » n'est plus un manque, et c'est lui qui
+   * couvrait le cas d'une base remplie sans aucun outil.
    */
-  if (etat.fichesConnaissance > 0 && etat.outilsActifs > 0 && !etat.handlersActifs.includes('chercher_connaissance')) {
+  if (etat.fichesConnaissance > 0 && !etat.handlersActifs.includes('chercher_connaissance')) {
     out.push({
       onglet: 'outils',
       message: 'La base de connaissance est remplie mais l’outil « Chercher dans la base de connaissance » '
         + 'n’est pas actif : l’agent ne peut pas la lire, et transférera toutes les questions de fond.',
     });
-  }
-  if (etat.outilsActifs === 0) {
-    out.push({ onglet: 'outils', message: 'Aucun outil actif : l’agent peut parler mais ne peut rien faire, pas même terminer.' });
   }
   return out;
 }

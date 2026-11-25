@@ -279,7 +279,8 @@ console's Home and click "Activer le numéro" (it sends a verification code by c
    website: `add_knowledge` with what the user tells you, or `import_document_text` for a document they give you. The
    agent cannot be activated without knowledge.
 4. `update_agent`: the objective (the field that weighs most on its answers), the tone, the handover rules (when to
-   pass to a human) and at least one stop rule (`sorties`). Send the full list of `sorties`: it is replaced as a whole.
+   pass to a human) and, only if the user names a case where the agent must simply stop, a stop rule (`sorties`).
+   Stop rules are optional. Send the full list of `sorties`: it is replaced as a whole.
    Then the team's hours, which decide what the agent promises when it hands over: at set hours,
    `set_business_hours` (the seven days, closed or one range each) then `set_transfer_mode` with `business_hours`
    (outside those hours the agent says when the team is back); at any time, `set_transfer_mode` with `always`; never,

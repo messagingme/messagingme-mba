@@ -429,7 +429,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       + 'rules (sorties) and model (closed list, prices in get_agent). Only the fields provided change, but sorties is '
       + 'REPLACED as a whole: the call carries the full list, with unique codes. fiche_version (read by get_agent) makes '
       + 'the write refused if the profile changed in the meantime. On an active agent, an update that would make it '
-      + 'incomplete (objective or handover rules emptied, no stop rule left) is refused, with what it would introduce: '
+      + 'incomplete (objective emptied) is refused, with what it would introduce: '
       + 'the way forward is a completed profile, or the person\'s decision, rather than deactivating the agent. '
       + DESACTIVER_SUR_DEMANDE + ' The update goes to production at once (an active agent has no draft version), and it '
       + 'is logged under the signed-in person\'s name. mention_ia_langue chooses the AI disclosure among reviewed phrases '
@@ -685,9 +685,9 @@ export const OUTILS_AGENT: OutilMcp[] = [
     fonction: null,
     description:
       'Activates an AI agent (active = true) or deactivates it (false). Activation checks that the agent is complete '
-      + '(objective, handover rules, at least one stop rule, knowledge entries, at least one enabled tool, and '
-      + 'chercher_connaissance when '
-      + 'the base is filled) and refuses otherwise, with the list of gaps. Once active, the agent can be chosen in the '
+      + '(an objective, knowledge entries, and chercher_connaissance enabled when the base is filled; handover rules, '
+      + 'stop rules and other tools are optional) and refuses otherwise, with the list of gaps. Once active, the agent '
+      + 'can be chosen in the '
       + 'AI Agent block of a scenario. ' + DESACTIVER_SUR_DEMANDE + ' ' + SANS_SCENARIO_MUET,
     // Elle change ce que voient les scénarios (un agent désactivé n'y est plus proposé).
     annotations: ecriture('Activate or deactivate an AI agent', true, false),

@@ -72,8 +72,6 @@ describe('manquesAvantActivation', () => {
   it('🔴 chaque manque est détecté SÉPARÉMENT, et pointe l’onglet où il se corrige', () => {
     const cas: Array<[Omit<Partial<EtatPourLint>, 'fiche'> & { fiche?: Partial<EtatPourLint['fiche']> }, string]> = [
       [{ fiche: { objectif: '   ' } }, 'objectif'],
-      [{ fiche: { reglesTransfert: '' } }, 'objectif'],
-      [{ fiche: { sorties: [] } }, 'objectif'],
       [{ fichesConnaissance: 0 }, 'connaissance'],
       [{ outilsActifs: 0, handlersActifs: [] }, 'outils'],
     ];
@@ -87,8 +85,19 @@ describe('manquesAvantActivation', () => {
     }
   });
 
-  it('un agent tout neuf accumule les cinq manques', () => {
-    expect(manquesAvantActivation({ fiche: ficheVide(), fichesConnaissance: 0, outilsActifs: 0, handlersActifs: [], outilsMcpDebranches: [] })).toHaveLength(5);
+  it('un agent tout neuf a deux manques : l’objectif et la base de connaissance', () => {
+    expect(manquesAvantActivation({ fiche: ficheVide(), fichesConnaissance: 0, outilsActifs: 0, handlersActifs: [], outilsMcpDebranches: [] })
+      .map((m) => m.onglet)).toEqual(['objectif', 'connaissance']);
+  });
+
+  it('🔴 ni règle de transfert, ni règle d’arrêt, ni outil actif ne sont exigés (Julien, 2026-11-25)', () => {
+    // Les exiger faisait croire qu'un agent ne pouvait pas répondre sans elles : sans règle d'arrêt, il sort par les
+    // sorties automatiques du bloc ; passer la main se règle dans l'outil du même nom.
+    const etat: EtatPourLint = {
+      fiche: { ...ficheVide(), objectif: 'Répondre sur nos produits.', reglesTransfert: '', sorties: [] },
+      fichesConnaissance: 0, outilsActifs: 0, handlersActifs: [], outilsMcpDebranches: [],
+    };
+    expect(manquesAvantActivation(etat).map((m) => m.onglet)).toEqual(['connaissance']);
   });
 
   it('🔴 un outil POSÉ mais inactif ne compte pas', () => {
@@ -140,7 +149,7 @@ describe('le lint BLOQUE l activation', () => {
     // 422 et non 500 : c'est une chose que le client doit lire et corriger, et Cloudflare remplace le corps
     // d'une 5xx par sa propre page d'erreur.
     expect(res.statusCode).toBe(422);
-    expect(res.json().manques).toHaveLength(5);
+    expect(res.json().manques).toHaveLength(2);
     expect(cap.patches).toHaveLength(0);
   });
 
@@ -215,11 +224,10 @@ describe('le lint BLOQUE l activation', () => {
     expect(m).toEqual([]);
   });
 
-  it('sans AUCUN outil, un seul message : « aucun outil actif » le dit déjà, et plus fondamentalement', () => {
-    // Deux messages pour un meme geste transforment une liste utile en bruit.
+  it('🔴 base remplie et AUCUN outil : la recherche manque quand même (le manque « aucun outil » qui le couvrait est parti)', () => {
     const m = manquesAvantActivation({ ...COMPLET_LINT(), fichesConnaissance: 4, outilsActifs: 0, handlersActifs: [] });
     expect(m.map((x) => x.onglet)).toEqual(['outils']);
-    expect(m[0]!.message).toMatch(/Aucun outil actif/);
+    expect(m[0]!.message).toMatch(/Chercher dans la base de connaissance/);
   });
 });
 

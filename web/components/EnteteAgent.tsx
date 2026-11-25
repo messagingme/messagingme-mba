@@ -95,10 +95,9 @@ export interface EnteteAgentProps {
  * 🔴 « n ÉTAPES À FINIR », PAS « n SUR m », ET CE N'EST PAS UN CHOIX DE STYLE.
  *
  * Côté agent IA, le dénominateur n'existe pas : `manquesAvantActivation` (src/agent/setup/lint.ts) applique
- * cinq contrôles inconditionnels et UN SIXIÈME conditionnel (« la base est remplie mais l'outil de recherche
- * est inactif », qui ne s'applique que s'il y a à la fois des fiches et des outils actifs). Le nombre de
- * contrôles qui s'appliquent varie donc d'un agent à l'autre, et la route ne rend que ce qui MANQUE. Figer
- * 5 ou 6 dans l'écran afficherait un dénominateur faux la moitié du temps.
+ * deux contrôles inconditionnels (objectif, base de connaissance) et UN TROISIÈME conditionnel (« la base est
+ * remplie mais l'outil de recherche est inactif »). Le nombre de contrôles qui s'appliquent varie donc d'un agent
+ * à l'autre, et la route ne rend que ce qui MANQUE. Figer un total dans l'écran afficherait un dénominateur faux.
  *
  * L'agent de Meta, lui, a un ratio VRAI (`faites` et `total` calculés au serveur) : il le montre EN PLUS.
  * L'asymétrie est dans la donnée, pas dans le dessin.
