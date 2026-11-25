@@ -5,6 +5,17 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : un connecteur se connecte par identifiant et mot de passe, et une pièce part en fichier
+
+Essai avec Everial (Wizidee, reconnaissance de pièces) : leur API n'accepte pas de lien (réponse d'Everial du jour) et
+s'authentifie par un jeton Keycloak à identifiant et mot de passe. Plan `2026-11-25-connecteur-oauth-et-piece-en-fichier`.
+
+- **La source `oauth_password`** : le jeton se demande, se garde en mémoire et se renouvelle (`src/agent/jeton-oauth.ts`).
+- **Le corps « formulaire »** : une ligne `fichier` envoie la pièce d'un bloc Question. Plutôt que de câbler une seconde
+  lecture des médias dans le worker (`tests/media-cablage.test.ts` en exige une seule), le worker télécharge la pièce
+  par le lien `/f/` qu'il vient de fabriquer, ce qui garde la relecture, le plafond et la trace au journal.
+- **Migration 0325** (`migration=avant`, poussée seule) : `auth_oauth`, et trois CHECK élargis.
+
 ## 2026-11-25 : les questions de Claude Code alignées sur l'entretien de la console (plugin 0.3.67)
 
 Dans Claude Code, l'agent IA se construit par la skill `mise-en-service` du plugin, pas par l'entretien de la console :

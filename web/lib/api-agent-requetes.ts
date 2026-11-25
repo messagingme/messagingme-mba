@@ -42,7 +42,14 @@ export interface EnTeteRequete { nom: string; valeur: string }
 export type CorpsRequete =
   | { mode: 'aucun' }
   | { mode: 'json'; gabarit: string }
-  | { mode: 'champs'; champs: Paire[] };
+  | { mode: 'champs'; champs: Paire[] }
+  /**
+   * `multipart/form-data` : une ligne `fichier` envoie la pièce reçue par un bloc Question (sa pastille lit le champ
+   * de la pièce). Seul un bloc Appel API de scénario sait jouer un tel appel.
+   */
+  | { mode: 'formulaire'; champs: ChampFormulaire[] };
+
+export interface ChampFormulaire extends Paire { fichier: boolean }
 
 export interface RequeteApi {
   id: string;

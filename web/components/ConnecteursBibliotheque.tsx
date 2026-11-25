@@ -8,7 +8,7 @@ import { MbaNotice } from '@/components/MbaNotice';
 import { RequetesConnecteur } from '@/components/RequetesConnecteur';
 import {
   creerSource, eprouverSource, listSources, patchSource, supprimerSource,
-  type AuthSource, type SourceAgent,
+  type AuthSource, type ConfigOAuth, type SourceAgent,
 } from '@/lib/api-agent-sources';
 import { listRequetes } from '@/lib/api-agent-requetes';
 import { Bouton } from '@/components/Bouton';
@@ -227,7 +227,34 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
   );
 }
 
-interface ModificationSource { label?: string; baseUrl?: string; authHeaderName?: string }
+interface ModificationSource { label?: string; baseUrl?: string; authHeaderName?: string; oauth?: ConfigOAuth }
+
+/** Les quatre champs d'une connexion OAuth, à la création comme en modification. */
+function ChampsOAuth({ valeur, onChange, prefixe }: { valeur: ConfigOAuth; onChange: (v: ConfigOAuth) => void; prefixe: string }) {
+  const t = useT();
+  const champ = (cle: keyof ConfigOAuth, libelle: string, aide?: string) => (
+    <label className="text-xs text-ink-500">
+      {libelle}
+      <input className={`${inputCls} mt-1`} data-testid={`${prefixe}-oauth-${cle}`} autoComplete="off"
+        value={valeur[cle]} onChange={(e) => onChange({ ...valeur, [cle]: e.target.value })} />
+      {aide && <span className="mt-1 block text-xs text-ink-500">{aide}</span>}
+    </label>
+  );
+  return (
+    <>
+      {champ('tokenUrl', t('Adresse du jeton (HTTPS, publique)', 'Token address (HTTPS, public)'),
+        t('Là où nous demandons le jeton avec l’identifiant et le mot de passe. Il se renouvelle seul.', 'Where we request the token with the username and password. It renews on its own.'))}
+      {champ('clientId', 'client_id')}
+      {champ('username', t('Identifiant', 'Username'))}
+      {champ('scope', t('Scope (facultatif)', 'Scope (optional)'))}
+    </>
+  );
+}
+
+const oauthNettoye = (o: ConfigOAuth): ConfigOAuth => ({
+  tokenUrl: o.tokenUrl.trim(), clientId: o.clientId.trim(), username: o.username.trim(), scope: o.scope.trim(),
+});
+const oauthComplet = (o: ConfigOAuth): boolean => o.tokenUrl.trim() !== '' && o.clientId.trim() !== '' && o.username.trim() !== '';
 
 function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupprimer }: {
   source: SourceAgent;
@@ -250,7 +277,7 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
    * seul l'écran manquait. Le formulaire est REPLIÉ derrière « Modifier » : le nom et l'adresse sont déjà
    * dans la ligne au-dessus, les répéter en permanence repousserait l'épreuve hors de vue.
    */
-  const [edition, setEdition] = useState<{ label: string; baseUrl: string; entete: string } | null>(null);
+  const [edition, setEdition] = useState<{ label: string; baseUrl: string; entete: string; oauth: ConfigOAuth | null } | null>(null);
   const [erreurEdition, setErreurEdition] = useState<string | null>(null);
   const [enregistrement, setEnregistrement] = useState(false);
   /** Pendant l'enregistrement, rien d'autre ne part : une épreuve lancée là viserait encore l'ancienne adresse. */
@@ -264,9 +291,13 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
     if (source.authKind === 'header' && edition.entete.trim() !== (source.authHeaderName ?? '')) {
       modification.authHeaderName = edition.entete.trim();
     }
+    if (edition.oauth && JSON.stringify(oauthNettoye(edition.oauth)) !== JSON.stringify(source.oauth)) {
+      modification.oauth = oauthNettoye(edition.oauth);
+    }
   }
   const editionValide = edition !== null && edition.label.trim() !== '' && edition.baseUrl.trim() !== ''
-    && (source.authKind !== 'header' || edition.entete.trim() !== '');
+    && (source.authKind !== 'header' || edition.entete.trim() !== '')
+    && (edition.oauth === null || oauthComplet(edition.oauth));
 
   async function enregistrer() {
     if (enregistrement) return;
@@ -293,7 +324,9 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
               ? t('Sans authentification', 'No authentication')
               : source.authKind === 'bearer'
                 ? t('Jeton (Bearer)', 'Token (Bearer)')
-                : t(`En-tête ${source.authHeaderName ?? ''}`, `Header ${source.authHeaderName ?? ''}`)}
+                : source.authKind === 'oauth_password'
+                  ? t(`Identifiant et mot de passe (OAuth) : ${source.oauth?.username ?? ''}`, `Username and password (OAuth): ${source.oauth?.username ?? ''}`)
+                  : t(`En-tête ${source.authHeaderName ?? ''}`, `Header ${source.authHeaderName ?? ''}`)}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -304,7 +337,7 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
               disabled={occupe}
               onClick={() => {
                 setErreurEdition(null);
-                setEdition({ label: source.label, baseUrl: source.baseUrl, entete: source.authHeaderName ?? '' });
+                setEdition({ label: source.label, baseUrl: source.baseUrl, entete: source.authHeaderName ?? '', oauth: source.oauth });
               }}
             >
               {t('Modifier', 'Edit')}
@@ -350,6 +383,9 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
                 {t('Le secret enregistré reste le même : il part désormais sous ce nom.', 'The stored secret stays the same: it is now sent under this name.')}
               </span>
             </label>
+          )}
+          {edition.oauth && (
+            <ChampsOAuth valeur={edition.oauth} prefixe={`source-edition-${source.id}`} onChange={(oauth) => setEdition({ ...edition, oauth })} />
           )}
           {erreurEdition && <MbaNotice kind="error" testid={`source-edition-erreur-${source.id}`}>{erreurEdition}</MbaNotice>}
           <div className="flex gap-2">
@@ -440,7 +476,9 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
             <label className="flex-1 text-xs text-ink-500">
               {source.authKind === 'bearer'
                 ? t('Nouveau jeton', 'New token')
-                : t(`Nouveau secret pour l’en-tête ${source.authHeaderName ?? ''}`, `New secret for header ${source.authHeaderName ?? ''}`)}
+                : source.authKind === 'oauth_password'
+                  ? t('Nouveau mot de passe', 'New password')
+                  : t(`Nouveau secret pour l’en-tête ${source.authHeaderName ?? ''}`, `New secret for header ${source.authHeaderName ?? ''}`)}
               <input
                 type="password" autoComplete="off" className={`${inputCls} mt-1`}
                 data-testid={`source-secret-${source.id}`}
@@ -473,7 +511,7 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
 
 function NouvelleSource({ busy, onCreer }: {
   busy: boolean;
-  onCreer: (input: { label: string; baseUrl: string; authKind: AuthSource; authHeaderName?: string; authSecret?: string }) => void;
+  onCreer: (input: { label: string; baseUrl: string; authKind: AuthSource; authHeaderName?: string; oauth?: ConfigOAuth; authSecret?: string }) => void;
 }) {
   const t = useT();
   const [label, setLabel] = useState('');
@@ -481,6 +519,7 @@ function NouvelleSource({ busy, onCreer }: {
   const [authKind, setAuthKind] = useState<AuthSource>('bearer');
   const [authHeaderName, setAuthHeaderName] = useState('x-api-key');
   const [authSecret, setAuthSecret] = useState('');
+  const [oauth, setOauth] = useState<ConfigOAuth>({ tokenUrl: 'https://', clientId: '', username: '', scope: 'openid' });
 
   return (
     <div className={`${cardCls} flex flex-col gap-3`}>
@@ -501,6 +540,7 @@ function NouvelleSource({ busy, onCreer }: {
         <select className={`${inputCls} mt-1`} data-testid="source-auth" value={authKind} onChange={(e) => setAuthKind(e.target.value as AuthSource)}>
           <option value="bearer">{t('Jeton (Bearer)', 'Token (Bearer)')}</option>
           <option value="header">{t('En-tête nommé', 'Named header')}</option>
+          <option value="oauth_password">{t('Identifiant et mot de passe (OAuth)', 'Username and password (OAuth)')}</option>
           <option value="none">{t('Aucune', 'None')}</option>
         </select>
       </label>
@@ -510,9 +550,10 @@ function NouvelleSource({ busy, onCreer }: {
           <input className={`${inputCls} mt-1`} data-testid="source-entete" value={authHeaderName} onChange={(e) => setAuthHeaderName(e.target.value)} />
         </label>
       )}
+      {authKind === 'oauth_password' && <ChampsOAuth valeur={oauth} prefixe="source" onChange={setOauth} />}
       {authKind !== 'none' && (
         <label className="text-xs text-ink-500">
-          {t('Secret', 'Secret')}
+          {authKind === 'oauth_password' ? t('Mot de passe', 'Password') : t('Secret', 'Secret')}
           <input type="password" autoComplete="off" className={`${inputCls} mt-1`} data-testid="source-secret" value={authSecret} onChange={(e) => setAuthSecret(e.target.value)} />
           <span className="mt-1 block text-xs text-ink-500">
             {t('Chiffré chez nous, jamais réaffiché.', 'Encrypted on our side, never displayed again.')}
@@ -521,10 +562,11 @@ function NouvelleSource({ busy, onCreer }: {
       )}
       <Bouton
         data-testid="source-creer"
-        disabled={busy || label.trim() === '' || baseUrl.trim() === ''}
+        disabled={busy || label.trim() === '' || baseUrl.trim() === '' || (authKind === 'oauth_password' && !oauthComplet(oauth))}
         onClick={() => onCreer({
           label: label.trim(), baseUrl: baseUrl.trim(), authKind,
           ...(authKind === 'header' ? { authHeaderName: authHeaderName.trim() } : {}),
+          ...(authKind === 'oauth_password' ? { oauth: oauthNettoye(oauth) } : {}),
           ...(authKind !== 'none' ? { authSecret: authSecret.trim() } : {}),
         })}
         className="self-start"

@@ -2,7 +2,7 @@
 description: Brancher votre CRM ou votre boutique : déclarer le système, mettre au point un appel, l'essayer, puis le donner à un agent IA ou à un scénario.
 ecran: connecteurs
 source_section: Brancher vos systèmes : les connecteurs API (menu « Tools » > Connecteurs API)
-source_empreinte: 24e307
+source_empreinte: 049168
 publique: oui
 rubrique: parler-aux-clients
 rang: 13
@@ -17,8 +17,11 @@ de Meta et vos scénarios s'en servent pour lire une information ou en envoyer u
 de votre API, son authentification, puis « Brancher ».
 
 - L'adresse est en HTTPS et publique : vos agents n'appelleront jamais ailleurs que sous elle.
-- L'authentification est un jeton (Bearer), un en-tête nommé, ou aucune. Le secret est chiffré chez nous et ne se
-  réaffiche jamais, pas même pour nous : pour en changer, tapez le nouveau puis « Remplacer ».
+- L'authentification est un jeton (Bearer), un en-tête nommé, un identifiant et un mot de passe (OAuth), ou aucune.
+  Le secret est chiffré chez nous et ne se réaffiche jamais, pas même pour nous : pour en changer, tapez le nouveau
+  puis « Remplacer ».
+- Avec « Identifiant et mot de passe (OAuth) », donnez aussi l'adresse du jeton, le client_id et l'identifiant :
+  Messaging Me demande le jeton et le renouvelle tout seul.
 - Un système est commun à tout l'espace : sa ligne dit combien d'agents, d'appels et de scénarios s'en servent.
 
 **2. L'éprouver, puis l'activer.** Dépliez le système, donnez un chemin de votre API, puis « Éprouver ». Le verdict
@@ -48,6 +51,9 @@ personnalisé, une valeur système (la date, le dernier message du contact) ou u
 - Les onglets « Paramètres d'URL », « Corps » et « En-têtes » placent ces données. Le corps s'écrit en liste de
   champs ou en JSON brut (le passage au JSON est sans retour) ; dans le JSON, une pastille se met entre guillemets, et
   « Corriger » le fait pour vous.
+- Pour envoyer une pièce reçue dans un scénario (photo, PDF), choisissez le corps « formulaire avec fichier » et
+  cochez « fichier » sur la ligne qui porte la pastille du champ de la pièce : c'est le fichier qui part, et seul le
+  bloc Appel API d'un scénario joue cet appel.
 - L'authentification ne se met pas dans les en-têtes d'un appel : elle vit sur le système.
 
 **5. Essayer, cocher, enregistrer.** « Essayer » joue l'appel avec vos valeurs d'essai et montre ce qui est parti, le

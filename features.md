@@ -3737,8 +3737,14 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   pas un agent en particulier. L'écran dit combien d'agents s'en servent, ce qui évite de supprimer un système
   en cassant les autres.
 - ✅ **Déclarer un système** : un nom, une adresse de base en HTTPS, et son mode d'authentification (jeton,
-  en-tête nommé, ou aucune). Le secret est chiffré chez nous et **n'est jamais réaffiché** : un champ laissé
-  vide veut dire « inchangé ».
+  en-tête nommé, **identifiant et mot de passe (OAuth)**, ou aucune). Le secret est chiffré chez nous et **n'est
+  jamais réaffiché** : un champ laissé vide veut dire « inchangé ».
+- ✅ **Identifiant et mot de passe (OAuth)** (2026-11-25) : pour un système qui délivre un jeton qui expire
+  (Keycloak et ses pareils, `grant_type=password`). On déclare l'adresse du jeton (HTTPS, publique), le `client_id`,
+  l'identifiant, un scope facultatif, et le mot de passe, chiffré comme les autres secrets. Messaging Me demande le
+  jeton, le garde jusqu'à son échéance et en redemande un tout seul ; un jeton refusé par le système est oublié aussitôt.
+  Identifiant ou mot de passe refusés : l'appel ne part pas, et le connecteur passe au rouge avec la raison. Passer
+  d'un autre mode à celui-ci (ou l'inverse) demande de ressaisir le secret.
 - ✅ **Modifier un système branché** (2026-11-11) : son nom, son adresse de base et le nom de son en-tête, par
   « Modifier » dans sa fiche, sans le supprimer (ce que ses appels et ses scénarios interdiraient). Une nouvelle
   adresse est revérifiée (publique, en HTTPS) et vaut **tout de suite pour chaque appel** de ce système, agents et
@@ -3770,6 +3776,13 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   saisissable de deux façons au choix : une **liste de champs** (aucune accolade à écrire) ou du **JSON brut**
   (collez l'exemple de votre documentation et remplacez les valeurs par des variables). La bascule de la liste
   vers le JSON reprend le travail déjà fait ; elle est à sens unique et le bouton le dit.
+- ✅ **Envoyer une pièce reçue en fichier** (2026-11-25) : un troisième corps, **formulaire avec fichier**
+  (`multipart/form-data`). Une ligne cochée « fichier » qui porte la pastille du champ où un bloc Question a rangé une
+  pièce envoie **le fichier lui-même** (photo ou PDF), pas son lien : pour les systèmes qui n'acceptent pas de lien,
+  comme un service de reconnaissance de documents. Seul le **bloc Appel API d'un scénario** joue un tel appel ; il
+  attend alors jusqu'à 30 secondes et lit une réponse jusqu'à 2 Mo. L'agent IA et l'agent de Meta ne l'envoient
+  jamais. « Essayer » y envoie un petit fichier texte, de quoi voir la forme de la réponse. Une pièce qui n'est plus
+  dans le champ, ou qui a plus de 7 jours, fait échouer l'appel sans rien envoyer.
 - ✅ **Dire d'où vient chaque donnée envoyée** : décidée par l'agent, le **numéro ou le nom du contact**, un
   **champ personnalisé** de sa fiche, une **valeur système**, ou une constante. Une donnée peut être marquée
   « sans elle, on n'appelle pas ». **L'agent ne peut pas fabriquer un identifiant de client** : c'est ce qui

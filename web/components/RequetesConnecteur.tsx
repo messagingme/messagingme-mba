@@ -8,7 +8,7 @@ import type { SourceAgent } from '@/lib/api-agent-sources';
 import {
   creerRequete, listRequetes, patchRequete, supprimerRequete, testerBrouillon,
   type CatalogueVariables, type CorpsRequete, type CreationRequete, type MethodeRequete,
-  type OrigineVariable, type Paire, type RequeteApi, type ResultatTest, type VariableRequete,
+  type ChampFormulaire, type OrigineVariable, type Paire, type RequeteApi, type ResultatTest, type VariableRequete,
 } from '@/lib/api-agent-requetes';
 import { lireGabarit, pastillesDe } from '@/lib/gabarit-pastilles';
 import { lireChemin } from '@/lib/chemin-relatif';
@@ -340,7 +340,7 @@ function Editeur({ tenantId, requeteId, sources, champs, catalogue, brouillon, s
     ...brouillon.parametres.flatMap((x) => [x.cle, x.valeur]),
     ...brouillon.entetes.map((x) => x.valeur),
     brouillon.corps.mode === 'json' ? brouillon.corps.gabarit : '',
-    ...(brouillon.corps.mode === 'champs' ? brouillon.corps.champs.map((c) => c.valeur) : []),
+    ...(brouillon.corps.mode === 'champs' || brouillon.corps.mode === 'formulaire' ? brouillon.corps.champs.map((c) => c.valeur) : []),
   ];
   const nonDeclarees = [...new Set(gabarits.flatMap(pastillesDe))].filter((n) => !declarees.has(n));
   /** Le chemin porte-t-il une adresse ? Lu contre le système RÉELLEMENT choisi, pas contre le premier. */
@@ -671,7 +671,8 @@ function OngletCorps({ brouillon, maj, cible }: {
 }) {
   const t = useT();
   const mode = brouillon.corps.mode;
-  const champs = brouillon.corps.mode === 'champs' ? brouillon.corps.champs : [];
+  const champs: Paire[] = brouillon.corps.mode === 'champs' || brouillon.corps.mode === 'formulaire' ? brouillon.corps.champs : [];
+  const lignesFormulaire = brouillon.corps.mode === 'formulaire' ? brouillon.corps.champs : [];
   const gabarit = brouillon.corps.mode === 'json' ? brouillon.corps.gabarit : '';
 
   /**
@@ -687,16 +688,22 @@ function OngletCorps({ brouillon, maj, cible }: {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3 text-xs text-ink-900">
-        {(['aucun', 'champs', 'json'] as const).map((m) => (
+        {(['aucun', 'champs', 'json', 'formulaire'] as const).map((m) => (
           <label key={m} className="flex items-center gap-1">
             <input
               type="radio" name="corps-mode" data-testid={`corps-mode-${m}`} checked={mode === m}
               onChange={() => {
                 if (m === 'json' && mode === 'champs') { versJson(); return; }
-                maj({ corps: m === 'json' ? { mode: 'json', gabarit } : m === 'champs' ? { mode: 'champs', champs } : { mode: 'aucun' } });
+                maj({
+                  corps: m === 'json' ? { mode: 'json', gabarit }
+                    : m === 'champs' ? { mode: 'champs', champs: champs.map(({ cle, valeur }) => ({ cle, valeur })) }
+                    : m === 'formulaire' ? { mode: 'formulaire', champs: champs.map(({ cle, valeur }) => ({ cle, valeur, fichier: false })) }
+                    : { mode: 'aucun' },
+                });
               }}
             />
-            {m === 'aucun' ? t('aucun corps', 'no body') : m === 'champs' ? t('liste de champs', 'field list') : t('JSON brut', 'raw JSON')}
+            {m === 'aucun' ? t('aucun corps', 'no body') : m === 'champs' ? t('liste de champs', 'field list')
+              : m === 'json' ? t('JSON brut', 'raw JSON') : t('formulaire avec fichier', 'form with file')}
           </label>
         ))}
       </div>
@@ -714,6 +721,27 @@ function OngletCorps({ brouillon, maj, cible }: {
           <button data-testid="corps-vers-json" onClick={versJson} className="self-start text-xs text-brand-600 hover:underline">
             {t('Passer en JSON brut (sans retour possible)', 'Switch to raw JSON (no way back)')}
           </button>
+        </>
+      )}
+
+      {mode === 'formulaire' && (
+        <>
+          <p className="text-xs text-ink-500" data-testid="corps-formulaire-aide">
+            {t(
+              'Envoi en multipart/form-data. Cochez « fichier » sur la ligne qui porte la pastille du champ où un bloc Question a rangé une pièce : c’est le fichier qui part, pas le texte. Seul un bloc Appel API de scénario joue cet appel ; « Essayer » y envoie un petit fichier texte.',
+              'Sent as multipart/form-data. Tick “file” on the line holding the chip of the field where a Question block stored a document: the file is sent, not the text. Only a scenario API Call block runs this call; “Try” sends a small text file instead.',
+            )}
+          </p>
+          <Paires
+            testidPrefixe="corps-formulaire" lignes={lignesFormulaire} cible={cible}
+            onChange={(l) => maj({ corps: { mode: 'formulaire', champs: l.map((x) => ({ cle: x.cle, valeur: x.valeur, fichier: (x as Partial<ChampFormulaire>).fichier === true })) } })}
+            libelles={[t('Nom du champ', 'Field name'), t('Valeur', 'Value')]}
+            caseFichier={{
+              libelle: t('fichier', 'file'),
+              coche: (i) => lignesFormulaire[i]?.fichier === true,
+              basculer: (i) => maj({ corps: { mode: 'formulaire', champs: lignesFormulaire.map((x, j) => (j === i ? { ...x, fichier: !x.fichier } : x)) } }),
+            }}
+          />
         </>
       )}
 
@@ -783,12 +811,14 @@ function ApercuJson({ gabarit, onReparer }: { gabarit: string; onReparer: (repar
 }
 
 /** Deux colonnes clé/valeur, partagées par les paramètres d'URL, les en-têtes et le corps en liste. */
-function Paires({ lignes, onChange, libelles, testidPrefixe, cible }: {
+function Paires({ lignes, onChange, libelles, testidPrefixe, cible, caseFichier }: {
   lignes: Paire[];
   onChange: (l: Paire[]) => void;
   libelles: [string, string];
   testidPrefixe: string;
   cible: React.MutableRefObject<HTMLTextAreaElement | HTMLInputElement | null>;
+  /** Le corps « formulaire » : une case par ligne, « cette valeur est une pièce, envoyez le fichier ». */
+  caseFichier?: { libelle: string; coche: (i: number) => boolean; basculer: (i: number) => void };
 }) {
   const t = useT();
   return (
@@ -817,6 +847,12 @@ function Paires({ lignes, onChange, libelles, testidPrefixe, cible }: {
             onFocus={(e) => { cible.current = e.currentTarget; }}
             onChange={(e) => onChange(lignes.map((x, j) => (j === i ? { ...x, valeur: e.target.value } : x)))}
           />
+          {caseFichier && (
+            <label className="flex items-center gap-1 text-xs text-ink-700">
+              <input type="checkbox" data-testid={`${testidPrefixe}-fichier-${i}`} checked={caseFichier.coche(i)} onChange={() => caseFichier.basculer(i)} />
+              {caseFichier.libelle}
+            </label>
+          )}
           <button data-testid={`${testidPrefixe}-retirer-${i}`} onClick={() => onChange(lignes.filter((_, j) => j !== i))} className="text-xs text-danger hover:underline">
             {t('retirer', 'remove')}
           </button>

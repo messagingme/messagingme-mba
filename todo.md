@@ -1,5 +1,19 @@
 # todo.md : backlog
 
+## 🟡 Connecteur OAuth et pièce envoyée en fichier (plan `2026-11-25-connecteur-oauth-et-piece-en-fichier`) : la relecture (2026-11-25, un rouge corrigé dans le lot)
+
+Le rouge (le `FormData` global partait en texte `[object FormData]` par le `fetch` d'undici) est corrigé et tenu par un
+test qui passe par le vrai `fetch` d'undici ; la pause de 60 s après un mot de passe refusé est ajoutée. Restent :
+- **Une pièce de 25 Mo pèse trois à quatre fois sa taille dans le worker** (`lireOctetsBornes`, la copie en
+  `Uint8Array`, le `Blob`, la file d'undici) : retirer la copie et borner la concurrence des appels qui portent une pièce.
+- **Un 403 « métier » de l'API fait redemander un jeton à chaque appel** (`oublier` sur 401 et 403) : une redemande par
+  minute au plus.
+- **Un appel à pièce peut être donné à un agent IA** : il refuse à chaque tour (« la pièce à envoyer n'est pas
+  disponible »). Le signaler ou le refuser au moment de l'ajouter comme outil (`porteUnFichier`).
+- **`PATCH` d'une source non OAuth avec `oauth` seul** écrit `auth_oauth` en base, sans effet (la vue relit `null`) :
+  ignorer `oauth` quand le mode effectif n'est pas `oauth_password`.
+- **Une demande de jeton en vol pendant un `oublier`** peut remettre en cache le jeton refusé : un 401 de plus.
+
 ## 🟡 Les étapes masquées pendant l'entretien : la relecture du lot 4 (2026-11-25, aucun rouge)
 
 - Une activation refusée (422) depuis l'onglet « Construire en parlant » remplit les manques sans rien montrer dans

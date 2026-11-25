@@ -601,6 +601,23 @@ publication d'un brouillon qui attend un fichier sans elle est refusée (422 `fi
   429 `rate_limited` avec `retry-after` ; chaque téléchargement trace `piece.telechargee` à l'espace. 🔴 Pas de HEAD
   (`exposeHeadRoute: false`) : celui que Fastify expose par défaut jouerait tout le gestionnaire, lecture chez Meta,
   trace et plafond compris, pour ne rien servir.
+- **La pièce part EN FICHIER quand le corps est un « formulaire »** (`multipart/form-data`, migration 0325) : une ligne
+  `fichier` de la requête porte le lien que l'Appel API vient de fabriquer, et `lecteurDesPieces`
+  (`src/workflow/appel-http.ts`) le télécharge par `/f/` (même relecture, même plafond, même trace `piece.telechargee`)
+  avant de l'envoyer (`materialiserFormulaire`, `src/agent/corps-formulaire.ts`). 🔴 Il ne télécharge QUE les liens de
+  cet appel : une ligne `fichier` qui vaut autre chose est refusée, sinon elle ferait télécharger n'importe quelle
+  adresse depuis le worker. `fichiers` est REQUIS dans `AppelConnecteur` : `null` pour l'agent IA, la poussée
+  d'opt-out et le relais du MBA, qui refusent alors l'appel au lieu d'envoyer le texte à la place du fichier. Délai
+  `DELAI_APPEL_PIECE_MS` (30 s) et lecture de la réponse jusqu'à `MAX_OCTETS_REPONSE_PIECE` (2 Mo) pour ces appels.
+
+🔴 **Une source `oauth_password` ne porte pas de jeton, elle le DEMANDE** (`src/agent/jeton-oauth.ts`, migration 0325).
+`agent_tool_sources.auth_oauth` garde ce qui n'est pas secret (adresse du jeton, `client_id`, identifiant, scope), le
+mot de passe reste dans `auth_secret_enc`. `jetonsOAuth.entetes(source)` est le point de passage UNIQUE des en-têtes
+d'authentification pour le résolveur, l'épreuve et l'essai (tout mode ; les autres délèguent à `enTetesAuthSource`).
+Le jeton se demande par le transport des connecteurs (adresse publique vérifiée, pas de redirection, lecture bornée),
+se garde EN MÉMOIRE par copie jusqu'à `expires_in` moins 30 s, sous une EMPREINTE de la configuration (un mot de passe
+changé ne réutilise pas l'ancien jeton), une seule demande en vol par source ; un 401 ou 403 de l'API l'oublie. Un
+jeton refusé n'envoie AUCUN appel au système du client. Un serveur MCP ne peut pas être `oauth_password` (route).
 
 🔴 **Le canal est porté par le PARCOURS, pas par le bloc** (`workflow_runs.channel`). Un bloc « message
 rapide » dit l'INTENTION, pas le tuyau : WhatsApp et RCS savent tous deux le faire. Un bloc RCS réellement

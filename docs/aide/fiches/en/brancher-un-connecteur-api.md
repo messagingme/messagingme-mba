@@ -1,7 +1,7 @@
 ---
 description: Connect your CRM or shop: declare the system, set up a call, try it, then give it to an AI agent or a scenario.
 slug: connect-an-api-connector
-traduit_de: 9ec5fc
+traduit_de: f376dd
 ---
 # Connect an API connector
 
@@ -13,8 +13,10 @@ piece of information or to send one.
 its authentication, then "Connect".
 
 - The address is HTTPS and public: your agents will never call anywhere outside it.
-- Authentication is a token (Bearer), a named header, or none. The secret is encrypted on our side and is never shown
-  again, not even to us: to change it, type the new one then "Replace".
+- Authentication is a token (Bearer), a named header, a username and password (OAuth), or none. The secret is
+  encrypted on our side and is never shown again, not even to us: to change it, type the new one then "Replace".
+- With "Username and password (OAuth)", also give the token address, the client_id and the username: Messaging Me
+  requests the token and renews it on its own.
 - A system is shared by the whole workspace: its line says how many agents, calls and scenarios use it.
 
 **2. Test it, then activate it.** Expand the system, enter a path of your API, then "Test". The verdict shows with its
@@ -43,6 +45,9 @@ value (the date, the contact's last message) or a fixed value.
   someone else's order.
 - The "URL params", "Body" and "Headers" tabs place this data. The body is written as a field list or as raw JSON
   (switching to JSON cannot be undone); in the JSON, a chip goes between quotes, and "Fix it" does it for you.
+- To send a document received in a scenario (photo, PDF), choose the "form with file" body and tick "file" on the line
+  holding the chip of the document's field: the file itself is sent, and only a scenario API Call block runs this
+  call.
 - Authentication does not go in a call's headers: it lives on the system.
 
 **5. Try, tick, save.** "Try" runs the call with your test values and shows what went out, the status, the duration

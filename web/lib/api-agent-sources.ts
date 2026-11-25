@@ -12,7 +12,18 @@ import { request } from './http';
  * porter sa propre adresse, et c'est voulu.
  */
 
-export type AuthSource = 'none' | 'bearer' | 'header';
+export type AuthSource = 'none' | 'bearer' | 'header' | 'oauth_password';
+
+/**
+ * Une connexion par identifiant et mot de passe (OAuth, `grant_type=password`) : ce qui n'est pas secret. Le mot de
+ * passe est le secret de la source, jamais renvoyé ; le serveur demande le jeton et le renouvelle seul.
+ */
+export interface ConfigOAuth {
+  tokenUrl: string;
+  clientId: string;
+  username: string;
+  scope: string;
+}
 export type StatutSource = 'draft' | 'active' | 'disabled';
 
 export interface SourceAgent {
@@ -22,6 +33,8 @@ export interface SourceAgent {
   baseUrl: string;
   authKind: AuthSource;
   authHeaderName: string | null;
+  /** `null` hors du mode `oauth_password`. */
+  oauth: ConfigOAuth | null;
   aAuthentification: boolean;
   status: StatutSource;
   /** Dernière épreuve réussie. C'est ce qui rend un jeton mort visible AVANT qu'un contact ne le découvre. */
@@ -47,7 +60,7 @@ export async function listSources(tenantId: string): Promise<SourceAgent[]> {
 }
 
 export async function creerSource(tenantId: string, input: {
-  label: string; baseUrl: string; authKind: AuthSource; authHeaderName?: string; authSecret?: string;
+  label: string; baseUrl: string; authKind: AuthSource; authHeaderName?: string; oauth?: ConfigOAuth; authSecret?: string;
 }): Promise<SourceAgent> {
   const r = await request<{ source: SourceAgent }>(base(tenantId), { method: 'POST', body: JSON.stringify(input) });
   return r.source;
@@ -56,7 +69,7 @@ export async function creerSource(tenantId: string, input: {
 /** ⚠️ `authSecret` ABSENT = inchangé. L'écran ne peut pas le renvoyer : il ne l'a jamais eu. */
 export async function patchSource(tenantId: string, id: string, patch: {
   label?: string; baseUrl?: string; authKind?: AuthSource; authHeaderName?: string | null;
-  authSecret?: string; status?: StatutSource;
+  oauth?: ConfigOAuth; authSecret?: string; status?: StatutSource;
 }): Promise<SourceAgent> {
   const r = await request<{ source: SourceAgent }>(`${base(tenantId)}/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
   return r.source;
