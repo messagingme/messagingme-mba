@@ -5,6 +5,17 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : les questions de Claude Code alignées sur l'entretien de la console (plugin 0.3.67)
+
+Dans Claude Code, l'agent IA se construit par la skill `mise-en-service` du plugin, pas par l'entretien de la console :
+la refonte n'y avait changé que la destination des réponses. Trois questions de la console y manquaient, relevées par
+Julien. La ronde de questions demande désormais l'objectif de l'agent, le cas où il doit simplement s'arrêter
+(« aucun » valable), et, si une boutique Shopify est branchée ou des champs HubSpot importés (clés `hs_contact_`,
+`hs_deal_`, `hs_calc_`), si l'agent peut les lire ; sur un oui, `set_agent_tools` ajoute `lire_contact`, avec sa
+description par défaut (la carte que l'entretien écrit d'après les intégrations reste propre à la console).
+`escalader` ne s'ajoute plus à la main : `update_agent` le pose avec la règle de transfert, et l'omet si personne ne
+prend jamais la main. Méthode : en direct, plugin seul, aucune route touchée.
+
 ## 2026-11-25 : les étapes masquées pendant « Construire en parlant », et l'aide refaite (refonte, lot 4)
 
 Dernier lot du plan `docs/superpowers/plans/2026-11-25-agent-objectif-seul-outils.md`. Julien, devant l'agent de
