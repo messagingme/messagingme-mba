@@ -3,7 +3,7 @@ import { encryptSecret, decryptSecret } from '../crypto/secretbox';
 import { config } from '../config';
 import {
   LabelSourceDejaPris, SourcePorteDesAppels,
-  type AuthSource, type CreationSource, type KindSource, type PatchSource,
+  type AuthSource, type ConfigOAuth, type CreationSource, type KindSource, type PatchSource,
   type SourceAppel, type SourceStore, type SourceVue, type StatutSource,
 } from './sources';
 
@@ -17,7 +17,7 @@ import {
  */
 
 /** Colonnes de la projection publique : le secret n'y est pas, seulement son existence. */
-const COLS = `s.id, s.tenant_id, s.kind, s.label, s.base_url, s.auth_kind, s.auth_header_name,
+const COLS = `s.id, s.tenant_id, s.kind, s.label, s.base_url, s.auth_kind, s.auth_header_name, s.auth_oauth,
   (s.auth_secret_enc is not null) as a_auth, (s.secret_publie_le is not null) as secret_publie,
   s.status, s.last_ok_at, s.last_error,
   -- 🔴 CES DEUX COMPTEURS LISAIENT t.actif ET t.agent_id, QUE LA MIGRATION 0128 A SUPPRIMEES. Le
@@ -38,8 +38,21 @@ const COLS = `s.id, s.tenant_id, s.kind, s.label, s.base_url, s.auth_kind, s.aut
 
 interface LigneVue {
   id: string; tenant_id: string; kind: string; label: string; base_url: string;
-  auth_kind: string; auth_header_name: string | null; a_auth: boolean; secret_publie: boolean;
+  auth_kind: string; auth_header_name: string | null; auth_oauth: unknown; a_auth: boolean; secret_publie: boolean;
   status: string; last_ok_at: Date | null; last_error: string | null; outils_actifs: number; agents: number;
+}
+
+/**
+ * La connexion OAuth relue en base, défensivement : un objet incomplet vaut `null`, et l'appel refusera faute de
+ * connexion plutôt que d'envoyer un formulaire à moitié rempli.
+ */
+export function lireOAuth(v: unknown): ConfigOAuth | null {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const texte = (x: unknown): string | null => (typeof x === 'string' ? x : null);
+  const tokenUrl = texte(o.tokenUrl); const clientId = texte(o.clientId); const username = texte(o.username);
+  if (!tokenUrl || !clientId || !username) return null;
+  return { tokenUrl, clientId, username, scope: texte(o.scope) ?? '' };
 }
 
 function versVue(r: LigneVue): SourceVue {
@@ -51,6 +64,7 @@ function versVue(r: LigneVue): SourceVue {
     baseUrl: r.base_url,
     authKind: r.auth_kind as AuthSource,
     authHeaderName: r.auth_header_name,
+    oauth: r.auth_kind === 'oauth_password' ? lireOAuth(r.auth_oauth) : null,
     aAuthentification: r.a_auth,
     secretPublie: r.secret_publie,
     status: r.status as StatutSource,
@@ -103,12 +117,13 @@ export class PgSourceStore implements SourceStore {
     const secret = input.authSecret && input.authSecret !== '' ? encryptSecret(input.authSecret, config.ENCRYPTION_KEY) : null;
     const res = await this.pool.query<LigneVue>(
       `with nouvelle as (
-         insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_header_name, auth_secret_enc)
-         values ($1, $2, $3, $4, $5, $6, $7)
+         insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_header_name, auth_secret_enc, auth_oauth)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
          returning *
        )
        select ${COLS} from nouvelle s`,
-      [tenantId, input.kind, input.label, input.baseUrl, input.authKind, input.authHeaderName ?? null, secret],
+      [tenantId, input.kind, input.label, input.baseUrl, input.authKind, input.authHeaderName ?? null, secret,
+        input.authKind === 'oauth_password' && input.oauth ? JSON.stringify(input.oauth) : null],
     ).catch(surLabelDejaPris(input.label));
     return versVue(res.rows[0]!);
   }
@@ -121,6 +136,9 @@ export class PgSourceStore implements SourceStore {
     if (patch.baseUrl !== undefined) push('base_url', patch.baseUrl);
     if (patch.authKind !== undefined) push('auth_kind', patch.authKind);
     if (patch.authHeaderName !== undefined) push('auth_header_name', patch.authHeaderName);
+    // La connexion OAuth suit le mode : quitter `oauth_password` l'efface, une connexion fournie la remplace entière.
+    if (patch.authKind !== undefined && patch.authKind !== 'oauth_password') push('auth_oauth', null);
+    else if (patch.oauth !== undefined) push('auth_oauth', JSON.stringify(patch.oauth));
     if (patch.status !== undefined) push('status', patch.status);
     // Branches exclusives : deux `if` indépendants pousseraient deux fois `auth_secret_enc` dans le même
     // `update`, que Postgres refuse (500). Passer en `none` retire le secret ; sinon un secret absent vaut
@@ -132,7 +150,7 @@ export class PgSourceStore implements SourceStore {
     }
     // Toucher à l'authentification dépublie le secret : le secret, mais aussi le mode et le nom d'en-tête,
     // qui décident du corps envoyé à Meta (`corpsApiKey`).
-    if (patch.authKind !== undefined || patch.authHeaderName !== undefined
+    if (patch.authKind !== undefined || patch.authHeaderName !== undefined || patch.oauth !== undefined
         || (patch.authSecret !== undefined && patch.authSecret !== '')) {
       sets.push('secret_publie_le = null');
     }
@@ -160,9 +178,9 @@ export class PgSourceStore implements SourceStore {
   async pourAppel(tenantId: string, id: string): Promise<SourceAppel | null> {
     const res = await this.pool.query<{
       id: string; kind: string; base_url: string; auth_kind: string; auth_header_name: string | null;
-      auth_secret_enc: string | null; status: string;
+      auth_oauth: unknown; auth_secret_enc: string | null; status: string;
     }>(
-      `select id, kind, base_url, auth_kind, auth_header_name, auth_secret_enc, status
+      `select id, kind, base_url, auth_kind, auth_header_name, auth_oauth, auth_secret_enc, status
          from agent_tool_sources where tenant_id = $1 and id = $2`,
       [tenantId, id],
     );
@@ -174,6 +192,7 @@ export class PgSourceStore implements SourceStore {
       baseUrl: r.base_url,
       authKind: r.auth_kind as AuthSource,
       authHeaderName: r.auth_header_name,
+      oauth: r.auth_kind === 'oauth_password' ? lireOAuth(r.auth_oauth) : null,
       authSecret: r.auth_secret_enc ? decryptSecret(r.auth_secret_enc, config.ENCRYPTION_KEY) : null,
       status: r.status as StatutSource,
     };

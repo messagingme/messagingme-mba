@@ -11,7 +11,21 @@
  */
 
 export type KindSource = 'http' | 'mcp';
-export type AuthSource = 'none' | 'bearer' | 'header';
+export type AuthSource = 'none' | 'bearer' | 'header' | 'oauth_password';
+
+/**
+ * Ce qui n'est PAS secret dans une connexion OAuth par identifiant et mot de passe (`grant_type=password`, Keycloak
+ * et ses pareils) : lisible à l'écran. Le mot de passe est le secret de la source, chiffré comme les autres
+ * (`auth_secret_enc`). Le jeton obtenu n'est jamais stocké : `src/agent/jeton-oauth.ts` le garde en mémoire.
+ */
+export interface ConfigOAuth {
+  /** L'adresse où demander le jeton, publique et en HTTPS, vérifiée comme l'adresse de base. */
+  tokenUrl: string;
+  clientId: string;
+  username: string;
+  /** Vide = aucun `scope` envoyé. */
+  scope: string;
+}
 export type StatutSource = 'draft' | 'active' | 'disabled';
 
 /** Ce qu'une route rend. Le secret n'y est pas, et il ne doit jamais y entrer. */
@@ -23,6 +37,8 @@ export interface SourceVue {
   baseUrl: string;
   authKind: AuthSource;
   authHeaderName: string | null;
+  /** La connexion OAuth, sans le mot de passe. `null` hors du mode `oauth_password`. */
+  oauth: ConfigOAuth | null;
   /** Le secret existe-t-il. Sa valeur ne sort jamais du serveur. */
   aAuthentification: boolean;
   /**
@@ -54,6 +70,8 @@ export interface SourceAppel {
   baseUrl: string;
   authKind: AuthSource;
   authHeaderName: string | null;
+  /** Pour `oauth_password` : `authSecret` est alors le mot de passe. */
+  oauth: ConfigOAuth | null;
   authSecret: string | null;
   status: StatutSource;
 }
@@ -64,6 +82,7 @@ export interface CreationSource {
   baseUrl: string;
   authKind: AuthSource;
   authHeaderName?: string;
+  oauth?: ConfigOAuth;
   authSecret?: string;
 }
 
@@ -72,6 +91,8 @@ export interface PatchSource {
   baseUrl?: string;
   authKind?: AuthSource;
   authHeaderName?: string | null;
+  /** Absent = inchangé. Remplacée entière : ses quatre morceaux vont ensemble. */
+  oauth?: ConfigOAuth;
   /** Absent = inchangé. Un secret qu'on ne renvoie pas ne doit pas s'effacer parce qu'on a renommé la source. */
   authSecret?: string;
   status?: StatutSource;

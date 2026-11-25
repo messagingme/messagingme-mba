@@ -210,4 +210,43 @@ describe.skipIf(!url)('sources externes d outils (Postgres)', () => {
     await expect(insere('mba', s.id)).rejects.toThrow();
     await expect(insere('http', s.id)).resolves.toBeDefined();
   });
+
+  it('🔴 une source OAuth : la connexion se relit sans le mot de passe, le mot de passe est chiffré (0325)', async () => {
+    const oauth = { tokenUrl: 'https://auth.client.fr/token', clientId: 'api', username: 'demo', scope: 'openid' };
+    const s = await sources.creer(tenantId, {
+      kind: 'http', label: 'Wizidee', baseUrl: 'https://api.client.fr', authKind: 'oauth_password', oauth, authSecret: 'mot-de-passe-42',
+    });
+    expect(s.oauth).toEqual(oauth);
+    expect(JSON.stringify(s)).not.toContain('mot-de-passe-42');
+    const brut = await pool.query<{ auth_secret_enc: string; auth_oauth: unknown }>('select auth_secret_enc, auth_oauth from agent_tool_sources where id = $1', [s.id]);
+    expect(brut.rows[0]!.auth_secret_enc).not.toContain('mot-de-passe-42');
+    expect(JSON.stringify(brut.rows[0]!.auth_oauth)).not.toContain('mot-de-passe-42');
+    expect(await sources.pourAppel(tenantId, s.id)).toMatchObject({ authKind: 'oauth_password', oauth, authSecret: 'mot-de-passe-42' });
+    // La connexion se remplace entière ; quitter le mode OAuth l'efface.
+    const maj = await sources.patch(tenantId, s.id, { oauth: { ...oauth, username: 'autre' } });
+    expect(maj!.oauth!.username).toBe('autre');
+    const bearer = await sources.patch(tenantId, s.id, { authKind: 'bearer', authSecret: 'jeton' });
+    expect(bearer!.oauth).toBeNull();
+    expect((await pool.query('select auth_oauth from agent_tool_sources where id = $1', [s.id])).rows[0].auth_oauth).toBeNull();
+  });
+
+  it('🔴 la base REFUSE une source OAuth sans connexion ou sans mot de passe (0325)', async () => {
+    await expect(pool.query(`insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_secret_enc)
+      values ($1, 'http', 'sans-connexion', 'https://x.fr', 'oauth_password', 'chiffre')`, [tenantId])).rejects.toThrow();
+    await expect(pool.query(`insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_oauth)
+      values ($1, 'http', 'sans-secret', 'https://x.fr', 'oauth_password', '{}'::jsonb)`, [tenantId])).rejects.toThrow();
+  });
+
+  it('un corps « formulaire » se relit avec ses cases fichier (0325)', async () => {
+    const s = await sources.creer(tenantId, { kind: 'http', label: 'Formulaire', baseUrl: 'https://f.client.fr', authKind: 'none' });
+    const requetes = new PgRequeteStore(pool);
+    const r = await requetes.creer(tenantId, {
+      sourceId: s.id, label: 'Analyser', methode: 'POST', chemin: '/analyze', parametres: [], entetes: [],
+      corps: { mode: 'formulaire', champs: [{ cle: 'file', valeur: '{{piece}}', fichier: true }, { cle: 'dbId', valeur: '1', fichier: false }] },
+      variables: [], outputPaths: ['status'], valeursTest: {},
+    } as never);
+    expect((await requetes.parId(tenantId, r.id))!.corps).toEqual({
+      mode: 'formulaire', champs: [{ cle: 'file', valeur: '{{piece}}', fichier: true }, { cle: 'dbId', valeur: '1', fichier: false }],
+    });
+  });
 });

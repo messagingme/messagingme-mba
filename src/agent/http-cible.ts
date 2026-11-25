@@ -135,7 +135,8 @@ export function construireCible(input: {
  * authentifier. Le secret ne doit apparaître ni dans un journal, ni dans une erreur, ni chez le modèle.
  */
 export function enTetesAuthSource(source: {
-  authKind: 'none' | 'bearer' | 'header'; authSecret: string | null; authHeaderName: string | null;
+  /** `oauth_password` ne pose rien ici : son jeton se demande, `src/agent/jeton-oauth.ts` le pose. */
+  authKind: 'none' | 'bearer' | 'header' | 'oauth_password'; authSecret: string | null; authHeaderName: string | null;
 }): Record<string, string> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (source.authKind === 'bearer' && source.authSecret) headers.authorization = `Bearer ${source.authSecret}`;

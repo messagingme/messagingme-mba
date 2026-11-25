@@ -16,7 +16,7 @@ import { creerTransportConnecteurHttp } from '../src/agent/transport-connecteur-
 
 const SOURCE: SourceAppel = {
   id: 's1', kind: 'http', baseUrl: 'https://crm.client.fr/api', status: 'active',
-  authKind: 'bearer', authHeaderName: null, authSecret: 'JETON-SECRET',
+  authKind: 'bearer', authHeaderName: null, oauth: null, authSecret: 'JETON-SECRET',
 };
 
 function monter(opts: {

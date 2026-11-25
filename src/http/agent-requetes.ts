@@ -8,6 +8,7 @@ import { CLES_SYSTEME, normaliserOrigine } from '../agent/variables';
 import { CHAMPS_FICHE_FIXES, CLES_FICHE_SORTIE, type CleFicheFixe } from '../crm/champs-fiche';
 import { espaceVerifie, estUuid } from './scope';
 import { transportConnecteurHttp, type TransportConnecteurHttp } from '../agent/transport-connecteur-http';
+import { lecteurDEssai, materialiserFormulaire } from '../agent/corps-formulaire';
 
 /**
  * Les requêtes d'un connecteur : décrire un appel, l'éprouver, puis l'ouvrir aux agents. Décrire une requête,
@@ -33,7 +34,11 @@ export interface AgentRequetesRouteDeps {
     supprimer(tenantId: string, id: string): Promise<boolean>;
   };
   /** L'adresse de base et les en-têtes d'authentification de la source, au moment du test. */
-  sourcePourTest(tenantId: string, sourceId: string): Promise<{ baseUrl: string; entetes: Record<string, string>; status: string } | null>;
+  sourcePourTest(tenantId: string, sourceId: string): Promise<{
+    baseUrl: string; entetes: Record<string, string>; status: string;
+    /** Le jeton OAuth de la source n'a pas pu être obtenu : l'essai le dit au lieu de partir sans authentification. */
+    erreurAuth?: string;
+  } | null>;
   /** Les clés des champs personnalisés déclarés par l'espace : une variable `champ` doit en désigner une. */
   clesDeChamps(tenantId: string): Promise<string[]>;
   /**
@@ -85,6 +90,8 @@ const corpsSchema = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('aucun') }),
   z.object({ mode: z.literal('json'), gabarit: z.string().max(20_000) }),
   z.object({ mode: z.literal('champs'), champs: z.array(paireSchema).max(50) }),
+  // `multipart/form-data` (plan 2026-11-25) : une ligne `fichier` envoie la pièce reçue que sa variable désigne.
+  z.object({ mode: z.literal('formulaire'), champs: z.array(paireSchema.extend({ fichier: z.boolean().default(false) })).max(50) }),
 ]);
 
 /**
@@ -212,6 +219,10 @@ function verifier(r: ARegler, clesDeChamps: readonly string[]): string | null {
   if (r.corps.mode === 'json' && r.corps.gabarit.trim() !== '') {
     try { JSON.parse(r.corps.gabarit); } catch { return 'le corps n’est pas du JSON valide'; }
   }
+  // 6. Un formulaire part dans le corps : un GET ou un DELETE n'en a pas.
+  if (r.corps.mode === 'formulaire' && (r.methode === 'GET' || r.methode === 'DELETE')) {
+    return 'un corps « formulaire » s’envoie en POST, PUT ou PATCH';
+  }
   return null;
 }
 
@@ -333,6 +344,7 @@ export function registerAgentRequetes(app: FastifyInstance, deps: AgentRequetesR
     // Une source en brouillon peut être testée (on éprouve, puis on active) ; une source désactivée non : elle a
     // été coupée exprès, et la tester la ferait appeler quand même.
     if (source.status === 'disabled') return { code: 409, body: { error: 'cette source est désactivée' } };
+    if (source.erreurAuth !== undefined) return { code: 200, body: { ok: false, erreur: source.erreurAuth } };
 
     const valeurs: Record<string, ValeurVariable> = { ...r.valeursTest, ...(valeursSup ?? {}) };
     const appel = assemblerAppel({
@@ -342,6 +354,15 @@ export function registerAgentRequetes(app: FastifyInstance, deps: AgentRequetesR
     });
     // Un refus d'assemblage est une information pour le client, pas une panne : 200 avec `ok: false`.
     if (!appel.ok) return { code: 200, body: { ok: false, erreur: appel.raison } };
+    // Un formulaire part tel quel ; une ligne « fichier » y envoie un petit fichier texte (l'essai n'a pas de pièce).
+    let corps: string | import('undici').FormData | null = null;
+    if (appel.corps !== null && typeof appel.corps === 'object') {
+      const f = await materialiserFormulaire(appel.corps, lecteurDEssai);
+      if (!f.ok) return { code: 200, body: { ok: false, erreur: f.raison } };
+      corps = f.formulaire;
+    } else {
+      corps = appel.corps;
+    }
 
     // Le délai commence avant la résolution : les dix secondes bornent désormais tout le transport de l'adresse
     // choisie par le client, pas seulement la connexion qui suit le DNS.
@@ -350,7 +371,7 @@ export function registerAgentRequetes(app: FastifyInstance, deps: AgentRequetesR
       url: appel.url,
       methode: appel.methode,
       entetes: { ...appel.entetes, ...source.entetes },
-      corps: appel.corps,
+      corps,
       signal: echeance,
       lecture: { nature: 'texte', maxOctets: MAX_APERCU * 2 },
     });

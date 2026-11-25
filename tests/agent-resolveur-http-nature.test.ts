@@ -25,7 +25,7 @@ import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 
 const SOURCE: SourceAppel = {
   id: 'src1', kind: 'http', baseUrl: 'https://api.client.fr/v1',
-  authKind: 'none', authHeaderName: null, authSecret: null, status: 'active',
+  authKind: 'none', authHeaderName: null, oauth: null, authSecret: null, status: 'active',
 };
 
 /** La requête déclare TROIS champs : c'est le DÉFAUT de l'appel, partagé par tous les agents. */

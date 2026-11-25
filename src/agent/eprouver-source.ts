@@ -1,5 +1,6 @@
 import type { SourceAppel } from './sources';
-import { construireCible, enTetesAuthSource } from './http-cible';
+import { construireCible } from './http-cible';
+import { jetonsOAuth, type FournisseurJetons } from './jeton-oauth';
 import { transportConnecteurHttp, type TransportConnecteurHttp } from './transport-connecteur-http';
 
 export interface EprouverSourceDeps {
@@ -9,6 +10,8 @@ export interface EprouverSourceDeps {
   };
   /** Le transport complet, injecté dans les tests. Défaut : résolution et connexion publiques de production. */
   transportHttp?: TransportConnecteurHttp;
+  /** Défaut : le fournisseur de production, le même que le résolveur. */
+  jetons?: FournisseurJetons;
 }
 
 export interface ResultatEpreuve { ok: boolean; httpStatus?: number; erreur?: string }
@@ -22,6 +25,7 @@ const INTERNE = 'cette adresse n est pas joignable depuis notre infrastructure';
  */
 export function creerEprouverSource(deps: EprouverSourceDeps): (tenant: string, id: string, chemin: string) => Promise<ResultatEpreuve> {
   const transportHttp = deps.transportHttp ?? transportConnecteurHttp;
+  const jetons = deps.jetons ?? jetonsOAuth;
   return async (tenant, id, chemin) => {
     const src = await deps.sources.pourAppel(tenant, id);
     // 🔴 `kind === 'http'` ici aussi, pas seulement sur la route : une garde posée au montage ne tient que
@@ -31,7 +35,13 @@ export function creerEprouverSource(deps: EprouverSourceDeps): (tenant: string, 
     if (!cible.ok) return { ok: false, erreur: cible.raison };
     // Même construction d'en-têtes que l'appel réel, sinon l'épreuve dirait « ça répond » d'une source que
     // les appels ne savent pas authentifier.
-    const headers = enTetesAuthSource(src);
+    const auth = await jetons.entetes(src);
+    if (!auth.ok) {
+      const erreur = auth.erreur === 'auth' ? 'connexion refusée (identifiant ou mot de passe)' : 'jeton indisponible';
+      await deps.sources.marquerEpreuve(tenant, id, false, erreur);
+      return { ok: false, erreur };
+    }
+    const headers = auth.entetes;
     const transporte = await transportHttp.executer({
       url: cible.url,
       methode: 'GET',
@@ -53,13 +63,14 @@ export function creerEprouverSource(deps: EprouverSourceDeps): (tenant: string, 
       await deps.sources.marquerEpreuve(tenant, id, false, 'injoignable');
       return { ok: false, erreur: 'systeme injoignable' };
     }
-    const auth = transporte.httpStatus === 401 || transporte.httpStatus === 403;
+    const auth401 = transporte.httpStatus === 401 || transporte.httpStatus === 403;
+    if (auth401) jetons.oublier(id);
     const ok = transporte.httpStatus >= 200 && transporte.httpStatus < 300;
-    await deps.sources.marquerEpreuve(tenant, id, ok, auth ? 'authentification refusee' : `HTTP ${transporte.httpStatus}`);
+    await deps.sources.marquerEpreuve(tenant, id, ok, auth401 ? 'authentification refusee' : `HTTP ${transporte.httpStatus}`);
     return {
       ok,
       httpStatus: transporte.httpStatus,
-      ...(ok ? {} : { erreur: auth ? 'authentification refusee' : `HTTP ${transporte.httpStatus}` }),
+      ...(ok ? {} : { erreur: auth401 ? 'authentification refusee' : `HTTP ${transporte.httpStatus}` }),
     };
   };
 }

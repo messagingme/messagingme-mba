@@ -6,6 +6,9 @@ import { DUREE_LIEN_PIECE_MS, jetonPiece, lienPiece } from './piece-lien';
 import { ressembleAUneMention } from './question-piece';
 import { MAX_OCTETS_CHAMP_JSON, jsonDeChamp } from '../crm/fields';
 import type { UserFieldType } from '../crm/types';
+import { porteUnFichier } from '../agent/requete-http';
+import type { FichierAEnvoyer, LecteurFichier } from '../agent/corps-formulaire';
+import { lireOctetsBornes } from '../lib/corps-borne';
 
 /**
  * Le bloc « Appel HTTP » d'un scénario : jouer un appel déjà mis au point dans Tools > Connecteurs API, et
@@ -28,6 +31,41 @@ export const MAX_OCTETS_APPEL_HTTP = 64 * 1024;
  * contact attend la suite de son parcours. Au-delà, le champ est vidé et le parcours continue.
  */
 export const DELAI_APPEL_HTTP_MS = 10_000;
+
+/**
+ * Le délai d'un appel qui ENVOIE une pièce (plan 2026-11-25) : la pièce se télécharge, part, et le système du client
+ * l'analyse (lecture d'un document, plusieurs secondes). Le contact attend, mais un refus à 10 s ferait échouer
+ * l'analyse elle-même.
+ */
+export const DELAI_APPEL_PIECE_MS = 30_000;
+
+/** Le plafond d'une pièce téléchargée, celui des fichiers reçus (`MEDIA_ENTRANT_TAILLE_MAX_KO`, 25 Mo par défaut). */
+export const MAX_OCTETS_PIECE = 25 * 1024 * 1024;
+
+const EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'application/pdf': 'pdf',
+};
+
+/**
+ * Télécharge une pièce par son lien `/f/` : la même route que le stockage d'un client, donc la même relecture chez
+ * Meta, le même plafond et la même trace au journal des actions (« pièce téléchargée »). Une seule définition de la
+ * lecture d'un fichier reçu, celle de l'API (`tests/media-cablage.test.ts`).
+ */
+export async function telechargerPieceParLien(url: string, signal: AbortSignal, maxOctets = MAX_OCTETS_PIECE): Promise<FichierAEnvoyer | { refus: string }> {
+  let res: Response;
+  try {
+    res = await fetch(url, { signal, redirect: 'error' });
+  } catch {
+    return { refus: 'la pièce n’a pas pu être téléchargée' };
+  }
+  if (res.status === 410) { await res.body?.cancel().catch(() => {}); return { refus: 'la pièce a expiré chez Meta (plus de 7 jours)' }; }
+  if (res.status !== 200) { await res.body?.cancel().catch(() => {}); return { refus: `la pièce n’a pas pu être téléchargée (HTTP ${res.status})` }; }
+  const lu = await lireOctetsBornes(res, maxOctets);
+  if (lu.trop_gros) return { refus: 'la pièce est trop lourde' };
+  if (lu.casse || lu.octets === null) return { refus: 'la pièce n’a pas pu être téléchargée' };
+  const mime = (res.headers.get('content-type') ?? 'application/octet-stream').split(';')[0]!.trim().toLowerCase();
+  return { octets: lu.octets, mime, nom: `piece.${EXTENSIONS[mime] ?? 'bin'}` };
+}
 
 /**
  * La réponse d'un connecteur, telle qu'elle se range dans un champ de contact. Pure.
@@ -94,6 +132,8 @@ export interface DepsAppelHttpScenario extends DepsResolveurHttp {
   /** La base des adresses servies par l'API, où vit `/f/:jeton`. */
   baseApi: string;
   maintenant?(): Date;
+  /** Injecté dans les tests. Défaut : `telechargerPieceParLien`. */
+  telechargerPiece?: (url: string, signal: AbortSignal) => Promise<FichierAEnvoyer | { refus: string }>;
 }
 
 /**
@@ -103,19 +143,37 @@ export interface DepsAppelHttpScenario extends DepsResolveurHttp {
  */
 async function avecLiensDesPieces(
   deps: DepsAppelHttpScenario, tenantId: string, waId: string, contact: Record<string, unknown> | null,
-): Promise<Record<string, unknown> | null> {
+): Promise<{ contact: Record<string, unknown> | null; liens: Set<string> }> {
+  const liens = new Set<string>();
   const champs = contact?.champs;
-  if (contact === null || champs === null || typeof champs !== 'object' || Array.isArray(champs)) return contact;
+  if (contact === null || champs === null || typeof champs !== 'object' || Array.isArray(champs)) return { contact, liens };
   const valeurs = champs as Record<string, unknown>;
-  if (!Object.values(valeurs).some(ressembleAUneMention)) return contact;
+  if (!Object.values(valeurs).some(ressembleAUneMention)) return { contact, liens };
   const notees = await deps.pieces.liensPossibles(tenantId, waId);
   const vivantes = notees.filter((p) => valeurs[p.cle] === p.mention);
-  if (vivantes.length === 0) return contact;
+  if (vivantes.length === 0) return { contact, liens };
   const maintenant = deps.maintenant ? deps.maintenant() : new Date();
   const expireLe = new Date(maintenant.getTime() + DUREE_LIEN_PIECE_MS);
   const copie: Record<string, unknown> = { ...valeurs };
-  for (const p of vivantes) copie[p.cle] = lienPiece(deps.baseApi, jetonPiece(tenantId, p.metaMessageId, expireLe, deps.secretPiece));
-  return { ...contact, champs: copie };
+  for (const p of vivantes) {
+    const lien = lienPiece(deps.baseApi, jetonPiece(tenantId, p.metaMessageId, expireLe, deps.secretPiece));
+    copie[p.cle] = lien;
+    liens.add(lien);
+  }
+  return { contact: { ...contact, champs: copie }, liens };
+}
+
+/**
+ * 🔴 Le lecteur des pièces d'un corps « formulaire » : il ne télécharge QUE les liens fabriqués pour cet appel. Une
+ * ligne « fichier » dont la valeur viendrait d'ailleurs (un texte du contact, une adresse saisie) est refusée : sans
+ * cette garde, elle ferait télécharger n'importe quelle adresse depuis notre infrastructure.
+ */
+function lecteurDesPieces(deps: DepsAppelHttpScenario, liens: Set<string>, signal: AbortSignal): LecteurFichier {
+  const telecharger = deps.telechargerPiece ?? telechargerPieceParLien;
+  return async (valeur) => {
+    if (!liens.has(valeur)) return { refus: 'le champ envoyé en fichier ne porte pas une pièce reçue' };
+    return telecharger(valeur, signal);
+  };
 }
 
 /**
@@ -133,7 +191,10 @@ export function creerAppelHttpScenario(deps: DepsAppelHttpScenario) {
        * filtre du connecteur (qui ne borne plus que l'agent IA) ; tout autre -> les champs de réponse, comme avant.
        */
       const lecture = champCible === '' ? 'pousse' : (await deps.typeDuChamp(tenantId, champCible)) === 'json' ? 'entier' : 'integre';
-      const contact = await avecLiensDesPieces(deps, tenantId, waId, await deps.projectionContact(tenantId, waId));
+      const { contact, liens } = await avecLiensDesPieces(deps, tenantId, waId, await deps.projectionContact(tenantId, waId));
+      // Une requête qui envoie une pièce a son délai ; les autres gardent le leur.
+      const requete = await deps.requetes.parId(tenantId, requestId);
+      const signal = AbortSignal.timeout(requete && porteUnFichier(requete.corps) ? DELAI_APPEL_PIECE_MS : DELAI_APPEL_HTTP_MS);
       const r = await appel({
         tenantId,
         waId,
@@ -153,7 +214,9 @@ export function creerAppelHttpScenario(deps: DepsAppelHttpScenario) {
         lecture: lecture === 'pousse' ? { nature: 'pousse' } as const
           : lecture === 'entier' ? { nature: 'entier' } as const
           : { nature: 'integre', champs: null } as const,
-        signal: AbortSignal.timeout(DELAI_APPEL_HTTP_MS),
+        signal,
+        // 🔴 Le seul appelant qui lit une pièce : et seulement les liens qu'il vient de fabriquer.
+        fichiers: lecteurDesPieces(deps, liens, signal),
         journal: deps.journalAppels
           ? {
             journal: deps.journalAppels,

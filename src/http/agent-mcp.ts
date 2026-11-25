@@ -1,3 +1,4 @@
+import type { AuthSource } from '../agent/sources';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { gardeEtendue, type Guard, type PreHandler } from '../auth/middleware';
@@ -25,7 +26,9 @@ export interface ServeurMcpVue {
   id: string;
   label: string;
   baseUrl: string;
-  authKind: 'none' | 'bearer' | 'header';
+  /** Toujours l'un des trois premiers pour un serveur MCP (la route refuse `oauth_password`) ; le type est celui de la
+   *  table, que le store des sources partage. */
+  authKind: AuthSource;
   authHeaderName: string | null;
   status: string;
   lastOkAt: string | null;

@@ -22,7 +22,7 @@ import { creerTransportConnecteurHttp, type TransportConnecteurHttpDeps } from '
  */
 const SOURCE: SourceAppel = {
   id: 'src1', kind: 'http', baseUrl: 'https://api.client.fr/v1',
-  authKind: 'bearer', authHeaderName: null, authSecret: 'JETON-SECRET-42', status: 'active',
+  authKind: 'bearer', authHeaderName: null, oauth: null, authSecret: 'JETON-SECRET-42', status: 'active',
 };
 
 const OUTIL: OutilDefini = { ...SANS_MCP, ...AUCUN_GESTE(),
@@ -126,7 +126,7 @@ describe('résolveur http : le chemin nominal', () => {
   });
 
   it('l’authentification par en-tête nommé passe par ce nom, et « none » n’envoie rien', async () => {
-    const parEntete = harnais({ source: { ...SOURCE, authKind: 'header', authHeaderName: 'x-api-key', authSecret: 'K1' } });
+    const parEntete = harnais({ source: { ...SOURCE, authKind: 'header', authHeaderName: 'x-api-key', oauth: null, authSecret: 'K1' } });
     await parEntete.resolveur(parEntete.entree);
     const h = parEntete.appels[0]!.init.headers as Record<string, string>;
     expect(h['x-api-key']).toBe('K1');
@@ -208,7 +208,7 @@ describe('résolveur http : ce qui ne doit JAMAIS fuiter', () => {
     // de ce fichier : un message d'erreur bavard suffirait à publier le jeton d'API d'un client.
     for (const source of [
       SOURCE,
-      { ...SOURCE, authKind: 'header' as const, authHeaderName: 'x-api-key', authSecret: 'JETON-SECRET-42' },
+      { ...SOURCE, authKind: 'header' as const, authHeaderName: 'x-api-key', oauth: null, authSecret: 'JETON-SECRET-42' },
       { ...SOURCE, authKind: 'none' as const, authSecret: null },
     ]) {
       for (const reponse of [

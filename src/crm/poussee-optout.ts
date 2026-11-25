@@ -157,6 +157,8 @@ export function creerTravailPousseeOptOut(deps: DepsTravailPousseeOptOut) {
            *  traverser. */
           lecture: { nature: 'pousse' } as const,
           signal: AbortSignal.timeout(DELAI_POUSSEE_OPTOUT_MS),
+          // Une poussée d'opt-out n'envoie jamais de pièce.
+          fichiers: null,
           journal: deps.journalAppels
             ? { journal: deps.journalAppels, source: 'optout', nom, sessionId: null, toolId: null }
             : null,

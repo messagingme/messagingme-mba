@@ -20,10 +20,19 @@ const VARIABLE_SEULE = new RegExp(`^${MOTIF_PASTILLE}$`);
 
 export type ValeurVariable = string | number | boolean | null;
 
+/**
+ * Un corps `multipart/form-data`, valeurs substituées, avant la lecture des fichiers. Une ligne `fichier` porte la
+ * valeur de sa variable (le lien d'une pièce, dans un scénario) : c'est l'appelant qui la change en fichier, ou refuse.
+ */
+export interface CorpsFormulaire {
+  nature: 'formulaire';
+  champs: readonly { cle: string; valeur: string; fichier: boolean }[];
+}
+
 export interface CorpsConstruit {
   ok: true;
-  /** Le corps sérialisé, prêt à partir. `null` quand le connecteur n'en envoie pas. */
-  corps: string | null;
+  /** Le corps prêt à partir : JSON sérialisé, ou formulaire à matérialiser. `null` quand le connecteur n'en envoie pas. */
+  corps: string | CorpsFormulaire | null;
 }
 export interface CorpsRefuse {
   ok: false;
@@ -70,6 +79,14 @@ export interface ChampCorps {
 }
 
 /**
+ * Une ligne du mode « formulaire » (`multipart/form-data`, plan 2026-11-25). `fichier` : la valeur désigne une pièce
+ * reçue par un bloc Question (sa variable lit le champ de la pièce), et c'est le FICHIER qui part, pas le texte.
+ */
+export interface ChampFormulaire extends ChampCorps {
+  fichier: boolean;
+}
+
+/**
  * Comment le corps est saisi : JSON brut, ou liste de champs. Deux saisies, un seul moteur : le mode `champs`
  * est compilé vers le même arbre que le mode `json`, puis les deux passent par `substituer`, pour qu'ils ne
  * divergent jamais.
@@ -77,7 +94,13 @@ export interface ChampCorps {
 export type GabaritCorps =
   | { mode: 'aucun' }
   | { mode: 'json'; gabarit: string }
-  | { mode: 'champs'; champs: readonly ChampCorps[] };
+  | { mode: 'champs'; champs: readonly ChampCorps[] }
+  | { mode: 'formulaire'; champs: readonly ChampFormulaire[] };
+
+/** La requête envoie-t-elle une pièce en fichier ? Seul un bloc Appel API de scénario sait la jouer. */
+export function porteUnFichier(corps: GabaritCorps): boolean {
+  return corps.mode === 'formulaire' && corps.champs.some((c) => c.fichier && c.cle.trim() !== '');
+}
 
 /**
  * Construit le corps d'un appel. Un gabarit illisible est un refus, jamais un corps vide envoyé quand même :
@@ -90,6 +113,27 @@ export function construireCorps(
   let arbre: unknown;
 
   if (gabarit.mode === 'aucun') return { ok: true, corps: null };
+
+  if (gabarit.mode === 'formulaire') {
+    // Chaque ligne est une partie distincte du formulaire : une valeur, même venue du contact, n'en fabrique pas une
+    // autre. La substitution est donc textuelle, comme un paramètre d'URL.
+    const lignes = gabarit.champs.filter((c) => c.cle.trim() !== '');
+    if (lignes.length === 0) return { ok: true, corps: null };
+    const manquantes = new Set<string>();
+    const champs = lignes.map((c) => {
+      VARIABLE.lastIndex = 0;
+      const valeur = c.valeur.replace(VARIABLE, (_m, nom: string) => {
+        if (!(nom in valeurs)) { manquantes.add(nom); return ''; }
+        const v = valeurs[nom];
+        return v === null || v === undefined ? '' : String(v);
+      });
+      return { cle: c.cle.trim(), valeur, fichier: c.fichier };
+    });
+    if (manquantes.size > 0) {
+      return { ok: false, raison: `variable(s) sans valeur dans le corps : ${[...manquantes].sort().join(', ')}` };
+    }
+    return { ok: true, corps: { nature: 'formulaire', champs } };
+  }
 
   if (gabarit.mode === 'champs') {
     // Une ligne sans clé est une ligne pas remplie, pas une erreur : même règle que les paramètres d'URL.
@@ -193,7 +237,7 @@ export function assemblerAppel(input: {
   /** Injectée pour tester la garde d'adresse sans dupliquer ses cas ici. */
   construireCible: (i: { baseUrl: string; binding: { methode: string; chemin: string }; args: Record<string, unknown> })
   => { ok: true; url: string; methode: string } | { ok: false; raison: string };
-}): { ok: true; url: string; methode: string; entetes: Record<string, string>; corps: string | null } | CorpsRefuse {
+}): { ok: true; url: string; methode: string; entetes: Record<string, string>; corps: string | CorpsFormulaire | null } | CorpsRefuse {
   // 1. L'adresse, avec toutes ses gardes (HTTPS, hôte public, cible sous la base), avant le reste.
   const cible = input.construireCible({
     baseUrl: input.baseUrl,
@@ -240,7 +284,8 @@ export function assemblerAppel(input: {
   }
   // Posé d'après ce qui part réellement : annoncer un corps qu'on n'envoie pas fait répondre 400 à certaines
   // API.
-  if (c.corps !== null) entetes['content-type'] = 'application/json';
+  // Un formulaire ne pose rien : `fetch` écrit `multipart/form-data` avec sa frontière.
+  if (typeof c.corps === 'string') entetes['content-type'] = 'application/json';
 
   return { ok: true, url, methode: cible.methode, entetes, corps: c.corps };
 }
@@ -290,7 +335,7 @@ export function variablesUtilisees(
     while ((m = VARIABLE.exec(s)) !== null) vues.add(m[1]!);
   };
   if (corps.mode === 'json') balayer(corps.gabarit);
-  if (corps.mode === 'champs') for (const c of corps.champs) balayer(c.valeur);
+  if (corps.mode === 'champs' || corps.mode === 'formulaire') for (const c of corps.champs) balayer(c.valeur);
   for (const p of parametres ?? []) balayer(p.valeur);
   for (const e of entetes ?? []) balayer(e.valeur);
   // Le chemin admet `{{nom}}` et `{nom}` : la même expression que la substitution (`http-cible.ts`).

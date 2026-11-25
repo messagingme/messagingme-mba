@@ -262,7 +262,7 @@ import { PgEntretienMbaStore } from './mba/assistant/entretien-store';
 import { lireInventaireMba } from './mba/assistant/inventaire';
 import { PgDepenseStore } from './assistant/budget';
 import { PgHistoriqueStore } from './reglages/historique.pg';
-import { enTetesAuthSource } from './agent/http-cible';
+import { jetonsOAuth } from './agent/jeton-oauth';
 import { creerEprouverSource } from './agent/eprouver-source';
 import { GatewayChatClient } from './agent/llm/chat-client';
 import { consommateurAgent, consommateurMba } from './agent/consommateur';
@@ -3150,7 +3150,7 @@ async function main(): Promise<void> {
       requetes: agentRequetes,
       /**
        * Ce qu'il faut pour éprouver une requête : l'adresse de base et les en-têtes d'authentification, par
-       * le même point de passage que l'appel réel (`enTetesAuthSource`), sinon le test dirait « ça répond »
+       * le même point de passage que l'appel réel (`jetonsOAuth`, jeton OAuth compris), sinon le test dirait « ça répond »
        * d'une source que les appels ne savent pas authentifier.
        */
       sourcePourTest: async (tenant, sourceId) => {
@@ -3161,9 +3161,17 @@ async function main(): Promise<void> {
          * composition sur le point MCP du client, avec son secret déchiffré dans l'en-tête. Le repli sur
          * `null` rend déjà un 400 lisible.
          */
-        return src && src.kind === 'http'
-          ? { baseUrl: src.baseUrl, entetes: enTetesAuthSource(src), status: src.status }
-          : null;
+        if (!src || src.kind !== 'http') return null;
+        // Le jeton OAuth se demande comme pour un appel réel (même fournisseur, même cache).
+        const auth = await jetonsOAuth.entetes(src);
+        return auth.ok
+          ? { baseUrl: src.baseUrl, entetes: auth.entetes, status: src.status }
+          : {
+            baseUrl: src.baseUrl, entetes: {}, status: src.status,
+            erreurAuth: auth.erreur === 'auth'
+              ? 'le serveur d’autorisation a refusé l’identifiant ou le mot de passe de ce connecteur'
+              : 'le jeton de ce connecteur n’a pas pu être obtenu',
+          };
       },
       // Les clés des champs déclarés : une variable `champ` doit en désigner une, sinon la faute de frappe ne
       // se verrait qu'à l'appel, en pleine conversation.

@@ -7,6 +7,7 @@ const json = (gabarit: string): GabaritCorps => ({ mode: 'json', gabarit });
 /** Le corps produit, décodé. Échoue clairement si l'appel a été refusé. */
 function corpsDe(r: ReturnType<typeof construireCorps>): unknown {
   if (!r.ok) throw new Error(`refusé : ${r.raison}`);
+  if (r.corps !== null && typeof r.corps !== 'string') throw new Error('corps formulaire inattendu');
   return r.corps === null ? null : JSON.parse(r.corps);
 }
 

@@ -33,12 +33,12 @@ const OUTIL = '33333333-3333-3333-3333-333333333333';
 
 const SERVEUR = {
   id: SOURCE, label: 'Notion', baseUrl: 'https://exemple.test/mcp',
-  authKind: 'bearer' as const, authHeaderName: null, status: 'active',
+  authKind: 'bearer' as const, authHeaderName: null, oauth: null, status: 'active',
   lastOkAt: null, lastError: null,
 };
 const POUR_APPEL: SourceAppel = {
   id: SOURCE, kind: 'mcp', baseUrl: 'https://exemple.test/mcp',
-  authKind: 'bearer', authHeaderName: null, authSecret: 'jeton', status: 'active',
+  authKind: 'bearer', authHeaderName: null, oauth: null, authSecret: 'jeton', status: 'active',
 };
 
 const annonce = (name: string, schema: unknown = { type: 'object', properties: { q: { type: 'string' } } }) =>

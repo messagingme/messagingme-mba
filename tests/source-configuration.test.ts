@@ -32,7 +32,7 @@ describe('contrat commun des sources d outils', () => {
 
     expect(preparerCreationSource({
       baseUrl: 'https://api.client.fr/v1', authKind: 'header',
-      authHeaderName: 'X-Api-Key', authSecret: 'jeton',
+      authHeaderName: 'X-Api-Key', oauth: null, authSecret: 'jeton',
     })).toEqual({ ok: true, hote: 'api.client.fr' });
   });
 
@@ -40,7 +40,7 @@ describe('contrat commun des sources d outils', () => {
     const actuelle = {
       baseUrl: 'https://api.client.fr/v1',
       authKind: 'none' as const,
-      authHeaderName: null,
+      authHeaderName: null, oauth: null,
       aAuthentification: true,
     };
 
@@ -58,7 +58,7 @@ describe('contrat commun des sources d outils', () => {
     const actuelle = {
       baseUrl: 'https://api.client.fr/v1',
       authKind: 'header' as const,
-      authHeaderName: 'X-Api-Key',
+      authHeaderName: 'X-Api-Key', oauth: null,
       aAuthentification: true,
     };
 

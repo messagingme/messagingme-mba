@@ -22,7 +22,7 @@ import { AUCUN_GESTE } from './gestes';
 
 const SOURCE: SourceAppel = {
   id: 'src1', kind: 'mcp', baseUrl: 'https://exemple.test/mcp',
-  authKind: 'bearer', authHeaderName: null, authSecret: 'jeton-secret', status: 'active',
+  authKind: 'bearer', authHeaderName: null, oauth: null, authSecret: 'jeton-secret', status: 'active',
 };
 
 const OUTIL = (over: Partial<OutilDefini> = {}): OutilDefini => ({

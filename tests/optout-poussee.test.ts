@@ -445,7 +445,7 @@ describe('le travail de poussée', () => {
    */
   const SOURCE: SourceAppel = {
     id: 'src1', kind: 'http', baseUrl: 'https://crm.exemple.fr',
-    authKind: 'none', authHeaderName: null, authSecret: null, status: 'active',
+    authKind: 'none', authHeaderName: null, oauth: null, authSecret: null, status: 'active',
   };
 
   function deps(

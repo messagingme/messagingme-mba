@@ -28,7 +28,7 @@ import { GESTE_MUET } from './gestes';
 
 const SOURCE: SourceAppel = {
   id: 'src1', kind: 'http', baseUrl: 'https://api.client.fr/v1',
-  authKind: 'none', authHeaderName: null, authSecret: null, status: 'active',
+  authKind: 'none', authHeaderName: null, oauth: null, authSecret: null, status: 'active',
 };
 
 /** La requête « tarif » de Groupama PJ, avant et après le renommage, plus ce que la modification a aussi changé. */

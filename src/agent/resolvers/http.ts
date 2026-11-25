@@ -2,8 +2,10 @@ import type { EntreeResolveur, ResolveurOutil, SortieResolveur } from '../execut
 import type { JournalAppels, SourceAppel, StatutAppel } from '../catalog';
 import type { SourceStore } from '../sources';
 import type { RequeteStore } from '../requetes';
-import { construireCible, enTetesAuthSource } from '../http-cible';
-import { assemblerAppel } from '../requete-http';
+import { construireCible } from '../http-cible';
+import { jetonsOAuth, type FournisseurJetons } from '../jeton-oauth';
+import { assemblerAppel, porteUnFichier } from '../requete-http';
+import { materialiserFormulaire, type LecteurFichier } from '../corps-formulaire';
 import { resoudreVariable, type ValeurResolue } from '../variables';
 import type { CleFicheFixe } from '../../crm/champs-fiche';
 import { transportConnecteurHttp, type TransportConnecteurHttp } from '../transport-connecteur-http';
@@ -40,7 +42,12 @@ export interface DepsResolveurHttp {
   now?: () => Date;
   /** Le transport complet, injecté dans les tests. Défaut : résolution et connexion publiques de production. */
   transportHttp?: TransportConnecteurHttp;
+  /** Les en-têtes d'authentification, jeton OAuth compris. Défaut : le fournisseur de production, partagé. */
+  jetons?: FournisseurJetons;
 }
+
+/** Plafond de lecture de la réponse d'un appel qui envoie une pièce (2 Mo) : voir l'étape 5ter. */
+export const MAX_OCTETS_REPONSE_PIECE = 2 * 1024 * 1024;
 
 /** Ce qu'on dit au modèle quand ça ne va pas. Volontairement pauvre : il n'a pas à savoir pourquoi le
  *  système du client refuse, seulement qu'il ne peut pas répondre depuis cette source. */
@@ -86,6 +93,12 @@ export interface AppelConnecteur {
   args: Record<string, unknown>;
   signal: AbortSignal;
   /**
+   * 🔴 La lecture des pièces d'un corps « formulaire » (plan 2026-11-25), ou `null` : seul l'Appel API d'un scénario
+   * la passe. Requise, pour qu'un nouvel appelant décide au lieu d'hériter : avec `null`, une requête qui envoie une
+   * pièce est refusée avant tout appel réseau.
+   */
+  fichiers: LecteurFichier | null;
+  /**
    * Où journaliser cet appel, ou `null` quand l'appelant le fait déjà. Obligatoire : un champ optionnel
    * s'oublierait au prochain appelant, dont les échecs ne laisseraient aucune trace consultable. `null` est
    * une décision : le résolveur d'agent le passe parce que son exécuteur journalise déjà.
@@ -124,6 +137,7 @@ export interface JournalDAppel {
  */
 export function creerAppelConnecteur(deps: DepsResolveurHttp): (p: AppelConnecteur) => Promise<SortieResolveur> {
   const transportHttp = deps.transportHttp ?? transportConnecteurHttp;
+  const jetons = deps.jetons ?? jetonsOAuth;
 
   /** L'enveloppe de journal, best-effort dans les deux sens : un appel ne meurt pas d'une insertion ratée. */
   const journaliser = async (p: AppelConnecteur, faire: () => Promise<SortieResolveur>): Promise<SortieResolveur> => {
@@ -242,18 +256,42 @@ export function creerAppelConnecteur(deps: DepsResolveurHttp): (p: AppelConnecte
     });
     if (!appel.ok) return { ok: false, contenu: { erreur: 'ce connecteur est mal configuré' }, erreur: appel.raison };
 
+    // 5ter. Un corps « formulaire » se matérialise ici, pièces comprises, avant le jeton : une pièce absente ou expirée
+    // ne coûte aucune demande au serveur d'autorisation du client.
+    let corps: string | import('undici').FormData | null;
+    if (appel.corps !== null && typeof appel.corps === 'object') {
+      const f = await materialiserFormulaire(appel.corps, p.fichiers);
+      if (!f.ok) return { ok: false, contenu: { erreur: 'la pièce à envoyer n’est pas disponible' }, erreur: f.raison };
+      corps = f.formulaire;
+    } else {
+      corps = appel.corps;
+    }
+    /**
+     * Une analyse de pièce répond gros (le détail de chaque champ lu, parfois une image) : sa lecture monte à
+     * `MAX_OCTETS_REPONSE_PIECE`, toujours en flux et bornée. Seuls les champs déclarés en sont gardés.
+     */
+    const maxOctets = porteUnFichier(requete.corps) ? Math.max(outil.maxBytes, MAX_OCTETS_REPONSE_PIECE) : outil.maxBytes;
+
     // 5bis-7. Le transport commun possède la résolution publique, la connexion protégée, les redirections,
     // l'abandon et la lecture bornée. Le secret reste assemblé ici, dans l'adapter de la source.
-    const headers = { ...appel.entetes, ...enTetesAuthSource(source) };
+    const auth = await jetons.entetes(source);
+    if (!auth.ok) {
+      // Le jeton n'a pas pu être obtenu : aucun appel ne part vers le système du client. La source est marquée, pour
+      // que l'écran montre une connexion morte avant qu'un contact ne la découvre.
+      await deps.sources.marquerEpreuve(ctx.tenantId, source.id, false, auth.erreur === 'auth' ? 'connexion refusée (identifiant ou mot de passe)' : 'jeton indisponible').catch(() => {});
+      const cle = auth.erreur === 'auth' ? 'auth' : auth.erreur === 'interne' ? 'interne' : 'indispo';
+      return { ok: false, contenu: { erreur: MESSAGES[cle] }, erreur: `jeton_${auth.erreur}` };
+    }
+    const headers = { ...appel.entetes, ...auth.entetes };
     const transporte = await transportHttp.executer({
       url: appel.url,
       methode: appel.methode,
       entetes: headers,
-      corps: appel.corps,
+      corps,
       signal,
       lecture: p.lecture.nature === 'pousse'
         ? { nature: 'aucune' }
-        : { nature: 'texte', maxOctets: outil.maxBytes },
+        : { nature: 'texte', maxOctets },
     });
     if (transporte.nature === 'adresse_refusee') {
       await deps.sources.marquerEpreuve(ctx.tenantId, source.id, false, 'adresse interne').catch(() => {});
@@ -286,6 +324,8 @@ export function creerAppelConnecteur(deps: DepsResolveurHttp): (p: AppelConnecte
     // (chemins internes, parfois des identifiants).
     if (httpStatus < 200 || httpStatus >= 300) {
       const authentification = httpStatus === 401 || httpStatus === 403;
+      // Un jeton refusé ne se réutilise pas : le prochain appel en demande un neuf.
+      if (authentification) jetons.oublier(source.id);
       // Un 4xx est une réponse du système du client : la source reste saine, sauf refus d'authentification, le
       // symptôme d'un jeton mort.
       const sourceSaine = httpStatus >= 400 && httpStatus < 500 && !authentification;
@@ -354,6 +394,8 @@ export function creerResolveurHttp(deps: DepsResolveurHttp): ResolveurOutil {
       : { nature: 'integre', champs: entree.outil.outputPaths },
     args: entree.args,
     signal: entree.signal,
+    // L'agent IA ne lit jamais une pièce : une pièce d'identité ne part pas sur la décision d'un modèle.
+    fichiers: null,
     // `null` : l'exécuteur d'agent journalise déjà autour de ce résolveur, une seconde ligne compterait deux
     // fois le même appel.
     journal: null,

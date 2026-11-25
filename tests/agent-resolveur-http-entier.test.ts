@@ -12,7 +12,7 @@ import type { RequeteConnecteur } from '../src/agent/requetes';
  * gardent le message SÛR du point de passage, jamais le corps brut d'une erreur.
  */
 const SOURCE: SourceAppel = {
-  id: 'src1', kind: 'http', baseUrl: 'https://api.client.fr', authKind: 'bearer', authHeaderName: null,
+  id: 'src1', kind: 'http', baseUrl: 'https://api.client.fr', authKind: 'bearer', authHeaderName: null, oauth: null,
   authSecret: 'S', status: 'active',
 };
 const REQUETE: RequeteConnecteur = {
@@ -35,7 +35,7 @@ function appelAvec(reponse: { status: number; body: string | null }) {
   });
   const p: AppelConnecteur = {
     tenantId: 't1', waId: '33600', contact: { nom: 'J', tags: [], champs: {} }, requestId: 'rq1',
-    maxBytes: 16_384, args: { user: 'u1' }, signal: AbortSignal.timeout(5_000), journal: null,
+    maxBytes: 16_384, args: { user: 'u1' }, signal: AbortSignal.timeout(5_000), journal: null, fichiers: null,
     lecture: { nature: 'entier' },
   };
   return appel(p);

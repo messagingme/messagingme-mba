@@ -51,6 +51,15 @@ function lireParametres(v: unknown): ParametreUrl[] {
   });
 }
 
+/** Les lignes d'un corps « formulaire » : celles des champs, plus la case `fichier` (absente = texte). */
+function lireChampsFormulaire(v: unknown): { cle: string; valeur: string; fichier: boolean }[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((x) => {
+    const o = (x ?? {}) as { cle?: unknown; valeur?: unknown; fichier?: unknown };
+    return typeof o.cle === 'string' && typeof o.valeur === 'string' ? [{ cle: o.cle, valeur: o.valeur, fichier: o.fichier === true }] : [];
+  });
+}
+
 function lireEnTetes(v: unknown): EnTete[] {
   if (!Array.isArray(v)) return [];
   return v.flatMap((x) => {
@@ -66,6 +75,7 @@ function lireEnTetes(v: unknown): EnTete[] {
 function lireCorps(mode: string, brut: string | null, champs: unknown): GabaritCorps {
   if (mode === 'json') return { mode: 'json', gabarit: brut ?? '' };
   if (mode === 'champs') return { mode: 'champs', champs: lireParametres(champs) };
+  if (mode === 'formulaire') return { mode: 'formulaire', champs: lireChampsFormulaire(champs) };
   return { mode: 'aucun' };
 }
 
@@ -119,6 +129,7 @@ function traduire(label: string) {
 function corpsEnColonnes(c: GabaritCorps): { mode: string; json: string | null; champs: unknown } {
   if (c.mode === 'json') return { mode: 'json', json: c.gabarit, champs: [] };
   if (c.mode === 'champs') return { mode: 'champs', json: null, champs: c.champs };
+  if (c.mode === 'formulaire') return { mode: 'formulaire', json: null, champs: c.champs };
   return { mode: 'aucun', json: null, champs: [] };
 }
 

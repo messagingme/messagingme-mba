@@ -222,6 +222,8 @@ export function registerMbaRelais(app: FastifyInstance, deps: MbaRelaisDeps, gar
         signal: AbortSignal.timeout(o.timeoutMs),
         journal: { journal: deps.journal, source: 'mba', nom: o.name, sessionId: null, toolId: o.id },
         lecture: { nature: 'entier' },
+        // Le relais du MBA ne lit jamais une pièce : il joue ce que l'agent de Meta décide.
+        fichiers: null,
       });
       if (sortie.ok === false) return refus(texteErreur(sortie.contenu));
       const reponse = (sortie.contenu as { reponse?: unknown } | null)?.reponse ?? null;

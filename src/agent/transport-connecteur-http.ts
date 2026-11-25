@@ -1,6 +1,7 @@
 import { resolutionPublique, type VerdictResolution } from '../lib/adresse-privee';
 import { fetchPublic, estRedirectionRefusee, estRefusAdresseInterne } from '../lib/connexion-publique';
 import { lireCorpsBorne } from '../lib/corps-borne';
+import type { FormData } from 'undici';
 
 /**
  * Le transport d'un Connecteur HTTP déjà préparé.
@@ -18,7 +19,8 @@ export interface AppelTransportConnecteur {
   url: string;
   methode: string;
   entetes: Record<string, string>;
-  corps: string | null;
+  /** Un `FormData` (celui d'undici, voir `corps-formulaire.ts`) part en `multipart/form-data`, en-tête et frontière écrits par `fetch`. */
+  corps: string | FormData | null;
   signal: AbortSignal;
   lecture: LectureTransportConnecteur;
 }
@@ -78,7 +80,8 @@ export function creerTransportConnecteurHttp(
         res = await deps.fetch(appel.url, {
           method: appel.methode,
           headers: appel.entetes,
-          ...(appel.corps !== null ? { body: appel.corps } : {}),
+          // Le type de `deps.fetch` est celui du global ; le `fetch` de production est celui d'undici, qui lit SON FormData.
+          ...(appel.corps !== null ? { body: appel.corps as unknown as BodyInit } : {}),
           redirect: 'error',
           signal: appel.signal,
         });

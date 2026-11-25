@@ -122,8 +122,8 @@ async function inserer(q: Q, sql: string, params: unknown[], quoi: string): Prom
  */
 export function copierSource(q: Q, source: string, destination: string, id: string, label: string): Promise<string> {
   return inserer(q, `
-    insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_header_name, auth_secret_enc, status)
-    select $3, kind, $4, base_url, auth_kind, auth_header_name, auth_secret_enc, status
+    insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_header_name, auth_secret_enc, auth_oauth, status)
+    select $3, kind, $4, base_url, auth_kind, auth_header_name, auth_secret_enc, auth_oauth, status
       from agent_tool_sources where id = $1 and tenant_id = $2
     returning id`, [id, source, destination, label], 'la source');
 }

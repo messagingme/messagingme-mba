@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Guard } from '../auth/middleware';
-import { LabelSourceDejaPris, SourcePorteDesAppels, type SourceVue } from '../agent/sources';
+import { LabelSourceDejaPris, SourcePorteDesAppels, type AuthSource, type ConfigOAuth, type SourceVue } from '../agent/sources';
 import {
   preparerCreationSource,
   preparerPatchSource,
@@ -31,7 +31,7 @@ export interface AgentSourcesRouteDeps {
   sources: {
     lister(tenantId: string): Promise<SourceVue[]>;
     parId(tenantId: string, id: string): Promise<SourceVue | null>;
-    creer(tenantId: string, input: { kind: 'http'; label: string; baseUrl: string; authKind: 'none' | 'bearer' | 'header'; authHeaderName?: string; authSecret?: string }): Promise<SourceVue>;
+    creer(tenantId: string, input: { kind: 'http'; label: string; baseUrl: string; authKind: AuthSource; authHeaderName?: string; oauth?: ConfigOAuth; authSecret?: string }): Promise<SourceVue>;
     patch(tenantId: string, id: string, patch: Record<string, unknown>): Promise<SourceVue | null>;
     supprimer(tenantId: string, id: string): Promise<boolean>;
   };
@@ -46,19 +46,29 @@ const LABEL = z.string().trim().min(1).max(80);
 const URL_BASE = z.string().trim().min(1).max(500);
 const SECRET = z.string().trim().min(1).max(500);
 const NOM_ENTETE = z.string().trim().regex(/^[A-Za-z0-9-]{1,64}$/, 'nom d’en-tête invalide');
+const AUTH = z.enum(['none', 'bearer', 'header', 'oauth_password']);
+/** La connexion OAuth sans le mot de passe (le secret). L'adresse du jeton est vérifiée par `source-configuration`. */
+const OAUTH = z.object({
+  tokenUrl: URL_BASE,
+  clientId: z.string().trim().min(1).max(200),
+  username: z.string().trim().min(1).max(200),
+  scope: z.string().trim().max(200).default(''),
+});
 
 const creationSchema = z.object({
   label: LABEL,
   baseUrl: URL_BASE,
-  authKind: z.enum(['none', 'bearer', 'header']),
+  authKind: AUTH,
   authHeaderName: NOM_ENTETE.optional(),
+  oauth: OAUTH.optional(),
   authSecret: SECRET.optional(),
 });
 const patchSchema = z.object({
   label: LABEL.optional(),
   baseUrl: URL_BASE.optional(),
-  authKind: z.enum(['none', 'bearer', 'header']).optional(),
+  authKind: AUTH.optional(),
   authHeaderName: NOM_ENTETE.nullable().optional(),
+  oauth: OAUTH.optional(),
   authSecret: SECRET.optional(),
   status: z.enum(['draft', 'active', 'disabled']).optional(),
 });
@@ -95,13 +105,14 @@ export function registerAgentSources(app: FastifyInstance, deps: AgentSourcesRou
     const tenant = espaceVerifie(req);
     const parse = creationSchema.safeParse(req.body ?? {});
     if (!parse.success) return reply.code(400).send({ error: 'libellé, adresse et mode d’authentification requis' });
-    const { label, baseUrl, authKind, authHeaderName, authSecret } = parse.data;
-    const preparation = preparerCreationSource({ baseUrl, authKind, authHeaderName, authSecret });
+    const { label, baseUrl, authKind, authHeaderName, oauth, authSecret } = parse.data;
+    const preparation = preparerCreationSource({ baseUrl, authKind, authHeaderName, oauth, authSecret });
     if (!preparation.ok) return reply.code(400).send({ error: preparation.erreur });
     try {
       const source = await deps.sources.creer(tenant, {
         kind: 'http', label, baseUrl, authKind,
         ...(authHeaderName ? { authHeaderName } : {}),
+        ...(authKind === 'oauth_password' && oauth ? { oauth } : {}),
         ...(authSecret ? { authSecret } : {}),
       });
       // L'hôte, pas l'adresse complète : il répond à « où partent les données » sans graver le chemin.

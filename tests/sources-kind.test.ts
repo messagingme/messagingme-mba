@@ -57,7 +57,7 @@ const LECTEURS: Array<{ fichier: string; gardes: string[]; pourquoi: string }> =
      * satisfaire l'assertion, et le test restait vert. C'est la MUTATION qui l'a montré, pas la relecture.
      */
     gardes: [
-      "return src && src.kind === 'http'",
+      "if (!src || src.kind !== 'http') return null;",
     ],
     // ⚠️ LA POSE DU SECRET CHEZ META A DISPARU LE 2026-09-21 (relais du MBA, migration 0161) : Meta appelle
     // désormais Messaging Me, et le secret d'un client ne quitte plus notre serveur. Son motif a quitté la liste
