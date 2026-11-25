@@ -107,6 +107,14 @@ const LIEN_SCENARIO: Variable = { description: 'Le scénario ouvert dans le cons
 const RAISON_MISE_EN_LIGNE: Variable = { description: 'Ce qui a empêché la mise en ligne : la raison du refus de Meta, ou la règle du constructeur', forme: 'texte', exemple: 'Meta a refusé le template « relance_panier_mi3k2x1a » (raison : INVALID_FORMAT)' };
 /** La limite de contacts du Pro, lue dans la grille (`DROITS.pro`), que l'e-mail de la Free cite (spec offres v2, livraison 5). */
 const LIMITE_PRO: Variable = { description: 'La limite de contacts de l’offre Pro', forme: 'texte', exemple: '5000' };
+/**
+ * Le pack de contacts du Pro (2026-11-25) : ses contacts, son prix HT au mois et à l'an, lus dans `CONTACTS_PAR_PACK` et
+ * `PRIX_PACK_CONTACTS_HT_CENTIMES` (`src/offres/offres.ts`), jamais recopiés ici ; le lien ouvre l'achat sur la page Offre.
+ */
+const CONTACTS_PACK: Variable = { description: 'Les contacts qu’un pack ajoute au Pro', forme: 'texte', exemple: '1 000' };
+const PRIX_PACK_MOIS: Variable = { description: 'Le prix HT d’un pack de contacts au mois, en euros', forme: 'texte', exemple: '20' };
+const PRIX_PACK_AN: Variable = { description: 'Le prix HT d’un pack de contacts à l’an, en euros', forme: 'texte', exemple: '240' };
+const LIEN_PACK: Variable = { description: 'L’achat d’un pack de contacts, sur la page Offre de la console', forme: 'lien', exemple: 'https://console.messagingme.app/offre?pack=ajouter' };
 const LIEN_CONSOLE: Variable = { description: 'L’accueil de la console', forme: 'lien', exemple: 'https://console.messagingme.app/accueil' };
 const LIEN_SUPPORT: Variable = { description: 'La page Support de la console', forme: 'lien', exemple: 'https://console.messagingme.app/support' };
 const NUMERO_APPLICATION: Variable = { description: 'Le numéro du compte de l’application WhatsApp Business', forme: 'texte', exemple: '+447700900000' };
@@ -730,21 +738,28 @@ export const CATALOGUE = [
     aide: LIGNES_AIDE.offre,
     nom: 'Offre Pro : 80 % des contacts',
     quand: 'Un espace Pro atteint 80 % de sa limite de contacts, ceux qui lui ont écrit les premiers compris. Une fois à chaque franchissement.',
-    variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
+    variables: {
+      limite: LIMITE, lien_offre: LIEN_OFFRE, contacts_pack: CONTACTS_PACK, prix_pack_mois: PRIX_PACK_MOIS, prix_pack_an: PRIX_PACK_AN,
+      lien_pack: LIEN_PACK,
+    },
     textes: {
       fr: {
         sujet: 'Vous approchez de votre limite de contacts',
         corps: 'Bonjour,\n\nL’espace {{espace}} compte 80 % des {{limite}} contacts que l’offre Pro permet, ceux qui vous ont '
           + 'écrit les premiers compris. Au-delà, il ne sera plus possible d’en créer ni d’en importer, et un nouveau client '
-          + 'qui vous écrit n’entrera pas dans Messaging Me.\n\nL’offre Business va plus loin : demandez-la depuis la page Offre.',
-        bouton: { libelle: 'Voir les offres', lien: '{{lien_offre}}' },
+          + 'qui vous écrit n’entrera pas dans Messaging Me.\n\nAjoutez {{contacts_pack}} contacts pour {{prix_pack_mois}} € HT '
+          + 'par mois ({{prix_pack_an}} € HT par an avec la formule Pro annuelle), en un clic depuis la page Offre. L’offre '
+          + 'Business va plus loin : demandez-la depuis la même page.',
+        bouton: { libelle: 'Ajouter des contacts', lien: '{{lien_pack}}' },
       },
       en: {
         sujet: 'You are close to your contact limit',
         corps: 'Hello,\n\nThe {{espace}} workspace has 80% of the {{limite}} contacts the Pro plan allows, including those who '
           + 'wrote to you first. Beyond that, creating or importing contacts will no longer be possible, and a new customer '
-          + 'who writes to you will not get into Messaging Me.\n\nThe Business plan goes further: ask for it from the Plan page.',
-        bouton: { libelle: 'See plans', lien: '{{lien_offre}}' },
+          + 'who writes to you will not get into Messaging Me.\n\nAdd {{contacts_pack}} contacts for €{{prix_pack_mois}} excl. '
+          + 'VAT a month (€{{prix_pack_an}} excl. VAT a year with yearly Pro), in one click from the Plan page. The Business '
+          + 'plan goes further: ask for it from the same page.',
+        bouton: { libelle: 'Add contacts', lien: '{{lien_pack}}' },
       },
     },
   },
@@ -754,24 +769,30 @@ export const CATALOGUE = [
     aide: LIGNES_AIDE.offre,
     nom: 'Offre Pro : limite de contacts atteinte',
     quand: 'Un espace Pro atteint sa limite de contacts, ceux qui lui ont écrit les premiers compris. Une fois à chaque franchissement.',
-    variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
+    variables: {
+      limite: LIMITE, lien_offre: LIEN_OFFRE, contacts_pack: CONTACTS_PACK, prix_pack_mois: PRIX_PACK_MOIS, prix_pack_an: PRIX_PACK_AN,
+      lien_pack: LIEN_PACK,
+    },
     textes: {
       fr: {
         sujet: 'Limite atteinte : votre espace Pro est plein',
         corps: 'Bonjour,\n\nL’espace {{espace}} a atteint les {{limite}} contacts que l’offre Pro permet, ceux qui vous ont '
           + 'écrit les premiers compris : créer ou importer un contact est refusé, et un nouveau client qui vous écrit '
           + 'n’entre plus dans Messaging Me (son message n’y est pas enregistré, et vos agents IA ne lui répondent pas).'
-          + '\n\nL’offre Business va plus loin : demandez-la depuis la page Offre, ou supprimez des contacts dont vous '
-          + 'n’avez plus besoin.',
-        bouton: { libelle: 'Voir les offres', lien: '{{lien_offre}}' },
+          + '\n\nAjoutez {{contacts_pack}} contacts pour {{prix_pack_mois}} € HT par mois ({{prix_pack_an}} € HT par an avec '
+          + 'la formule Pro annuelle), en un clic depuis la page Offre : la limite monte dès le paiement accepté. L’offre '
+          + 'Business va plus loin, ou supprimez des contacts dont vous n’avez plus besoin.',
+        bouton: { libelle: 'Ajouter des contacts', lien: '{{lien_pack}}' },
       },
       en: {
         sujet: 'Limit reached: your Pro workspace is full',
         corps: 'Hello,\n\nThe {{espace}} workspace has reached the {{limite}} contacts the Pro plan allows, including those '
           + 'who wrote to you first: creating or importing a contact is refused, and a new customer who writes to you no '
           + 'longer gets into Messaging Me (their message is not recorded there, and your AI agents do not reply to them).'
-          + '\n\nThe Business plan goes further: ask for it from the Plan page, or delete contacts you no longer need.',
-        bouton: { libelle: 'See plans', lien: '{{lien_offre}}' },
+          + '\n\nAdd {{contacts_pack}} contacts for €{{prix_pack_mois}} excl. VAT a month (€{{prix_pack_an}} excl. VAT a year '
+          + 'with yearly Pro), in one click from the Plan page: the limit goes up as soon as the payment is accepted. The '
+          + 'Business plan goes further, or delete contacts you no longer need.',
+        bouton: { libelle: 'Add contacts', lien: '{{lien_pack}}' },
       },
     },
   },

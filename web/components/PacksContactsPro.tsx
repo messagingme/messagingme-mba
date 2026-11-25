@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Bouton } from '@/components/Bouton';
 import { useConfirmation } from '@/components/Confirmation';
 import { useLocale, useT } from '@/lib/i18n';
@@ -26,6 +27,21 @@ export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: Vue
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [facture, setFacture] = useState<string | null>(null);
+  // Venu du bandeau de la page Contacts ou de l'e-mail de limite (`/offre?pack=ajouter`, 2026-11-25) : le bloc se montre et
+  // la confirmation de l'achat s'ouvre, une fois ; l'adresse perd le paramètre, pour qu'un rechargement ne la rouvre pas.
+  const params = useSearchParams();
+  const router = useRouter();
+  const bloc = useRef<HTMLElement | null>(null);
+  const dejaOuvert = useRef(false);
+  const ajouterUn = useRef<(() => Promise<void>) | null>(null);
+  const demandeAjout = params.get('pack') === 'ajouter';
+  useEffect(() => {
+    if (!demandeAjout || dejaOuvert.current || ajouterUn.current === null) return;
+    dejaOuvert.current = true;
+    router.replace('/offre', { scroll: false });
+    bloc.current?.scrollIntoView({ block: 'center' });
+    void ajouterUn.current();
+  }, [demandeAjout, router]);
 
   const p = vue.packsContacts;
   if (vue.offre !== 'pro' || p === null) return null;
@@ -72,8 +88,11 @@ export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: Vue
     }
   }
 
+  // Le geste que l'effet du haut joue quand on arrive par `?pack=ajouter` : seulement si les packs sont en vente.
+  ajouterUn.current = prix === null ? null : () => changer(achetes + 1);
+
   return (
-    <section className="flex flex-wrap items-center gap-3 rounded-carte border border-ink-200 bg-white p-5" data-testid="offre-packs-contacts">
+    <section ref={bloc} id="packs-contacts" className="flex flex-wrap items-center gap-3 rounded-carte border border-ink-200 bg-white p-5" data-testid="offre-packs-contacts">
       <p className="min-w-0 flex-1 text-sm text-ink-500">
         {achetes === 0
           ? t(`Votre formule Pro comprend ${fmtNum(p.inclus, locale)} contacts.`, `Your Pro plan includes ${fmtNum(p.inclus, locale)} contacts.`)

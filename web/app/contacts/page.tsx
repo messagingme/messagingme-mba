@@ -29,6 +29,7 @@ import { fieldValue, sansJson } from '@/lib/fields';
 import { ContactDetail, OPT_IN_LABEL } from '@/components/ContactDetail';
 import { Bouton } from '@/components/Bouton';
 import { TitrePage } from '@/components/TitrePage';
+import { BandeauPackContacts } from '@/components/BandeauPackContacts';
 import { Icone } from '@/components/Icone';
 import { Modale } from '@/components/Modale';
 import { VoileMenu } from '@/components/Flottant';
@@ -226,6 +227,9 @@ function ContactsInner({ session }: { session: Session }) {
           </div>
         </div>
       </div>
+
+      {/* Un Pro à 80 % de sa limite ou plus : le pack de 1 000 contacts, à un clic (2026-11-25). */}
+      <BandeauPackContacts tenantId={session.tenantId} />
 
       {info && (
         <p className="mb-4 flex items-center justify-between gap-3 rounded-controle bg-succes-50 px-3 py-2 text-sm text-succes-700" data-testid="contact-info">

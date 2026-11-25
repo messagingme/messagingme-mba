@@ -42,7 +42,6 @@ d'en-tête qui effaçait la sélection des autres pages, la page vidée par une 
 
 - La phrase du refus (`refus.ts`, `packsContactsEnVente`) lit la seule configuration ; la page de l'offre exige en plus un
   Stripe câblé. Stripe absent (règle du mode test), le refus propose le pack et la page dit « pas encore en vente ».
-- Les e-mails `limite_contacts_pro_80` et `_100` (`src/emails-produit/catalogue.ts`) ne proposent que le Business, pas le pack.
 - Un espace passé à la main en Business ou en Entreprise garde son Pro vivant et ses packs, que Stripe facture sans effet
   (même cas que les sièges, déjà dit par `alertes()` dans `/ops`).
 - Le webhook `customer.subscription.updated` relit désormais trois fois l'abonnement chez Stripe (sièges, packs, fin

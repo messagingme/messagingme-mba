@@ -5360,7 +5360,9 @@ du 2026-10-27.
   limite monte une fois ce paiement accepté. Un paiement refusé ne change rien et laisse la facture à régler sur sa page.
   « Retirer 1 000 contacts » ne rembourse rien et n'efface rien : il est refusé tant que les contacts ne tiennent pas dans
   la limite qui reste, et la phrase dit combien en supprimer d'abord. Une création refusée faute de place, en Pro,
-  propose le pack. Le Pro seulement : le Business n'a pas de packs. Claude lit les packs et leur prix (`get_plan`).
+  propose le pack. Dès 80 % de la limite, la page Contacts le propose aussi (le compte, le prix, et « Ajouter 1 000
+  contacts »), comme les deux e-mails de limite du Pro (80 % et plein) ; leur bouton ouvre la page Offre sur la
+  confirmation de l'achat. Le Pro seulement : le Business n'a pas de packs. Claude lit les packs et leur prix (`get_plan`).
   ⚠️ Tant que les deux prix du pack ne sont pas posés chez Stripe, la page Offre dit « pas encore en vente ».
 - ✅ **Le numéro fourni est inclus dans le Pro, le Business et l'Entreprise** (livraison B2b, puis spec Business) : un
   espace en Pro obtient son numéro sans payer, depuis

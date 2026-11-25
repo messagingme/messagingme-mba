@@ -1,6 +1,6 @@
 import { journaliser } from '../lib/journal';
 import type { EmetteurEmails } from './emission';
-import { DROITS, type Offre } from '../offres/offres';
+import { CONTACTS_PAR_PACK, DROITS, PRIX_PACK_CONTACTS_HT_CENTIMES, type Offre } from '../offres/offres';
 import { jourDans } from '../repondeur/alerte-credit';
 import { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
 
@@ -330,10 +330,15 @@ function emissionContacts(tenantId: string, offre: LimitesAlertables['offre'], s
       valeurs: { limite: String(limite), lien_offre: pageOffre },
     };
   }
+  // Le Pro propose son pack de contacts (2026-11-25) : sa taille et ses prix lus dans la grille, et un lien qui ouvre l'achat.
   if (offre === 'pro') {
     return {
       cle: seuil === 100 ? 'limite_contacts_pro_100' : 'limite_contacts_pro_80', tenantId, occasion, a: 'admins',
-      valeurs: { limite: String(limite), lien_offre: pageOffre },
+      valeurs: {
+        limite: String(limite), lien_offre: pageOffre, contacts_pack: CONTACTS_PAR_PACK.toLocaleString('fr-FR'),
+        prix_pack_mois: String(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100), prix_pack_an: String(PRIX_PACK_CONTACTS_HT_CENTIMES.an / 100),
+        lien_pack: `${pageOffre}?pack=ajouter`,
+      },
     };
   }
   const limitePro = String(DROITS.pro.limites.contacts ?? '');

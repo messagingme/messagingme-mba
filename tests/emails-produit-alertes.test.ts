@@ -10,7 +10,7 @@ import { CLES_TRANSFERT, modeleDe } from '../src/emails-produit/catalogue';
 import { rendre } from '../src/emails-produit/rendu';
 import { PgEmailsProduitStore } from '../src/emails-produit/store.pg';
 import type { Pool } from 'pg';
-import { DROITS } from '../src/offres/offres';
+import { CONTACTS_PAR_PACK, DROITS, PRIX_PACK_CONTACTS_HT_CENTIMES } from '../src/offres/offres';
 import { capturerJournal } from './journal';
 
 /**
@@ -336,6 +336,21 @@ describe('les limites de la Free et du Pro', () => {
         expect(texte.text, cle + l).toMatch(/Business/);
         expect(texte.text, cle + l).not.toMatch(/Entreprise|Enterprise|Passez en Pro|Upgrade to Pro|offre Free|Free plan/);
       }
+    }
+    // Le Pro propose son pack de contacts (2026-11-25) : sa taille et ses prix lus dans la grille, jamais recopiés, et un
+    // bouton qui ouvre l'achat sur la page Offre.
+    expect(e.emissions[0]!.valeurs).toMatchObject({
+      contacts_pack: CONTACTS_PAR_PACK.toLocaleString('fr-FR'),
+      prix_pack_mois: String(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100), prix_pack_an: String(PRIX_PACK_CONTACTS_HT_CENTIMES.an / 100),
+    });
+    expect(e.emissions[0]!.valeurs.lien_pack).toMatch(/\/offre\?pack=ajouter$/);
+    for (const cle of ['limite_contacts_pro_80', 'limite_contacts_pro_100']) {
+      const m = modeleDe(cle)!;
+      const v = { limite: '1000', espace: 'A', lien_offre: 'https://c/offre', contacts_pack: '1 000', prix_pack_mois: '20', prix_pack_an: '240', lien_pack: 'https://c/offre?pack=ajouter' };
+      const fr = rendre(m, m.textes.fr, v, 'fr');
+      expect(fr.text, cle).toMatch(/Ajoutez 1 000 contacts pour 20 € HT par mois \(240 € HT par an/);
+      expect(fr.html, cle).toContain('https://c/offre?pack=ajouter');
+      expect(rendre(m, m.textes.en, v, 'en').text, cle).toMatch(/Add 1 000 contacts for €20 excl\. VAT a month/);
     }
     // La Free ne dit plus que le Pro n'a pas de limite de contacts : il en a une, et l'e-mail la cite.
     for (const cle of ['limite_contacts_80', 'limite_contacts_100']) {
