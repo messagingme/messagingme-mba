@@ -13,10 +13,9 @@ import { cardCls, inputCls, kickerCls } from '@/lib/ui';
 import { ChampSortie } from '@/components/ChampSortie';
 import {
   createAgent, deleteAgent, getAgent, getCreditIa, listAgentsEtRepondeur, patchAgent,
-  type AgentComplet, type AgentResume, type CreditIaConsole, type PatchAgent, type SortieAgent,
+  type AgentComplet, type AgentResume, type CreditIaConsole, type PatchAgent,
 } from '@/lib/api-agent';
 import { eurosDepuisMicro, SOLDE_BAS_MICRO_EUR } from '@/lib/agent-solde';
-import { CodeSortieInput } from '@/components/AgentSorties';
 import { AgentConnaissance } from '@/components/AgentConnaissance';
 import { AgentOutils } from '@/components/AgentOutils';
 import { AgentConstruction } from '@/components/AgentConstruction';
@@ -436,7 +435,7 @@ function Ecran({ tenantId }: { tenantId: string }) {
               tabs={[
                 { key: 'construction', label: t('Construire en parlant', 'Build by talking') },
                 { key: 'identite', label: t('Identité et ton', 'Identity and tone') },
-                { key: 'objectif', label: t('Objectif et transferts', 'Objective and handovers') },
+                { key: 'objectif', label: t('Objectif', 'Objective') },
                 { key: 'connaissance', label: t('Base de connaissance', 'Knowledge base') },
                 { key: 'outils', label: t('Outils', 'Tools') },
                 { key: 'perimetre', label: t('Périmètre et garde-fous', 'Scope and guardrails') },
@@ -493,7 +492,15 @@ function Ecran({ tenantId }: { tenantId: string }) {
             )}
             {/* Les outils vivent dans LEUR table, avec leur propre consentement humain : ce panneau ne passe pas
                 non plus par `enregistrer`, qui n'ecrit que la fiche. */}
-            {onglet === 'outils' && <AgentOutils tenantId={tenantId} agentId={ouvert.id} onChange={() => rafraichirManques(ouvert.id)} />}
+            {onglet === 'outils' && (
+              <AgentOutils
+                tenantId={tenantId} agentId={ouvert.id} onChange={() => rafraichirManques(ouvert.id)}
+                reglesArret={{
+                  sorties: ouvert.contenu.sorties,
+                  enregistrer: (sorties) => enregistrer({ contenu: { ...ouvert.contenu, sorties } }),
+                }}
+              />
+            )}
             {onglet === 'perimetre' && <OngletPerimetre agent={ouvert} busy={busy} onSave={enregistrer} />}
             {onglet === 'modele' && <OngletModele agent={ouvert} tenantId={tenantId} busy={busy} onSave={enregistrer} />}
             {/* Le bac a sable fait tourner le VRAI cerveau, sans session ni run : il n ecrit rien, il ne passe
@@ -779,34 +786,19 @@ function OngletIdentite({ agent, busy, onSave }: { agent: AgentComplet; busy: bo
 function OngletObjectif({ agent, busy, onSave }: { agent: AgentComplet; busy: boolean; onSave: (p: PatchAgent) => void }) {
   const t = useT();
   const c = agent.contenu;
-  const majSorties = (sorties: SortieAgent[]) => onSave({ contenu: { ...c, sorties } });
   return (
-    <div className="flex flex-col gap-4">
-      <div className={`${cardCls} flex flex-col gap-4`}>
-        <ChampSortie
-          testId="agent-objectif" busy={busy} multi lignes={4} label={t('Objectif de l’agent', 'The agent’s objective')}
-          aide={t('Ce qu’il est là pour faire, en une ou deux phrases. C’est le champ qui pèse le plus sur ce qu’il répondra.', 'What it is there to do, in a sentence or two. This is the field that weighs most on what it answers.')}
-          valeur={c.objectif} onSave={(v) => onSave({ contenu: { ...c, objectif: v } })}
-        />
-        {/* 🔴 « Quand passer la main » n'est plus un champ de fiche (2026-11-25, décision de Julien) : c'est la description
-            de l'outil « Passer la main à un humain », que le prompt lit. Le champ ici n'aurait plus rien changé. */}
-        <p data-testid="agent-transferts-outil" className="text-xs leading-relaxed text-ink-500">
-          {t('Quand passer la main à un humain se règle dans l’onglet Outils, sur l’outil « Passer la main à un humain » (« Quand l’appeler »).',
-            'When to hand over to a human is set in the Tools tab, on the “Hand over to a human” tool (“When to call it”).')}
-        </p>
-      </div>
-      <div className={`${cardCls} flex flex-col gap-3`}>
-        <div>
-          <p className="text-sm font-medium text-ink-900">{t('Règles d’arrêt', 'Stop rules')}</p>
-          <p className="mt-1 text-xs leading-relaxed text-ink-500">
-            {t(
-              'Chacune devient une sortie du bloc agent dans le builder : c’est là que vous branchez la suite du parcours. L’agent choisit celle qui correspond à ce qu’il vient de faire.',
-              'Each becomes an output of the agent block in the builder: that is where you connect what happens next. The agent picks the one matching what it just did.',
-            )}
-          </p>
-        </div>
-        <CodeSortieInput sorties={c.sorties} busy={busy} onChange={majSorties} />
-      </div>
+    <div className={`${cardCls} flex flex-col gap-4`}>
+      <ChampSortie
+        testId="agent-objectif" busy={busy} multi lignes={4} label={t('Objectif de l’agent', 'The agent’s objective')}
+        aide={t('Ce qu’il est là pour faire, en une ou deux phrases. C’est le champ qui pèse le plus sur ce qu’il répondra.', 'What it is there to do, in a sentence or two. This is the field that weighs most on what it answers.')}
+        valeur={c.objectif} onSave={(v) => onSave({ contenu: { ...c, objectif: v } })}
+      />
+      {/* 🔴 L'ONGLET NE GARDE QUE L'OBJECTIF (2026-11-25, décision de Julien : « Objectif et transferts » n'était pas
+          clair). Passer la main et les règles d'arrêt se règlent dans leurs outils, onglet Outils. */}
+      <p data-testid="agent-transferts-outil" className="text-xs leading-relaxed text-ink-500">
+        {t('Quand passer la main à un humain, et les règles d’arrêt, se règlent dans l’onglet Outils : sur « Passer la main à un humain » et sur « Terminer par une règle d’arrêt » (« Activer » s’il ne l’est pas, puis « Modifier »).',
+          'When to hand over to a human, and the stop rules, are set in the Tools tab: on “Hand over to a human” and on “Finish through a stop rule” (“Activate” if it is not, then “Edit”).')}
+      </p>
     </div>
   );
 }

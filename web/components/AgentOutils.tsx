@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useT } from '@/lib/i18n';
+import type { SortieAgent } from '@/lib/api-agent';
 import { MbaNotice } from '@/components/MbaNotice';
 import { ChoixAppel, ModificationAppel } from '@/components/AgentConnecteurs';
 import { ChoixTypeOutil } from '@/components/mba-outils/ChoixTypeOutil';
@@ -99,7 +100,14 @@ function libelleCible(o: OutilAgent, noms: Noms, t: Traduire): string {
  * ⚠️ `onChange` EXISTE PARCE QUE LE BANDEAU D'AVERTISSEMENT VIT AILLEURS : ce panneau écrit dans SA table, et la page
  * relit ses manques quand on le lui dit (Julien, 2026-09-11).
  */
-export function AgentOutils({ tenantId, agentId, onChange }: { tenantId: string; agentId: string; onChange?: () => void }) {
+export function AgentOutils({ tenantId, agentId, onChange, reglesArret }: {
+  tenantId: string; agentId: string; onChange?: () => void;
+  /**
+   * Les règles d'arrêt de l'agent, réglées dans l'outil « Terminer » depuis le 2026-11-25 (décision de Julien) : elles
+   * vivent dans la fiche (`sorties`), l'écrit passe par l'écran parent et son verrou de version.
+   */
+  reglesArret?: { sorties: SortieAgent[]; enregistrer: (sorties: SortieAgent[]) => Promise<void> };
+}) {
   const t = useT();
   const confirmer = useConfirmation();
   const [vue, setVue] = useState<{ outils: OutilAgent[]; catalogue: ModeleOutil[] } | null>(null);
@@ -204,6 +212,9 @@ export function AgentOutils({ tenantId, agentId, onChange }: { tenantId: string;
       busy={busy}
       onSave={(patch: PatchReglages) => agir(async () => { await patchOutil(tenantId, agentId, o.id, patch); })}
       onAutonomie={(v) => agir(async () => { await autonomieOutil(tenantId, agentId, o.id, v); })}
+      {...(reglesArret ? {
+        reglesArret: { sorties: reglesArret.sorties, onChange: (sorties: SortieAgent[]) => agir(() => reglesArret.enregistrer(sorties)) },
+      } : {})}
     />
   );
 

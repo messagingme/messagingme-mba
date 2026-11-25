@@ -24,7 +24,8 @@ l'une de ses sorties.
 
 **2. Relier ses règles d'arrêt.** Chaque règle d'arrêt de l'agent devient une sortie du bloc, à son nom.
 
-- Les règles se déclarent sur la fiche de l'agent, dans le menu AI Agent.
+- Les règles, facultatives, se règlent dans l'outil « Terminer par une règle d'arrêt » de l'agent (menu AI Agent,
+  onglet Outils).
 - Une règle reliée à rien a un point rouge : si l'agent en sort par là, la conversation passe à votre équipe.
 - Si les règles de l'agent ont changé, « Mettre à jour les sorties du bloc » les reprend, sans toucher aux sorties
   automatiques.

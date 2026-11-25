@@ -114,55 +114,18 @@ test.describe('Agents IA : la fiche', () => {
     await expect.poll(() => patches.some((p) => (p.contenu as { nom?: string } | undefined)?.nom === 'Léa'), { timeout: 5000 }).toBe(true);
   });
 
-  test('🔴 le code d une règle d arrêt est NORMALISÉ sous les yeux du client', async ({ page }) => {
-    // Le code devient un handle d'arête dans le builder : le serveur refuse tout ce qui sort de son alphabet.
-    // Le montrer en direct vaut mieux qu'un 400 sur un champ que le client croyait bon.
+  test('🔴 l onglet « Objectif » ne garde que l objectif, et renvoie aux outils (2026-11-25)', async ({ page }) => {
+    // Les règles d'arrêt et le transfert se règlent dans leurs outils (onglet Outils) : leur éditeur n'est plus ici.
     const patches: Patch[] = [];
     await mockAgents(page, patches);
     await page.goto('/agents');
     await page.getByTestId('agent-ligne-ag1').click();
     await page.getByTestId('mba-tab-objectif').click();
-
-    await page.getByTestId('agent-sortie-code').fill('Besoin cerné');
-    await expect(page.getByTestId('agent-sortie-code-normalise')).toHaveText('besoin_cerne');
-
-    await page.getByTestId('agent-sortie-label').fill('Besoin cerné');
-    await page.getByTestId('agent-sortie-ajouter').click();
-
-    await expect.poll(
-      () => patches.some((p) => {
-        const s = (p.contenu as { sorties?: Array<{ code?: string }> } | undefined)?.sorties ?? [];
-        return s.some((x) => x.code === 'besoin_cerne');
-      }),
-      { timeout: 5000 },
-    ).toBe(true);
-    await expect(page.getByTestId('agent-sortie-besoin_cerne')).toBeVisible();
-  });
-
-  test('une règle d arrêt se retire, et le retrait est enregistré', async ({ page }) => {
-    const patches: Patch[] = [];
-    await mockAgents(page, patches);
-    await page.route('**/api/backend/**/agents/ag1', (route) => {
-      if (route.request().method() !== 'GET') return route.fallback();
-      return route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ agent: { ...AGENT, contenu: { ...FICHE_VIDE, sorties: [{ code: 'rdv', label: 'Rendez-vous pris' }] } } }),
-      });
-    });
-    await page.goto('/agents');
-    await page.getByTestId('agent-ligne-ag1').click();
-    await page.getByTestId('mba-tab-objectif').click();
-
-    await expect(page.getByTestId('agent-sortie-rdv')).toBeVisible();
-    await page.getByTestId('agent-sortie-retirer-rdv').click();
-
-    await expect.poll(
-      () => patches.some((p) => {
-        const c = p.contenu as { sorties?: unknown[] } | undefined;
-        return c !== undefined && (c.sorties ?? []).length === 0;
-      }),
-      { timeout: 5000 },
-    ).toBe(true);
+    await expect(page.getByTestId('mba-tab-objectif')).toContainText('Objectif');
+    await expect(page.getByTestId('mba-tab-objectif')).not.toContainText('transferts');
+    await expect(page.getByTestId('agent-objectif')).toBeVisible();
+    await expect(page.getByTestId('agent-sortie-code')).toHaveCount(0);
+    await expect(page.getByTestId('agent-transferts-outil')).toContainText('Terminer par une règle d’arrêt');
   });
 
   test('🔴 un patch de FICHE porte le verrou de version, un patch de colonne non', async ({ page }) => {

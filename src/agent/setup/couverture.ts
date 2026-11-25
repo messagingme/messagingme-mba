@@ -150,10 +150,15 @@ export const AGENDA: Point[] = [
   },
   {
     code: 'aboutissements',
-    sujet: 'une conversation réussie',
-    question: 'À quoi ressemble une conversation réussie, celle après laquelle vous êtes content ?',
-    aObtenir: 'à quoi ressemble une conversation qui finit bien ; il peut y en avoir plusieurs',
-    pistes: ['rendez-vous pris', 'demande qualifiée', 'question résolue', 'transmis à un humain'],
+    // 🔴 Une règle d'arrêt, c'est « l'agent s'arrête », FACULTATIVE (Julien, 2026-11-25) : passer la main et lancer un
+    // scénario ont leurs outils. L'ancienne question (« une conversation réussie ») en faisait une condition de base.
+    sujet: 'les cas où l’agent doit simplement s’arrêter',
+    question: 'Y a-t-il un cas où votre agent doit simplement s’arrêter, sans passer la main ni lancer un scénario ? '
+      + 'Par exemple si le client l’insulte. « Aucun » est une réponse valable.',
+    aObtenir: 'les cas où l’agent doit simplement s’arrêter, une règle d’arrêt pour chacun ; JAMAIS un transfert à un '
+      + 'humain (c’est l’outil « Passer la main ») ni un scénario (l’outil « Lancer un scénario »). « Aucun » est une '
+      + 'réponse valable : alors aucune règle d’arrêt',
+    pistes: ['si le client l’insulte', 'si la demande sort complètement du sujet', 'aucun'],
   },
   {
     code: 'bascules',
@@ -586,7 +591,7 @@ export function pointsSansContenu(fiche: FicheAgentContenu): string[] {
   const vide = (t: string): boolean => t.trim() === '';
   const out: string[] = [];
   if (vide(fiche.objectif)) out.push('mission');
-  if (fiche.sorties.length === 0) out.push('aboutissements');
+  // `aboutissements` : facultatif depuis le 2026-11-25 (« aucun » est une réponse) ; une liste vide n'est pas un vide.
   // `humain` n'est plus un champ de fiche (2026-11-25) : sa réponse devient l'outil « Passer la main », et « jamais »
   // est une réponse valable. Le signaler vide le ferait reposer à chaque réouverture.
   // `identite` couvre le nom et les traits : vide seulement si les deux le sont.

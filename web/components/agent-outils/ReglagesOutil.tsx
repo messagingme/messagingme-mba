@@ -6,6 +6,8 @@ import { cardCls, inputCls, inputClsAuto } from '@/lib/ui';
 import { ChampSortie } from '@/components/ChampSortie';
 import { MbaNotice } from '@/components/MbaNotice';
 import { normaliserNomOutil } from '@/lib/agent-outils';
+import { CodeSortieInput } from '@/components/AgentSorties';
+import type { SortieAgent } from '@/lib/api-agent';
 import { Bouton } from '@/components/Bouton';
 import type { GesteMoment, ModeleOutil, OutilAgent, TexteBilingue } from '@/lib/api-agent-tools';
 
@@ -93,12 +95,14 @@ export function SchemaModele({ outil }: { outil: OutilAgent }) {
   );
 }
 
-export function ReglagesOutil({ outil, modele, busy, onSave, onAutonomie }: {
+export function ReglagesOutil({ outil, modele, busy, onSave, onAutonomie, reglesArret }: {
   outil: OutilAgent;
   modele: ModeleOutil | undefined;
   busy: boolean;
   onSave: (patch: PatchReglages) => void;
   onAutonomie: (v: boolean) => void;
+  /** Les règles d'arrêt, quand l'outil en dérive ses valeurs (« Terminer ») : elles se règlent ici. */
+  reglesArret?: { sorties: SortieAgent[]; onChange: (sorties: SortieAgent[]) => void };
 }) {
   const t = useT();
   return (
@@ -122,8 +126,8 @@ export function ReglagesOutil({ outil, modele, busy, onSave, onAutonomie }: {
       {outil.actif && outil.expose === null && (
         <MbaNotice kind="warning">
           {t(
-            'Cet outil est actif mais le modèle n’en voit rien : il n’a aucune valeur possible. Déclarez au moins une règle d’arrêt dans l’onglet « Objectif et transferts ».',
-            'This tool is active but the model sees nothing of it: it has no possible value. Declare at least one stop rule in the “Objective and handovers” tab.',
+            'Cet outil est actif mais le modèle n’en voit rien tant qu’il n’a aucune règle d’arrêt. Ajoutez-en une ci-dessous, ou laissez-le : sans règle, l’agent sort par les sorties automatiques du bloc.',
+            'This tool is active but the model sees nothing of it while it has no stop rule. Add one below, or leave it: without a rule, the agent leaves through the block’s automatic outputs.',
           )}
         </MbaNotice>
       )}
@@ -143,13 +147,21 @@ export function ReglagesOutil({ outil, modele, busy, onSave, onAutonomie }: {
 
       <Gestes outil={outil} busy={busy} onSave={(gestes) => onSave({ gestes })} />
 
+      {/* 🔴 LES RÈGLES D'ARRÊT SE RÈGLENT ICI depuis le 2026-11-25 (décision de Julien) : « Objectif et transferts » n'était
+          pas clair. Une règle reste une sortie du bloc Agent IA ; aucune n'est obligatoire. */}
       {(modele?.params ?? []).some((p) => p.edition === 'derive_des_sorties') && (
-        <p className="text-xs leading-relaxed text-ink-500">
-          {t(
-            'Les valeurs possibles de cet outil sont vos règles d’arrêt : elles se règlent dans l’onglet « Objectif et transferts », et se répercutent ici toutes seules.',
-            'This tool’s possible values are your stop rules: set them in the “Objective and handovers” tab, and they carry over here on their own.',
-          )}
-        </p>
+        <div className="flex flex-col gap-2" data-testid="outil-regles-arret">
+          <div>
+            <p className="text-sm font-medium text-ink-900">{t('Règles d’arrêt', 'Stop rules')}</p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-500">
+              {t(
+                'Facultatives : quand l’agent doit simplement s’arrêter, par exemple « si le client l’insulte ». Chacune devient une sortie du bloc agent dans le scénario, où vous branchez la suite. Passer la main à un humain ou lancer un scénario ont leurs propres outils.',
+                'Optional: when the agent must simply stop, for example “if the customer insults it”. Each becomes an output of the agent block in the scenario, where you connect what happens next. Handing over to a human or starting a scenario have their own tools.',
+              )}
+            </p>
+          </div>
+          {reglesArret && <CodeSortieInput sorties={reglesArret.sorties} busy={busy} onChange={reglesArret.onChange} />}
+        </div>
       )}
 
       <SchemaModele outil={outil} />

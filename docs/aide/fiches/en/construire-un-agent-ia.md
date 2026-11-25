@@ -1,6 +1,6 @@
 ---
 slug: build-an-ai-agent
-traduit_de: 25019d
+traduit_de: 838229
 description: Create a WhatsApp AI agent, set it up by talking to the assistant or tab by tab, activate it, then have it answer your customers.
 ---
 # Build an AI agent
@@ -37,7 +37,7 @@ tabs are in the left column: both paths lead to the same agent.
 The assistant then goes round the topic, one question at a time.
 
 - It covers, in order: what the agent is there to do, what it never talks about, where its substantive answers come
-  from, what a conversation that ends well looks like, the moments when it must do something other than answer, when
+  from, whether it must simply stop in some cases (optional), the moments when it must do something other than answer, when
   it lets go of a silent contact, when a human takes over, under what name it introduces itself, whether it says it is
   an AI, and how it talks.
 - You can answer with the number of a choice (“4”). If you mention several moments at once, it takes them one by one.
@@ -68,7 +68,7 @@ and activated in one click. “Save”, next to it, sets it up without activatin
   “Test it”, if you only saved; or, if something is still missing, the list of what is missing, each line leading to
   its tab. What you kept is saved even when activation is refused.
 - An agent that is already active only has “Save”: what you save applies to its next answers.
-- Stop rules are kept or dropped as a block: they are edited afterwards in Objective and handovers.
+- Stop rules are kept or dropped as a block: they are edited afterwards in the “Finish through a stop rule” tool, Tools tab.
 - A moment when the agent must start a scenario: name one of your live scenarios when it lists them. The proposal then
   carries a “Start a scenario” tool line, and saving places the tool, “Inactive”, in the Tools tab.
 - It can also connect or disconnect a tool from your library if you ask, never create one. Connecting does not
@@ -92,21 +92,22 @@ the personality and the AI disclosure.
 - Write the tone as you would tell a new hire: “formal, short sentences, no emoji”.
 - The AI disclosure can never be empty: see “An AI agent’s model, credit and guardrails”.
 
-**8. By hand: Objective and handovers.** “Objective and handovers” tab: the agent’s objective in a sentence or two.
+**8. By hand: the objective.** “Objective” tab: the agent’s objective in a sentence or two.
 
 - The objective is the field that weighs most on what the agent will answer.
 - When to hand over to a human is set in the Tools tab, on the “Hand over to a human” tool: see “Give tools to an AI
   agent”.
 
-**9. Declare the stop rules.** Further down the same tab, “Stop rules”: a code, what it means, then “Add”. A stop rule
-is “when the agent has finished doing this, it leaves through there”.
+**9. Optional: the stop rules.** Tools tab, “Finish through a stop rule” tool, “Edit”, then “Stop rules”: a code, what
+it means, then “Add”. A stop rule is a case where the agent simply stops, for example if the customer insults it.
 
 - Each rule becomes an output of the AI agent block, to connect to the rest of the journey: see “The AI agent block”.
   Twelve at most.
 - The code is formatted as you type, and a code already in use is flagged.
 - The “hands over to a human” box changes nothing in what the rule does (your scenario does the routing): it says the
   rule leads to the team.
-- With no rule at all, the agent only leaves through the block’s five automatic outputs.
+- With no rule at all, the agent only leaves through the block’s five automatic outputs. Handing over or starting a
+  scenario have their own tools.
 
 **10. Read the header and finish the steps.** At the top of the record: the model’s logo, the agent’s name, its model,
 its badge, and “n steps left”. Each step leads to the tab where it is set.

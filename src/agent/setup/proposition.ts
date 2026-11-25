@@ -367,7 +367,7 @@ export const SCHEMA_PROPOSITION = {
         sorties: {
           type: 'array',
           maxItems: MAX_SORTIES,
-          description: 'Les aboutissements de la conversation. Chacun devient une sortie du bloc dans le scénario.',
+          description: 'Les cas où l’agent s’arrête simplement (jamais un transfert ni un scénario). Chacun devient une sortie du bloc dans le scénario. Facultatives.',
           items: {
             type: 'object',
             properties: {

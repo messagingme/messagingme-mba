@@ -1,6 +1,6 @@
 ---
 slug: give-tools-to-an-ai-agent
-traduit_de: b92022
+traduit_de: 56fe23
 description: Give tools to an AI agent: the always-there moves, then a tag, a detail, a block, a scenario, an action or chained steps.
 ---
 # Give tools to an AI agent
@@ -16,7 +16,9 @@ Tools tab says what THIS agent may do.
 click “Activate” on each one it needs.
 
 - “Finish through a stop rule”: the agent hands back to the scenario through the chosen output, after a last message
-  to the contact. With no stop rule declared, it stays active but the model sees nothing of it, and the line says so.
+  to the contact. Its stop rules, optional, are set in its settings (“Edit”): a case where the agent simply stops, for
+  example if the customer insults it. With no rule, it stays active but the model sees nothing of it, and the line says
+  so.
 - “Hand over to a human”: the conversation moves to “To handle” at once and stays there until someone answers; the
   journey leaves through “Handed to a human”. The agent never takes the floor again on its own. Its “When to call it”
   says when to hand over, the way you would say it: “as soon as a refund comes up, or if the contact gets upset”. The

@@ -99,9 +99,10 @@ describe('la butée', () => {
 describe('un point redevenu vide', () => {
   it('🔴 est SIGNALÉ, et lui seul', () => {
     const etat = entretienComplet();
-    // Les règles d'arrêt ont été effacées dans le formulaire, après l'entretien.
-    const vides = pointsSansContenu(ficheComplete({ sorties: [] }));
-    expect(vides).toEqual(['aboutissements']);
+    // Le ton a été effacé dans le formulaire, après l'entretien. (Jusqu'au 2026-11-25, ce cas portait sur les règles
+    // d'arrêt, devenues facultatives : une liste vide n'est plus un point vidé, voir le test suivant.)
+    const vides = pointsSansContenu(ficheComplete({ ton: '' }));
+    expect(vides).toEqual(['ton']);
     const consigne = consigneDuTour(etat, INVENTAIRE_VIDE, vides);
     /**
      * 🔴 LUI SEUL : relancer tout l'entretien pour un champ effacé reposerait neuf questions tranchées.
@@ -111,9 +112,13 @@ describe('un point redevenu vide', () => {
      * virgule finale, et l'assertion passerait sur le défaut même qu'elle vise. Mesuré en la mutant.
      */
     const liste = /VIDÉ depuis votre entretien : ([^.]*)\./.exec(consigne)?.[1];
-    expect(liste).toBe('aboutissements');
+    expect(liste).toBe('ton');
     // ⚠️ Et ce n'est PAS une question d'entretien : la réponse du client est toujours connue.
     expect(consigne).toContain('Ne repose pas la question');
+  });
+
+  it('🔴 des règles d’arrêt vides ne sont PAS un point vidé : elles sont facultatives (Julien, 2026-11-25)', () => {
+    expect(pointsSansContenu(ficheComplete({ sorties: [] }))).toEqual([]);
   });
 
   it('🔴 il ne RETIENT PAS la proposition, sinon rien ne peut plus remplir le champ', () => {

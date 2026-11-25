@@ -5,6 +5,19 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : les règles d'arrêt dans l'outil « Terminer », facultatives ; l'onglet ne garde que l'objectif
+
+Lot 3 du plan `docs/superpowers/plans/2026-11-25-agent-objectif-seul-outils.md`. Julien : « la règle d'arrêt doit servir
+à juste s'arrêter : le client peut l'invoquer par exemple quand le client insulte » ; passer la main et lancer un
+scénario ont leurs outils. Les règles d'arrêt se règlent désormais dans les réglages de l'outil « Terminer par une règle
+d'arrêt » (onglet Outils), l'écriture passant par l'écran parent et son verrou de version ; chacune reste une sortie du
+bloc Agent IA, aucun scénario ne bouge. L'onglet « Objectif et transferts » devient « Objectif » et ne garde que
+l'objectif, avec un renvoi vers les deux outils. L'entretien ne demande plus « une conversation réussie » mais « un cas
+où l'agent doit simplement s'arrêter », « aucun » valable, et une liste vide n'est plus un point vidé. Les textes qui
+renvoyaient à l'ancien onglet (outil Terminer, refus du camp, bloc Agent IA du constructeur) suivent. Méthode :
+implémenteur, une relecture indépendante. Deux mutations rouges (l'éditeur retiré de « Terminer », des sorties vides
+redevenues un point vidé) ; 276 e2e des agents et des scénarios sur la console de production.
+
 ## 2026-11-25 : « Quand passer la main » devient l'outil « Passer la main à un humain »
 
 Lot 2 du plan `docs/superpowers/plans/2026-11-25-agent-objectif-seul-outils.md`. Le prompt ne lit plus

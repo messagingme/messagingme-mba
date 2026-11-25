@@ -231,6 +231,46 @@ test.describe('Agents IA : « Toujours là »', () => {
     await expect(page.getByTestId('outil-schema-o3')).toContainText('aucune valeur possible');
   });
 
+  test('🔴 les règles d’arrêt se règlent dans « Terminer » : le code est NORMALISÉ, l’ajout part avec le verrou (2026-11-25)', async ({ page }) => {
+    // Elles quittaient l'onglet « Objectif et transferts », jugé pas clair par Julien. Le code devient un handle d'arête
+    // dans le builder : le montrer normalisé vaut mieux qu'un 400 sur un champ que le client croyait bon.
+    const appels: Appel[] = [];
+    await mock(page, appels, [MUET]);
+    await onglet(page);
+    await page.getByTestId('toujours-modifier-terminer').click();
+    await expect(page.getByTestId('outil-regles-arret')).toContainText('Facultatives');
+    await page.getByTestId('agent-sortie-code').fill('Besoin cerné');
+    await expect(page.getByTestId('agent-sortie-code-normalise')).toHaveText('besoin_cerne');
+    await page.getByTestId('agent-sortie-label').fill('Le client insulte');
+    await page.getByTestId('agent-sortie-ajouter').click();
+    await expect.poll(() => appels.some((a) => {
+      const b = a.body as { contenu?: { sorties?: Array<{ code?: string }> }; ficheVersionAttendue?: number } | null;
+      return a.method === 'PATCH' && new RegExp(`/agents/${AG}$`).test(a.url)
+        && (b?.contenu?.sorties ?? []).some((x) => x.code === 'besoin_cerne') && b?.ficheVersionAttendue === 4;
+    }), { timeout: 5000 }).toBe(true);
+  });
+
+  test('une règle d’arrêt se retire depuis « Terminer », et le retrait est enregistré', async ({ page }) => {
+    const appels: Appel[] = [];
+    await mock(page, appels, [MUET]);
+    await page.route(`**/api/backend/**/agents/${AG}`, (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ agent: { ...AGENT, contenu: { ...AGENT.contenu, sorties: [{ code: 'rdv', label: 'Rendez-vous pris' }] } } }),
+      });
+    });
+    await onglet(page);
+    await page.getByTestId('toujours-modifier-terminer').click();
+    await expect(page.getByTestId('agent-sortie-rdv')).toBeVisible();
+    await page.getByTestId('agent-sortie-retirer-rdv').click();
+    await expect.poll(() => appels.some((a) => {
+      const b = a.body as { contenu?: { sorties?: unknown[] } } | null;
+      return a.method === 'PATCH' && new RegExp(`/agents/${AG}$`).test(a.url) && b?.contenu !== undefined
+        && (b.contenu.sorties ?? []).length === 0;
+    }), { timeout: 5000 }).toBe(true);
+  });
+
   test('🔴 le nom vu par le modèle est NORMALISÉ sous les yeux du client', async ({ page }) => {
     const appels: Appel[] = [];
     await mock(page, appels, [MUET]);

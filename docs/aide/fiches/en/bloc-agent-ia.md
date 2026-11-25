@@ -1,7 +1,7 @@
 ---
 description: The AI agent block of a WhatsApp scenario: hand several exchanges to an agent, connect its stop rules and its five automatic outputs.
 slug: ai-agent-block
-traduit_de: a00c78
+traduit_de: b3beca
 ---
 # The AI agent block
 
@@ -20,7 +20,7 @@ through one of its outputs.
 
 **2. Connect its stop rules.** Each stop rule of the agent becomes an output of the block, with its name.
 
-- The rules are declared on the agent's record, in the AI Agent menu.
+- The rules, optional, are set in the agent’s “Finish through a stop rule” tool (AI Agent menu, Tools tab).
 - A rule connected to nothing has a red dot: if the agent leaves through it, the conversation goes to your team.
 - If the agent's rules have changed, "Update the block's outputs" takes them over, without touching the automatic
   outputs.

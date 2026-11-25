@@ -66,8 +66,8 @@ export function ToujoursLa({ outils, catalogue, busy, ouvert, onBasculer, onModi
                   {outil?.actif && outil.expose === null && (
                     <p className="text-xs text-alerte-800" data-testid={`toujours-muet-${handler}`}>
                       {t(
-                        'Cet outil est actif mais le modèle n’en voit rien : il n’a aucune valeur possible. Déclarez au moins une règle d’arrêt dans l’onglet « Objectif et transferts ».',
-                        'This tool is active but the model sees nothing of it: it has no possible value. Declare at least one stop rule in the “Objective and handovers” tab.',
+                        'Actif, mais le modèle n’en voit rien tant qu’il n’a aucune règle d’arrêt : ajoutez-en une dans ses réglages (« Modifier »), ou laissez-le, l’agent sort alors par les sorties automatiques du bloc.',
+                        'Active, but the model sees nothing of it while it has no stop rule: add one in its settings (“Edit”), or leave it, the agent then leaves through the block’s automatic outputs.',
                       )}
                     </p>
                   )}

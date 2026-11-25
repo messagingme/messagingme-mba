@@ -80,8 +80,8 @@ export const OUTILS_MAISON: readonly OutilCatalogue[] = [
     // Le texte nomme l'onglet des règles d'arrêt : le paramètre `sortie` en dérive son énumération. C'est le
     // défaut d'un outil neuf ; les outils déjà posés gardent leur copie, que le client peut réécrire.
     description: {
-      fr: 'À appeler quand la conversation a atteint un de ses aboutissements, c’est-à-dire une des règles d’arrêt de l’onglet « Objectif et transferts ». Rend la main au scénario par la sortie choisie.',
-      en: 'Call when the conversation has reached one of its outcomes, that is one of the stop rules from the “Objective and handovers” tab. Hands back to the scenario through the chosen output.',
+      fr: 'À appeler quand la conversation a atteint un de ses aboutissements, c’est-à-dire une des règles d’arrêt réglées dans cet outil. Rend la main au scénario par la sortie choisie.',
+      en: 'Call when the conversation has reached one of its outcomes, that is one of the stop rules set in this tool. Hands back to the scenario through the chosen output.',
     },
     nePasUtiliser: {
       fr: 'Ne pas appeler pour passer la main à un humain : il y a un outil pour ça.',

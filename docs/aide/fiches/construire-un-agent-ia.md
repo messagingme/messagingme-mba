@@ -2,7 +2,7 @@
 description: Créer un agent IA WhatsApp, le régler en parlant à l'assistant ou onglet par onglet, l'activer, puis le faire répondre à vos clients.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: bc1602
+source_empreinte: 44fae2
 publique: oui
 rubrique: parler-aux-clients
 rang: 10
@@ -43,7 +43,7 @@ parlant ». Ses neuf onglets sont dans la colonne de gauche : les deux voies mè
 L'assistant fait ensuite le tour du sujet, une question à la fois.
 
 - Il passe, dans l'ordre : ce que l'agent est là pour faire, ce dont il ne parle jamais, d'où viennent ses réponses de
-  fond, à quoi ressemble une conversation qui finit bien, les moments où il doit faire autre chose que répondre, quand
+  fond, s'il doit simplement s'arrêter dans certains cas (facultatif), les moments où il doit faire autre chose que répondre, quand
   il lâche un contact silencieux, quand un humain reprend, sous quel nom il se présente, s'il annonce être une IA, et
   comment il parle.
 - Vous pouvez répondre par le numéro d'un choix (« 4 »). Si vous citez plusieurs moments d'un coup, il les reprend un
@@ -76,7 +76,7 @@ est réglé et activé d'un seul clic. « Enregistrer », à côté, règle sans
   « Le tester », si vous avez seulement enregistré ; ou, s'il manque encore quelque chose, la liste de ce qui manque,
   chaque ligne menant à son onglet. Ce que vous avez gardé est enregistré même quand l'activation est refusée.
 - Un agent déjà actif n'a que « Enregistrer » : ce que vous enregistrez s'applique à ses prochaines réponses.
-- Les règles d'arrêt se gardent ou se jettent en bloc : elles se corrigent ensuite dans Objectif et transferts.
+- Les règles d'arrêt se gardent ou se jettent en bloc : elles se corrigent ensuite dans l'outil « Terminer par une règle d'arrêt », onglet Outils.
 - Un moment où l'agent doit lancer un scénario : nommez un de vos scénarios en ligne quand il vous les liste. La
   proposition porte alors une ligne « Outil « Lancer un scénario » », et l'enregistrement pose l'outil, « Inactif »,
   dans l'onglet Outils.
@@ -102,22 +102,23 @@ personnalité et la mention d'IA.
 - Écrivez le ton comme vous le diriez à une nouvelle recrue : « vouvoiement, phrases courtes, pas d'emoji ».
 - La mention d'IA ne peut jamais être vide : voir « Le modèle, le crédit et les garde-fous d'un agent IA ».
 
-**8. À la main : Objectif et transferts.** Onglet « Objectif et transferts » : l'objectif de l'agent en une ou deux
-phrases.
+**8. À la main : l'objectif.** Onglet « Objectif » : l'objectif de l'agent en une ou deux phrases.
 
 - L'objectif est le champ qui pèse le plus sur ce que l'agent répondra.
 - Quand passer la main à un humain se règle dans l'onglet Outils, sur l'outil « Passer la main à un humain » :
   voir « Donner des outils à un agent IA ».
 
-**9. Déclarer les règles d'arrêt.** Plus bas dans le même onglet, « Règles d'arrêt » : un code, ce qu'il veut dire,
-puis « Ajouter ». Une règle d'arrêt, c'est « quand l'agent a fini de faire ça, il sort par là ».
+**9. Facultatif : les règles d'arrêt.** Onglet Outils, outil « Terminer par une règle d'arrêt », « Modifier », puis
+« Règles d'arrêt » : un code, ce qu'il veut dire, puis « Ajouter ». Une règle d'arrêt, c'est un cas où l'agent
+s'arrête simplement, par exemple si le client l'insulte.
 
 - Chaque règle devient une sortie du bloc Agent IA, à relier à la suite du parcours : voir « Le bloc Agent IA ». Douze au
   maximum.
 - Le code se met en forme pendant la saisie, et un code déjà pris est signalé.
 - La case « passe à un humain » ne change rien à ce que fait la règle (c'est votre scénario qui route) : elle dit
   qu'elle mène à l'équipe.
-- Sans aucune règle, l'agent ne sort que par les cinq sorties automatiques du bloc.
+- Sans aucune règle, l'agent ne sort que par les cinq sorties automatiques du bloc. Passer la main ou lancer un
+  scénario ont leurs propres outils.
 
 **10. Lire l'en-tête et finir les étapes.** En haut de la fiche : le logo du modèle, le nom de l'agent, son modèle, sa
 pastille, et « n étapes à finir ». Chaque étape mène à l'onglet où elle se règle.

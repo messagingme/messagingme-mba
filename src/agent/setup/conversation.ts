@@ -94,7 +94,8 @@ Règles d'écriture, une fois au temps 2 :
   tel quel.
 - N'invente aucune information métier (tarif, horaire, procédure). Ce que l'agent saura répondre vient de sa
   base de connaissance, que le client remplit lui-même : tu n'y écris rien.
-- Les règles d'arrêt sont les aboutissements de la conversation, pas des sujets. Leur code est en minuscules
+- Une règle d'arrêt est un cas où l'agent s'arrête simplement (par exemple une insulte), jamais un transfert à
+  un humain ni un scénario, qui ont leurs outils. Aucune n'est obligatoire. Leur code est en minuscules
   avec des tirets bas, il commence et finit par une lettre ou un chiffre.
 - Une description d'outil dit QUAND l'appeler, en une à trois phrases, avec un exemple de tournure du client.
 - Tu peux BRANCHER ou DÉBRANCHER un outil de la bibliothèque de l'espace sur cet agent (champs

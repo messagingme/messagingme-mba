@@ -55,7 +55,7 @@ export function refusDeCampPourUnOutil(
   if (d) return `Choisissez un camp : cet outil ${QUALIFIE}, et « ${d.titre} » ${DIRECT}. Désactivez d’abord « ${d.titre} ».`;
   const regle = sorties.find((s) => s.humain === true);
   return regle
-    ? `Choisissez un camp : cet outil ${QUALIFIE}, et la règle d’arrêt « ${regle.label} » ${DIRECT}. Décochez d’abord « passe à un humain » sur cette règle (onglet Objectif et transferts).`
+    ? `Choisissez un camp : cet outil ${QUALIFIE}, et la règle d’arrêt « ${regle.label} » ${DIRECT}. Décochez d’abord « passe à un humain » sur cette règle (onglet Outils, outil « Terminer par une règle d’arrêt »).`
     : null;
 }
 

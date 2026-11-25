@@ -2,7 +2,7 @@
 description: Donner des outils à un agent IA : les gestes toujours là, puis un tag, une information, un bloc, un scénario, une action ou des étapes.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: bc1602
+source_empreinte: 44fae2
 publique: oui
 rubrique: parler-aux-clients
 rang: 15
@@ -21,7 +21,9 @@ Outils d'un agent dit ce que CET agent a le droit de faire.
 IA : cliquez sur « Activer » pour chacun de ceux dont il a besoin.
 
 - « Terminer par une règle d'arrêt » : l'agent rend la main au scénario par la sortie choisie, après un dernier message
-  au contact. Sans règle d'arrêt déclarée, il reste actif mais le modèle n'en voit rien, et la ligne le dit.
+  au contact. Ses règles d'arrêt, facultatives, se règlent dans ses réglages (« Modifier ») : un cas où l'agent
+  s'arrête simplement, par exemple si le client l'insulte. Sans règle, il reste actif mais le modèle n'en voit rien, et
+  la ligne le dit.
 - « Passer la main à un humain » : la conversation remonte tout de suite dans « À traiter » et y reste tant que personne
   n'a répondu ; le parcours sort par « Transfert à un humain ». L'agent ne reprend jamais la parole tout seul. Son
   « Quand l'appeler » dit quand passer la main, comme vous le diriez : « dès qu'on parle d'un remboursement, ou si le

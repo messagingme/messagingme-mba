@@ -1320,8 +1320,8 @@ export function ConfigPanel({
           {sortiesDuBloc(d).length === 0 && String(d.agentId ?? '') !== '' && (
             <p className="text-xs leading-relaxed text-ink-500">
               {t(
-                'Cet agent n’a aucune règle d’arrêt : il ne sortira que par les sorties automatiques ci-dessous. Les règles d’arrêt se déclarent sur sa fiche, dans le menu AI Agent.',
-                'This agent has no stop rule: it will only leave through the automatic outputs below. Stop rules are declared on its card, in the AI Agent menu.',
+                'Cet agent n’a aucune règle d’arrêt : il ne sortira que par les sorties automatiques ci-dessous. Les règles d’arrêt, facultatives, se règlent dans l’outil « Terminer » de l’agent (menu AI Agent, onglet Outils).',
+                'This agent has no stop rule: it will only leave through the automatic outputs below. Stop rules, optional, are set in the agent’s “Finish” tool (AI Agent menu, Tools tab).',
               )}
             </p>
           )}

@@ -46,3 +46,14 @@ describe('L’ordre du jour de l’entretien', () => {
     expect(rang('silence')).toBeLessThan(rang('humain'));
   });
 });
+
+describe('la règle d’arrêt, une option (Julien, 2026-11-25)', () => {
+  it('🔴 la question demande quand l’agent doit SIMPLEMENT s’arrêter, « aucun » valable, jamais un transfert ni un scénario', () => {
+    const p = AGENDA.find((x) => x.code === 'aboutissements')!;
+    expect(p.question).toContain('simplement s’arrêter');
+    expect(p.question).toContain('« Aucun » est une réponse valable');
+    expect(p.question).not.toContain('conversation réussie');
+    expect(p.aObtenir).toContain('JAMAIS un transfert');
+    expect(p.pistes).toContain('aucun');
+  });
+});

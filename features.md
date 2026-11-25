@@ -4571,7 +4571,7 @@ réponse qui part, un outil qui s'exécute, une sortie qui reprend le scénario,
 |---|---|
 | **Construire en parlant** | Décrire son métier à un assistant, qui propose des réglages |
 | **Identité et ton** | Nom interne, nom donné au contact, ton, personnalité, mention d'IA |
-| **Objectif et transferts** | Ce qu'il est là pour faire, ses règles d'arrêt |
+| **Objectif** | Ce qu'il est là pour faire |
 | **Base de connaissance** | Les fiches dont il a le droit de se servir pour répondre |
 | **Outils** | Ce qu'il a le droit de FAIRE, en plus de parler |
 | **Périmètre et garde-fous** | Ses plafonds, et ce qu'il peut faire face à un contact inconnu |
@@ -4589,7 +4589,7 @@ réponse qui part, un outil qui s'exécute, une sortie qui reprend le scénario,
 - ✅ **Identité et ton** : le **nom interne** (le vôtre), le **nom donné au contact** (laissé vide, l'agent ne
   s'en donne aucun), le **ton** (« vouvoiement, phrases courtes, pas d'emoji », écrit comme on le dirait à une
   nouvelle recrue) et la **personnalité**.
-- ✅ **Objectif et transferts** : l'**objectif** est le champ qui pèse le plus sur ce que l'agent répondra.
+- ✅ **Objectif** : l'**objectif** est le champ qui pèse le plus sur ce que l'agent répondra.
 - ✅ **Quand passer la main à un humain se règle dans l'outil « Passer la main à un humain »** (2026-11-25, décision de
   Julien) : c'est son « Quand l'appeler », en français ordinaire (« dès qu'on parle d'un remboursement, ou si le
   contact s'énerve »). L'ancien champ de l'onglet Objectif a disparu et l'agent ne le lit plus, sans reprise des textes
@@ -4826,8 +4826,12 @@ un gros bouton « Ajouter un outil », et la liste des outils posés.
 
 ### Les règles d'arrêt, et les sorties du bloc
 
-- ✅ **Une règle d'arrêt, c'est « quand l'agent a fini de faire ÇA, il sort par là ».** On lui donne un code
-  (normalisé sous vos yeux pendant la saisie) et un libellé lisible. **Chacune devient une sortie du bloc
+- ✅ **Une règle d'arrêt, c'est un cas où l'agent s'arrête simplement** (par exemple « si le client l'insulte »),
+  **facultative**, et elle se règle dans l'outil « Terminer par une règle d'arrêt », onglet Outils (« Modifier »)
+  depuis le 2026-11-25 (décision de Julien : l'onglet « Objectif et transferts » n'était pas clair, il ne garde que
+  l'objectif et s'appelle « Objectif »). Passer la main et lancer un scénario ont leurs propres outils, et
+  « Construire en parlant » ne la demande plus comme « une conversation réussie » mais comme une option (« aucun » est
+  une réponse). On lui donne un code (normalisé sous vos yeux pendant la saisie) et un libellé lisible. **Chacune devient une sortie du bloc
   agent** dans le constructeur, à relier vers la suite du parcours. **12 maximum** : au-delà le bloc devient
   illisible et l'agent choisit mal.
 - ✅ **Cinq sorties automatiques**, toujours présentes sur le bloc, en plus des vôtres :
@@ -4920,7 +4924,7 @@ un gros bouton « Ajouter un outil », et la liste des outils posés.
 - ✅ **Chaque règle se garde, se corrige sur place, ou se jette séparément** (2026-08-28, demande de Julien) :
   « potentiellement le mec ne veut en changer qu'une et le reste lui convient ». Tout est gardé au départ, le
   bouton dit combien de lignes partiront. Seules les règles d'arrêt se gardent ou se jettent en bloc, parce
-  qu'elles sont plusieurs dans une même ligne : elles se corrigent dans l'onglet Objectif.
+  qu'elles sont plusieurs dans une même ligne : elles se corrigent dans l'outil « Terminer », onglet Outils.
 - ✅ **« Enregistrer et activer », d'un seul clic** (2026-11-24, demande de Julien : « comme ça le truc est activé
   direct »). C'est le bouton principal sous la proposition tant que l'agent n'est pas actif ; « Enregistrer », à
   côté, règle sans activer, pour le tester d'abord. Si l'activation est refusée parce qu'il manque encore quelque

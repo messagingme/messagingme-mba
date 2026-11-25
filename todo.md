@@ -1,5 +1,14 @@
 # todo.md : backlog
 
+## 🟡 Les règles d'arrêt dans l'outil « Terminer » : la relecture du lot 3 (2026-11-25, aucun rouge)
+
+- Une règle d'arrêt ajoutée depuis l'onglet Outils pendant que la page est occupée (une activation en cours) est perdue
+  en silence : `enregistrer` rend la main sans rien dire, et `CodeSortieInput` a déjà vidé ses champs.
+- Un refus d'écriture (409, 422) d'une règle s'affiche en haut de la page, pas dans le panneau Outils, champs déjà vidés.
+- Les outils « Terminer » posés avant le 2026-11-25 gardent une description qui cite l'onglet « Objectif et transferts ».
+- Les captures d'aide des étapes 8 et 9 de « Construire un agent IA » montrent encore l'ancien onglet : à refaire au
+  lot 4 (le scénario de capture saisit la règle sur l'onglet Objectif).
+
 ## 🟡 « Quand passer la main » dans l'outil : la relecture du lot 2 (2026-11-25, aucun rouge)
 
 - `get_agent` (MCP) rend encore `fiche.reglesTransfert`, l'ancienne valeur ignorée, et pas la description de l'outil
