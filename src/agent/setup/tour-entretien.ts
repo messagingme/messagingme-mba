@@ -17,14 +17,15 @@ import {
 import {
   bornerPourModele, ENTRETIEN_VIERGE, MAX_BASCULES, type EntretienComplet, type EntretienStore, type TourEntretien,
 } from './entretien-store';
+import { rendreProposition, type PropositionEnAttente } from './en-attente';
 import { blocDeFin } from './fin';
 import {
-  assainirProposition, brancheables, differences, propositionSchema, OUTIL_PROPOSER, SCHEMA_PROPOSITION,
+  assainirProposition, propositionSchema, OUTIL_PROPOSER, SCHEMA_PROPOSITION,
   type Changement, type Proposition,
 } from './proposition';
 import {
-  champScenario, MOYEN_DECRIT_PAR_LE_CLIENT, scenarioDuMoyen, scenariosAPoser, scenariosDesMoments,
-  situationDuMoment, type ScenarioAPoser, type ScenarioEnLigne,
+  MOYEN_DECRIT_PAR_LE_CLIENT, scenarioDuMoyen, scenariosAPoser, scenariosDesMoments,
+  type ScenarioAPoser, type ScenarioEnLigne,
 } from './scenarios';
 
 const DELAI_MS = 45_000;
@@ -367,15 +368,9 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
         };
       }
       const outilsAActiver = outilFiche ? [outilFiche.handler] : [];
-      const changements = enEntretien ? [] : [
-        ...differences(contexte, propositionFinale, outilsAActiver),
-        ...aPoser.map((s) => ({
-          champ: champScenario(s.workflowId),
-          label: `Outil « Lancer un scénario » : ${s.nom}, dès que le contact…`,
-          avant: '',
-          apres: situationDuMoment(s.moment),
-        })),
-      ];
+      const { reponses: _r, bascules: _b, ...retenue } = propositionFinale;
+      const rendue = rendreProposition(contexte, retenue, aPoser, outilsAActiver);
+      const changements = enEntretien ? [] : rendue.changements;
 
       if (vientDeFinir) {
         const inventaire = inventaireDe(contexte);
@@ -399,6 +394,10 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
         bascules: listeBascules,
         poses: posesApres,
         ...(adresseRetenue ? { connaissanceUrl: adresseRetenue } : {}),
+        // La proposition reste lisible après ce tour (`en-attente.ts`) ; un tour sans proposition garde la précédente.
+        ...(changements.length > 0
+          ? { enAttente: { proposition: retenue, scenarios: aPoser, outilsAActiver } satisfies PropositionEnAttente }
+          : avant.enAttente === undefined ? {} : { enAttente: avant.enAttente }),
       };
       // L'annonce d'import n'est vraie que pour un tour effectivement conservé.
       await deps.entretiens.ecrire(commande.tenantId, commande.agentId, apres);
@@ -418,16 +417,7 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
         reponse: {
           message,
           couverture: suivi,
-          proposition: enEntretien ? propositionVide() : {
-            fiche: propositionFinale.fiche ?? {},
-            outils: propositionFinale.outils ?? [],
-            connecteurs: (propositionFinale.connecteurs ?? [])
-              .filter((c) => (contexte.connecteurs ?? []).some((x) => x.nom === c.nom)),
-            outilsBranches: brancheables(contexte.catalogue, propositionFinale.outilsBranches, false),
-            outilsDebranches: brancheables(contexte.catalogue, propositionFinale.outilsDebranches, true),
-            scenarios: aPoser,
-            outilsAActiver,
-          },
+          proposition: enEntretien ? propositionVide() : rendue.proposition,
           changements,
           usage: { tokensIn, tokensOut },
         },

@@ -5,6 +5,20 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : la proposition de l'entretien survit à un onglet rouvert
+
+Toujours chez Maison Saint-Honoré : le dernier message disait « Relisez la proposition ci-dessous » au-dessus de rien.
+La proposition ne partait que dans la réponse du tour qui la produisait ; un rechargement, un onglet quitté puis rouvert
+ou une coupure, et l'écran relisait le fil sans elle, sans plus aucun bouton pour enregistrer ni activer (le jaune noté
+le 2026-11-23 sur les coupures, devenu bloquant). Elle est désormais gardée avec l'entretien et la relecture la rend,
+recalculée contre l'agent actuel par la même construction que le tour (`rendreProposition`) ; « Enregistrer » et « Tout
+jeter » l'oublient (`DELETE /setup/proposition`). La console tolère une API sans la route (404 ignoré). Au passage, la
+question du délai dit ce qui se passe (« l'agent clôt la conversation ; dans un scénario, le parcours continue par la
+sortie Pas de réponse ») au lieu de « arrêter d'attendre », que Julien ne comprenait pas. La relecture a trouvé le rouge du
+lot avant tout push : le stockage Postgres n'écrivait que ses colonnes, la proposition n'aurait jamais atteint la base
+(les tests tournaient sur un faux en mémoire) ; d'où la migration 0323 (`en_attente jsonb`, en `avant`), prouvée sur le
+banc PGlite dans les deux sens. Quatre mutations serveur et une de la console, toutes rouges.
+
 ## 2026-11-24 : mini-CRM, la liste par pages et l'export CSV d'une sélection, colonne par colonne
 
 Demande de Julien, sur une capture de l'écran Contacts (146 fiches d'un bloc). Méthode : en direct, une relecture

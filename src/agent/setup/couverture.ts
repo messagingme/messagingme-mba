@@ -171,9 +171,12 @@ export const AGENDA: Point[] = [
      * `aboutissements` et `humain` : ce qui réussit, ce qui se passe sans réponse, puis qui reprend.
      */
     code: 'silence',
-    sujet: 'le délai avant de lâcher une conversation sans réponse',
-    question: 'Si le contact ne répond plus, au bout de combien de temps votre agent doit-il lâcher la conversation ?',
-    aObtenir: 'au bout de combien de temps SANS réponse du contact l’agent cesse d’attendre, EN MINUTES. '
+    sujet: 'le délai avant de clore une conversation sans réponse',
+    // Julien, 2026-11-24 : « arrêter d'attendre, ça veut dire quoi ? ». On dit ce qui se passe au bout du délai.
+    question: 'Si le client ne répond plus, au bout de combien de temps l’agent clôt-il la conversation ? Dans un '
+      + 'scénario, le parcours continue alors par la sortie « Pas de réponse ».',
+    aObtenir: 'au bout de combien de temps SANS réponse du contact l’agent clôt la conversation (dans un scénario, le '
+      + 'parcours continue par la sortie « Pas de réponse »), EN MINUTES. Dis-le avec ces mots, jamais « arrêter d’attendre ». '
       + 'Convertis toi-même ce qu’il dit (« une demi-heure » = 30, « deux heures » = 120, « une journée » = 1440). '
       + 'Le maximum est 24 heures, soit 1440 minutes : s’il demande plus, dis-le et propose 1440',
     pistes: ['30 minutes', '2 heures', 'une demi-journée', '24 heures'],

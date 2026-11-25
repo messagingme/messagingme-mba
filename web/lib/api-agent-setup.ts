@@ -238,6 +238,9 @@ export async function lireEntretien(
   /** Combien de messages le fil compte en base : `messages` n'en porte que les derniers. */
   total?: number;
   couverture: Couverture;
+  /** La proposition pas encore enregistrée, recalculée contre l'agent ; absente s'il n'y a rien à enregistrer. */
+  proposition?: PropositionConstruction;
+  changements?: Changement[];
 }> {
   return request(`/tenants/${tenantId}/agents/${agentId}/setup`);
 }
@@ -267,6 +270,15 @@ export function joindrePiece(tenantId: string, agentId: string, nom: string, dat
 /** Repart de zéro. Un entretien qui a mal tourné doit pouvoir se jeter sans supprimer l'agent. */
 export async function effacerEntretien(tenantId: string, agentId: string): Promise<{ efface: boolean; couverture: Couverture }> {
   return request(`/tenants/${tenantId}/agents/${agentId}/setup`, { method: 'DELETE' });
+}
+
+/**
+ * La proposition est réglée (« Enregistrer » ou « Tout jeter ») : la relecture de l'entretien ne la rendra plus. Au
+ * mieux : un échec, ou une API plus ancienne que la route (404), laisse seulement la proposition revenir au
+ * prochain rechargement, recalculée contre l'agent.
+ */
+export async function oublierProposition(tenantId: string, agentId: string): Promise<void> {
+  await request(`/tenants/${tenantId}/agents/${agentId}/setup/proposition`, { method: 'DELETE' }).catch(() => undefined);
 }
 
 /**

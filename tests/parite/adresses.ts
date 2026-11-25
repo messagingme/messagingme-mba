@@ -327,6 +327,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /agents/:agentId/setup': ASSISTANT,
   'GET /agents/:agentId/setup/suggestions': ASSISTANT,
   'DELETE /agents/:agentId/setup': ASSISTANT,
+  'DELETE /agents/:agentId/setup/proposition': ASSISTANT,
   'POST /agents/:agentId/setup/piece-jointe': ASSISTANT,
   'POST /agents/:agentId/setup': ASSISTANT,
 

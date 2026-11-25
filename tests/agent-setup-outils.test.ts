@@ -150,8 +150,11 @@ describe('le vrai câblage', () => {
   });
 
   it('🔴 le tour filtre sur la bibliothèque avant de rendre quoi que ce soit', () => {
-    expect(tour).toContain('outilsBranches: brancheables(contexte.catalogue');
-    expect(tour).toContain('outilsDebranches: brancheables(contexte.catalogue');
+    // Depuis le 2026-11-24, le tour et la relecture rendent la proposition par la même construction (`en-attente.ts`).
+    const rendu = readFileSync(resolve(__dirname, '../src/agent/setup/en-attente.ts'), 'utf8');
+    expect(tour).toContain('rendreProposition(contexte,');
+    expect(rendu).toContain('outilsBranches: brancheables(contexte.catalogue');
+    expect(rendu).toContain('outilsDebranches: brancheables(contexte.catalogue');
   });
 
   /**

@@ -1766,7 +1766,11 @@ dernière marque recopiée, coupé aux lignes, aux flèches et aux « ? », et u
 point est ouvert, c'est le serveur qui pose sa question, SEULE : elle remplace celles du modèle, dont il ne garde que
 l'accusé de réception (`sansSesQuestions`) ; deux questions dans un message, le client répond à l'autre et l'entretien ne
 finit jamais. Seul le serveur dit que l'agent est prêt : pendant l'entretien, un message du modèle qui l'annonce
-(`annonceUneFin`) part entier, remplacé par `PAS_ENCORE_FINI` et la question du point ouvert. Sur un oui, l'entretien fini, le serveur met dans la
+(`annonceUneFin`) part entier, remplacé par `PAS_ENCORE_FINI` et la question du point ouvert.
+🔴 **La proposition survit au tour qui l'a produite** (`en-attente.ts`) : gardée avec l'entretien (`enAttente`), elle
+revient à la relecture (`GET /setup`), RECALCULÉE contre l'agent actuel (une ligne déjà enregistrée n'y est plus), par
+la même construction que le tour (`rendreProposition`). « Enregistrer » et « Tout jeter » l'oublient
+(`DELETE /setup/proposition`), sinon une ligne jetée reviendrait. Un tour sans proposition garde la précédente. Sur un oui, l'entretien fini, le serveur met dans la
 proposition l'outil `lire_contact` avec des mots qu'il écrit lui-même (`outilLireFiche`) : UN outil généraliste, qui rend
 toute la fiche, et une description qui sert de CARTE (quand l'appeler, où regarder : `shopify_lien_suivi` et
 `expediee_le` pour une livraison, chaque champ HubSpot par sa clé et son libellé), plus un « ne pas utiliser » qui

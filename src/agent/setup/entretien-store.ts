@@ -37,6 +37,11 @@ export interface EntretienComplet {
    * route retombe alors sur une extraction depuis la réponse.
    */
   connaissanceUrl?: string;
+  /**
+   * La dernière proposition pas encore enregistrée ni jetée (`en-attente.ts`), relue par `relireEnAttente`, qui la
+   * valide et la recalcule. Optionnelle, sans défaut, comme `connaissanceUrl`.
+   */
+  enAttente?: unknown;
 }
 
 /** Un entretien vierge. C'est aussi ce qu'on rend d'un état illisible : on ne bloque jamais l'écran. */
@@ -93,6 +98,8 @@ const etatSchema = z.object({
   // défaut écrirait une chaîne vide dans le jsonb de chaque entretien existant. Une adresse hors borne est
   // oubliée plutôt que tronquée : coupée, elle désignerait une autre page.
   connaissanceUrl: z.string().max(2000).optional().catch(undefined),
+  // Validée à son usage (`relireEnAttente`) : une forme illisible y rend « pas de proposition », jamais un fil vierge.
+  enAttente: z.unknown().optional(),
 });
 
 

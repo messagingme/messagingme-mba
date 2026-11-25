@@ -10,6 +10,7 @@ import { MAX_CARACTERES_MESSAGE, type ContexteConstruction } from '../agent/setu
 import { urlDeConnaissance } from '../agent/setup/couverture';
 import { ENTRETIEN_VIERGE, type EntretienStore } from '../agent/setup/entretien-store';
 import { avancementEntretien } from '../agent/setup/avancement';
+import { relireEnAttente } from '../agent/setup/en-attente';
 import {
   creerTourEntretien, type ResultatTourEntretien, type TourEntretienDeps,
 } from '../agent/setup/tour-entretien';
@@ -186,7 +187,24 @@ export function registerAgentSetup(app: FastifyInstance, deps: AgentSetupRouteDe
       auteurs: auteurs.map((a) => (a === null ? null : emails[a] ?? null)),
       total: entretien.messages.length,
       couverture: avancementEntretien(entretien, ctx.etat),
+      // La proposition pas encore enregistrée, recalculée contre l'agent : sans elle, rouvrir l'onglet perdait le diff.
+      ...(relireEnAttente(entretien.enAttente, ctx.etat) ?? {}),
     });
+  });
+
+  /**
+   * « Enregistrer » ou « Tout jeter » : la proposition en attente est réglée, la relecture ne la rend plus. Sans cela, une
+   * ligne jetée reviendrait au prochain rechargement. Le fil, lui, ne bouge pas.
+   */
+  app.delete('/tenants/:tenantId/agents/:agentId/setup/proposition', opts, async (req, reply) => {
+    const ctx = await ouvrir(req, reply);
+    if (!ctx) return;
+    const entretien = await ctx.entretiens.lire(ctx.tenant, ctx.agentId);
+    if (entretien?.enAttente !== undefined) {
+      const { enAttente: _e, ...sans } = entretien;
+      await ctx.entretiens.ecrire(ctx.tenant, ctx.agentId, sans);
+    }
+    return reply.code(200).send({ oubliee: true });
   });
 
   /**

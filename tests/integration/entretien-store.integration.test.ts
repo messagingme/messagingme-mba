@@ -69,6 +69,17 @@ describe.skipIf(!url)('entretien de construction en base (Postgres)', () => {
     expect(relu?.poses).toEqual(['mission']);
   });
 
+  it('🔴 la proposition en attente survit à l’enregistrement, et s’oublie (0323, Maison Saint-Honoré)', async () => {
+    const enAttente = { proposition: { message: 'm', fiche: { objectif: 'Répondre.' } }, scenarios: [], outilsAActiver: ['lire_contact'] };
+    await store.ecrire(tenantId, agentId, etat({ enAttente }));
+    expect((await store.lire(tenantId, agentId))?.enAttente).toEqual(enAttente);
+    // L'oubli réécrit l'entretien sans elle : la colonne revient à « absente », le fil reste.
+    await store.ecrire(tenantId, agentId, etat());
+    const relu = await store.lire(tenantId, agentId);
+    expect(relu?.enAttente).toBeUndefined();
+    expect(relu?.messages).toHaveLength(1);
+  });
+
   it('l’adresse se remplace au tour suivant, et un autre espace ne lit rien', async () => {
     await store.ecrire(tenantId, agentId, etat({ connaissanceUrl: 'https://ancien.fr/' }));
     await store.ecrire(tenantId, agentId, etat({ connaissanceUrl: 'https://nouveau.fr/' }));

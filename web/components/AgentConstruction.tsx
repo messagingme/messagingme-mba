@@ -6,7 +6,7 @@ import { cardCls, inputCls } from '@/lib/ui';
 import { MbaNotice } from '@/components/MbaNotice';
 import { ApiError, estAnnulation } from '@/lib/http';
 import {
-  parlerAuConstructeur, lireEntretien, effacerEntretien, joindrePiece, restreindreProposition,
+  parlerAuConstructeur, lireEntretien, effacerEntretien, joindrePiece, restreindreProposition, oublierProposition,
   type Changement, type ManqueFiche, type PropositionConstruction, type TourConstruction,
 } from '@/lib/api-agent-setup';
 import { TAILLE_DOCUMENT_MAX, TAILLE_IMAGE_MAX } from '@/lib/partage/piece-jointe';
@@ -115,6 +115,12 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
     setAuteurs(Array.isArray(r?.auteurs) ? r.auteurs : []);
     setResteACouvrir(r?.couverture?.manquants?.length ?? 0);
     setTotal(r?.couverture?.total ?? 0);
+    // 🔴 La proposition pas encore enregistrée revient avec le fil (2026-11-24) : sans elle, un onglet rouvert montrait
+    // « Relisez la proposition ci-dessous » au-dessus de rien, et plus aucun bouton pour l'enregistrer.
+    const enAttente = r?.proposition && Array.isArray(r.changements) && r.changements.length > 0;
+    setProposition(enAttente ? r.proposition! : null);
+    setChangements(enAttente ? r.changements! : null);
+    if (enAttente) setLot((n) => n + 1);
   }, []);
 
   /** L'entretien déjà tenu. Sans cette relecture, changer d'onglet effacerait la conversation. */
@@ -295,6 +301,8 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
     setErreur(null);
     try {
       await onApplique(restreindreProposition(proposition, changements, gardees));
+      // Les lignes jetées ne doivent pas revenir au prochain rechargement.
+      void oublierProposition(tenantId, agentId);
       setChangements(null);
       setProposition(null);
       setTours((t0) => [...t0, { role: 'assistant', content: t('C’est enregistré.', 'Saved.') }]);
@@ -496,7 +504,7 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
           key={lot} changements={changements} busy={busy} actif={actif}
           onGarder={(g) => void garder(g)}
           onGarderEtActiver={(g) => void garder(g, true)}
-          onJeter={() => { setChangements(null); setProposition(null); }}
+          onJeter={() => { setChangements(null); setProposition(null); void oublierProposition(tenantId, agentId); }}
         />
       )}
       {enregistre && changements === null && (

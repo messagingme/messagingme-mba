@@ -1453,6 +1453,38 @@ describe('le oui aux données de la fiche pose l’outil', () => {
     expect(res.message).not.toContain('Il me manque encore');
   });
 
+  it('🔴 la proposition survit au rechargement : la relecture la rend (Maison Saint-Honoré, 2026-11-24)', async () => {
+    // Avant : « Relisez la proposition ci-dessous » au-dessus de rien, dès qu'on avait quitté l'onglet ou rechargé.
+    const a = app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] });
+    const tour = await a.executer('oui');
+    expect(tour.changements.length).toBeGreaterThan(0);
+    const relue = (await a.srv.inject({ method: 'GET', url: url('t1'), ...h(adminTok) })).json();
+    expect(relue.changements).toEqual(tour.changements);
+    expect(relue.proposition.outilsAActiver).toEqual(['lire_contact']);
+  });
+
+  it('🔴 « Enregistrer » ou « Tout jeter » l’oublie : la relecture ne la rend plus, le fil reste', async () => {
+    const a = app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] });
+    await a.executer('oui');
+    const oubli = await a.srv.inject({ method: 'DELETE', url: `${url('t1')}/proposition`, ...h(adminTok) });
+    expect(oubli.statusCode).toBe(200);
+    const relue = (await a.srv.inject({ method: 'GET', url: url('t1'), ...h(adminTok) })).json();
+    expect(relue.changements).toBeUndefined();
+    expect(relue.messages.length).toBeGreaterThan(0);
+  });
+
+  it('une ligne déjà enregistrée ne revient pas : la relecture recalcule contre l’agent', async () => {
+    const a = app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] });
+    const tour = await a.executer('oui');
+    const carte = tour.proposition.outils.find((o: { handler: string }) => o.handler === 'lire_contact')!;
+    const apresEnregistrement = app({
+      entretien: a.entretiens.ecrits.at(-1)!, integrations: SHOPIFY,
+      outils: [{ handler: 'lire_contact', description: carte.description, nePasUtiliser: carte.nePasUtiliser, actif: true }],
+    });
+    const relue = (await apresEnregistrement.srv.inject({ method: 'GET', url: url('t1'), ...h(adminTok) })).json();
+    expect(relue.changements).toBeUndefined();
+  });
+
   it('déjà actif avec les bons mots : rien à enregistrer pour lui', async () => {
     const premier = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] }).executer('oui');
     const carte = premier.proposition.outils.find((o: { handler: string }) => o.handler === 'lire_contact')!;

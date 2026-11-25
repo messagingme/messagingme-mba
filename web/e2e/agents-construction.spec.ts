@@ -42,7 +42,9 @@ async function mock(page: import('@playwright/test').Page, appels: Appel[], opts
   /** Le statut de l'agent ouvert : « Enregistrer et activer » ne s'offre qu'à un agent pas encore actif. */
   statut?: 'draft' | 'active';
   /** Le PATCH de la fiche est refusé (409) : l'enregistrement échoue. */
-  enregistrementEnEchec?: boolean } = {}) {
+  enregistrementEnEchec?: boolean;
+  /** Les appels à l'oubli de la proposition (`DELETE /setup/proposition`), par méthode. */
+  oublis?: string[] } = {}) {
   const agent = { ...AGENT, status: opts.statut ?? AGENT.status };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
@@ -50,6 +52,10 @@ async function mock(page: import('@playwright/test').Page, appels: Appel[], opts
     const url = req.url();
     const method = req.method();
     const json = (b: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    if (/\/setup\/proposition$/.test(url)) {
+      opts.oublis?.push(method);
+      return json({ oubliee: true });
+    }
     if (/\/setup\/piece-jointe$/.test(url)) {
       appels.push({ method, url, body: req.postDataJSON() });
       return json(opts.pieceJointe ?? { fiches: 1, titres: ['Doc'], nature: 'texte' }, 201);
@@ -238,6 +244,34 @@ test.describe('Agents IA : construire en parlant', () => {
 
     await expect(page.getByTestId('setup-suite')).toContainText('Votre agent est actif');
     expect(appels.some((a) => a.method === 'PATCH' && (a.body as { status?: string }).status !== undefined)).toBe(false);
+  });
+
+  test('🔴 la proposition pas encore enregistrée revient à la réouverture de l onglet (Maison Saint-Honoré, 2026-11-24)', async ({ page }) => {
+    // Avant : « Relisez la proposition ci-dessous » au-dessus de rien, et aucun bouton pour l'enregistrer.
+    const appels: Appel[] = [];
+    const oublis: string[] = [];
+    const fil = {
+      messages: [{ role: 'user', content: 'oui' }, { role: 'assistant', content: 'Pour finir : relisez la proposition ci-dessous.' }],
+      couverture: { manquants: [], total: 9, pointOuvert: null },
+      proposition: PROPOSITION.proposition, changements: PROPOSITION.changements,
+    };
+    await mock(page, appels, { lectures: [fil], oublis });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await expect(page.getByTestId('setup-diff')).toBeVisible();
+    await expect(page.getByTestId('setup-garder-activer')).toBeVisible();
+    await page.getByTestId('setup-jeter').click();
+    await expect(page.getByTestId('setup-diff')).toHaveCount(0);
+    await expect.poll(() => oublis, { timeout: 5000 }).toEqual(['DELETE']);
+  });
+
+  test('« Enregistrer » oublie la proposition côté serveur : les lignes jetées ne reviennent pas', async ({ page }) => {
+    const oublis: string[] = [];
+    await mock(page, [], { oublis });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await page.getByTestId('setup-saisie').fill('Mon agent qualifie les demandes.');
+    await page.getByTestId('setup-envoyer').click();
+    await page.getByTestId('setup-garder').click();
+    await expect.poll(() => oublis, { timeout: 5000 }).toEqual(['DELETE']);
   });
 
   test('🔴 TANT QUE LE PÉRIMÈTRE N EST PAS COUVERT, on discute : aucun diff', async ({ page }) => {

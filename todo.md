@@ -1,5 +1,14 @@
 # todo.md : backlog
 
+## 🟡 La proposition de l'entretien gardée : la relecture (2026-11-24, un rouge corrigé dans le lot)
+
+- `oublierProposition` part sans être attendue, et un tour sans proposition recopie l'ancienne : si l'oubli échoue, une
+  ligne jetée peut revenir au rechargement (recalculée contre l'agent). Un `update … set en_attente = null` ciblé
+  éviterait aussi de réécrire la ligne entière.
+- La carte de « Lire la fiche du contact » n'est pas revalidée au tour : sur un très gros inventaire HubSpot, sa
+  description dépasserait 2 000 caractères et la relecture rendrait la proposition illisible, sans un mot.
+- Une relecture (coupure) remplace un diff en cours de correction par la version du serveur.
+
 ## 🟡 Mini-CRM, pages et export CSV (`edd0efec4`) : la relecture (2026-11-24, aucun rouge)
 
 Partent avec le prochain lot de fonctionnalité des contacts. Déjà réglés dans le lot : l'ordre total de `query`, la case
