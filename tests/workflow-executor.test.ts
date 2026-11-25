@@ -1590,6 +1590,24 @@ describe('sortie d agent NON câblée (revue 13b)', () => {
     expect(rendus).toEqual([]); // et PAS rendue à l'agent de Meta
     spy.mockRestore();
   });
+
+  it('🔴 la sortie `humain` non câblée arrête le parcours SANS rien basculer : c’est l’escalade de l’agent qui le fait', async () => {
+    // Basculer ici, avant `escalade.ts`, ferait rendre `false` à sa bascule gardée `only: ['app_workflow']` : la dernière
+    // phrase de l'agent serait jetée. Rendre la main à l'agent de Meta aussi, et le contact n'atteindrait jamais l'équipe.
+    const rendus: string[] = [];
+    const g: WorkflowGraph = { nodes: [n('a', 'agent', { agentId: 'ag1' })], edges: [] };
+    const { ex, runs, escalations } = make(g, {
+      agentSessions: { byRun: async () => SESSION_C } as unknown as WorkflowExecutorDeps['agentSessions'],
+      enqueueAgentTurn: async () => {},
+      mbaActifPour: async () => true,
+      releaseToMba: async (_t: string, w: string) => { rendus.push(w); },
+    });
+    runs.run = { evenement: null, id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, neEnMasse: false, exigeAccordMarketing: false };
+    expect(await ex.sortirDuBlocAgent('t1', '33600', 'sC', 'humain')).toBe(true);
+    expect(runs.run).toMatchObject({ status: 'done', currentNode: null });
+    expect(escalations).toEqual([]);
+    expect(rendus).toEqual([]);
+  });
 });
 
 /**

@@ -80,19 +80,25 @@ describe('le message standard de la relance avec agent IA', () => {
 describe('le scénario de la relance avec agent IA', () => {
   const premier = (g: WorkflowGraph) => blocVerrouille(g)!;
 
-  it('🔴 la réponse rapide mène au bloc Agent IA ; règles d’arrêt, escalade et inactivité à une fin ; échec, plafond et sans source SANS arête (l’équipe, décision 7)', () => {
+  it('🔴 la réponse rapide mène au bloc Agent IA ; ses règles d’arrêt à une fin ; escalade, inactivité, échec, plafond et sans source SANS arête', () => {
     const g = avecLAgent(grapheDUneLigne(), AGENT, 1);
     const agent = g.nodes.find((n) => n.id === BLOC_AGENT_PANIER)!;
     expect(agent).toMatchObject({ type: 'agent', data: { agentId: AGENT.id, agentLabel: 'Conseiller', sorties: [{ code: 'rdv_pris', label: 'RDV pris' }] } });
     expect(g.edges).toContainEqual(expect.objectContaining({ source: premier(g).id, target: BLOC_AGENT_PANIER, sourceHandle: 'btn:1' }));
     const versLaFin = g.edges.filter((e) => e.source === BLOC_AGENT_PANIER).map((e) => [e.sourceHandle, e.target]);
-    expect(versLaFin).toEqual(expect.arrayContaining([
-      ['sortie:rdv_pris', BLOC_FIN_AGENT_PANIER], [`sortie:${SORTIE_HUMAIN}`, BLOC_FIN_AGENT_PANIER], [SORTIE_TIMEOUT, BLOC_FIN_AGENT_PANIER],
-    ]));
-    for (const h of [SORTIE_ECHEC, SORTIE_PLAFOND, SORTIE_SANS_SOURCE]) {
+    expect(versLaFin).toEqual([['sortie:rdv_pris', BLOC_FIN_AGENT_PANIER]]);
+    // L'escalade et l'inactivité finissent sans arête comme vers une fin muette (le moteur, `advance` et la reprise) :
+    // un bloc vide « choisir une action » laissait croire qu'il y avait quelque chose à régler (Julien, 2026-11-25).
+    for (const h of [SORTIE_HUMAIN, SORTIE_TIMEOUT, SORTIE_ECHEC, SORTIE_PLAFOND, SORTIE_SANS_SOURCE]) {
       expect(g.edges.some((e) => e.source === BLOC_AGENT_PANIER && (e.sourceHandle === h || e.sourceHandle === `sortie:${h}`)), h).toBe(false);
     }
     expect(g.nodes.find((n) => n.id === BLOC_FIN_AGENT_PANIER)).toMatchObject({ type: 'action', data: {} });
+  });
+
+  it('🔴 un agent SANS règle d’arrêt n’a ni fin ni flèche après lui : rien à régler à l’écran', () => {
+    const g = avecLAgent(grapheDUneLigne(), { ...AGENT, sorties: [] }, 1);
+    expect(g.nodes.some((n) => n.id === BLOC_FIN_AGENT_PANIER)).toBe(false);
+    expect(g.edges.filter((e) => e.source === BLOC_AGENT_PANIER)).toEqual([]);
   });
 
   it('un graphe qui a déjà son bloc Agent IA ne reçoit que l’agent : la flèche du marchand n’est pas refaite', () => {

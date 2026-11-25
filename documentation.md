@@ -1131,12 +1131,14 @@ webhooks sortants, `repondeur_adresse_id`, 0224). Les invariants :
 - **Un scénario système caché par espace pour ancre** (§ 5), et un graphe construit à CHAQUE démarrage depuis la
   fiche de l'agent (`grapheDuRepondeur`, `src/repondeur/graphe.ts`), figé dans le parcours (type de lancement
   `repondeur`, `fourni_fige`). Ses règles d'arrêt, `humain` et `timeout` mènent à une fin silencieuse ; `echec`,
-  `plafond` et `sans_source` n'ont pas d'arête, donc la conversation passe à l'équipe (`boutonSansSuite`). 🔴 `humain`
-  est câblée : non câblée, le moteur passerait la main pendant la sortie, AVANT l'escalade de l'agent, dont la bascule
-  rendrait alors `false`, et la dernière phrase de l'agent serait jetée. 🔴 Et le tour GARDE cette phrase dans le
+  `plafond` et `sans_source` n'ont pas d'arête, donc la conversation passe à l'équipe (`boutonSansSuite`). 🔴 Une sortie
+  `humain` NON câblée ne passe pas par là : le moteur arrête le parcours et ne bascule rien (`advance`), parce que
+  l'escalade de l'agent (`src/agent/escalade.ts`) passe le fil juste après, gardée `only: ['app_workflow']` ; basculer
+  avant elle, ou rendre la main à l'agent de Meta, lui ferait rendre `false`. Non câblée vaut donc une fin muette, et
+  `timeout` non câblé aussi (la reprise finit comme sur une fin vide). 🔴 Et le tour GARDE cette phrase dans le
   répondeur (`ContexteTourAgent.repondeur`, lu par `estRepondeur`) : ailleurs, équipe joignable, il la jette parce que
   la branche `humain` du scénario parle à sa place ; ici, rien ne parle après lui. 🔴 Même chose pour tout parcours
-  dont la sortie `humain` du bloc finit MUETTE (des blocs Action, puis rien, `brancheHumainMuette`,
+  dont la sortie `humain` du bloc finit MUETTE (rien, ou des blocs Action puis rien, `brancheHumainMuette`,
   `src/workflow/branche-humain.ts`), lue sur le graphe que le parcours joue : c'est le montage d'une recette de l'API,
   dont le contact ne recevait rien quand l'agent passait la main (essai réel du 2026-11-02). Tout autre bloc après la
   sortie est tenu pour parlant, et la phrase reste jetée (une seule voix). ⚠️ « Passer à un humain » derrière `humain`
@@ -3119,7 +3121,8 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   deux relances est allumée par espace (`PgShopifyStore.allumerLigne` éteint l'autre dans sa transaction, les deux lignes
   verrouillées dans un ordre fixe), et chaque lecture du panier (réclamation, « encore voulu », traitement, retour sur
   investissement) passe par `LIGNES_DU_PANIER` ou `lignesDe`. Son scénario standard relie la réponse rapide du template
-  au bloc Agent IA (`avecLAgent`, `src/shopify/lignes-gestion.ts`), sorties d'échec sans arête, donc à l'équipe ;
+  au bloc Agent IA (`avecLAgent`, `src/shopify/lignes-gestion.ts`), sorties d'échec sans arête, donc à l'équipe,
+  escalade et inactivité sans arête aussi (une fin muette), et un bloc de fin seulement pour ses règles d'arrêt ;
   l'agent vit dans ce bloc, choisi à l'allumage parmi les agents actifs. Un agent non actif sort d'un tour par la
   branche d'échec (`runTurn`).
 - 🔴 **UNE LIGNE PAR ÉVÉNEMENT, ET SON SCÉNARIO** (menu « Scénario », lot 5, migration 0299) : `shopify_lignes` porte,

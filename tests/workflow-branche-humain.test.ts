@@ -66,10 +66,20 @@ describe('brancheHumainMuette', () => {
     expect(brancheHumainMuette(apres, 'a')).toBe(false);
   });
 
-  it('dans le doute, parlante : sortie non câblée, autre sortie seule, condition, bifurcation, boucle, bloc absent', () => {
+  it('🔴 la sortie humain NON câblée est muette : le moteur laisse l’escalade passer le fil, la phrase part', () => {
     const fin = bloc('fin', 'action');
-    expect(brancheHumainMuette({ nodes: [agent, fin], edges: [] }, 'a')).toBe(false);
-    expect(brancheHumainMuette({ nodes: [agent, fin], edges: [{ id: 'x', source: 'a', target: 'fin', sourceHandle: 'timeout' }] }, 'a')).toBe(false);
+    expect(brancheHumainMuette({ nodes: [agent], edges: [] }, 'a')).toBe(true);
+    expect(brancheHumainMuette({ nodes: [agent, fin], edges: [{ id: 'x', source: 'a', target: 'fin', sourceHandle: 'timeout' }] }, 'a')).toBe(true);
+  });
+
+  it('🔴 non câblée mais une flèche LIBRE vers un bloc qui parle : le moteur la suit, donc parlante (une seule voix)', () => {
+    const parle = bloc('m', 'quick_message', { body: 'Un conseiller arrive' });
+    expect(brancheHumainMuette({ nodes: [agent, parle], edges: [libre('a', 'm')] }, 'a')).toBe(false);
+    expect(brancheHumainMuette({ nodes: [agent, bloc('t', 'action')], edges: [libre('a', 't')] }, 'a')).toBe(true);
+  });
+
+  it('dans le doute, parlante : condition, bifurcation, boucle, bloc absent', () => {
+    const fin = bloc('fin', 'action');
     expect(brancheHumainMuette({ nodes: [agent, bloc('c', 'condition')], edges: [humain('c')] }, 'a')).toBe(false);
     const deux: WorkflowGraph = { nodes: [agent, bloc('t', 'action'), fin, bloc('g', 'action')], edges: [humain('t'), libre('t', 'fin'), libre('t', 'g')] };
     expect(brancheHumainMuette(deux, 'a')).toBe(false);

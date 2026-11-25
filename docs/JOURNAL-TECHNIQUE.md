@@ -5,6 +5,20 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : la relance de panier avec agent IA sans bloc vide
+
+Julien, sur le scénario créé par l'automation « Panier abandonné avec agent IA » : pourquoi relier « Transfert à un
+humain » alors que l'outil de l'agent passe déjà la conversation dans « À traiter », et pourquoi relier « Pas de
+réponse » quand le réglage de l'agent dit qu'il ne se passe rien ? Le bloc Action vide (« choisir une action… ») était
+une béquille : non reliée, `sortie:humain` faisait escalader `advance` AVANT l'escalade de l'agent, dont la bascule
+gardée `only: ['app_workflow']` rendait alors `false` et jetait sa dernière phrase. `timeout` non relié finissait déjà
+comme relié à une fin vide. Correctif : `advance` clôt le parcours et ne fait rien d'autre sur une `sortie:humain` non
+reliée, `brancheHumainMuette` la juge muette (ou juge l'arête libre du bloc, que le moteur suit alors), et
+`avecLAgent` ne relie plus que les règles d'arrêt, sans bloc de fin quand l'agent n'en a pas. Mesuré en relisant
+`rendreApresParcours` : le montage relié d'avant rendait le contact à l'agent de Meta quand celui-ci est le répondeur
+(au backlog). Relecture : aucun rouge, la flèche libre corrigée dans le lot. Les scénarios déjà créés gardent leur
+bloc, qui se supprime à la main.
+
 ## 2026-11-25 : CSM virtuel, lot F en production, son essai réel fait
 
 B6b (`d0e95ba24`) est en production par le run 45676216975 et le plugin 0.3.70 est publié (run 45686447751) ; B6a

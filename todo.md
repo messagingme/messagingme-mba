@@ -1,5 +1,19 @@
 # todo.md : backlog
 
+## 🟡 La sortie « Transfert à un humain » sans bloc vide : la relecture (2026-11-25, aucun rouge)
+
+- 🟡 **Défaut d'avant, toujours vivant là où `humain` est RELIÉE vers une fin vide** (le répondeur, les recettes de
+  l'API, les scénarios panier créés avant ce lot) : quand l'agent de Meta est le répondeur de l'espace (`mbaActif`),
+  la fin du parcours appelle `rendreApresParcours` AVANT l'escalade de l'agent ; le fil quitte `app_workflow`, la
+  bascule de l'escalade rend `false`, la phrase est jetée et le contact est rendu à l'agent de Meta au lieu de
+  l'équipe. Parade : dans `advance`, ne pas `rendreLaMainAMba` après une `sortie:humain` (reliée ou non), comme le
+  fait désormais le chemin non relié.
+- Une règle d'arrêt nommée `humain` (rien ne réserve `humain`, `timeout`, `echec`, `plafond`, `sans_source` dans
+  `CODE_SORTIE_RE`) tombe sur `sortie:humain` : non reliée, elle clôt désormais le parcours en silence au lieu
+  d'escalader. Réserver ces codes dans `sortieAgentSchema` et `sortiesDeLaFiche`.
+- La cause « scénario » de l'ancienne escalade par `advance` ne s'écrit plus pour `humain` non reliée : l'événement
+  `escaladee` nomme l'agent (voulu).
+
 ## 🟡 Le passage de main de l'agent de Meta écrit complet : la relecture (2026-11-25, aucun rouge)
 
 - La route `PATCH .../settings` pose `handoff.enabled` depuis le mode en base quand l'écran ne l'envoie pas, même si Meta

@@ -127,8 +127,8 @@ export const AGENT_SORTIES_RESERVEES: Array<{ handle: string; icone: NomIcone; l
     icone: 'humain',
     label: ['Transfert à un humain', 'Handed to a human'],
     aide: [
-      'L’agent a passé la main : brancher ce qui doit suivre (message d’attente, tag, fin de parcours)',
-      'The agent handed over: connect what should follow (waiting message, tag, end of journey)',
+      'L’agent a passé la main, la conversation est dans « À traiter ». Facultatif : brancher une suite (tag, message d’attente)',
+      'The agent handed over, the conversation is in “To handle”. Optional: connect a follow-up (tag, waiting message)',
     ],
   },
   {

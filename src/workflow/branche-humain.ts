@@ -10,15 +10,20 @@ import type { PgWorkflowStore } from './store.pg';
  * garder (`ContexteTourAgent.repondeur`). C'est le montage du répondeur (`grapheDuRepondeur`) et celui d'une recette
  * de l'API (`compilerRecette`).
  *
- * Muette : une suite de blocs Action (étiquette, champ, consentement : rien ne part au contact), une arête au plus
- * chacun, qui finit sur rien. Tout autre bloc est tenu pour PARLANT, une condition ou une attente comprises : c'est le
- * comportement d'avant (phrase jetée), et se tromper dans l'autre sens ferait parler deux voix. « Passer à un humain »
- * et une sortie non câblée n'en sont pas non plus : l'un comme l'autre passent le fil à l'équipe PENDANT la sortie,
- * avant l'escalade de l'agent, qui rend alors `false`, et le tour jette la phrase comme une main perdue
+ * Muette : aucune arête (le moteur laisse alors l'escalade passer le fil elle-même, `advance`), ou une suite de blocs
+ * Action (étiquette, champ, consentement : rien ne part au contact), une arête au plus chacun, qui finit sur rien.
+ * Tout autre bloc est tenu pour PARLANT, une condition ou une attente comprises : c'est le comportement d'avant
+ * (phrase jetée), et se tromper dans l'autre sens ferait parler deux voix. « Passer à un humain » n'en est pas une
+ * non plus : il passe le fil à l'équipe PENDANT la sortie, avant l'escalade de l'agent, qui rend alors `false`, et le
+ * tour jette la phrase comme une main perdue
  * (`src/repondeur/graphe.ts`, `run-turn`). Ce mécanisme-là, ce critère ne le change pas (`todo.md`).
  */
 export function brancheHumainMuette(graph: WorkflowGraph, nodeId: string): boolean {
-  const depart = graph.edges.filter((e) => e.source === nodeId && e.sourceHandle === `sortie:${SORTIE_HUMAIN}`);
+  const humain = graph.edges.filter((e) => e.source === nodeId && e.sourceHandle === `sortie:${SORTIE_HUMAIN}`);
+  // Non câblée : `advance` suit alors l'arête LIBRE du bloc s'il en a une (`nextNodeSansHandle`), qu'on juge comme
+  // la branche ; sans elle, rien ne suit, et le moteur laisse l'escalade passer le fil.
+  const depart = humain.length > 0 ? humain : graph.edges.filter((e) => e.source === nodeId && !e.sourceHandle);
+  if (depart.length === 0) return true;
   if (depart.length !== 1) return false;
   const vus = new Set<string>();
   let courant: string | undefined = depart[0]!.target;

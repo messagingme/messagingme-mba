@@ -18,7 +18,7 @@ import type { AgentSessionStatus, AgentSessionStore } from '../agent/session-sto
 
 import { BAIL_AVANCE_S, renouvelerLeBail, type GardeDuTour } from './bail-avance';
 import { REVEIL_COURT_MAX_MS, type ReveilCourt } from './reveil-court';
-import { SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
+import { SORTIE_HUMAIN, SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
 import { SORTIE_FORMULAIRE_REMPLI } from '../../web/lib/partage/sorties-formulaire';
 import { SORTIE_NON_LIVRE } from '../../web/lib/partage/sortie-non-livre';
 import type { AgentTurnJob } from '../agent/turn-job';
@@ -2364,8 +2364,8 @@ export class WorkflowExecutor {
     const attente = await this.runEnAttenteSur(tenantId, waId, 'agent');
     if (!attente) return false;
     /**
-     * La frise dit la règle d'arrêt AVANT la suite du parcours : une sortie non câblée passe la main à l'équipe dans
-     * `advance`, et l'ordre des lignes doit être celui des gestes. Au mieux : une ligne de frise ne fait jamais
+     * La frise dit la règle d'arrêt AVANT la suite du parcours : une sortie non câblée (sauf `humain`, que l'escalade
+     * de l'agent passe elle-même) passe la main à l'équipe dans `advance`, et l'ordre des lignes doit être celui des gestes. Au mieux : une ligne de frise ne fait jamais
      * échouer une sortie. Un rejeu dont le parcours a déjà avancé sort plus haut, sans seconde ligne.
      */
     try {
@@ -2765,6 +2765,11 @@ export class WorkflowExecutor {
       const boutonSansSuite = pieceAcceptee !== null
         || (typeof buttonPayload === 'string' && /^(btn:|card:|row:|sortie:)/.test(buttonPayload));
       await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId });
+      // 🔴 `sortie:humain` non câblée (2026-11-25) : le parcours s'arrête, et RIEN d'autre. C'est l'escalade de l'agent
+      // (`src/agent/escalade.ts`) qui passe le fil à l'équipe, juste après cette sortie, gardée `only: ['app_workflow']`.
+      // Le passer ici, avant elle, lui ferait rendre `false` et jeter la dernière phrase de l'agent ; le rendre à
+      // l'agent de Meta lui ferait rendre `false` aussi, et le contact n'arriverait jamais dans « À traiter ».
+      if (buttonPayload === `sortie:${SORTIE_HUMAIN}`) return;
       if (boutonSansSuite) {
         // eslint-disable-next-line no-console
         console.error(`workflow ${run.workflowId}: le choix « ${pieceAcceptee !== null ? SORTIE_FICHIER : buttonPayload} » du bloc ${run.currentNode} ne mène nulle part, ${waId} a répondu et n'a rien reçu`);

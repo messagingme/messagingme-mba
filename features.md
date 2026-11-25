@@ -4885,7 +4885,8 @@ un gros bouton « Ajouter un outil », et la liste des outils posés.
   - ⏱ **Pas de réponse** : le contact s'est tu pendant le délai d'inactivité réglé sur la fiche.
   - 📕 **Aucune source** : l'agent n'a rien trouvé dans sa base de connaissance. À brancher vers un humain ou
     vers vos coordonnées.
-  - 🙋 **Transfert à un humain** : à brancher vers ce qui doit suivre (message d'attente, tag, fin de parcours).
+  - 🙋 **Transfert à un humain** : la conversation part dans « À traiter » et la dernière phrase de l'agent est
+    envoyée, que la sortie soit branchée ou non. La brancher sert seulement à ajouter une suite (tag, message d'attente).
   - 🛑 **Plafond atteint** : tours, appels d'outils ou budget épuisés.
   - 💥 **Échec technique** : le modèle ou un envoi a échoué. Prévoir un repli.
 - ⚠️ **Un agent sans aucune règle d'arrêt ne sortira que par ces cinq sorties automatiques.** L'éditeur le dit

@@ -478,8 +478,8 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
       // bloque rien, il est dit par son identifiant. Tenu par un test qui monte ce câblage
       // (`tests/controle-du-fil-cablage.test.ts`).
       // `designation` et pas `getById` : le magasin cache le scénario système du répondeur à toutes ses lectures
-      // publiques, et c'est lui qui passe la main quand son agent sort par une règle non câblée (« Répondeur
-      // automatique »).
+      // publiques, et c'est lui qui passe la main quand son agent sort par une sortie non câblée autre que `humain`
+      // (« Répondeur automatique »).
       const designe = await workflowStore.designation(workflowId, tenant).catch(() => null);
       const cause = automatique(designationDuScenario(designe, workflowId));
       const bascule = await fil.passerAUnHumain(tenant, waId, { escalade, cause });

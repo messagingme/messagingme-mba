@@ -12,7 +12,6 @@ import {
   type AutomationShopify,
 } from '../../web/lib/partage/shopify-messages';
 import type { AgentResume } from '../agent/agent-store';
-import { SORTIE_HUMAIN, SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
 import { DELAI_PANIER_MAX, DELAI_PANIER_MIN, DONNEES_SHOPIFY, EVENEMENTS_SHOPIFY, type DonneeShopify, type EvenementShopify } from './donnees';
 import { NOM_DU_SCENARIO, prefixeShopify, type LigneShopify } from './lignes';
 import { corpsStandard } from './messages-standard';
@@ -161,8 +160,11 @@ const donneesDuBlocAgent = (agent: AgentResume): Record<string, unknown> => ({
 
 /**
  * LE SCÉNARIO DE LA RELANCE AVEC AGENT IA (plan 2026-11-20, tâche 3) : la réponse rapide d'index `indexBouton` du premier
- * bloc mène au bloc Agent IA ; chaque règle d'arrêt, l'escalade et l'inactivité mènent à une fin silencieuse, comme le
- * répondeur (`grapheDuRepondeur`). 🔴 `echec`, `plafond` et `sans_source` restent SANS arête : une sortie non câblée
+ * bloc mène au bloc Agent IA ; chaque règle d'arrêt de l'agent mène à une fin silencieuse, et la fin n'est posée que
+ * s'il en a. L'escalade et l'inactivité restent SANS arête (2026-11-25, Julien : un bloc vide « choisir une action »
+ * laissait croire qu'il y avait quelque chose à régler) : non câblées, elles finissent exactement comme câblées vers
+ * une fin muette (`advance` laisse `sortie:humain` à l'escalade de l'agent, et `timeout` non câblé finit comme une fin).
+ * 🔴 `echec`, `plafond` et `sans_source` restent SANS arête : une sortie non câblée
  * remonte la conversation à l'équipe (décision 7 : un crédit épuisé ou un agent introuvable finit dans « À traiter »).
  * Un graphe qui a déjà ses deux blocs ne reçoit que l'agent (ses données) : la flèche du marchand n'est jamais refaite.
  */
@@ -172,12 +174,12 @@ export function avecLAgent(graphe: WorkflowGraph, agent: AgentResume, indexBouto
   if (graphe.nodes.some((n) => n.id === BLOC_AGENT_PANIER)) {
     return { ...graphe, nodes: graphe.nodes.map((n) => (n.id === BLOC_AGENT_PANIER ? { ...n, data: { ...n.data, ...donneesDuBlocAgent(agent) } } : n)) };
   }
-  const handles = new Set<string>([...agent.sorties.map((x) => `sortie:${x.code}`), `sortie:${SORTIE_HUMAIN}`, SORTIE_TIMEOUT]);
+  const handles = new Set<string>(agent.sorties.map((x) => `sortie:${x.code}`));
   return {
     nodes: [
       ...graphe.nodes,
       { id: BLOC_AGENT_PANIER, type: 'agent', position: { x: premier.position.x + 360, y: premier.position.y }, data: donneesDuBlocAgent(agent) },
-      { id: BLOC_FIN_AGENT_PANIER, type: 'action', position: { x: premier.position.x + 720, y: premier.position.y }, data: {} },
+      ...(handles.size > 0 ? [{ id: BLOC_FIN_AGENT_PANIER, type: 'action' as const, position: { x: premier.position.x + 720, y: premier.position.y }, data: {} }] : []),
     ],
     edges: [
       ...graphe.edges.filter((e) => !(e.source === premier.id && e.sourceHandle === `btn:${indexBouton}`)),
