@@ -139,6 +139,30 @@ test.describe('Connecteurs : mettre au point un appel', () => {
     expect((envoi.body as { outputPaths: string[] }).outputPaths).toEqual(['statut', 'livraison.date']);
   });
 
+  test('🔴 un champ que l’essai ne montre pas se saisit à la main, et se retire (essai Everial, 2026-11-25)', async ({ page }) => {
+    // Une analyse de pièce ne réussit jamais depuis « Essayer » (il n'envoie qu'un petit fichier texte) : sans cette
+    // saisie, `status` ne pouvait pas être lu, faute d'avoir été vu.
+    const capture = { posts: [] as Array<{ url: string; body: unknown }> };
+    await mock(page, capture);
+    await page.getByTestId(`requete-editer-${RQ}`).click();
+    await page.getByTestId('onglet-reponse').click();
+    await expect(page.getByTestId('chemin-ajouter')).toBeDisabled();
+    await page.getByTestId('chemin-saisi').fill('analyse.status');
+    await page.getByTestId('chemin-ajouter').click();
+    await expect(page.getByTestId('reponse-gardes')).toContainText('analyse.status');
+    // Un chemin déjà gardé ou mal formé ne s'ajoute pas.
+    await page.getByTestId('chemin-saisi').fill('analyse.status');
+    await expect(page.getByTestId('chemin-ajouter')).toBeDisabled();
+    await page.getByTestId('chemin-saisi').fill('a..b');
+    await expect(page.getByTestId('chemin-ajouter')).toBeDisabled();
+    // Le champ saisi est visible, et se décoche.
+    await page.getByTestId('chemin-statut').uncheck();
+    await page.getByTestId('requete-enregistrer').click();
+    await expect.poll(() => capture.posts.some((p) => p.url.includes(RQ) && !p.url.includes('/test'))).toBe(true);
+    const envoi = capture.posts.find((p) => p.url.includes(RQ) && !p.url.includes('/test'))!;
+    expect((envoi.body as { outputPaths: string[] }).outputPaths).toEqual(['analyse.status']);
+  });
+
   test('🔴 sans champ coché, on enregistre quand même, et RIEN ne le signale comme inachevé', async ({ page }) => {
     /**
      * 🔴 CE TEST A CHANGÉ DE VERDICT DEUX FOIS DANS LA MÊME JOURNÉE, ET LE CAS QU'IL EXERCE EST INCHANGÉ

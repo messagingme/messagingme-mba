@@ -878,10 +878,29 @@ function OngletReponse({ brouillon, maj, resultat }: {
   brouillon: Brouillon; maj: (p: Partial<Brouillon>) => void; resultat: ResultatTest | null;
 }) {
   const t = useT();
+  const [saisi, setSaisi] = useState('');
   const basculer = (chemin: string): void => {
     const dedans = brouillon.outputPaths.includes(chemin);
     maj({ outputPaths: dedans ? brouillon.outputPaths.filter((c) => c !== chemin) : [...brouillon.outputPaths, chemin] });
   };
+  /**
+   * 🔴 UN CHAMP SE SAISIT AUSSI À LA MAIN (essai Everial, 2026-11-25). Cocher suppose d'avoir vu une réponse
+   * réussie, et certains appels ne se réussissent pas depuis cet écran : une analyse de pièce reçoit ici un petit
+   * fichier texte et répond par une erreur, jamais par la forme d'une vraie analyse. Même alphabet que l'extracteur
+   * côté serveur : des clés séparées par des points, sans espace, 120 caractères au plus.
+   */
+  const cheminSaisi = saisi.trim();
+  const saisiValide = /^[^.\s]+(\.[^.\s]+)*$/.test(cheminSaisi) && cheminSaisi.length <= 120
+    && !brouillon.outputPaths.includes(cheminSaisi);
+  const ajouterSaisi = (): void => {
+    if (!saisiValide) return;
+    maj({ outputPaths: [...brouillon.outputPaths, cheminSaisi] });
+    setSaisi('');
+  };
+  // Les champs gardés que le dernier essai ne montre pas (saisis à la main, ou d'une réponse d'avant) : visibles et
+  // décochables, sinon on ne pourrait plus les retirer.
+  const proposes = resultat?.ok ? (resultat.chemins ?? []) : [];
+  const horsEssai = brouillon.outputPaths.filter((c) => !proposes.includes(c));
 
   return (
     <div className="flex flex-col gap-2">
@@ -917,7 +936,10 @@ function OngletReponse({ brouillon, maj, resultat }: {
           {resultat.envoye && (
             <p className="break-all text-xs text-ink-500" data-testid="reponse-envoye">
               {resultat.envoye.methode} {resultat.envoye.url}
-              {resultat.envoye.corps ? ` ${resultat.envoye.corps}` : ''}
+              {/* Un corps « formulaire » revient en objet : l'afficher tel quel donnait « [object Object] ». */}
+              {resultat.envoye.corps
+                ? ` ${typeof resultat.envoye.corps === 'string' ? resultat.envoye.corps : JSON.stringify(resultat.envoye.corps)}`
+                : ''}
             </p>
           )}
           {/* Les en-têtes PARTIS, variables substituées. Jamais ceux de la source : le serveur ne les rend pas. */}
@@ -941,6 +963,37 @@ function OngletReponse({ brouillon, maj, resultat }: {
           </div>
         </>
       )}
+
+      {horsEssai.length > 0 && (
+        <div className="flex flex-col gap-1" data-testid="reponse-chemins-saisis">
+          {horsEssai.map((c) => (
+            <label key={c} className="flex items-center gap-2 text-xs text-ink-900">
+              <input type="checkbox" data-testid={`chemin-${c}`} checked onChange={() => basculer(c)} />
+              <code>{c}</code>
+            </label>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex-1 text-xs text-ink-500">
+          {t('Ajouter un champ à la main', 'Add a field by hand')}
+          <input
+            className={`${inputCls} mt-1 font-mono`} data-testid="chemin-saisi" value={saisi} placeholder="status, livraison.date"
+            onChange={(e) => setSaisi(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouterSaisi(); } }}
+          />
+        </label>
+        <Bouton variante="secondaire" data-testid="chemin-ajouter" disabled={!saisiValide} onClick={ajouterSaisi}>
+          {t('Ajouter', 'Add')}
+        </Bouton>
+        <p className="w-full text-xs text-ink-500">
+          {t(
+            'Pour un champ que l’essai ne peut pas montrer (une analyse de pièce, par exemple) : son nom dans la réponse, les niveaux séparés par un point.',
+            'For a field the try cannot show (a document analysis, for example): its name in the response, levels separated by a dot.',
+          )}
+        </p>
+      </div>
 
       {brouillon.outputPaths.length > 0 && (
         <p className="text-xs text-ink-500" data-testid="reponse-gardes">
