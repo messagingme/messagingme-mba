@@ -34,6 +34,13 @@ des fiches déjà de l'espace) ; une troisième survivante a montré que l'ongle
 deux clients donnent la même étiquette, test comblé et prouvé rouge. La relecture indépendante n'a trouvé aucun rouge ;
 ses trois jaunes les plus lourds sont corrigés dans le lot (l'effacement qui aurait purgé un proche, la dernière commande,
 la page illisible), les autres sont au `todo.md`.
+En production le 2026-11-25 : run 45624695715 (`ca872317a`, « -> 0326 ... ok »), la 0326 relue en base (clés, cascade du
+lien, `client_id` obligatoire), le vrai code joué en lecture seule (la recherche réelle chez Shopify rend les deux clients
+du numéro de Julien, 7 points réels) ; plugin 0.3.66. Oubli rattrapé par `0899a9954` : le texte de progression de la carte
+a changé et son attente e2e (`web/e2e/shopify.spec.ts`) non, la CI console l'a vu, les e2e n'avaient pas été joués en
+local. Leçon : un texte de la console changé se cherche aussi dans `web/e2e/` avant de pousser. Essai réel par Julien sur
+« Messaging Me demo » : « Synchroniser maintenant » relie sa fiche à ses deux clients Shopify (2 clients lus, 2 liens, 1
+fiche), qui porte `VIP` et `VIP MM` ; Julien garde la règle « le max de numéros ».
 
 ## 2026-11-25 : les règles d'arrêt dans l'outil « Terminer », facultatives ; l'onglet ne garde que l'objectif
 
