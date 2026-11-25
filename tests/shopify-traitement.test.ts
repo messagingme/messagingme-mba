@@ -195,6 +195,8 @@ function monter(o: {
     coupees: [] as string[], boutiquesEffacees: [] as string[],
     paniers: [] as unknown[], fermes: [] as string[], fermesExistants: [] as string[], fermesParNumero: [] as string[],
     paniersEffaces: [] as string[],
+    /** Les clients Shopify dont `customers/redact` a défait les liens. */
+    clientsOublies: [] as string[],
     preuves: [] as Array<{ job: JobPreuve; quand: Date }>,
     /** Les liens de suivi écrits sur une fiche : espace, fiche, lien. */
     liens: [] as Array<[string, string, string]>,
@@ -224,6 +226,7 @@ function monter(o: {
       fermerPanierExistant: async (_t, jeton) => { journal.fermesExistants.push(jeton); },
       fermerPaniersDuTelephone: async (_t, tel) => { journal.fermesParNumero.push(tel); },
       effacerPaniersDuTelephone: async (_t, tel) => { journal.paniersEffaces.push(tel); },
+      oublierClientShopify: async (_t, client) => { journal.clientsOublies.push(client); return 0; },
     },
     envoyer: async (_t, corps, compter, options) => {
       journal.ordre.push('envoi');
@@ -507,6 +510,8 @@ describe('une boutique coupée, la désinstallation et les sujets RGPD', () => {
     });
     expect(r).toEqual({ statut: 200 });
     expect(journal.effaces).toEqual([['fiche-1']]);
+    // 🔴 Ses liens de la synchronisation des étiquettes partent, sans purger la fiche d'un proche (lot 6b bis).
+    expect(journal.clientsOublies).toEqual(['77']);
   });
 
   it('customers/data_request prévient les admins, sans aucune donnée du client dans l’e-mail', async () => {

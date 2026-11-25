@@ -3345,13 +3345,17 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   Shopify (détail dans « Contacts & CRM »), le réglage « **Synchroniser les étiquettes** » de la carte, **éteint par
   défaut** : seul le marchand l'allume, jamais le branchement. Allumé, une première lecture part aussitôt, en arrière-plan,
   puis une relecture au plus toutes les 24 h en Pro, Business et Entreprise, et « Synchroniser maintenant » la relance ;
-  la carte dit la dernière synchronisation et ses comptes (clients lus, fiches qui portent une étiquette). Elle cherche une
-  fois chaque fiche sans client par son téléphone : un client ne se relie qu'à la fiche de SON téléphone chez Shopify,
-  jamais par une commande (dont la fiche est celle du téléphone de livraison : un cadeau donnerait les étiquettes de la
-  cliente au destinataire), jamais par une adresse ; les étiquettes d'une fiche sont remplacées à chaque lecture. Aucune
+  la carte dit la dernière synchronisation et ses comptes (clients lus, fiches qui portent une étiquette). Elle cherche
+  chaque fiche par son numéro chez Shopify : une fiche reçoit les étiquettes de CHAQUE client qui porte ce numéro, dans ses
+  coordonnées ou ses adresses, et un client les donne à chaque fiche de ses numéros (lot 6b bis,
+  2026-11-25, décision de Julien : « le max de numéros ») ; jamais par une commande notée. « Synchroniser maintenant »,
+  l'allumage et l'outil de Claude cherchent de nouveau toutes les fiches (un numéro corrigé chez Shopify se relie) ; la
+  relecture quotidienne ne cherche que les nouvelles. Les étiquettes de chaque client sont remplacées à chaque lecture. Aucune
   fiche n'est créée, aucune fiche supprimée n'est touchée, et un client sans fiche est compté puis oublié. Le droit `read_customers` suffit.
   Les étiquettes partent avec la fiche (suppression, demande d'effacement de Shopify) et avec l'effacement de la boutique ;
-  une boutique coupée garde ce qui a été lu. L'onglet Shopify d'une fiche montre les étiquettes Shopify de son client.
+  la demande d'effacement d'un client retire aussi ses étiquettes de toutes les fiches de ses numéros, sans purger la
+  fiche d'un proche reliée par son carnet d'adresses ;
+  une boutique coupée garde ce qui a été lu. L'onglet Shopify d'une fiche montre les étiquettes Shopify de ses clients.
   Depuis Claude Code, `sync_shopify_customer_tags` allume et lance (ou éteint), toutes offres : la Free lit à la demande,
   au plus une fois par 24 h, sans relecture quotidienne ; `get_shopify_state` en dit l'état et les étiquettes lues.
 

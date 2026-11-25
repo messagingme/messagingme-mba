@@ -103,7 +103,7 @@ describe('migration 0319', () => {
   it('🔴 chaque écriture verrouille d’abord la ligne d’état PAR SON JETON, puis les fiches actives ; sans le jeton, rien ne s’écrit', async () => {
     for (const ecrire of [
       (m: PgEtiquettesStore) => m.ecrireClients('t1', 'jeton-1', { lus: [{ clientId: '1001', etiquettes: ['VIP'] }], curseur: '1001' }),
-      (m: PgEtiquettesStore) => m.ecrireRecherche('t1', 'jeton-1', { cherchees: ['c1'], trouves: [{ contactId: 'c1', clientId: '1001', etiquettes: ['VIP'] }] }),
+      (m: PgEtiquettesStore) => m.ecrireRecherche('t1', 'jeton-1', { cherchees: ['c1'], trouves: [{ contactId: 'c1', clientId: '1001', etiquettes: ['VIP'] }], complete: true }),
     ]) {
       const vues: string[] = [];
       const client = {

@@ -7,10 +7,13 @@ import { SYNCHRO_PERIMEE_MINUTES, synchroVivante, type IssueSynchro } from './et
 export { SYNCHRO_PERIMEE_MINUTES, type IssueSynchro };
 
 /**
- * LES ÉTIQUETTES DES CLIENTS SHOPIFY (segments Shopify enrichis, lot 6b, migration 0319) : le lien d'un client Shopify à
- * sa fiche (`shopify_clients`), les étiquettes que le marchand a posées sur ce client DANS SHOPIFY, sur sa fiche
- * (`shopify_etiquettes`, remplacées en bloc à chaque lecture réussie), les fiches déjà cherchées par leur téléphone
- * (`shopify_fiches_cherchees`, une fois chacune), et l'état de la synchronisation de l'espace
+ * LES ÉTIQUETTES DES CLIENTS SHOPIFY (segments Shopify enrichis, lot 6b, migration 0319 ; lot 6b bis, migration 0326) :
+ * les LIENS entre clients Shopify et fiches (`shopify_clients`, plusieurs à plusieurs : un client relie toutes les fiches
+ * de ses numéros, une fiche tous les clients qui ont son numéro), les étiquettes que le marchand a posées sur ces clients
+ * DANS SHOPIFY, par couple fiche-client (`shopify_etiquettes` : les étiquettes d'une fiche sont l'union de celles de ses
+ * clients, et la lecture d'un client remplace en bloc les siennes seulement ; un lien défait emporte les siennes, en
+ * cascade), les fiches déjà cherchées par leur téléphone (`shopify_fiches_cherchees` : la relecture quotidienne ne cherche
+ * que les autres, le geste du marchand les efface toutes), et l'état de la synchronisation de l'espace
  * (`shopify_etiquettes_synchro`). Le job (`./etiquettes.ts`) les écrit ; le critère d'étiquette Shopify, le volet Shopify
  * des filtres, la carte Shopify et l'onglet Shopify de la fiche les lisent.
  *
@@ -25,7 +28,8 @@ export { SYNCHRO_PERIMEE_MINUTES, type IssueSynchro };
  * 🔴 AUCUNE FICHE SUPPRIMÉE N'EST TOUCHÉE, AUCUNE FICHE N'EST CRÉÉE : avant d'écrire, la transaction verrouille les fiches
  * visées (`for key share`, en conflit avec le `for update` de `purgeMany`) et ne garde que les fiches ACTIVES ; une purge
  * en cours attend la fin de l'écriture puis efface ce qu'elle a écrit, ou l'écriture attend la purge et ne voit plus la
- * fiche. Un client dont la fiche n'existe plus est compté puis oublié : ni son identifiant ni son téléphone ne restent.
+ * fiche. Un lien vers une fiche qui n'existe plus se défait ; un client dont aucune fiche n'existe plus est compté puis
+ * oublié : ni son identifiant ni son téléphone ne restent.
  *
  * 🔴 `tenant_id` sur CHAQUE requête et chaque sous-requête : le rôle de l'application contourne la RLS, ce filtre est le
  * seul contrôle. UNE EXCEPTION TRANSVERSE, nommée : `dues`, le balayage horaire des espaces dont la synchronisation est
@@ -39,8 +43,8 @@ export const RELECTURE_HEURES = 24;
 
 /**
  * Les comptes d'une synchronisation : `clientsLus`, les clients lus par leur identifiant, chacun une fois ;
- * `trouvesParTelephone`, ceux reliés à une fiche par leur téléphone ; `sansFiche`, ceux trouvés ou lus dont la fiche
- * n'existe pas ou plus ; `fichesEtiquetees`, les fiches qui portent au moins une étiquette à la fin.
+ * `trouvesParTelephone`, les fiches reliées à un client de plus par leur téléphone ; `sansFiche`, les clients trouvés
+ * ou lus dont aucune fiche n'existe plus ; `fichesEtiquetees`, les fiches qui portent au moins une étiquette à la fin.
  */
 export interface ComptesSynchro { clientsLus: number; trouvesParTelephone: number; sansFiche: number; fichesEtiquetees: number }
 
@@ -64,7 +68,7 @@ export interface EtatSynchroEtiquettes {
 
 /** Un client lu chez Shopify par son identifiant : ses étiquettes, ou `null` s'il n'existe plus (supprimé, fusionné). */
 export interface ClientLu { clientId: string; etiquettes: string[] | null }
-/** Un client trouvé par le téléphone d'une fiche. */
+/** Un client trouvé par le téléphone d'une fiche (l'un de ses numéros chez Shopify). */
 export interface ClientTrouve { contactId: string; clientId: string; etiquettes: string[] }
 /** Une fiche à chercher chez Shopify par son téléphone (E.164). */
 export interface FicheACherche { contactId: string; telephone: string }
@@ -78,8 +82,8 @@ export interface MagasinEtiquettes {
   dues(limite: number): Promise<Array<{ tenantId: string; le: Date }>>;
   prendre(tenantId: string): Promise<{ jeton: string; curseur: string | null } | null>;
   relacher(tenantId: string, jeton: string): Promise<void>;
-  aChercher(tenantId: string, n: number): Promise<FicheACherche[]>;
-  ecrireRecherche(tenantId: string, jeton: string, r: { cherchees: readonly string[]; trouves: readonly ClientTrouve[] }): Promise<{ relies: number } | null>;
+  aChercher(tenantId: string, n: number, apres: string | null): Promise<FicheACherche[]>;
+  ecrireRecherche(tenantId: string, jeton: string, r: { cherchees: readonly string[]; trouves: readonly ClientTrouve[]; complete: boolean }): Promise<{ relies: number } | null>;
   clientsALire(tenantId: string, curseur: string | null, n: number): Promise<string[]>;
   ecrireClients(tenantId: string, jeton: string, r: { lus: readonly ClientLu[]; curseur: string }): Promise<boolean>;
   finir(tenantId: string, jeton: string, issue: IssueSynchro, message: string | null): Promise<boolean>;
@@ -122,16 +126,27 @@ async function verrouillerFiches(client: PoolClient, tenantId: string, ids: read
   return new Set(r.rows.map((x) => x.id));
 }
 
-/** Les étiquettes de ces fiches, REMPLACÉES en bloc : celles d'avant partent, celles lues entrent. Jamais `contacts.tags`. */
-async function remplacerEtiquettes(client: PoolClient, tenantId: string, paires: ReadonlyArray<{ contactId: string; etiquettes: readonly string[] }>): Promise<void> {
-  if (paires.length === 0) return;
-  await client.query(`delete from shopify_etiquettes where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, paires.map((p) => p.contactId)]);
-  const lignes = paires.flatMap((p) => p.etiquettes.map((etiquette) => ({ contact_id: p.contactId, etiquette })));
+/**
+ * Les étiquettes de ces couples fiche-client, REMPLACÉES en bloc : celles que CE client avait données à CETTE fiche
+ * partent, celles lues entrent ; celles des autres clients de la fiche restent. Le lien doit exister (clé étrangère de la
+ * 0326). Jamais `contacts.tags`.
+ */
+async function remplacerEtiquettes(
+  client: PoolClient, tenantId: string, couples: ReadonlyArray<{ contactId: string; clientId: string; etiquettes: readonly string[] }>,
+): Promise<void> {
+  if (couples.length === 0) return;
+  await client.query(
+    `delete from shopify_etiquettes e
+      using jsonb_to_recordset($2::jsonb) as x(contact_id uuid, client_id text)
+      where e.tenant_id = $1 and e.contact_id = x.contact_id and e.client_id = x.client_id`,
+    [tenantId, JSON.stringify(couples.map((c) => ({ contact_id: c.contactId, client_id: c.clientId })))],
+  );
+  const lignes = couples.flatMap((c) => c.etiquettes.map((etiquette) => ({ contact_id: c.contactId, client_id: c.clientId, etiquette })));
   if (lignes.length === 0) return;
   await client.query(
-    `insert into shopify_etiquettes (tenant_id, contact_id, etiquette)
-     select $1, x.contact_id, x.etiquette from jsonb_to_recordset($2::jsonb) as x(contact_id uuid, etiquette text)
-     on conflict (tenant_id, contact_id, etiquette) do nothing`,
+    `insert into shopify_etiquettes (tenant_id, contact_id, client_id, etiquette)
+     select $1, x.contact_id, x.client_id, x.etiquette from jsonb_to_recordset($2::jsonb) as x(contact_id uuid, client_id text, etiquette text)
+     on conflict (tenant_id, contact_id, client_id, etiquette) do nothing`,
     [tenantId, JSON.stringify(lignes)],
   );
 }
@@ -178,16 +193,25 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
   }
 
   /**
-   * Demande une synchronisation : la commence et rend sa date, À MOINS qu'une autre vive encore (une seule à la fois), ou,
-   * `auPlusUneFoisParJour` (la Free), qu'une demande date de moins de 24 h. `null` : rien à enfiler.
+   * LE GESTE DU MARCHAND (allumer, « maintenant », `sync_shopify_customer_tags` : seuls appelants) demande une
+   * synchronisation : la commence et rend sa date, À MOINS qu'une autre vive encore (une seule à la fois), ou,
+   * `auPlusUneFoisParJour` (la Free), qu'une demande date de moins de 24 h. `null` : rien à enfiler. 🔴 Acceptée, elle
+   * efface les marques des fiches déjà cherchées (lot 6b bis, décision de Julien du 2026-11-25) : toutes les fiches qui ont
+   * un numéro sont cherchées de nouveau, un numéro corrigé chez Shopify se relie. Refusée, elle n'efface rien. La relecture
+   * quotidienne (`dues`) ne les efface jamais : elle ne cherche que les fiches jamais cherchées.
    */
   async demander(tenantId: string, o: { auPlusUneFoisParJour: boolean }): Promise<Date | null> {
     const res = await this.pool.query<{ demandee_le: Date }>(
-      `insert into shopify_etiquettes_synchro as e (tenant_id, demandee_le, en_cours_depuis, maj_le) values ($1, now(), now(), now())
-       on conflict (tenant_id) do update set ${RECOMMENCER}
-        where not ${synchroVivante('e')}
-          and (not $2::boolean or e.demandee_le is null or e.demandee_le < now() - make_interval(hours => $3))
-       returning demandee_le`,
+      `with demande as (
+         insert into shopify_etiquettes_synchro as e (tenant_id, demandee_le, en_cours_depuis, maj_le) values ($1, now(), now(), now())
+         on conflict (tenant_id) do update set ${RECOMMENCER}
+          where not ${synchroVivante('e')}
+            and (not $2::boolean or e.demandee_le is null or e.demandee_le < now() - make_interval(hours => $3))
+         returning demandee_le
+       ), marques as (
+         delete from shopify_fiches_cherchees where tenant_id = $1 and exists (select 1 from demande)
+       )
+       select demandee_le from demande`,
       [tenantId, o.auPlusUneFoisParJour, RELECTURE_HEURES],
     );
     return res.rows[0]?.demandee_le ?? null;
@@ -262,30 +286,36 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
   }
 
   /**
-   * Les fiches ACTIVES à chercher chez Shopify par leur téléphone : un téléphone, aucun client relié, jamais cherchées.
-   * Chaque lot cherché les relie ou les marque : la liste rétrécit, sans curseur. 🔴 Le prédicat de l'index partiel
-   * `contacts_tenant_phone_uidx` (migration 0001, `phone_e164 is not null`) est repris mot pour mot.
+   * Les fiches ACTIVES à chercher chez Shopify par leur téléphone : un téléphone, pas encore cherchées depuis le dernier
+   * geste du marchand, reliées ou non (une fiche reliée peut avoir d'autres clients), après `apres` (le dernier téléphone
+   * du lot précédent du même passage : le balayage ne repasse pas sur les fiches qu'il vient de marquer ; nul au début
+   * d'un passage). Chaque lot cherché les marque. 🔴 Le prédicat de l'index partiel `contacts_tenant_phone_uidx`
+   * (migration 0001, `phone_e164 is not null`) est repris mot pour mot ; l'index sert l'ordre et le curseur.
    */
-  async aChercher(tenantId: string, n: number): Promise<FicheACherche[]> {
+  async aChercher(tenantId: string, n: number, apres: string | null): Promise<FicheACherche[]> {
     const res = await this.pool.query<{ id: string; phone_e164: string }>(
       `select x.id, x.phone_e164 from contacts x
         where x.tenant_id = $1 and x.phone_e164 is not null and ${ficheActive('x')}
-          and not exists (select 1 from shopify_clients l where l.tenant_id = $1 and l.contact_id = x.id)
+          and ($3::text is null or x.phone_e164 > $3)
           and not exists (select 1 from shopify_fiches_cherchees m where m.tenant_id = $1 and m.contact_id = x.id)
         order by x.phone_e164
         limit $2`,
-      [tenantId, Math.max(1, Math.round(n))],
+      [tenantId, Math.max(1, Math.round(n)), apres],
     );
     return res.rows.map((r) => ({ contactId: r.id, telephone: r.phone_e164 }));
   }
 
   /**
-   * Écrit un lot cherché par téléphone, dans UNE transaction tenue par le jeton : chaque fiche ACTIVE cherchée est marquée
-   * (une fois suffit), chaque client trouvé est relié à sa fiche ACTIVE (s'il n'est pas déjà celui d'une autre fiche) et ses
-   * étiquettes sont écrites. Un client trouvé dont la fiche n'existe plus est compté puis oublié. `null` : le jeton ne tient
-   * plus la synchronisation, rien n'est écrit.
+   * Écrit un lot cherché par téléphone, dans UNE transaction tenue par le jeton : chaque fiche ACTIVE cherchée est marquée,
+   * chaque client trouvé est relié à chaque fiche ACTIVE de ses numéros (un client, plusieurs fiches ; une fiche, plusieurs
+   * clients) et ses étiquettes sont écrites pour ce couple. 🔴 Une recherche COMPLÈTE (`complete`) dit TOUS les clients du
+   * numéro d'une fiche cherchée : ses liens vers les autres clients se défont, avec leurs étiquettes (en cascade) ; une
+   * page incomplète n'en défait aucun. Un client trouvé dont aucune fiche n'existe plus est compté puis oublié. `null` : le
+   * jeton ne tient plus la synchronisation, rien n'est écrit.
    */
-  async ecrireRecherche(tenantId: string, jeton: string, r: { cherchees: readonly string[]; trouves: readonly ClientTrouve[] }): Promise<{ relies: number } | null> {
+  async ecrireRecherche(
+    tenantId: string, jeton: string, r: { cherchees: readonly string[]; trouves: readonly ClientTrouve[]; complete: boolean },
+  ): Promise<{ relies: number } | null> {
     return enTransaction(this.pool, async (client) => {
       if (!(await tenir(client, tenantId, jeton))) return null;
       const vivantes = await verrouillerFiches(client, tenantId, [...r.cherchees, ...r.trouves.map((t) => t.contactId)]);
@@ -298,26 +328,50 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
         );
       }
       const aRelier = r.trouves.filter((t) => vivantes.has(t.contactId));
-      const relies = aRelier.length === 0 ? [] : (await client.query<{ client_id: string; contact_id: string }>(
-        `insert into shopify_clients (tenant_id, client_id, contact_id, vu_le)
-         select $1, x.client_id, x.contact_id, now() from jsonb_to_recordset($2::jsonb) as x(client_id text, contact_id uuid)
-         on conflict do nothing
-         returning client_id, contact_id`,
-        [tenantId, JSON.stringify(aRelier.map((t) => ({ client_id: t.clientId, contact_id: t.contactId })))],
-      )).rows;
-      const etiquettesDe = new Map(aRelier.map((t) => [t.contactId, t.etiquettes]));
-      await remplacerEtiquettes(client, tenantId, relies.map((x) => ({ contactId: x.contact_id, etiquettes: etiquettesDe.get(x.contact_id) ?? [] })));
+      const couples = JSON.stringify(aRelier.map((t) => ({ client_id: t.clientId, contact_id: t.contactId })));
+      if (r.complete && marquees.length > 0) {
+        await client.query(
+          `delete from shopify_clients l
+            where l.tenant_id = $1 and l.contact_id = any($2::uuid[])
+              and not exists (select 1 from jsonb_to_recordset($3::jsonb) as x(client_id text, contact_id uuid)
+                               where x.client_id = l.client_id and x.contact_id = l.contact_id)`,
+          [tenantId, marquees, couples],
+        );
+      }
+      let fichesReliees = 0;
+      if (aRelier.length > 0) {
+        const nouveaux = (await client.query<{ contact_id: string }>(
+          `insert into shopify_clients (tenant_id, client_id, contact_id, vu_le)
+           select $1, x.client_id, x.contact_id, now() from jsonb_to_recordset($2::jsonb) as x(client_id text, contact_id uuid)
+           on conflict (tenant_id, client_id, contact_id) do nothing
+           returning contact_id`,
+          [tenantId, couples],
+        )).rows;
+        fichesReliees = new Set(nouveaux.map((x) => x.contact_id)).size;
+        await client.query(
+          `update shopify_clients l set vu_le = now()
+             from jsonb_to_recordset($2::jsonb) as x(client_id text, contact_id uuid)
+            where l.tenant_id = $1 and l.client_id = x.client_id and l.contact_id = x.contact_id`,
+          [tenantId, couples],
+        );
+        await remplacerEtiquettes(client, tenantId, aRelier);
+      }
       // `clients_lus` ne compte pas ici : un client relié sera lu par son identifiant dans le même passage, et compté là,
-      // une fois. Un client trouvé sans fiche n'est compté que « sans fiche ».
-      await avancer(client, tenantId, jeton, { clientsLus: 0, trouves: relies.length, sansFiche: r.trouves.length - aRelier.length });
-      return { relies: relies.length };
+      // une fois. Un client trouvé dont aucune fiche n'existe plus n'est compté que « sans fiche ».
+      const relies = new Set(aRelier.map((t) => t.clientId));
+      const sansFiche = new Set(r.trouves.filter((t) => !relies.has(t.clientId)).map((t) => t.clientId)).size;
+      await avancer(client, tenantId, jeton, { clientsLus: 0, trouves: fichesReliees, sansFiche });
+      return { relies: fichesReliees };
     });
   }
 
-  /** Les clients reliés à lire après `curseur`, dans l'ordre de leur identifiant (la clé primaire sert la requête). */
+  /**
+   * Les clients reliés à lire après `curseur`, dans l'ordre de leur identifiant, chacun une fois quel que soit son nombre de
+   * fiches (la clé primaire, qui commence par `tenant_id, client_id`, sert la requête).
+   */
   async clientsALire(tenantId: string, curseur: string | null, n: number): Promise<string[]> {
     const res = await this.pool.query<{ client_id: string }>(
-      `select l.client_id from shopify_clients l
+      `select distinct l.client_id from shopify_clients l
         where l.tenant_id = $1 and ($2::text is null or l.client_id > $2)
         order by l.client_id
         limit $3`,
@@ -327,10 +381,11 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
   }
 
   /**
-   * Écrit un lot de clients lus par leur identifiant, dans UNE transaction tenue par le jeton : les étiquettes de chaque
-   * fiche ACTIVE sont REMPLACÉES en bloc ; un client qui n'existe plus chez Shopify perd son lien, ses étiquettes et la
-   * marque de sa fiche (qui sera cherchée une fois de plus par son téléphone) ; un client dont la fiche n'existe plus perd
-   * son lien et ses étiquettes, compté puis oublié. Le dernier client lu avance. `false` : le jeton ne tient plus.
+   * Écrit un lot de clients lus par leur identifiant, dans UNE transaction tenue par le jeton : pour chaque client, ses
+   * étiquettes sur CHACUNE de ses fiches ACTIVES sont REMPLACÉES en bloc (celles des autres clients d'une fiche restent).
+   * Un client qui n'existe plus chez Shopify perd tous ses liens (ses étiquettes partent avec, en cascade), et ses fiches
+   * redeviennent à chercher par leur téléphone. Un lien vers une fiche qui n'existe plus se défait ; un client dont aucune
+   * fiche n'existe plus est compté puis oublié. Le dernier client lu avance. `false` : le jeton ne tient plus.
    */
   async ecrireClients(tenantId: string, jeton: string, r: { lus: readonly ClientLu[]; curseur: string }): Promise<boolean> {
     return enTransaction(this.pool, async (client) => {
@@ -339,24 +394,36 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
         `select l.client_id, l.contact_id from shopify_clients l where l.tenant_id = $1 and l.client_id = any($2::text[])`,
         [tenantId, r.lus.map((c) => c.clientId)],
       )).rows;
-      const ficheDe = new Map(liens.map((l) => [l.client_id, l.contact_id]));
-      const vivantes = await verrouillerFiches(client, tenantId, [...ficheDe.values()]);
-      const relies = r.lus.filter((c) => ficheDe.has(c.clientId));
+      const fichesDe = new Map<string, string[]>();
+      for (const l of liens) fichesDe.set(l.client_id, [...(fichesDe.get(l.client_id) ?? []), l.contact_id]);
+      const vivantes = await verrouillerFiches(client, tenantId, liens.map((l) => l.contact_id));
+      const relies = r.lus.filter((c) => fichesDe.has(c.clientId));
       const disparus = relies.filter((c) => c.etiquettes === null);
-      const sansFiche = relies.filter((c) => c.etiquettes !== null && !vivantes.has(ficheDe.get(c.clientId)!));
-      const presents = relies.filter((c) => c.etiquettes !== null && vivantes.has(ficheDe.get(c.clientId)!));
-      const oublies = [...disparus, ...sansFiche];
-      if (oublies.length > 0) {
-        const fiches = oublies.map((c) => ficheDe.get(c.clientId)!);
-        await client.query(`delete from shopify_clients where tenant_id = $1 and client_id = any($2::text[])`, [tenantId, oublies.map((c) => c.clientId)]);
-        await client.query(`delete from shopify_fiches_cherchees where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, fiches]);
-        await client.query(`delete from shopify_etiquettes where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, fiches]);
+      const presents = relies.filter((c) => c.etiquettes !== null);
+      if (disparus.length > 0) {
+        await client.query(`delete from shopify_clients where tenant_id = $1 and client_id = any($2::text[])`, [tenantId, disparus.map((c) => c.clientId)]);
+        await client.query(
+          `delete from shopify_fiches_cherchees where tenant_id = $1 and contact_id = any($2::uuid[])`,
+          [tenantId, disparus.flatMap((c) => fichesDe.get(c.clientId)!)],
+        );
       }
-      if (presents.length > 0) {
-        await client.query(`update shopify_clients set vu_le = now() where tenant_id = $1 and client_id = any($2::text[])`, [tenantId, presents.map((c) => c.clientId)]);
-        await remplacerEtiquettes(client, tenantId, presents.map((c) => ({ contactId: ficheDe.get(c.clientId)!, etiquettes: c.etiquettes! })));
+      const mortes = presents.flatMap((c) => fichesDe.get(c.clientId)!.filter((f) => !vivantes.has(f)).map((f) => ({ client_id: c.clientId, contact_id: f })));
+      if (mortes.length > 0) {
+        await client.query(
+          `delete from shopify_clients l
+             using jsonb_to_recordset($2::jsonb) as x(client_id text, contact_id uuid)
+            where l.tenant_id = $1 and l.client_id = x.client_id and l.contact_id = x.contact_id`,
+          [tenantId, JSON.stringify(mortes)],
+        );
       }
-      await avancer(client, tenantId, jeton, { clientsLus: presents.length, trouves: 0, sansFiche: sansFiche.length, curseur: r.curseur });
+      const couples = presents.flatMap((c) => fichesDe.get(c.clientId)!.filter((f) => vivantes.has(f))
+        .map((f) => ({ contactId: f, clientId: c.clientId, etiquettes: c.etiquettes! })));
+      const lus = new Set(couples.map((x) => x.clientId));
+      if (couples.length > 0) {
+        await client.query(`update shopify_clients set vu_le = now() where tenant_id = $1 and client_id = any($2::text[])`, [tenantId, [...lus]]);
+        await remplacerEtiquettes(client, tenantId, couples);
+      }
+      await avancer(client, tenantId, jeton, { clientsLus: lus.size, trouves: 0, sansFiche: presents.length - lus.size, curseur: r.curseur });
       return true;
     });
   }

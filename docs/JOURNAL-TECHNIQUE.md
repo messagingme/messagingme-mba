@@ -5,6 +5,36 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : segments Shopify, lot 6b bis : un client Shopify se relie par tous ses numéros
+
+L'essai réel du lot 6b n'a relié aucune fiche sur « Messaging Me demo » : la règle « le téléphone propre du client
+seulement » (`defaultPhoneNumber`) ne trouvait personne. Mesuré chez Shopify, en lecture seule, par le vrai code d'accès :
+les deux clients de Julien ont son numéro sur leurs adresses enregistrées, jamais dans leurs coordonnées ; sur Maison
+Saint-Honoré, 8 clients sur 94 ont un téléphone propre et 50 l'ont seulement sur leur adresse par défaut, et 34 des 64
+numéros d'adresse sont saisis au format national. La recherche `phone:` de Shopify les trouve bien, sous l'écriture
+E.164 (4 cas sur 4) ; notre revérification les écartait. Décision de Julien : « le max de numéros, on est sur WhatsApp,
+on écrit à des numéros ». Un client se relie désormais par ses coordonnées et chacune de ses adresses enregistrées
+(`addressesV2`, 10 au plus, chacune normalisée au pays de SON adresse) ; la dernière commande n'est pas lue (mesuré : elle
+n'apporte aucun numéro que les adresses n'ont pas, Shopify range celles du paiement dans le carnet du client, et elle
+aurait exposé un droit `read_orders`). Les liens deviennent plusieurs à plusieurs (une fiche porte les étiquettes de tous
+les clients qui ont son numéro, un client les donne à toutes les fiches de ses numéros), et les étiquettes se rangent par
+couple fiche-client. Le geste du marchand (allumer, « Synchroniser maintenant », `sync_shopify_customer_tags`) efface les
+marques et cherche de nouveau toutes les fiches, par un curseur de téléphone le temps d'un passage ; la relecture
+quotidienne ne cherche que les nouvelles. Une recherche complète remplace les liens d'une fiche ; une page incomplète, ou
+dont un client est illisible, n'en défait aucun. `customers/redact` ne passe plus par ces liens : une fiche reliée par le
+carnet d'adresses du client peut être celle d'un proche ; la fiche du client se retrouve par son numéro et ses commandes,
+comme avant le 6b, et `oublierClientShopify` défait ses liens, ses étiquettes partant avec eux. Migration
+0326, non bloquante, `migration=avant` : le lien passe à la clé `(tenant_id, client_id, contact_id)`, les
+étiquettes reçoivent `client_id` (remplie depuis le lien encore unique, prouvée sur le banc PGlite avec des lignes posées
+comme le code du 6b les écrit, la CI ne l'appliquant qu'à des tables vides) et une clé étrangère en cascade vers leur lien.
+🔴 Retour arrière : une image antérieure au lot échoue en 42P10 à chaque écriture d'étiquettes après la migration (son
+`on conflict (tenant_id, contact_id, etiquette)` n'a plus de contrainte) ; seule la synchronisation des étiquettes en
+souffre. Mesure : 29 mutations scriptées applicables, 27 rouges, 2 survivantes attendues (un prédicat d'espace doublé par
+des fiches déjà de l'espace) ; une troisième survivante a montré que l'onglet de la fiche n'était jamais vérifié quand
+deux clients donnent la même étiquette, test comblé et prouvé rouge. La relecture indépendante n'a trouvé aucun rouge ;
+ses trois jaunes les plus lourds sont corrigés dans le lot (l'effacement qui aurait purgé un proche, la dernière commande,
+la page illisible), les autres sont au `todo.md`.
+
 ## 2026-11-25 : les règles d'arrêt dans l'outil « Terminer », facultatives ; l'onglet ne garde que l'objectif
 
 Lot 3 du plan `docs/superpowers/plans/2026-11-25-agent-objectif-seul-outils.md`. Julien : « la règle d'arrêt doit servir

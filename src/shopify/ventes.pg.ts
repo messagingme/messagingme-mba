@@ -390,7 +390,8 @@ export class PgVentesStore {
       const le = synchro.rows[0]?.synchro_le ?? null;
       if (le === null) return null;
       const res = await this.pool.query<{ etiquette: string }>(
-        `select etiquette from shopify_etiquettes where tenant_id = $1 and contact_id = $2 order by lower(etiquette), etiquette`,
+        // Une fiche reliée à plusieurs clients Shopify (lot 6b bis) : la même étiquette donnée par deux clients n'apparaît qu'une fois.
+        `select etiquette from shopify_etiquettes where tenant_id = $1 and contact_id = $2 group by etiquette order by lower(etiquette), etiquette`,
         [tenantId, contactId],
       );
       return { etiquettes: res.rows.map((x) => x.etiquette), synchroLe: le.toISOString() };

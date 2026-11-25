@@ -162,7 +162,9 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
     },
     required: ['tags'],
     additionalProperties: false,
-    description: 'Contacts whose Shopify customer carries these tags, as read by the last sync of the Shopify tags (its date: '
+    description: 'Contacts one of whose Shopify customers carries these tags (a record carries the tags of every Shopify '
+      + 'customer who has its number; with "all", the tags may come from different customers of the record), as read by the '
+      + 'last sync of the Shopify tags (its date: '
       + 'shopify_tags.synced_at in get_shopify_state, and shopify_tags_synced_at in the answer of find_contacts). These are '
       + 'the tags put on customers IN SHOPIFY, NOT the Messaging Me tags of the tags parameter: the same word on both sides '
       + 'is two different criteria. Refused until a sync of the Shopify tags has succeeded (sync_shopify_customer_tags '

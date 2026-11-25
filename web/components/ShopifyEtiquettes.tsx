@@ -111,7 +111,7 @@ export function ShopifyEtiquettes({ tenantId, onMessage }: {
         <p className="text-ink-500" data-testid="integration-shopify-etiquettes-en-cours">
           {t('Synchronisation en cours : ', 'Sync running: ')}
           {nombre(c.clientsLus, ['client lu', 'clients lus'], ['customer read', 'customers read'])}
-          {c.trouvesParTelephone > 0 && `, ${nombre(c.trouvesParTelephone, ['fiche reliée par son téléphone', 'fiches reliées par leur téléphone'], ['record linked by its phone', 'records linked by their phone'])}`}.
+          {c.trouvesParTelephone > 0 && `, ${nombre(c.trouvesParTelephone, ['fiche reliée par son numéro', 'fiches reliées par leur numéro'], ['record linked by its number', 'records linked by their number'])}`}.
         </p>
       )}
       {!v.enCours && v.synchroLe && (

@@ -14,10 +14,16 @@ import { BORNES_SEGMENTS } from '../../web/lib/partage/segments';
  * le droit `read_customers` seul (aucun droit nouveau) :
  * - par identifiant : `nodes(ids:)` sur les GID des clients déjà reliés à une fiche, 250 au plus par appel (le plafond
  *   d'un argument liste de l'API) ; un nœud `null` est un client qui n'existe plus chez Shopify (supprimé, fusionné) ;
- * - par téléphone : `customers(query: "phone:+33... OR phone:+33...")`, pour les fiches sans client relié, et seulement le
- *   téléphone du client (`defaultPhoneNumber`), jamais celui d'une adresse. 🔴 Le filtre de recherche n'est jamais cru :
- *   chaque client rendu est revérifié sur son téléphone, normalisé comme une commande (`telephoneE164`, le pays de la
- *   boutique), et une recherche dont la page n'est pas complète (`hasNextPage`) ne dit pas « absent ».
+ * - par téléphone : `customers(query: "phone:+33... OR phone:+33...")`, pour les fiches à chercher. Un client se relie
+ *   par TOUS les numéros que Shopify connaît pour lui (lot 6b bis, décision de Julien du 2026-11-25, « le max de
+ *   numéros ») : ses coordonnées (`defaultPhoneNumber`) et ses adresses enregistrées (`addressesV2`,
+ *   `ADRESSES_PAR_CLIENT` au plus). Mesuré le 2026-11-25 : la plupart des clients n'ont leur numéro que sur une adresse,
+ *   souvent au format national, et la recherche `phone:` de Shopify les trouve par elle, sous l'écriture E.164 ; la
+ *   dernière commande n'apporte aucun numéro que les adresses n'ont pas (Shopify range celles du paiement dans le carnet
+ *   du client), elle n'est donc pas lue : elle aurait demandé `read_orders` et coûté sans rien ajouter. 🔴 Le filtre de
+ *   recherche n'est jamais cru : chaque client rendu est revérifié sur ses numéros, chacun normalisé au pays de SON
+ *   adresse, à défaut à celui de la boutique (`telephoneE164`), et une recherche dont la page n'est pas complète
+ *   (`hasNextPage`) ne dit pas « absent ».
  *
  * 🔴 Une réponse dont la liste n'a pas un nœud par identifiant demandé ne s'écrit pas : elle dirait supprimés des clients
  * qui ne le sont pas. Une réponse qui porte une erreur ne s'écrit pas non plus : un nœud nul n'y prouve rien.
@@ -33,6 +39,18 @@ import { BORNES_SEGMENTS } from '../../web/lib/partage/segments';
 export const CLIENTS_PAR_LOT = 250;
 /** Les téléphones d'une recherche : une requête courte, et au plus deux clients rendus par téléphone avant le plafond de page. */
 export const TELEPHONES_PAR_RECHERCHE = 25;
+/** Les adresses enregistrées lues par client trouvé : assez pour un carnet d'adresses, sous le plafond de coût. */
+export const ADRESSES_PAR_CLIENT = 10;
+/**
+ * Les clients rendus par une recherche : deux par téléphone, dix au moins (un numéro partagé par plusieurs clients),
+ * cinquante au plus. 🔴 Le plafond est celui du COÛT : un client coûte 4 points plus un par adresse demandée
+ * (`COUT_PAR_CLIENT`), et Shopify refuse une requête de plus de 1 000 points (`MAX_COST_EXCEEDED`, que le job rattrape
+ * en coupant le lot) ; `tests/shopify-etiquettes.test.ts` dérive la borne des deux constantes.
+ */
+export const CLIENTS_PAR_RECHERCHE = 50;
+const CLIENTS_PAR_RECHERCHE_MIN = 10;
+/** Le coût demandé d'un client trouvé : le nœud, ses coordonnées, la connexion de ses adresses (2) et chaque adresse. */
+export const COUT_PAR_CLIENT = 4 + ADRESSES_PAR_CLIENT;
 /** Les étiquettes d'un client : le plafond de Shopify (REST Admin 2026-10, Customer : « A customer can have up to 250 tags »). */
 export const ETIQUETTES_PAR_CLIENT = 250;
 const CORPS_MAX = 4_000_000;
@@ -47,7 +65,10 @@ const REQUETE_IDS = `query($ids: [ID!]!) {
 const REQUETE_TELEPHONES = `query($q: String!, $n: Int!) {
   customers(first: $n, query: $q) {
     pageInfo { hasNextPage }
-    nodes { legacyResourceId tags defaultPhoneNumber { phoneNumber } }
+    nodes {
+      legacyResourceId tags defaultPhoneNumber { phoneNumber }
+      addressesV2(first: ${ADRESSES_PAR_CLIENT}) { nodes { phone countryCodeV2 } }
+    }
   }
 }`;
 
@@ -67,15 +88,37 @@ const schemaClient = z.object({ legacyResourceId: z.string().regex(ID), tags: z.
 const schemaRecherche = z.object({
   customers: z.object({ pageInfo: z.object({ hasNextPage: z.boolean() }), nodes: z.array(z.unknown()) }),
 });
-const schemaTrouve = schemaClient.extend({ defaultPhoneNumber: z.object({ phoneNumber: z.string().nullish() }).nullish().catch(null) });
+/** Une adresse dont seul le numéro et le pays servent ; illisible, elle ne donne aucun numéro (le client reste lu). */
+const schemaAdresse = z.object({ phone: z.string().nullish(), countryCodeV2: z.string().nullish() }).nullish().catch(null);
+const schemaTrouve = schemaClient.extend({
+  defaultPhoneNumber: z.object({ phoneNumber: z.string().nullish() }).nullish().catch(null),
+  addressesV2: z.object({ nodes: z.array(schemaAdresse) }).nullish().catch(null),
+});
+
+/**
+ * Tous les numéros qu'un client trouvé porte chez Shopify, en E.164 : ses coordonnées (au pays de la boutique) et chacune
+ * de ses adresses (au pays de SON adresse).
+ */
+export function numerosDuClient(c: z.infer<typeof schemaTrouve>, paysBoutique: string | null): Set<string> {
+  const candidats = [
+    { brut: c.defaultPhoneNumber?.phoneNumber, pays: null },
+    ...(c.addressesV2?.nodes ?? []).map((a) => ({ brut: a?.phone, pays: a?.countryCodeV2 })),
+  ];
+  const numeros = new Set<string>();
+  for (const candidat of candidats) {
+    const e164 = telephoneE164([candidat], paysBoutique);
+    if (e164 !== null) numeros.add(e164);
+  }
+  return numeros;
+}
 
 type Echec = { ok: false; code: 'acces_refuse' | 'passager' | 'trop_lourd'; message: string };
 /** Un lot de clients lus par identifiant, ou la raison de son refus. `illisibles` : des nœuds qui ne se lisent pas, laissés tels quels. */
 export type LotClients = { ok: true; clients: ClientLu[]; illisibles: number; cout: CoutRequete } | Echec;
 /**
- * Une recherche par téléphones : les clients dont le téléphone revérifié est l'un de ceux demandés, un seul par téléphone
- * (deux clients au même téléphone ne relient rien), et si la page était complète (`complete` : un téléphone sans client
- * n'est absent qu'alors).
+ * Une recherche par téléphones : chaque couple (téléphone demandé, client qui le porte parmi ses numéros revérifiés),
+ * TOUS les clients d'un téléphone (plusieurs clients au même numéro se relient tous à sa fiche), et si la page était
+ * complète (`complete` : alors seulement, un client absent n'a pas ce numéro).
  */
 export type RechercheTelephones =
   | { ok: true; trouves: Array<{ telephone: string; clientId: string; etiquettes: string[] }>; complete: boolean; cout: CoutRequete }
@@ -202,8 +245,9 @@ export async function lireClientsParIds(
 }
 
 /**
- * Les clients de ces téléphones (E.164), cherchés par le filtre `phone:` et REVÉRIFIÉS sur leur `defaultPhoneNumber`,
- * normalisé au pays de la boutique. Deux clients au même téléphone : aucun n'est rendu (on ne choisit pas au hasard).
+ * Les clients de ces téléphones (E.164), cherchés par le filtre `phone:` et REVÉRIFIÉS sur tous leurs numéros
+ * (`numerosDuClient`). Un client qui porte plusieurs des téléphones demandés est rendu pour chacun ; un téléphone porté
+ * par plusieurs clients les rend tous.
  */
 export async function chercherParTelephones(
   acces: { domaine: string; jeton: string },
@@ -216,28 +260,26 @@ export async function chercherParTelephones(
   if (demandes.length === 0) return { ok: true, trouves: [], complete: true, cout: { demande: null, reel: null } };
   if (demandes.length > TELEPHONES_PAR_RECHERCHE) return { ok: false, code: 'passager', message: 'Une recherche de téléphones trop longue : lot ignoré.' };
   const q = demandes.map((t) => `phone:${t}`).join(' OR ');
-  const r = await appelerGraphql(acces, { query: REQUETE_TELEPHONES, variables: { q, n: Math.min(CLIENTS_PAR_LOT, demandes.length * 2) } },
-    p.delaiMs, 'les clients', appeler, attendre, maintenant);
+  const n = Math.min(CLIENTS_PAR_RECHERCHE, Math.max(CLIENTS_PAR_RECHERCHE_MIN, demandes.length * 2));
+  const r = await appelerGraphql(acces, { query: REQUETE_TELEPHONES, variables: { q, n } }, p.delaiMs, 'les clients', appeler, attendre, maintenant);
   if (!r.ok) return r;
   const d = schemaRecherche.safeParse(r.data);
   if (!d.success) return { ok: false, code: 'passager', message: 'Shopify n’a pas rendu la recherche des clients : réessayez dans un instant.' };
   const voulus = new Set(demandes);
-  const parTelephone = new Map<string, Array<{ clientId: string; etiquettes: string[] }>>();
+  const couples = new Map<string, { telephone: string; clientId: string; etiquettes: string[] }>();
+  // 🔴 Un client illisible rend la page INCOMPLÈTE : il pourrait porter un numéro demandé, et une page complète défait les
+  // liens qu'elle ne rend pas.
+  let illisible = false;
   for (const brut of d.data.customers.nodes) {
     const c = schemaTrouve.safeParse(brut);
-    if (!c.success) continue;
-    const telephone = telephoneE164([{ brut: c.data.defaultPhoneNumber?.phoneNumber }], p.pays);
-    if (telephone === null || !voulus.has(telephone)) continue;
-    const deja = parTelephone.get(telephone) ?? [];
-    if (!deja.some((x) => x.clientId === c.data.legacyResourceId)) deja.push({ clientId: c.data.legacyResourceId, etiquettes: etiquettesUtiles(c.data.tags).etiquettes });
-    parTelephone.set(telephone, deja);
-  }
-  const trouves = [...parTelephone.entries()].flatMap(([telephone, clients]) => {
-    if (clients.length > 1) {
-      journaliser('warn', 'shopify_etiquettes_telephone_ambigu', { clients: clients.length });
-      return [];
+    if (!c.success) { illisible = true; continue; }
+    const etiquettes = etiquettesUtiles(c.data.tags).etiquettes;
+    for (const telephone of numerosDuClient(c.data, p.pays)) {
+      if (!voulus.has(telephone)) continue;
+      const cle = `${telephone} ${c.data.legacyResourceId}`;
+      if (!couples.has(cle)) couples.set(cle, { telephone, clientId: c.data.legacyResourceId, etiquettes });
     }
-    return [{ telephone, ...clients[0]! }];
-  });
-  return { ok: true, trouves, complete: !d.data.customers.pageInfo.hasNextPage, cout: r.cout };
+  }
+  if (illisible) journaliser('warn', 'shopify_etiquettes_illisibles', { clients: 1, etiquettes: 0 });
+  return { ok: true, trouves: [...couples.values()], complete: !d.data.customers.pageInfo.hasNextPage && !illisible, cout: r.cout };
 }

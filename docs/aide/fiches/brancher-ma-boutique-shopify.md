@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 83a5df
+source_empreinte: 4cb82a
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -173,8 +173,9 @@ telle qu'elle était le jour de la commande : un produit sorti d'une collection 
 Et les étiquettes que vous posez sur vos clients dans Shopify (VIP, grossiste...), dans le bloc « Étiquettes Shopify »,
 à part de vos étiquettes Messaging Me : un même mot des deux côtés fait deux critères. Elles se lisent quand vous
 allumez « Synchroniser les étiquettes » sur la carte Shopify : la première lecture part aussitôt, puis chaque jour, et
-« Synchroniser maintenant » la relance. Un client est relié à la fiche de son propre téléphone chez Shopify, jamais à
-celle du téléphone d'une livraison : un cadeau ne donne pas vos étiquettes à son destinataire. Ciblez-en une ou
+« Synchroniser maintenant » la relance. Une fiche reçoit les étiquettes de chaque client Shopify qui a son numéro, dans
+ses coordonnées ou ses adresses ; « Synchroniser maintenant » relit tous les numéros, la lecture
+de chaque jour ajoute les nouvelles fiches. Ciblez-en une ou
 plusieurs (toutes, ou l'une d'elles) ; le bloc dit la date de la dernière lecture. « Copier en étiquette Messaging Me »
 pose maintenant l'étiquette de votre choix sur les fiches qui portent cette étiquette Shopify, une copie qui ne suit
 pas Shopify ensuite. Aucune fiche n'est créée, et ni la lecture ni la copie ne donnent de consentement.

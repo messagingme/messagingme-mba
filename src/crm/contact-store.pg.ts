@@ -2240,12 +2240,14 @@ export class PgContactStore implements ContactStore {
       if (e164.length > 0) {
         await client.query(`delete from shopify_paniers where tenant_id = $1 and telephone = any($2::text[])`, [tenantId, e164]);
       }
-      // Les étiquettes Shopify (segments Shopify enrichis, lot 6b, migration 0319) : le lien au client Shopify, la marque de
-      // la recherche par téléphone, les étiquettes lues. Dans l'ordre des verrous de la synchronisation (le lien, la marque,
-      // les étiquettes : `src/shopify/etiquettes.pg.ts`), sans quoi les deux pourraient s'interbloquer.
+      // Les étiquettes Shopify (segments Shopify enrichis, lot 6b, migration 0319) : les étiquettes lues, les liens aux
+      // clients Shopify, la marque de la recherche par téléphone. Les fiches sont déjà verrouillées (`for update`) : une
+      // synchronisation qui écrirait sur elles attend (`for key share`, `src/shopify/etiquettes.pg.ts`), l'ordre de ces
+      // trois effacements ne compte donc pas pour les verrous ; les étiquettes passent avant leurs liens pour que la cascade
+      // de la 0326 ne les efface pas une à une.
+      await client.query(`delete from shopify_etiquettes where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
       await client.query(`delete from shopify_clients where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
       await client.query(`delete from shopify_fiches_cherchees where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
-      await client.query(`delete from shopify_etiquettes where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
 
       // La ligne de campagne reste (statut, horodatage, livraison) ; son numéro et ses variables partent :
       // `resolved_params` porte les valeurs injectées (typiquement le prénom), `variables` ce que l'intégrateur a

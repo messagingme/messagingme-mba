@@ -267,6 +267,16 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 6b bis (un client Shopify relié par tous ses numéros) : la relecture (2026-11-25, aucun rouge)
+
+- Chaque geste du marchand (« Synchroniser maintenant », allumage, `sync_shopify_customer_tags`) cherche de nouveau
+  toutes les fiches : une requête Shopify par 25 fiches, environ 700 points demandés chacune. Aucun délai minimal entre
+  deux gestes en Pro (la Free en a un de 24 h) : un marchand qui clique en boucle relance tout à chaque fois.
+- La reprise des lignes par la migration du lot n'est prouvée que sur le banc PGlite (lignes posées comme le code du 6b
+  les écrit) : la CI applique les migrations à des tables vides.
+- L'aide ne dit pas qu'une adresse de livraison enregistrée chez une cliente (un cadeau) relie aussi la fiche du
+  destinataire et lui donne ses étiquettes : c'est la décision « le max de numéros », sans phrase pour la dire.
+
 ## 🟡 Segments Shopify, lot 6b (les étiquettes des clients Shopify) : ce qui reste (2026-11-24)
 
 - Le refus « pas encore lu » des segments Shopify (collections et étiquettes) remonte au MCP en `invalid_args` ;

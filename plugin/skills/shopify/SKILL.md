@@ -288,9 +288,11 @@ The tags the merchant puts on their customers in Shopify (VIP, wholesale...) are
 Messaging Me tags of the contacts, and the same word on both sides is two different criteria. Never present one as the
 other.
 
-1. `sync_shopify_customer_tags` turns the sync on (off until the merchant asks) and reads now, in the background: once
-   each record without a customer is matched by the customer's own phone at Shopify, never by an order (whose phone is
-   the delivery one) nor an address. No record is created; a customer without a record is counted and forgotten.
+1. `sync_shopify_customer_tags` turns the sync on (off until the merchant asks) and reads now, in the background: each
+   record is matched to every Shopify customer who has its number among theirs (contact phone, saved addresses), so a
+   record carries the tags of all its customers; never by an order we noted.
+   Each call searches every record again (a number fixed at Shopify gets matched). No record is created; a customer
+   without a record is counted and forgotten.
    read_customers is enough. On the Pro, Business and Enterprise plans it then refreshes every 24 hours; on the Free plan it reads on
    demand only, at most once every 24 hours (the tool refuses before, with the delay).
 2. `get_shopify_state` follows it (`shopify_tags.syncing`, then `shopify_tags.synced_at`) and lists the tags read

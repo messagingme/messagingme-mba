@@ -3411,20 +3411,26 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   branchement emporte les trois tables (migration BLOQUANTE pour cette raison) ; le simple Couper les garde, sans relecture.
   `read_all_orders` entre dans la liste des droits (console, skill) sans que rien ne le lise encore : la reprise au-delà
   de 60 jours (lot 7) s'en servira ;
-- 🔴 **les étiquettes des clients Shopify** (segments Shopify enrichis, lot 6b, migration 0319, `src/shopify/etiquettes.ts`) :
+- 🔴 **les étiquettes des clients Shopify** (segments Shopify enrichis, lot 6b, migration 0319 ; lot 6b bis, migration 0326 ;
+  `src/shopify/etiquettes.ts`) :
   les étiquettes que le marchand pose sur ses clients DANS SHOPIFY, dans une table à part, JAMAIS dans `contacts.tags`
   (les étiquettes Messaging Me) : un même mot des deux côtés fait deux critères, et le magasin
   (`src/shopify/etiquettes.pg.ts`) n'écrit jamais `contacts` (tenu par `tests/migration-0319.test.ts`). Quatre tables :
-  `shopify_clients` (un client Shopify relié à UNE fiche, et une fiche à UN client, `vu_le`), `shopify_etiquettes`
-  (les étiquettes d'une fiche à la dernière lecture de son client, REMPLACÉES en bloc, 255 caractères au plus, la borne
-  de Shopify, index `(tenant_id, lower(etiquette))`), `shopify_fiches_cherchees` (une fiche cherchée par son téléphone,
-  pour ne la chercher qu'une fois ; ni le téléphone ni le résultat) et `shopify_etiquettes_synchro` (l'état par espace :
+  `shopify_clients` (les LIENS entre clients Shopify et fiches, plusieurs à plusieurs depuis la 0326 : clé
+  `(tenant_id, client_id, contact_id)`, `vu_le`), `shopify_etiquettes` (les étiquettes de chaque couple fiche-client,
+  `client_id` depuis la 0326, REMPLACÉES en bloc à chaque lecture de CE client ; une fiche porte l'union de celles de ses
+  clients ; une clé étrangère vers le lien, en cascade : un lien défait emporte ses étiquettes ; 255 caractères au plus,
+  la borne de Shopify, index `(tenant_id, lower(etiquette))`), `shopify_fiches_cherchees` (une fiche déjà cherchée
+  par son téléphone ; ni le téléphone ni le résultat ; le geste du marchand les efface toutes, la relecture quotidienne
+  jamais) et `shopify_etiquettes_synchro` (l'état par espace :
   `allumee`, ÉTEINTE par défaut, `synchro_le` la dernière synchronisation ABOUTIE, la demande, la synchronisation en
   cours, son dernier client lu, l'issue, les comptes, le bail et le jeton ; jamais une colonne de `shopify_boutiques`).
   Les trois tables de la fiche cascadent avec elle, chacune par un index sur `contact_id` seul (migration 0320 : leurs clés
   commencent par `tenant_id`, la cascade ne nomme que `contact_id`) ; `purgeMany` (qui anonymise sans supprimer) et `effacerBranchement`
   les nomment, l'état d'abord (l'ordre des verrous de l'écriture), d'où la migration BLOQUANTE ; `contactsLies`
-  (`customers/redact`) retrouve aussi la fiche par `shopify_clients`. La synchronisation s'allume sur la carte
+  (`customers/redact`) ne passe JAMAIS par `shopify_clients` (lot 6b bis : une fiche reliée par une adresse peut être celle
+  d'un proche, que l'effacement du client ne doit pas purger) ; la fiche du client se retrouve par son numéro et ses
+  commandes, et `oublierClientShopify` défait tous ses liens, ses étiquettes partant avec eux. La synchronisation s'allume sur la carte
   (`PUT .../integrations/shopify/etiquettes`, qui lance aussitôt) ou par `sync_shopify_customer_tags` ; « maintenant »
   (`POST .../etiquettes/synchro`) ; une seule vit à la fois (`demander`, `synchroVivante` : commencée, et un bail qui court
   ou un progrès de moins de 15 minutes ; 🔴 chaque terme sous `coalesce(..., false)`, sans quoi une synchronisation
@@ -3436,17 +3442,20 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   `for update skip locked`, 180 s, un jeton) ; chaque écriture verrouille d'abord la ligne d'état PAR CE JETON (un porteur
   dont le bail a été repris n'écrit plus rien), puis les fiches visées `for key share` en ne gardant que les ACTIVES (en
   conflit avec le `for update` de `purgeMany` : une fiche purgée n'est jamais écrite). Il lit d'abord les droits (sans
-  `read_customers`, issue `sans_droit`), puis en deux temps repris au passage suivant. 🔴 Un client ne se relie à une fiche
-  QUE par son propre téléphone chez Shopify, JAMAIS par une commande : la fiche d'une commande est celle du téléphone de
-  livraison d'abord (`telephoneDeCommande`), un cadeau donnerait les étiquettes de la cliente au destinataire (la règle
-  du lot 5b : le numéro de l'acheteur, jamais la livraison). Il cherche UNE fois les fiches sans client par leur
-  téléphone (`aChercher`, le prédicat de `contacts_tenant_phone_uidx` repris ; 25 par recherche
-  `phone:... OR phone:...`, chaque client REVÉRIFIÉ sur son `defaultPhoneNumber` normalisé au pays de la boutique,
-  deux clients au même téléphone ne relient rien, une page
-  incomplète se redemande plus petite), puis lit les clients reliés par lots de 250 depuis le dernier lu (`nodes(ids:)`,
+  `read_customers`, issue `sans_droit`), puis en deux temps repris au passage suivant. 🔴 Un client se relie à CHAQUE fiche
+  de ses numéros chez Shopify (lot 6b bis, décision de Julien du 2026-11-25, « le max de numéros ») : ses coordonnées
+  (`defaultPhoneNumber`) et ses adresses enregistrées (`addressesV2`, 10 au plus ; mesuré, la dernière commande n'apporte
+  aucun numéro de plus), chacun normalisé au pays de SON adresse (`numerosDuClient`) ; plusieurs clients d'un
+  numéro relient tous sa fiche. JAMAIS par une commande notée (`shopify_commandes`, dont la fiche est celle du téléphone
+  de livraison d'abord) : seul ce que Shopify rend pour le client relie. Il cherche les fiches pas encore cherchées, reliées
+  ou non (`aChercher`, le prédicat de `contacts_tenant_phone_uidx` repris ; 25 par recherche `phone:... OR phone:...`,
+  dix clients rendus au moins, cinquante au plus, le plafond du coût ; chaque client REVÉRIFIÉ sur ses numéros, un client
+  illisible rendant la page incomplète ; un curseur de téléphone le temps d'un passage ; une recherche COMPLÈTE remplace
+  les liens de la fiche cherchée, une page incomplète se redemande plus petite et n'en défait aucun), puis lit les clients reliés par lots de 250 depuis le dernier lu (`nodes(ids:)`,
   `src/shopify/etiquettes-lues.ts`, par `fetchPublic`, chaque réponse par Zod, une réponse qui n'a pas un nœud par client
-  ou qui porte une erreur ne s'écrit pas). Un nœud nul (client supprimé ou fusionné chez Shopify) perd son lien, ses
-  étiquettes et la marque de sa fiche ; un client dont la fiche n'existe plus est compté puis oublié. La boutique est
+  ou qui porte une erreur ne s'écrit pas), ses étiquettes remplacées sur chacune de ses fiches. Un nœud nul (client
+  supprimé ou fusionné chez Shopify) perd tous ses liens, leurs étiquettes et la marque de ses fiches ; un lien vers une
+  fiche qui n'existe plus se défait, et un client dont aucune fiche n'existe plus est compté puis oublié. La boutique est
   relue avant chaque écriture ; le frein de Shopify est respecté, le coût du premier lot de chaque temps journalisé
   (`shopify_etiquettes_cout`), un passage dure 2 minutes au plus puis se réenfile ; toute panne rend le bail avant de
   remonter. La synchronisation est aboutie (`lue`) quand le dernier client relié est lu. Le critère

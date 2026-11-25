@@ -27,18 +27,19 @@ import { messageDe } from '../lib/erreur';
  *
  * UN PASSAGE DU JOB : le bail pris (pg-boss ne déduplique rien), la boutique et les droits de son app lus d'abord
  * (`read_customers` suffit), puis deux temps, chacun repris là où il en était au passage suivant :
- * 1. les fiches sans client sont cherchées par leur téléphone, UNE fois chacune (25 téléphones par recherche) : un client
- *    ne se relie à une fiche que par SON téléphone chez Shopify (`defaultPhoneNumber`) ;
- * 2. les clients reliés sont lus par lots de 250 (`nodes(ids:)`), depuis le dernier lu, et les étiquettes de chaque fiche
- *    REMPLACÉES en bloc.
- * La boutique est relue avant chaque écriture ; le passage dure au plus `PASSAGE_ETIQUETTES_MS`, puis se réenfile. La
- * synchronisation est ABOUTIE quand le dernier client relié est lu : c'est elle qui ouvre le critère d'étiquette Shopify.
- * Le coût du premier lot de chaque temps est journalisé (`shopify_etiquettes_cout`), le frein de Shopify respecté.
+ * 1. les fiches pas encore cherchées sont cherchées par leur téléphone (25 téléphones par recherche) : un client se relie à
+ *    chaque fiche de ses numéros chez Shopify, ses coordonnées ou ses adresses enregistrées (lot 6b bis, décision
+ *    de Julien du 2026-11-25, « le max de numéros ») ; une fiche se relie à tous les clients qui ont son numéro ;
+ * 2. les clients reliés sont lus par lots de 250 (`nodes(ids:)`), depuis le dernier lu, et leurs étiquettes REMPLACÉES en
+ *    bloc sur chacune de leurs fiches.
+ * Le geste du marchand (`synchroniserEtiquettes`) fait chercher de nouveau toutes les fiches ; la relecture quotidienne,
+ * seulement celles jamais cherchées. La boutique est relue avant chaque écriture ; le passage dure au plus
+ * `PASSAGE_ETIQUETTES_MS`, puis se réenfile. La synchronisation est ABOUTIE quand le dernier client relié est lu : c'est
+ * elle qui ouvre le critère d'étiquette Shopify. Le coût du premier lot de chaque temps est journalisé
+ * (`shopify_etiquettes_cout`), le frein de Shopify respecté.
  *
- * 🔴 JAMAIS PAR UNE COMMANDE : la fiche d'une commande est celle de son téléphone de LIVRAISON d'abord
- * (`telephoneDeCommande`, `./donnees.ts`). Relier un client à elle donnait les étiquettes d'une cliente qui offre un
- * cadeau à la fiche du destinataire, et sa propre fiche ne se reliait plus (le client était pris). Décision du lot 5b :
- * le numéro de l'acheteur, jamais la livraison.
+ * Le lien ne passe pas par `shopify_commandes` (la fiche d'une commande est celle de son téléphone de livraison d'abord,
+ * `telephoneDeCommande`) mais par les numéros que Shopify rend pour le client lui-même, revérifiés.
  */
 
 export const FILE_ETIQUETTES = 'shopify-etiquettes';
@@ -76,7 +77,7 @@ export interface DepsEtiquettes {
   droits(acces: { domaine: string; jeton: string }): Promise<{ ok: true; droits: string[] } | { ok: false; code: 'acces_refuse' | 'passager'; message: string }>;
   /** Un lot de clients reliés, par leur identifiant ; `delaiMs` borne l'appel ENTIER, attentes du frein comprises. */
   lireClients(acces: { domaine: string; jeton: string }, p: { ids: readonly string[]; delaiMs: number }): Promise<LotClients>;
-  /** Une recherche de clients par téléphones, revérifiés sur leur `defaultPhoneNumber`. */
+  /** Une recherche de clients par téléphones, revérifiés sur tous leurs numéros (coordonnées, adresses enregistrées). */
   chercher(acces: { domaine: string; jeton: string }, p: { telephones: readonly string[]; pays: string | null; delaiMs: number }): Promise<RechercheTelephones>;
   /** L'offre de l'espace : la Free synchronise à la demande, au plus une fois par 24 h. */
   offre(tenantId: string): Promise<Offre>;
@@ -140,7 +141,8 @@ export async function lireEtiquettes(
 }
 
 /**
- * « MAINTENANT » : une synchronisation de la boutique branchée dont la synchronisation est allumée. Une synchronisation
+ * « MAINTENANT » : une synchronisation de la boutique branchée dont la synchronisation est allumée, qui cherche de nouveau
+ * TOUTES les fiches (`demander` efface leurs marques, lot 6b bis). Une synchronisation
  * qui tourne déjà n'en lance pas une seconde (`lancee: false`). La Free est refusée si sa dernière demande date de moins de
  * 24 h, avec le délai. 🔴 Un job qui n'a pas pu être enfilé efface sa demande : sinon la synchronisation se dirait en
  * cours un quart d'heure sans que rien ne tourne, et compterait dans les 24 h de la Free.
@@ -278,12 +280,13 @@ async function passage(deps: DepsEtiquettes, tenantId: string, jeton: string, cu
     return false;
   };
 
-  // 1. Les fiches sans client, cherchées UNE fois chacune par leur téléphone : chaque lot écrit les relie ou les marque.
+  // 1. Les fiches pas encore cherchées, par leur téléphone : chaque lot écrit les marque, et relie leurs clients.
   let parRecherche = TELEPHONES_PAR_RECHERCHE;
   let premiere = true;
+  let apres: string | null = null;
   for (;;) {
     if (passageFini()) { await reenfiler(); return; }
-    const fiches = await deps.magasin.aChercher(tenantId, parRecherche);
+    const fiches = await deps.magasin.aChercher(tenantId, parRecherche, apres);
     if (fiches.length === 0) break;
     const r = await deps.chercher(acces, { telephones: fiches.map((f) => f.telephone), pays: b.pays, delaiMs: DELAI_LOT_MS });
     if (!r.ok) {
@@ -293,7 +296,7 @@ async function passage(deps: DepsEtiquettes, tenantId: string, jeton: string, cu
     }
     // Une page incomplète ne prouve pas qu'un téléphone n'a pas de client : redemandée plus petite, et la taille réduite
     // vaut pour la fin du passage. Un seul téléphone dont la page est encore incomplète est écrit tel quel (un client trouvé
-    // y est revérifié), et sa fiche marquée : elle n'est cherchée qu'une fois.
+    // y est revérifié), sans défaire aucun lien de sa fiche, et sa fiche marquée.
     if (!r.complete && parRecherche > 1) { parRecherche = Math.max(1, Math.floor(parRecherche / 2)); continue; }
     if (premiere) { journaliserCout(tenantId, 'telephones', parRecherche, r.cout); premiere = false; }
     if (!(await boutiqueIntacte())) return;
@@ -302,10 +305,11 @@ async function passage(deps: DepsEtiquettes, tenantId: string, jeton: string, cu
       const contactId = ficheDe.get(t.telephone);
       return contactId === undefined ? [] : [{ contactId, clientId: t.clientId, etiquettes: t.etiquettes }];
     });
-    if ((await deps.magasin.ecrireRecherche(tenantId, jeton, { cherchees: fiches.map((f) => f.contactId), trouves })) === null) return;
+    if ((await deps.magasin.ecrireRecherche(tenantId, jeton, { cherchees: fiches.map((f) => f.contactId), trouves, complete: r.complete })) === null) return;
+    apres = fiches[fiches.length - 1]!.telephone;
   }
 
-  // 2. Les clients reliés, par lots, depuis le dernier lu : leurs étiquettes remplacées en bloc.
+  // 2. Les clients reliés, par lots, depuis le dernier lu : leurs étiquettes remplacées en bloc sur chacune de leurs fiches.
   let curseur = curseurDepart;
   let parLot = CLIENTS_PAR_LOT;
   premiere = true;

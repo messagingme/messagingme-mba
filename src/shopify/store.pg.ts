@@ -728,19 +728,27 @@ export class PgShopifyStore {
   }
 
   /**
-   * Les fiches liées à ces commandes ou à ce client Shopify, dans l'espace : par ses commandes, et depuis le lot 6b des
-   * segments Shopify enrichis par le lien que la synchronisation des étiquettes a posé (`shopify_clients`, son téléphone).
+   * Les fiches liées à ces commandes ou à ce client Shopify, dans l'espace, PAR SES COMMANDES. 🔴 Jamais par les liens de
+   * la synchronisation des étiquettes (`shopify_clients`) : depuis le lot 6b bis, ils relient aussi la fiche d'un numéro
+   * lu dans le carnet d'adresses du client, celle d'un proche, que son effacement ne doit pas purger. La fiche du client
+   * lui-même se retrouve par son numéro (`customers/redact` le porte) ; ses liens partent par `oublierClientShopify`.
    */
   async contactsLies(tenantId: string, commandeIds: readonly string[], clientId: string | null): Promise<string[]> {
     const res = await this.pool.query<{ contact_id: string }>(
       `select contact_id from shopify_commandes
-        where tenant_id = $1 and (commande_id = any($2::text[]) or ($3::text is not null and client_id = $3))
-       union
-       select contact_id from shopify_clients
-        where tenant_id = $1 and $3::text is not null and client_id = $3`,
+        where tenant_id = $1 and (commande_id = any($2::text[]) or ($3::text is not null and client_id = $3))`,
       [tenantId, commandeIds, clientId],
     );
     return res.rows.map((r) => r.contact_id);
+  }
+
+  /**
+   * `customers/redact` : tous les liens de ce client Shopify dans l'espace, et ses étiquettes avec eux (la cascade de la
+   * 0326). Les fiches restent : seule celle du client se purge, par son numéro et ses commandes. Rend le nombre de liens.
+   */
+  async oublierClientShopify(tenantId: string, clientId: string): Promise<number> {
+    const res = await this.pool.query(`delete from shopify_clients where tenant_id = $1 and client_id = $2`, [tenantId, clientId]);
+    return res.rowCount ?? 0;
   }
 
   /**
@@ -802,11 +810,12 @@ async function effacerBranchement(client: PoolClient, tenantId: string): Promise
   await client.query(`update shopify_lignes set actif = false, modifie_le = now() where tenant_id = $1 and actif`, [tenantId]);
   // Les produits AVANT leurs collections (la cascade les emporte) : l'ordre des verrous de l'écriture d'une lecture
   // (`ecrire`, produit puis collections), sans quoi les deux s'interbloqueraient. Pour la même raison, l'état de la
-  // synchronisation des étiquettes AVANT ses liens, ses marques et ses étiquettes : chaque écriture de la synchronisation
+  // synchronisation des étiquettes AVANT ses étiquettes, ses liens et ses marques : chaque écriture de la synchronisation
   // verrouille d'abord sa ligne d'état (`src/shopify/etiquettes.pg.ts`), et ne trouve plus rien à écrire une fois effacée.
+  // Les étiquettes avant leurs liens : sinon la cascade de la 0326 les effacerait une à une.
   for (const table of [
     'shopify_messages', 'shopify_messages_attente', 'shopify_paniers', 'shopify_evenements', 'shopify_commandes',
-    'shopify_etiquettes_synchro', 'shopify_clients', 'shopify_fiches_cherchees', 'shopify_etiquettes',
+    'shopify_etiquettes_synchro', 'shopify_etiquettes', 'shopify_clients', 'shopify_fiches_cherchees',
     'shopify_produits', 'shopify_produit_collections', 'shopify_collections_lecture', 'shopify_boutiques',
   ]) {
     await client.query(`delete from ${table} where tenant_id = $1`, [tenantId]);

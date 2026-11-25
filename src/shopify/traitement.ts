@@ -57,7 +57,7 @@ export interface DepsTraitementShopify {
   store: Pick<PgShopifyStore,
     'ligne' | 'reserverEvenement' | 'noterIssue' | 'libererEvenement' | 'noterDernierEvenement' | 'lierCommande'
     | 'couperParDomaine' | 'effacerBoutique' | 'contactsLies' | 'noterPanier' | 'fermerPanier' | 'fermerPanierExistant'
-    | 'fermerPaniersDuTelephone' | 'effacerPaniersDuTelephone'>;
+    | 'fermerPaniersDuTelephone' | 'effacerPaniersDuTelephone' | 'oublierClientShopify'>;
   /** L'envoi public (le premier bloc, un template, filière API) et la filière lue à l'envoi. */
   envoyer: DepsEnvoiShopify['envoyer'];
   filiere: DepsEnvoiShopify['filiere'];
@@ -471,7 +471,9 @@ async function servir(deps: DepsTraitementShopify, b: BoutiqueRecue, s: Service)
 
 /**
  * `customers/redact` : les fiches liées aux commandes nommées ou au client Shopify, et celle de son numéro, DANS l'espace
- * de la boutique. Un échec rend 503 : Shopify réessaie.
+ * de la boutique ; puis les liens de ce client posés par la synchronisation des étiquettes, partout dans l'espace, et
+ * ses étiquettes avec eux, sans purger la fiche d'un proche reliée par son carnet d'adresses (lot 6b bis). Un échec rend
+ * 503 : Shopify réessaie.
  */
 async function effacerClient(deps: DepsTraitementShopify, b: BoutiqueRecue, corps: unknown): Promise<ReponseTraitement> {
   const d = schemaEffacementClient.safeParse(corps);
@@ -490,6 +492,7 @@ async function effacerClient(deps: DepsTraitementShopify, b: BoutiqueRecue, corp
     // Ses paniers en attente partent aussi, fiche ou pas (relecture du lot 2).
     if (tel !== null) await deps.store.effacerPaniersDuTelephone(b.tenantId, tel);
     if (parNumero !== null) ids.add(parNumero);
+    if (d.data.customer?.id) await deps.store.oublierClientShopify(b.tenantId, String(d.data.customer.id));
     if (ids.size > 0) await deps.effacerFiches(b.tenantId, [...ids]);
     journaliser('info', 'shopify_client_efface', { tenantId: b.tenantId, fiches: ids.size });
     return OK;

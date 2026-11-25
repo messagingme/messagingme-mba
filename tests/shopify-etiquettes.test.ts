@@ -4,7 +4,8 @@ import {
   synchroniserEtiquettes, traiterEtiquettes, vueSynchro,
 } from '../src/shopify/etiquettes';
 import {
-  CLIENTS_PAR_LOT, ETIQUETTES_PAR_CLIENT, TELEPHONES_PAR_RECHERCHE, chercherParTelephones, etiquettesUtiles, lireClientsParIds,
+  ADRESSES_PAR_CLIENT, CLIENTS_PAR_LOT, CLIENTS_PAR_RECHERCHE, COUT_PAR_CLIENT, ETIQUETTES_PAR_CLIENT, TELEPHONES_PAR_RECHERCHE, chercherParTelephones, etiquettesUtiles,
+  lireClientsParIds,
 } from '../src/shopify/etiquettes-lues';
 import { BAIL_SYNCHRO_SECONDES, RELECTURE_HEURES, SYNCHRO_PERIMEE_MINUTES, type MagasinEtiquettes } from '../src/shopify/etiquettes.pg';
 import { API_VERSION_SHOPIFY } from '../src/shopify/connexion';
@@ -12,8 +13,9 @@ import * as journal from '../src/lib/journal';
 import { BOUTIQUE_ETIQUETTES, MIDI_ETIQUETTES, T_ETIQUETTES as T, monterEtiquettes } from './etiquettes-faux';
 
 /**
- * LA SYNCHRONISATION DES ÉTIQUETTES DES CLIENTS SHOPIFY (segments Shopify enrichis, lot 6b) : le job sur un faux Shopify
- * (le lien par le seul téléphone du client, jamais par une commande ; la recherche par téléphone UNE fois ; les lots par identifiant, le remplacement en bloc, le
+ * LA SYNCHRONISATION DES ÉTIQUETTES DES CLIENTS SHOPIFY (segments Shopify enrichis, lot 6b ; lot 6b bis) : le job sur un faux
+ * Shopify (le lien par tous les numéros du client, plusieurs à plusieurs ; la recherche par téléphone, de nouveau à chaque geste
+ * du marchand, jamais par la relecture quotidienne ; les liens d'une fiche remplacés par une recherche complète ; les lots par identifiant, le remplacement en bloc, le
  * client disparu, la fiche supprimée, la boutique coupée en route, le bail, le passage borné, les pannes, le coût), la
  * gestion partagée par la carte et l'outil (allumer, éteindre, « maintenant », la Free une fois par 24 h), la relecture
  * quotidienne, et les deux lectures GraphQL sur un faux `fetch`. Le vrai magasin est éprouvé sur PGlite
@@ -39,10 +41,10 @@ describe('le job de synchronisation des étiquettes', () => {
     });
     await commencer(f);
     await traiterEtiquettes(f.deps, JOB);
-    expect([...f.liens.entries()].map(([c, l]) => [c, l.contactId])).toEqual([['1001', A]]);
+    expect([...f.liens.values()].map((l) => [l.clientId, l.contactId])).toEqual([['1001', A]]);
     expect(f.etiquettes.get(A)).toEqual(['VIP', 'Grossiste']);
     // La fiche supprimée n'est ni reliée, ni cherchée, ni étiquetée ; chaque fiche active est cherchée, une fois.
-    expect(f.etiquettes.has(C)).toBe(false);
+    expect(f.etiquettes.get(C)).toBeUndefined();
     expect(f.trace.recherches).toEqual([[tel(1), tel(2)]]);
     expect(f.cherchees).toEqual(new Set([A, B]));
     expect(f.trace.lots).toEqual([['1001']]);
@@ -51,7 +53,7 @@ describe('le job de synchronisation des étiquettes', () => {
     expect(f.etat()?.comptes).toEqual({ clientsLus: 1, trouvesParTelephone: 1, sansFiche: 0, fichesEtiquetees: 1 });
   });
 
-  it('🔴 une fiche sans client est cherchée UNE fois par son téléphone ; trouvée, elle est reliée et lue ensuite par son identifiant', async () => {
+  it('🔴 une fiche est cherchée par son téléphone ; la relecture quotidienne ne la cherche plus, elle relit son client par son identifiant', async () => {
     const f = monterEtiquettes({
       fiches: { [A]: { telephone: tel(1), active: true }, [B]: { telephone: tel(2), active: true } },
       boutiqueClients: { 2002: { telephone: tel(2), tags: ['Newsletter'] } },
@@ -59,18 +61,29 @@ describe('le job de synchronisation des étiquettes', () => {
     await commencer(f);
     await traiterEtiquettes(f.deps, JOB);
     expect(f.trace.recherches).toEqual([[tel(1), tel(2)]]);
-    expect(f.liens.get('2002')?.contactId).toBe(B);
+    expect(f.fichesDuClient('2002')).toEqual([B]);
     expect(f.etiquettes.get(B)).toEqual(['Newsletter']);
     expect(f.cherchees).toEqual(new Set([A, B]));
     // Trouvé par son téléphone puis lu par son identifiant : compté UNE fois.
     expect(f.etat()?.comptes).toMatchObject({ trouvesParTelephone: 1, clientsLus: 1 });
-    // Le lendemain : plus aucune recherche, le client relié se relit par son identifiant, ses étiquettes remplacées.
+    // Le lendemain, la relecture quotidienne : plus aucune recherche, le client relié se relit par son identifiant, ses
+    // étiquettes remplacées.
     f.catalogue.set('2002', { telephone: tel(2), tags: ['Fidèle'] });
     f.horloge.t += RELECTURE_HEURES * 3_600_000 + 1;
-    expect(await f.deps.magasin.demander(T, { auPlusUneFoisParJour: false })).toBeInstanceOf(Date);
+    expect(await f.deps.magasin.dues(10)).toHaveLength(1);
     await traiterEtiquettes(f.deps, JOB);
     expect(f.trace.recherches).toHaveLength(1);
     expect(f.etiquettes.get(B)).toEqual(['Fidèle']);
+    // Le geste du marchand, lui, cherche de nouveau TOUTES les fiches : un numéro ajouté chez Shopify se relie.
+    f.catalogue.set('1001', { telephone: tel(1), tags: ['Nouveau'] });
+    f.horloge.t += RELECTURE_HEURES * 3_600_000 + 1;
+    expect(await f.deps.magasin.demander(T, { auPlusUneFoisParJour: false })).toBeInstanceOf(Date);
+    expect(f.cherchees.size).toBe(0);
+    await traiterEtiquettes(f.deps, JOB);
+    expect(f.trace.recherches).toHaveLength(2);
+    expect(f.trace.recherches[1]).toEqual([tel(1), tel(2)]);
+    expect(f.fichesDuClient('1001')).toEqual([A]);
+    expect(f.etiquettes.get(A)).toEqual(['Nouveau']);
   });
 
   it('🔴 un client trouvé dont la fiche est supprimée entre-temps n’est ni relié ni gardé : compté, puis oublié', async () => {
@@ -99,14 +112,13 @@ describe('le job de synchronisation des étiquettes', () => {
     // A est supprimée dans Messaging Me ; 1002 est supprimé chez Shopify.
     f.fiches.set(A, { telephone: tel(1), active: false });
     f.catalogue.delete('1002');
-    f.cherchees.add(B);
     f.horloge.t += RELECTURE_HEURES * 3_600_000 + 1;
-    await f.deps.magasin.demander(T, { auPlusUneFoisParJour: false });
+    expect(await f.deps.magasin.dues(10)).toHaveLength(1);
     await traiterEtiquettes(f.deps, JOB);
     expect(f.liens.size).toBe(0);
-    expect(f.etiquettes.has(A)).toBe(false);
-    expect(f.etiquettes.has(B)).toBe(false);
-    // La marque de B est effacée avec son lien : la synchronisation suivante la cherche une fois de plus.
+    expect(f.etiquettes.get(A)).toBeUndefined();
+    expect(f.etiquettes.get(B)).toBeUndefined();
+    // La marque de B est effacée avec son lien : la synchronisation suivante, même quotidienne, la cherche de nouveau.
     expect(f.cherchees.has(B)).toBe(false);
     expect(f.etat()?.comptes).toMatchObject({ sansFiche: 1 });
   });
@@ -114,10 +126,9 @@ describe('le job de synchronisation des étiquettes', () => {
   it('🔴 coupée, remplacée ou effacée PENDANT le passage : le lot lu n’est pas écrit', async () => {
     for (const relue of [{ ...BOUTIQUE_ETIQUETTES, etat: 'coupee' }, { ...BOUTIQUE_ETIQUETTES, domaine: 'autre.myshopify.com' }, null]) {
       const f = monterEtiquettes({
-        fiches: { [A]: { telephone: tel(1), active: true } }, liensDeDepart: [{ clientId: '1001', contactId: A }],
+        fiches: { [A]: { telephone: null, active: true } }, liensDeDepart: [{ clientId: '1001', contactId: A }],
         boutiqueClients: { 1001: { telephone: tel(1), tags: ['VIP'] } }, boutiquesSuivantes: [relue],
       });
-      f.cherchees.add(A);
       await commencer(f);
       await traiterEtiquettes(f.deps, JOB);
       expect(f.trace.lots).toHaveLength(1);
@@ -125,6 +136,17 @@ describe('le job de synchronisation des étiquettes', () => {
       expect(f.etiquettes.size).toBe(0);
       expect(f.trace.issues.map((i) => i.issue)).toEqual(relue === null ? [] : ['erreur']);
     }
+    // Le même filet sur un lot CHERCHÉ par téléphone : la boutique coupée pendant la recherche, rien n'est écrit.
+    const g = monterEtiquettes({
+      fiches: { [A]: { telephone: tel(1), active: true } }, boutiqueClients: { 1001: { telephone: tel(1), tags: ['VIP'] } },
+      boutiquesSuivantes: [{ ...BOUTIQUE_ETIQUETTES, etat: 'coupee' }],
+    });
+    await commencer(g);
+    await traiterEtiquettes(g.deps, JOB);
+    expect(g.trace.recherches).toHaveLength(1);
+    expect(g.trace.ecritures).toBe(0);
+    expect(g.liens.size).toBe(0);
+    expect(g.cherchees.size).toBe(0);
   });
 
   it('🔴 bail : une synchronisation tenue par un autre passage n’est pas reprise ; elle l’est après son bail ; un jeton périmé n’écrit plus rien', async () => {
@@ -143,7 +165,7 @@ describe('le job de synchronisation des étiquettes', () => {
     await traiterEtiquettes(f.deps, JOB);
     expect(f.trace.issues).toEqual([{ issue: 'lue', message: null }]);
     expect(await f.deps.magasin.ecrireClients(T, autre!.jeton, { lus: [{ clientId: '1001', etiquettes: ['périmé'] }], curseur: '1001' })).toBe(false);
-    expect(await f.deps.magasin.ecrireRecherche(T, autre!.jeton, { cherchees: [A], trouves: [] })).toBeNull();
+    expect(await f.deps.magasin.ecrireRecherche(T, autre!.jeton, { cherchees: [A], trouves: [], complete: true })).toBeNull();
     expect(await f.deps.magasin.finir(T, autre!.jeton, 'erreur', 'périmé')).toBe(false);
     expect(f.etiquettes.get(A)).toEqual(['VIP']);
   });
@@ -156,13 +178,12 @@ describe('le job de synchronisation des étiquettes', () => {
 
   it('🔴 le passage est borné : au-delà, le job se réenfile et rend son bail ; le suivant reprend au dernier client lu', async () => {
     const ids = Array.from({ length: CLIENTS_PAR_LOT * 3 }, (_, i) => String(100_000 + i));
-    const fiches = Object.fromEntries(ids.map((id, i) => [`aaaaaaaa-0000-4000-8000-${String(i).padStart(12, '0')}`, { telephone: tel(i), active: true }]));
+    const fiches = Object.fromEntries(ids.map((_id, i) => [`aaaaaaaa-0000-4000-8000-${String(i).padStart(12, '0')}`, { telephone: null, active: true }]));
     const contacts = Object.keys(fiches);
     const f = monterEtiquettes({
       fiches, liensDeDepart: ids.map((clientId, i) => ({ clientId, contactId: contacts[i]! })),
       boutiqueClients: Object.fromEntries(ids.map((id, i) => [id, { telephone: tel(i), tags: ['X'] }])), msParLot: PASSAGE_ETIQUETTES_MS / 2,
     });
-    for (const c of contacts) f.cherchees.add(c);
     await commencer(f);
     await traiterEtiquettes(f.deps, JOB);
     expect(f.trace.lots).toHaveLength(2);
@@ -175,25 +196,22 @@ describe('le job de synchronisation des étiquettes', () => {
 
   it('🔴 une panne pendant un lot rend son bail AVANT de remonter ; un lot trop lourd se redemande plus petit ; un accès refusé se dit', async () => {
     const base = {
-      fiches: { [A]: { telephone: tel(1), active: true } }, liensDeDepart: [{ clientId: '1001', contactId: A }],
+      fiches: { [A]: { telephone: null, active: true } }, liensDeDepart: [{ clientId: '1001', contactId: A }],
       boutiqueClients: { 1001: { telephone: tel(1), tags: ['VIP'] } },
     };
     const panne = monterEtiquettes({ ...base, echecsClients: [{ ok: false, code: 'passager', message: 'Shopify n’a pas répondu' }] });
-    panne.cherchees.add(A);
     await commencer(panne);
     await expect(traiterEtiquettes(panne.deps, JOB)).rejects.toThrow('Shopify n’a pas répondu');
     expect(panne.etat()).toMatchObject({ jeton: null, bail: null });
     expect(panne.etat()?.enCoursDepuis).not.toBeNull();
 
     const lourd = monterEtiquettes({ ...base, echecsClients: [{ ok: false, code: 'trop_lourd', message: 'trop lourd' }] });
-    lourd.cherchees.add(A);
     await commencer(lourd);
     await traiterEtiquettes(lourd.deps, JOB);
     expect(lourd.trace.lots).toEqual([['1001'], ['1001']]);
     expect(lourd.trace.issues).toEqual([{ issue: 'lue', message: null }]);
 
     const refuse = monterEtiquettes({ ...base, echecsClients: [{ ok: false, code: 'acces_refuse', message: 'Access denied for tags field' }] });
-    refuse.cherchees.add(A);
     await commencer(refuse);
     await traiterEtiquettes(refuse.deps, JOB);
     expect(refuse.trace.issues).toEqual([{ issue: 'refusee', message: 'Access denied for tags field' }]);
@@ -244,6 +262,60 @@ describe('le job de synchronisation des étiquettes', () => {
       { tenantId: T, quoi: 'clients', taille: CLIENTS_PAR_LOT, demande: 2, reel: 1 },
     ]);
     espion.mockRestore();
+  });
+
+  it('🔴 plusieurs à plusieurs : deux clients d’un numéro relient la fiche, qui porte leurs deux étiquettes ; un client de deux numéros relie les deux fiches', async () => {
+    const f = monterEtiquettes({
+      fiches: { [A]: { telephone: tel(1), active: true }, [B]: { telephone: tel(2), active: true } },
+      boutiqueClients: {
+        // Le numéro de A sur les adresses de deux clients ; le second porte aussi celui de B (une adresse de livraison).
+        1001: { telephone: null, tags: ['VIP'], numeros: [tel(1)] },
+        1002: { telephone: null, tags: ['VIP MM'], numeros: [tel(1), tel(2)] },
+      },
+    });
+    await commencer(f);
+    await traiterEtiquettes(f.deps, JOB);
+    expect(f.fichesDuClient('1001')).toEqual([A]);
+    expect(f.fichesDuClient('1002').sort()).toEqual([A, B].sort());
+    expect(f.etiquettes.get(A)).toEqual(['VIP', 'VIP MM']);
+    expect(f.etiquettes.get(B)).toEqual(['VIP MM']);
+    // Deux fiches reliées par leur numéro ; deux clients lus, chacun une fois.
+    expect(f.etat()?.comptes).toEqual({ clientsLus: 2, trouvesParTelephone: 2, sansFiche: 0, fichesEtiquetees: 2 });
+    // La lecture d'un client ne touche pas les étiquettes de l'autre client de la même fiche.
+    f.catalogue.set('1001', { telephone: null, tags: ['Grossiste'], numeros: [tel(1)] });
+    f.horloge.t += RELECTURE_HEURES * 3_600_000 + 1;
+    expect(await f.deps.magasin.dues(10)).toHaveLength(1);
+    await traiterEtiquettes(f.deps, JOB);
+    expect(f.etiquettes.get(A)).toEqual(['Grossiste', 'VIP MM']);
+  });
+
+  it('🔴 une recherche COMPLÈTE défait le lien d’un client qui n’a plus le numéro ; une page incomplète n’en défait aucun', async () => {
+    const f = monterEtiquettes({
+      fiches: { [A]: { telephone: tel(1), active: true } },
+      boutiqueClients: { 1001: { telephone: tel(1), tags: ['VIP'] }, 1002: { telephone: null, tags: ['Ancien'], numeros: [tel(1)] } },
+    });
+    await commencer(f);
+    await traiterEtiquettes(f.deps, JOB);
+    expect(f.etiquettes.get(A)).toEqual(['VIP', 'Ancien']);
+    // Chez Shopify, 1002 n'a plus le numéro de A : le geste suivant le défait, avec ses étiquettes.
+    f.catalogue.set('1002', { telephone: null, tags: ['Ancien'], numeros: [] });
+    f.horloge.t += 60_000;
+    expect(await f.deps.magasin.demander(T, { auPlusUneFoisParJour: false })).toBeInstanceOf(Date);
+    await traiterEtiquettes(f.deps, JOB);
+    expect(f.fichesDuClient('1002')).toEqual([]);
+    expect(f.etiquettes.get(A)).toEqual(['VIP']);
+
+    // Même situation, mais la recherche rend une page incomplète : rien n'est défait.
+    const g = monterEtiquettes({
+      fiches: { [A]: { telephone: tel(1), active: true } },
+      liensDeDepart: [{ clientId: '1002', contactId: A, etiquettes: ['Ancien'] }],
+      boutiqueClients: { 1001: { telephone: tel(1), tags: ['VIP'] }, 1002: { telephone: null, tags: ['Ancien'], numeros: [] } },
+      incompleteAuDela: 0,
+    });
+    await commencer(g);
+    await traiterEtiquettes(g.deps, JOB);
+    expect(g.fichesDuClient('1002')).toEqual([A]);
+    expect(g.etiquettes.get(A)).toEqual(['Ancien', 'VIP']);
   });
 
   it('un job illisible est ignoré', async () => {
@@ -306,10 +378,14 @@ describe('la gestion partagée par la carte et l’outil', () => {
   });
 
   it('les étiquettes lues, celles que portent le plus de fiches d’abord, regroupées sans la casse, cherchables', async () => {
-    const f = monterEtiquettes();
-    f.etiquettes.set(A, ['VIP', 'Grossiste']);
-    f.etiquettes.set(B, ['vip']);
-    f.etiquettes.set(C, ['Hiver']);
+    const f = monterEtiquettes({
+      liensDeDepart: [
+        { clientId: '1', contactId: A, etiquettes: ['VIP', 'Grossiste'] }, { clientId: '2', contactId: B, etiquettes: ['vip'] },
+        { clientId: '3', contactId: C, etiquettes: ['Hiver'] },
+        // Un second client de A qui porte aussi « VIP » : A ne compte qu'une fois.
+        { clientId: '4', contactId: A, etiquettes: ['VIP'] },
+      ],
+    });
     const v = await lireEtiquettes(f.deps, T, undefined);
     expect(v.etiquettes).toEqual([{ etiquette: 'VIP', fiches: 2 }, { etiquette: 'Grossiste', fiches: 1 }, { etiquette: 'Hiver', fiches: 1 }]);
     expect((await lireEtiquettes(f.deps, T, 'hiv')).etiquettes.map((e) => e.etiquette)).toEqual(['Hiver']);
@@ -455,7 +531,7 @@ describe('la lecture GraphQL des clients', () => {
     expect(await lireClientsParIds(ACCES, { ids: ['1'], delaiMs: 20_000 }, lent.appeler, async () => undefined, () => 0)).toMatchObject({ ok: false, code: 'passager' });
   });
 
-  it('🔴 la recherche par téléphones : le filtre phone:, deux clients par téléphone au plus, chaque client REVÉRIFIÉ sur son téléphone', async () => {
+  it('🔴 la recherche par téléphones : le filtre phone:, dix clients au moins, chaque client REVÉRIFIÉ sur ses numéros', async () => {
     const f = faux({
       json: {
         data: {
@@ -473,12 +549,63 @@ describe('la lecture GraphQL des clients', () => {
       },
     });
     const r = await chercherParTelephones(ACCES, { telephones: [tel(1), tel(2)], pays: 'FR', delaiMs: 20_000 }, f.appeler);
-    expect(f.requetes[0]!.corps.variables).toEqual({ q: `phone:${tel(1)} OR phone:${tel(2)}`, n: 4 });
+    expect(f.requetes[0]!.corps.variables).toEqual({ q: `phone:${tel(1)} OR phone:${tel(2)}`, n: 10 });
     expect(f.requetes[0]!.corps.query).toContain('defaultPhoneNumber { phoneNumber }');
+    expect(f.requetes[0]!.corps.query).toContain(`addressesV2(first: ${ADRESSES_PAR_CLIENT}) { nodes { phone countryCodeV2 } }`);
+    // La dernière commande n'est pas lue : elle n'apporte aucun numéro que les adresses n'ont pas (mesuré), et demanderait read_orders.
+    expect(f.requetes[0]!.corps.query).not.toContain('lastOrder');
     expect(r).toMatchObject({ ok: true, complete: true, trouves: [{ telephone: tel(1), clientId: '1001', etiquettes: ['VIP'] }] });
   });
 
-  it('🔴 deux clients au même téléphone ne relient rien ; une page qui continue n’est pas complète ; aucun téléphone E.164, aucun appel', async () => {
+  it('🔴 tous les numéros d’un client : ses coordonnées et chacune de ses adresses, au pays de L’ADRESSE', async () => {
+    const f = faux({
+      json: {
+        data: {
+          customers: {
+            pageInfo: { hasNextPage: false },
+            nodes: [
+              // Une boutique aux États-Unis, un numéro français saisi à la française sur une adresse en France.
+              { legacyResourceId: '2001', tags: ['Adresse'], defaultPhoneNumber: null,
+                addressesV2: { nodes: [{ phone: null, countryCodeV2: 'US' }, { phone: '06 00 00 00 01', countryCodeV2: 'FR' }] } },
+              // Deux adresses, deux numéros : le client se relie aux deux.
+              { legacyResourceId: '2002', tags: ['Deux'], defaultPhoneNumber: null,
+                addressesV2: { nodes: [{ phone: tel(2), countryCodeV2: 'FR' }, { phone: '0600000003', countryCodeV2: 'FR' }] } },
+              // Une adresse illisible ne fait pas perdre le client : ses coordonnées le relient encore.
+              { legacyResourceId: '2004', tags: [], defaultPhoneNumber: { phoneNumber: tel(4) }, addressesV2: { nodes: 'illisible' } },
+            ],
+          },
+        },
+      },
+    });
+    const r = await chercherParTelephones(ACCES, { telephones: [tel(1), tel(2), tel(3), tel(4)], pays: 'US', delaiMs: 20_000 }, f.appeler);
+    expect(r).toMatchObject({ ok: true, complete: true });
+    expect(r.ok ? r.trouves.map((t) => [t.telephone, t.clientId]) : []).toEqual([
+      [tel(1), '2001'], [tel(2), '2002'], [tel(3), '2002'], [tel(4), '2004'],
+    ]);
+    // La borne du coût, dérivée des constantes : Shopify refuse une requête de plus de 1 000 points.
+    expect(2 + CLIENTS_PAR_RECHERCHE * COUT_PAR_CLIENT).toBeLessThanOrEqual(1000);
+  });
+
+  it('🔴 un client illisible rend la page INCOMPLÈTE : elle ne défera aucun lien ; les clients lisibles sont rendus', async () => {
+    const f = faux({
+      json: {
+        data: {
+          customers: {
+            pageInfo: { hasNextPage: false },
+            nodes: [
+              { legacyResourceId: 'pas-un-nombre', tags: [] },
+              { legacyResourceId: '1001', tags: ['VIP'], defaultPhoneNumber: { phoneNumber: tel(1) }, addressesV2: { nodes: [] } },
+            ],
+          },
+        },
+      },
+    });
+    expect(await chercherParTelephones(ACCES, { telephones: [tel(1)], pays: 'FR', delaiMs: 20_000 }, f.appeler)).toMatchObject({
+      ok: true, complete: false, trouves: [{ telephone: tel(1), clientId: '1001', etiquettes: ['VIP'] }],
+    });
+  });
+
+  it('🔴 deux clients au même téléphone sont rendus tous les deux ; une page qui continue n’est pas complète ; aucun téléphone E.164, aucun appel', async () => {
     const f = faux({
       json: {
         data: {
@@ -492,7 +619,9 @@ describe('la lecture GraphQL des clients', () => {
         },
       },
     });
-    expect(await chercherParTelephones(ACCES, { telephones: [tel(1)], pays: 'FR', delaiMs: 20_000 }, f.appeler)).toMatchObject({ ok: true, trouves: [], complete: false });
+    expect(await chercherParTelephones(ACCES, { telephones: [tel(1)], pays: 'FR', delaiMs: 20_000 }, f.appeler)).toMatchObject({
+      ok: true, complete: false, trouves: [{ telephone: tel(1), clientId: '1001' }, { telephone: tel(1), clientId: '1002' }],
+    });
     const rien = faux({ json: {} });
     expect(await chercherParTelephones(ACCES, { telephones: ['anon:1', '0600000001'], pays: 'FR', delaiMs: 20_000 }, rien.appeler)).toMatchObject({ ok: true, trouves: [], complete: true });
     expect(rien.requetes).toEqual([]);
