@@ -264,6 +264,9 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - Essai réel : sur la boutique de développement, une étiquette « VIP » posée sur un client chez Shopify, la
   synchronisation allumée, le filtre « Étiquette Shopify : VIP » qui retient sa fiche et elle seule, la copie explicite.
 - Fraîcheur des étiquettes entre deux relectures : les webhooks d'étiquettes (lot 4b de la spec).
+- Le workflow de déploiement accepte un commit plus ancien que la révision en production : un déploiement épinglé
+  lancé après celui d'un pair retirerait son code (vu le 2026-11-25 avant le lancement, journal du lot 6b). Une étape
+  qui exige `git merge-base --is-ancestor <révision en production> <commit>`, sauf retour arrière voulu (une option).
 
 ## 🟡 Segments Shopify, lot 5b (« Rattraper » fait entrer les acheteurs) : la relecture (2026-11-24, un rouge corrigé)
 

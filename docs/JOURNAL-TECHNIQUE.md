@@ -116,6 +116,16 @@ livraison). La décision de Julien pour le lot 5b (le numéro de l'acheteur, jam
 passe plus que par le téléphone du client lui-même. Migration 0320, non bloquante : trois index sur `contact_id`, pour
 que la cascade d'une fiche supprimée ne balaie pas ces tables. Reconstruit sur le lot 2 des packs de contacts : les
 suppressions des étiquettes vivent dans `purgerDans`.
+En production le 2026-11-25 : la 0319 avec le déploiement groupé des packs de contacts (run 45510634701, `d5e7d8f32`),
+relue en base ; le code et la 0320 avec le correctif de l'entretien de l'agent IA, dans le déploiement que sa session a
+lancé (run 45600571657, épinglé sur `400012986`), la 0320 relue en base (trois index valides). Le vrai code des
+étiquettes joué en lecture seule sur la base de production : le critère refusé tant qu'aucune synchronisation n'a
+abouti, sa clause servie par l'index `lower(etiquette)`, le plan de `dues` (le balayage horaire) valide sur le schéma
+réel ; deux boutiques branchées, aucune synchronisation allumée. Aide chargée par le workflow (373 lignes) ; plugin
+0.3.65. Leçon : j'avais épinglé mon déploiement sur `87de84c57` pour écarter la 0323 voisine ; la voisine ayant déployé
+la première, il serait devenu un retour arrière de son code (elle l'a vu avant mon lancement). Un commit épinglé se
+revérifie au lancement : il doit descendre de la révision en production. Reste l'essai réel (une étiquette « VIP » sur
+la boutique de développement).
 
 ## 2026-11-25 : CSM virtuel, lot E : la Question et l'Action dans la recette
 
