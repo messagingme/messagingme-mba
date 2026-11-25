@@ -34,13 +34,14 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
 - Lot C (plan `2026-11-24-csm-lot1-c-clic-et-versions.md`) : en production le 2026-11-24. B3, les versions de
   scénario (0315, `6e519ca31` et `5a0860749`) ; B2, le oui de mise en ligne (0316, `2aa69b7be`, run 45475739722 : la
   page `/mise-en-ligne`, `propose_go_live`, `get_go_live`, `list_scenario_versions`) ; plugin 0.3.64. Relu sans rouge,
-  les jaunes au `todo.md`. Reste l'essai réel (285, `docs/prive/ESSAIS-REELS.md`).
-- Lot D (plan `2026-11-24-csm-lot1-d-brouillon.md`) : B4, le brouillon des outils (`brouillon` sur `create_scenario` et
-  `update_scenario`, console comprise), sans migration. L'option de `/v1` et sa route de publication sont reportées
-  après le pilote (`todo.md`).
-- Lot E (plan `2026-11-24-csm-lot1-e-recette-pilote.md`) : B5, la Question et l'Action dans la recette (le parcours
-  de qualification du pilote), sans migration ; le contrat de `/v1` et le SDK gagnent les deux étapes.
-- Ensuite : le chemin du pilote (B6, B9).
+  les jaunes au `todo.md`. Essai réel en partie le 2026-11-25 (285, `docs/prive/ESSAIS-REELS.md`) : restent le
+  répondeur, la restauration, le refus d'un brouillon changé et le non-admin, avec le pilote.
+- Lots D et E (plans `2026-11-24-csm-lot1-d-brouillon.md` et `2026-11-24-csm-lot1-e-recette-pilote.md`) : en
+  production le 2026-11-25 (run 45510634701). B4, le brouillon des outils, console comprise ; B5, la Question et
+  l'Action dans la recette. Essai réel fait sur la SANDBOX (le brouillon, le lien de test, la mise en ligne d'un clic,
+  la version 1), sauf le répondeur et la restauration, qui se jouent avec le pilote. L'option `brouillon` de `/v1` est
+  reportée après le pilote (`todo.md`).
+- Ensuite : le chemin du pilote, B6 (la simulation d'un parcours, le lien de test, le déroulé d'un contact), puis B9.
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 

@@ -149,6 +149,20 @@ Dans une copie d'origin portant tout le lot : typecheck et lint (racine et conso
 aucune trouvaille), la suite racine (19 099 tests, aucun échec), la suite de la console (1 398 tests). Les deux fiches
 d'aide qui citent la section API de `features.md` prennent sa nouvelle empreinte, relues.
 
+**En production le 2026-11-25, avec le lot D** : par le run 45510634701 de la session des packs de contacts, sur
+`d5e7d8f32` (ses lots 1 et 2, migrations 0319, 0321 et 0322 appliquées avant ; aucune migration aux lots D et E),
+approuvé par Julien, terminé à 9 h 02. **Essai réel le même jour, sur la SANDBOX** (Claude Code relié par `/mcp`, trois
+admins, tous de MessagingMe) : Claude crée les champs « Besoin » et « Budget » et écrit le parcours de qualification en
+brouillon (relu en base : rien de publié, aucune version) ; Julien l'essaie depuis son téléphone par le lien de test :
+sa réponse rangée dans Besoin, son choix dans la liste rangé dans Budget, l'étiquette `lead-chaud`, le message, puis
+l'équipe. La mise en ligne (`propose_go_live`, « Publier les modifications »), cliquée par Julien, publie la version 1 :
+la première publication réelle qui fait jouer le déclencheur 0315. Le journal d'audit porte chaque écriture de Claude
+(`mcp.ecriture`, signée de la personne et de l'autorisation, avec son écran), le clic et la publication. Le répondeur et
+la restauration d'une version ne sont pas joués : brancher le répondeur ferait lâcher à l'agent de Meta de la SANDBOX
+les fils qu'il tient ; ils se jouent avec le pilote. Deux constats : cet agent de Meta, qui répond à tous, a aussi
+répondu au mot de test (deux voix) ; un choix arrivé 5 s après l'échéance de 3 minutes a été pris, la relance n'est
+donc pas partie.
+
 ## 2026-11-24 : CSM virtuel, lot D : Claude écrit en brouillon
 
 Plan `docs/superpowers/plans/2026-11-24-csm-lot1-d-brouillon.md`, après le lot C (en production le même jour).
@@ -183,6 +197,7 @@ remplacement en brouillon, versions comprises). Dans une copie d'origin portant 
 (racine et console), l'auto-attaque (2 218 sondes, aucune trouvaille), la suite de la console (1 398 tests), la suite
 racine (19 075 tests ; un seul rouge, la latence sur une vraie connexion, vert seul trois fois de suite). Deux fiches
 d'aide publiques citent la section de `features.md` modifiée : relues, leur empreinte suit.
+**En production le 2026-11-25** avec le lot E, dont l'entrée dit le run et l'essai réel.
 
 ## 2026-11-24 : CSM virtuel, lot C : les versions de scénario et le oui de mise en ligne
 
