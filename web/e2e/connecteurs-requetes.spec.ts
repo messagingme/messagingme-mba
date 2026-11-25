@@ -155,8 +155,10 @@ test.describe('Connecteurs : mettre au point un appel', () => {
     await expect(page.getByTestId('chemin-ajouter')).toBeDisabled();
     await page.getByTestId('chemin-saisi').fill('a..b');
     await expect(page.getByTestId('chemin-ajouter')).toBeDisabled();
-    // Le champ saisi est visible, et se décoche.
-    await page.getByTestId('chemin-statut').uncheck();
+    // Un champ gardé que l'essai ne montre pas est visible, et se retire d'un clic (sa case disparaît avec lui).
+    await page.getByTestId('chemin-statut').click();
+    await expect(page.getByTestId('chemin-statut')).toHaveCount(0);
+    await expect(page.getByTestId('reponse-gardes')).not.toContainText('statut');
     await page.getByTestId('requete-enregistrer').click();
     await expect.poll(() => capture.posts.some((p) => p.url.includes(RQ) && !p.url.includes('/test'))).toBe(true);
     const envoi = capture.posts.find((p) => p.url.includes(RQ) && !p.url.includes('/test'))!;
