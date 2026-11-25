@@ -5,6 +5,41 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : segments Shopify, lot 6c : les segments construits dans Shopify se ciblent
+
+Les segments que le marchand construit dans Shopify (Clients > Segments) se ciblent dans le volet Shopify des filtres,
+dans tous ou dans l'un d'eux, et par `shopify_segments` depuis Claude Code. Plan
+`docs/superpowers/plans/2026-11-25-segments-shopify-lot-6c-segments.md`. Mesuré avant d'écrire, en lecture seule, sur les
+deux boutiques branchées : la liste coûte 13 points, une page de 1 000 membres environ 140, et le numéro d'un membre est
+celui du client. Une seule synchronisation pour les étiquettes et les segments : après les clients, elle relit la liste
+des segments, puis les membres de chaque segment SUIVI (20 au plus, cochés sur la carte), page par page, rattachés aux
+fiches par les liens de la synchronisation (tous les numéros du client). Les appartenances se remplacent à la DERNIÈRE
+page d'une lecture, jamais avant ; une lecture inachevée garde l'ancienne cible et se dit partielle. Un segment lourd passe
+par la requête asynchrone de Shopify, bornée à 30 minutes. Le critère est refusé en nommant le segment tant qu'il n'est
+pas suivi, lu, et encore chez Shopify. Migration 0327 (BLOQUANTE : la purge et l'effacement du branchement nomment ses
+tables), poussée seule et appliquée par le déploiement d'everial (run 45633311488, « -> 0327 ... ok »), relue en base le
+jour même.
+
+La relecture indépendante a trouvé un rouge, que les e2e joués en local avant le push (leçon du 6b bis) avaient déjà
+attrapé : le motif d'identifiant de la lecture console avait perdu sa barre oblique inverse dans un script d'édition, et
+aucun segment ne s'affichait ; il prend désormais le motif partagé, et un test le tient. Ses jaunes les plus lourds sont
+corrigés dans le lot, parce qu'ils touchaient la synchronisation des étiquettes déjà en production : une liste refusée, un
+segment refusé ou une requête jamais prête arrêtaient toute la synchronisation (les étiquettes lues n'étaient plus datées,
+les segments suivants plus lus) ; ils sont désormais journalisés et laissés de côté pour le passage. Aussi corrigés : une
+page s'écrit seulement si la lecture en est à elle (un segment décoché puis recoché pendant l'appel reprenait au milieu),
+le choix de la Free est gardé quand sa lecture attend, l'outil fait le choix avant de lancer, la liste est dédupliquée et
+triée. Le reste est au `todo.md`. Mesure : 36 mutations scriptées ; au premier passage, deux survivantes ont montré deux
+trous de test (une fiche supprimée encore reliée à son client, un choix refusé synchronisation éteinte qui ne devait rien
+écrire), comblés et prouvés rouges.
+En production le 2026-11-25 : run 45665771645 (`de0f8e42b`, aucune migration), le vrai code joué contre « Messaging Me
+demo » (base en lecture seule, Shopify par le vrai code de lecture) : le critère servi par la clé primaire, la garde qui
+nomme le segment, la liste des 5 segments (2 points réels), « Customers who have purchased at least once » lu en direct
+(2 membres) et par le chemin asynchrone (la création acceptée avec `read_customers`, prête en moins de 2 s, les mêmes 2
+membres par `queryId`). Mesure neuve : une requête que Shopify ne connaît pas rend `INTERNAL_SERVER_ERROR`, pas un nœud
+nul ; elle est donc traitée en panne passagère, bornée par les 30 minutes (au `todo.md`). Plugin 0.3.69 (run
+45668209533), qui emporte la 0.3.68 de B6a, dont la publication n'avait pas démarré côté GitHub. Essai réel : à faire par
+Julien.
+
 ## 2026-11-25 : CSM virtuel, lot F (B6a) : Claude simule un parcours avant de le proposer
 
 Plan `docs/superpowers/plans/2026-11-25-csm-lot1-f-simulation-deroule.md`, après le lot E (la recette du pilote, en

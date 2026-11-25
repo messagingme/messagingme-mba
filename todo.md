@@ -323,8 +323,13 @@ pannes). Restent :
   pas d'`order by` (interblocage détecté par Postgres, sans perte).
 - **Un segment refusé avant sa première page ne se voit nulle part** dans la console (journalisé seulement) : le dire
   sur la ligne du segment.
-- **Le chemin asynchrone n'a jamais tourné contre une vraie boutique** (les deux codes de Shopify, le droit de
-  `customerSegmentMembersQueryCreate`, la forme d'une requête perdue) : à mesurer au premier segment lourd.
+- **Une requête asynchrone que Shopify ne connaît plus rend `INTERNAL_SERVER_ERROR`, pas un nœud nul** (mesuré en
+  production le 2026-11-25, sur « Messaging Me demo ») : `suivreRequeteAsynchrone` ne dit donc jamais `perdue`, et le job
+  la traite en panne passagère jusqu'à la borne des 30 minutes. La traiter comme perdue (l'oublier et la recréer). Le
+  reste du chemin est mesuré : la création passe avec `read_customers`, la requête est prête en moins de 2 s sur un petit
+  segment, sa lecture par `queryId` rend les mêmes membres ; son identifiant n'est pas numérique (un UUID). Les deux codes
+  de Shopify (`USE_CUSTOMER_SEGMENT_MEMBERS_QUERY_CREATE_MUTATION`, `QUERY_NOT_COMPLETE`) restent à voir au premier
+  segment lourd.
 
 ## 🟡 Segments Shopify, lot 6b bis (un client Shopify relié par tous ses numéros) : la relecture (2026-11-25, aucun rouge)
 
