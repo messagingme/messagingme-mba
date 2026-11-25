@@ -525,3 +525,119 @@ test.describe('Contacts : les étiquettes Shopify du volet Shopify', () => {
     await pasDeDebordement(page);
   });
 });
+
+test.describe('Contacts : les segments Shopify du volet Shopify (lot 6c)', () => {
+  test.use({ viewport: TREIZE_POUCES });
+  const AVEC_SEGMENTS = { ...AVEC_BOUTIQUE, segmentsShopify: true };
+  const SYNCHRO = {
+    allumee: true, synchroLe: '2026-11-24T08:00:00.000Z', enCours: false, refus: null,
+    comptes: { clientsLus: 12, trouvesParTelephone: 3, sansFiche: 4, fichesEtiquetees: 6 },
+  };
+  const segment = (segmentId: string, nom: string, o: Record<string, unknown> = {}) => ({
+    segmentId, nom, requete: null, suivi: true, absent: false, luLe: '2026-11-24T08:00:00.000Z', partiel: false, membres: 9, fiches: 4, ...o,
+  });
+  const LUS = {
+    segments: [
+      segment('11', 'Clients fidèles'), segment('12', 'Gros paniers', { fiches: 1, partiel: true }), segment('13', 'Nouveaux', { luLe: null, fiches: 0 }),
+      segment('14', 'Pas suivi', { suivi: false }), segment('15', 'Disparu', { absent: true }),
+    ],
+    synchro: SYNCHRO,
+  };
+  const dernier = (requetes: URLSearchParams[]) => segments(requetes.at(-1) ?? new URLSearchParams());
+
+  /** La route des segments lus et l'action en masse, tracées. Posées APRÈS `mock`, elles passent avant lui. */
+  async function lus(page: import('@playwright/test').Page, reponse: unknown): Promise<{ masse: unknown[]; lectures: number }> {
+    const trace = { masse: [] as unknown[], lectures: 0 };
+    await page.route((u) => u.pathname.endsWith('/contacts/segments/segments-shopify'), async (route) => {
+      trace.lectures += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(reponse) });
+    });
+    await page.route((u) => u.pathname.endsWith('/contacts/bulk'), async (route) => {
+      trace.masse.push(route.request().postDataJSON());
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ affected: 4 }) });
+    });
+    return trace;
+  }
+
+  test('🔴 « est dans le segment Shopify » : seuls les segments suivis et lus se ciblent ; deux se cumulent, le mode change, retirer le retire', async ({ page }) => {
+    const requetes = await mock(page, AVEC_SEGMENTS);
+    await lus(page, LUS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    const resultats = page.getByTestId('filtre-segments-shopify-resultat');
+    await expect(resultats).toHaveCount(3);
+    await expect(resultats.nth(0)).toContainText('Clients fidèles · 4 fiches · lu le');
+    await expect(resultats.nth(1)).toContainText('1 fiche · lu le');
+    await expect(resultats.nth(1)).toContainText('dernière lecture inachevée');
+    await expect(resultats.nth(2)).toContainText('Nouveaux · pas encore lu');
+    await expect(resultats.nth(2).getByTestId('segment-shopify-cibler')).toHaveCount(0);
+    await expect(page.getByTestId('filtres-segments-shopify')).not.toContainText('Pas suivi');
+    await expect(page.getByTestId('filtres-segments-shopify')).not.toContainText('Disparu');
+    await resultats.nth(0).getByTestId('segment-shopify-cibler').click();
+    await expect(page.getByTestId('filtre-segment-shopify-puce')).toHaveText(/Clients fidèles/);
+    await expect.poll(() => dernier(requetes).segment_segment_shopify).toBe('{"segments":["11"],"mode":"toutes"}');
+    expect(requetes.at(-1)?.get('tags')).toBeNull();
+    await resultats.nth(1).getByTestId('segment-shopify-cibler').click();
+    await expect.poll(() => dernier(requetes).segment_segment_shopify).toBe('{"segments":["11","12"],"mode":"toutes"}');
+    await page.getByTestId('filtre-segment-shopify-mode').selectOption('une');
+    await expect.poll(() => dernier(requetes).segment_segment_shopify).toBe('{"segments":["11","12"],"mode":"une"}');
+    await resultats.nth(0).getByTestId('segment-shopify-cibler').click();
+    await expect(page.getByTestId('filtre-segment-shopify-puce')).toHaveCount(2);
+    await page.getByTestId('filtre-segment-shopify-retirer').first().click();
+    await expect.poll(() => dernier(requetes).segment_segment_shopify).toBe('{"segments":["12"],"mode":"une"}');
+    await page.getByTestId('filtre-segment-shopify-retirer').first().click();
+    await expect.poll(() => dernier(requetes).segment_segment_shopify).toBeUndefined();
+    await expect(page.getByTestId('filtre-segment-shopify')).toHaveCount(0);
+  });
+
+  test('🔴 la copie en étiquette Messaging Me : par l’action en masse sur ce segment, sans poser de critère', async ({ page }) => {
+    const requetes = await mock(page, AVEC_SEGMENTS);
+    const trace = await lus(page, LUS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('segment-shopify-copier').first().click();
+    await expect(page.getByTestId('segment-shopify-copie')).toContainText('elle ne suivra pas Shopify ensuite, et elle ne donne aucun consentement');
+    await expect(page.getByTestId('segment-shopify-copie-nom')).toHaveValue('Clients fidèles');
+    await page.getByTestId('segment-shopify-copie-nom').fill('Fidèles');
+    await page.getByTestId('segment-shopify-copie-valider').click();
+    await expect(page.getByTestId('segment-shopify-copiee')).toContainText('Étiquette Messaging Me « Fidèles » posée sur 4 fiches. Elle ne suivra pas le segment Shopify ensuite.');
+    expect(trace.masse).toEqual([{
+      target: { filters: { fieldFilters: [{ key: 'segment_segment_shopify', op: 'segment', value: '{"segments":["11"],"mode":"toutes"}' }] } },
+      action: { type: 'add_tag', tags: ['Fidèles'] },
+    }]);
+    expect(dernier(requetes).segment_segment_shopify).toBeUndefined();
+  });
+
+  test('🔴 aucun segment suivi : la phrase dit où les choisir', async ({ page }) => {
+    await mock(page, AVEC_SEGMENTS);
+    await lus(page, { segments: [segment('14', 'Pas suivi', { suivi: false })], synchro: SYNCHRO });
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-segments-shopify-aucun')).toContainText('choisissez ceux à suivre sur la carte Shopify');
+    await expect(page.getByTestId('filtre-segments-shopify-aucun').getByRole('link')).toHaveAttribute('href', '/integrations#integration-shopify');
+    await expect(page.getByTestId('filtre-segments-shopify-resultat')).toHaveCount(0);
+  });
+
+  test('🔴 une API qui n’annonce pas les segments Shopify : aucun bloc, aucune lecture', async ({ page }) => {
+    await mock(page, AVEC_BOUTIQUE);
+    const trace = await lus(page, LUS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await expect(page.getByTestId('filtre-commandes-min')).toBeVisible();
+    await expect(page.getByTestId('filtres-segments-shopify')).toHaveCount(0);
+    expect(trace.lectures).toBe(0);
+  });
+
+  test('sur un 13 pouces, le bloc des segments Shopify ne fait pas déborder le panneau', async ({ page }) => {
+    await mock(page, AVEC_SEGMENTS);
+    await lus(page, LUS);
+    await ouvrir(page);
+    await deplierShopify(page);
+    await page.getByTestId('segment-shopify-cibler').first().click();
+    await page.getByTestId('segment-shopify-cibler').nth(1).click();
+    await expect(page.getByTestId('filtre-segment-shopify-mode')).toBeVisible();
+    await page.getByTestId('segment-shopify-copier').first().click();
+    await expect(page.getByTestId('segment-shopify-copie')).toBeVisible();
+    await pasDeDebordement(page);
+  });
+});

@@ -571,6 +571,14 @@ describe.skipIf(!url)('les étiquettes Shopify : la synchronisation périmée et
     await pool.query(`delete from shopify_etiquettes_synchro where tenant_id = $1`, [t]);
   });
 
+  /** Lot 6c : une boutique sans aucun segment ; rien d'autre ne doit être lu. */
+  const sansSegments = {
+    listerSegments: async () => ({ ok: true as const, segments: [], complete: true, cout: { demande: 13, reel: 3 } }),
+    lireMembres: async () => { throw new Error('aucun segment suivi'); },
+    creerRequete: async () => { throw new Error('aucun segment suivi'); },
+    suivreRequete: async () => { throw new Error('aucun segment suivi'); },
+  } satisfies Pick<DepsEtiquettes, 'listerSegments' | 'lireMembres' | 'creerRequete' | 'suivreRequete'>;
+
   it('🔴 commande-cadeau : la commande notée ne relie rien ; seuls les numéros que Shopify rend pour la cliente la relient', async () => {
     const fiche = async (tel: string) =>
       (await pool.query<{ id: string }>(`insert into contacts (tenant_id, phone_e164) values ($1, $2) returning id`, [t, tel])).rows[0]!.id;
@@ -597,6 +605,7 @@ describe.skipIf(!url)('les étiquettes Shopify : la synchronisation périmée et
         ok: true, illisibles: 0, cout: { demande: 1, reel: 1 },
         clients: p.ids.map((id) => ({ clientId: id, etiquettes: id === '6001' ? ['VIP'] : null })),
       }),
+      ...sansSegments,
       offre: async () => 'business',
       enfiler: async () => undefined,
     };
@@ -625,6 +634,7 @@ describe.skipIf(!url)('les étiquettes Shopify : la synchronisation périmée et
         trouves: p.telephones.filter((x) => x === '+33611116001' || x === '+33622226001').map((telephone) => ({ telephone, clientId: '6001', etiquettes: ['VIP'] })),
       }),
       lireClients: async (_a, p) => ({ ok: true, illisibles: 0, cout: { demande: 1, reel: 1 }, clients: p.ids.map((id) => ({ clientId: id, etiquettes: ['VIP'] })) }),
+      ...sansSegments,
       offre: async () => 'business',
       enfiler: async () => undefined,
     };

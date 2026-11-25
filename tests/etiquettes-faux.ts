@@ -5,6 +5,8 @@ import {
   type MagasinEtiquettes,
 } from '../src/shopify/etiquettes.pg';
 import { etiquettesUtiles, type LotClients, type RechercheTelephones } from '../src/shopify/etiquettes-lues';
+import type { ListeSegments, PageMembres, SuiviRequete } from '../src/shopify/segments-lues';
+import { BORNES_SEGMENTS, type SegmentShopifyVue } from '../web/lib/partage/segments';
 import type { IssueJeton } from '../src/shopify/connexion';
 import type { Offre } from '../src/offres/offres';
 
@@ -13,8 +15,10 @@ import type { Offre } from '../src/offres/offres';
  * mémoire, avec les MÊMES règles que `PgEtiquettesStore` (une synchronisation vivante à la fois, le bail et le jeton, la Free
  * une fois par 24 h, les fiches ACTIVES seules écrites, des liens plusieurs à plusieurs entre clients et fiches, les
  * étiquettes par couple fiche-client remplacées en bloc, la marque de la recherche par téléphone effacée par le geste du
- * marchand, les liens d'une fiche remplacés par une recherche complète, les liens perdus d'un client disparu), et une
- * boutique dont les clients sont donnés d'avance. L'horloge est celle du faux : un test l'avance, ou la fait avancer à chaque lot (`msParLot`). Le vrai
+ * marchand, les liens d'une fiche remplacés par une recherche complète, les liens perdus d'un client disparu ; lot 6c :
+ * les segments, leur suivi, leur lecture page par page et ses appartenances remplacées à la dernière page), et une
+ * boutique dont les clients et les segments sont donnés d'avance. Comme `now()` en base, l'horloge doit AVANCER entre deux
+ * synchronisations : une lecture de segment datée du début d'une synchronisation n'en fait pas partie. L'horloge est celle du faux : un test l'avance, ou la fait avancer à chaque lot (`msParLot`). Le vrai
  * magasin est éprouvé sur PGlite (`tests/integration/shopify-etiquettes.integration.test.ts`).
  */
 
@@ -30,6 +34,17 @@ export interface FicheFausse { telephone: string | null; active: boolean }
  * dernière commande, que la recherche trouve aussi depuis le lot 6b bis) et ses étiquettes, telles que Shopify les rend.
  */
 export interface ClientShopify { telephone: string | null; tags: unknown[]; numeros?: string[] }
+/**
+ * Un segment de la boutique (lot 6c) : ses membres (les numéros de leurs clients) ; `asynchrone`, il se lit par une requête
+ * asynchrone, prête au `pretApres`-ième suivi (0 : prête à sa création).
+ */
+export interface SegmentBoutique { nom: string; requete?: string | null; membres: string[]; asynchrone?: boolean; pretApres?: number }
+/** Un segment connu de l'espace (`shopify_segments`), tel que le faux le garde. */
+export interface SegmentFaux {
+  nom: string; requete: string | null; suivi: boolean; absentLe: number | null; luLe: number | null; partiel: boolean; membres: number;
+  fiches: number; lectureDebut: number | null; curseur: string | null; requeteAsynchrone: string | null; lectureMembres: number;
+}
+const SANS_LECTURE = { lectureDebut: null, curseur: null, requeteAsynchrone: null, lectureMembres: 0 } as const;
 
 interface EtatFaux extends Omit<EtatSynchroEtiquettes, 'tenue'> {
   curseur: string | null;
@@ -61,6 +76,20 @@ export function monterEtiquettes(o: {
   offre?: Offre;
   /** L'état au départ ; absent : aucune ligne. */
   etat?: Partial<EtatFaux> | null;
+  /** Lot 6c : les segments de la boutique, par identifiant. */
+  boutiqueSegments?: Record<string, SegmentBoutique>;
+  /** Les segments déjà connus de l'espace, et les fiches déjà dans chacun (`fichesMembres`, vues la veille). */
+  segmentsDeDepart?: Array<Partial<SegmentFaux> & { segmentId: string; nom: string; fichesMembres?: string[] }>;
+  /** La liste des segments rendue incomplète (plus de 250, ou un nœud illisible). */
+  listeIncomplete?: boolean;
+  /** Les issues forcées de la liste, des pages de membres et des suivis de requête, servies dans l'ordre ; `null` : l'appel suit la boutique. */
+  echecsListe?: Array<ListeSegments | null>;
+  echecsMembres?: Array<PageMembres | null>;
+  echecsSuivis?: Array<SuiviRequete | null>;
+  /** Une requête asynchrone que Shopify oublie : son suivi la dit perdue. */
+  requetesOubliees?: boolean;
+  /** La taille d'une page de membres (1 000 chez Shopify). */
+  membresParPage?: number;
 } = {}) {
   const horloge = { t: MIDI_ETIQUETTES };
   const fiches = new Map(Object.entries(o.fiches ?? {}));
@@ -97,6 +126,14 @@ export function monterEtiquettes(o: {
     values: (): string[][] => etiquettes.fiches().map((x) => etiquettesDeFiche(x)!),
     entries: (): Array<[string, string[]]> => etiquettes.fiches().map((x) => [x, etiquettesDeFiche(x)!]),
   };
+  /** Les segments connus de l'espace et leurs appartenances (`shopify_segment_membres` : la fiche et son `vu_le`). */
+  const segs = new Map<string, SegmentFaux>((o.segmentsDeDepart ?? []).map(({ segmentId, fichesMembres: _f, ...x }) => [segmentId, {
+    requete: null, suivi: false, absentLe: null, luLe: null, partiel: false, membres: 0, fiches: 0, ...SANS_LECTURE, ...x,
+  }]));
+  const appartenances = new Map<string, Map<string, number>>((o.segmentsDeDepart ?? []).filter((x) => x.fichesMembres !== undefined)
+    .map((x) => [x.segmentId, new Map(x.fichesMembres!.map((c) => [c, MIDI_ETIQUETTES - 86_400_000]))]));
+  /** Les fiches d'un segment, comme le critère les lit. */
+  const membresDe = (segmentId: string): string[] => [...(appartenances.get(segmentId)?.keys() ?? [])].sort();
   const SANS_COMPTES = { clientsLus: 0, trouvesParTelephone: 0, sansFiche: 0, fichesEtiquetees: 0 };
   let etat: EtatFaux | null = o.etat === undefined || o.etat === null ? null : {
     allumee: false, synchroLe: null, demandeeLe: null, enCoursDepuis: null, majLe: null, issue: null, issueLe: null, message: null,
@@ -110,6 +147,10 @@ export function monterEtiquettes(o: {
     ecritures: 0,
     relaches: 0,
     droits: 0,
+    listes: 0,
+    pages: [] as Array<{ segmentId: string; requete: string | null; apres: string | null }>,
+    requetesCreees: [] as string[],
+    suivis: [] as string[],
   };
   /**
    * `synchroVivante` (`src/shopify/etiquettes-garde.ts`), terme pour terme : une comparaison qui porte sur une valeur
@@ -236,6 +277,7 @@ export function monterEtiquettes(o: {
     },
     async finir(_t, jeton, issue, message) {
       if (!tient(jeton)) return false;
+      if (issue !== 'lue') for (const [id, x] of segs) if (x.lectureDebut !== null) segs.set(id, { ...x, partiel: true });
       trace.issues.push({ issue, message });
       const le = new Date(horloge.t);
       etat = {
@@ -261,8 +303,94 @@ export function monterEtiquettes(o: {
         .sort((a, b) => b.fiches - a.fiches || a.etiquette.toLowerCase().localeCompare(b.etiquette.toLowerCase()))
         .slice(0, limite);
     },
+    async ecrireSegments(_t, jeton, l) {
+      if (!tient(jeton)) return false;
+      for (const x of l.segments) {
+        const avant = segs.get(x.segmentId);
+        segs.set(x.segmentId, avant ? { ...avant, nom: x.nom, requete: x.requete, absentLe: null } : {
+          nom: x.nom, requete: x.requete, suivi: false, absentLe: null, luLe: null, partiel: false, membres: 0, fiches: 0, ...SANS_LECTURE,
+        });
+      }
+      if (l.complete) {
+        for (const [id, x] of segs) {
+          if (x.absentLe !== null || l.segments.some((y) => y.segmentId === id)) continue;
+          segs.set(id, { ...x, absentLe: horloge.t, luLe: null, partiel: false, membres: 0, fiches: 0, ...SANS_LECTURE });
+          appartenances.delete(id);
+        }
+      }
+      return true;
+    },
+    async suivreSegments(_t, ids) {
+      const uniques = [...new Set(ids)].slice(0, BORNES_SEGMENTS.segmentsShopifyMax);
+      const inconnus = uniques.filter((id) => segs.get(id)?.absentLe !== null);
+      if (inconnus.length > 0) return { inconnus };
+      for (const [id, x] of segs) {
+        if (!x.suivi || uniques.includes(id)) continue;
+        segs.set(id, { ...x, suivi: false, luLe: null, partiel: false, membres: 0, fiches: 0, ...SANS_LECTURE });
+        appartenances.delete(id);
+      }
+      for (const id of uniques) segs.set(id, { ...segs.get(id)!, suivi: true });
+      return { inconnus: [] };
+    },
+    async prochainSegment(_t, jeton, sauf) {
+      if (!tient(jeton)) return 'perdu';
+      // `DEBUT_SYNCHRO` : le début de la synchronisation tenue ; une comparaison à une valeur nulle vaut faux, comme en SQL.
+      const debut = etat!.enCoursDepuis?.getTime() ?? null;
+      for (const [id, x] of segs) if (x.lectureDebut !== null && debut !== null && x.lectureDebut < debut) segs.set(id, { ...x, ...SANS_LECTURE });
+      const suivant = [...segs.entries()]
+        .filter(([id, x]) => x.suivi && x.absentLe === null && (x.luLe === null || (debut !== null && x.luLe < debut)) && !sauf.includes(id))
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))[0];
+      if (!suivant) return null;
+      const [segmentId, x] = suivant;
+      return { segmentId, nom: x.nom, curseur: x.curseur, requete: x.requeteAsynchrone, lectureDebut: x.lectureDebut === null ? null : new Date(x.lectureDebut) };
+    },
+    async noterRequeteSegment(_t, jeton, segmentId, requete) {
+      if (!tient(jeton)) return false;
+      const x = segs.get(segmentId);
+      if (x && x.suivi && x.absentLe === null) {
+        segs.set(segmentId, {
+          ...x, requeteAsynchrone: requete, curseur: null, lectureMembres: 0, lectureDebut: requete === null ? x.lectureDebut : (x.lectureDebut ?? horloge.t),
+        });
+      }
+      return true;
+    },
+    async ecrirePageSegment(_t, jeton, segmentId, p) {
+      if (!tient(jeton)) return false;
+      trace.ecritures += 1;
+      const x = segs.get(segmentId);
+      // Comme `curseur is not distinct from $5` : la page s'écrit seulement si la lecture en est à elle.
+      if (!x || !x.suivi || x.absentLe !== null || x.curseur !== p.apres) return true;
+      const lectureDebut = x.lectureDebut ?? horloge.t;
+      let apres: SegmentFaux = { ...x, lectureDebut, lectureMembres: x.lectureMembres + p.clients.length, curseur: p.suivant };
+      const m = appartenances.get(segmentId) ?? new Map<string, number>();
+      for (const contactId of new Set(p.clients.flatMap((c) => fichesDuClient(c)))) if (active(contactId)) m.set(contactId, horloge.t);
+      appartenances.set(segmentId, m);
+      if (p.suivant === null) {
+        for (const [contactId, vu] of [...m]) if (vu < lectureDebut) m.delete(contactId);
+        apres = { ...apres, luLe: horloge.t, partiel: false, membres: apres.lectureMembres, fiches: m.size, ...SANS_LECTURE };
+      }
+      segs.set(segmentId, apres);
+      avancer({ clientsLus: 0, trouves: 0, sansFiche: 0 });
+      return true;
+    },
+    async segments() {
+      return [...segs.entries()]
+        .sort(([ia, a], [ib, b]) => Number(a.absentLe !== null) - Number(b.absentLe !== null) || Number(b.suivi) - Number(a.suivi)
+          || a.nom.toLowerCase().localeCompare(b.nom.toLowerCase()) || (ia < ib ? -1 : ia > ib ? 1 : 0))
+        .map(([segmentId, x]): SegmentShopifyVue => ({
+          segmentId, nom: x.nom, requete: x.requete, suivi: x.suivi, absent: x.absentLe !== null,
+          luLe: x.luLe === null ? null : new Date(x.luLe).toISOString(), partiel: x.partiel || x.lectureDebut !== null, membres: x.membres, fiches: x.fiches,
+        }));
+    },
   };
 
+  const echecsListe = [...(o.echecsListe ?? [])];
+  const echecsMembres = [...(o.echecsMembres ?? [])];
+  const echecsSuivis = [...(o.echecsSuivis ?? [])];
+  const boutiqueSegments = new Map(Object.entries(o.boutiqueSegments ?? {}));
+  /** Les requêtes asynchrones créées chez la fausse boutique : leur segment et combien de fois elles ont été suivies. */
+  const requetes = new Map<string, { segmentId: string; suivis: number }>();
+  const prete = (q: { segmentId: string; suivis: number }): boolean => q.suivis >= (boutiqueSegments.get(q.segmentId)?.pretApres ?? 0);
   const echecsClients = [...(o.echecsClients ?? [])];
   const echecsRecherches = [...(o.echecsRecherches ?? [])];
   const suivantes = [...(o.boutiquesSuivantes ?? [])];
@@ -308,9 +436,53 @@ export function monterEtiquettes(o: {
       const complete = o.incompleteAuDela === undefined || p.telephones.length <= o.incompleteAuDela;
       return { ok: true, trouves, complete, cout: { demande: 50, reel: 10 } };
     },
+    listerSegments: async () => {
+      trace.listes += 1;
+      const force = echecsListe.shift();
+      if (force) return force;
+      return {
+        ok: true, complete: !o.listeIncomplete, cout: { demande: 13, reel: 3 },
+        segments: [...boutiqueSegments.entries()].map(([segmentId, x]) => ({ segmentId, nom: x.nom, requete: x.requete ?? null })),
+      };
+    },
+    lireMembres: async (_acces, p) => {
+      trace.pages.push({ segmentId: p.segmentId, requete: p.requete, apres: p.apres });
+      horloge.t += o.msParLot ?? 0;
+      const force = echecsMembres.shift();
+      if (force) return force;
+      const x = boutiqueSegments.get(p.segmentId);
+      if (!x) return { ok: false, code: 'passager', message: 'Segment inconnu de la fausse boutique.' };
+      if (x.asynchrone && p.requete === null) return { ok: false, code: 'asynchrone', message: 'Shopify demande une requête asynchrone pour ce segment.' };
+      if (p.requete !== null) {
+        const q = requetes.get(p.requete);
+        if (!q || !prete(q)) return { ok: false, code: 'pas_fini', message: 'La requête asynchrone de Shopify n’est pas encore prête.' };
+      }
+      const n = o.membresParPage ?? 1000;
+      const depart = p.apres === null ? 0 : Number(p.apres);
+      return {
+        ok: true, clients: x.membres.slice(depart, depart + n), suivant: depart + n < x.membres.length ? String(depart + n) : null,
+        cout: { demande: 140, reel: 20 },
+      };
+    },
+    creerRequete: async (_acces, p) => {
+      trace.requetesCreees.push(p.segmentId);
+      const id = `gid://shopify/CustomerSegmentMembersQuery/${trace.requetesCreees.length}`;
+      const q = { segmentId: p.segmentId, suivis: 0 };
+      requetes.set(id, q);
+      return { ok: true, requete: id, fini: prete(q) };
+    },
+    suivreRequete: async (_acces, p) => {
+      trace.suivis.push(p.requete);
+      const force = echecsSuivis.shift();
+      if (force) return force;
+      const q = requetes.get(p.requete);
+      if (!q || o.requetesOubliees) return { ok: true, etat: 'perdue' };
+      q.suivis += 1;
+      return { ok: true, etat: prete(q) ? 'prete' : 'en_cours' };
+    },
     offre: async () => o.offre ?? 'pro',
     enfiler: async (job, dansSecondes) => { trace.jobs.push({ job, dansSecondes }); },
     maintenant: () => horloge.t,
   };
-  return { deps, trace, horloge, fiches, liens, cherchees, etiquettes, catalogue, fichesDuClient, etat: () => etat };
+  return { deps, trace, horloge, fiches, liens, cherchees, etiquettes, catalogue, fichesDuClient, segs, membresDe, boutiqueSegments, etat: () => etat };
 }

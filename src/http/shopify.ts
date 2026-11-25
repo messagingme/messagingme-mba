@@ -10,7 +10,8 @@ import { AUTOMATIONS_DISPONIBLES, estAutomationShopify } from '../shopify/donnee
 import { reglerAttestation, reglerLigne, reglerPause } from '../shopify/lignes-gestion';
 import { reglerMessage } from '../shopify/preparation';
 import { apercuReprise, etatReprise, lancerReprise } from '../shopify/reprise';
-import { reglerEtiquettes, synchroniserEtiquettes } from '../shopify/etiquettes';
+import { reglerEtiquettes, suivreSegmentsShopify, synchroniserEtiquettes } from '../shopify/etiquettes';
+import { BORNES_SEGMENTS, MOTIF_ID_COLLECTION } from '../../web/lib/partage/segments';
 
 /**
  * PARAMÈTRES > INTÉGRATIONS > SHOPIFY : la carte de la console (plan 2026-10-21, lot 1 ; conception 2026-10-22). Une
@@ -55,6 +56,10 @@ export const corpsRattrapage = z.object({}).strict();
 // Les étiquettes des clients (segments Shopify enrichis, lot 6b) : le réglage du marchand ; « maintenant » ne prend rien.
 export const corpsEtiquettes = z.object({ allumee: z.boolean() }).strict();
 export const corpsSynchroEtiquettes = z.object({}).strict();
+/** Lot 6c : exactement ces segments suivis ; la liste vide arrête de les suivre tous. */
+export const corpsSegments = z.object({
+  segments: z.array(z.string().regex(new RegExp(MOTIF_ID_COLLECTION))).max(BORNES_SEGMENTS.segmentsShopifyMax),
+}).strict();
 
 const raisonCorps = (e: z.ZodError): string => {
   const i = e.issues[0];
@@ -200,6 +205,18 @@ export function registerShopify(app: FastifyInstance, deps: ShopifyRouteDeps, ga
     const r = await reglerEtiquettes(deps.gestion.etiquettes, tenant, corps.data.allumee);
     if (!r.ok) return reply.code(r.statut).send({ error: r.message, ...(r.reessayerDansS ? { reessayerDansS: r.reessayerDansS } : {}) });
     await journal(tenant, req, 'shopify.etiquettes', CIBLE, { allumee: corps.data.allumee });
+    return reply.code(r.valeur.lancee ? 202 : 200).send({ synchro: r.valeur });
+  });
+
+  // LES SEGMENTS SUIVIS (lot 6c) : exactement ces segments, parmi ceux que la synchronisation a listés ; le choix lance une
+  // synchronisation qui les lit (202). La MÊME fonction que le paramètre `segments` de `sync_shopify_customer_tags`.
+  app.put('/tenants/:tenantId/integrations/shopify/segments', optsLourds, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const corps = corpsSegments.safeParse(req.body ?? {});
+    if (!corps.success) return reply.code(400).send({ error: raisonCorps(corps.error) });
+    const r = await suivreSegmentsShopify(deps.gestion.etiquettes, tenant, corps.data.segments);
+    if (!r.ok) return reply.code(r.statut).send({ error: r.message, ...(r.reessayerDansS ? { reessayerDansS: r.reessayerDansS } : {}) });
+    await journal(tenant, req, 'shopify.segments', CIBLE, { segments: [...new Set(corps.data.segments)] });
     return reply.code(r.valeur.lancee ? 202 : 200).send({ synchro: r.valeur });
   });
 

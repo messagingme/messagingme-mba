@@ -8,7 +8,7 @@ import { paysConnu, paysPrincipalDe } from './segments';
 import {
   BORNES_SEGMENTS, CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, estCleSegment,
   type AchatsVises, type CleSegment, type CollectionsVisees, type EtiquettesShopifyVisees, type PlageSurJours, type ProduitVise,
-  type Reassort,
+  type Reassort, type SegmentsShopifyVises,
 } from '../../web/lib/partage/segments';
 
 /**
@@ -91,6 +91,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
   [CLES_SEGMENT.commandes]: 'commandes', [CLES_SEGMENT.depense]: 'dépense', [CLES_SEGMENT.derniereCommande]: 'dernière commande',
   [CLES_SEGMENT.achete]: 'a acheté', [CLES_SEGMENT.pasAchete]: 'n’a pas acheté', [CLES_SEGMENT.reassort]: 'réassort',
   [CLES_SEGMENT.collection]: 'a acheté dans la collection', [CLES_SEGMENT.etiquetteShopify]: 'étiquette Shopify',
+  [CLES_SEGMENT.segmentShopify]: 'segment Shopify',
   [CLES_SEGMENT.ecritSansCommande]: 'a écrit sans commander', [CLES_SEGMENT.clicSansCommande]: 'a cliqué sans commander',
   [CLES_SEGMENT.actif]: 'actif', [CLES_SEGMENT.inactif]: 'inactif', [CLES_SEGMENT.pays]: 'pays',
 };
@@ -102,7 +103,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
  */
 export function lireSegment(
   cle: CleSegment, brut: unknown,
-): PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | true {
+): PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | SegmentsShopifyVises | true {
   const nom = NOMS_SEGMENT[cle];
   let v: unknown;
   try { v = typeof brut === 'string' ? JSON.parse(brut) as unknown : undefined; } catch { v = undefined; }
@@ -116,6 +117,7 @@ export function lireSegment(
     case CLES_SEGMENT.reassort: return lireReassort(v, nom);
     case CLES_SEGMENT.collection: return lireCollections(v, nom);
     case CLES_SEGMENT.etiquetteShopify: return lireEtiquettesShopify(v, nom);
+    case CLES_SEGMENT.segmentShopify: return lireSegmentsShopify(v, nom);
     case CLES_SEGMENT.ecritSansCommande:
     case CLES_SEGMENT.clicSansCommande:
       // Un bouton prêt : `true` et rien d'autre (spec, « Les deux boutons prêts ») ; aucun réglage ne s'y glisse.
@@ -226,6 +228,28 @@ function lireEtiquettesShopify(v: unknown, nom: string): EtiquettesShopifyVisees
   }
   if (o.mode !== undefined && o.mode !== null && o.mode !== 'toutes' && o.mode !== 'une') refus('« mode » : toutes, ou une');
   return { etiquettes, mode: o.mode === 'une' ? 'une' : 'toutes' };
+}
+
+/**
+ * « Membre du segment Shopify » (lot 6c) : `{ segments, mode? }`, de 1 à `segmentsShopifyMax` identifiants Shopify de
+ * segments, en chiffres, dédupliqués ; `mode` vaut `toutes` (le défaut : membre de chacun) ou `une` (de l'un d'eux).
+ * 🔴 La forme seule se juge ici ; que chaque segment soit suivi, encore chez Shopify et lu au moins une fois se juge en
+ * base, à l'entrée de chaque lecture par filtres (`PgContactStore`, `refusDesSegmentsShopify`).
+ */
+function lireSegmentsShopify(v: unknown, nom: string): SegmentsShopifyVises {
+  const refus = (raison: string): never => { throw new FiltreContactInvalide(`filtre « ${nom} » : ${raison}`); };
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return refus('un objet { segments, mode } est attendu');
+  const o = v as Record<string, unknown>;
+  const inconnues = Object.keys(o).filter((k) => k !== 'segments' && k !== 'mode');
+  if (inconnues.length > 0) refus(`clé inconnue (${inconnues.join(', ')}) ; seules segments, mode`);
+  if (!Array.isArray(o.segments) || o.segments.length === 0) refus('au moins un segment');
+  const liste = o.segments as unknown[];
+  if (liste.length > BORNES_SEGMENTS.segmentsShopifyMax) refus(`${BORNES_SEGMENTS.segmentsShopifyMax} segments au plus`);
+  const motif = new RegExp(MOTIF_ID_COLLECTION);
+  const segments = [...new Set(liste.map((x) => (typeof x === 'string' ? x.trim() : '')))];
+  if (!segments.every((x) => motif.test(x))) refus('« segments » : les identifiants Shopify des segments, en chiffres');
+  if (o.mode !== undefined && o.mode !== null && o.mode !== 'toutes' && o.mode !== 'une') refus('« mode » : toutes, ou une');
+  return { segments, mode: o.mode === 'une' ? 'une' : 'toutes' };
 }
 
 /** Un nombre de jours : entier de 1 à `joursMax`. */

@@ -10,6 +10,7 @@ import { commandeLue, monterReprise, page } from './reprise-faux';
 import { PHRASE_ATTESTATION_RATTRAPAGE } from '../src/shopify/reprise';
 import { collectionsInertes } from './routes-inertes';
 import { monterEtiquettes } from './etiquettes-faux';
+import { BORNES_SEGMENTS } from '../web/lib/partage/segments';
 import { TEXTE_ATTESTATION_SHOPIFY } from '../web/lib/partage/shopify-messages';
 
 /**
@@ -358,6 +359,51 @@ describe('la synchronisation des étiquettes', () => {
     expect((await app.inject({ method: 'PUT', url: URL_REGLAGE, ...en(admin), payload: { allumee: true, tous: true } })).statusCode).toBe(400);
     expect((await app.inject({ method: 'POST', url: URL_MAINTENANT, ...en(admin), payload: { jours: 1 } })).statusCode).toBe(400);
     expect(etiquettes.etat()).toBeNull();
+    expect(etiquettes.trace.jobs).toEqual([]);
+  });
+});
+
+/**
+ * LES SEGMENTS SHOPIFY SUIVIS (lot 6c) : le choix de la carte, exactement ces segments, admin seulement, corps strict,
+ * journalisé ; la MÊME fonction que le paramètre `segments` de l'outil MCP.
+ */
+describe('le choix des segments Shopify suivis', () => {
+  const URL_SEGMENTS = `${URL_T1}/segments`;
+  const CONNUS = [{ segmentId: '11', nom: 'VIP' }, { segmentId: '12', nom: 'Hiver' }];
+
+  it('🔴 202 : les segments choisis, dédupliqués, la synchronisation part, le journal le dit ; la liste vide : 200, rien ne part', async () => {
+    const { app, etiquettes, trace } = monter({ etiquettes: { etat: { allumee: true }, segmentsDeDepart: CONNUS } });
+    const r = await app.inject({ method: 'PUT', url: URL_SEGMENTS, ...en(admin), payload: { segments: ['11', '11'] } });
+    expect(r.statusCode).toBe(202);
+    expect(r.json().synchro).toMatchObject({ allumee: true, enCours: true, lancee: true });
+    expect(etiquettes.segs.get('11')).toMatchObject({ suivi: true });
+    expect(trace.audit).toEqual([{ action: 'shopify.segments', cible: CIBLE, detail: { segments: ['11'] } }]);
+    const vide = await app.inject({ method: 'PUT', url: URL_SEGMENTS, ...en(admin), payload: { segments: [] } });
+    expect(vide.statusCode).toBe(200);
+    expect(etiquettes.segs.get('11')).toMatchObject({ suivi: false });
+    expect(etiquettes.trace.jobs).toHaveLength(1);
+  });
+
+  it('🔴 un segment inconnu ou la synchronisation éteinte : 409 avec la phrase, rien ne change', async () => {
+    const { app, etiquettes } = monter({ etiquettes: { etat: { allumee: true }, segmentsDeDepart: CONNUS } });
+    const r = await app.inject({ method: 'PUT', url: URL_SEGMENTS, ...en(admin), payload: { segments: ['11', '999'] } });
+    expect([r.statusCode, r.json().error]).toEqual([409, expect.stringMatching(/Segment inconnu.*999/)]);
+    expect([...etiquettes.segs.values()].some((s) => s.suivi)).toBe(false);
+    const eteinte = monter({ etiquettes: { etat: { allumee: false }, segmentsDeDepart: CONNUS } });
+    const e = await eteinte.app.inject({ method: 'PUT', url: URL_SEGMENTS, ...en(admin), payload: { segments: ['11'] } });
+    expect([e.statusCode, e.json().error]).toEqual([409, expect.stringMatching(/éteinte/)]);
+  });
+
+  it('🔴 un agent et l’espace d’un autre client sont refusés ; un corps hors contrat : 400 ; rien ne change', async () => {
+    const { app, etiquettes } = monter({ etiquettes: { etat: { allumee: true }, segmentsDeDepart: CONNUS } });
+    for (const jeton of [agent, autreEspace]) {
+      expect((await app.inject({ method: 'PUT', url: URL_SEGMENTS, ...en(jeton), payload: { segments: ['11'] } })).statusCode).toBe(403);
+    }
+    for (const payload of [{}, { segments: '11' }, { segments: ['abc'] }, { segments: ['11'], tous: true },
+      { segments: Array.from({ length: BORNES_SEGMENTS.segmentsShopifyMax + 1 }, (_, i) => String(i + 1)) }]) {
+      expect((await app.inject({ method: 'PUT', url: URL_SEGMENTS, ...en(admin), payload })).statusCode, JSON.stringify(payload)).toBe(400);
+    }
+    expect([...etiquettes.segs.values()].some((s) => s.suivi)).toBe(false);
     expect(etiquettes.trace.jobs).toEqual([]);
   });
 });

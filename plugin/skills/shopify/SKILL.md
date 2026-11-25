@@ -304,6 +304,22 @@ other.
    `shopify_tags` and the tag of the merchant's choice. The copy is made now and is never kept in sync; it gives no
    consent: a marketing campaign still reaches only the opted-in contacts.
 
+## Target by Shopify segments
+
+The customer segments the merchant builds in Shopify (Customers > Segments, e.g. "Customers who have purchased at least
+once") are read by the same sync as the customer tags. They are neither the Messaging Me tags nor the Shopify tags.
+
+1. `get_shopify_state` lists the segments of the store (`shopify_segments.list`: id, name, followed, read_at, records),
+   once a sync has run (`sync_shopify_customer_tags` turns it on).
+2. `sync_shopify_customer_tags` with `segments` follows exactly those ids, 20 at most, and reads their members in the
+   background (`[]` stops following them all; a segment left out loses its members). The members come from Shopify; a
+   Shopify customer in the segment brings every record that has one of their numbers.
+3. `find_contacts` (and `tag_contacts`, `prepare_campaign`, Pro plan and above) targets them with `shopify_segments`:
+   the ids, in all of them (default) or any (`"mode":"any"`). Refused for a segment not followed, not read yet or gone
+   from the store. Say the date of the reading (read_at in the list); partial means the last reading did not finish and the
+   members from before stay.
+4. To keep a target fixed, copy it explicitly: `tag_contacts` with `shopify_segments` and the tag of the merchant's choice.
+
 ## What WhatsApp brought in
 
 - `get_revenue_stats` (`du` and `au`, the last 30 days by default): the orders paid within 5 days after a WhatsApp

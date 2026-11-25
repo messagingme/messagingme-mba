@@ -57,3 +57,34 @@ export async function refusDesEtiquettesShopify(pool: Pool, tenantId: string, et
   if (e?.issue && e.issue !== 'lue') return refusSynchroEchouee(e.message ?? e.issue);
   return REFUS_SANS_SYNCHRO;
 }
+
+/** Le nom du critère de segment dans la phrase d'un refus (lot 6c), celui de la validation. */
+const CRITERE_SEGMENT = 'filtre « segment Shopify »';
+
+/**
+ * 🔴 LA GARDE DU CRITÈRE DE SEGMENT SHOPIFY (lot 6c, migration 0327), partagée par toutes les lectures par filtres
+ * (`PgContactStore`) : la phrase du refus, ou `null`. Chaque segment visé doit être connu de l'espace, suivi, encore chez
+ * Shopify et lu en entier au moins une fois ; sinon le critère est refusé et la phrase nomme le segment (le nom qu'on
+ * avait pour un segment disparu), jamais « personne ». Lu, il s'applique, même à zéro fiche. Aucun segment visé, aucune
+ * requête.
+ */
+export async function refusDesSegmentsShopify(pool: Pool, tenantId: string, segments: readonly string[]): Promise<string | null> {
+  if (segments.length === 0) return null;
+  const res = await pool.query<{ segment_id: string; nom: string; suivi: boolean; absent: boolean; lu: boolean }>(
+    `select s.segment_id, s.nom, s.suivi, s.absent_le is not null as absent, s.lu_le is not null as lu
+       from shopify_segments s where s.tenant_id = $1 and s.segment_id = any($2::text[])`,
+    [tenantId, [...segments]],
+  );
+  const connus = new Map(res.rows.map((r) => [r.segment_id, r]));
+  for (const id of segments) {
+    const s = connus.get(id);
+    if (!s) return `${CRITERE_SEGMENT} : le segment ${id} n’est pas connu de cet espace. Les segments se lisent par la `
+      + 'synchronisation de la carte Shopify (Intégrations), ou sync_shopify_customer_tags depuis Claude.';
+    if (s.absent) return `${CRITERE_SEGMENT} : le segment « ${s.nom} » n’existe plus dans la boutique Shopify.`;
+    if (!s.suivi) return `${CRITERE_SEGMENT} : le segment « ${s.nom} » n’est pas suivi. Choisissez-le sur la carte Shopify `
+      + '(Intégrations), ou par sync_shopify_customer_tags depuis Claude, puis réessayez quand il a été lu.';
+    if (!s.lu) return `${CRITERE_SEGMENT} : les membres du segment « ${s.nom} » n’ont pas encore été lus. Réessayez quand la `
+      + 'synchronisation a abouti.';
+  }
+  return null;
+}

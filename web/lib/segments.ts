@@ -1,8 +1,8 @@
 import { request } from './http';
 import {
-  BORNES_SEGMENTS, type BoutonsSansCommandeVue, type CollectionLueVue, type CollectionsLuesVue, type EtiquetteShopifyVue,
-  type EtiquettesShopifyLuesVue, type LectureCollectionsVue, type PlageSurJours, type ProduitVuVue, type SuiviSegmentsVue,
-  type SynchroEtiquettesVue,
+  BORNES_SEGMENTS, MOTIF_ID_COLLECTION, type BoutonsSansCommandeVue, type CollectionLueVue, type CollectionsLuesVue, type EtiquetteShopifyVue,
+  type EtiquettesShopifyLuesVue, type LectureCollectionsVue, type PlageSurJours, type ProduitVuVue, type SegmentShopifyVue,
+  type SegmentsShopifyLusVue, type SuiviSegmentsVue, type SynchroEtiquettesVue,
 } from './partage/segments';
 
 /**
@@ -20,6 +20,8 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
     ...(o.produits === true ? { produits: true } : {}),
     ...(o.collections === true ? { collections: true } : {}),
     ...(o.etiquettesShopify === true ? { etiquettesShopify: true } : {}),
+    // Le critère de segment Shopify (lot 6c), de même.
+    ...(o.segmentsShopify === true ? { segmentsShopify: true } : {}),
   };
   if (o.boutique === null) return { boutique: null, activiteCompleteDepuis: o.activiteCompleteDepuis, ...annonces };
   const b = o.boutique as Record<string, unknown> | undefined;
@@ -166,6 +168,39 @@ export async function chercherEtiquettesShopify(tenantId: string, recherche: str
   try {
     const q = recherche.trim() === '' ? '' : `?q=${encodeURIComponent(recherche.trim().slice(0, 80))}`;
     return etiquettesShopifyLuesDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/etiquettes-shopify${q}`));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Les segments Shopify lus et l'état de la synchronisation qui les lit (lot 6c), lus défensivement : un segment qui ne se
+ * lit pas est écarté seul ; un état illisible rend `null`. Un compte illisible vaut zéro.
+ */
+export function segmentsShopifyLusDe(v: unknown): SegmentsShopifyLusVue | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const synchro = synchroEtiquettesDe(o.synchro);
+  if (!Array.isArray(o.segments) || synchro === null) return null;
+  const entier = (x: unknown): number => (typeof x === 'number' && Number.isInteger(x) && x >= 0 ? x : 0);
+  const motif = new RegExp(MOTIF_ID_COLLECTION);
+  const segments = o.segments.flatMap((e): SegmentShopifyVue[] => {
+    if (!e || typeof e !== 'object') return [];
+    const x = e as Record<string, unknown>;
+    if (typeof x.segmentId !== 'string' || !motif.test(x.segmentId) || typeof x.nom !== 'string' || x.nom === '') return [];
+    return [{
+      segmentId: x.segmentId, nom: x.nom, requete: typeof x.requete === 'string' ? x.requete : null, suivi: x.suivi === true,
+      absent: x.absent === true, luLe: typeof x.luLe === 'string' ? x.luLe : null, partiel: x.partiel === true,
+      membres: entier(x.membres), fiches: entier(x.fiches),
+    }];
+  });
+  return { segments, synchro };
+}
+
+/** Les segments Shopify lus ; `null` si la route ne répond pas. Une lecture seule, qui ne lance rien. */
+export async function chargerSegmentsShopify(tenantId: string): Promise<SegmentsShopifyLusVue | null> {
+  try {
+    return segmentsShopifyLusDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/segments-shopify`));
   } catch {
     return null;
   }

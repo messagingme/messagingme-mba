@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 4cb82a
+source_empreinte: cd8f7d
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -179,6 +179,12 @@ de chaque jour ajoute les nouvelles fiches. Ciblez-en une ou
 plusieurs (toutes, ou l'une d'elles) ; le bloc dit la date de la dernière lecture. « Copier en étiquette Messaging Me »
 pose maintenant l'étiquette de votre choix sur les fiches qui portent cette étiquette Shopify, une copie qui ne suit
 pas Shopify ensuite. Aucune fiche n'est créée, et ni la lecture ni la copie ne donnent de consentement.
+
+Et les segments que vous construisez dans Shopify (Clients > Segments), dans le bloc « Segments Shopify ». Sur la carte
+Shopify, la synchronisation allumée, cochez ceux à suivre, 20 au plus, puis « **Enregistrer les segments suivis** » :
+leurs membres se lisent aussitôt, puis chaque jour. Un client du segment compte pour chaque fiche de ses numéros.
+Ciblez-en un ou plusieurs (tous, ou l'un d'eux) ; chaque segment donne la date de sa dernière lecture, et « Copier en
+étiquette Messaging Me » existe aussi pour lui.
 
 Et deux boutons prêts, sans réglage : « A écrit sans commander » (au moins un message reçu encore connu) et « A cliqué
 sans commander » (au moins un clic sur un lien suivi), pour les contacts sans aucune commande enregistrée. Un clic pose

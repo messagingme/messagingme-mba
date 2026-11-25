@@ -13,9 +13,9 @@ import { reglerAttestation, type EtatLigne } from '../shopify/lignes-gestion';
 import type { MessageBranche } from '../shopify/store.pg';
 import { apercuReprise, etatReprise, lancerReprise, PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE, type IssueRattrapage } from '../shopify/reprise';
 import { lireCollections } from '../shopify/collections';
-import { lireEtiquettes, reglerEtiquettes } from '../shopify/etiquettes';
+import { lireEtiquettes, lireSegments, reglerEtiquettes, suivreSegmentsShopify } from '../shopify/etiquettes';
 import type { RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
-import type { SynchroEtiquettesVue } from '../../web/lib/partage/segments';
+import { BORNES_SEGMENTS, MOTIF_ID_COLLECTION, type SegmentShopifyVue, type SynchroEtiquettesVue } from '../../web/lib/partage/segments';
 import { messageDe } from '../lib/erreur';
 import { LISTES } from './ecran';
 
@@ -74,6 +74,23 @@ async function etiquettesAuMieux(deps: DepsMcp, tenantId: string) {
     return { ...versSynchro(v.synchro), list: v.etiquettes.map((e) => ({ tag: e.etiquette, records: e.fiches })) };
   } catch (err) {
     journaliser('warn', 'mcp_etiquettes_illisibles', { tenantId, erreur: messageDe(err) });
+    return null;
+  }
+}
+
+/** Un segment Shopify lu (lot 6c), sous les noms de l'outil. */
+const versSegment = (s: SegmentShopifyVue) => ({
+  id: s.segmentId, name: s.nom, query: s.requete, followed: s.suivi, gone: s.absent, read_at: s.luLe, partial: s.partiel,
+  members: s.membres, records: s.fiches,
+});
+
+/** Les segments Shopify lus (lot 6c), pour le critère `shopify_segments` : la MÊME lecture que le volet. AU MIEUX. */
+async function segmentsAuMieux(deps: DepsMcp, tenantId: string) {
+  try {
+    const v = await lireSegments(deps.shopify.etiquettes, tenantId);
+    return { followed_max: BORNES_SEGMENTS.segmentsShopifyMax, list: v.segments.map(versSegment) };
+  } catch (err) {
+    journaliser('warn', 'mcp_segments_illisibles', { tenantId, erreur: messageDe(err) });
     return null;
   }
 }
@@ -330,7 +347,13 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + '(NOT the Messaging Me tags of the contacts): enabled (off until the merchant turns it on), synced_at (the last sync '
       + 'that succeeded; null: none yet, and the shopify_tags criterion is refused), syncing, refused (why the last one '
       + 'failed), counts (customers read, records found by their phone, customers whose record no longer exists, records '
-      + 'carrying a tag), and list: the 50 tags carried by the most records (tag, records). Reading this tool starts nothing.',
+      + 'carrying a tag), and list: the 50 tags carried by the most records (tag, records). '
+      + 'shopify_segments: the customer segments built by the merchant in Shopify, listed by the same sync, followed ones '
+      + 'first (followed_max at most, chosen with sync_shopify_customer_tags segments): id (for the shopify_segments '
+      + 'criterion), name, query (the Shopify segment query, shown as is), followed, gone (no longer in the store), read_at '
+      + '(the last full reading of its members; null: not read, and the criterion is refused), partial (the last reading did '
+      + 'not finish: the members from before stay), members (customers in it at Shopify) and records (contacts reached by '
+      + 'their numbers). Reading this tool starts nothing.',
     annotations: { title: 'Get the Shopify connection', readOnlyHint: true, openWorldHint: false },
     entree: { type: 'object', properties: {} },
     async executer(deps: DepsMcp, tenantId) {
@@ -358,6 +381,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         products_seen: await produitsVusAuMieux(deps, tenantId),
         collections: await collectionsAuMieux(deps, tenantId),
         shopify_tags: await etiquettesAuMieux(deps, tenantId),
+        shopify_segments: await segmentsAuMieux(deps, tenantId),
       };
     },
   },
@@ -377,8 +401,11 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       + 'get_shopify_state follows it (shopify_tags) and lists the tags read with how many records carry each. Then target '
       + 'them with shopify_tags in find_contacts, tag_contacts or prepare_campaign (Pro plan and above), refused until a '
       + 'sync has succeeded. To freeze the target of a campaign, tag its contacts with tag_contacts: copying Shopify tags '
-      + 'to Messaging Me tags is always an explicit step, never automatic. Needs the read_customers scope only. Counts '
-      + 'toward the workspace\'s heavy operations.',
+      + 'to Messaging Me tags is always an explicit step, never automatic. The same sync lists the customer segments built '
+      + `in Shopify (get_shopify_state shopify_segments.list) and reads the members of those followed: segments chooses them, `
+      + `exactly these ids, ${BORNES_SEGMENTS.segmentsShopifyMax} at most ([] stops following them all; omitted, the choice stays), `
+      + 'among the segments listed, with the sync on; a reading starts to read them. Target them with shopify_segments. '
+      + 'Needs the read_customers scope only. Counts toward the workspace\'s heavy operations.',
     annotations: { title: 'Sync the Shopify customer tags', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     entree: {
       type: 'object',
@@ -386,6 +413,12 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         enabled: {
           type: 'boolean',
           description: 'true (default): turn the sync on and read now. false: turn the daily refresh off, keeping the tags read.',
+        },
+        segments: {
+          type: 'array', maxItems: BORNES_SEGMENTS.segmentsShopifyMax, items: { type: 'string', pattern: MOTIF_ID_COLLECTION },
+          description: `The Shopify segments to follow, by id (id in get_shopify_state shopify_segments.list), ${BORNES_SEGMENTS.segmentsShopifyMax} `
+            + 'at most: exactly these afterwards, a segment left out loses its members. [] stops following them all. Omitted: '
+            + 'the followed segments stay. Needs enabled true.',
         },
       },
       additionalProperties: false,
@@ -397,17 +430,46 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
         const c = await deps.couteux.consommer(tenantId);
         if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       }
-      const r = await reglerEtiquettes(deps.shopify.etiquettes, tenantId, allumee);
-      if (!r.ok) throw refusDuCoeur(r);
-      journaliser('info', 'mcp_shopify_etiquettes', { tenantId, userId: personne?.userId ?? null, allumee, lancee: r.valeur.lancee });
+      // Lot 6c : le choix des segments suivis, seulement s'il est donné (un champ omis n'est pas touché).
+      const segments = args.segments;
+      if (segments !== undefined) {
+        const motif = new RegExp(MOTIF_ID_COLLECTION);
+        if (!Array.isArray(segments) || segments.length > BORNES_SEGMENTS.segmentsShopifyMax || !segments.every((x) => typeof x === 'string' && motif.test(x))) {
+          throw new RefusOutil(`paramètre « segments » : ${BORNES_SEGMENTS.segmentsShopifyMax} identifiants de segment au plus, en chiffres`, 'invalid_args');
+        }
+        if (!allumee) throw new RefusOutil('paramètre « segments » : suivre des segments demande la synchronisation allumée (enabled true)', 'invalid_args');
+      }
+      // Avec des segments et la synchronisation DÉJÀ allumée, le choix seul : un segment inconnu refuse tout sans rien lancer,
+      // et la Free qui attend sa prochaine lecture garde le choix (comme la carte). Éteinte, `enabled` l'allume d'abord.
+      const dejaAllumee = Array.isArray(segments) && (await deps.shopify.etiquettes.magasin.etat(tenantId))?.allumee === true;
+      let reglee: (SynchroEtiquettesVue & { lancee: boolean }) | null = null;
+      if (!dejaAllumee) {
+        const r = await reglerEtiquettes(deps.shopify.etiquettes, tenantId, allumee);
+        if (!r.ok) throw refusDuCoeur(r);
+        reglee = r.valeur;
+      }
+      let suivis: (SynchroEtiquettesVue & { lancee: boolean }) | null = null;
+      if (Array.isArray(segments)) {
+        const s = await suivreSegmentsShopify(deps.shopify.etiquettes, tenantId, segments as string[]);
+        if (!s.ok) throw refusDuCoeur(s);
+        suivis = s.valeur;
+      }
+      const vue = (suivis ?? reglee)!;
+      const lancee = reglee?.lancee === true || suivis?.lancee === true;
+      journaliser('info', 'mcp_shopify_etiquettes', {
+        tenantId, userId: personne?.userId ?? null, allumee, lancee, ...(Array.isArray(segments) ? { segments: segments.length } : {}),
+      });
       return {
-        ...versSynchro(r.valeur),
-        reading_started: r.valeur.lancee,
+        ...versSynchro(vue),
+        reading_started: lancee,
+        ...(Array.isArray(segments) ? { segments_followed: [...new Set(segments as string[])] } : {}),
         next_step: !allumee
           ? 'the daily refresh is off; the tags already read stay, and the shopify_tags criterion keeps working with synced_at'
-          : r.valeur.lancee || r.valeur.enCours
+          : lancee || vue.enCours
             ? 'get_shopify_state follows the reading (shopify_tags.syncing, then synced_at): a few minutes for most stores'
-            : 'get_shopify_state lists the tags read (shopify_tags.list)',
+            : Array.isArray(segments) && segments.length > 0
+              ? 'the followed segments will be read at the next sync (sync_shopify_customer_tags again once the plan allows it)'
+              : 'get_shopify_state lists the tags read (shopify_tags.list)',
       };
     },
   },

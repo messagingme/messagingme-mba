@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { collectionsLuesDe, etiquettesShopifyLuesDe, lirePlageSaisie, produitsVusDe, saisieDePlage, suiviSegmentsDe, synchroEtiquettesDe } from './segments';
+import {
+  collectionsLuesDe, etiquettesShopifyLuesDe, lirePlageSaisie, produitsVusDe, saisieDePlage, segmentsShopifyLusDe, suiviSegmentsDe, synchroEtiquettesDe,
+} from './segments';
 
 /**
  * Les segments côté console (spec du 2026-10-31). 🔴 Deux gardes : une réponse illisible de la route rend `null` (le
@@ -127,6 +129,39 @@ describe('les étiquettes Shopify lues (lot 6b)', () => {
   it('🔴 une réponse illisible rend null : rien n’est proposé', () => {
     for (const v of [null, {}, { etiquettes: [] }, { etiquettes: 'x', synchro: SYNCHRO }, { etiquettes: [], synchro: { allumee: 'oui', enCours: false } }, []]) {
       expect(etiquettesShopifyLuesDe(v), JSON.stringify(v)).toBeNull();
+    }
+  });
+});
+
+describe('les segments Shopify lus (lot 6c)', () => {
+  const SYNCHRO = {
+    allumee: true, synchroLe: '2026-11-24T08:00:00.000Z', enCours: false, refus: null,
+    comptes: { clientsLus: 12, trouvesParTelephone: 3, sansFiche: 1, fichesEtiquetees: 9 },
+  };
+  const VIP = { segmentId: '11', nom: 'VIP', requete: 'number_of_orders >= 3', suivi: true, absent: false, luLe: '2026-11-24T08:00:00.000Z', partiel: false, membres: 9, fiches: 4 };
+
+  it('🔴 le critère ne s’annonce que sur un `true` en toutes lettres', () => {
+    const base = { boutique: null, activiteCompleteDepuis: '2026-11-03' };
+    expect(suiviSegmentsDe({ ...base, segmentsShopify: true })).toEqual({ ...base, segmentsShopify: true });
+    for (const segmentsShopify of [undefined, false, 'true', 1]) {
+      expect(suiviSegmentsDe({ ...base, segmentsShopify }), String(segmentsShopify)).toEqual(base);
+    }
+  });
+
+  it('🔴 lit les segments (identifiants en chiffres) et l’état ; un segment illisible s’écarte seul, un compte illisible vaut zéro', () => {
+    expect(segmentsShopifyLusDe({
+      segments: [VIP, { ...VIP, segmentId: '98765432109876543', nom: 'Long', fiches: -1, membres: 'x', luLe: 3, requete: 7 },
+        { ...VIP, segmentId: 'gid://shopify/Segment/12' }, { ...VIP, segmentId: 'd' }, { ...VIP, nom: '' }, { segmentId: '13' }, null],
+      synchro: SYNCHRO,
+    })).toEqual({
+      segments: [VIP, { ...VIP, segmentId: '98765432109876543', nom: 'Long', fiches: 0, membres: 0, luLe: null, requete: null }],
+      synchro: SYNCHRO,
+    });
+  });
+
+  it('🔴 une réponse illisible rend null : rien n’est proposé', () => {
+    for (const v of [null, {}, { segments: [] }, { segments: 'x', synchro: SYNCHRO }, { segments: [], synchro: { allumee: 'oui', enCours: false } }, []]) {
+      expect(segmentsShopifyLusDe(v), JSON.stringify(v)).toBeNull();
     }
   });
 });

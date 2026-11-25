@@ -112,7 +112,11 @@ export function numerosDuClient(c: z.infer<typeof schemaTrouve>, paysBoutique: s
   return numeros;
 }
 
-type Echec = { ok: false; code: 'acces_refuse' | 'passager' | 'trop_lourd'; message: string };
+/**
+ * Le refus d'un appel. `asynchrone` et `pas_fini` ne viennent que de la lecture des membres d'un segment (lot 6c,
+ * `./segments-lues.ts`) : un segment trop lourd se lit par une requête asynchrone de Shopify, qui n'est pas encore prête.
+ */
+export type Echec = { ok: false; code: 'acces_refuse' | 'passager' | 'trop_lourd' | 'asynchrone' | 'pas_fini'; message: string };
 /** Un lot de clients lus par identifiant, ou la raison de son refus. `illisibles` : des nœuds qui ne se lisent pas, laissés tels quels. */
 export type LotClients = { ok: true; clients: ClientLu[]; illisibles: number; cout: CoutRequete } | Echec;
 /**
@@ -147,10 +151,13 @@ export function etiquettesUtiles(brutes: readonly unknown[]): { etiquettes: stri
   return { etiquettes, ecartees };
 }
 
-const pause = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+export const pause = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-/** Un appel GraphQL et son frein, borné à `delaiMs` attentes comprises : ses données, ou la raison de son refus. */
-async function appelerGraphql(
+/**
+ * Un appel GraphQL et son frein, borné à `delaiMs` attentes comprises : ses données, ou la raison de son refus. Partagé par
+ * la lecture des étiquettes et celle des segments (`./segments-lues.ts`).
+ */
+export async function appelerGraphql(
   acces: { domaine: string; jeton: string }, corps: { query: string; variables: Record<string, unknown> }, delaiMs: number, quoi: string,
   appeler: typeof fetch, attendre: (ms: number) => Promise<void>, maintenant: () => number,
 ): Promise<{ ok: true; data: unknown; cout: CoutRequete } | Echec> {
@@ -198,6 +205,12 @@ async function appelerGraphql(
       // Le message de Shopify dit le champ et le droit qui manquent : il est rendu tel quel, jamais deviné.
       const refus = (reponse.errors ?? []).find((e) => e.extensions?.code === 'ACCESS_DENIED' || /access denied/i.test(e.message));
       if (refus) return { ok: false, code: 'acces_refuse', message: `Shopify refuse la lecture des clients (${refus.message.slice(0, 300)}).` };
+      // Un segment trop lourd (lot 6c) : il se lit par une requête asynchrone (`customerSegmentMembersQueryCreate`), ou elle
+      // n'est pas encore prête. Le message de Shopify est gardé tel quel.
+      if (codes.includes('USE_CUSTOMER_SEGMENT_MEMBERS_QUERY_CREATE_MUTATION')) {
+        return { ok: false, code: 'asynchrone', message: 'Shopify demande une requête asynchrone pour ce segment.' };
+      }
+      if (codes.includes('QUERY_NOT_COMPLETE')) return { ok: false, code: 'pas_fini', message: 'La requête asynchrone de Shopify n’est pas encore prête.' };
       if (codes.includes('MAX_COST_EXCEEDED') || codes.includes('INTERNAL_SERVER_ERROR')) {
         return { ok: false, code: 'trop_lourd', message: `Shopify trouve le lot de clients trop lourd (${codes.join(', ')}).` };
       }

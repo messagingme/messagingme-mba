@@ -42,8 +42,10 @@ plusieurs sont déjà reliés à une fiche par la synchronisation des étiquette
 
 1. `src/shopify/segments-lues.ts` : la liste, une page de membres (par segment ou par requête asynchrone), la création et
    le suivi de la requête asynchrone ; `fetchPublic`, Zod, le frein de Shopify, comme `etiquettes-lues.ts`.
-2. `src/shopify/segments.pg.ts` : la liste écrite, le choix des segments suivis (20 au plus), une page de membres écrite
-   sous le jeton de la synchronisation, la fin d'une lecture, la garde du critère, la vue.
+2. Le magasin (`src/shopify/etiquettes.pg.ts`, celui de la synchronisation, parce que chaque écriture se tient sous SON
+   jeton) : la liste écrite, le choix des segments suivis (20 au plus), une page de membres écrite sous le jeton, la fin
+   d'une lecture, la vue ; la garde du critère dans `src/shopify/etiquettes-garde.ts`. Ajouté en cours de lot : une
+   requête asynchrone jamais prête arrête la synchronisation en erreur après 30 minutes, au lieu de la réenfiler sans fin.
 3. `src/shopify/etiquettes.ts` : la liste relue au début, une troisième étape après les étiquettes, sous le même bail.
 4. Le critère : `web/lib/partage/segments.ts`, `src/crm/contact-filters.ts`, `src/crm/segments.ts`, la garde dans
    `PgContactStore`.

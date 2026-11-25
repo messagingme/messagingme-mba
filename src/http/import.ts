@@ -21,7 +21,7 @@ import { nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite } from '../offres/refus';
 import { lireCollections, type DepsCollections } from '../shopify/collections';
-import { lireEtiquettes, type DepsEtiquettes } from '../shopify/etiquettes';
+import { lireEtiquettes, lireSegments, type DepsEtiquettes } from '../shopify/etiquettes';
 
 /** Ce que les routes de liste lisent du dépôt des contacts, en plus de ce que l'import y écrit. */
 export interface ContactsListeDep extends ContactStore {
@@ -207,6 +207,8 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
       collections: true,
       // Le critère d'étiquette Shopify et la liste des étiquettes lues (lot 6b) : de même.
       etiquettesShopify: true,
+      // Le critère de segment Shopify et la liste des segments lus (lot 6c) : de même.
+      segmentsShopify: true,
       ...(boutons ? { boutons } : {}),
     };
     return reply.code(200).send(vue);
@@ -246,6 +248,15 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
     const q = (req.query as Record<string, unknown>).q;
     const recherche = typeof q === 'string' ? q.slice(0, 80) : undefined;
     return reply.code(200).send(await lireEtiquettes(deps.etiquettesShopify, espaceVerifie(req), recherche));
+  });
+
+  /**
+   * Les segments Shopify lus (segments Shopify enrichis, lot 6c), pour le critère « est dans le segment Shopify » et la
+   * carte : tous ceux de la liste (250 au plus chez Shopify), les suivis d'abord, avec l'état de la synchronisation qui les
+   * lit. Une lecture seule.
+   */
+  app.get('/tenants/:tenantId/contacts/segments/segments-shopify', opts, async (req, reply) => {
+    return reply.code(200).send(await lireSegments(deps.etiquettesShopify, espaceVerifie(req)));
   });
 
   // Compteur seul (rapide) : « N contacts correspondent » avant de fixer le débit / lancer.

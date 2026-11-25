@@ -1,7 +1,8 @@
 import type { Pool, PoolClient } from 'pg';
 import { enTransaction } from '../db/transaction';
 import { ficheActive } from '../crm/contact-store.pg';
-import type { EtiquetteShopifyVue } from '../../web/lib/partage/segments';
+import { BORNES_SEGMENTS, type EtiquetteShopifyVue, type SegmentShopifyVue } from '../../web/lib/partage/segments';
+import type { SegmentLu } from './segments-lues';
 import { SYNCHRO_PERIMEE_MINUTES, synchroVivante, type IssueSynchro } from './etiquettes-garde';
 
 export { SYNCHRO_PERIMEE_MINUTES, type IssueSynchro };
@@ -88,7 +89,36 @@ export interface MagasinEtiquettes {
   ecrireClients(tenantId: string, jeton: string, r: { lus: readonly ClientLu[]; curseur: string }): Promise<boolean>;
   finir(tenantId: string, jeton: string, issue: IssueSynchro, message: string | null): Promise<boolean>;
   etiquettes(tenantId: string, recherche: string | undefined, limite: number): Promise<EtiquetteShopifyVue[]>;
+  /** Lot 6c : la liste des segments, écrite sous le jeton ; `complete` : un segment absent a disparu chez Shopify. */
+  ecrireSegments(tenantId: string, jeton: string, r: { segments: readonly SegmentLu[]; complete: boolean }): Promise<boolean>;
+  /** Le choix du marchand : les segments suivis, connus et encore chez Shopify ; un segment inconnu refuse tout le choix. */
+  suivreSegments(tenantId: string, segmentIds: readonly string[]): Promise<{ inconnus: string[] }>;
+  /**
+   * Le prochain segment suivi à lire dans cette synchronisation, sous le jeton, hors `sauf` (ceux que le passage a laissés de
+   * côté) ; `null` : tous lus ; `perdu` : le jeton ne tient plus.
+   */
+  prochainSegment(tenantId: string, jeton: string, sauf: readonly string[]): Promise<SegmentALire | null | 'perdu'>;
+  /** La requête asynchrone d'un segment (son identifiant chez Shopify, ou `null` pour l'oublier), sous le jeton. */
+  noterRequeteSegment(tenantId: string, jeton: string, segmentId: string, requete: string | null): Promise<boolean>;
+  /**
+   * Une page de membres écrite sous le jeton, seulement si la lecture en est à cette page (`apres`, le curseur lu) ; la
+   * dernière (`suivant` nul) clôt la lecture du segment.
+   */
+  ecrirePageSegment(tenantId: string, jeton: string, segmentId: string, p: { apres: string | null; clients: readonly string[]; suivant: string | null }): Promise<boolean>;
+  /** Les segments lus de l'espace, pour la carte, le volet et l'outil. */
+  segments(tenantId: string): Promise<SegmentShopifyVue[]>;
 }
+
+/**
+ * Un segment suivi à lire : son nom, où sa lecture en était (curseur de page, requête asynchrone) et quand elle a commencé
+ * (la création de sa première requête asynchrone, ou sa première page), qui borne l'attente d'une requête.
+ */
+export interface SegmentALire { segmentId: string; nom: string; curseur: string | null; requete: string | null; lectureDebut: Date | null }
+
+/** Le début de la synchronisation tenue : une lecture de segment plus ancienne appartient à une synchronisation morte. */
+const DEBUT_SYNCHRO = `(select e.en_cours_depuis from shopify_etiquettes_synchro e where e.tenant_id = $1)`;
+/** Un segment qui n'est plus lu : ni lecture en cours, ni membres comptés. */
+const SANS_LECTURE = `lecture_debut = null, curseur = null, requete_asynchrone = null, lecture_membres = 0`;
 
 /** Un message tient dans sa colonne (1 à 500 caractères) : vide, il devient nul. */
 const messageEcrit = (m: string | null): string | null => (m === null || m.trim() === '' ? null : m.slice(0, 500));
@@ -434,6 +464,15 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
    * après l'effacement du branchement ne ressuscite pas la ligne.
    */
   async finir(tenantId: string, jeton: string, issue: IssueSynchro, message: string | null): Promise<boolean> {
+    // Lot 6c : un segment dont la lecture n'a pas abouti se dit partiel ; ses membres d'avant restent.
+    if (issue !== 'lue') {
+      await this.pool.query(
+        `update shopify_segments s set partiel = true
+          where s.tenant_id = $1 and s.lecture_debut is not null
+            and exists (select 1 from shopify_etiquettes_synchro e where e.tenant_id = $1 and e.jeton = $2)`,
+        [tenantId, jeton],
+      );
+    }
     const res = await this.pool.query(
       `update shopify_etiquettes_synchro
           set issue = $3, issue_le = now(), message = $4,
@@ -466,5 +505,171 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
       [tenantId, motif, Math.max(1, Math.round(limite))],
     );
     return res.rows.map((r) => ({ etiquette: r.etiquette, fiches: r.fiches }));
+  }
+
+  /**
+   * LOT 6c. La liste des segments lue chez Shopify, sous le jeton : chaque segment écrit (nom, requête, vu le) ; une liste
+   * COMPLÈTE dit aussi les disparus : marqués `absent_le`, leurs membres et leur lecture partent, leur nom reste pour le
+   * refus du critère. Une liste incomplète ne fait disparaître personne. `false` : le jeton ne tient plus.
+   */
+  async ecrireSegments(tenantId: string, jeton: string, r: { segments: readonly SegmentLu[]; complete: boolean }): Promise<boolean> {
+    return enTransaction(this.pool, async (client) => {
+      if (!(await tenir(client, tenantId, jeton))) return false;
+      if (r.segments.length > 0) {
+        await client.query(
+          `insert into shopify_segments (tenant_id, segment_id, nom, requete, vu_le)
+           select $1, x.segment_id, x.nom, x.requete, now() from jsonb_to_recordset($2::jsonb) as x(segment_id text, nom text, requete text)
+           on conflict (tenant_id, segment_id) do update set nom = excluded.nom, requete = excluded.requete, vu_le = excluded.vu_le, absent_le = null`,
+          [tenantId, JSON.stringify([...r.segments].sort((a, b) => (a.segmentId < b.segmentId ? -1 : a.segmentId > b.segmentId ? 1 : 0))
+            .map((x) => ({ segment_id: x.segmentId, nom: x.nom, requete: x.requete })))],
+        );
+      }
+      if (r.complete) {
+        await client.query(
+          `with disparus as (
+             update shopify_segments s set absent_le = coalesce(s.absent_le, now()), lu_le = null, partiel = false, membres = 0, fiches = 0, ${SANS_LECTURE}
+              where s.tenant_id = $1 and not (s.segment_id = any($2::text[])) and s.absent_le is null
+              returning s.segment_id
+           )
+           delete from shopify_segment_membres m using disparus d where m.tenant_id = $1 and m.segment_id = d.segment_id`,
+          [tenantId, r.segments.map((x) => x.segmentId)],
+        );
+      }
+      return true;
+    });
+  }
+
+  /**
+   * LE CHOIX DU MARCHAND : les segments suivis deviennent exactement `segmentIds` (`segmentsShopifyMax` au plus, la route et
+   * l'outil le vérifient avant), chacun connu et encore chez Shopify, sinon rien ne change et les inconnus sont rendus. Un
+   * segment qui n'est plus suivi perd ses membres et sa lecture : le suivre de nouveau le relit. Le verrou de la ligne du
+   * segment sérialise ce choix avec l'écriture d'une page (`ecrirePageSegment` ne l'écrit que suivi).
+   */
+  async suivreSegments(tenantId: string, segmentIds: readonly string[]): Promise<{ inconnus: string[] }> {
+    const ids = [...new Set(segmentIds)].slice(0, BORNES_SEGMENTS.segmentsShopifyMax);
+    return enTransaction(this.pool, async (client) => {
+      const connus = new Set((await client.query<{ segment_id: string }>(
+        `select segment_id from shopify_segments where tenant_id = $1 and segment_id = any($2::text[]) and absent_le is null
+          order by segment_id for update`,
+        [tenantId, ids],
+      )).rows.map((x) => x.segment_id));
+      const inconnus = ids.filter((id) => !connus.has(id));
+      if (inconnus.length > 0) return { inconnus };
+      await client.query(
+        `with quittes as (
+           update shopify_segments s set suivi = false, lu_le = null, partiel = false, membres = 0, fiches = 0, ${SANS_LECTURE}
+            where s.tenant_id = $1 and s.suivi and not (s.segment_id = any($2::text[]))
+            returning s.segment_id
+         )
+         delete from shopify_segment_membres m using quittes q where m.tenant_id = $1 and m.segment_id = q.segment_id`,
+        [tenantId, ids],
+      );
+      await client.query(`update shopify_segments set suivi = true where tenant_id = $1 and segment_id = any($2::text[])`, [tenantId, ids]);
+      return { inconnus: [] };
+    });
+  }
+
+  /**
+   * Le prochain segment SUIVI, encore chez Shopify, que cette synchronisation n'a pas encore lu en entier (lu avant son
+   * début), dans l'ordre de son identifiant. Une lecture commencée par une synchronisation précédente repart de zéro.
+   */
+  async prochainSegment(tenantId: string, jeton: string, sauf: readonly string[]): Promise<SegmentALire | null | 'perdu'> {
+    return enTransaction(this.pool, async (client) => {
+      if (!(await tenir(client, tenantId, jeton))) return 'perdu' as const;
+      await client.query(
+        `update shopify_segments set ${SANS_LECTURE} where tenant_id = $1 and lecture_debut < ${DEBUT_SYNCHRO}`,
+        [tenantId],
+      );
+      const res = await client.query<{ segment_id: string; nom: string; curseur: string | null; requete_asynchrone: string | null; lecture_debut: Date | null }>(
+        `select s.segment_id, s.nom, s.curseur, s.requete_asynchrone, s.lecture_debut from shopify_segments s
+          where s.tenant_id = $1 and s.suivi and s.absent_le is null and (s.lu_le is null or s.lu_le < ${DEBUT_SYNCHRO})
+            and not (s.segment_id = any($2::text[]))
+          order by s.segment_id limit 1`,
+        [tenantId, [...sauf]],
+      );
+      const x = res.rows[0];
+      return x ? { segmentId: x.segment_id, nom: x.nom, curseur: x.curseur, requete: x.requete_asynchrone, lectureDebut: x.lecture_debut } : null;
+    });
+  }
+
+  /**
+   * La requête asynchrone d'un segment suivi, sous le jeton ; la lecture reprend à sa première page, son compte à zéro.
+   * Une requête créée date le début de la lecture (s'il n'est pas déjà daté) : c'est lui qui borne l'attente, même quand
+   * une requête perdue est oubliée (`null`) puis recréée.
+   */
+  async noterRequeteSegment(tenantId: string, jeton: string, segmentId: string, requete: string | null): Promise<boolean> {
+    return enTransaction(this.pool, async (client) => {
+      if (!(await tenir(client, tenantId, jeton))) return false;
+      await client.query(
+        `update shopify_segments
+            set requete_asynchrone = $3, curseur = null, lecture_membres = 0,
+                lecture_debut = case when $3::text is null then lecture_debut else coalesce(lecture_debut, now()) end
+          where tenant_id = $1 and segment_id = $2 and suivi and absent_le is null`,
+        [tenantId, segmentId, requete],
+      );
+      return true;
+    });
+  }
+
+  /**
+   * UNE PAGE DE MEMBRES, sous le jeton : les fiches ACTIVES de ses clients (les liens de la synchronisation, tous leurs
+   * numéros) entrent dans le segment, datées. La dernière page (`suivant` nul) CLÔT la lecture : les appartenances plus
+   * anciennes que son début partent, les comptes s'écrivent. Jamais avant : une lecture inachevée ne rétrécit pas la cible.
+   * Un segment qui n'est plus suivi (ou disparu) entre-temps n'est pas écrit. `false` : le jeton ne tient plus.
+   */
+  async ecrirePageSegment(tenantId: string, jeton: string, segmentId: string, p: { apres: string | null; clients: readonly string[]; suivant: string | null }): Promise<boolean> {
+    return enTransaction(this.pool, async (client) => {
+      if (!(await tenir(client, tenantId, jeton))) return false;
+      const lecture = (await client.query<{ lecture_debut: Date }>(
+        `update shopify_segments set lecture_debut = coalesce(lecture_debut, now()), lecture_membres = lecture_membres + $3, curseur = $4
+          where tenant_id = $1 and segment_id = $2 and suivi and absent_le is null and curseur is not distinct from $5
+          returning lecture_debut`,
+        [tenantId, segmentId, p.clients.length, p.suivant, p.apres],
+      )).rows[0];
+      if (!lecture) return true;
+      const fiches = p.clients.length === 0 ? [] : (await client.query<{ contact_id: string }>(
+        `select distinct l.contact_id from shopify_clients l where l.tenant_id = $1 and l.client_id = any($2::text[])`,
+        [tenantId, [...p.clients]],
+      )).rows.map((x) => x.contact_id);
+      const vivantes = [...(await verrouillerFiches(client, tenantId, fiches))];
+      if (vivantes.length > 0) {
+        await client.query(
+          `insert into shopify_segment_membres (tenant_id, segment_id, contact_id, vu_le) select $1, $2, unnest($3::uuid[]), now()
+           on conflict (tenant_id, segment_id, contact_id) do update set vu_le = excluded.vu_le`,
+          [tenantId, segmentId, vivantes],
+        );
+      }
+      if (p.suivant === null) {
+        await client.query(
+          `delete from shopify_segment_membres where tenant_id = $1 and segment_id = $2 and vu_le < $3`,
+          [tenantId, segmentId, lecture.lecture_debut],
+        );
+        await client.query(
+          `update shopify_segments s set lu_le = now(), partiel = false, membres = s.lecture_membres,
+                  fiches = (select count(*)::int from shopify_segment_membres m where m.tenant_id = $1 and m.segment_id = $2), ${SANS_LECTURE}
+            where s.tenant_id = $1 and s.segment_id = $2`,
+          [tenantId, segmentId],
+        );
+      }
+      await avancer(client, tenantId, jeton, { clientsLus: 0, trouves: 0, sansFiche: 0 });
+      return true;
+    });
+  }
+
+  /** Les segments lus de l'espace : suivis d'abord, puis par nom ; les disparus à la fin. */
+  async segments(tenantId: string): Promise<SegmentShopifyVue[]> {
+    const res = await this.pool.query<{
+      segment_id: string; nom: string; requete: string | null; suivi: boolean; absent: boolean; lu_le: Date | null; partiel: boolean;
+      membres: number; fiches: number;
+    }>(
+      `select segment_id, nom, requete, suivi, absent_le is not null as absent, lu_le, partiel or lecture_debut is not null as partiel, membres, fiches
+         from shopify_segments where tenant_id = $1
+        order by absent_le is not null, suivi desc, lower(nom), segment_id`,
+      [tenantId],
+    );
+    return res.rows.map((x) => ({
+      segmentId: x.segment_id, nom: x.nom, requete: x.requete, suivi: x.suivi, absent: x.absent,
+      luLe: x.lu_le?.toISOString() ?? null, partiel: x.partiel, membres: x.membres, fiches: x.fiches,
+    }));
   }
 }

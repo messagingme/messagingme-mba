@@ -52,7 +52,9 @@ const AIDE_ANALYSE = CLES_FILTRABLES.map((cle) => {
   return `${cle}: ${operateursDuChamp(champ).join('/')}${valeurs}`;
 }).join('; ');
 
-const { joursMax, commandesMax, depenseMax, paysMax, produitsMax, skuMax, collectionsMax, etiquettesShopifyMax, etiquetteShopifyMax } = BORNES_SEGMENTS;
+const {
+  joursMax, commandesMax, depenseMax, paysMax, produitsMax, skuMax, collectionsMax, etiquettesShopifyMax, etiquetteShopifyMax, segmentsShopifyMax,
+} = BORNES_SEGMENTS;
 const JOURS = { type: 'integer', minimum: 1, maximum: joursMax } as const;
 
 /** Un produit visé (lot 3) : son identifiant Shopify OU un SKU, jamais les deux (refusé par `lireSegment`). */
@@ -171,6 +173,25 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
       + 'turns it on); after that it applies, even to a tag no record carries. To freeze the target of a campaign, tag its '
       + 'contacts first (tag_contacts with this criterion), then target that Messaging Me tag. Needs the Shopify store.',
   },
+  shopify_segments: {
+    type: 'object',
+    properties: {
+      ids: {
+        type: 'array', minItems: 1, maxItems: segmentsShopifyMax, items: { type: 'string', pattern: MOTIF_ID_COLLECTION },
+        description: `1 to ${segmentsShopifyMax} Shopify segment ids, in digits (id in get_shopify_state shopify_segments.list).`,
+      },
+      mode: { type: 'string', enum: ['all', 'any'], description: '"all" (default): in every segment; "any": in at least one.' },
+    },
+    required: ['ids'],
+    additionalProperties: false,
+    description: 'Contacts in these customer segments built by the merchant IN SHOPIFY (e.g. "Customers who have purchased '
+      + 'at least once"), with the members Shopify gave at the last reading of each segment (its date: read_at in '
+      + 'get_shopify_state shopify_segments.list); a Shopify customer in the segment brings every record that has one of its '
+      + 'numbers. Not the Messaging Me tags, nor the Shopify tags. Refused for a segment that is not followed '
+      + `(sync_shopify_customer_tags with segments follows up to ${segmentsShopifyMax}), not read yet, or gone from the store. `
+      + 'To freeze the target of a campaign, tag its contacts first (tag_contacts with this criterion), then target that '
+      + 'Messaging Me tag. Needs the Shopify store.',
+  },
   wrote_without_order: {
     type: 'boolean', enum: [true],
     description: 'One-click segment, the console button "Wrote without ordering": contacts who sent at least one message '
@@ -225,7 +246,7 @@ export const CHAMPS_CIBLE_FILTRES: Record<string, ProprieteEntree> = {
     },
     description: `Enterprise plan only. Filters on each contact's latest conversation analysis: ${AIDE_ANALYSE}. `
       + `${MAX_FIELD_FILTERS} filters at most in all, the orders, spent, days_since_last_order, bought, not_bought, `
-      + 'days_since_product, collections, shopify_tags, wrote_without_order, clicked_without_order, active_within_days, '
+      + 'days_since_product, collections, shopify_tags, shopify_segments, wrote_without_order, clicked_without_order, active_within_days, '
       + 'inactive_for_days and countries criteria included.',
   },
   ...CHAMPS_CIBLE_SEGMENTS,
@@ -325,12 +346,12 @@ export async function lireCibleMcp(
 }
 
 const CLES_SEGMENTS = [
-  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'shopify_tags',
+  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'shopify_tags', 'shopify_segments',
   'wrote_without_order', 'clicked_without_order', 'active_within_days', 'inactive_for_days', 'countries',
 ] as const;
-/** Les critères qui demandent une boutique : ceux des commandes, et les étiquettes Shopify (lot 6b). */
+/** Les critères qui demandent une boutique : ceux des commandes, les étiquettes Shopify (lot 6b) et ses segments (lot 6c). */
 const CLES_COMMANDES_MCP = [
-  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'shopify_tags',
+  'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'shopify_tags', 'shopify_segments',
   'wrote_without_order', 'clicked_without_order',
 ] as const;
 
@@ -406,10 +427,22 @@ async function lireSegmentsMcp(
     if (present(brut.mode) && brut.mode !== 'all' && brut.mode !== 'any') throw new RefusOutil('paramètre « shopify_tags » : mode "all" ou "any"', 'invalid_args');
     return { etiquettes: brut.tags, mode: brut.mode === 'any' ? 'une' : 'toutes' };
   };
+  /**
+   * « Est dans le segment Shopify » (lot 6c) : `ids` et `mode` dans la forme de la console (`segments`, `mode`). Que
+   * chaque segment soit suivi, lu et encore chez Shopify se juge en base, à la lecture des contacts (`PgContactStore`).
+   */
+  const segmentsShopify = (): unknown => {
+    const v = args.shopify_segments;
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) return v;
+    const brut = v as Record<string, unknown>;
+    seules('shopify_segments', brut, ['ids', 'mode']);
+    if (present(brut.mode) && brut.mode !== 'all' && brut.mode !== 'any') throw new RefusOutil('paramètre « shopify_segments » : mode "all" ou "any"', 'invalid_args');
+    return { segments: brut.ids, mode: brut.mode === 'any' ? 'une' : 'toutes' };
+  };
   if (CLES_COMMANDES_MCP.some((k) => present(args[k])) && (await deps.contacts.suiviSegments(tenantId)).boutique === null) {
     throw new RefusOutil('aucune boutique Shopify dans cet espace : les critères de commande (orders, spent, days_since_last_order, '
       + 'bought, not_bought, days_since_product, collections, wrote_without_order, clicked_without_order) et les étiquettes '
-      + 'Shopify (shopify_tags) n’ont rien à lire. get_shopify_state dit comment la brancher', 'conflict');
+      + 'Shopify (shopify_tags) et ses segments (shopify_segments) n’ont rien à lire. get_shopify_state dit comment la brancher', 'conflict');
   }
   const pays = args.countries;
   if (present(pays) && (!Array.isArray(pays) || pays.length === 0)) throw new RefusOutil('paramètre « countries » : une liste non vide de codes ISO est attendue', 'invalid_args');
@@ -422,6 +455,7 @@ async function lireSegmentsMcp(
     ...(present(args.days_since_product) ? [entree(CLES_SEGMENT.reassort, reassort())] : []),
     ...(present(args.collections) ? [entree(CLES_SEGMENT.collection, collections())] : []),
     ...(present(args.shopify_tags) ? [entree(CLES_SEGMENT.etiquetteShopify, etiquettesShopify())] : []),
+    ...(present(args.shopify_segments) ? [entree(CLES_SEGMENT.segmentShopify, segmentsShopify())] : []),
     // Les boutons prêts passent tels quels : `lireSegment` refuse tout ce qui n'est pas `true`, en le nommant.
     ...(present(args.wrote_without_order) ? [entree(CLES_SEGMENT.ecritSansCommande, args.wrote_without_order)] : []),
     ...(present(args.clicked_without_order) ? [entree(CLES_SEGMENT.clicSansCommande, args.clicked_without_order)] : []),

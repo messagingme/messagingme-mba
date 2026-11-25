@@ -15,6 +15,7 @@ import { ShopifyBrancher } from '@/components/ShopifyBrancher';
 import { ShopifyImport } from '@/components/ShopifyImport';
 import { ShopifyRattrapage } from '@/components/ShopifyRattrapage';
 import { ShopifyEtiquettes } from '@/components/ShopifyEtiquettes';
+import { ShopifySegments } from '@/components/ShopifySegments';
 
 /**
  * TOOLS > INTÉGRATIONS > SHOPIFY : brancher la boutique, la mettre en pause, importer ses clients abonnés, rattraper ses
@@ -219,6 +220,7 @@ export function ReglageShopify({ tenantId, siAbsente = null }: { tenantId: strin
           {b.etat === 'connectee' && <ShopifyRattrapage tenantId={tenantId} onLance={(texte) => setMessage({ genre: 'ok', texte })} />}
           {/* Les étiquettes des clients (segments Shopify enrichis, lot 6b) : le réglage et le bouton « maintenant ». */}
           {b.etat === 'connectee' && <ShopifyEtiquettes tenantId={tenantId} onMessage={setMessage} />}
+          {b.etat === 'connectee' && <ShopifySegments tenantId={tenantId} onMessage={setMessage} />}
           {b.origine === 'console' && (
             <p className="text-ink-500" data-testid="integration-shopify-rgpd">
               {t(

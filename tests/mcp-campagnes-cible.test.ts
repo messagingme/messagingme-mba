@@ -441,3 +441,51 @@ describe('les étiquettes Shopify de l’assistant', () => {
     expect(sans).toHaveProperty('orders_recorded_since');
   });
 });
+
+/**
+ * LES SEGMENTS SHOPIFY DANS LA CIBLE DE L'ASSISTANT (segments Shopify enrichis, lot 6c) : `shopify_segments` traduit dans le
+ * contrat commun, ses bornes annoncées par chaque outil de la cible, refusé sans boutique. Que le segment soit suivi et lu
+ * se juge en base (`tests/segments-shopify-refus.test.ts`).
+ */
+describe('les segments Shopify de l’assistant', () => {
+  const BOUTIQUE_6C: SuiviSegments['boutique'] = { devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null };
+
+  it('🔴 traduits dans le contrat commun : ids et mode, « all » par défaut', async () => {
+    const { d } = deps({ boutique: BOUTIQUE_6C });
+    expect(await lireCibleMcp({ shopify_segments: { ids: ['11', '12'], mode: 'any' } }, PRO, d, T, { identifiants: true })).toEqual({
+      filters: { fieldFilters: [filtreSegment(S.segmentShopify, { segments: ['11', '12'], mode: 'une' })] }, excludeIds: [],
+    });
+    expect(await lireCibleMcp({ shopify_segments: { ids: ['11'] } }, PRO, d, T, { identifiants: false })).toEqual({
+      filters: { fieldFilters: [filtreSegment(S.segmentShopify, { segments: ['11'], mode: 'toutes' })] }, excludeIds: [],
+    });
+  });
+
+  it('🔴 sans boutique : refusé avant toute lecture des contacts', async () => {
+    const { d, lus } = deps();
+    await expect(lireCibleMcp({ shopify_segments: { ids: ['11'] } }, PRO, d, T, { identifiants: false })).rejects.toThrow(/segments \(shopify_segments\)/);
+    expect(lus.map((l) => l.quoi)).toEqual(['suivi']);
+  });
+
+  it.each([
+    { shopify_segments: { ids: [] } }, { shopify_segments: { ids: ['abc'] } }, { shopify_segments: { ids: ['gid://shopify/Segment/11'] } },
+    { shopify_segments: { ids: ['11'], mode: 'aucune' } }, { shopify_segments: { ids: ['11'], within_days: 3 } }, { shopify_segments: ['11'] },
+    { shopify_segments: { ids: Array.from({ length: BORNES_SEGMENTS.segmentsShopifyMax + 1 }, (_, i) => String(i + 1)) } },
+  ])('🔴 segments Shopify refusés, jamais ignorés : %j', async (args) => {
+    const { d } = deps({ boutique: BOUTIQUE_6C });
+    await expect(lireCibleMcp(args, PRO, d, T, { identifiants: true })).rejects.toThrow(RefusOutil);
+  });
+
+  it('🔴 chaque borne est annoncée dans le schéma, sur chaque outil de la cible', () => {
+    for (const nom of ['find_contacts', 'tag_contacts', 'prepare_campaign', 'set_contact_field']) {
+      const c = OUTILS.find((o) => o.nom === nom)!.entree.properties.shopify_segments!;
+      expect(c, nom).toMatchObject({ type: 'object', required: ['ids'], additionalProperties: false });
+      expect(c.properties!.ids, nom).toMatchObject({
+        type: 'array', minItems: 1, maxItems: BORNES_SEGMENTS.segmentsShopifyMax, items: { type: 'string', pattern: MOTIF_ID_COLLECTION },
+      });
+      expect(c.properties!.mode, nom).toMatchObject({ type: 'string', enum: ['all', 'any'] });
+      expect(c.description, nom).toMatch(/IN SHOPIFY/);
+      expect(c.description, nom).toMatch(/Not the Messaging Me tags, nor the Shopify tags/);
+      expect(c.description, nom).toMatch(/tag_contacts/);
+    }
+  });
+});

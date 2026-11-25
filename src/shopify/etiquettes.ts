@@ -7,10 +7,14 @@ import {
 import {
   BAIL_SYNCHRO_SECONDES, RELECTURE_HEURES, SYNCHRO_PERIMEE_MINUTES, type EtatSynchroEtiquettes, type IssueSynchro, type MagasinEtiquettes,
 } from './etiquettes.pg';
+import {
+  creerRequeteAsynchrone, lirePageMembres, listerSegments, suivreRequeteAsynchrone, type ListeSegments, type PageMembres,
+  type RequeteAsynchrone, type SuiviRequete,
+} from './segments-lues';
 import type { CoutRequete } from './reprise';
 import type { PgShopifyStore } from './store.pg';
 import type { Offre } from '../offres/offres';
-import type { EtiquettesShopifyLuesVue, SynchroEtiquettesVue } from '../../web/lib/partage/segments';
+import { BORNES_SEGMENTS, type EtiquettesShopifyLuesVue, type SegmentsShopifyLusVue, type SynchroEtiquettesVue } from '../../web/lib/partage/segments';
 import { journaliser } from '../lib/journal';
 import { messageDe } from '../lib/erreur';
 
@@ -38,6 +42,11 @@ import { messageDe } from '../lib/erreur';
  * elle qui ouvre le critère d'étiquette Shopify. Le coût du premier lot de chaque temps est journalisé
  * (`shopify_etiquettes_cout`), le frein de Shopify respecté.
  *
+ * LOT 6c, LES SEGMENTS NATIFS : la même synchronisation (le même interrupteur, le même bail, la même relecture) relit au
+ * début de chaque passage la liste des segments de la boutique, puis, en troisième temps, les membres de chaque segment
+ * SUIVI (20 au plus, le choix du marchand), page par page, rattachés aux fiches par les liens du premier temps. Un segment
+ * lourd passe par la requête asynchrone de Shopify ; pas prête, le passage se réenfile un peu plus tard.
+ *
  * Le lien ne passe pas par `shopify_commandes` (la fiche d'une commande est celle de son téléphone de livraison d'abord,
  * `telephoneDeCommande`) mais par les numéros que Shopify rend pour le client lui-même, revérifiés.
  */
@@ -49,6 +58,10 @@ export const PASSAGE_ETIQUETTES_MS = 120_000;
 const DELAI_LOT_MS = 20_000;
 /** Les étiquettes rendues à la console et à l'outil, celles que portent le plus de fiches d'abord. */
 export const ETIQUETTES_LISTEES = 50;
+/** Lot 6c : une requête asynchrone de segment pas encore prête ; le passage se réenfile après ce délai. */
+export const REQUETE_ASYNCHRONE_ATTENTE_S = 15;
+/** Lot 6c : l'attente la plus longue d'une requête asynchrone, depuis sa création ; au-delà, la synchronisation s'arrête en erreur. */
+export const REQUETE_ASYNCHRONE_MAX_MS = 30 * 60_000;
 /** Les espaces relancés par un passage du balayage horaire ; les suivants attendent le passage d'après. */
 export const DUES_PAR_BALAYAGE = 200;
 
@@ -79,6 +92,13 @@ export interface DepsEtiquettes {
   lireClients(acces: { domaine: string; jeton: string }, p: { ids: readonly string[]; delaiMs: number }): Promise<LotClients>;
   /** Une recherche de clients par téléphones, revérifiés sur tous leurs numéros (coordonnées, adresses enregistrées). */
   chercher(acces: { domaine: string; jeton: string }, p: { telephones: readonly string[]; pays: string | null; delaiMs: number }): Promise<RechercheTelephones>;
+  /** Lot 6c : la liste des segments de la boutique. */
+  listerSegments(acces: { domaine: string; jeton: string }, p: { delaiMs: number }): Promise<ListeSegments>;
+  /** Une page de membres d'un segment, directement ou par sa requête asynchrone. */
+  lireMembres(acces: { domaine: string; jeton: string }, p: { segmentId: string; requete: string | null; apres: string | null; delaiMs: number }): Promise<PageMembres>;
+  /** La requête asynchrone d'un segment lourd : la créer, puis la suivre jusqu'à `done`. */
+  creerRequete(acces: { domaine: string; jeton: string }, p: { segmentId: string; delaiMs: number }): Promise<RequeteAsynchrone>;
+  suivreRequete(acces: { domaine: string; jeton: string }, p: { requete: string; delaiMs: number }): Promise<SuiviRequete>;
   /** L'offre de l'espace : la Free synchronise à la demande, au plus une fois par 24 h. */
   offre(tenantId: string): Promise<Offre>;
   enfiler(job: JobEtiquettes, dansSecondes: number): Promise<void>;
@@ -105,6 +125,10 @@ export function cablerEtiquettes(o: {
     droits: (acces) => lireDroitsDeLApp(acces),
     lireClients: (acces, p) => lireClientsParIds(acces, p),
     chercher: (acces, p) => chercherParTelephones(acces, p),
+    listerSegments: (acces, p) => listerSegments(acces, p),
+    lireMembres: (acces, p) => lirePageMembres(acces, p),
+    creerRequete: (acces, p) => creerRequeteAsynchrone(acces, p),
+    suivreRequete: (acces, p) => suivreRequeteAsynchrone(acces, p),
     offre: (tenantId) => o.offre(tenantId),
     enfiler: (job, dansSecondes) => o.enfiler(job, dansSecondes > 0 ? new Date(Date.now() + dansSecondes * 1000) : undefined),
   };
@@ -197,6 +221,40 @@ export async function reglerEtiquettes(
   return synchroniserEtiquettes(deps, tenantId);
 }
 
+/** Les segments lus et l'état de la synchronisation (lot 6c) : le volet Shopify des filtres, la carte, `get_shopify_state`. */
+export async function lireSegments(deps: Pick<DepsEtiquettes, 'magasin' | 'maintenant'>, tenantId: string): Promise<SegmentsShopifyLusVue> {
+  const [etat, segments] = await Promise.all([deps.magasin.etat(tenantId), deps.magasin.segments(tenantId)]);
+  return { segments, synchro: vueSynchro(etat, (deps.maintenant ?? Date.now)()) };
+}
+
+/**
+ * LE CHOIX DES SEGMENTS SUIVIS (lot 6c), par la carte ou l'outil : exactement ces segments, `segmentsShopifyMax` au plus,
+ * chacun connu (lu dans la liste de la boutique) et encore chez Shopify ; puis une synchronisation, comme « maintenant »,
+ * pour les lire. Un choix vide arrête le suivi de tous. La synchronisation doit être allumée : c'est elle qui les lit.
+ */
+export async function suivreSegmentsShopify(
+  deps: Pick<DepsEtiquettes, 'magasin' | 'etatBoutique' | 'offre' | 'enfiler' | 'maintenant'>, tenantId: string, segmentIds: readonly string[],
+): Promise<IssueEtiquettes<SynchroEtiquettesVue & { lancee: boolean }>> {
+  const ids = [...new Set(segmentIds)];
+  if (ids.length > BORNES_SEGMENTS.segmentsShopifyMax) {
+    return refus(`${BORNES_SEGMENTS.segmentsShopifyMax} segments suivis au plus : retirez-en avant d’en ajouter.`);
+  }
+  const boutique = await deps.etatBoutique(tenantId);
+  if (boutique === null) return refus(AUCUNE_BOUTIQUE_ETIQUETTES);
+  if (boutique !== 'connectee') return refus(BOUTIQUE_COUPEE_ETIQUETTES);
+  if (!(await deps.magasin.etat(tenantId))?.allumee) return refus(SYNCHRO_ETEINTE);
+  const { inconnus } = await deps.magasin.suivreSegments(tenantId, ids);
+  if (inconnus.length > 0) {
+    return refus(`Segment inconnu de cet espace ou disparu chez Shopify : ${inconnus.slice(0, 5).join(', ')}. La liste se relit à chaque `
+      + 'synchronisation : lancez-en une, puis choisissez parmi les segments lus.');
+  }
+  const sansLecture = async () => ({ ok: true as const, valeur: { ...vueSynchro(await deps.magasin.etat(tenantId), (deps.maintenant ?? Date.now)()), lancee: false } });
+  if (ids.length === 0) return sansLecture();
+  // Le choix est écrit : un refus de la lecture (la Free, une fois par 24 h) ne le défait pas, la prochaine lecture le lit.
+  const s = await synchroniserEtiquettes(deps, tenantId);
+  return s.ok ? s : sansLecture();
+}
+
 /**
  * LA RELECTURE QUOTIDIENNE, par le balayage horaire du worker (jamais un passage de toutes les boutiques) : les espaces
  * allumés en Pro et au-dessus dont la dernière demande date de plus de 24 h. Rend le nombre enfilé ; un job qui n'a pas pu
@@ -216,7 +274,7 @@ export async function relancerEtiquettesDues(deps: Pick<DepsEtiquettes, 'magasin
   return n;
 }
 
-function journaliserCout(tenantId: string, quoi: 'telephones' | 'clients', taille: number, cout: CoutRequete): void {
+function journaliserCout(tenantId: string, quoi: 'telephones' | 'clients' | 'membres', taille: number, cout: CoutRequete): void {
   journaliser('info', 'shopify_etiquettes_cout', { tenantId, quoi, taille, demande: cout.demande, reel: cout.reel });
 }
 
@@ -272,6 +330,7 @@ async function passage(deps: DepsEtiquettes, tenantId: string, jeton: string, cu
   // La suite d'abord, le bail ensuite : un plantage entre les deux laisse un job qui attend la fin du bail, jamais une
   // synchronisation commencée sans job.
   const reenfiler = async (): Promise<void> => { await deps.enfiler({ tenantId }, 0); await deps.magasin.relacher(tenantId, jeton); };
+  const reenfilerDans = async (secondes: number): Promise<void> => { await deps.enfiler({ tenantId }, secondes); await deps.magasin.relacher(tenantId, jeton); };
   // 🔴 La boutique relue avant d'écrire : coupée, effacée ou remplacée pendant le passage, rien de ce lot ne s'écrit.
   const boutiqueIntacte = async (): Promise<boolean> => {
     const relue = await deps.boutique(tenantId);
@@ -316,7 +375,7 @@ async function passage(deps: DepsEtiquettes, tenantId: string, jeton: string, cu
   for (;;) {
     if (passageFini()) { await reenfiler(); return; }
     const ids = await deps.magasin.clientsALire(tenantId, curseur, parLot);
-    if (ids.length === 0) { await finir('lue', null); return; }
+    if (ids.length === 0) break;
     const lu = await deps.lireClients(acces, { ids, delaiMs: DELAI_LOT_MS });
     if (!lu.ok) {
       if (lu.code === 'trop_lourd' && parLot > 1) { parLot = Math.max(1, Math.floor(parLot / 2)); continue; }
@@ -328,5 +387,75 @@ async function passage(deps: DepsEtiquettes, tenantId: string, jeton: string, cu
     const dernier = ids[ids.length - 1]!;
     if (!(await deps.magasin.ecrireClients(tenantId, jeton, { lus: lu.clients, curseur: dernier }))) return;
     curseur = dernier;
+  }
+
+  // 3. Lot 6c : la liste des segments (13 points), relue à chaque passage qui arrive ici ; une liste incomplète ne fait
+  // disparaître aucun segment. Puis les segments suivis, un par un, page par page ; leurs membres rattachés aux fiches par
+  // les liens. 🔴 Les segments ne bloquent JAMAIS les étiquettes déjà lues : une liste refusée, un segment refusé ou une
+  // requête jamais prête sont journalisés et laissés de côté pour ce passage (le segment se dit partiel si sa lecture avait
+  // commencé, ses membres d'avant restent, la synchronisation suivante le reprend de zéro), et la synchronisation aboutit.
+  // Une panne passagère remonte, comme partout ici (le passage est rejoué).
+  const liste = await deps.listerSegments(acces, { delaiMs: DELAI_LOT_MS });
+  if (!liste.ok) {
+    if (liste.code !== 'acces_refuse') throw new Error(liste.message);
+    journaliser('warn', 'shopify_segments_refuses', { tenantId, message: liste.message });
+    await finir('lue', null);
+    return;
+  }
+  if (!(await deps.magasin.ecrireSegments(tenantId, jeton, { segments: liste.segments, complete: liste.complete }))) return;
+  const sautes: string[] = [];
+  const sauter = (segmentId: string, raison: string): void => {
+    journaliser('warn', 'shopify_segment_saute', { tenantId, segmentId, raison: raison.slice(0, 200) });
+    sautes.push(segmentId);
+  };
+  premiere = true;
+  for (;;) {
+    if (passageFini()) { await reenfiler(); return; }
+    const seg = await deps.magasin.prochainSegment(tenantId, jeton, sautes);
+    if (seg === 'perdu') return;
+    if (seg === null) { await finir('lue', null); return; }
+    if (seg.requete !== null) {
+      // 🔴 Une requête que Shopify ne prépare jamais ne réenfile pas la synchronisation sans fin : au-delà de la borne, le
+      // segment est laissé de côté (contrôle local, sans appel), et la synchronisation va au suivant.
+      if (seg.lectureDebut !== null && maintenant() - seg.lectureDebut.getTime() >= REQUETE_ASYNCHRONE_MAX_MS) {
+        sauter(seg.segmentId, 'requete_jamais_prete');
+        continue;
+      }
+      const suivi = await deps.suivreRequete(acces, { requete: seg.requete, delaiMs: DELAI_LOT_MS });
+      if (!suivi.ok) {
+        if (suivi.code === 'acces_refuse') { sauter(seg.segmentId, suivi.message); continue; }
+        throw new Error(suivi.message);
+      }
+      // Une requête que Shopify ne connaît plus est oubliée, et recréée au passage suivant : une boutique qui les perdrait
+      // toutes n'en ferait créer qu'une par attente, jusqu'à la borne.
+      if (suivi.etat === 'perdue') {
+        if (!(await deps.magasin.noterRequeteSegment(tenantId, jeton, seg.segmentId, null))) return;
+        await reenfilerDans(REQUETE_ASYNCHRONE_ATTENTE_S);
+        return;
+      }
+      if (suivi.etat === 'en_cours') { await reenfilerDans(REQUETE_ASYNCHRONE_ATTENTE_S); return; }
+    }
+    const page = await deps.lireMembres(acces, { segmentId: seg.segmentId, requete: seg.requete, apres: seg.curseur, delaiMs: DELAI_LOT_MS });
+    if (!page.ok) {
+      if (page.code === 'acces_refuse') { sauter(seg.segmentId, page.message); continue; }
+      if (page.code === 'asynchrone') {
+        const q = await deps.creerRequete(acces, { segmentId: seg.segmentId, delaiMs: DELAI_LOT_MS });
+        if (!q.ok) {
+          if (q.code === 'acces_refuse') { sauter(seg.segmentId, q.message); continue; }
+          throw new Error(q.message);
+        }
+        if (!(await deps.magasin.noterRequeteSegment(tenantId, jeton, seg.segmentId, q.requete))) return;
+        continue;
+      }
+      // `pas_fini` ne vient que de la lecture par une requête asynchrone ; sans elle, c'est une réponse inattendue, une panne.
+      if (page.code === 'pas_fini' && seg.requete !== null) { await reenfilerDans(REQUETE_ASYNCHRONE_ATTENTE_S); return; }
+      throw new Error(page.message);
+    }
+    if (premiere) { journaliserCout(tenantId, 'membres', page.clients.length, page.cout); premiere = false; }
+    if (!(await boutiqueIntacte())) return;
+    // La page s'écrit seulement si la lecture en est encore à elle (`apres`) : un segment décoché puis recoché pendant
+    // l'appel repart de sa première page au lieu de reprendre au milieu.
+    const ecrite = { apres: seg.curseur, clients: page.clients, suivant: page.suivant };
+    if (!(await deps.magasin.ecrirePageSegment(tenantId, jeton, seg.segmentId, ecrite))) return;
   }
 }

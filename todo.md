@@ -305,6 +305,27 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 6c (les segments construits dans Shopify) : la relecture (2026-11-25, un rouge corrigé)
+
+Le rouge (le motif d'identifiant de la lecture console sans sa barre oblique inverse : aucun segment affiché) est
+corrigé et tenu par un test ; les jaunes lourds sont corrigés dans le lot (un segment ne bloque plus les étiquettes ni
+les autres segments, une page s'écrit seulement si la lecture en est à elle, le choix de la Free est gardé, l'outil fait
+le choix avant de lancer, la liste dédupliquée et triée, `pas_fini` sans requête et le curseur sur place tenus pour des
+pannes). Restent :
+- **L'attente d'une requête asynchrone coûte un passage entier toutes les 15 s** (jeton, droits, liste relue, jusqu'à
+  250 lignes réécrites) : attendre dans le passage en réutilisant le jeton, ou relire la liste au plus une fois par
+  synchronisation. La borne de 30 minutes vaut par segment : jusqu'à 20 fois 30 minutes pour une synchronisation.
+- **`find_contacts` ne rend pas la date de lecture des segments visés** (comme `shopify_tags_synced_at`) : l'agent passe
+  par `get_shopify_state`.
+- **`get_shopify_state` peut rendre 250 requêtes ShopifyQL de 5 000 caractères** : ne rendre la requête que des segments
+  suivis, ou la couper.
+- **L'ordre des verrous** : l'update `partiel` de `finir` et le `for update` de `purgeMany` (`contact-store.pg.ts`) n'ont
+  pas d'`order by` (interblocage détecté par Postgres, sans perte).
+- **Un segment refusé avant sa première page ne se voit nulle part** dans la console (journalisé seulement) : le dire
+  sur la ligne du segment.
+- **Le chemin asynchrone n'a jamais tourné contre une vraie boutique** (les deux codes de Shopify, le droit de
+  `customerSegmentMembersQueryCreate`, la forme d'une requête perdue) : à mesurer au premier segment lourd.
+
 ## 🟡 Segments Shopify, lot 6b bis (un client Shopify relié par tous ses numéros) : la relecture (2026-11-25, aucun rouge)
 
 - Chaque geste du marchand (« Synchroniser maintenant », allumage, `sync_shopify_customer_tags`) cherche de nouveau

@@ -15,6 +15,7 @@ import { LogoShopify } from '@/components/LogosCanaux';
 import { FiltresProduitsShopify } from '@/components/FiltresProduitsShopify';
 import { FiltresCollectionsShopify } from '@/components/FiltresCollectionsShopify';
 import { FiltresEtiquettesShopify } from '@/components/FiltresEtiquettesShopify';
+import { FiltresSegmentsShopify } from '@/components/FiltresSegmentsShopify';
 
 /**
  * LE VOLET « SHOPIFY » DU PANNEAU DE FILTRES (spec du 2026-11-21, lot 1, décision d'ergonomie de Julien du
@@ -44,6 +45,7 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
   const produitPose = segments.some((s) => s.key === CLES_SEGMENT.achete || s.key === CLES_SEGMENT.pasAchete || s.key === CLES_SEGMENT.reassort);
   const collectionPosee = segments.some((s) => s.key === CLES_SEGMENT.collection);
   const etiquettePosee = segments.some((s) => s.key === CLES_SEGMENT.etiquetteShopify);
+  const segmentPose = segments.some((s) => s.key === CLES_SEGMENT.segmentShopify);
   const [ouvert, setOuvert] = useState(force || posee);
   useEffect(() => {
     if (force || posee) setOuvert(true);
@@ -93,6 +95,8 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
         {(suivi?.collections === true || collectionPosee) && <FiltresCollectionsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
         {/* Les étiquettes Shopify (lot 6b), un bloc à part des étiquettes Messaging Me : annoncées par l'API, ou déjà posées. */}
         {(suivi?.etiquettesShopify === true || etiquettePosee) && <FiltresEtiquettesShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
+        {/* Les segments Shopify (lot 6c), ceux que le marchand a construits dans Shopify : annoncés par l'API, ou déjà posés. */}
+        {(suivi?.segmentsShopify === true || segmentPose) && <FiltresSegmentsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
         <BoutonsSansCommande segments={segments} onChange={onChange} comptes={suivi?.boutons ?? null} />
         {boutique && (
           <p className="text-xs text-ink-500" data-testid="filtres-achats-suivi">

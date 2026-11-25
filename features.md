@@ -760,7 +760,13 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     porte. Seul pont vers les étiquettes Messaging Me : « **Copier en étiquette Messaging Me** », qui pose maintenant
     l'étiquette nommée par le marchand sur les fiches de cette étiquette Shopify, sans suivi ensuite et sans
     consentement. Claude Code a le même critère (`shopify_tags`, la date dans `shopify_tags_synced_at`), et copie par
-    `tag_contacts`. Depuis le lot 4, deux **boutons prêts**,
+    `tag_contacts`. Depuis le lot 6c (2026-11-25), un bloc « **Segments Shopify** » cible les segments de clients que le
+    marchand construit DANS SHOPIFY (« clients qui ont acheté au moins une fois »...), parmi ceux qu'il suit sur la carte
+    Shopify (20 au plus) : dans tous, ou dans l'un d'eux, avec les membres que Shopify a donnés à la dernière lecture de
+    chacun (sa date est sur la ligne, et « dernière lecture inachevée » quand elle n'a pas abouti : les membres d'avant
+    restent). Un membre atteint chaque fiche de ses numéros. Pour un segment pas encore lu, plus suivi ou disparu chez
+    Shopify, le critère est **refusé** en le nommant, jamais « personne ». « Copier en étiquette Messaging Me » existe
+    aussi pour un segment. Claude Code a le même critère (`shopify_segments`). Depuis le lot 4, deux **boutons prêts**,
     sans aucun réglage : « **A écrit sans commander** » (au moins un message reçu encore connu, une réaction ou un
     bouton touché comptent) et « **A cliqué sans commander** » (au moins un clic sur un lien suivi), avec, pour les
     deux, aucune commande enregistrée pour le contact. Un clic pose le bouton, un second le retire, les deux se
@@ -3358,6 +3364,18 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   une boutique coupée garde ce qui a été lu. L'onglet Shopify d'une fiche montre les étiquettes Shopify de ses clients.
   Depuis Claude Code, `sync_shopify_customer_tags` allume et lance (ou éteint), toutes offres : la Free lit à la demande,
   au plus une fois par 24 h, sans relecture quotidienne ; `get_shopify_state` en dit l'état et les étiquettes lues.
+- **Les segments Shopify** (2026-11-25, segments Shopify enrichis, lot 6c) : pour cibler les segments que le marchand
+  construit dans Shopify (détail dans « Contacts & CRM »), la MÊME synchronisation que les étiquettes (le même réglage, la
+  même relecture, « Synchroniser maintenant ») relit la liste des segments de la boutique. Sur la carte, sous ce réglage,
+  le marchand coche ceux à suivre, 20 au plus, et « Enregistrer les segments suivis » lance leur lecture (en Free, qui
+  synchronise au plus une fois par 24 h, le choix est gardé et lu à la prochaine). Les membres
+  viennent de Shopify, page par page (sa requête n'est jamais réévaluée ici), et remplacent ceux d'avant à la fin d'une
+  lecture complète, jamais avant. Un segment lourd passe par la requête asynchrone de Shopify. Un segment qui ne se lit pas
+  (accès refusé, requête pas prête en 30 minutes) est laissé de côté pour cette synchronisation, ses membres d'avant
+  restent, et il ne bloque ni les étiquettes ni les autres segments. Un segment décoché perd ses membres ; un
+  segment disparu chez Shopify aussi, et le critère qui le vise est refusé. Aucun webhook de segment : la relecture
+  quotidienne et le geste suffisent. Le droit `read_customers` suffit. Depuis Claude Code, `sync_shopify_customer_tags`
+  reçoit les segments à suivre (`segments`) et `get_shopify_state` les liste (`shopify_segments`).
 
 ## API publique `/v1` (intégrateurs externes)
 

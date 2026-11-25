@@ -59,6 +59,7 @@ interface Trace {
   /** Les réglages de la synchronisation des étiquettes (corps du PUT) et ses lancements « maintenant » (lot 6b). */
   reglagesEtiquettes: unknown[];
   synchrosEtiquettes: number;
+  segmentsSuivis: unknown[];
 }
 
 async function monter(page: Page, o: {
@@ -84,8 +85,16 @@ async function monter(page: Page, o: {
    * une synchronisation tournait déjà.
    */
   etiquettes?: { synchro?: Record<string, unknown> | 'absente'; refus?: { statut: number; error: string }; dejaEnCours?: boolean };
+  /**
+   * Les segments Shopify lus (lot 6c) : la liste (`absente` : le 404 du routeur) et un refus du serveur au choix. Leur
+   * synchronisation est celle des étiquettes (`etiquettes.synchro`).
+   */
+  segments?: { lus?: Array<Record<string, unknown>> | 'absente'; refus?: { statut: number; error: string } };
 }): Promise<Trace> {
-  const trace: Trace = { branchements: [], pauses: [], lignes: [], attestations: [], posts: [], rattrapages: 0, reglagesEtiquettes: [], synchrosEtiquettes: 0 };
+  const trace: Trace = {
+    branchements: [], pauses: [], lignes: [], attestations: [], posts: [], rattrapages: 0, reglagesEtiquettes: [], synchrosEtiquettes: 0, segmentsSuivis: [],
+  };
+  let segmentsLus = o.segments?.lus;
   let rattrapage = o.rattrapage?.etat ?? null;
   let synchroEtiquettes = o.etiquettes?.synchro;
   const session = { token: 'e2e-token', email: 'moi@e2e.test', role: o.role ?? 'admin', tenantId: 't-e2e' };
@@ -118,6 +127,18 @@ async function monter(page: Page, o: {
     if (chemin.endsWith('/contacts/segments/etiquettes-shopify')) {
       if (synchroEtiquettes === 'absente') return json({ message: 'Route GET not found', error: 'Not Found', statusCode: 404 }, 404);
       return synchroEtiquettes === undefined ? json({}) : json({ etiquettes: [], synchro: synchroEtiquettes });
+    }
+    if (chemin.endsWith('/contacts/segments/segments-shopify')) {
+      if (segmentsLus === 'absente') return json({ message: 'Route GET not found', error: 'Not Found', statusCode: 404 }, 404);
+      return segmentsLus === undefined || synchroEtiquettes === undefined || synchroEtiquettes === 'absente'
+        ? json({}) : json({ segments: segmentsLus, synchro: synchroEtiquettes });
+    }
+    if (chemin.endsWith('/integrations/shopify/segments') && req.method() === 'PUT') {
+      const corps = req.postDataJSON() as { segments: string[] };
+      trace.segmentsSuivis.push(corps);
+      if (o.segments?.refus) return json({ error: o.segments.refus.error }, o.segments.refus.statut);
+      if (Array.isArray(segmentsLus)) segmentsLus = segmentsLus.map((s) => ({ ...s, suivi: corps.segments.includes(String(s.segmentId)) }));
+      return json({ synchro: { ...(synchroEtiquettes as Record<string, unknown>), enCours: true, lancee: corps.segments.length > 0 } }, 202);
     }
     if (chemin.endsWith('/integrations/shopify/etiquettes') && req.method() === 'PUT') {
       const corps = req.postDataJSON() as { allumee: boolean };
@@ -459,6 +480,53 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await monter(page, { etiquettes: { synchro: 'absente' } });
     await expect(page.getByTestId('integration-shopify-etat')).toBeVisible();
     await expect(page.getByTestId('integration-shopify-etiquettes')).toHaveCount(0);
+  });
+
+  const SEGMENTS_LUS = [
+    { segmentId: '11', nom: 'Clients fidèles', requete: null, suivi: true, absent: false, luLe: '2026-11-24T08:00:00.000Z', partiel: false, membres: 9, fiches: 4 },
+    { segmentId: '12', nom: 'Gros paniers', requete: null, suivi: false, absent: false, luLe: null, partiel: false, membres: 0, fiches: 0 },
+    { segmentId: '15', nom: 'Disparu', requete: null, suivi: false, absent: true, luLe: null, partiel: false, membres: 0, fiches: 0 },
+  ];
+
+  test('🔴 les segments Shopify (lot 6c) : la carte les liste, le choix part une fois, exactement les segments cochés', async ({ page }) => {
+    const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES }, segments: { lus: SEGMENTS_LUS } });
+    const bloc = page.getByTestId('integration-shopify-segments');
+    await expect(bloc).toContainText('Segments Shopify à suivre, 20 au plus');
+    const cases = bloc.getByTestId('integration-shopify-segment');
+    await expect(cases).toHaveCount(2);
+    await expect(bloc).not.toContainText('Disparu');
+    await expect(bloc.getByTestId('integration-shopify-segments-liste')).toContainText('Clients fidèles · 4 fiches · lu le');
+    await expect(cases.nth(0)).toBeChecked();
+    await expect(cases.nth(1)).not.toBeChecked();
+    await expect(bloc.getByTestId('integration-shopify-segments-enregistrer')).toHaveCount(0);
+    await cases.nth(1).check();
+    await cases.nth(0).uncheck();
+    await bloc.getByTestId('integration-shopify-segments-enregistrer').click();
+    await expect(page.getByTestId('integration-shopify-message')).toContainText('Segments suivis enregistrés : la lecture de leurs membres tourne en arrière-plan.');
+    expect(trace.segmentsSuivis).toEqual([{ segments: ['12'] }]);
+    await expect(cases.nth(1)).toBeChecked();
+    await expect(bloc.getByTestId('integration-shopify-segments-enregistrer')).toHaveCount(0);
+  });
+
+  test('un refus du serveur au choix des segments se dit sur la carte', async ({ page }) => {
+    const refus = 'Segment inconnu de cet espace ou disparu chez Shopify : 12.';
+    const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES }, segments: { lus: SEGMENTS_LUS, refus: { statut: 409, error: refus } } });
+    await page.getByTestId('integration-shopify-segment').nth(1).check();
+    await page.getByTestId('integration-shopify-segments-enregistrer').click();
+    await expect(page.getByTestId('integration-shopify-message')).toContainText(refus);
+    expect(trace.segmentsSuivis).toHaveLength(1);
+  });
+
+  test('🔴 la synchronisation éteinte : la carte ne montre pas les segments', async ({ page }) => {
+    await monter(page, { etiquettes: { synchro: ETIQUETTES_ETEINTES }, segments: { lus: SEGMENTS_LUS } });
+    await expect(page.getByTestId('integration-shopify-etiquettes')).toBeVisible();
+    await expect(page.getByTestId('integration-shopify-segments')).toHaveCount(0);
+  });
+
+  test('🔴 l’API sans la route des segments (404 du routeur) : la carte n’en dit rien', async ({ page }) => {
+    await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES }, segments: { lus: 'absente' } });
+    await expect(page.getByTestId('integration-shopify-etiquettes')).toBeVisible();
+    await expect(page.getByTestId('integration-shopify-segments')).toHaveCount(0);
   });
 
   test('🔴 API pas encore déployée (404 du routeur) : AUCUNE carte', async ({ page }) => {

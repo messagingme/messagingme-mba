@@ -2,7 +2,7 @@ import { getCountryCallingCode, isSupportedCountry, parsePhoneNumberFromString }
 import metadonnees from 'libphonenumber-js/min/metadata';
 import {
   CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, plagePosee, type AchatsVises, type CleSegment, type CollectionsVisees,
-  type EtiquettesShopifyVisees, type Plage, type PlageSurJours, type ProduitVise, type Reassort,
+  type EtiquettesShopifyVisees, type Plage, type PlageSurJours, type ProduitVise, type Reassort, type SegmentsShopifyVises,
 } from '../../web/lib/partage/segments';
 import type { ContactFieldFilter } from '../../web/lib/partage/contact-filters';
 
@@ -200,6 +200,39 @@ export function etiquettesShopifyDesFiltres(fieldFilters: readonly ContactFieldF
   return [...new Set(etiquettes)];
 }
 
+/**
+ * Les fiches membres de l'un de ces segments Shopify (lot 6c), telles que la dernière lecture complète de chacun les a
+ * rendues. La sous-requête nomme l'espace ; la clé primaire de `shopify_segment_membres` (migration 0327,
+ * `(tenant_id, segment_id, contact_id)`) la sert. Exporté pour le test qui tient ce contrat.
+ */
+export function ficheDansLeSegmentShopify(segments: readonly string[], add: (v: unknown) => string): string {
+  return `id in (select m.contact_id from shopify_segment_membres m where m.tenant_id = $1 `
+    + `and m.segment_id in (${segments.map((x) => add(x)).join(', ')}))`;
+}
+
+/** Une valeur « membre du segment Shopify » déjà validée, ou `null` (qui vise PERSONNE). */
+function segmentsShopifyLus(v: unknown): SegmentsShopifyVises | null {
+  if (v === null || typeof v !== 'object' || Array.isArray(v)) return null;
+  const e = v as Partial<SegmentsShopifyVises>;
+  const motif = new RegExp(MOTIF_ID_COLLECTION);
+  return Array.isArray(e.segments) && e.segments.length > 0 && e.segments.every((x) => typeof x === 'string' && motif.test(x))
+    && (e.mode === 'toutes' || e.mode === 'une')
+    ? e as SegmentsShopifyVises : null;
+}
+
+/**
+ * Les segments Shopify que des filtres visent (lot 6c) : `PgContactStore` exige, avant toute lecture, que chacun soit
+ * suivi, encore chez Shopify et lu au moins une fois. Une valeur illisible n'en vise aucun (elle vise personne).
+ */
+export function segmentsShopifyDesFiltres(fieldFilters: readonly ContactFieldFilter[] | undefined): string[] {
+  const ids = (fieldFilters ?? []).filter((f) => f.key === CLES_SEGMENT.segmentShopify && f.op === OP_SEGMENT).flatMap((f) => {
+    let v: unknown;
+    try { v = JSON.parse(f.value) as unknown; } catch { return []; }
+    return segmentsShopifyLus(v)?.segments ?? [];
+  });
+  return [...new Set(ids)];
+}
+
 /** Les jours depuis la dernière commande : exige une commande connue. */
 function clauseDerniereCommande(p: Plage, add: (v: unknown) => string): string {
   const bornes = [
@@ -259,6 +292,15 @@ export function clauseSegment(cle: CleSegment, valeur: string, add: (v: unknown)
       return e.mode === 'une'
         ? ficheAvecEtiquetteShopify(e.etiquettes, add)
         : `(${e.etiquettes.map((x) => ficheAvecEtiquetteShopify([x], add)).join(' and ')})`;
+    }
+    case CLES_SEGMENT.segmentShopify: {
+      // Membre de CHACUN des segments (une sous-requête par segment, jointes par `and`) ou de l'un d'eux. Que chacun soit
+      // suivi et lu est exigé AVANT (`PgContactStore`, refus) : ici, un segment lu à zéro fiche ne trouve personne.
+      const g = segmentsShopifyLus(v);
+      if (!g) return 'false';
+      return g.mode === 'une'
+        ? ficheDansLeSegmentShopify(g.segments, add)
+        : `(${g.segments.map((x) => ficheDansLeSegmentShopify([x], add)).join(' and ')})`;
     }
     case CLES_SEGMENT.reassort: {
       // Le DERNIER achat de ce produit dans la plage : exige un achat connu (« il y a au moins 180 jours » ne retient pas

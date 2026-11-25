@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 98864c
+traduit_de: 136d58
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -168,6 +168,12 @@ now” reads every number again, the daily reading adds the new records. Target 
 the block gives the date of the last reading.
 “Copy as a Messaging Me tag” adds now the tag of your choice to the records that carry this Shopify tag, a copy that
 does not follow Shopify afterwards. No record is created, and neither the reading nor the copy gives consent.
+
+And the segments you build in Shopify (Customers > Segments), in the “Shopify segments” block. On the Shopify card,
+with the sync on, tick the ones to follow, 20 at most, then “**Save the followed segments**”: their members are read at
+once, then every day. A customer in the segment counts for every record of their numbers. Target one or more (all of
+them, or any of them); each segment gives the date of its last reading, and “Copy as a Messaging Me tag” works for it
+too.
 
 And two ready-made buttons, with no setting: “Wrote without ordering” (at least one message still known) and “Clicked
 without ordering” (at least one tracked link click), for contacts with no order recorded. One click sets the button, a

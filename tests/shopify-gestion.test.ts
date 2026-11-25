@@ -32,6 +32,7 @@ import { MIDI_COLLECTIONS, T_COLLECTIONS, monterCollections } from './collection
 import { traiterCollections } from '../src/shopify/collections';
 import { MIDI_ETIQUETTES, T_ETIQUETTES, monterEtiquettes } from './etiquettes-faux';
 import { traiterEtiquettes } from '../src/shopify/etiquettes';
+import { BORNES_SEGMENTS, MOTIF_ID_COLLECTION } from '../web/lib/partage/segments';
 
 const DOMAINE = 'b.myshopify.com';
 
@@ -748,10 +749,14 @@ describe('les étiquettes Shopify depuis l’assistant', () => {
     return { ...mcpDe({ ...deps, etiquettes: e.deps }, offre), couteux: { consommer: async () => ({ accepte, attenteMs: 3000 }) } } as unknown as DepsMcp;
   };
 
-  it('🔴 un outil d’écriture, personne nommée, toutes offres, son écran est la carte Shopify ; enabled seul, annoncé', () => {
+  it('🔴 un outil d’écriture, personne nommée, toutes offres, son écran est la carte Shopify ; enabled et segments, annoncés', () => {
     expect(outil).toMatchObject({ scope: 'mcp:write', exigePersonne: true, fonction: null });
     expect(outil.ecran!({}, null)).toBe('/integrations');
     expect(outil.entree).toMatchObject({ type: 'object', properties: { enabled: { type: 'boolean' } }, additionalProperties: false });
+    expect(Object.keys(outil.entree.properties)).toEqual(['enabled', 'segments']);
+    expect(outil.entree.properties.segments).toMatchObject({
+      type: 'array', maxItems: BORNES_SEGMENTS.segmentsShopifyMax, items: { type: 'string', pattern: MOTIF_ID_COLLECTION },
+    });
     expect(outil.description).toMatch(/NOT the Messaging Me tags/);
     expect(outil.description).toMatch(/tag_contacts/);
   });
@@ -809,5 +814,64 @@ describe('les étiquettes Shopify depuis l’assistant', () => {
     panne.deps.magasin.etat = async () => { throw new Error('relation "shopify_etiquettes_synchro" does not exist'); };
     const enPanne = { ...avec(panne), contacts: { produitsVus: async () => [] } } as unknown as DepsMcp;
     expect(await etat.executer(enPanne, T, {}, PERSONNE)).toMatchObject({ store: 'b.myshopify.com', shopify_tags: null });
+  });
+
+  const CONNUS = [{ segmentId: '11', nom: 'VIP' }, { segmentId: '12', nom: 'Hiver' }];
+
+  it('🔴 segments : exactement ceux-là, puis une lecture ; [] arrête tout ; omis, le choix reste', async () => {
+    const e = monterEtiquettes({ segmentsDeDepart: [{ ...CONNUS[0]!, suivi: true }, CONNUS[1]!] });
+    const d = avec(e);
+    expect(await outil.executer(d, T, { segments: ['12', '12'] }, PERSONNE)).toMatchObject({ enabled: true, segments_followed: ['12'], reading_started: true });
+    expect([...e.segs.entries()].filter(([, s]) => s.suivi).map(([id]) => id)).toEqual(['12']);
+    const omis = await outil.executer(d, T, {}, PERSONNE) as Record<string, unknown>;
+    expect(omis).not.toHaveProperty('segments_followed');
+    expect(e.segs.get('12')).toMatchObject({ suivi: true });
+    await outil.executer(d, T, { segments: [] }, PERSONNE);
+    expect([...e.segs.values()].some((s) => s.suivi)).toBe(false);
+  });
+
+  it('🔴 segments refusés avant toute écriture : mal formés, avec enabled false, au-delà de 20 ; un segment inconnu refuse le choix entier', async () => {
+    const e = monterEtiquettes({ segmentsDeDepart: CONNUS });
+    const d = avec(e);
+    for (const args of [{ segments: ['abc'] }, { segments: '11' }, { segments: ['11'], enabled: false },
+      { segments: Array.from({ length: BORNES_SEGMENTS.segmentsShopifyMax + 1 }, (_, i) => String(i + 1)) }]) {
+      await expect(outil.executer(d, T, args, PERSONNE), JSON.stringify(args)).rejects.toMatchObject({ code: 'invalid_args' });
+    }
+    expect(e.etat()).toBeNull();
+    await expect(outil.executer(d, T, { segments: ['11', '999'] }, PERSONNE)).rejects.toMatchObject({ code: 'conflict', message: expect.stringContaining('999') });
+    expect([...e.segs.values()].some((s) => s.suivi)).toBe(false);
+  });
+
+  it('🔴 synchronisation déjà allumée : le choix d’abord, un segment inconnu refuse tout sans rien lancer ; la Free qui attend garde le choix', async () => {
+    const e = monterEtiquettes({ segmentsDeDepart: CONNUS, etat: { allumee: true } });
+    const d = avec(e);
+    await expect(outil.executer(d, T, { segments: ['11', '999'] }, PERSONNE)).rejects.toMatchObject({ code: 'conflict' });
+    expect(e.trace.jobs).toEqual([]);
+    const free = monterEtiquettes({ offre: 'base', segmentsDeDepart: CONNUS, etat: { allumee: true, demandeeLe: new Date(MIDI_ETIQUETTES - 3_600_000) } });
+    const r = await outil.executer(avec(free, 'base'), T, { segments: ['12'] }, PERSONNE) as Record<string, unknown>;
+    expect(r).toMatchObject({ reading_started: false, segments_followed: ['12'], next_step: expect.stringContaining('next sync') });
+    expect(free.segs.get('12')).toMatchObject({ suivi: true });
+    expect(free.trace.jobs).toEqual([]);
+  });
+
+  it('🔴 get_shopify_state liste les segments lus, suivis d’abord, sous les noms de l’outil ; une panne rend null', async () => {
+    const etat = OUTILS.find((x) => x.nom === 'get_shopify_state')!;
+    const e = monterEtiquettes({
+      segmentsDeDepart: [CONNUS[1]!, { ...CONNUS[0]!, requete: 'number_of_orders >= 3', suivi: true, luLe: MIDI_ETIQUETTES, membres: 9, fiches: 4 }],
+    });
+    const d = { ...avec(e), contacts: { produitsVus: async () => [] } } as unknown as DepsMcp;
+    expect(await etat.executer(d, T, {}, PERSONNE)).toMatchObject({
+      shopify_segments: {
+        followed_max: BORNES_SEGMENTS.segmentsShopifyMax,
+        list: [
+          { id: '11', name: 'VIP', query: 'number_of_orders >= 3', followed: true, gone: false, read_at: new Date(MIDI_ETIQUETTES).toISOString(), partial: false, members: 9, records: 4 },
+          { id: '12', name: 'Hiver', query: null, followed: false, read_at: null },
+        ],
+      },
+    });
+    const panne = monterEtiquettes();
+    panne.deps.magasin.segments = async () => { throw new Error('relation "shopify_segments" does not exist'); };
+    const enPanne = { ...avec(panne), contacts: { produitsVus: async () => [] } } as unknown as DepsMcp;
+    expect(await etat.executer(enPanne, T, {}, PERSONNE)).toMatchObject({ store: 'b.myshopify.com', shopify_segments: null });
   });
 });

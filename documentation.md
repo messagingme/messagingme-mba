@@ -3512,6 +3512,43 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   rend `shopify_tags_synced_at`, `get_shopify_state` l'état et la liste (`shopify_tags`). La copie vers une étiquette
   Messaging Me est l'action en masse (ou `tag_contacts`) sur la cible du critère : jamais la synchronisation. L'onglet
   Shopify de la fiche lit ses étiquettes au mieux ;
+- 🔴 **les segments natifs Shopify** (segments Shopify enrichis, lot 6c, migration 0327 ; `src/shopify/segments-lues.ts`,
+  le troisième temps de `src/shopify/etiquettes.ts`) : les segments que le marchand construit DANS SHOPIFY, lus par la
+  MÊME synchronisation que les étiquettes (le même interrupteur, le même bail et le même jeton, la même relecture
+  quotidienne). Deux tables : `shopify_segments` (la liste lue, relue au début du troisième temps de chaque passage, 13 points :
+  identifiant, nom, requête ShopifyQL gardée pour l'affichage et JAMAIS réévaluée ; `suivi`, le choix du marchand, 20 au
+  plus, `BORNES_SEGMENTS.segmentsShopifyMax` ; `absent_le` quand une liste COMPLÈTE ne le rend plus, ses membres partent et
+  son nom reste pour le refus ; `lu_le`, la dernière lecture complète de ses membres ; `partiel` ; les comptes ; et la lecture
+  en cours : `lecture_debut`, `curseur`, `requete_asynchrone`, `lecture_membres`) et `shopify_segment_membres` (les FICHES de
+  chaque segment, `vu_le` ; aucune liste brute des membres, un membre sans fiche est compté puis oublié ; en cascade avec la
+  fiche et avec le segment, index `contact_id` pour la première). `purgeMany` et `effacerBranchement` les nomment (migration
+  BLOQUANTE). Le choix : `PUT .../integrations/shopify/segments` (`{ segments }`, exactement ces segments, la liste vide arrête
+  tout) ou `segments` de `sync_shopify_customer_tags` (`suivreSegmentsShopify` ; synchronisation déjà allumée, l'outil fait le
+  choix seul) ; un segment inconnu ou disparu refuse le choix entier, un segment quitté perd ses membres et sa lecture, et le
+  choix lance une synchronisation (refusée, la Free qui attend, le choix reste écrit et la prochaine le lit). Le troisième temps,
+  après les clients : chaque segment SUIVI pas encore lu dans CETTE synchronisation (`prochainSegment`, `lu_le` comparé à
+  `en_cours_depuis` ; une lecture commencée par une synchronisation morte repart de zéro), page par page de 1 000 membres
+  (`customerSegmentMembers(segmentId:)`, environ 140 points ; le numéro d'un membre est celui du client), chaque page écrite
+  sous le jeton (`ecrirePageSegment`), et seulement si la lecture en est encore à cette page (`curseur is not distinct from`
+  le curseur lu : décoché puis recoché pendant l'appel, le segment repart de sa première page) : les fiches ACTIVES de ses
+  clients par `shopify_clients` (tous leurs numéros) entrent, datées. 🔴 La DERNIÈRE page clôt la lecture : les appartenances plus anciennes que `lecture_debut` partent, les comptes
+  s'écrivent ; jamais avant, une lecture inachevée ne rétrécit pas la cible, et `finir` sur une autre issue que `lue` marque
+  `partiel` les segments en cours de lecture. Un segment lourd (`USE_CUSTOMER_SEGMENT_MEMBERS_QUERY_CREATE_MUTATION`) passe
+  par la requête asynchrone : `customerSegmentMembersQueryCreate`, suivie (`done`), pas prête le passage rend son bail et se
+  réenfile dans 15 s (`REQUETE_ASYNCHRONE_ATTENTE_S`), prête elle se lit par `queryId` ; perdue chez Shopify, elle est oubliée
+  et recréée au passage suivant. 🔴 LES SEGMENTS NE BLOQUENT JAMAIS LES ÉTIQUETTES : une liste refusée, un segment refusé et
+  une requête pas prête au-delà de 30 minutes depuis la première (`REQUETE_ASYNCHRONE_MAX_MS`, datée par `lecture_debut`,
+  contrôlée sans appel) sont journalisés (`shopify_segments_refuses`, `shopify_segment_saute`) et laissés de côté pour le
+  passage (`prochainSegment(..., sauf)`) ; la synchronisation aboutit, le segment commencé se dit partiel et la suivante le
+  reprend de zéro. Sans la borne, une requête jamais prête la réenfilerait sans fin ; avec un arrêt en `erreur`, elle
+  empêchait de dater les étiquettes lues et de lire les segments suivants (relecture du lot). `pas_fini` sans requête et
+  une page qui rend son propre curseur sont des pannes.
+  Aucun webhook de segment. Le critère `segment_segment_shopify` (`{ segments: 1 à 20 identifiants en chiffres, mode: toutes
+  | une }`, `ficheDansLeSegmentShopify`, `tenant_id = $1`, servi par la clé primaire) est 🔴 REFUSÉ en nommant le segment,
+  jamais « personne », pour un segment inconnu, disparu, plus suivi ou jamais lu (`refusDesSegmentsShopify`, dans
+  `exigerSegmentsShopifyLus`). La console ne le propose que sur `segmentsShopify: true` ; `GET .../contacts/segments/segments-shopify`
+  rend la liste et l'état (une lecture seule) ; `get_shopify_state` la rend sous `shopify_segments`, et l'outil cible par
+  `shopify_segments`. La copie vers une étiquette Messaging Me est, comme pour les étiquettes, l'action en masse ;
 - **le secret qui vérifie doit être celui de la boutique relue** : le cache d'une minute ne laisse pas passer un
   webhook de l'ancienne app après une reconnexion, et `shop/redact` n'efface jamais une boutique `connectee` ;
 - 🔴 **la relance de panier est balayée DANS L'API** (`src/shopify/relance.ts`, la minuterie d'une minute de

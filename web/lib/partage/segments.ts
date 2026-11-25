@@ -34,6 +34,12 @@ export const CLES_SEGMENT = {
    */
   etiquetteShopify: 'segment_etiquette_shopify',
   /**
+   * Segments Shopify enrichis, lot 6c : les segments que le marchand a construits DANS SHOPIFY et qu'il suit, leurs
+   * membres rattachés aux fiches par la synchronisation (`shopify_segment_membres`). Jamais les étiquettes, ni d'un côté
+   * ni de l'autre.
+   */
+  segmentShopify: 'segment_segment_shopify',
+  /**
    * Segments Shopify enrichis, lot 4 : les deux boutons prêts, valeur `true` et rien d'autre. Un message reçu (ou un
    * clic attribué) connu, et aucune commande enregistrée pour la fiche dans l'espace.
    */
@@ -57,10 +63,10 @@ export const CLES_COMMANDES: readonly CleSegment[] = [
   CLES_SEGMENT.ecritSansCommande, CLES_SEGMENT.clicSansCommande,
 ];
 /**
- * Les critères du volet Shopify des filtres : ceux des commandes, et les étiquettes Shopify (lot 6b), qui ne lisent pas les
- * commandes mais demandent aussi une boutique. Un critère posé ouvre le volet.
+ * Les critères du volet Shopify des filtres : ceux des commandes, les étiquettes Shopify (lot 6b) et les segments Shopify
+ * (lot 6c), qui ne lisent pas les commandes mais demandent aussi une boutique. Un critère posé ouvre le volet.
  */
-export const CLES_SHOPIFY: readonly CleSegment[] = [...CLES_COMMANDES, CLES_SEGMENT.etiquetteShopify];
+export const CLES_SHOPIFY: readonly CleSegment[] = [...CLES_COMMANDES, CLES_SEGMENT.etiquetteShopify, CLES_SEGMENT.segmentShopify];
 export const CLES_ACTIVITE: readonly CleSegment[] = [CLES_SEGMENT.actif, CLES_SEGMENT.inactif];
 
 /** Au moins `min`, au plus `max`, l'un ou l'autre ou les deux. */
@@ -95,6 +101,12 @@ export const MOTIF_ID_COLLECTION = '^\\d{1,19}$';
 export interface EtiquettesShopifyVisees { etiquettes: string[]; mode: 'toutes' | 'une' }
 
 /**
+ * « Membre du segment Shopify » (lot 6c) : de TOUS ces segments (`toutes`) ou de l'un d'eux (`une`), suivis et lus, tels
+ * que la dernière lecture complète de chacun les a rendus. Les identifiants sont ceux de Shopify, en chiffres.
+ */
+export interface SegmentsShopifyVises { segments: string[]; mode: 'toutes' | 'une' }
+
+/**
  * Bornes d'une donnée cliente, refusées au-delà (jamais tronquées : un critère tronqué vise une autre population).
  * `etiquetteShopifyMax` est la borne de Shopify, lue dans sa documentation (REST Admin 2026-10, ressource Customer, mise à
  * jour d'un client : « Each tag can have up to 255 characters »), comptée en caractères (points de code), comme le CHECK de
@@ -103,6 +115,8 @@ export interface EtiquettesShopifyVisees { etiquettes: string[]; mode: 'toutes' 
 export const BORNES_SEGMENTS = {
   joursMax: 3650, commandesMax: 1000, depenseMax: 10_000_000, paysMax: 20, produitsMax: 20, skuMax: 255, collectionsMax: 20,
   etiquettesShopifyMax: 20, etiquetteShopifyMax: 255,
+  /** Les segments Shopify suivis par espace (lot 6c, question 11 de la spec), et donc visés par un critère. */
+  segmentsShopifyMax: 20,
 } as const;
 
 /** Ce que l'API sait cibler pour un espace (`GET /tenants/:id/contacts/segments`). */
@@ -130,6 +144,12 @@ export interface SuiviSegmentsVue {
    * critère d'étiquette Shopify, qu'une telle API chercherait dans les champs perso, où il n'est jamais.
    */
   etiquettesShopify?: boolean;
+  /**
+   * L'API sait cibler par segment Shopify (lot 6c) et lister les segments lus
+   * (`GET .../contacts/segments/segments-shopify`). 🔴 Absent d'une API plus ancienne : la console ne propose alors aucun
+   * critère de segment Shopify.
+   */
+  segmentsShopify?: boolean;
   /**
    * Le compte de chaque bouton prêt (lot 4), le bouton SEUL, jamais croisé avec les autres filtres (décision de Julien du
    * 2026-11-23). Présent seulement avec une boutique et quand les deux comptes ont pu se lire : absent, la console ne
@@ -199,6 +219,26 @@ export interface SynchroEtiquettesVue {
 /** Ce que rend `GET .../contacts/segments/etiquettes-shopify` : les étiquettes lues (50 au plus) et l'état de la synchronisation. */
 export interface EtiquettesShopifyLuesVue { etiquettes: EtiquetteShopifyVue[]; synchro: SynchroEtiquettesVue }
 
+/**
+ * Un segment Shopify lu (lot 6c) : son nom et sa requête (ShopifyQL, affichée, jamais réévaluée), s'il est suivi, s'il a
+ * disparu chez Shopify, sa dernière lecture complète (nulle : le critère est refusé), si la dernière lecture est restée
+ * inachevée (les membres d'avant restent), et ses comptes (membres chez Shopify, fiches ici).
+ */
+export interface SegmentShopifyVue {
+  segmentId: string;
+  nom: string;
+  requete: string | null;
+  suivi: boolean;
+  absent: boolean;
+  luLe: string | null;
+  partiel: boolean;
+  membres: number;
+  fiches: number;
+}
+
+/** Ce que rend `GET .../contacts/segments/segments-shopify` : les segments lus et l'état de la synchronisation, la même que les étiquettes. */
+export interface SegmentsShopifyLusVue { segments: SegmentShopifyVue[]; synchro: SynchroEtiquettesVue }
+
 /** Une plage posée : au moins une borne. */
 export function plagePosee(p: Plage | undefined): boolean {
   return p !== undefined && (p.min !== undefined || p.max !== undefined);
@@ -209,7 +249,8 @@ export function plagePosee(p: Plage | undefined): boolean {
  * pour un bouton prêt).
  */
 export function filtreSegment(
-  cle: CleSegment, valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | true,
+  cle: CleSegment,
+  valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | SegmentsShopifyVises | true,
 ): ContactFieldFilter {
   return { key: cle, op: OP_SEGMENT, value: JSON.stringify(valeur) };
 }

@@ -816,6 +816,7 @@ async function effacerBranchement(client: PoolClient, tenantId: string): Promise
   for (const table of [
     'shopify_messages', 'shopify_messages_attente', 'shopify_paniers', 'shopify_evenements', 'shopify_commandes',
     'shopify_etiquettes_synchro', 'shopify_etiquettes', 'shopify_clients', 'shopify_fiches_cherchees',
+    'shopify_segment_membres', 'shopify_segments',
     'shopify_produits', 'shopify_produit_collections', 'shopify_collections_lecture', 'shopify_boutiques',
   ]) {
     await client.query(`delete from ${table} where tenant_id = $1`, [tenantId]);

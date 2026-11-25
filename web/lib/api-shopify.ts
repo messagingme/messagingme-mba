@@ -3,8 +3,8 @@
 import { request } from './http';
 import { estAutomationShopify, type AutomationShopify } from './partage/shopify-messages';
 import type { ApercuRepriseVue, RepriseShopifyVue } from './partage/reprise-shopify';
-import type { SynchroEtiquettesVue } from './partage/segments';
-import { etiquettesShopifyLuesDe, synchroEtiquettesDe } from './segments';
+import type { SegmentsShopifyLusVue, SynchroEtiquettesVue } from './partage/segments';
+import { etiquettesShopifyLuesDe, segmentsShopifyLusDe, synchroEtiquettesDe } from './segments';
 
 /**
  * LE CONNECTEUR SHOPIFY : la carte de Tools > Intégrations (plan 2026-10-21, lot 1 ; conception 2026-10-22) et la section
@@ -275,4 +275,16 @@ export async function synchroniserEtiquettesShopify(tenantId: string): Promise<G
  */
 export async function lireSynchroEtiquettesShopify(tenantId: string): Promise<SynchroEtiquettesVue | null> {
   return etiquettesShopifyLuesDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/etiquettes-shopify`))?.synchro ?? null;
+}
+
+/**
+ * LES SEGMENTS SHOPIFY SUIVIS (lot 6c), pour la carte : la liste lue (son erreur remonte, une API plus ancienne rend 404) et
+ * le choix, exactement ces segments, qui lance une synchronisation pour les lire.
+ */
+export async function lireSegmentsShopifyCarte(tenantId: string): Promise<SegmentsShopifyLusVue | null> {
+  return segmentsShopifyLusDe(await request<unknown>(`/tenants/${tenantId}/contacts/segments/segments-shopify`));
+}
+
+export async function suivreSegmentsShopify(tenantId: string, segments: readonly string[]): Promise<GesteEtiquettesShopify> {
+  return gesteEtiquettesDe(await request<unknown>(`${base(tenantId)}/segments`, { method: 'PUT', body: JSON.stringify({ segments }) }));
 }

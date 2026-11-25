@@ -251,6 +251,8 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
       collections: true,
       // 🔴 Et celle du critère d'étiquette Shopify (lot 6b), de même.
       etiquettesShopify: true,
+      // 🔴 Et celle du critère de segment Shopify (lot 6c), de même.
+      segmentsShopify: true,
       // Les pastilles des deux boutons prêts (lot 4) : le faux compte rend 3.
       boutons: { ecritSansCommande: 3, clicSansCommande: 3 },
     });
@@ -332,6 +334,29 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     expect(toutes.json().etiquettes).toEqual([{ etiquette: 'VIP', fiches: 2 }]);
     expect(e.trace.jobs).toEqual([]);
     expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/etiquettes-shopify' })).statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('🔴 GET des segments Shopify lus (lot 6c) : la liste et l’état de la synchronisation, une lecture seule ; 401 sans session', async () => {
+    const e = monterEtiquettes({
+      etat: { allumee: true, synchroLe: new Date(MIDI_ETIQUETTES) },
+      segmentsDeDepart: [{ segmentId: '12', nom: 'Hiver' }, { segmentId: '11', nom: 'VIP', suivi: true, luLe: MIDI_ETIQUETTES, membres: 9, fiches: 4 }],
+    });
+    const app = inject(new FakeContacts(), new FakeFields(), undefined, undefined, undefined, e.deps);
+    const res = await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/segments-shopify', headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      segments: [
+        { segmentId: '11', nom: 'VIP', requete: null, suivi: true, absent: false, luLe: new Date(MIDI_ETIQUETTES).toISOString(), partiel: false, membres: 9, fiches: 4 },
+        { segmentId: '12', nom: 'Hiver', requete: null, suivi: false, absent: false, luLe: null, partiel: false, membres: 0, fiches: 0 },
+      ],
+      synchro: {
+        allumee: true, synchroLe: new Date(MIDI_ETIQUETTES).toISOString(), enCours: false, refus: null,
+        comptes: { clientsLus: 0, trouvesParTelephone: 0, sansFiche: 0, fichesEtiquetees: 0 },
+      },
+    });
+    expect(e.trace.jobs).toEqual([]);
+    expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments/segments-shopify' })).statusCode).toBe(401);
     await app.close();
   });
 

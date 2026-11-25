@@ -12,11 +12,11 @@ import { journaliser } from '../lib/journal';
 import type { LigneDeLaListe } from '../mba/liste';
 import type { CleFicheFixe } from './champs-fiche';
 import { clauseFiltreFiche, estCleFiltrable, estOperateurFicheSeul } from './filtre-fiche';
-import { clauseSegment, collectionsDesFiltres, etiquettesShopifyDesFiltres, type SuiviSegments } from './segments';
+import { clauseSegment, collectionsDesFiltres, etiquettesShopifyDesFiltres, segmentsShopifyDesFiltres, type SuiviSegments } from './segments';
 import { estCleSegment, type ProduitVuVue } from '../../web/lib/partage/segments';
 import { FiltreContactInvalide } from './contact-filters';
 import { refusDesCollections } from '../shopify/collections.pg';
-import { refusDesEtiquettesShopify } from '../shopify/etiquettes-garde';
+import { refusDesEtiquettesShopify, refusDesSegmentsShopify } from '../shopify/etiquettes-garde';
 import { COLONNES_ANALYSE_FICHE, analyseDeLaLigne, type AnalyseDeFiche, type LigneAnalyseFiche } from '../analysis/fiche';
 import { LimiteOffreError } from '../offres/refus';
 import { droitsDe, estOffre, offreRemplaceLesAnciens, type LimiteContacts } from '../offres/offres';
@@ -1691,7 +1691,8 @@ export class PgContactStore implements ContactStore {
    * le critère « a acheté dans la collection » (segments Shopify enrichis, lot 6a) y est REFUSÉ, jamais « personne »,
    * quand aucune lecture des collections n'a abouti pour l'espace ou qu'une collection demandée n'est pas connue
    * (`refusDesCollections`) ; de même le critère d'étiquette Shopify (lot 6b) tant qu'aucune synchronisation des étiquettes
-   * n'a abouti (`refusDesEtiquettesShopify`). Le refus est un `FiltreContactInvalide` : 400 aux routes, refus de l'outil au
+   * n'a abouti (`refusDesEtiquettesShopify`), et le critère de segment Shopify (lot 6c) tant qu'un segment visé n'est pas
+   * suivi et lu (`refusDesSegmentsShopify`). Le refus est un `FiltreContactInvalide` : 400 aux routes, refus de l'outil au
    * MCP. Sans ces critères, rien n'est lu. `tests/collections-refus.test.ts` et `tests/etiquettes-refus.test.ts` exigent
    * qu'aucune lecture de ce magasin ne l'esquive.
    */
@@ -1707,7 +1708,8 @@ export class PgContactStore implements ContactStore {
 
   private async exigerSegmentsShopifyLus(tenantId: string, filters: ContactFilters): Promise<void> {
     const refus = await refusDesCollections(this.pool, tenantId, collectionsDesFiltres(filters.fieldFilters))
-      ?? await refusDesEtiquettesShopify(this.pool, tenantId, etiquettesShopifyDesFiltres(filters.fieldFilters));
+      ?? await refusDesEtiquettesShopify(this.pool, tenantId, etiquettesShopifyDesFiltres(filters.fieldFilters))
+      ?? await refusDesSegmentsShopify(this.pool, tenantId, segmentsShopifyDesFiltres(filters.fieldFilters));
     if (refus !== null) throw new FiltreContactInvalide(refus);
   }
 
@@ -2248,6 +2250,8 @@ export class PgContactStore implements ContactStore {
       await client.query(`delete from shopify_etiquettes where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
       await client.query(`delete from shopify_clients where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
       await client.query(`delete from shopify_fiches_cherchees where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
+      // Les segments Shopify (lot 6c, migration 0327) : les appartenances de la fiche, jamais le segment lui-même.
+      await client.query(`delete from shopify_segment_membres where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
 
       // La ligne de campagne reste (statut, horodatage, livraison) ; son numéro et ses variables partent :
       // `resolved_params` porte les valeurs injectées (typiquement le prénom), `variables` ce que l'intégrateur a
