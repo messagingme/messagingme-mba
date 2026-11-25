@@ -5,6 +5,26 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : le passage de main de l'agent de Meta s'écrit complet (MUTAC)
+
+**Le symptôme.** Chez MUTAC, choisir le message de passage à un humain (« Vue d'ensemble » de l'agent) rendait : « Your
+request has violated JSON schema constraint 'required' for the JSON field 'handoff' ... missing : 'e ». Demande de
+MUTAC le même jour : un « oui » pendant les heures d'ouverture transfère à un conseiller (consigne
+`orienter-vers-un-conseiller` réécrite chez Meta, message à boutons `choix-rdv-ou-agent` désactivé), ce qui suppose un
+passage de main réellement posé.
+
+**Mesuré.** Le GET des réglages de MUTAC n'avait AUCUNE clé `handoff`, alors que l'espace est en `business_hours` ; et le
+balayage journalisait « handoff-sweep: 2 tenant(s) basculé(s) sur les heures d'ouverture » à CHAQUE passage (5 min) :
+Meta accepte un bloc écrit avec le seul `enabled`, mais ne le relit pas tant que `message_selection` n'est pas posé. Le
+balayage le croyait donc absent et le réécrivait sans fin, et la console, qui n'envoie que le choix du message, fusionnait
+avec un bloc vide : Meta refusait l'absence d'`enabled`.
+
+**Le correctif.** `ecrireReglages` complète tout bloc `handoff` écrit de `message_selection: DEFAULT` sous l'existant (ce
+que Meta applique sans choix : rien ne change pour le client), et la route `PATCH .../settings` pose l'`enabled` que le
+mode de l'espace veut à l'instant quand l'écran ne l'envoie pas (`handoffVouluMaintenant`, un espace sans mode valant
+`always` comme l'écran). Trois mutations vérifiées dans les deux sens. À relire après déploiement : le GET de MUTAC doit
+rendre le bloc, et le balayage ne plus basculer qu'à l'ouverture et à la fermeture.
+
 ## 2026-11-25 : « Je corrige » sans rien proposer, l'assistant de construction ne peut plus le dire
 
 Maison Saint-Honoré, agent complet : Julien demande que l'agent ne dise plus « tu vas le recevoir » et donne le lien du

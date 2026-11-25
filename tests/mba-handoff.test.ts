@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { reglerModeHandoff } from '../src/mba/handoff';
+import { readFileSync } from 'node:fs';
+import { handoffVouluMaintenant, MODE_HANDOFF_PAR_DEFAUT, reglerModeHandoff } from '../src/mba/handoff';
 import type { PilotageHandoffDeps } from '../src/mba/handoff';
 import type { MbaClient, AgentSettings } from '../src/mba/client';
 import type { MbaHandoffMode } from '../src/settings/store.pg';
@@ -51,7 +52,8 @@ describe('reglerModeHandoff : un seul protocole possède le choix et son applica
     const { deps, modes, puts } = pilotage();
     expect(await reglerModeHandoff(deps, 't1', 'always')).toEqual({ appliqueChezMeta: true });
     expect(modes).toEqual(['always']);
-    expect(puts[0]?.handoff).toEqual({ enabled: true });
+    // `DEFAULT` : sans choix de message, Meta accepte le bloc puis ne le relit pas (2026-11-25).
+    expect(puts[0]?.handoff).toEqual({ enabled: true, message_selection: 'DEFAULT' });
   });
 
   it('« jamais » préserve les autres réglages et les autres champs de handoff', async () => {
@@ -70,7 +72,7 @@ describe('reglerModeHandoff : un seul protocole possède le choix et son applica
     const { deps, modes, puts } = pilotage();
     expect(await reglerModeHandoff(deps, 't1', 'business_hours')).toEqual({ appliqueChezMeta: true });
     expect(modes).toEqual(['business_hours']);
-    expect(puts[0]?.handoff).toEqual({ enabled: false });
+    expect(puts[0]?.handoff).toEqual({ enabled: false, message_selection: 'DEFAULT' });
   });
 
   it('une panne Meta ne retire pas le choix enregistré et sera rattrapée par le balayage', async () => {
@@ -84,5 +86,30 @@ describe('reglerModeHandoff : un seul protocole possède le choix et son applica
     expect(await reglerModeHandoff(deps, 't1', 'never')).toEqual({ appliqueChezMeta: true });
     expect(modes).toEqual(['never']);
     expect(puts).toEqual([]);
+  });
+});
+
+describe('handoffVouluMaintenant : l’interrupteur que le mode veut, pour écrire le message de passage', () => {
+  const OUVERT_TOUJOURS: BusinessHours = Object.fromEntries(
+    [0, 1, 2, 3, 4, 5, 6].map((jour) => [String(jour), { closed: false, open: '00:00', close: '23:59' }]),
+  );
+  const reglages = (mode: MbaHandoffMode | null, heures: BusinessHours = FERME) => ({
+    get: async () => ({ mbaHandoffMode: mode }),
+    horairesEffectifs: async () => ({ timezone: 'Europe/Paris', businessHours: heures }),
+  });
+  const MIDI = new Date('2026-11-25T11:00:00Z');
+
+  it('suit le mode enregistré, heures ouvrées comprises', async () => {
+    expect(await handoffVouluMaintenant(reglages('always'), 't1', MIDI)).toBe(true);
+    expect(await handoffVouluMaintenant(reglages('never'), 't1', MIDI)).toBe(false);
+    expect(await handoffVouluMaintenant(reglages('business_hours', FERME), 't1', MIDI)).toBe(false);
+    expect(await handoffVouluMaintenant(reglages('business_hours', OUVERT_TOUJOURS), 't1', MIDI)).toBe(true);
+  });
+
+  it('un espace qui n’a jamais choisi prend le mode que l’écran affiche', async () => {
+    expect(await handoffVouluMaintenant(reglages(null), 't1', MIDI)).toBe(true);
+    // Le même défaut des deux côtés : l'écran montre `DEFAULT_MBA_HANDOFF_MODE` quand la base ne dit rien.
+    const ecran = /DEFAULT_MBA_HANDOFF_MODE: MbaHandoffMode = '(\w+)'/.exec(readFileSync('web/lib/api/stats.ts', 'utf8'))?.[1];
+    expect(ecran).toBe(MODE_HANDOFF_PAR_DEFAUT);
   });
 });

@@ -154,6 +154,32 @@ describe('routes MBA : état et réglages', () => {
     await server.close();
   });
 
+  it('🔴 PATCH settings : choisir le message sans l’interrupteur pose celui que le mode de l’espace veut', async () => {
+    // Vu chez MUTAC le 2026-11-25 : Meta n'avait aucun bloc `handoff`, la console envoyait le seul choix du message, et
+    // Meta refusait (« violated JSON schema constraint 'required' for the JSON field 'handoff' »).
+    const cas = [
+      { mode: 'never' as const, enabled: false },
+      { mode: null, enabled: true },
+    ];
+    for (const c of cas) {
+      const { server, appels } = app({}, {
+        reglages: {
+          setMbaEnabled: async () => {},
+          get: async () => ({
+            mbaEnabled: true, repondeurMode: 'mba' as const, repondeurAgentId: null, repondeurWorkflowId: null,
+            repondeurAdresseId: null, mbaHandoffMode: c.mode,
+          }),
+          horairesEffectifs: async () => { throw new Error('horairesEffectifs non attendu hors heures ouvrées'); },
+        },
+      });
+      const res = await server.inject({ method: 'PATCH', url: url('/settings'), ...h(adminTok), payload: { handoffMessageSelection: 'AGENT' } });
+      expect(res.statusCode).toBe(200);
+      const put = appels.find((a) => a.m === 'putSettings');
+      expect((put?.args[1] as { handoff: unknown }).handoff).toEqual({ enabled: c.enabled, message_selection: 'AGENT' });
+      await server.close();
+    }
+  });
+
   it('PATCH settings : passage de main mal formé -> 400', async () => {
     const { server } = app();
     const bad = async (payload: unknown) => (await server.inject({ method: 'PATCH', url: url('/settings'), ...h(adminTok), payload: payload as object })).statusCode;
@@ -183,7 +209,8 @@ describe('routes MBA : état et réglages', () => {
     reglages: {
       setMbaEnabled: async (t, enabled) => { appels.push({ m: 'drapeau', args: [t, enabled] }); },
       // Un espace dont l'agent n'est pas le répondeur : l'alignement garde la liste, aucune écriture de plus.
-      get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }),
+      get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null, mbaHandoffMode: null }),
+      horairesEffectifs: async () => { throw new Error('horairesEffectifs non attendu'); },
     },
   });
 
@@ -225,7 +252,8 @@ describe('routes MBA : état et réglages', () => {
     const { server, appels } = app({}, {
       reglages: {
         setMbaEnabled: async (t, enabled) => { drapeaux.push([t, enabled, meta.filter((a) => a.m === 'putSettings').length]); },
-        get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null }),
+        get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null, mbaHandoffMode: null }),
+      horairesEffectifs: async () => { throw new Error('horairesEffectifs non attendu'); },
       },
     });
     meta = appels;

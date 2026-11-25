@@ -17,6 +17,8 @@ import { calculerCompletion } from '../mba/completion';
 import { appliquerActivation, EtatMetaIllisible, MetaARefuse, type ActivationDeps } from '../mba/activation';
 import { creerAlignerAudience } from '../mba/audience';
 import type { ReglageDuRepondeur } from '../repondeur/mode';
+import { handoffVouluMaintenant } from '../mba/handoff';
+import type { HorairesEffectifs, MbaHandoffMode } from '../settings/store.pg';
 import {
   appliquerMutationConnaissance,
   type MutationConnaissanceMba, type ResultatMutationConnaissance,
@@ -71,8 +73,13 @@ export interface MbaRouteDeps {
      * interrupteurs l'écrivent après Meta : `mba-activation` (l'Accueil) et `rollout` (l'onglet Aperçu).
      */
     setMbaEnabled(tenantId: string, enabled: boolean): Promise<void>;
-    /** Le répondeur de l'espace, relu APRÈS un allumage pour aligner l'audience de l'agent (`src/mba/audience.ts`). */
-    get(tenantId: string): Promise<ReglageDuRepondeur>;
+    /**
+     * Le répondeur de l'espace, relu APRÈS un allumage pour aligner l'audience de l'agent (`src/mba/audience.ts`), et son
+     * mode de passage de main, relu quand on écrit le message de passage sans l'interrupteur (`handoffVouluMaintenant`).
+     */
+    get(tenantId: string): Promise<ReglageDuRepondeur & { mbaHandoffMode: MbaHandoffMode | null }>;
+    /** Les heures d'ouverture effectives, pour le mode « heures ouvrées » (`handoffVouluMaintenant`). */
+    horairesEffectifs(tenantId: string): Promise<HorairesEffectifs>;
   };
   /**
    * Attendre, en millisecondes, avant la seconde relecture de l'audience à l'allumage (`ecrireRollout`). Injectée et
@@ -503,7 +510,12 @@ export function registerMba(app: FastifyInstance, deps: MbaRouteDeps, garde: Gua
       }
       handoff.message_selection = b.handoffMessageSelection;
     }
-    if (Object.keys(handoff).length > 0) patch.handoff = handoff;
+    if (Object.keys(handoff).length > 0) {
+      // 🔴 Meta refuse un `handoff` sans `enabled`, et ne relit pas celui que le balayage pose seul : sans cette ligne,
+      // choisir le message échouait pour tout espace qui n'en avait jamais choisi (MUTAC, 2026-11-25).
+      if (handoff.enabled === undefined) handoff.enabled = await handoffVouluMaintenant(deps.reglages, ctx.tenant);
+      patch.handoff = handoff;
+    }
     if (Object.keys(patch).length === 0) return reply.code(400).send({ error: 'aucun réglage à modifier' });
 
     await modifierSettings(ctx.client, ctx.pn, patch);

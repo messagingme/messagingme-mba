@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 Le passage de main de l'agent de Meta écrit complet : la relecture (2026-11-25, aucun rouge)
+
+- La route `PATCH .../settings` pose `handoff.enabled` depuis le mode en base quand l'écran ne l'envoie pas, même si Meta
+  en a déjà un : un espace SANS mode dont Meta aurait `enabled: false` (posé ailleurs) repasse à `true` en choisissant le
+  message. Cohérent avec l'écran (`always`) et la règle « la base fait foi » ; le poser seulement s'il manque à l'existant
+  (dans `ecrireReglages`) éviterait aussi la lecture du mode.
+- `get` ou `horairesEffectifs` en échec rend 500 au choix du message (avant, Meta refusait de toute façon).
+- Un `message_selection: null` explicite relu chez Meta écraserait `DEFAULT` (improbable) : un `??` sur la clé.
+- Le test de parité du mode par défaut lit `web/lib/api/stats.ts` par une regex, fragile à un reformatage.
+
 ## 🟡 « Je corrige » sans rien proposer : la relecture (2026-11-25, aucun rouge)
 
 - La détection d'annonce (`annonceUnChangement`) rate des formes : « je vais le corriger », « voici la correction »,

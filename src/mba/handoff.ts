@@ -63,6 +63,26 @@ function valeurVoulue(
   return withinBusinessHours(maintenant, horaires.timezone, horaires.businessHours);
 }
 
+/** Le mode d'un espace qui n'a jamais choisi : celui que l'écran affiche (`DEFAULT_MBA_HANDOFF_MODE`, `web/lib/api/stats.ts`). */
+export const MODE_HANDOFF_PAR_DEFAUT: MbaHandoffMode = 'always';
+
+/**
+ * `handoff.enabled` tel que le mode de l'espace le veut à l'instant. 🔴 L'écriture du MESSAGE de passage en a besoin :
+ * Meta refuse un bloc `handoff` sans `enabled` (« violated JSON schema constraint 'required' »), et ne relit pas celui
+ * que le balayage avait posé seul : choisir le message échouait chez MUTAC (2026-11-25). La base est la source de vérité.
+ */
+export async function handoffVouluMaintenant(
+  reglages: {
+    get(tenantId: string): Promise<{ mbaHandoffMode: MbaHandoffMode | null }>;
+    horairesEffectifs(tenantId: string): Promise<HorairesEffectifs>;
+  },
+  tenantId: string,
+  maintenant: Date = new Date(),
+): Promise<boolean> {
+  const mode = (await reglages.get(tenantId)).mbaHandoffMode ?? MODE_HANDOFF_PAR_DEFAUT;
+  return valeurVoulue(mode, maintenant, mode === 'business_hours' ? await reglages.horairesEffectifs(tenantId) : undefined);
+}
+
 /**
  * Enregistre le choix du client puis tente de l'appliquer immédiatement chez Meta. La base reste la source de
  * vérité : une panne Meta rend `false`, sans annuler le choix, et le balayage le rattrapera. La réponse HTTP

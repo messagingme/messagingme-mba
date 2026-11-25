@@ -173,6 +173,20 @@ describe('modifierSettings : survivre à un champ que Meta ajouterait', () => {
       message_selection: 'CUSTOM',
     });
   });
+
+  it('🔴 un handoff jamais choisi part avec message_selection DEFAULT, sinon Meta ne le relit pas', async () => {
+    // Mesuré le 2026-11-25 : écrit avec le seul `enabled`, le bloc est accepté puis absent à la relecture, et le balayage
+    // le réécrivait toutes les 5 minutes. `DEFAULT` est ce que Meta applique quand rien n'est choisi.
+    const { impl, appels } = faux([{ body: [{ agent_id: 'a1' }] }, { body: {} }]);
+    await modifierSettings(new MbaClient('tok', impl), 'PN1', { handoff: { enabled: false } });
+    expect((appels[1]!.body as { handoff: unknown }).handoff).toEqual({ enabled: false, message_selection: 'DEFAULT' });
+  });
+
+  it('sans handoff dans le patch, aucun bloc handoff n’est fabriqué', async () => {
+    const { impl, appels } = faux([{ body: [{ agent_id: 'a1' }] }, { body: {} }]);
+    await modifierSettings(new MbaClient('tok', impl), 'PN1', { never_say_phrases: [] });
+    expect(appels[1]!.body as Record<string, unknown>).not.toHaveProperty('handoff');
+  });
 });
 
 describe('MbaClient : agent_event', () => {
