@@ -291,13 +291,13 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
     if (source.authKind === 'header' && edition.entete.trim() !== (source.authHeaderName ?? '')) {
       modification.authHeaderName = edition.entete.trim();
     }
-    if (edition.oauth && JSON.stringify(oauthNettoye(edition.oauth)) !== JSON.stringify(source.oauth)) {
+    if (edition.oauth && JSON.stringify(oauthNettoye(edition.oauth)) !== JSON.stringify(source.oauth ?? null)) {
       modification.oauth = oauthNettoye(edition.oauth);
     }
   }
   const editionValide = edition !== null && edition.label.trim() !== '' && edition.baseUrl.trim() !== ''
     && (source.authKind !== 'header' || edition.entete.trim() !== '')
-    && (edition.oauth === null || oauthComplet(edition.oauth));
+    && (!edition.oauth || oauthComplet(edition.oauth));
 
   async function enregistrer() {
     if (enregistrement) return;
@@ -337,7 +337,8 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
               disabled={occupe}
               onClick={() => {
                 setErreurEdition(null);
-                setEdition({ label: source.label, baseUrl: source.baseUrl, entete: source.authHeaderName ?? '', oauth: source.oauth });
+                // `?? null` : une API plus ancienne (et les fixtures qui la reproduisent) ne rend pas `oauth`.
+                setEdition({ label: source.label, baseUrl: source.baseUrl, entete: source.authHeaderName ?? '', oauth: source.oauth ?? null });
               }}
             >
               {t('Modifier', 'Edit')}
