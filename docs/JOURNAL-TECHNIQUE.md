@@ -83,6 +83,11 @@ CI : `integration` rouge sur `37e17ce29`, `lireEntreprise` rendait une clé de p
 lecture de l'offre et la requête de la garde de création jouées telles quelles, aucun pack ni aucune case cochée, aucune
 transaction longue ni verrou en attente ; fumée verte. Les packs ne sont pas encore en vente : les deux prix Stripe
 attendent le geste de Julien, à poser après ce déploiement. Essais réels 286 et 287 dans la liste privée.
+Le même jour, 08:33 UTC : les deux prix créés par Julien (« 1000 contacts » et « 1000 contacts yearly ») relus chez
+Stripe en lecture seule (2 000 et 24 000 centimes, euros, mensuel et annuel, hors taxe, live, actifs), posés en clair sur
+`mba-api` (variables d'avant et secrets intacts, même image) et dans le `.env.prod` des workers (copie gardée à côté) :
+les packs sont en vente. Le redéploiement du conteneur a duré 18 minutes, pendant la maintenance planifiée de Scaleway
+(conteneurs d'Amsterdam, 07:00 à 11:00 UTC) ; l'ancienne révision a servi tout ce temps, aucune erreur mesurée.
 
 ## 2026-11-24 : segments Shopify, lot 6b : les étiquettes des clients Shopify
 
