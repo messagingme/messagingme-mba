@@ -4571,7 +4571,7 @@ réponse qui part, un outil qui s'exécute, une sortie qui reprend le scénario,
 |---|---|
 | **Construire en parlant** | Décrire son métier à un assistant, qui propose des réglages |
 | **Identité et ton** | Nom interne, nom donné au contact, ton, personnalité, mention d'IA |
-| **Objectif et transferts** | Ce qu'il est là pour faire, quand passer la main, ses règles d'arrêt |
+| **Objectif et transferts** | Ce qu'il est là pour faire, ses règles d'arrêt |
 | **Base de connaissance** | Les fiches dont il a le droit de se servir pour répondre |
 | **Outils** | Ce qu'il a le droit de FAIRE, en plus de parler |
 | **Périmètre et garde-fous** | Ses plafonds, et ce qu'il peut faire face à un contact inconnu |
@@ -4589,9 +4589,13 @@ réponse qui part, un outil qui s'exécute, une sortie qui reprend le scénario,
 - ✅ **Identité et ton** : le **nom interne** (le vôtre), le **nom donné au contact** (laissé vide, l'agent ne
   s'en donne aucun), le **ton** (« vouvoiement, phrases courtes, pas d'emoji », écrit comme on le dirait à une
   nouvelle recrue) et la **personnalité**.
-- ✅ **Objectif et transferts** : l'**objectif** est le champ qui pèse le plus sur ce que l'agent répondra, et
-  **quand passer la main à un humain** s'écrit en français ordinaire (« dès qu'on parle d'un remboursement,
-  ou si le contact s'énerve »).
+- ✅ **Objectif et transferts** : l'**objectif** est le champ qui pèse le plus sur ce que l'agent répondra.
+- ✅ **Quand passer la main à un humain se règle dans l'outil « Passer la main à un humain »** (2026-11-25, décision de
+  Julien) : c'est son « Quand l'appeler », en français ordinaire (« dès qu'on parle d'un remboursement, ou si le
+  contact s'énerve »). L'ancien champ de l'onglet Objectif a disparu et l'agent ne le lit plus, sans reprise des textes
+  déjà écrits : chez un agent qui en avait un, la règle se réécrit dans l'outil. « Construire en parlant » pose l'outil
+  avec la règle que vous lui donnez et l'active à l'enregistrement ; une réponse « jamais » ne pose rien. Sans l'outil
+  actif, l'agent ne promet plus qu'un humain va reprendre. Claude (`update_agent`) écrit la règle dans l'outil.
 - ✅ **Périmètre et garde-fous** : **tours maximum** (1 à 20, 8 par défaut), **appels d'outils maximum** (0 à
   60, 12 par défaut), **inactivité en minutes** (1 à 1440, 30 par défaut, au-delà le parcours part par « Pas de
   réponse »), et **ce que l'agent a le droit de faire face à un contact inconnu du mini-CRM** : aucun outil,

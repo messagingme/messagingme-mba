@@ -1485,6 +1485,35 @@ describe('le oui aux données de la fiche pose l’outil', () => {
     expect(relue.changements).toBeUndefined();
   });
 
+  it('🔴 la règle de transfert devient l’outil « Passer la main », posé et activé, et quitte la fiche (2026-11-25)', async () => {
+    const avecRegle = reponse(JSON.stringify({ message: 'Parfait.', reponses: [], fiche: { reglesTransfert: 'Dès qu’on parle de remboursement.' } }));
+    const res = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [avecRegle, avecRegle] }).executer('oui');
+    expect(res.couverture.manquants).toEqual([]);
+    expect(res.proposition.fiche).not.toHaveProperty('reglesTransfert');
+    const outil = res.proposition.outils.find((o: { handler: string }) => o.handler === 'escalader');
+    expect(outil?.description).toBe('Dès qu’on parle de remboursement.');
+    expect(res.proposition.outilsAActiver).toEqual(expect.arrayContaining(['escalader', 'lire_contact']));
+    expect(res.changements.map((c: { champ: string }) => c.champ)).toEqual(expect.arrayContaining(['outil.escalader.description', 'outil.escalader.actif']));
+    expect(res.changements.map((c: { champ: string }) => c.champ)).not.toContain('fiche.reglesTransfert');
+  });
+
+  it('🔴 un agent qui qualifie avant de transférer ne se voit pas proposer « Passer la main » (le camp le refuserait)', async () => {
+    const avecRegle = reponse(JSON.stringify({ message: 'Parfait.', reponses: [], fiche: { reglesTransfert: 'Sur demande.' } }));
+    const res = await app({
+      entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [avecRegle, avecRegle],
+      outils: [{ handler: 'qualifier_transferer', description: 'Qualifie.', nePasUtiliser: '', actif: true }],
+    }).executer('oui');
+    expect(res.proposition.outils.some((o: { handler: string }) => o.handler === 'escalader')).toBe(false);
+    expect(res.proposition.outilsAActiver).not.toContain('escalader');
+  });
+
+  it('une règle « jamais » ne pose aucun outil de transfert', async () => {
+    const jamais = reponse(JSON.stringify({ message: 'Parfait.', reponses: [], fiche: { reglesTransfert: 'Jamais : l’agent garde la conversation.' } }));
+    const res = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [jamais, jamais] }).executer('oui');
+    expect(res.proposition.outils.some((o: { handler: string }) => o.handler === 'escalader')).toBe(false);
+    expect(res.proposition.outilsAActiver).toEqual(['lire_contact']);
+  });
+
   it('déjà actif avec les bons mots : rien à enregistrer pour lui', async () => {
     const premier = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] }).executer('oui');
     const carte = premier.proposition.outils.find((o: { handler: string }) => o.handler === 'lire_contact')!;

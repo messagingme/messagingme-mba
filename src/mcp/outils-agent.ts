@@ -15,7 +15,7 @@ import {
 } from '../agent/connaissance';
 import { MAX_CARACTERES_MESSAGE_ESSAI, MAX_MESSAGES_ESSAI, ROLES_ESSAI, essayerAgent, type DepsEssai } from '../agent/essai';
 import {
-  OUTILS_SURS, ajouterOutilsSurs, HHMM, reglerAction, reglerHeuresOuverture, reglerModeTransfert, supprimerAction,
+  OUTILS_SURS, ajouterOutilsSurs, HHMM, reglerAction, reglerHeuresOuverture, reglerPasserLaMain, MAX_REGLE_TRANSFERT, reglerModeTransfert, supprimerAction,
   type OutilsActions,
 } from '../agent/reglages';
 import type { ActionDeLaConversation } from '../agent/actions.pg';
@@ -449,8 +449,10 @@ export const OUTILS_AGENT: OutilMcp[] = [
         ton: { type: 'string', maxLength: BORNES_FICHE.ton, description: 'The agent\'s tone (informal or formal address, register, length of answers).' },
         personnalite: { type: 'string', maxLength: BORNES_FICHE.personnalite, description: 'Its personality, as the customer will perceive it.' },
         reglesTransfert: {
-          type: 'string', maxLength: BORNES_FICHE.reglesTransfert,
-          description: 'When to hand over to a human, in plain language, as the person would say it.',
+          type: 'string', minLength: 1, maxLength: MAX_REGLE_TRANSFERT,
+          description: 'When to hand over to a human, in plain language, as the person would say it. Written as the '
+            + 'description ("when to call it") of the agent\'s hand-over tool (escalader), which is added and '
+            + 'enabled if needed.',
         },
         sorties: {
           type: 'array', maxItems: MAX_SORTIES,
@@ -495,7 +497,10 @@ export const OUTILS_AGENT: OutilMcp[] = [
       const interdites = Object.keys(args).filter((k) => !CLES_UPDATE_AGENT.has(k));
       if (interdites.length > 0) throw new RefusOutil(champsNonModifiables(interdites), 'invalid_args');
       const langue = langueSaisie(args);
-      const contenu = Object.fromEntries(CHAMPS_FICHE_MCP.filter((k) => args[k] !== undefined).map((k) => [k, args[k]]));
+      // 🔴 La règle de transfert n'est plus un champ de fiche (2026-11-25) : elle devient la description de l'outil
+      // « Passer la main », posé et activé au besoin. Le nom du champ reste, pour les intégrations qui l'envoient.
+      const contenu = Object.fromEntries(CHAMPS_FICHE_MCP
+        .filter((k) => k !== 'reglesTransfert' && args[k] !== undefined).map((k) => [k, args[k]]));
       // La saisie de la console, telle quelle : les bornes et le contrôle de complétude sont ceux de `modifierAgent`, qui
       // signe aussi le changement de mention dans le journal (`agent.mention_modifiee`).
       const corps = {
@@ -505,7 +510,16 @@ export const OUTILS_AGENT: OutilMcp[] = [
         ...(args.fiche_version !== undefined ? { ficheVersionAttendue: args.fiche_version } : {}),
       };
       const auteur = { userId: signataire(personne), origine: 'mcp' as const };
-      return { agent: vueAgent(valeurOuRefus(await modifierAgent(deps.agentIa.gestion, tenantId, id, corps, auteur))) };
+      const aEcrire = Object.keys(contenu).length > 0 || args.modele !== undefined || langue !== undefined;
+      // La fiche d'abord : un refus (verrou de version, complétude) ne doit pas laisser l'outil déjà réécrit derrière lui.
+      const ecrit = aEcrire ? valeurOuRefus(await modifierAgent(deps.agentIa.gestion, tenantId, id, corps, auteur)) : null;
+      if (args.reglesTransfert !== undefined) {
+        valeurOuRefus(await reglerPasserLaMain(deps.agentIa.outils, tenantId, id, args.reglesTransfert, signataire(personne)));
+      }
+      if (ecrit) return { agent: vueAgent(ecrit) };
+      const agent = estUuid(id) ? await deps.agentIa.gestion.agents.complet(tenantId, id) : null;
+      if (!agent) throw new RefusOutil(AGENT_INTROUVABLE, 'not_found');
+      return { agent: vueAgent(agent) };
     },
   },
   {

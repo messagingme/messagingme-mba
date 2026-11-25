@@ -1767,6 +1767,12 @@ point est ouvert, c'est le serveur qui pose sa question, SEULE : elle remplace c
 l'accusé de réception (`sansSesQuestions`) ; deux questions dans un message, le client répond à l'autre et l'entretien ne
 finit jamais. Seul le serveur dit que l'agent est prêt : pendant l'entretien, un message du modèle qui l'annonce
 (`annonceUneFin`) part entier, remplacé par `PAS_ENCORE_FINI` et la question du point ouvert.
+🔴 **« Quand passer la main » est la description de l'outil `escalader`, plus un champ de fiche** (2026-11-25) : le
+prompt ne lit plus `reglesTransfert`, resté dans la fiche et ignoré. L'entretien transforme la règle que le modèle
+propose en outil posé et activé (`outilPasserLaMain`, sauf « jamais », et jamais chez un agent qui qualifie avant de
+transférer, que le camp refuserait) ; `update_agent` l'écrit par `reglerPasserLaMain` (description avant activation,
+fiche avant outil). La consigne ne promet un transfert que si l'agent a un chemin vers l'équipe (`peutPasserLaMain` :
+un outil d'un camp, ou une règle d'arrêt vers un humain).
 🔴 **La proposition survit au tour qui l'a produite** (`en-attente.ts`) : gardée avec l'entretien (`enAttente`), elle
 revient à la relecture (`GET /setup`), RECALCULÉE contre l'agent actuel (une ligne déjà enregistrée n'y est plus), par
 la même construction que le tour (`rendreProposition`). « Enregistrer » et « Tout jeter » l'oublient

@@ -1,5 +1,13 @@
 # todo.md : backlog
 
+## 🟡 « Quand passer la main » dans l'outil : la relecture du lot 2 (2026-11-25, aucun rouge)
+
+- `get_agent` (MCP) rend encore `fiche.reglesTransfert`, l'ancienne valeur ignorée, et pas la description de l'outil
+  « Passer la main » : une intégration qui écrit puis relit croit la règle inchangée.
+- Une réponse « jamais » ne désactive pas un « Passer la main » déjà actif : l'agent garde son ancienne règle.
+- « Jamais sans avoir demandé son nom, puis transférer » se lit comme « jamais » et ne pose rien.
+- `NOMS_DES_CHAMPS` (historique, `gestion.ts`) garde « règles de transfert » pour un champ désormais ignoré.
+
 ## 🟡 Un contact est un contact, et la limite du Business dans /ops (lot 3 du plan `2026-11-24-contacts-packs-et-remplacement`) : la relecture (2026-11-25, aucun rouge)
 
 🔴 **Avant de poser une limite de contacts sur un vrai client Entreprise**, les points 1 et 2 (aujourd'hui seule MUTAC en a

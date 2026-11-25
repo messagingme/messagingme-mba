@@ -28,7 +28,7 @@ import {
   type DepsConnaissance,
 } from '../src/agent/connaissance';
 import { saisieDEssai, type DepsEssai } from '../src/agent/essai';
-import { saisieDOutilsSurs } from '../src/agent/reglages';
+import { saisieDOutilsSurs, saisieRegleTransfert } from '../src/agent/reglages';
 import { MODES_TRANSFERT, type ModeTransfert } from '../src/agent/disponibilite-equipe';
 import { MODELES_CHOISIS, MODELE_AGENT_CLAUDE_CODE } from '../src/agent/modeles';
 import type { DepsAchatCreditIa } from '../src/stripe/paiement';
@@ -713,6 +713,38 @@ describe('les outils de l’agent appellent les fonctions de la console, dans l�
     await server.close();
   });
 
+  it('🔴 update_agent : la règle de transfert devient l’outil « Passer la main », posé, ACTIVÉ, jamais écrite dans la fiche (2026-11-25)', async () => {
+    const { server, cap } = monter();
+    const r = await appeler(server, JETON.brut, 'update_agent', { agent_id: AG, reglesTransfert: 'Dès qu’on parle de remboursement.', ton: 'Chaleureux.' });
+    expect(r.isError, r.texte).toBe(false);
+    expect(cap.ajouts).toEqual(['escalader']);
+    expect(cap.activations).toEqual([{ id: 'id-escalader', par: PERSONNE }]);
+    expect(cap.patchesOutils).toEqual([{ id: 'id-escalader', patch: { description: 'Dès qu’on parle de remboursement.' } }]);
+    // La fiche ne reçoit que le reste : le champ de transfert n'y est plus écrit.
+    expect(cap.patches).toEqual([{ tenant: 't1', patch: { contenu: { ton: 'Chaleureux.' } } }]);
+    await server.close();
+  });
+
+  it('🔴 update_agent : une fiche refusée ne laisse pas l’outil réécrit derrière elle', async () => {
+    const { server, cap } = monter();
+    // Un modèle hors liste fait refuser l'écriture de la fiche : la règle de transfert, écrite APRÈS, ne part pas.
+    const r = await appeler(server, JETON.brut, 'update_agent', { agent_id: AG, reglesTransfert: 'Sur demande.', modele: 'openai/gpt-maison' });
+    expect(r.isError).toBe(true);
+    expect(cap.ajouts).toEqual([]);
+    expect(cap.patchesOutils).toEqual([]);
+    await server.close();
+  });
+
+  it('update_agent : la règle de transfert SEULE ne touche pas la fiche, et une règle vide est refusée', async () => {
+    const { server, cap } = monter();
+    const r = await appeler(server, JETON.brut, 'update_agent', { agent_id: AG, reglesTransfert: 'Sur demande.' });
+    expect(r.isError, r.texte).toBe(false);
+    expect(cap.patches).toEqual([]);
+    expect(cap.patchesOutils).toEqual([{ id: 'id-escalader', patch: { description: 'Sur demande.' } }]);
+    expect((await appeler(server, JETON.brut, 'update_agent', { agent_id: AG, reglesTransfert: '   ' })).isError).toBe(true);
+    await server.close();
+  });
+
   it('update_agent : un modèle hors liste et un agent d’un autre espace sont refusés avec la phrase de la console', async () => {
     const { server, cap } = monter();
     expect((await appeler(server, JETON.brut, 'update_agent', { agent_id: AG, modele: 'openai/gpt-maison' })).texte).toMatch(/^modèle inconnu/);
@@ -1182,7 +1214,7 @@ describe('🔴 les bornes de la console sont annoncées dans les schémas des ou
   const CAS: Array<[outil: string, bornes: Borne[]]> = [
     ['create_agent', bornesDesChamps(champsDe(saisieDeCreation))],
     ['update_agent', bornesDesChamps({
-      objectif: fiche.objectif, ton: fiche.ton, personnalite: fiche.personnalite, reglesTransfert: fiche.reglesTransfert,
+      objectif: fiche.objectif, ton: fiche.ton, personnalite: fiche.personnalite, reglesTransfert: saisieRegleTransfert,
       sorties: fiche.sorties, modele: modification.modele, fiche_version: modification.ficheVersionAttendue,
     })],
     ['set_agent_tools', bornesDesChamps({ outils: saisieDOutilsSurs })],

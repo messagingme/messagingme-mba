@@ -2,7 +2,7 @@
 description: Créer un agent IA WhatsApp, le régler en parlant à l'assistant ou onglet par onglet, l'activer, puis le faire répondre à vos clients.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: a88617
+source_empreinte: bc1602
 publique: oui
 rubrique: parler-aux-clients
 rang: 10
@@ -103,10 +103,11 @@ personnalité et la mention d'IA.
 - La mention d'IA ne peut jamais être vide : voir « Le modèle, le crédit et les garde-fous d'un agent IA ».
 
 **8. À la main : Objectif et transferts.** Onglet « Objectif et transferts » : l'objectif de l'agent en une ou deux
-phrases, puis quand passer la main à un humain, en français ordinaire.
+phrases.
 
 - L'objectif est le champ qui pèse le plus sur ce que l'agent répondra.
-- Pour le transfert, écrivez comme vous le diriez : « dès qu'on parle d'un remboursement, ou si le contact s'énerve ».
+- Quand passer la main à un humain se règle dans l'onglet Outils, sur l'outil « Passer la main à un humain » :
+  voir « Donner des outils à un agent IA ».
 
 **9. Déclarer les règles d'arrêt.** Plus bas dans le même onglet, « Règles d'arrêt » : un code, ce qu'il veut dire,
 puis « Ajouter ». Une règle d'arrêt, c'est « quand l'agent a fini de faire ça, il sort par là ».

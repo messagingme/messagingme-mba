@@ -153,6 +153,41 @@ export async function ajouterOutilsSurs(
 }
 
 /**
+ * 🔴 « QUAND PASSER LA MAIN À UN HUMAIN » EST LA DESCRIPTION DE L'OUTIL « Passer la main » (2026-11-25, décision de
+ * Julien) : le prompt ne lit plus `reglesTransfert`. Pose l'outil s'il manque, écrit la règle comme « quand l'appeler »,
+ * et l'active au nom de `personne`, comme `ajouterOutilsSurs`. Sert à `update_agent` (MCP), qui garde son champ.
+ */
+export const MAX_REGLE_TRANSFERT = 2000;
+/** La règle saisie : la borne de la description d'un outil (`agent-tools.ts`), pas celle de l'ancien champ (4 000). */
+export const saisieRegleTransfert = z.string().trim().min(1).max(MAX_REGLE_TRANSFERT);
+
+export async function reglerPasserLaMain(
+  outils: OutilsActions, tenantId: string, agentId: string, regle: unknown, personne: string,
+): Promise<Issue<OutilComplet>> {
+  const lue = saisieRegleTransfert.safeParse(regle);
+  if (!lue.success) return refus(400, `la règle de transfert : un texte de 1 à ${MAX_REGLE_TRANSFERT} caractères`);
+  const texte = lue.data;
+  if (!estUuid(agentId)) return refus(404, 'agent introuvable');
+  if (personne === '') return refus(403, 'activation impossible sans utilisateur identifié');
+  // La règle s'écrit AVANT l'activation : un outil actif avec la description par défaut, même un instant, transférerait
+  // sur une règle que personne n'a donnée.
+  let outil = (await outils.listToutes(tenantId, agentId)).find((o) => handlerMaison(o) === 'escalader');
+  if (!outil) {
+    const pose = await ajouterOutilMaison(outils, tenantId, agentId, 'escalader');
+    if (!pose.ok) return pose;
+    outil = pose.valeur;
+  }
+  if (outil.description !== texte) {
+    const ecrit = await outils.patch(tenantId, agentId, outil.id, { description: texte });
+    if (!ecrit) return refus(404, 'outil introuvable');
+    outil = ecrit;
+  }
+  return ajouterOutilsSurs(outils, tenantId, agentId, ['escalader'], personne).then((r) => (
+    r.ok ? { ok: true as const, valeur: r.valeur[0]! } : r
+  ));
+}
+
+/**
  * Quand l'équipe est joignable, pour les agents IA de l'espace. Ce réglage ne décide pas si l'on transfère (la
  * conversation arrive dans « À traiter » dans tous les cas), mais ce que l'agent a le droit de promettre.
  */

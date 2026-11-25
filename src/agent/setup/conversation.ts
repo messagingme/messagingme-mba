@@ -330,7 +330,9 @@ function etat(ctx: ContexteConstruction): string {
     `Objectif : ${f.objectif || '(vide)'}`,
     `Ton : ${f.ton || '(vide)'}`,
     `Personnalité : ${f.personnalite || '(vide)'}`,
-    `Quand passer la main à un humain : ${f.reglesTransfert || '(vide)'}`,
+    // Depuis le 2026-11-25, la règle de transfert vit dans l'outil « Passer la main » (`escalader`), plus dans la fiche.
+    `Quand passer la main à un humain (outil « Passer la main ») : ${
+      ctx.outils.find((o) => o.handler === 'escalader')?.description || '(outil absent)'}`,
     `Règles d'arrêt : ${f.sorties.length === 0 ? '(aucune)' : f.sorties.map((s) => `${s.code} (${s.label})`).join(', ')}`,
     /**
      * Les deux réglages hors fiche : l'entretien pose une question sur chacun (`annonce_ia`, `silence`), le

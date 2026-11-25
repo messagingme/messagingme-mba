@@ -7,7 +7,7 @@ import type { OutilDefini } from './catalog';
 import type { SortieAgent } from './agent-store';
 import type { FrequenceMentionIa } from './agent-store';
 import { outilsExposes } from './outils-maison';
-import { blocResultatOutil, ressembleAUnBlocOutil, promptSysteme, type ContexteAgent } from './prompt';
+import { blocResultatOutil, peutPasserLaMain, ressembleAUnBlocOutil, promptSysteme, type ContexteAgent } from './prompt';
 import type { EquipePourPrompt } from './disponibilite-equipe';
 import { SORTIE_PLAFOND } from '../../web/lib/partage/sorties-agent';
 import { prixClientMicroEur } from './devise';
@@ -288,6 +288,7 @@ async function boucler(
         annoncerIa,
         contenu: agent.contenu,
         contactConnu: contact !== null,
+        peutPasserLaMain: peutPasserLaMain(agent.outilsActifs, agent.sorties),
         equipe: agent.equipe,
       }),
     },

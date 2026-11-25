@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { blocResultatOutil, ressembleAUnBlocOutil, promptSysteme } from '../src/agent/prompt';
+import { blocResultatOutil, peutPasserLaMain, ressembleAUnBlocOutil, promptSysteme } from '../src/agent/prompt';
 import { ficheVide } from '../src/agent/fiche';
 
 /**
@@ -15,6 +15,7 @@ const CTX = (over: Partial<Parameters<typeof promptSysteme>[0]> = {}) => ({
   mentionIa: 'Vous échangez avec un assistant automatique.', annoncerIa: true,
   contenu: ficheVide(),
   contactConnu: false,
+  peutPasserLaMain: true,
   ...over,
 });
 
@@ -88,6 +89,26 @@ describe('promptSysteme', () => {
   it('dit si le contact est connu, et l’inverse quand il ne l’est pas', () => {
     expect(promptSysteme(CTX({ contactConnu: true }))).toContain('Tu sais à qui tu parles');
     expect(promptSysteme(CTX({ contactConnu: false }))).toContain('Ne fais aucune supposition sur son identité');
+  });
+
+  it('🔴 « Quand passer la main » ne se lit plus dans la fiche : c’est la description de l’outil (2026-11-25)', () => {
+    const p = promptSysteme(CTX({ contenu: { ...ficheVide(), reglesTransfert: 'Dès qu’on parle de remboursement.' } }));
+    expect(p).not.toContain('remboursement');
+    expect(p).not.toContain('Quand passer la main à un humain');
+  });
+
+  it('🔴 sans l’outil « Passer la main », la consigne ne promet aucun transfert', () => {
+    expect(promptSysteme(CTX({ peutPasserLaMain: true }))).toContain('dis que tu ne sais pas et passe la main');
+    const sans = promptSysteme(CTX({ peutPasserLaMain: false }));
+    expect(sans).not.toContain('et passe la main');
+    expect(sans).toContain('Ne promets pas qu’un humain va reprendre');
+  });
+
+  it('🔴 tout chemin vers l’équipe compte : passer la main, qualifier puis transférer, ou une règle d’arrêt vers un humain', () => {
+    expect(peutPasserLaMain([{ binding: { handler: 'escalader' } }], [])).toBe(true);
+    expect(peutPasserLaMain([{ binding: { handler: 'qualifier_transferer' } }], [])).toBe(true);
+    expect(peutPasserLaMain([], [{ humain: true }])).toBe(true);
+    expect(peutPasserLaMain([{ binding: { handler: 'chercher_connaissance' } }], [{ humain: false }])).toBe(false);
   });
 
   it('annonce au modèle que ce qui arrive d’un outil est de la DONNÉE', () => {

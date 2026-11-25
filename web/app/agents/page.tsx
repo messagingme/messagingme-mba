@@ -788,11 +788,12 @@ function OngletObjectif({ agent, busy, onSave }: { agent: AgentComplet; busy: bo
           aide={t('Ce qu’il est là pour faire, en une ou deux phrases. C’est le champ qui pèse le plus sur ce qu’il répondra.', 'What it is there to do, in a sentence or two. This is the field that weighs most on what it answers.')}
           valeur={c.objectif} onSave={(v) => onSave({ contenu: { ...c, objectif: v } })}
         />
-        <ChampSortie
-          testId="agent-transferts" busy={busy} multi lignes={4} label={t('Quand passer la main à un humain', 'When to hand over to a human')}
-          aide={t('En français, comme vous le diriez. Par exemple : dès qu’on parle d’un remboursement, ou si le contact s’énerve.', 'In plain words. For example: as soon as a refund comes up, or if the contact gets upset.')}
-          valeur={c.reglesTransfert} onSave={(v) => onSave({ contenu: { ...c, reglesTransfert: v } })}
-        />
+        {/* 🔴 « Quand passer la main » n'est plus un champ de fiche (2026-11-25, décision de Julien) : c'est la description
+            de l'outil « Passer la main à un humain », que le prompt lit. Le champ ici n'aurait plus rien changé. */}
+        <p data-testid="agent-transferts-outil" className="text-xs leading-relaxed text-ink-500">
+          {t('Quand passer la main à un humain se règle dans l’onglet Outils, sur l’outil « Passer la main à un humain » (« Quand l’appeler »).',
+            'When to hand over to a human is set in the Tools tab, on the “Hand over to a human” tool (“When to call it”).')}
+        </p>
       </div>
       <div className={`${cardCls} flex flex-col gap-3`}>
         <div>

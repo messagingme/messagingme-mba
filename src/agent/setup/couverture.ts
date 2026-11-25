@@ -407,6 +407,30 @@ export function outilLireFiche(inv: Inventaire): { handler: string; description:
   };
 }
 
+/** Le handler de l'outil « Passer la main à un humain ». */
+export const HANDLER_PASSER_LA_MAIN = 'escalader';
+
+/**
+ * 🔴 « QUAND PASSER LA MAIN » DEVIENT L'OUTIL, PLUS UN CHAMP DE FICHE (2026-11-25, décision de Julien). La règle que le
+ * modèle écrit pour le point `humain` (`fiche.reglesTransfert` de sa proposition, ignorée par le prompt depuis) devient
+ * la description de l'outil « Passer la main », que le serveur pose et fait activer à l'enregistrement, comme la lecture
+ * de la fiche. Une règle qui dit « jamais » ne pose rien. La clause « quand NE PAS l'appeler » existante est gardée.
+ */
+export function outilPasserLaMain(
+  regle: string | undefined,
+  existant: { nePasUtiliser: string } | undefined,
+  nePasUtiliserParDefaut: string,
+  borne: number,
+): { handler: string; description: string; nePasUtiliser: string } | null {
+  const texte = (regle ?? '').trim();
+  if (texte === '' || /^(jamais|aucun transfert|ne (passe|transf[eè]re) jamais)\b/i.test(texte)) return null;
+  return {
+    handler: HANDLER_PASSER_LA_MAIN,
+    description: texte.slice(0, borne),
+    nePasUtiliser: existant?.nePasUtiliser ?? nePasUtiliserParDefaut,
+  };
+}
+
 /** Une réponse retenue par l'assistant, rattachée à un point de l'ordre du jour. */
 export interface Reponse {
   point: string;
@@ -563,7 +587,8 @@ export function pointsSansContenu(fiche: FicheAgentContenu): string[] {
   const out: string[] = [];
   if (vide(fiche.objectif)) out.push('mission');
   if (fiche.sorties.length === 0) out.push('aboutissements');
-  if (vide(fiche.reglesTransfert)) out.push('humain');
+  // `humain` n'est plus un champ de fiche (2026-11-25) : sa réponse devient l'outil « Passer la main », et « jamais »
+  // est une réponse valable. Le signaler vide le ferait reposer à chaque réouverture.
   // `identite` couvre le nom et les traits : vide seulement si les deux le sont.
   if (vide(fiche.nom) && vide(fiche.personnalite)) out.push('identite');
   if (vide(fiche.ton)) out.push('ton');

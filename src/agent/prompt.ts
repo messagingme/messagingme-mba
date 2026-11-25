@@ -1,6 +1,7 @@
 import type { FicheAgentContenu } from './fiche';
 import type { EquipePourPrompt } from './disponibilite-equipe';
 import { blocDelimite } from './bloc-donnees';
+import { campDeLOutil } from './camp';
 
 /**
  * Le prompt système d'un agent, dérivé de sa fiche.
@@ -25,8 +26,21 @@ export interface ContexteAgent {
   contenu: FicheAgentContenu;
   /** Le contact est-il connu du mini-CRM ? Change ce que l'agent peut faire, il doit le savoir. */
   contactConnu: boolean;
+  /** L'outil « Passer la main à un humain » est-il actif ? Sans lui, la consigne ne promet aucun transfert. */
+  peutPasserLaMain: boolean;
   /** L'équipe est-elle joignable en ce moment, et sinon quand reprend-elle ? Absente : la consigne n'en dit rien, comme avant le réglage ; présente, elle est dite dans les deux sens. */
   equipe?: EquipePourPrompt;
+}
+
+/**
+ * L'agent a-t-il un chemin vers l'équipe ? Tout chemin compte : « Passer la main » (camp `direct`), la qualification qui
+ * transfère (camp `qualification`), ou une règle d'arrêt qui passe à un humain. Ne regarder que `escalader` retirait la
+ * consigne de transfert aux agents qui qualifient avant de passer la main (relecture du 2026-11-25).
+ */
+export function peutPasserLaMain(
+  outilsActifs: ReadonlyArray<{ binding: unknown }>, sorties: ReadonlyArray<{ humain?: boolean }>,
+): boolean {
+  return outilsActifs.some((o) => campDeLOutil(o.binding) !== null) || sorties.some((s) => s.humain === true);
 }
 
 /** Une section, omise quand le client ne l'a pas remplie : une rubrique vide dans un prompt est du bruit que
@@ -48,7 +62,8 @@ export function promptSysteme(ctx: ContexteAgent): string {
     ...section('Ton nom :', c.nom),
     ...section('Ton ton :', c.ton),
     ...section('Ta personnalité :', c.personnalite),
-    ...section('Quand passer la main à un humain :', c.reglesTransfert),
+    // 🔴 « Quand passer la main » ne se lit plus ici (2026-11-25, décision de Julien) : c'est la description de l'outil
+    // « Passer la main à un humain », que le modèle reçoit avec l'outil. `reglesTransfert` reste dans la fiche, ignoré.
   ];
 
   if (c.sorties.length > 0) {
@@ -61,7 +76,10 @@ export function promptSysteme(ctx: ContexteAgent): string {
   blocs.push([
     'Règles, dans cet ordre :',
     '- Avant de répondre à toute question de fond, cherche dans ta base de connaissance. Ne réponds JAMAIS de mémoire.',
-    '- Si la recherche ne rend aucune source, ne devine pas : dis que tu ne sais pas et passe la main.',
+    // Promettre un transfert sans l'outil qui le fait laissait le client attendre un conseiller qui ne viendrait pas.
+    ctx.peutPasserLaMain
+      ? '- Si la recherche ne rend aucune source, ne devine pas : dis que tu ne sais pas et passe la main.'
+      : '- Si la recherche ne rend aucune source, ne devine pas : dis que tu ne sais pas. Ne promets pas qu’un humain va reprendre.',
     '- Réponds court. Un message WhatsApp se lit sur un téléphone.',
     // Le cerveau convertit le gras, les titres et les liens qui passent quand même (`markdownVersWhatsApp`), pas un tableau.
     '- Écris du texte WhatsApp, pas du Markdown : ni titre (#), ni tableau, ni double étoile, ni lien [texte](adresse). Pour le gras, une seule étoile de chaque côté : *comme ceci*. Une adresse s’écrit telle quelle.',

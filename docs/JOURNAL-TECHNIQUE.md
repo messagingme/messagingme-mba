@@ -5,6 +5,22 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : « Quand passer la main » devient l'outil « Passer la main à un humain »
+
+Lot 2 du plan `docs/superpowers/plans/2026-11-25-agent-objectif-seul-outils.md`. Le prompt ne lit plus
+`reglesTransfert` : la règle est la description (« quand l'appeler ») de l'outil `escalader`, que le modèle reçoit avec
+l'outil. Sans reprise des textes existants, décision assumée par Julien : chez un agent actif qui en avait un (Audencia),
+la règle se réécrit dans l'outil. L'entretien « Construire en parlant » ne propose plus le champ : la règle que le modèle
+écrit devient l'outil, posé et activé à l'enregistrement comme la lecture de la fiche ; « jamais » ne pose rien. Claude
+(`update_agent`) garde le nom du champ et l'écrit dans l'outil (`reglerPasserLaMain`). La console remplace le champ par
+un renvoi vers l'onglet Outils. Sans chemin vers l'équipe, la consigne ne promet plus qu'un humain va reprendre.
+Méthode : implémenteur, une relecture indépendante (aucun rouge). Trois jaunes corrigés dans le lot, parce qu'ils
+rouvraient le défaut même : un agent qui qualifie avant de transférer perdait sa consigne de transfert (le calcul ne
+regardait que `escalader` ; il lit désormais le camp de chaque outil et les règles d'arrêt vers un humain) ; l'entretien
+proposait d'activer « Passer la main » chez un agent qui qualifie, ce que le camp refuse au milieu de l'enregistrement ;
+`update_agent` écrivait l'outil avant la fiche, et activait avant d'écrire la règle. Neuf mutations, toutes rouges ;
+152 e2e des agents sur la console de production.
+
 ## 2026-11-25 : un contact est un contact dans toutes les offres, et la limite du Business se règle dans /ops
 
 Lot 3 du plan `docs/superpowers/plans/2026-11-24-contacts-packs-et-remplacement.md` (`1f07cd9c1`, migration 0324).

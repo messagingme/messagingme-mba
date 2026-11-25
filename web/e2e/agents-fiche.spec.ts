@@ -287,7 +287,7 @@ test.describe('Agents IA : la modification qui rendrait un agent actif incomplet
     const avant = lectures.length;
 
     await page.getByTestId('agent-objectif').fill('');
-    await page.getByTestId('agent-transferts').click(); // sortie du champ : l'enregistrement part
+    await page.getByTestId('agent-objectif').blur(); // sortie du champ : l'enregistrement part
     await expect(page.getByTestId('agent-erreur')).toContainText('agent actif : cette modification le rendrait incomplet');
     await expect.poll(() => lectures.length, { timeout: 5000 }).toBeGreaterThan(avant);
     // L'en-tête dit ce qui manque VRAIMENT à l'agent, pas le seul manque que la modification aurait introduit.

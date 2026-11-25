@@ -11,16 +11,17 @@ import { construireMessages, inventaireDe, type ContexteConstruction } from './c
 import {
   accordDonneesClient, actionChoisie, basculesDuTour, CODE_DONNEES_CLIENT, fusionner, fusionnerBascules, momentDuPoint,
   momentsDesReponses, outilLireFiche, poseUneQuestion, prochainPoint, questionDeRelance, questionOuiOuNonMontree,
-  reponseOuiOuNon, sansSesQuestions, annonceUneFin, PAS_ENCORE_FINI,
+  reponseOuiOuNon, sansSesQuestions, annonceUneFin, PAS_ENCORE_FINI, HANDLER_PASSER_LA_MAIN, outilPasserLaMain,
   urlDeConnaissance,
 } from './couverture';
+import { outilMaison } from '../outils-maison';
 import {
   bornerPourModele, ENTRETIEN_VIERGE, MAX_BASCULES, type EntretienComplet, type EntretienStore, type TourEntretien,
 } from './entretien-store';
 import { rendreProposition, type PropositionEnAttente } from './en-attente';
 import { blocDeFin } from './fin';
 import {
-  assainirProposition, propositionSchema, OUTIL_PROPOSER, SCHEMA_PROPOSITION,
+  assainirProposition, BORNES_PROPOSITION, propositionSchema, OUTIL_PROPOSER, SCHEMA_PROPOSITION,
   type Changement, type Proposition,
 } from './proposition';
 import {
@@ -367,7 +368,36 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
           outils: [...(propositionFinale.outils ?? []).filter((o) => o.handler !== outilFiche.handler), outilFiche],
         };
       }
-      const outilsAActiver = outilFiche ? [outilFiche.handler] : [];
+      /**
+       * 🔴 LA RÈGLE DE TRANSFERT DEVIENT L'OUTIL « Passer la main » (2026-11-25, décision de Julien) : le prompt ne lit
+       * plus `reglesTransfert`. Ce que le modèle écrit pour ce champ quitte la fiche proposée et devient la description
+       * de l'outil, posé et activé à l'enregistrement ; une règle « jamais » ne pose rien.
+       */
+      const regleTransfert = propositionFinale.fiche?.reglesTransfert;
+      if (regleTransfert !== undefined) {
+        const { reglesTransfert: _t, ...ficheSansTransfert } = propositionFinale.fiche ?? {};
+        propositionFinale = { ...propositionFinale, fiche: ficheSansTransfert };
+      }
+      const modeleTransfert = outilMaison(HANDLER_PASSER_LA_MAIN);
+      // Un agent qui qualifie avant de transférer (`qualifier_transferer` actif, camp « qualification ») ne peut pas avoir
+      // « Passer la main » actif (`src/agent/camp.ts`) : le proposer ferait échouer l'enregistrement sur un refus.
+      const qualifieDeja = contexte.outils.some((o) => o.handler === 'qualifier_transferer' && o.actif === true);
+      const outilTransfert = enEntretien || !modeleTransfert || qualifieDeja ? null : outilPasserLaMain(
+        regleTransfert,
+        contexte.outils.find((o) => o.handler === HANDLER_PASSER_LA_MAIN),
+        modeleTransfert.nePasUtiliser.fr,
+        BORNES_PROPOSITION.description,
+      );
+      if (outilTransfert) {
+        propositionFinale = {
+          ...propositionFinale,
+          outils: [...(propositionFinale.outils ?? []).filter((o) => o.handler !== outilTransfert.handler), outilTransfert],
+        };
+      }
+      const outilsAActiver = [
+        ...(outilFiche ? [outilFiche.handler] : []),
+        ...(outilTransfert ? [outilTransfert.handler] : []),
+      ];
       const { reponses: _r, bascules: _b, ...retenue } = propositionFinale;
       const rendue = rendreProposition(contexte, retenue, aPoser, outilsAActiver);
       const changements = enEntretien ? [] : rendue.changements;

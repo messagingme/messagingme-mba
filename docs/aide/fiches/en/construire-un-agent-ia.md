@@ -1,6 +1,6 @@
 ---
 slug: build-an-ai-agent
-traduit_de: 571c7d
+traduit_de: 25019d
 description: Create a WhatsApp AI agent, set it up by talking to the assistant or tab by tab, activate it, then have it answer your customers.
 ---
 # Build an AI agent
@@ -92,11 +92,11 @@ the personality and the AI disclosure.
 - Write the tone as you would tell a new hire: “formal, short sentences, no emoji”.
 - The AI disclosure can never be empty: see “An AI agent’s model, credit and guardrails”.
 
-**8. By hand: Objective and handovers.** “Objective and handovers” tab: the agent’s objective in a sentence or two,
-then when to hand over to a human, in plain words.
+**8. By hand: Objective and handovers.** “Objective and handovers” tab: the agent’s objective in a sentence or two.
 
 - The objective is the field that weighs most on what the agent will answer.
-- For the handover, write it the way you would say it: “as soon as a refund comes up, or if the contact gets upset”.
+- When to hand over to a human is set in the Tools tab, on the “Hand over to a human” tool: see “Give tools to an AI
+  agent”.
 
 **9. Declare the stop rules.** Further down the same tab, “Stop rules”: a code, what it means, then “Add”. A stop rule
 is “when the agent has finished doing this, it leaves through there”.
