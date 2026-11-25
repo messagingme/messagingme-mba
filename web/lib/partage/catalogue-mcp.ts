@@ -38,6 +38,14 @@ export const CATALOGUE_MCP = {
   get_scenario: { scope: 'mcp:read' },
   /** Jouer un scénario pour un contact fictif (lot 1 du CSM virtuel, B6) : une lecture, rien n'est envoyé ni écrit. */
   simulate_scenario: { scope: 'mcp:read' },
+  /**
+   * Le lien de test, le déroulé d'un contact et les deux journaux d'erreurs (lot 1 du CSM virtuel, B6b) : des lectures.
+   * Le lien de test au nom d'une personne : il fait jouer le brouillon sur le téléphone de qui envoie le mot.
+   */
+  get_scenario_test_link: { scope: 'mcp:read', exigePersonne: true },
+  get_contact_journey: { scope: 'mcp:read' },
+  list_delivery_errors: { scope: 'mcp:read' },
+  list_system_errors: { scope: 'mcp:read' },
   create_scenario: { scope: 'mcp:write', exigePersonne: true },
   update_scenario: { scope: 'mcp:write', exigePersonne: true },
   delete_scenario: { scope: 'mcp:write', exigePersonne: true },

@@ -3,7 +3,12 @@ import {
   MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE,
 } from '../../web/lib/partage/message-rapide';
 import type { AnnotationsMcp, OutilMcp, ProprieteEntree } from './outils';
-import { RefusOutil, refusDuCoeur, texteObligatoire } from './saisie';
+import { RefusOutil, entierBorne, refusDuCoeur, texteObligatoire } from './saisie';
+import { newTestToken, waMeTestLink } from '../workflow/test-token';
+import { PARCOURS_MAX, PASSAGES_MAX, type LecteurDeroule } from '../workflow/deroule.pg';
+import type { PgErreursLivraisonStore } from '../ops/erreurs-livraison.pg';
+import { waIdOf } from '../crm/identity';
+import { e164DepuisSaisie } from '../crm/phone';
 import { ecriture, signataire } from './outils-agent';
 import { envoyerAUnePersonne } from './outils-modeles';
 import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
@@ -29,6 +34,35 @@ import {
  */
 export interface DepsScenariosMcp {
   scenariosApi: DepsScenariosApi;
+  /** Le déroulé d'un contact dans un scénario (lot 1 du CSM virtuel, B6b) : `PgDeroule`. */
+  deroule: LecteurDeroule;
+  /** Les deux journaux d'erreurs de la console (B6b) : le magasin de `/erreurs-livraison` et `/erreurs-systeme`. */
+  erreurs: Pick<PgErreursLivraisonStore, 'lister' | 'listerEchecsSysteme'>;
+  /** Le jeton du lien de test d'un scénario (B6b) : posé au premier appel, rendu tel quel ensuite (le magasin de la console). */
+  liensDeTest: { ensureTestToken(id: string, tenantId: string, token: string): Promise<string | null> };
+  /**
+   * Le numéro de Meta de l'espace, tel que la console le lit pour son lien de test (`getDisplayPhoneNumber`) : jamais
+   * celui de la seule application WhatsApp Business, dont la filière ne lit pas les mots de test (relecture du lot F).
+   */
+  numeroAffiche(tenantId: string): Promise<string | null>;
+}
+
+/**
+ * Les journaux d'erreurs lus par Claude : 100 lignes au plus (écrit aussi en clair dans `entierBorne`, que le test des
+ * bornes lit et compare au schéma), et les 10 dernières erreurs d'un contact dans son déroulé.
+ */
+const ERREURS_MAX = 100;
+const ERREURS_DU_CONTACT = 10;
+const RECHERCHE_ERREURS_MAX = 120;
+
+/** Un texte de recherche facultatif, borné et refusé au-delà (jamais coupé en silence). */
+function rechercheFacultative(args: Record<string, unknown>, cle: string): string | undefined {
+  const v = args[cle];
+  if (v === undefined || v === null || (typeof v === 'string' && v.trim() === '')) return undefined;
+  if (typeof v !== 'string' || v.trim().length > RECHERCHE_ERREURS_MAX) {
+    throw new RefusOutil(`paramètre « ${cle} » : un texte de ${RECHERCHE_ERREURS_MAX} caractères au plus`, 'invalid_args');
+  }
+  return v.trim();
 }
 
 const lecture = (title: string): AnnotationsMcp => ({ title, readOnlyHint: true, openWorldHint: false });
@@ -286,6 +320,122 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
           ? 'ce scénario n’a pas de version publiée' : 'ce scénario n’a pas de brouillon', 'conflict');
       }
       return { scenario: ligne.id, version: graphe === brouillon ? 'brouillon' : 'publie', ...simulerParcours(graphe, reponses, contact) };
+    },
+  },
+  {
+    ...ficheOutilMcp('get_scenario_test_link'),
+    fonction: 'scenarios',
+    description: 'The test link of a scenario, as in the console: a WhatsApp link to the workspace number with a test word '
+      + 'already typed (mot). Whoever sends that word from their own phone goes through the scenario as its draft stands '
+      + 'now (its published version when it has no draft), without it going live: the way to try a draft from a phone '
+      + 'before propose_go_live. The word stays the same for the scenario. lien and numero are null while no number is '
+      + 'connected. When Meta\'s agent answers everyone in this workspace, it also replies to the test word: the tester '
+      + 'then sees two voices.',
+    // Le premier appel pose le jeton, puis le rend tel quel (comme le POST de la console) : une valeur stable du scénario,
+    // lue par aucun autre outil. `AnnotationsMcp` ne connaît que la lecture et l'écriture destructive : c'est une lecture.
+    annotations: lecture('Get the test link of a scenario'),
+    entree: { type: 'object', properties: { scenario: SCENARIO }, required: ['scenario'], additionalProperties: false },
+    async executer(deps, tenantId, args) {
+      const ligne = await deps.scenariosApi.scenarios.lireParApi(tenantId, texteObligatoire(args, 'scenario', 100));
+      if (!ligne) throw new RefusOutil('scénario introuvable dans cet espace', 'not_found');
+      // Le même jeton que la console : posé au premier appel, idempotent ensuite.
+      const mot = await deps.liensDeTest.ensureTestToken(ligne.id, tenantId, newTestToken());
+      if (mot === null) throw new RefusOutil('scénario introuvable dans cet espace', 'not_found');
+      const numero = await deps.numeroAffiche(tenantId);
+      return { scenario: ligne.id, mot, numero, lien: waMeTestLink(numero, mot) };
+    },
+  },
+  {
+    ...ficheOutilMcp('get_contact_journey'),
+    fonction: 'scenarios',
+    description: 'Where a real contact stands in a scenario, and what happened to them: their last runs (statut waiting '
+      + `for an answer, sleeping until reprise, inbox once handed to the team, done; bloc, the block they wait on; the ${PARCOURS_MAX} latest), the `
+      + `blocks they passed (passages, oldest first, ${PASSAGES_MAX} at most: sent, delivered, read, failed, reply_button `
+      + `with its exit, reply_text; within those runs, 90 days at most), and the ${ERREURS_DU_CONTACT} last delivery errors of their number (Meta's code and message). Blocks are `
+      + 'named from the scenario (id, type, code). Use it to follow the first real conversations after propose_go_live '
+      + 'and to give the cause of a failure; list_delivery_errors and list_system_errors cover the whole workspace.',
+    annotations: lecture('Read a contact journey'),
+    entree: {
+      type: 'object',
+      properties: {
+        scenario: SCENARIO,
+        phone: { type: 'string', minLength: 1, maxLength: 32, description: 'The contact\'s number, with the country code (+33612345678).' },
+      },
+      required: ['scenario', 'phone'],
+      additionalProperties: false,
+    },
+    async executer(deps, tenantId, args) {
+      const ligne = await deps.scenariosApi.scenarios.lireParApi(tenantId, texteObligatoire(args, 'scenario', 100));
+      if (!ligne) throw new RefusOutil('scénario introuvable dans cet espace', 'not_found');
+      const phone = e164DepuisSaisie(texteObligatoire(args, 'phone', 32));
+      if (phone === null) throw new RefusOutil('numéro illisible : donnez-le au format international (+33612345678)', 'invalid_args');
+      const c = await deps.contacts.findByPhone(tenantId, phone);
+      if (!c) throw new RefusOutil('aucun contact avec ce numéro dans cet espace', 'not_found');
+      const waId = waIdOf(c.phoneE164, c.bsuid);
+      const d = waId ? await deps.deroule.lire(tenantId, ligne.id, waId) : { parcours: [], passages: [] };
+      // Un bloc se nomme par le scénario : celui d'un parcours de test vit dans le brouillon, les autres dans le publié.
+      const blocs = new Map([...(ligne.draftGraph?.nodes ?? []), ...ligne.graph.nodes].map((n) => [n.id, {
+        id: n.id, type: n.type, ...(typeof n.data.code === 'string' && n.data.code !== '' ? { code: n.data.code } : {}),
+      }]));
+      const bloc = (id: string) => blocs.get(id) ?? { id };
+      // Le journal cherche le numéro par morceau : un numéro plus long qui le contient n'est pas ce contact.
+      const chiffres = phone.replace(/\D/g, '');
+      const erreurs = (await deps.erreurs.lister(tenantId, { telephone: chiffres, limit: ERREURS_DU_CONTACT }))
+        .filter((e) => e.telephone.replace(/\D/g, '') === chiffres);
+      return {
+        contact: { id: c.id, phone },
+        scenario: { id: ligne.id, nom: ligne.name },
+        parcours: d.parcours.map((p) => ({ ...p, bloc: p.bloc === null ? null : bloc(p.bloc) })),
+        passages: d.passages.map((p) => ({ ...p, bloc: bloc(p.bloc) })),
+        erreurs_de_livraison: erreurs,
+      };
+    },
+  },
+  {
+    ...ficheOutilMcp('list_delivery_errors'),
+    fonction: null,
+    description: 'The delivery error log of the console: what Meta answered when a message (campaign, scenario, free '
+      + 'message) did not leave or did not arrive, newest first, with the number, the contact, Meta\'s code and message. '
+      + `limit: the ${ERREURS_MAX} most recent at most (default 50): narrow with q (the text), telephone (a number) or code (one of Meta's codes).`,
+    annotations: lecture('List delivery errors'),
+    entree: {
+      type: 'object',
+      properties: {
+        limit: { type: 'integer', minimum: 1, maximum: ERREURS_MAX, description: 'How many errors, newest first.' },
+        q: { type: 'string', maxLength: RECHERCHE_ERREURS_MAX, description: 'Text searched in the error, the campaign or the contact.' },
+        telephone: { type: 'string', maxLength: RECHERCHE_ERREURS_MAX, description: 'A number, or part of it.' },
+        code: { type: 'integer', minimum: 0, description: 'One of Meta\'s error codes (131026, 131049...).' },
+      },
+      additionalProperties: false,
+    },
+    async executer(deps, tenantId, args) {
+      const code = args.code;
+      if (code !== undefined && code !== null && !(typeof code === 'number' && Number.isInteger(code) && code >= 0)) {
+        throw new RefusOutil('paramètre « code » : un code d’erreur de Meta, un entier', 'invalid_args');
+      }
+      const q = rechercheFacultative(args, 'q');
+      const telephone = rechercheFacultative(args, 'telephone');
+      const erreurs = await deps.erreurs.lister(tenantId, {
+        limit: entierBorne(args, 'limit', 50, 1, 100),
+        ...(q ? { q } : {}), ...(telephone ? { telephone } : {}), ...(typeof code === 'number' ? { code } : {}),
+      });
+      return { erreurs };
+    },
+  },
+  {
+    ...ficheOutilMcp('list_system_errors'),
+    fonction: null,
+    description: 'The system half of the console\'s error log: the calls to the customer\'s own systems (an API call '
+      + 'block, a connector) that did not succeed, newest first, with the HTTP status and the error. '
+      + `limit: the ${ERREURS_MAX} most recent at most (default 50).`,
+    annotations: lecture('List system errors'),
+    entree: {
+      type: 'object',
+      properties: { limit: { type: 'integer', minimum: 1, maximum: ERREURS_MAX, description: 'How many errors, newest first.' } },
+      additionalProperties: false,
+    },
+    async executer(deps, tenantId, args) {
+      return { erreurs: await deps.erreurs.listerEchecsSysteme(tenantId, entierBorne(args, 'limit', 50, 1, 100)) };
     },
   },
   {

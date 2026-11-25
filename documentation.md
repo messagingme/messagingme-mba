@@ -977,6 +977,21 @@ de Meta en répondeur (un template sans bouton attend en simulation quand sa sui
 et `SORTIE_MAX` (100 000 caractères), au-delà duquel la simulation s'arrête et le dit. Sans eux, des blocs « Extraire
 du JSON » qui recopient une longue valeur à chaque ligne figeraient la copie de l'API qui joue la simulation.
 
+🔴 **Le lien de test, le déroulé d'un contact et les journaux d'erreurs (lot 1 du CSM virtuel, B6b)** :
+`get_scenario_test_link` rend le jeton de la console (`ensureTestToken`, posé au premier appel puis rendu tel quel) et
+son lien `wa.me` vers le numéro de Meta, lu comme la console (`numeroAffiche`, jamais celui de la seule application
+WhatsApp Business, dont la filière ne lit pas les mots de test) ; il exige une personne, puisque le mot fait jouer le
+brouillon sur le téléphone de qui l'envoie ; il reste une lecture (le premier appel pose le jeton, rendu tel quel
+ensuite, et `AnnotationsMcp` range toute écriture avec les destructives). `get_contact_journey` lit `PgDeroule` (`src/workflow/deroule.pg.ts`) : les 5 derniers
+parcours du contact dans le scénario et ses 100 derniers passages de bloc (`workflow_node_events`) dans la fenêtre de
+ces parcours, jamais au-delà de 90 jours (un parcours qui attend n'expire pas), chaque requête filtrée par espace ; ses
+blocs sont nommés par le brouillon et le publié, et les 10 dernières erreurs de livraison de son numéro suivent,
+filtrées sur le numéro exact (le journal cherche par morceau). `list_delivery_errors` et `list_system_errors`
+lisent le magasin des deux journaux de la console (`PgErreursLivraisonStore`), avec ses filtres, 100 lignes au plus.
+⚠️ Le journal des passages n'a pas d'index par numéro : la requête suit `(tenant_id, workflow_id, at)` et relit tout
+le scénario dans la fenêtre pour un contact qui a peu de passages (mesuré : 160 000 lignes lues pour une campagne de
+50 000 contacts). Sans gel aux volumes d'aujourd'hui ; l'index `(tenant_id, wa_id, at)` est au `todo.md`.
+
 🔴 **Le fichier d'un message se lit à chaque envoi** et se vérifie une fois à l'écriture par le MÊME chemin que l'envoi
 (`lireFichierDuBloc`, `src/meta/template-media.ts` : fiche de la médiathèque de l'espace, sinon téléchargement gardé),
 sans être stocké. **Ce qui utilise un scénario** (`utilisationsDuScenario` : automation, campagne qui peut encore

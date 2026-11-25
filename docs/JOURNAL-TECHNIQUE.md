@@ -5,6 +5,39 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : CSM virtuel, lot F (B6b) : Claude suit une vraie conversation
+
+Même plan que B6a (`docs/superpowers/plans/2026-11-25-csm-lot1-f-simulation-deroule.md`). B6a, la simulation, est en
+production depuis le même jour (`41cecf994`, run 45648987719).
+
+**B6b, quatre lectures.** `get_scenario_test_link` rend le lien de test de la console (le jeton d'`ensureTestToken`,
+posé au premier appel puis rendu tel quel, et le lien `wa.me` vers le numéro de Meta, lu comme la console), au nom
+d'une personne : le mot fait jouer le brouillon sur le téléphone de qui l'envoie. `get_contact_journey` dit où en est
+un vrai contact dans un scénario : ses cinq derniers parcours, ses cent derniers passages de bloc dans la fenêtre de
+ces parcours et jamais au-delà de 90 jours (un magasin neuf, `PgDeroule`, chaque requête filtrée par espace, sans
+migration), ses blocs nommés par le scénario et les dernières erreurs de livraison de son numéro exact.
+`list_delivery_errors` et `list_system_errors` lisent les deux journaux d'erreurs de la console, par son magasin et
+avec ses filtres. Le câblage gagne quatre lignes, les trois adresses de la table de parité rangées en B6 passent aux
+outils, et le plugin monte d'une version.
+
+**La relecture indépendante, sur l'arbre construit : aucun rouge.** Réglés avant de pousser : le typecheck et deux
+tests que le lot faisait rougir (les cinq montages de test du câblage MCP, qui reçoivent un faux partagé ; la borne
+des journaux, écrite en clair pour le test des bornes ; la route du lien de test, déclarée sans corps dans la table de
+parité des champs) ; le numéro du lien de test, lu comme la console (le numéro de Meta, jamais celui de la seule
+application WhatsApp Business, dont la filière ne lit pas les mots de test : le lien y aurait été mort) ; la fenêtre du
+déroulé, plafonnée à 90 jours (un parcours qui attend n'expire pas, elle remontait sans fin) ; les erreurs d'un
+contact filtrées sur son numéro exact ; les descriptions, qui disent où la réponse s'arrête ; le test d'intégration,
+qui prouve désormais la fenêtre et son plafond, en dates relatives. Le lien de test reste une lecture : le premier
+appel pose un jeton stable, et le contrat des annotations range toute écriture avec les destructives. Le reste est au
+`todo.md` (l'index du déroulé, mesuré par le relecteur sans gel aux volumes d'aujourd'hui ; la page suivante des
+erreurs ; une panne de lecture du journal).
+
+Preuves : 7 tests neufs (4 des outils, 3 d'intégration sur le vrai `pg`) et 12 mutations nommées, toutes rouges.
+Dans une copie d'origin portant tout le lot : typecheck et lint (racine et console), l'auto-attaque (2 251 sondes,
+aucune trouvaille), la suite racine (19 372 tests, aucun échec, avec un délai de 60 secondes : le poste était chargé),
+la suite de la console (1 406 tests), le banc PGlite du déroulé (3 tests). Les deux fiches d'aide qui citent la
+section API de `features.md` prennent sa nouvelle empreinte, relues.
+
 ## 2026-11-25 : segments Shopify, lot 6c : les segments construits dans Shopify se ciblent
 
 Les segments que le marchand construit dans Shopify (Clients > Segments) se ciblent dans le volet Shopify des filtres,

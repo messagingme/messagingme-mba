@@ -64,6 +64,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'POST /numero-fourni/destination': PAR_LA_PAGE,
   'POST /numero-fourni/abonnement': PAR_LA_PAGE,
   'POST /numero-fourni/portail': SANS_CORPS,
+  // Le lien de test d'un scénario (CSM, B6b) : l'adresse dit le scénario, le jeton se pose au premier appel.
+  'POST /workflows/:id/test-link': SANS_CORPS,
   'POST /application/relier': PAR_LA_PAGE,
 
   // Les champs, les étiquettes, les clés

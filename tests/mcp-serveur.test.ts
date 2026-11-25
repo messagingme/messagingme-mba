@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -137,6 +137,7 @@ function app(
     ...mcpWidgetsInertes,
     ...mcpAgentInerte,
     ...mcpNumeroInerte,
+    ...mcpDerouleInerte,
     ...mcpEvenementsInertes,
     ...mcpChiffresInertes,
     ...mcpMessagesInertes,
@@ -1165,6 +1166,8 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   list_scenario_versions: 'scenarios', propose_go_live: 'scenarios', get_go_live: 'scenarios',
   // La simulation d'un parcours (CSM, B6) : une lecture, sous la même fonction que les scénarios qu'elle joue.
   simulate_scenario: 'scenarios',
+  // Le lien de test et le déroulé (CSM, B6b) : des scénarios ; les deux journaux d'erreurs, ouverts comme dans la console.
+  get_scenario_test_link: 'scenarios', get_contact_journey: 'scenarios',
 };
 
 describe('serveur MCP : les outils et l’offre (lot 6, B2a)', () => {

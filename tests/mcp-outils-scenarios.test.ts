@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { OUTILS, outilsPour, RefusOutil, type DepsMcp } from '../src/mcp/outils';
 import { creerScenario, type VueScenario } from '../src/workflow/scenarios-api';
 import {
@@ -252,6 +252,97 @@ describe('simulate_scenario (CSM, B6)', () => {
       expect(annonce, String(borne)).toMatch(new RegExp(`(^|[^0-9])${borne}([^0-9]|$)`));
     }
     for (const mot of ['choix', 'texte', 'sans_reponse', 'brouillon', 'publie', 'propose_go_live', '24 hours']) expect(annonce, mot).toContain(mot);
+  });
+});
+
+/**
+ * LE LIEN DE TEST, LE DÉROULÉ D'UN CONTACT ET LES JOURNAUX D'ERREURS (lot 1 du CSM virtuel, B6b). Le déroulé en base
+ * est prouvé par `tests/integration/deroule.integration.test.ts` ; ici, ce que les outils en font.
+ */
+describe('le lien de test, le déroulé et les journaux d’erreurs (CSM, B6b)', () => {
+  function monterDeroule(numero: string | null = '+33 7 00 00 00 00') {
+    const m = monter();
+    const jetons = new Map<string, string>();
+    // Le jeton par scénario ET par espace, comme le magasin : un autre espace n'a pas ce scénario.
+    const liensDeTest = {
+      ensureTestToken: vi.fn(async (id: string, t: string, token: string) => {
+        if (t !== TENANT) return null;
+        if (!jetons.has(id)) jetons.set(id, token);
+        return jetons.get(id)!;
+      }),
+    };
+    const deroule = { lire: vi.fn(async () => ({ parcours: [] as unknown[], passages: [] as unknown[] })) };
+    const erreurs = {
+      // Le journal cherche par morceau de numéro : le second numéro, plus long, contient celui du contact.
+      lister: vi.fn(async () => [{ code: 131026, telephone: '+33612345678' }, { code: 131049, telephone: '336123456789' }]),
+      listerEchecsSysteme: vi.fn(async () => [{ id: 'e1', nom: 'CRM' }]),
+    };
+    const contacts = { findByPhone: vi.fn(async (_t: string, phone: string) => (phone === '+33612345678' ? { id: 'c1', phoneE164: phone, bsuid: null } : null)) };
+    const deps = { ...(m.deps as object), liensDeTest, deroule, erreurs, contacts, numeroAffiche: async () => numero } as unknown as DepsMcp;
+    return { ...m, deps, liensDeTest, deroule, erreurs, contacts };
+  }
+  const qualification = () => ({ nom: 'Qualification', entree: { message: { texte: 'Un choix ?' }, reponses: [{ texte: 'Oui', suite: { humain: {} } }] } });
+
+  it('🔴 des lectures ; le lien de test au nom d’une personne, les journaux dans toutes les offres', () => {
+    expect(outil('get_scenario_test_link')).toMatchObject({ scope: 'mcp:read', exigePersonne: true, fonction: 'scenarios' });
+    expect(outil('get_contact_journey')).toMatchObject({ scope: 'mcp:read', fonction: 'scenarios' });
+    for (const nom of ['list_delivery_errors', 'list_system_errors']) expect(outil(nom), nom).toMatchObject({ scope: 'mcp:read', fonction: null });
+    const parCle = outilsPour({ scopes: ['mcp:read'], personne: null } as never).map((o) => o.nom);
+    expect(parCle).not.toContain('get_scenario_test_link');
+    for (const nom of ['get_contact_journey', 'list_delivery_errors', 'list_system_errors']) expect(parCle).toContain(nom);
+  });
+
+  it('le lien de test : le mot de la console, le même à chaque appel, le numéro de Meta, et pas de lien sans numéro', async () => {
+    const { deps, liensDeTest } = monterDeroule();
+    const cree = await outil('create_scenario').executer(deps, TENANT, { ...qualification(), brouillon: true }, MOI) as VueScenario;
+    const un = await outil('get_scenario_test_link').executer(deps, TENANT, { scenario: cree.id }, MOI) as { mot: string; lien: string; numero: string };
+    expect(liensDeTest.ensureTestToken).toHaveBeenCalledWith(cree.id, TENANT, expect.any(String));
+    expect(un).toMatchObject({ scenario: cree.id, numero: '+33 7 00 00 00 00' });
+    expect(un.lien).toBe(`https://wa.me/33700000000?text=${un.mot}`);
+    expect(await outil('get_scenario_test_link').executer(deps, TENANT, { scenario: cree.code }, MOI)).toMatchObject({ mot: un.mot });
+    // Le magasin ne rend pas de jeton (le scénario a disparu entre la lecture et l'écriture) : introuvable, pas un lien vide.
+    liensDeTest.ensureTestToken.mockResolvedValueOnce(null);
+    await expect(outil('get_scenario_test_link').executer(deps, TENANT, { scenario: cree.id }, MOI)).rejects.toMatchObject({ code: 'not_found' });
+    const sansNumero = monterDeroule(null);
+    const autre = await outil('create_scenario').executer(sansNumero.deps, TENANT, qualification(), MOI) as VueScenario;
+    expect(await outil('get_scenario_test_link').executer(sansNumero.deps, TENANT, { scenario: autre.id }, MOI)).toMatchObject({ lien: null, numero: null });
+    await expect(outil('get_scenario_test_link').executer(deps, TENANT, { scenario: '00000000-0000-4000-8000-0000000000ff' }, MOI))
+      .rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('le déroulé : les blocs nommés par le scénario, le numéro du contact, ses dernières erreurs', async () => {
+    const { deps, deroule, erreurs, store } = monterDeroule();
+    const cree = await outil('create_scenario').executer(deps, TENANT, qualification(), MOI) as VueScenario;
+    const bloc = store.lignes.get(cree.id)!.graph.nodes[0]!;
+    deroule.lire.mockResolvedValueOnce({
+      parcours: [{ id: 'r1', statut: 'waiting', bloc: bloc.id, reprise: null, debut: '2026-11-25T10:00:00.000Z', maj: '2026-11-25T10:00:00.000Z' }],
+      passages: [{ bloc: bloc.id, quoi: 'sent', sortie: null, le: '2026-11-25T10:00:01.000Z' }, { bloc: 'disparu', quoi: 'read', sortie: null, le: '2026-11-25T10:00:02.000Z' }],
+    });
+    const r = await outil('get_contact_journey').executer(deps, TENANT, { scenario: cree.id, phone: '06 12 34 56 78' }, null) as Record<string, unknown>;
+    expect(deroule.lire).toHaveBeenCalledWith(TENANT, cree.id, '33612345678');
+    expect(erreurs.lister).toHaveBeenCalledWith(TENANT, { telephone: '33612345678', limit: 10 });
+    expect(r).toMatchObject({
+      contact: { id: 'c1', phone: '+33612345678' }, scenario: { id: cree.id, nom: 'Qualification' },
+      parcours: [{ statut: 'waiting', bloc: { id: bloc.id, type: bloc.type } }],
+      passages: [{ quoi: 'sent', bloc: { id: bloc.id, type: bloc.type } }, { quoi: 'read', bloc: { id: 'disparu' } }],
+      erreurs_de_livraison: [{ code: 131026 }],
+    });
+    // Le numéro plus long qui contient celui du contact n'est pas ce contact.
+    expect((r.erreurs_de_livraison as unknown[]).length).toBe(1);
+    await expect(outil('get_contact_journey').executer(deps, TENANT, { scenario: cree.id, phone: '+33699999999' }, null)).rejects.toMatchObject({ code: 'not_found' });
+    await expect(outil('get_contact_journey').executer(deps, TENANT, { scenario: cree.id, phone: 'abc' }, null)).rejects.toMatchObject({ code: 'invalid_args' });
+  });
+
+  it('les journaux d’erreurs : les filtres de la console, bornés, et refusés au-delà', async () => {
+    const { deps, erreurs } = monterDeroule();
+    await outil('list_delivery_errors').executer(deps, TENANT, { q: ' relance ', telephone: '336', code: 131026, limit: 500 }, null);
+    expect(erreurs.lister).toHaveBeenLastCalledWith(TENANT, { limit: 100, q: 'relance', telephone: '336', code: 131026 });
+    await outil('list_delivery_errors').executer(deps, TENANT, {}, null);
+    expect(erreurs.lister).toHaveBeenLastCalledWith(TENANT, { limit: 50 });
+    await expect(outil('list_delivery_errors').executer(deps, TENANT, { q: 'x'.repeat(121) }, null)).rejects.toMatchObject({ code: 'invalid_args', message: expect.stringContaining('120') });
+    await expect(outil('list_delivery_errors').executer(deps, TENANT, { code: '131026' }, null)).rejects.toMatchObject({ code: 'invalid_args' });
+    expect(await outil('list_system_errors').executer(deps, TENANT, {}, null)).toEqual({ erreurs: [{ id: 'e1', nom: 'CRM' }] });
+    expect(erreurs.listerEchecsSysteme).toHaveBeenLastCalledWith(TENANT, 50);
   });
 });
 

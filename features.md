@@ -3567,6 +3567,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   contact qui va au bout et un autre qui finit chez l'équipe : les messages et les questions reçus, les étiquettes et
   les champs posés, la branche prise par chaque réponse, et ce qui n'est pas joué (un appel API, un message RCS),
   nommé comme tel.
+  ✅ **Claude suit une vraie conversation** (2026-11-25, lot 1 du CSM virtuel, même plan) : le lien de test d'un
+  brouillon, à essayer depuis son téléphone avant la mise en ligne ; le déroulé d'un contact dans un scénario (où il
+  en est, les blocs passés et leurs dates, les erreurs de son numéro) ; les journaux d'erreurs de livraison et du
+  système de la console, lus comme elle les montre.
   ✅ **Claude fait partir un scénario vers une personne** (2026-11-03, plan
   `docs/superpowers/plans/2026-11-03-outil-envoyer-scenario.md`) : `send_scenario_to_contact`, le même envoi que
   `send_template_to_contact` (consentement déclaré par le client, STOP, quota), cible un scénario publié qui ouvre

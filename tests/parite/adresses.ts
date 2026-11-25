@@ -300,8 +300,8 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /contacts/bulk': enPartie(['tag_contacts', 'set_contact_field'], 'l’opt-in, l’opt-out et le retrait d’étiquettes en masse'),
   'POST /contacts/export': humain('extraire des données personnelles dans un fichier : la personne coche chaque colonne, et le geste est tracé au journal'),
   'GET /audit': aFaire('B10', 'chiffres : le journal d’audit'),
-  'GET /erreurs-livraison': aFaire('B6', 'déroulé : le journal des erreurs de livraison'),
-  'GET /erreurs-systeme': aFaire('B6', 'déroulé : le journal des erreurs du système'),
+  'GET /erreurs-livraison': outil('list_delivery_errors'),
+  'GET /erreurs-systeme': outil('list_system_errors'),
   'POST /contacts/purge': outil('prepare_contacts_deletion', 'delete_contacts'),
 
   // L'historique des réglages (historique)
@@ -452,7 +452,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /workflows/:id/modeles': aFaire('B10', 'scénarios : l’état des modèles que nomme le brouillon'),
   'DELETE /workflows/:id/programmation': aFaire('B10', 'scénarios : annuler une programmation'),
   'DELETE /workflows/:id': enPartie(['delete_scenario'], 'les scénarios faits dans la console'),
-  'POST /workflows/:id/test-link': aFaire('B6', 'scénarios : le lien de test du brouillon, avec la simulation'),
+  'POST /workflows/:id/test-link': outil('get_scenario_test_link'),
 
   // Le oui de mise en ligne (misesEnLigne, B2)
   'GET /mises-en-ligne/:id': outil('get_go_live'),

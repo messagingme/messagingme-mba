@@ -211,6 +211,10 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | list_scenarios | mcp:read | Scenarios, and which are published: a widget only starts a published scenario. |
 | get_scenario | mcp:read | A scenario as a recipe, with the fingerprint that guards its replacement, and its draft if it has one. |
 | simulate_scenario | mcp:read | Play a scenario for a fictitious contact, sending and writing nothing: the blocks passed, the branch each answer takes, the planned effects and the end. |
+| get_scenario_test_link | mcp:read OAuth connection required | The test link of a scenario: a WhatsApp link to your number with the test word already typed, to try the draft from your phone. |
+| get_contact_journey | mcp:read | Where a contact stands in a scenario: their runs, the blocks passed and when, the errors of their number. |
+| list_delivery_errors | mcp:read | The delivery error log: what Meta answered when a message did not leave or did not arrive. |
+| list_system_errors | mcp:read | The system error log: the calls to your own systems that did not succeed. |
 | create_scenario | mcp:write OAuth connection required | Create a scenario from its recipe (template and buttons, quick-reply messages and a file, questions and actions, AI agent, team), published at once, or as a draft that an administrator puts live with one click. |
 | update_scenario | mcp:write OAuth connection required | Replace a scenario, published at once if it comes from the API or Claude, or as a draft, the console’s included, if nobody changed it in the meantime. |
 | delete_scenario | mcp:write OAuth connection required | Delete a scenario created through the API or by Claude, if nothing uses it any more. |

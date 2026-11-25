@@ -5516,6 +5516,10 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | list_scenarios | mcp:read | Les scénarios, et lesquels sont publiés : un widget ne démarre qu’un scénario publié. |
 | get_scenario | mcp:read | Un scénario sous forme de recette, avec l’empreinte qui garde son remplacement, et son brouillon s’il en a un. |
 | simulate_scenario | mcp:read | Jouer un scénario pour un contact fictif, sans rien envoyer ni écrire : les blocs passés, la branche prise par chaque réponse, les effets prévus et la fin. |
+| get_scenario_test_link | mcp:read connexion OAuth requise | Le lien de test d’un scénario : un lien WhatsApp vers votre numéro, le mot de test déjà écrit, pour essayer le brouillon depuis votre téléphone. |
+| get_contact_journey | mcp:read | Où en est un contact dans un scénario : ses parcours, les blocs passés et leurs dates, les erreurs de son numéro. |
+| list_delivery_errors | mcp:read | Le journal des erreurs de livraison : ce que Meta a répondu quand un message n’est pas parti ou pas arrivé. |
+| list_system_errors | mcp:read | Le journal des erreurs du système : les appels vers vos systèmes qui n’ont pas abouti. |
 | create_scenario | mcp:write connexion OAuth requise | Créer un scénario par sa recette (template et boutons, messages à réponses rapides et fichier, questions et actions, agent IA, équipe), publié aussitôt, ou en brouillon qu’un administrateur met en ligne d’un clic. |
 | update_scenario | mcp:write connexion OAuth requise | Remplacer un scénario, publié aussitôt s’il vient de l’API ou de Claude, ou en brouillon, console comprise, si personne ne l’a changé entre-temps. |
 | delete_scenario | mcp:write connexion OAuth requise | Supprimer un scénario créé par l’API ou par Claude, si plus rien ne l’utilise. |

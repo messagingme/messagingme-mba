@@ -153,6 +153,15 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot F (B6b, le lien de test, le déroulé, les journaux) : ce qui reste de la relecture (2026-11-25, aucun rouge)
+
+- L'index du déroulé : `workflow_node_events (tenant_id, wa_id, at)` (ou `workflow_id` en tête), posé `CONCURRENTLY`,
+  pour qu'un contact d'une campagne de dizaines de milliers ne relise pas tout le scénario ; `workflow_runs` par
+  `(tenant_id, workflow_id, wa_id)` de même. Sans gel aux volumes d'aujourd'hui (mesuré par la relecture).
+- `list_delivery_errors` s'arrête aux 100 plus récentes, sans page suivante (la console va jusqu'à 1 000) : un curseur
+  par date si Claude en a besoin.
+- Une panne de lecture du journal d'erreurs fait échouer tout `get_contact_journey`, déroulé déjà lu compris.
+
 ## 🟡 CSM virtuel, lot F (B6a, la simulation) : ce qui reste de la relecture (2026-11-25, un rouge corrigé avant de pousser)
 
 - L'agent de Meta en répondeur : `simulerParcours` appelle `walk` sans `mbaActif`, alors qu'en production un template

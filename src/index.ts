@@ -182,6 +182,7 @@ import { setTimeout as dormir } from 'node:timers/promises';
 import { activationPour } from './http/mba';
 import type { DepsReglageRepondeur } from './repondeur/reglage';
 import { PgVersionsScenario } from './workflow/versions.pg';
+import { PgDeroule } from './workflow/deroule.pg';
 import { PgMisesEnLigne } from './mise-en-ligne/store.pg';
 import type { DepsMisesEnLigne } from './mise-en-ligne/mise-en-ligne';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -4185,6 +4186,13 @@ async function main(): Promise<void> {
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),
         // Les scénarios par leur recette (spec 2026-11-02) : le MÊME service que `/v1/scenarios`.
         scenariosApi: depsScenariosApi,
+        // Le déroulé d'un contact, les deux journaux d'erreurs et le lien de test (lot 1 du CSM virtuel, B6b) : les
+        // magasins de la console, jamais des variantes.
+        deroule: new PgDeroule(pool),
+        erreurs: erreursLivraison,
+        liensDeTest: workflowStore,
+        // Le numéro de Meta, comme le lien de test de la console (jamais celui de la seule application).
+        numeroAffiche: async (tenant) => (await phoneStatusStore.getPhoneNumber(tenant))?.displayPhoneNumber ?? null,
         // Le oui de mise en ligne et les versions (CSM, B2 et B3) : le MÊME objet que la page de la console.
         misesEnLigne,
         // Les widgets de l'écran, le MÊME objet : un outil MCP n'est qu'un second appelant de leur gestion.

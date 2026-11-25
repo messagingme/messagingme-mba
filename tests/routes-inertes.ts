@@ -681,6 +681,17 @@ offres: offresToutOuvert,
  * La connexion du numéro du MCP (lot 3c), pour les montages qui n'en parlent pas : la LECTURE de l'état rend un espace
  * sans rien, la signature d'un lien lève. Ses outils ont leur propre fichier, `tests/mcp-numero.test.ts`.
  */
+/**
+ * Le déroulé d'un contact, les deux journaux d'erreurs et le lien de test (lot 1 du CSM virtuel, B6b) : inertes. Leurs
+ * outils ont leurs tests dans `tests/mcp-outils-scenarios.test.ts`, le déroulé en base dans son test d'intégration.
+ */
+export const mcpDerouleInerte: Pick<DepsMcp, 'deroule' | 'erreurs' | 'liensDeTest' | 'numeroAffiche'> = {
+  deroule: { lire: async () => ({ parcours: [], passages: [] }) },
+  erreurs: { lister: async () => [], listerEchecsSysteme: async () => [] },
+  liensDeTest: { ensureTestToken: neDevraitPasEtreAppelee('liensDeTest.ensureTestToken') },
+  numeroAffiche: async () => null,
+};
+
 export const mcpNumeroInerte: Pick<DepsMcp, 'numero'> = {
   numero: {
     connexion: {
