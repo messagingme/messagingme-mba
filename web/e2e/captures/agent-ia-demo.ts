@@ -17,7 +17,7 @@ export const SRC = 'src-boutique';
  * « Toujours là » affiche sont les vrais.
  */
 export const CATALOGUE_OUTILS: Array<{ handler: string; nomDefaut: string; titre: Record<Locale, string>; description: Record<Locale, string>; nePasUtiliser: Record<Locale, string>; risk: string; params: unknown[] }> = [
-  {"handler":"terminer","nomDefaut":"mba_terminer","titre":{"fr":"Terminer par une règle d’arrêt","en":"Finish through a stop rule"},"description":{"fr":"À appeler quand la conversation a atteint un de ses aboutissements, c’est-à-dire une des règles d’arrêt de l’onglet « Objectif et transferts ». Rend la main au scénario par la sortie choisie.","en":"Call when the conversation has reached one of its outcomes, that is one of the stop rules from the “Objective and handovers” tab. Hands back to the scenario through the chosen output."},"nePasUtiliser":{"fr":"Ne pas appeler pour passer la main à un humain : il y a un outil pour ça.","en":"Do not call to hand over to a human: there is a dedicated tool."},"risk":"read","params":[{"name":"sortie","edition":"derive_des_sorties"}]},
+  {"handler":"terminer","nomDefaut":"mba_terminer","titre":{"fr":"Terminer par une règle d’arrêt","en":"Finish through a stop rule"},"description":{"fr":"À appeler quand la conversation a atteint un de ses aboutissements, c’est-à-dire une des règles d’arrêt réglées dans cet outil. Rend la main au scénario par la sortie choisie.","en":"Call when the conversation has reached one of its outcomes, that is one of the stop rules set in this tool. Hands back to the scenario through the chosen output."},"nePasUtiliser":{"fr":"Ne pas appeler pour passer la main à un humain : il y a un outil pour ça.","en":"Do not call to hand over to a human: there is a dedicated tool."},"risk":"read","params":[{"name":"sortie","edition":"derive_des_sorties"}]},
   {"handler":"escalader","nomDefaut":"mba_escalader_humain","titre":{"fr":"Passer la main à un humain","en":"Hand over to a human"},"description":{"fr":"À appeler dès que la demande sort du périmètre, ou que le contact le demande. La conversation arrive dans l’inbox.","en":"Call as soon as the request is out of scope, or the contact asks for it. The conversation lands in the inbox."},"nePasUtiliser":{"fr":"Ne pas appeler par prudence sur une question à laquelle les sources répondent.","en":"Do not call out of caution on a question the sources answer."},"risk":"write","params":[]},
   {"handler":"marquer_urgent","nomDefaut":"mba_marquer_urgent","titre":{"fr":"Marquer la conversation urgente","en":"Mark the conversation as urgent"},"description":{"fr":"À appeler quand la demande du contact presse vraiment : un problème qui le bloque, une réclamation, un délai qui expire. La conversation apparaît dans le dossier « Urgent » de l’équipe ; tu continues de lui répondre.","en":"Call when the contact’s request is truly pressing: a blocking problem, a complaint, a deadline about to expire. The conversation shows up in the team’s “Urgent” folder; you keep answering them."},"nePasUtiliser":{"fr":"Ne pas l’appeler pour une simple demande d’information.","en":"Do not call it for a mere request for information."},"risk":"write","params":[]},
   {"handler":"chercher_connaissance","nomDefaut":"mba_chercher_connaissance","titre":{"fr":"Chercher dans la base de connaissance","en":"Search the knowledge base"},"description":{"fr":"À appeler AVANT de répondre à toute question de fond. Rend les fiches qui traitent le sujet, ou rien.","en":"Call BEFORE answering any substantive question. Returns the entries covering the topic, or nothing."},"nePasUtiliser":{"fr":"Ne pas répondre de mémoire quand cet outil ne rend rien.","en":"Do not answer from memory when this tool returns nothing."},"risk":"read","params":[{"name":"requete","edition":"aucune"}]},
@@ -53,7 +53,7 @@ export const TEXTES = {
     mention: 'Vous échangez avec un assistant automatique.',
     objectif: 'Répondre aux questions sur la collection, les tailles et les commandes, puis proposer un rendez-vous en boutique.',
     transferts: 'Dès qu’on parle d’un remboursement, d’un article abîmé, ou si le contact s’énerve.',
-    sorties: [{ code: 'rdv_pris', label: 'Rendez-vous pris en boutique' }, { code: 'commande_suivie', label: 'Le client a eu le suivi de sa commande' }],
+    sorties: [{ code: 'hors_sujet', label: 'La demande sort complètement du sujet' }],
     site: 'https://votre-marque.test',
     scenarioRdv: 'Prise de rendez-vous', scenarioBienvenue: 'Bienvenue',
   },
@@ -64,7 +64,7 @@ export const TEXTES = {
     mention: 'You are chatting with an automated assistant.',
     objectif: 'Answer questions about the collection, sizes and orders, then offer an appointment in store.',
     transferts: 'As soon as a refund or a damaged item comes up, or if the contact gets upset.',
-    sorties: [{ code: 'appointment_booked', label: 'Appointment booked in store' }, { code: 'order_tracked', label: 'The customer got their order tracking' }],
+    sorties: [{ code: 'off_topic', label: 'The request is completely off topic' }],
     site: 'https://your-brand.test',
     scenarioRdv: 'Book an appointment', scenarioBienvenue: 'Welcome',
   },

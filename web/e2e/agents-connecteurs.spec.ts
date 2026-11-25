@@ -92,12 +92,13 @@ async function mock(page: import('@playwright/test').Page, capture: { posts: Arr
       return json({ ok: true });
     }
     // Ce qui manque à la fiche, relu par la page après chaque geste du panneau Outils. Le serveur dit la vérité du
-    // moment : tant qu'aucune activation n'est partie, « Aucun outil actif ».
+    // moment : tant qu'aucune activation n'est partie, le manque d'outil (2026-11-25 : la recherche, « aucun outil actif »
+    // n'étant plus exigé).
     if (/\/manques$/.test(url)) {
       const active = capture.posts.some((p) => /\/activation$/.test(p.url));
       return json({
         manques: over.manquesJusquaActivation && !active
-          ? [{ onglet: 'outils', message: 'Aucun outil actif : l’agent peut parler mais ne peut rien faire, pas même terminer.' }]
+          ? [{ onglet: 'outils', message: 'La base de connaissance est remplie mais l’outil « Chercher dans la base de connaissance » n’est pas actif : l’agent ne peut pas la lire, et transférera toutes les questions de fond.' }]
           : [],
         avertissements: [],
       });
@@ -593,7 +594,7 @@ test.describe('Agent : modifier un appel déjà posé (2026-10-05)', () => {
     await expect.poll(() => capture.posts.find((p) => p.url.includes('/o5/autonomie'))?.body ?? null).toEqual({ valeur: true });
   });
 
-  test('🔴 activer un appel depuis sa ligne fait partir « Aucun outil actif » sur-le-champ', async ({ page }) => {
+  test('🔴 activer un outil depuis sa ligne fait partir son manque sur-le-champ', async ({ page }) => {
     /**
      * Le défaut du bandeau fantôme des outils maison (agents-construction, 2026-09-11), revenu par la ligne neuve
      * de 362dde63 : le panneau des connecteurs rechargeait sa liste sans prévenir la page, et l'en-tête gardait

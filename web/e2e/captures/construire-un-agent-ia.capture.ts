@@ -1,7 +1,7 @@
 import { test, expect } from '../aide/test';
 import { mockAccueil } from '../support/accueil';
 import { NAVIGATEUR, REGLAGES_ACCUEIL, capturer, chiffresAccueil, communs, langue, type Locale } from './donnees-demo';
-import { AG, TEXTES, agentDemo, offreBusiness, simulerAgent, type EtatDemo } from './agent-ia-demo';
+import { AG, TEXTES, agentDemo, offreBusiness, outilMaison, simulerAgent, type EtatDemo } from './agent-ia-demo';
 
 /**
  * « Construire un agent IA » : créer l'agent, la voie de l'assistant (décrire, donner le site, garder ou jeter, « Pour
@@ -39,21 +39,18 @@ const D = {
       { champ: 'fiche.objectif', label: 'Objectif de l’agent', avant: 'Aider les clients.', apres: TEXTES.fr.objectif },
       { champ: 'fiche.ton', label: 'Ton', avant: '', apres: 'Vouvoiement, phrases courtes, pas d’emoji.' },
       { champ: 'fiche.reglesTransfert', label: 'Quand passer la main à un humain', avant: '', apres: TEXTES.fr.transferts },
-      { champ: 'fiche.sorties', label: 'Règles d’arrêt', avant: '', apres: 'rdv_pris : Rendez-vous pris en boutique' },
+      { champ: 'fiche.sorties', label: 'Règles d’arrêt', avant: '', apres: 'hors_sujet : La demande sort complètement du sujet' },
       { champ: 'outil.lancer_scenario.0', label: 'Outil « Lancer un scénario »', avant: '', apres: 'Prise de rendez-vous, dès que le contact veut venir essayer en boutique.' },
     ],
     fin: 'C’est noté : vouvoiement, phrases courtes, pas d’emoji.\n\nPour finir :\n1. Base de connaissance : relisez les fiches importées de https://votre-marque.test une fois l’import fini.\n2. Outils : après « Enregistrer », l’outil qui lance « Prise de rendez-vous » naît « Inactif » : onglet « Outils », « Modifier » sur sa ligne, cochez « Autoriser l’agent à faire ça seul », puis cliquez « Activer ».\n3. Modèle : l’agent utilise google/gemini-2.5-flash. Changez-le dans l’onglet « Modèle » si besoin.\n4. Tester : parlez-lui dans l’onglet « Tester », il vous répond comme à un client.\n5. Activer : quand le test vous convient, cliquez sur « Activer » en haut de la fiche.',
-    code: 'rappel_demande', libelle: 'Le client veut être rappelé',
+    code: 'insulte', libelle: 'Le client insulte l’agent',
     manques: [
+      // Les étapes du serveur depuis le 2026-11-25 : objectif, base de connaissance, et la recherche quand elle est remplie.
       { onglet: 'connaissance', message: 'La base de connaissance est vide : l’agent transférerait toutes les questions de fond.' },
-      { onglet: 'outils', message: 'Aucun outil actif : l’agent peut parler mais ne peut rien faire, pas même terminer.' },
     ],
     manquesVide: [
       { onglet: 'objectif', message: 'L’objectif de l’agent est vide : c’est le champ qui pèse le plus sur ce qu’il répondra.' },
-      { onglet: 'objectif', message: 'Personne n’a écrit quand l’agent doit passer la main à un humain.' },
-      { onglet: 'objectif', message: 'Aucune règle d’arrêt : l’agent n’a aucune façon de finir et de rendre la main au scénario.' },
       { onglet: 'connaissance', message: 'La base de connaissance est vide : l’agent transférerait toutes les questions de fond.' },
-      { onglet: 'outils', message: 'Aucun outil actif : l’agent peut parler mais ne peut rien faire, pas même terminer.' },
     ],
     radioAgent: 'Un agent IA',
   },
@@ -77,21 +74,17 @@ const D = {
       { champ: 'fiche.objectif', label: 'The agent’s objective', avant: 'Help customers.', apres: TEXTES.en.objectif },
       { champ: 'fiche.ton', label: 'Tone', avant: '', apres: 'Formal, short sentences, no emoji.' },
       { champ: 'fiche.reglesTransfert', label: 'When to hand over to a human', avant: '', apres: TEXTES.en.transferts },
-      { champ: 'fiche.sorties', label: 'Stop rules', avant: '', apres: 'appointment_booked: Appointment booked in store' },
+      { champ: 'fiche.sorties', label: 'Stop rules', avant: '', apres: 'off_topic: The request is completely off topic' },
       { champ: 'outil.lancer_scenario.0', label: 'Tool “Start a scenario”', avant: '', apres: 'Book an appointment, as soon as the contact wants to come and try on in store.' },
     ],
     fin: 'Noted: formal, short sentences, no emoji.\n\nTo finish:\n1. Knowledge base: reread the entries imported from https://your-brand.test once the import is done.\n2. Tools: after “Save”, the tool that starts “Book an appointment” is born “Inactive”: “Tools” tab, “Edit” on its line, tick “Allow the agent to do this on its own”, then click “Activate”.\n3. Model: the agent uses google/gemini-2.5-flash. Change it in the “Model” tab if needed.\n4. Test: talk to it in the “Test” tab, it answers you as it would a customer.\n5. Activate: when the test suits you, click “Activate” at the top of the record.',
-    code: 'callback_requested', libelle: 'The customer wants a call back',
+    code: 'insult', libelle: 'The customer insults the agent',
     manques: [
       { onglet: 'connaissance', message: 'The knowledge base is empty: the agent would hand over every substantive question.' },
-      { onglet: 'outils', message: 'No active tool: the agent can talk but cannot do anything, not even finish.' },
     ],
     manquesVide: [
       { onglet: 'objectif', message: 'The agent’s objective is empty: it is the field that weighs most on what it answers.' },
-      { onglet: 'objectif', message: 'Nobody wrote when the agent must hand over to a human.' },
-      { onglet: 'objectif', message: 'No stop rule: the agent has no way to finish and hand back to the scenario.' },
       { onglet: 'connaissance', message: 'The knowledge base is empty: the agent would hand over every substantive question.' },
-      { onglet: 'outils', message: 'No active tool: the agent can talk but cannot do anything, not even finish.' },
     ],
     radioAgent: 'An AI agent',
   },
@@ -179,15 +172,19 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await expect(page.getByTestId('agent-ton')).toBeVisible();
       await capturer(page, CLE, 7, locale, undefined, 'haut', page.getByTestId('mba-tab-identite'));
 
-      // 8. Objectif et transferts : l'objectif, puis quand passer la main.
+      // 8. L'onglet « Objectif » : l'objectif seul, et le renvoi vers les outils (2026-11-25).
       await page.goto(`/agents?id=${AG}&tab=objectif`);
       await expect(page.getByTestId('agent-objectif')).toBeVisible();
       await capturer(page, CLE, 8, locale, undefined, 'haut', page.getByTestId('agent-objectif'));
 
-      // 9. Les règles d'arrêt : deux déclarées, une troisième tapée juste avant « Ajouter ».
+      // 9. Les règles d'arrêt, facultatives, dans l'outil « Terminer » : une règle tapée juste avant « Ajouter ».
+      etat.outils = [outilMaison('terminer', locale)];
+      await page.goto(`/agents?id=${AG}&tab=outils`);
+      await page.getByTestId('toujours-modifier-terminer').click();
       await page.getByTestId('agent-sortie-code').fill(d.code);
       await page.getByTestId('agent-sortie-label').fill(d.libelle);
-      await capturer(page, CLE, 9, locale, page.getByTestId('agent-sortie-code'), 'bas', page.getByTestId('agent-sortie-ajouter'));
+      await capturer(page, CLE, 9, locale, page.getByTestId('outil-regles-arret'), 'bas', page.getByTestId('agent-sortie-ajouter'));
+      etat.outils = [];
 
       // 10. L'en-tête : le modèle, la pastille, « 2 étapes à finir » et les messages échangés.
       await page.goto(`/agents?id=${AG}&tab=modele`);

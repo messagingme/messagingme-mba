@@ -1,6 +1,6 @@
 ---
 slug: build-an-ai-agent
-traduit_de: 838229
+traduit_de: b165a4
 description: Create a WhatsApp AI agent, set it up by talking to the assistant or tab by tab, activate it, then have it answer your customers.
 ---
 # Build an AI agent
@@ -115,6 +115,8 @@ its badge, and “n steps left”. Each step leads to the tab where it is set.
 - A step is an empty field that prevents activation: the objective, the knowledge base, and the search tool when the
   base is filled. Never a judgement on what you wrote. “All set” when none is left. Handover and stop rules are
   optional.
+- On the “Build by talking” tab, the header does not show the steps: they describe the saved agent, and the box that
+  follows “Save” tells what is missing.
 - The number of messages exchanged over 30 days counts the whole thread of the conversations the agent held, campaigns
   and your team’s messages included: it is not what the agent wrote itself, nor the same count as the Home screen. Your
   tests are not included, and as long as it is not known, nothing is shown.

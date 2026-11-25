@@ -2,7 +2,7 @@
 description: Donner des outils à un agent IA : les gestes toujours là, puis un tag, une information, un bloc, un scénario, une action ou des étapes.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 44fae2
+source_empreinte: f833b6
 publique: oui
 rubrique: parler-aux-clients
 rang: 15

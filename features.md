@@ -4555,7 +4555,8 @@ réponse qui part, un outil qui s'exécute, une sortie qui reprend le scénario,
   catalogue), son nom interne, son modèle, et sa pastille Brouillon / Actif / Désactivé.
 - ✅ **Ce qu'il reste à régler avant de pouvoir l'activer s'affiche juste en dessous**, sous la forme « n
   étapes à finir » (ou « Tout est réglé »), et chaque étape est un lien direct vers l'onglet où elle se
-  corrige.
+  corrige. **Sauf sur « Construire en parlant »** (2026-11-25, décision de Julien) : les étapes décrivent l'agent
+  enregistré et ne bougeaient pas pendant l'entretien ; l'encadré qui suit « Enregistrer » dit ce qui manque.
 - ✅ **Le nombre de messages échangés sur 30 jours s'affiche à côté, quand il est connu.** Il compte tous les
   messages, entrants et sortants, des conversations que cet agent a tenues au moins une fois pendant cette
   période, **y compris les envois de campagne et ce que votre équipe a écrit après avoir repris la main sur

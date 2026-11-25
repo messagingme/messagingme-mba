@@ -2,7 +2,7 @@
 description: Remplir la base de connaissance d'un agent IA : votre site, un document, une fiche écrite à la main ou une pièce jointe, puis la relire.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 44fae2
+source_empreinte: f833b6
 publique: oui
 rubrique: parler-aux-clients
 rang: 14

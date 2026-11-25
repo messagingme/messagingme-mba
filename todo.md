@@ -1,5 +1,11 @@
 # todo.md : backlog
 
+## 🟡 Les étapes masquées pendant l'entretien : la relecture du lot 4 (2026-11-25, aucun rouge)
+
+- Une activation refusée (422) depuis l'onglet « Construire en parlant » remplit les manques sans rien montrer dans
+  l'en-tête : seul l'encadré « Suite » de l'entretien dit ce qui manque, et le bandeau d'erreur ne porte que la phrase
+  du serveur.
+
 ## 🟡 Les règles d'arrêt dans l'outil « Terminer » : la relecture du lot 3 (2026-11-25, aucun rouge)
 
 - Une règle d'arrêt ajoutée depuis l'onglet Outils pendant que la page est occupée (une activation en cours) est perdue

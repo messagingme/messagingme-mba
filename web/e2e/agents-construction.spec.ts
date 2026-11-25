@@ -274,6 +274,16 @@ test.describe('Agents IA : construire en parlant', () => {
     await expect.poll(() => oublis, { timeout: 5000 }).toEqual(['DELETE']);
   });
 
+  test('🔴 l en-tête ne montre pas les étapes pendant « Construire en parlant », et les montre ailleurs (2026-11-25)', async ({ page }) => {
+    // Julien : elles « ne se mettent pas à jour » pendant l'entretien, puisqu'elles décrivent l'agent ENREGISTRÉ.
+    await mock(page, [], { manques: [{ onglet: 'connaissance', message: 'La base de connaissance est vide : l’agent transférerait toutes les questions de fond.' }] });
+    await page.goto(`/agents?id=${AG}&tab=construction`);
+    await expect(page.getByTestId('setup-saisie')).toBeVisible();
+    await expect(page.getByTestId('entete-agent-etapes')).toHaveCount(0);
+    await page.goto(`/agents?id=${AG}&tab=identite`);
+    await expect(page.getByTestId('entete-agent-etapes')).toContainText('1 étape à finir');
+  });
+
   test('🔴 TANT QUE LE PÉRIMÈTRE N EST PAS COUVERT, on discute : aucun diff', async ({ page }) => {
     // Julien, 2026-08-28 : « je préfère qu'au début on discute avant d'afficher ce que le bot a compris ».
     // Le serveur retient le diff pendant l'entretien ; l'écran doit le DIRE, sinon il serait simplement muet
@@ -474,7 +484,7 @@ test.describe('Agents IA : construire en parlant', () => {
           error: 'agent incomplet',
           manques: [
             { onglet: 'connaissance', message: 'La base de connaissance est vide : l’agent transférerait toutes les questions de fond.' },
-            { onglet: 'outils', message: 'Aucun outil actif : l’agent peut parler mais ne peut rien faire, pas même terminer.' },
+            { onglet: 'outils', message: 'La base de connaissance est remplie mais l’outil « Chercher dans la base de connaissance » n’est pas actif : l’agent ne peut pas la lire, et transférera toutes les questions de fond.' },
           ],
         },
       },
@@ -561,7 +571,7 @@ test.describe('Agents IA : construire en parlant', () => {
       if (/\/manques$/.test(url)) {
         manques.push(url);
         // Le serveur dit la vérité du moment : c'est justement ce que l'écran ne redemandait pas.
-        return json({ manques: outilActif ? [] : [{ onglet: 'outils', message: 'Aucun outil actif : l’agent peut parler mais ne peut rien faire, pas même terminer.' }] });
+        return json({ manques: outilActif ? [] : [{ onglet: 'outils', message: 'La base de connaissance est remplie mais l’outil « Chercher dans la base de connaissance » n’est pas actif : l’agent ne peut pas la lire, et transférera toutes les questions de fond.' }] });
       }
       if (/\/setup$/.test(url)) return json({ messages: [], couverture: { manquants: [], total: 9, pointOuvert: null } });
       if (/\/knowledge/.test(url)) return json({ fiches: [] });

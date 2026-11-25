@@ -390,7 +390,10 @@ function Ecran({ tenantId }: { tenantId: string }) {
           nom={ouvert.label}
           precision={ouvert.modele}
           etat={<Activation agent={ouvert} busy={busy} onChange={(status) => void changerStatut(status)} />}
-          etapes={manques}
+          // 🔴 PAS D'ÉTAPES PENDANT « CONSTRUIRE EN PARLANT » (Julien, 2026-11-25) : elles décrivent l'agent ENREGISTRÉ et
+          // ne bougeaient pas pendant que l'entretien avançait ; le bloc « Suite » de l'entretien dit ce qui manque après
+          // l'enregistrement. `null` masque le compte et la liste, comme quand on ne sait pas encore.
+          etapes={onglet === 'construction' ? null : manques}
           messagesTenus={messages}
           onOnglet={(cle) => aller(ouvert.id, lireOnglet(cle))}
         />

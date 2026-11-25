@@ -2,7 +2,7 @@
 description: Créer un agent IA WhatsApp, le régler en parlant à l'assistant ou onglet par onglet, l'activer, puis le faire répondre à vos clients.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 44fae2
+source_empreinte: f833b6
 publique: oui
 rubrique: parler-aux-clients
 rang: 10
@@ -126,6 +126,8 @@ pastille, et « n étapes à finir ». Chaque étape mène à l'onglet où elle 
 - Une étape, c'est un champ vide qui empêche l'activation : l'objectif, la base de connaissance, et l'outil de
   recherche quand la base est remplie. Jamais un jugement sur ce que vous avez écrit. « Tout est réglé » quand il n'en
   reste aucune. Règles de transfert et d'arrêt sont facultatives.
+- Sur l'onglet « Construire en parlant », l'en-tête ne montre pas les étapes : elles décrivent l'agent enregistré, et
+  l'encadré qui suit « Enregistrer » dit ce qui manque.
 - Le nombre de messages échangés sur 30 jours compte tout le fil des conversations que l'agent a tenues, campagnes et
   messages de votre équipe compris : ce n'est pas ce que l'agent a écrit lui-même, ni le même compte que l'Accueil. Vos
   essais n'y entrent pas, et tant qu'il n'est pas connu, rien ne s'affiche.

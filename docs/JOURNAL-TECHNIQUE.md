@@ -5,6 +5,18 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : les étapes masquées pendant « Construire en parlant », et l'aide refaite (refonte, lot 4)
+
+Dernier lot du plan `docs/superpowers/plans/2026-11-25-agent-objectif-seul-outils.md`. Julien, devant l'agent de
+Maison Saint-Honoré : les « étapes à finir » ne se mettaient pas à jour pendant l'entretien, puisqu'elles décrivent
+l'agent ENREGISTRÉ. Sur l'onglet « Construire en parlant », l'en-tête ne les montre plus (décision dans l'écran de la
+fiche, pas dans `EnteteAgent`, partagé avec le MBA de Meta) ; l'encadré « Suite » de l'entretien dit ce qui manque après
+l'enregistrement. Les e2e qui simulaient le manque « Aucun outil actif », retiré au lot 1, simulent désormais le manque
+réel de l'outil de recherche. Les captures des six fiches de l'agent IA sont refaites : l'onglet « Objectif », les
+règles d'arrêt dans l'outil « Terminer », et des règles de démonstration qui sont des cas d'arrêt (« la demande sort
+complètement du sujet », « le client insulte l'agent ») et plus des aboutissements. Méthode : en direct (écran et
+documentation), une relecture indépendante ; la mutation de l'en-tête est rouge.
+
 ## 2026-11-25 : segments Shopify, lot 6b bis : un client Shopify se relie par tous ses numéros
 
 L'essai réel du lot 6b n'a relié aucune fiche sur « Messaging Me demo » : la règle « le téléphone propre du client
