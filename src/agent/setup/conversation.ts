@@ -135,6 +135,22 @@ export function consigneDeSynthese(): string {
   ].join('\n');
 }
 
+/**
+ * Le tour de RÉPARATION (`tour-entretien.ts`) : le modèle a annoncé un changement au client sans rien proposer. On lui
+ * redemande une fois la même réponse, avec les champs ; s'il n'y en a pas, il le dit au lieu de prétendre.
+ */
+export function consigneDeReparation(annonce: string): string {
+  return [
+    'L’AGENT EST COMPLET, tu es en ÉVOLUTION, et ta réponse précédente au client annonçait un changement : '
+      + `« ${annonce.slice(0, MAX_CARACTERES_MESSAGE)} ». Mais ta proposition ne contenait AUCUN champ : rien ne serait `
+      + 'enregistré, et le client croirait l’agent corrigé.',
+    'Rends la même réponse AVEC, dans `fiche`, le ou les champs qui portent ce changement. Le plus souvent `objectif` : '
+      + 'réécris-le EN ENTIER, en gardant tout ce qu’il dit déjà (il est dans l’état ci-dessous) et en y ajoutant la demande.',
+    'Si ce changement ne peut s’écrire dans aucun champ, ne propose rien et dis-le au client en une phrase, sans '
+      + 'prétendre l’avoir fait.',
+  ].join('\n');
+}
+
 export function consigneDuTour(
   etat: EtatEntretien, inv: Inventaire, vides: readonly string[] = [],
 ): string {
@@ -151,6 +167,8 @@ export function consigneDuTour(
         + 'actuel de l’agent sur ce dont il vient de parler, dis-lui ce que tu peux changer, puis attends sa '
         + 'demande.',
       'Ne propose de modification que s’il en demande une. S’il ne demande rien, tu ne proposes rien.',
+      'Quand il en demande une, elle va DANS ta proposition (le plus souvent `fiche.objectif`, réécrit en entier) : '
+        + 'n’écris jamais « je corrige » ou « c’est noté » sans le champ qui porte ce changement.',
       /**
        * La seule exception, constatée par le serveur et pas par le modèle : un champ réglé pendant l'entretien
        * est vide aujourd'hui. On le signale, sans reposer la question.
@@ -371,7 +389,7 @@ export function construireMessages(
    * Le tour de synthèse se demande, il ne se devine pas : à ce stade l'ordre du jour est déjà couvert, et
    * `consigneDuTour` rendrait la consigne d'évolution. Seul l'appelant a vu l'état d'avant.
    */
-  opts: { synthese?: boolean } = {},
+  opts: { synthese?: boolean; reparation?: string } = {},
 ): ChatMessage[] {
   const inv = inventaireDe(ctx);
   const bloc = `${DEBUT}\n${sansDelimiteur(etat(ctx))}\n${FIN}`;
@@ -383,7 +401,8 @@ export function construireMessages(
   // questions n'est pas négociable.
   /** Les points vidés viennent de la fiche réelle : seul endroit qui sache qu'un champ a été effacé depuis. */
   const vides = pointsSansContenu(ctx.fiche);
-  const consigne = opts.synthese ? consigneDeSynthese() : consigneDuTour(entretien, inv, vides);
+  const consigne = opts.reparation !== undefined ? consigneDeReparation(opts.reparation)
+    : opts.synthese ? consigneDeSynthese() : consigneDuTour(entretien, inv, vides);
   // L'ordre du jour porte des textes venus de l'espace et du modèle (moyens, noms de scénarios) : aucun ne doit pouvoir
   // refermer un bloc de données.
   const texte = mandat(consigne, sansDelimiteur(ordreDuJour(entretien, inv, vides)));

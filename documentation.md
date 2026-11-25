@@ -1825,6 +1825,7 @@ point est ouvert, c'est le serveur qui pose sa question, SEULE : elle remplace c
 l'accusé de réception (`sansSesQuestions`) ; deux questions dans un message, le client répond à l'autre et l'entretien ne
 finit jamais. Seul le serveur dit que l'agent est prêt : pendant l'entretien, un message du modèle qui l'annonce
 (`annonceUneFin`) part entier, remplacé par `PAS_ENCORE_FINI` et la question du point ouvert.
+Agent complet (évolution), un changement annoncé se propose : un message qui annonce une correction (« je corrige », « j'ai ajouté », « cliquez sur « Enregistrer » », `annonceUnChangement`) avec une proposition vide fait redemander UNE fois la proposition au modèle (`consigneDeReparation`) ; s'il ne vient toujours aucun changement, le message est remplacé par `RIEN_A_ENREGISTRER`, jamais laissé prétendre.
 🔴 **« Quand passer la main » est la description de l'outil `escalader`, plus un champ de fiche** (2026-11-25) : le
 prompt ne lit plus `reglesTransfert`, resté dans la fiche et ignoré. L'entretien transforme la règle que le modèle
 propose en outil posé et activé (`outilPasserLaMain`, sauf « jamais », et jamais chez un agent qui qualifie avant de

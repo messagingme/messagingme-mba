@@ -5,6 +5,16 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : « Je corrige » sans rien proposer, l'assistant de construction ne peut plus le dire
+
+Maison Saint-Honoré, agent complet : Julien demande que l'agent ne dise plus « tu vas le recevoir » et donne le lien du
+produit. L'assistant répond « Je corrige : l'agent oriente vers l'achat sur le site » ; vérifié dans la console et par
+l'API, aucune proposition en attente et l'objectif inchangé. Le message et la proposition sont deux sorties du même
+appel, et rien ne vérifiait qu'elles concordent. Désormais, en évolution, une annonce de changement avec une proposition
+vide fait redemander une fois la proposition ; sans changement à la seconde, le message est remplacé par un aveu. La
+consigne d'évolution le demande aussi. Méthode : en direct, une relecture indépendante ; les deux gardes vérifiées par
+mutation (sans la seconde demande, deux tests rouges ; sans le remplacement, un).
+
 ## 2026-11-25 : CSM virtuel, lot F (B6b) : Claude suit une vraie conversation
 
 Même plan que B6a (`docs/superpowers/plans/2026-11-25-csm-lot1-f-simulation-deroule.md`). B6a, la simulation, est en

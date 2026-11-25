@@ -11,7 +11,7 @@ import { construireMessages, inventaireDe, type ContexteConstruction } from './c
 import {
   accordDonneesClient, actionChoisie, basculesDuTour, CODE_DONNEES_CLIENT, fusionner, fusionnerBascules, momentDuPoint,
   momentsDesReponses, outilLireFiche, poseUneQuestion, prochainPoint, questionDeRelance, questionOuiOuNonMontree,
-  reponseOuiOuNon, sansSesQuestions, annonceUneFin, PAS_ENCORE_FINI, HANDLER_PASSER_LA_MAIN, outilPasserLaMain,
+  reponseOuiOuNon, sansSesQuestions, annonceUneFin, PAS_ENCORE_FINI, annonceUnChangement, RIEN_A_ENREGISTRER, HANDLER_PASSER_LA_MAIN, outilPasserLaMain,
   urlDeConnaissance,
 } from './couverture';
 import { outilMaison } from '../outils-maison';
@@ -21,7 +21,7 @@ import {
 import { rendreProposition, type PropositionEnAttente } from './en-attente';
 import { blocDeFin } from './fin';
 import {
-  assainirProposition, BORNES_PROPOSITION, propositionSchema, OUTIL_PROPOSER, SCHEMA_PROPOSITION,
+  assainirProposition, BORNES_PROPOSITION, neProposeRien, propositionSchema, OUTIL_PROPOSER, SCHEMA_PROPOSITION,
   type Changement, type Proposition,
 } from './proposition';
 import {
@@ -124,6 +124,41 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
     signal: AbortSignal.timeout(DELAI_MS),
   });
 
+  /**
+   * La seconde demande d'un tour de réparation : budget réservé puis soldé comme la synthèse. Une panne attendue du
+   * fournisseur ou une sortie illisible rend `null` (le message sera remplacé) ; une panne interne remonte.
+   */
+  const redemanderLaProposition = async (
+    tenantId: string, agentId: string, messages: ChatMessage[],
+  ): Promise<{ proposition: Proposition; usage: { tokensIn: number; tokensOut: number } } | null> => {
+    const reservation = await reserverBudget(deps, tenantId);
+    if (!reservation) return null;
+    let seconde: ReponseChat;
+    try {
+      seconde = await appelerProposition(tenantId, messages);
+    } catch (err) {
+      await solderReservation(deps, tenantId, reservation, 0);
+      if (direPanneModele(err) === null) throw err;
+      journaliser('warn', 'agent_setup_reparation_echec', { tenantId, agentId, err });
+      return null;
+    }
+    await solderReservation(deps, tenantId, reservation, seconde.usage.coutDollars);
+    const usage = { tokensIn: seconde.usage.tokensIn, tokensOut: seconde.usage.tokensOut };
+    const appel = seconde.appelsOutils.find((a) => a.nom === OUTIL_PROPOSER);
+    let brut: unknown;
+    try {
+      brut = appel ? secureJsonParse(appel.argumentsJson) : undefined;
+    } catch (err) {
+      if (!(err instanceof SyntaxError)) throw err;
+    }
+    const lue = brut === undefined ? null : propositionSchema.safeParse(assainirProposition(brut));
+    if (!lue?.success) {
+      journaliser('warn', 'agent_setup_reparation_echec', { tenantId, agentId, err: 'proposition illisible' });
+      return null;
+    }
+    return { proposition: lue.data, usage };
+  };
+
   return {
     indisponibilite,
     async executer(commande): Promise<ResultatTourEntretien> {
@@ -193,6 +228,25 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       }
 
       /**
+       * 🔴 UN CHANGEMENT ANNONCÉ SE PROPOSE (Maison Saint-Honoré, 2026-11-25). Agent complet, le client demande une
+       * correction, le modèle répond « Je corrige : … » avec une proposition VIDE : rien à enregistrer, et le client croit
+       * l'agent corrigé. Le serveur redemande UNE fois la proposition (contrat : `consigneDeReparation`, journalisée) ;
+       * s'il n'en vient toujours aucune, le message est remplacé plus bas (`RIEN_A_ENREGISTRER`), jamais laissé mentir.
+       */
+      const enEvolution = avancementEntretien(avant, contexte).manquants.length === 0;
+      let lu: Proposition = propose.data;
+      let usageReparation = { tokensIn: 0, tokensOut: 0 };
+      if (enEvolution && neProposeRien(lu) && annonceUnChangement(lu.message)) {
+        journaliser('warn', 'agent_setup_reparation', { tenantId: commande.tenantId, agentId: commande.agentId });
+        const reparee = await redemanderLaProposition(commande.tenantId, commande.agentId,
+          construireMessages(contexte, historique, avant, { reparation: lu.message }));
+        if (reparee) {
+          usageReparation = reparee.usage;
+          if (!neProposeRien(reparee.proposition)) lu = reparee.proposition;
+        }
+      }
+
+      /**
        * 🔴 LE POINT DES DONNÉES DE LA FICHE N'A QU'UN JUGE, LE SERVEUR. Le oui ou le non se lit dans le message du CLIENT,
        * sans le modèle (comme `actionChoisie`), et seulement si la dernière question de l'assistant portait la marque
        * (`MARQUE_OUI_OU_NON`) : un « ok merci » après « C'est enregistré » n'est pas un oui à une question jamais posée.
@@ -204,16 +258,16 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       const accordLu = pointDuTour?.code === CODE_DONNEES_CLIENT && questionOuiOuNonMontree(derniereQuestion)
         ? reponseOuiOuNon(commande.message) : null;
       const reponses = fusionner(avant.reponses, [
-        ...propose.data.reponses.filter((r) => r.point !== CODE_DONNEES_CLIENT),
+        ...lu.reponses.filter((r) => r.point !== CODE_DONNEES_CLIENT),
         ...(accordLu ? [{ point: CODE_DONNEES_CLIENT, valeur: accordLu }] : []),
       ]);
       // Le modèle range parfois les moments dans les réponses. On ne les reprend qu'au tour qui les demande,
       // et seulement si aucune liste n'existe encore, sinon une reformulation ferait naître des doublons.
       const reprendreDesReponses = pointDuTour?.collecteDesMoments === true
-        && (propose.data.bascules ?? []).length === 0 && (avant.bascules ?? []).length === 0;
+        && (lu.bascules ?? []).length === 0 && (avant.bascules ?? []).length === 0;
       const basculesProposees = reprendreDesReponses
-        ? momentsDesReponses(propose.data.reponses)
-        : basculesDuTour(avant.bascules ?? [], propose.data.bascules ?? [], pointDuTour);
+        ? momentsDesReponses(lu.reponses)
+        : basculesDuTour(avant.bascules ?? [], lu.bascules ?? [], pointDuTour);
       // Plafonnée À L'ÉCRITURE comme à la relecture (`MAX_BASCULES`) : une liste plus longue que ce que la relecture
       // accepte ferait annoncer au client des moments qui disparaîtraient au tour suivant.
       const listeBascules = fusionnerBascules(avant.bascules ?? [], basculesProposees).slice(0, MAX_BASCULES);
@@ -270,8 +324,8 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
        * Son message part entier et la question du serveur prend sa place (Maison Saint-Honoré, 2026-11-24 : deux
        * « Votre agent est prêt ! 🎉 » de suite, sans proposition ni bouton pour l'activer).
        */
-      const finPrematuree = ouvertApres !== null && annonceUneFin(propose.data.message);
-      const relance = ouvertApres && (!poseUneQuestion(propose.data.message) || forcerLaMarque || finPrematuree)
+      const finPrematuree = ouvertApres !== null && annonceUneFin(lu.message);
+      const relance = ouvertApres && (!poseUneQuestion(lu.message) || forcerLaMarque || finPrematuree)
         ? ouvertApres : null;
       const posesApres = relance && !poses.includes(relance.code) ? [...poses, relance.code] : poses;
       const etatApres: EntretienComplet = {
@@ -284,14 +338,14 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       const suivi = avancementEntretien(etatApres, contexte);
       const enEntretien = suivi.manquants.length > 0;
 
-      let propositionFinale = propose.data;
+      let propositionFinale = lu;
       const avantRelance = finPrematuree ? PAS_ENCORE_FINI
-        : forcerLaMarque ? sansSesQuestions(propose.data.message) : propose.data.message;
+        : forcerLaMarque ? sansSesQuestions(lu.message) : lu.message;
       let message = relance
         ? [avantRelance, questionDeRelance(relance, etatApres)].filter(Boolean).join('\n\n')
-        : propose.data.message;
-      let tokensIn = reponse.usage.tokensIn;
-      let tokensOut = reponse.usage.tokensOut;
+        : lu.message;
+      let tokensIn = reponse.usage.tokensIn + usageReparation.tokensIn;
+      let tokensOut = reponse.usage.tokensOut + usageReparation.tokensOut;
       const vientDeFinir = !enEntretien && avancementEntretien(avant, contexte).manquants.length > 0;
 
       // La synthèse ne tourne que sur la transition vers « couvert ». Une panne attendue du fournisseur ou une
@@ -401,6 +455,12 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       const { reponses: _r, bascules: _b, ...retenue } = propositionFinale;
       const rendue = rendreProposition(contexte, retenue, aPoser, outilsAActiver);
       const changements = enEntretien ? [] : rendue.changements;
+      if (enEvolution && changements.length === 0 && !importLance && annonceUnChangement(message)) {
+        journaliser('warn', 'agent_setup_changement_sans_proposition', {
+          tenantId: commande.tenantId, agentId: commande.agentId,
+        });
+        message = RIEN_A_ENREGISTRER;
+      }
 
       if (vientDeFinir) {
         const inventaire = inventaireDe(contexte);

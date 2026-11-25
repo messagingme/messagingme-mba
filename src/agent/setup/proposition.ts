@@ -154,6 +154,14 @@ export const propositionSchema = z.object({
 
 export type Proposition = z.infer<typeof propositionSchema>;
 
+/** Une proposition qui ne touche à rien : ni champ de fiche, ni outil, ni connecteur, ni branchement, ni réglage. */
+export function neProposeRien(p: Proposition): boolean {
+  return Object.keys(p.fiche ?? {}).length === 0
+    && (p.outils ?? []).length === 0 && (p.connecteurs ?? []).length === 0
+    && (p.outilsBranches ?? []).length === 0 && (p.outilsDebranches ?? []).length === 0
+    && p.mentionIaFrequence === undefined && p.inactiviteMinutes === undefined && p.connaissanceUrl === undefined;
+}
+
 const estObjet = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Coupe une chaîne à sa borne, en place. Ne crée rien : une valeur absente ou d'un autre type ressort telle

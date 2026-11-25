@@ -367,6 +367,21 @@ export function annonceUneFin(message: string): boolean {
     || /voici votre agent|c['’]est (tout bon|terminé|fini)|tout est (prêt|bon|réglé|en place)/i.test(p));
 }
 
+/**
+ * 🔴 « JE CORRIGE » SANS RIEN PROPOSER (Maison Saint-Honoré, 2026-11-25) : le message et la proposition sont deux sorties
+ * séparées du même appel, et le modèle peut annoncer un changement dans l'une en laissant l'autre vide. Le client croit
+ * l'agent corrigé, rien n'est à enregistrer. Une annonce est AFFIRMÉE (phrase sans « ? », comme `annonceUneFin`) : « voulez-
+ * vous que je modifie l'objectif ? » n'en est pas une.
+ */
+export function annonceUnChangement(message: string): boolean {
+  return message.split(/(?<=[.!?…])\s+|\n/).filter((p) => !p.includes('?')).some((p) =>
+    /(?<!\p{L})(je (corrige|modifie|change|ajoute|retire|supprime|remplace|rectifie|mets? à jour|intègre|l['’]ajoute|l['’]intègre)|j['’](ajoute|intègre|enlève|ai (bien )?(corrigé|modifié|ajouté|mis à jour|retiré|changé|intégré|remplacé))|c['’]est (corrigé|modifié|ajouté|mis à jour)|(cliquez|appuyez) (ensuite |maintenant )?sur « ?enregistrer)(?!\p{L})/iu.test(p));
+}
+
+/** Ce que le serveur dit à la place d'une annonce de changement qu'aucune proposition ne porte. */
+export const RIEN_A_ENREGISTRER = 'Je n’ai finalement rien préparé de nouveau à enregistrer : ce que vous venez de demander n’est pas pris en compte. '
+  + 'Redites-moi ce que vous voulez modifier, ou écrivez-le directement dans l’onglet « Objectif ».';
+
 /** Ce que le serveur dit à la place d'une annonce de fin prématurée, avant sa question. */
 export const PAS_ENCORE_FINI = 'Il me manque encore quelques réponses avant de vous montrer ce que j’ai compris.';
 

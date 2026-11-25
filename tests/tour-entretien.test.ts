@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { creerTourEntretien, type TourEntretienDeps } from '../src/agent/setup/tour-entretien';
 import type { ReponseChat } from '../src/agent/llm/chat-client';
-import { AGENDA } from '../src/agent/setup/couverture';
+import { AGENDA, annonceUnChangement, RIEN_A_ENREGISTRER } from '../src/agent/setup/couverture';
 import type { EntretienComplet, EntretienStore } from '../src/agent/setup/entretien-store';
 import { ficheVide } from '../src/agent/fiche';
 import { LlmApiError } from '../src/llm/errors';
@@ -235,4 +235,57 @@ describe('la réservation de l’enveloppe pendant un tour', () => {
     await expect(creerTourEntretien(deps).executer(commande)).rejects.toThrow('faute de programmation');
     expect(depenses.total).toBe(500_000);
   });
+});
+
+describe('🔴 un changement annoncé se propose (Maison Saint-Honoré, 2026-11-25)', () => {
+  const annonceVide = reponse(JSON.stringify({ message: 'Compris !\n\nJe corrige : l’agent donne le lien du produit.' }));
+  const demande = { ...commande, message: 'Il ne doit pas dire « tu vas le recevoir », il donne le lien du produit.' };
+
+  it('redemande la proposition une fois, et rend le changement que la seconde réponse porte', async () => {
+    const evenements: string[] = [];
+    const reparee = reponse(JSON.stringify({
+      message: 'Je corrige : l’agent donne le lien du produit.',
+      fiche: { objectif: 'Aider. Donner le lien du produit, ne jamais confirmer de commande.' },
+    }));
+    const r = await creerTourEntretien(dependances({ evenements, reponses: [annonceVide, reparee] })).executer(demande);
+    expect(r.issue).toBe('repondu');
+    if (r.issue !== 'repondu') return;
+    expect(evenements.filter((e) => e === 'modele')).toHaveLength(2);
+    expect(r.reponse.message).toBe('Je corrige : l’agent donne le lien du produit.');
+    expect(r.reponse.changements).toContainEqual(expect.objectContaining({ champ: 'fiche.objectif', avant: 'Aider.' }));
+  });
+
+  it('sans proposition après la seconde demande, le message ne prétend plus rien', async () => {
+    const evenements: string[] = [];
+    const r = await creerTourEntretien(dependances({ evenements, reponses: [annonceVide, annonceVide] })).executer(demande);
+    expect(r.issue).toBe('repondu');
+    if (r.issue !== 'repondu') return;
+    expect(evenements.filter((e) => e === 'modele')).toHaveLength(2);
+    expect(r.reponse.changements).toEqual([]);
+    expect(r.reponse.message).toBe(RIEN_A_ENREGISTRER);
+  });
+
+  it('une réponse sans annonce ne déclenche aucune seconde demande', async () => {
+    const evenements: string[] = [];
+    const simple = reponse(JSON.stringify({ message: 'Votre agent répond sur les produits. Que voulez-vous changer ?' }));
+    const r = await creerTourEntretien(dependances({ evenements, reponses: [simple] })).executer(demande);
+    expect(evenements.filter((e) => e === 'modele')).toHaveLength(1);
+    expect(r.issue === 'repondu' && r.reponse.message).toBe('Votre agent répond sur les produits. Que voulez-vous changer ?');
+  });
+});
+
+describe('annonceUnChangement', () => {
+  it.each([
+    'Je corrige : l’agent oriente vers l’achat sur le site.',
+    'C’est noté, j’ai ajouté la règle.',
+    'C’est corrigé.',
+    'Vérifiez, corrigez si besoin, puis cliquez sur « Enregistrer ».',
+    'Compris. Je mets à jour son objectif.',
+  ])('lit une annonce : %s', (m) => expect(annonceUnChangement(m)).toBe(true));
+  it.each([
+    'Voulez-vous que je modifie son objectif ?',
+    'Votre agent répond sur les produits et le suivi des commandes.',
+    'Je peux changer son ton ou son objectif : dites-moi quoi.',
+    'Je précise que oui, l’agent gère les retours.',
+  ])('ne lit rien : %s', (m) => expect(annonceUnChangement(m)).toBe(false));
 });

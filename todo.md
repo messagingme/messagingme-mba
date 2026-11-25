@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 « Je corrige » sans rien proposer : la relecture (2026-11-25, aucun rouge)
+
+- La détection d'annonce (`annonceUnChangement`) rate des formes : « je vais le corriger », « voici la correction »,
+  « j'ai ajusté / réécrit / reformulé », « c'est fait », « c'est noté ». Les mesurer sur les vrais fils avant d'élargir.
+- Une seconde réponse vide mais honnête (« ça ne s'écrit dans aucun champ ») est jetée au profit de `RIEN_A_ENREGISTRER`.
+- La seconde demande part même quand un outil posé par le serveur (`outilTransfert`, `outilFiche`) fait déjà un changement.
+
 ## 🟡 Connecteur OAuth et pièce envoyée en fichier (plan `2026-11-25-connecteur-oauth-et-piece-en-fichier`) : la relecture (2026-11-25, un rouge corrigé dans le lot)
 
 Le rouge (le `FormData` global partait en texte `[object FormData]` par le `fetch` d'undici) est corrigé et tenu par un
