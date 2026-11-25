@@ -5,6 +5,50 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-25 : un contact est un contact dans toutes les offres, et la limite du Business se règle dans /ops
+
+Lot 3 du plan `docs/superpowers/plans/2026-11-24-contacts-packs-et-remplacement.md` (`1f07cd9c1`, migration 0324).
+Décisions de Julien du jour :
+- « un contact importé, un contact inconnu qui t'écrit, c'est un contact », Entreprise comprise ;
+- en Entreprise sans limite posée dans `/ops`, rien n'est compté ;
+- limitée, l'inconnu au-delà est refusé, ou fait sortir le plus ancien si la case est cochée. Au-dessus de la limite,
+  tout l'excès part d'un coup : c'est son choix, contre « un entre, un sort » ;
+- le Business se règle dans `/ops`.
+
+La méthode : implémenteur par lot, une relecture du diff. Elle n'a trouvé aucun rouge ; cinq jaunes sont au backlog,
+dont deux à régler avant de poser une limite sur un vrai client Entreprise : l'e-mail « espace plein » parle d'offre
+supérieure, et une Entreprise limitée n'a aucune alerte à 80 %.
+
+- **Ce qui change** :
+  - `ficheActive` compte partout ; `contactsToutesOrigines` et `ficheComptee` sont retirés, la vue garde le champ,
+    toujours vrai, pour `get_plan` ;
+  - la porte de la réception lit l'Entreprise ;
+  - `tenants.business_contacts` est lue par `droitsDe` ;
+  - la phrase du refus renvoie au Support pour un Business ou une Entreprise. Elle devinait l'offre supérieure par la
+    grille, et une Entreprise réglée à 100 contacts lisait « Passez en Pro ».
+- **Une erreur rattrapée en écrivant** : ma première porte recalculait la limite depuis la base même pour une offre
+  inchangée. Elle ignorait ainsi la limite du cache, que les tests d'intégration injectent. Le cache vaut de nouveau
+  pour une offre inchangée ; une limite changée dans `/ops` vaut à la réception au plus 30 s plus tard.
+- **Preuves** :
+  - 67 tests d'intégration sur le banc PGlite ;
+  - trois mutations rouges : la porte qui ignore l'Entreprise, le Business sans sa limite, l'Entreprise qui ne compte
+    pas l'entrant ;
+  - 154 e2e de l'offre et de `/ops`, la suite complète, l'auto-attaque ;
+  - CI verte job par job.
+- **Le même déploiement emporte le pack proposé hors de la page Offre** (`9b131f608`) : le bandeau de la page Contacts
+  d'un Pro à 80 %, et « Ajouter des contacts » dans les e-mails de limite du Pro. Les deux mènent à `/offre?pack=ajouter`,
+  qui ouvre la confirmation.
+
+**En production le 2026-11-25.**
+- Le run 45601612671 sur `49981bd6d` (migration `avant`) est passé après le run 45600571657 de l'agent IA (0320, 0323),
+  qui le précédait dans l'historique. Le journal du run dit « -> 0324_business_contacts.sql ... ok », et les fiches
+  d'aide sont rechargées (373 lignes).
+- Relu en base par la machine des workers : la colonne est un integer nullable sans défaut, la contrainte
+  `CHECK (((business_contacts IS NULL) OR (business_contacts > 0)))` est en place, aucun Business n'est réglé.
+- La requête de la porte, jouée telle quelle pour les 20 espaces posés à la main : MUTAC (Entreprise, 10 000, 9 contacts)
+  laisse entrer ; les 19 autres, sans limite, ne lisent rien.
+- Essai réel 288 dans la liste privée.
+
 ## 2026-11-25 : activer un agent IA n'exige plus de règle d'arrêt, de transfert ni d'outil
 
 Julien, devant les « 4 étapes à finir » de Maison Saint-Honoré : « Aucune règle d'arrêt : l'agent n'a aucune façon de
