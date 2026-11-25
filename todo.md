@@ -1,5 +1,19 @@
 # todo.md : backlog
 
+## 🟡 Mini-CRM, pages et export CSV (`edd0efec4`) : la relecture (2026-11-24, aucun rouge)
+
+Partent avec le prochain lot de fonctionnalité des contacts. Déjà réglés dans le lot : l'ordre total de `query`, la case
+d'en-tête qui effaçait la sélection des autres pages, la page vidée par une suppression, les exclusions non UUID de l'export.
+- L'export lit jusqu'à 50 001 fiches en mémoire, même pour refuser au-delà du plafond : un `count` d'abord.
+- `jsonb_each(coalesce(fields, '{}'))` lèverait sur une fiche dont `fields` serait un JSON non objet (aucune contrainte ne
+  l'interdit, aucun cas connu) : `case when jsonb_typeof(fields) = 'object'`.
+- La neutralisation des formules de `toCsv` vaut aussi pour l'export RGPD de l'historique d'un contact : un message
+  « - bonjour » y sort « '- bonjour ». Le dire dans l'aide, ou exempter cet appelant.
+- `/contacts/bulk` et `/contacts/purge` laissent un identifiant non UUID aller jusqu'au cast en base (500) ; l'export les
+  filtre déjà (`estUuid`) : le poser une fois dans `parseBulkTarget`.
+- Sans filtre, « Sélectionner les N contacts de l'espace » met l'espace entier à un clic d'un opt-in ou d'un opt-out (une
+  modale « Appliquer », sans saisie) : voulu pour l'export, à trancher pour les bascules de consentement.
+
 ## 🟡 Le plus ancien laisse sa place (lot 2 du plan `2026-11-24-contacts-packs-et-remplacement`) : la relecture (aucun rouge)
 
 - La porte de l'entrant d'un Business coché purge un client par inconnu qui écrit, sans plafond : un tiers qui écrit depuis

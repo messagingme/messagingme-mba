@@ -5,6 +5,27 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-24 : mini-CRM, la liste par pages et l'export CSV d'une sélection, colonne par colonne
+
+Demande de Julien, sur une capture de l'écran Contacts (146 fiches d'un bloc). Méthode : en direct, une relecture
+indépendante en fin de lot. `edd0efec4`, en production avec `d5e7d8f32` (run 45510634701, le 2026-11-25 au matin, migration
+« avant » des pairs 0319, 0321 et 0322 ; aucune pour ce lot). Deux de mes propres lancements ont été annulés sans rien
+déployer : le premier, en attente d'approbation, aurait tenu la file devant celui des packs qui le contenait.
+
+- **La liste** : 20 fiches par page, 50 ou 100 au choix, total par `/contacts/count` sans filtre. Elle en chargeait 500.
+  La relecture a trouvé ce que la pagination cassait AILLEURS : `query` triait par `created_at` seul (un import pose la
+  même date sur son lot, deux pages pouvaient montrer la même fiche et en perdre une), et la case d'en-tête, partagée avec
+  la liste des destinataires d'une campagne, remplaçait la sélection par la page courante. Corrigés dans le lot.
+- **L'export** : `POST /contacts/export`, colonnes cochées une à une parmi `colonnesExportables` (module partagé), ni
+  étiquettes, ni `hs_`, ni `shopify_`, 50 000 fiches au plus, trace `contacts.exportes`. `toCsv` neutralise les formules
+  pour tous les exports de la console.
+- **Preuves** : six mutations rouges ; la requête d'export et le départage du tri sur le banc PGlite, dans les deux sens,
+  plus les huit fichiers d'intégration qui lisent la liste ; e2e (trois cas neufs, 37 voisins) ; auto-attaque. Le banc
+  avait un défaut, trouvé ici : `pool.query` passe par le mode rappel de `pg`, que l'alias ne sérialisait pas (trois
+  requêtes parallèles rendaient 4 lignes sur 5, avec et sans le correctif).
+- **En production** : la route répond 401 sans session (404 avant), les fiches d'aide rechargées par le workflow
+  (372 lignes, 0 retirée). Essai réel : à faire par un admin (cocher, Action, Exporter en CSV, ouvrir le fichier).
+
 ## 2026-11-25 : les packs de contacts du Pro, et le plus ancien qui laisse sa place en Business et en Entreprise
 
 Plan `docs/superpowers/plans/2026-11-24-contacts-packs-et-remplacement.md`, décisions de Julien du 2026-11-24 (la limite de
