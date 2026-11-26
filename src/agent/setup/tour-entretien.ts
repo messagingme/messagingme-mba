@@ -6,6 +6,10 @@ import {
 } from '../../assistant/budget';
 import { direPanneModele } from '../../llm/errors';
 import { journaliser } from '../../lib/journal';
+import { OUTILS_MAISON } from '../outils-maison';
+
+/** Le handler de l'outil qui lit la base de connaissance. */
+const HANDLER_RECHERCHE = 'chercher_connaissance';
 import { avancementEntretien, type AvancementEntretien } from './avancement';
 import { construireMessages, inventaireDe, type ContexteConstruction } from './conversation';
 import {
@@ -13,13 +17,14 @@ import {
   momentsDesReponses, outilLireFiche, poseUneQuestion, prochainPoint, questionDeRelance, questionOuiOuNonMontree,
   reponseOuiOuNon, sansSesQuestions, annonceUneFin, PAS_ENCORE_FINI, annonceUnChangement, RIEN_A_ENREGISTRER, HANDLER_PASSER_LA_MAIN, outilPasserLaMain,
   urlDeConnaissance,
+  adresseDansLeMessage, siteSansAdresse, QUESTION_ADRESSE,
 } from './couverture';
 import { outilMaison } from '../outils-maison';
 import {
   bornerPourModele, ENTRETIEN_VIERGE, MAX_BASCULES, type EntretienComplet, type EntretienStore, type TourEntretien,
 } from './entretien-store';
 import { rendreProposition, type PropositionEnAttente } from './en-attente';
-import { blocDeFin } from './fin';
+import { blocDeFin, parleDesHoraires } from './fin';
 import {
   assainirProposition, BORNES_PROPOSITION, neProposeRien, propositionSchema, OUTIL_PROPOSER, SCHEMA_PROPOSITION,
   type Changement, type Proposition,
@@ -311,7 +316,18 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
         ? [...avant.poses, pointDuTour.code]
         : avant.poses;
 
-      const ouvertApres = prochainPoint({ poses, reponses, bascules: listeBascules }, inventaireDe(contexte));
+      /**
+       * L'adresse du site connue après ce tour : celle du modèle, celle déjà retenue, ou, au point `connaissance`, celle
+       * que le client a écrite et que le modèle n'a pas rangée (« www.mutac.com »). Sans elle, `manquesDeCouverture`
+       * garde le point ouvert sur un site nommé (`siteSansAdresse`).
+       */
+      const derniere = avant.messages[avant.messages.length - 1];
+      const repondALAdresse = derniere?.role === 'assistant' && derniere.content.includes(QUESTION_ADRESSE);
+      const adresseDuTour = lu.connaissanceUrl ?? avant.connaissanceUrl
+        ?? (pointDuTour?.code === 'connaissance' || repondALAdresse
+          ? adresseDansLeMessage(commande.message) ?? undefined : undefined);
+      const etatCouvert = { poses, reponses, bascules: listeBascules, ...(adresseDuTour ? { connaissanceUrl: adresseDuTour } : {}) };
+      const ouvertApres = prochainPoint(etatCouvert, inventaireDe(contexte));
       /**
        * 🔴 LE POINT DES DONNÉES DE LA FICHE, C'EST LE SERVEUR QUI LE POSE, SEUL dans son message. Tant que le oui ou le non
        * n'est pas lu, sa question (qui porte la marque) remplace celles du modèle, dont il ne garde que l'accusé de
@@ -320,12 +336,18 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
        */
       const forcerLaMarque = ouvertApres?.code === CODE_DONNEES_CLIENT && accordLu === null;
       /**
+       * Le client vient de répondre « les pages de notre site » sans adresse : la question de l'adresse remplace celle du
+       * modèle (`siteSansAdresse`). Une seule fois par construction : répondu, le point est couvert et n'est plus jamais le
+       * point du tour, donc « pas de site » ne fait pas tourner en rond. Sa réponse se lit au tour suivant (`repondALAdresse`).
+       */
+      const demanderAdresse = pointDuTour?.code === 'connaissance' && siteSansAdresse(etatCouvert);
+      /**
        * 🔴 « VOTRE AGENT EST PRÊT » PENDANT L'ENTRETIEN EST FAUX : le modèle ne sait pas ce que le serveur attend encore.
        * Son message part entier et la question du serveur prend sa place (Maison Saint-Honoré, 2026-11-24 : deux
        * « Votre agent est prêt ! 🎉 » de suite, sans proposition ni bouton pour l'activer).
        */
       const finPrematuree = ouvertApres !== null && annonceUneFin(lu.message);
-      const relance = ouvertApres && (!poseUneQuestion(lu.message) || forcerLaMarque || finPrematuree)
+      const relance = !demanderAdresse && ouvertApres && (!poseUneQuestion(lu.message) || forcerLaMarque || finPrematuree)
         ? ouvertApres : null;
       const posesApres = relance && !poses.includes(relance.code) ? [...poses, relance.code] : poses;
       const etatApres: EntretienComplet = {
@@ -334,6 +356,7 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
         reponses,
         bascules: listeBascules,
         poses: posesApres,
+        ...(adresseDuTour ? { connaissanceUrl: adresseDuTour } : {}),
       };
       const suivi = avancementEntretien(etatApres, contexte);
       const enEntretien = suivi.manquants.length > 0;
@@ -341,9 +364,11 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       let propositionFinale = lu;
       const avantRelance = finPrematuree ? PAS_ENCORE_FINI
         : forcerLaMarque ? sansSesQuestions(lu.message) : lu.message;
-      let message = relance
-        ? [avantRelance, questionDeRelance(relance, etatApres)].filter(Boolean).join('\n\n')
-        : lu.message;
+      let message = demanderAdresse
+        ? [sansSesQuestions(lu.message), QUESTION_ADRESSE].filter(Boolean).join('\n\n')
+        : relance
+          ? [avantRelance, questionDeRelance(relance, etatApres)].filter(Boolean).join('\n\n')
+          : lu.message;
       let tokensIn = reponse.usage.tokensIn + usageReparation.tokensIn;
       let tokensOut = reponse.usage.tokensOut + usageReparation.tokensOut;
       const vientDeFinir = !enEntretien && avancementEntretien(avant, contexte).manquants.length > 0;
@@ -397,7 +422,7 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
         }
       }
 
-      const adresseRetenue = propositionFinale.connaissanceUrl ?? avant.connaissanceUrl;
+      const adresseRetenue = propositionFinale.connaissanceUrl ?? adresseDuTour;
       const importLance = Boolean(adresseRetenue && adresseRetenue !== avant.connaissanceUrl);
       if (adresseRetenue && importLance) {
         message = `${message}\n\nJ’importe les pages de ${adresseRetenue} dans votre base de connaissance : elles seront `
@@ -448,9 +473,34 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
           outils: [...(propositionFinale.outils ?? []).filter((o) => o.handler !== outilTransfert.handler), outilTransfert],
         };
       }
+      /**
+       * 🔴 UNE BASE DE CONNAISSANCE SE LIT PAR UN OUTIL (MUTAC, 2026-11-26) : le site donné à l'entretien s'importe, mais
+       * sans « Chercher dans la base de connaissance » actif, l'agent n'en lit rien et « Activer » est refusé sur ce seul
+       * manque. Le serveur le fait activer à l'enregistrement, comme la lecture de la fiche, avec ses mots actuels s'il
+       * est déjà posé (rien n'écrase ce que le client a réécrit), ceux d'usine sinon.
+       */
+      const posee = contexte.outils.find((o) => o.handler === HANDLER_RECHERCHE);
+      const modeleRecherche = OUTILS_MAISON.find((m) => m.handler === HANDLER_RECHERCHE);
+      const outilRecherche = !enEntretien && !posee?.actif && modeleRecherche
+        // Le site donné à l'entretien : c'est lui que l'entretien importe. Une base remplie ailleurs active l'outil
+        // depuis l'onglet Base de connaissance, au moment où ses fiches s'écrivent (`brancherLaRecherche`).
+        && adresseRetenue && (vientDeFinir || importLance)
+        ? {
+          handler: HANDLER_RECHERCHE,
+          description: posee?.description || modeleRecherche.description.fr,
+          nePasUtiliser: posee?.nePasUtiliser ?? modeleRecherche.nePasUtiliser.fr,
+        }
+        : null;
+      if (outilRecherche) {
+        propositionFinale = {
+          ...propositionFinale,
+          outils: [...(propositionFinale.outils ?? []).filter((o) => o.handler !== HANDLER_RECHERCHE), outilRecherche],
+        };
+      }
       const outilsAActiver = [
         ...(outilFiche ? [outilFiche.handler] : []),
         ...(outilTransfert ? [outilTransfert.handler] : []),
+        ...(outilRecherche ? [HANDLER_RECHERCHE] : []),
       ];
       const { reponses: _r, bascules: _b, ...retenue } = propositionFinale;
       const rendue = rendreProposition(contexte, retenue, aPoser, outilsAActiver);
@@ -474,6 +524,10 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
           modele: contexte.modele ?? null,
           importEnCours: importLance,
           scenarios: desMoments,
+          horaires: parleDesHoraires([
+            ...listeBascules.map((b) => b.moyen),
+            ...reponses.filter((r) => r.point === 'humain').map((r) => r.valeur),
+          ]),
         })}`;
       }
 

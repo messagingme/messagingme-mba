@@ -26,6 +26,18 @@ export interface EntreeFin {
    * ou l'agent l'a déjà. Un moment « scénario » absent d'ici est à poser à la main.
    */
   scenarios?: ReadonlyArray<{ moment: string; nom: string; dejaVise: boolean }>;
+  /** Le client a lié un geste aux heures d'ouverture (`parleDesHoraires`). */
+  horaires?: boolean;
+}
+
+/**
+ * 🔴 « PASSER LA MAIN PENDANT LES HEURES OUVRÉES, SINON DONNER LE LIEN » (MUTAC, 2026-11-26). L'agent sait si l'équipe est
+ * joignable seulement si l'espace a réglé ses horaires ET choisi « Seulement pendant mes heures d'ouverture » ; sinon il
+ * la tient pour toujours joignable, et la condition ne joue jamais. Décision de Julien : l'entretien dit où le régler.
+ */
+const HORAIRES = /heures? (ouvr|d.ouverture|de bureau)|horaires|en dehors des|hors des heures|jours? ouvr/i;
+export function parleDesHoraires(textes: ReadonlyArray<string | undefined>): boolean {
+  return textes.some((t) => typeof t === 'string' && HORAIRES.test(t));
 }
 
 export const TITRE_FIN = 'Pour finir :';
@@ -70,6 +82,11 @@ export function etapesDeFin(e: EntreeFin): string[] {
           : `Outils : après « ${BOUTON_ENREGISTRER} », l’outil qui lance « ${reconnu.nom} » naît « Inactif » : onglet `
             + `« Outils », « Modifier » sur sa ligne, cochez « ${CASE_AUTONOMIE} », puis cliquez « Activer ».`);
     }
+  }
+  if (e.horaires) {
+    out.push('Horaires : vous liez le passage de main aux heures d’ouverture. Réglez-les dans « Paramètres » > « Général » '
+      + '(« Fuseau & heures d’ouverture »), puis dans « AI Agent » > « MBA » > « Activation », choisissez « Seulement '
+      + 'pendant mes heures d’ouverture » : sans ces deux réglages, l’agent tient votre équipe pour toujours joignable.');
   }
   out.push(e.modele
     ? `Modèle : l’agent utilise ${e.modele}. Changez-le dans l’onglet « Modèle » si besoin.`

@@ -12,6 +12,17 @@
 - La fiche d'aide du répondeur de Meta ne dit pas la consigne STOP posée à l'allumage, ni la relance à 1 h qui peut écrire
   à un contact désabonné (relances coupées à la main sur les trois agents allumés le 2026-11-26).
 
+## 🟡 L'entretien de MUTAC bis : la relecture (2026-11-26, deux rouges corrigés dans le lot)
+
+- `adresseDansLeMessage` et l'assainissement retiennent une adresse de FORME correcte mais inimportable (adresse privée,
+  domaine inventé) : l'import la refuse en aval (`urlRecuperable`, résolution), mais l'entretien a déjà annoncé
+  « J'importe les pages de … » et l'adresse reste posée, donc l'import n'est pas retenté. Juger l'adresse par
+  `urlRecuperable` avant de l'annoncer.
+- `PARLE_DU_SITE` prend aussi « page Facebook » ou « page d'accueil », et `HORAIRES` toute mention d'horaires : au pire
+  une question d'adresse de trop, ou l'étape « Horaires » sans condition réelle.
+- L'onglet Base de connaissance ajoute un `listOutils` à chaque fiche écrite à la main, et un refus d'activer l'outil
+  (rôle non admin) est avalé : l'import réussit, le manque reste affiché.
+
 ## 🟡 L'Inbox lance les scénarios Shopify et HubSpot : la relecture (2026-11-26, aucun rouge)
 
 - 🟡 **Un refus au clic laisse le fil repris par l'app** : `runFrom` reprend le fil (`reprise: 'oui'`) AVANT le premier

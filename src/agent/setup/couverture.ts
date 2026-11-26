@@ -478,6 +478,8 @@ export interface EtatEntretien {
   reponses: Reponse[];
   /** Les moments de bascule et leur traitement. Vide tant que le point `bascules` n'a rien donné. */
   bascules?: Bascule[];
+  /** L'adresse du site retenue (`EntretienComplet.connaissanceUrl`), pour juger le point `connaissance`. */
+  connaissanceUrl?: string;
 }
 
 /** Une réponse est retenue si elle porte un code connu et un contenu. Le reste vient d'un modèle, donc d'une
@@ -864,6 +866,36 @@ export function ordreDuJour(
  * https://exemple.fr. » donnerait sinon une adresse qui ne résout pas.
  */
 const URL_DANS_LE_TEXTE = /https?:\/\/[^\s<>"'),]+/;
+
+/**
+ * Une adresse de site dans un message du client : une adresse complète, ou un nom de domaine nu (« www.mutac.com »,
+ * « mutac.fr »), rendu avec `https://`. `null` sinon.
+ */
+const DOMAINE_NU = /(?:^|[\s(«"'])((?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24})(\/[^\s<>"'),]*)?(?=$|[\s.,;:!?)»"'])/i;
+/** Un nom de fichier n'est pas un domaine (« tarifs.pdf »). */
+const FICHIER = /\.(pdf|docx?|xlsx?|csv|txt|pptx?|png|jpe?g|gif|zip)$/i;
+export function adresseDansLeMessage(message: string): string | null {
+  const complete = URL_DANS_LE_TEXTE.exec(message);
+  if (complete) return complete[0].replace(/[.,;:!?]+$/, '');
+  const nu = DOMAINE_NU.exec(message);
+  return nu && !FICHIER.test(nu[1]!) ? `https://${nu[1]}${nu[2] ?? ''}`.replace(/[.,;:!?]+$/, '') : null;
+}
+
+/**
+ * 🔴 UN SITE NOMMÉ SANS SON ADRESSE FAIT DEMANDER L'ADRESSE, UNE FOIS (MUTAC, 2026-11-26 : « les pages de notre site », et
+ * l'entretien est passé au point suivant). La consigne au modèle le demandait déjà ; c'est désormais le SERVEUR qui pose
+ * `QUESTION_ADRESSE`, au tour où le client répond au point (`tour-entretien.ts`), et une seule fois : la couverture ne
+ * change pas, donc un client sans site ne tourne pas en boucle et les entretiens déjà finis ne se rouvrent pas.
+ */
+const PARLE_DU_SITE = /\bsites?\b|\bpages?\b|\bweb\b|www\./i;
+const PLUS_TARD = /plus tard|pas encore|pas maintenant|je ne sais|je l.ajouterai|rien pour l/i;
+export const QUESTION_ADRESSE = 'Quelle est l’adresse de votre site ? Par exemple https://www.votre-site.fr. '
+  + 'J’en importerai les pages dans la base de connaissance de votre agent.';
+export function siteSansAdresse(etat: EtatEntretien): boolean {
+  const dit = etat.reponses.find((r) => r.point === 'connaissance')?.valeur ?? '';
+  return PARLE_DU_SITE.test(dit) && !PLUS_TARD.test(dit)
+    && !(etat.connaissanceUrl ?? '').trim() && urlDeConnaissance(etat) === null;
+}
 
 export function urlDeConnaissance(etat: EtatEntretien): string | null {
   const dit = etat.reponses.find((r) => r.point === 'connaissance')?.valeur ?? '';

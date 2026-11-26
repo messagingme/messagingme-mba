@@ -167,6 +167,19 @@ jusqu'à l'équipe ; l'agent de Meta est ensuite remis en répondeur. Relevé, c
 5 minutes du brouillon à la mise en ligne : les plafonds actuels n'ont pas à bouger. Un constat : une conversation que
 l'essai a passée à l'équipe doit être rendue au répondeur avant que le même numéro relance le parcours (`todo.md`).
 
+## 2026-11-26 : l'entretien de MUTAC bis, et l'import d'un site qu'on croyait raté
+
+Julien, en construisant « MUTAC bis » : l'entretien n'a pas demandé l'adresse du site (« les pages de notre site » a
+suffi), deux tours sont tombés en « réponse hors format », la condition « passer la main pendant les heures ouvrées,
+sinon le lien de réservation » n'a rien déclenché, l'import du site effaçait l'aperçu au clic pendant plus d'une minute,
+et « Enregistrer et activer » n'a rien activé. Mesuré dans les journaux de l'API (jeton Cockpit `read_only_logs` créé
+puis supprimé, accord de Julien) : `bascules:invalid_type` + `too_big` (la liste rendue en texte) et
+`connaissanceUrl:invalid_format`. L'activation était refusée sur un seul manque, l'outil de recherche inactif alors que
+la base venait d'être remplie. Correctifs : console (3d2941179) l'aperçu reste avec un compteur, l'ajout de fiches
+active la recherche, l'activation refusée se dit dans le fil ; serveur, l'assainissement ramène les deux sorties,
+l'adresse est exigée par le serveur, le site retenu fait activer la recherche, et l'étape « Horaires » du bloc de fin
+nomme les deux réglages (décision de Julien : dire où les régler, pas les demander).
+
 ## 2026-11-25 : la relance de panier avec agent IA sans bloc vide
 
 Julien, sur le scénario créé par l'automation « Panier abandonné avec agent IA » : pourquoi relier « Transfert à un

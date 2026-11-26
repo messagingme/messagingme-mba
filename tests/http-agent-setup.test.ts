@@ -6,7 +6,7 @@ import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { AgentSetupRouteDeps } from '../src/http/agent-setup';
 import type { ChatMessage, ChatMessageImage, ReponseChat } from '../src/agent/llm/chat-client';
 import { OUTIL_PROPOSER } from '../src/agent/setup/proposition';
-import { AGENDA } from '../src/agent/setup/couverture';
+import { AGENDA, QUESTION_ADRESSE } from '../src/agent/setup/couverture';
 import { MOYEN_DECRIT_PAR_LE_CLIENT } from '../src/agent/setup/scenarios';
 import type { EntretienComplet, EntretienStore } from '../src/agent/setup/entretien-store';
 import { ficheVide } from '../src/agent/fiche';
@@ -1426,11 +1426,56 @@ describe('le oui aux données de la fiche pose l’outil', () => {
     };
     const saute = reponse(JSON.stringify({
       message: 'D’accord, votre site. À quoi ressemble une conversation réussie ?',
-      reponses: [{ point: 'connaissance', valeur: 'le site' }], fiche: {},
+      reponses: [{ point: 'connaissance', valeur: 'le site https://boutique.fr' }], fiche: {},
     }));
-    const res = await app({ entretien, integrations: SHOPIFY, suite: [saute, muet] }).executer('Le site Shopify');
+    const res = await app({ entretien, integrations: SHOPIFY, suite: [saute, muet] }).executer('Le site Shopify, https://boutique.fr');
     expect(res.message).toContain('Répondez oui ou non.');
     expect(res.message).not.toContain('conversation réussie');
+  });
+
+  it('🔴 un site nommé SANS son adresse : le serveur demande l’adresse à la place de la question du modèle (MUTAC, 2026-11-26)', async () => {
+    const i = BASE.indexOf('connaissance');
+    const entretien: EntretienComplet = {
+      messages: [{ role: 'assistant', content: 'D’où viendront ses réponses de fond ?' }], auteurs: [],
+      poses: BASE.slice(0, i + 1), reponses: toutesLesReponses().slice(0, i), bascules: [],
+    };
+    const passe = reponse(JSON.stringify({
+      message: 'Parfait, l’agent puisera dans les pages de votre site. Y a-t-il un cas où il doit s’arrêter ?',
+      reponses: [{ point: 'connaissance', valeur: 'les pages de notre site' }], fiche: {},
+    }));
+    const res = await app({ entretien, suite: [passe, muet] }).executer('les pages de notre site');
+    expect(res.message).toContain(QUESTION_ADRESSE);
+    expect(res.message).not.toContain('doit s’arrêter');
+  });
+
+  it('🔴 la question de l’adresse n’est posée qu’UNE fois : « pas de site » ne fait pas tourner en rond', async () => {
+    const i = BASE.indexOf('connaissance');
+    const entretien: EntretienComplet = {
+      messages: [{ role: 'assistant', content: QUESTION_ADRESSE }], auteurs: [],
+      poses: BASE.slice(0, i + 1),
+      reponses: [...toutesLesReponses().slice(0, i), { point: 'connaissance', valeur: 'les pages de notre site' }],
+      bascules: [],
+    };
+    const passe = reponse(JSON.stringify({
+      message: 'D’accord. Y a-t-il un cas où il doit s’arrêter ?',
+      reponses: [{ point: 'connaissance', valeur: 'pas de site web finalement' }], fiche: {},
+    }));
+    const res = await app({ entretien, suite: [passe, muet] }).executer('on n’a pas de site');
+    expect(res.message).not.toContain(QUESTION_ADRESSE);
+  });
+
+  it('🔴 l’adresse écrite par le client ferme le point même si le modèle ne la range pas', async () => {
+    const i = BASE.indexOf('connaissance');
+    const entretien: EntretienComplet = {
+      messages: [{ role: 'assistant', content: QUESTION_ADRESSE }], auteurs: [],
+      poses: BASE.slice(0, i + 1),
+      reponses: [...toutesLesReponses().slice(0, i), { point: 'connaissance', valeur: 'les pages de notre site' }],
+      bascules: [],
+    };
+    const range = reponse(JSON.stringify({ message: 'Merci. Y a-t-il un cas où il doit s’arrêter ?', reponses: [], fiche: {} }));
+    const { cap, executer } = app({ entretien, suite: [range, muet] });
+    await executer('www.mutac.com');
+    expect(cap.imports).toEqual(['https://www.mutac.com']);
   });
 
   it('🔴 « Votre agent est prêt » pendant l’entretien ne part pas : le serveur dit ce qui manque et pose sa question', async () => {

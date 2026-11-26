@@ -1,4 +1,5 @@
 import type { FrequenceMentionIa } from '../agent-store';
+import { parse as secureJsonParse } from 'secure-json-parse';
 import { z } from 'zod';
 import {
   BORNES_FICHE, CODE_SORTIE_RE, fichePatchSchema, MAX_SORTIES, normaliserCodeSortie,
@@ -211,6 +212,25 @@ export function assainirProposition(brut: unknown): unknown {
 
   couper(p, 'message', BORNES_PROPOSITION.message);
   couper(p, 'connaissanceUrl', BORNES_PROPOSITION.connaissanceUrl);
+  /**
+   * 🔴 HYGIÈNE MESURÉE EN PRODUCTION (MUTAC, 2026-11-26, journaux de l'API) : deux tours perdus en 422, l'un sur
+   * `bascules` rendue en TEXTE (un tableau JSON sérialisé), l'autre sur une `connaissanceUrl` qui n'était pas une
+   * adresse. Une liste en texte se relit ; ce qui ne devient pas une liste part, et la fusion garde les moments déjà
+   * notés. Une adresse sans schéma (« www.mutac.com ») prend `https://` ; ce qui reste invalide part : l'adresse sera
+   * redemandée (`manquesDeCouverture`), le tour n'est plus perdu.
+   */
+  for (const cle of ['reponses', 'bascules'] as const) {
+    if (typeof p[cle] === 'string') {
+      try { p[cle] = secureJsonParse(p[cle] as string); } catch { delete p[cle]; }
+    }
+    if (p[cle] !== undefined && !Array.isArray(p[cle])) delete p[cle];
+  }
+  if (typeof p.connaissanceUrl === 'string') {
+    const brute = p.connaissanceUrl;
+    const avecSchema = /^https?:\/\//i.test(brute) ? brute : `https://${brute}`;
+    if (URL_PUBLIQUE_RE.test(avecSchema) && /^https?:\/\/[^/\s]+\.[^/\s]+/i.test(avecSchema)) p.connaissanceUrl = avecSchema;
+    else delete p.connaissanceUrl;
+  }
 
   p.reponses = entrees(p.reponses, BORNES_PROPOSITION.reponses, (r) => {
     couper(r, 'point', BORNES_PROPOSITION.point);
