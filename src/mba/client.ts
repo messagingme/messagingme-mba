@@ -100,8 +100,9 @@ export interface AgentSettings {
   followup?: { enabled?: boolean; followup_interval_in_seconds?: number };
   never_say_phrases?: string[];
   /**
-   * Passage de main de l'agent vers un humain. 🔴 Meta ne le relit qu'une fois `message_selection` posé : un bloc écrit
-   * avec le seul `enabled` est accepté, puis absent à la relecture (`ecrireReglages` le complète de `DEFAULT`). `enabled`
+   * Passage de main de l'agent vers un humain. 🔴 Meta CACHE ce bloc tant que `enabled` vaut `false` (mesuré chez MUTAC
+   * le 2026-11-26 : choix accepté, absent de la relecture, revenu avec `enabled: true`), et le rend absent tant qu'il n'est
+   * pas configuré : le choix du message se garde donc en base (`lireMessagePassage`), jamais relu ici. `enabled`
    * n'active pas le transfert (l'agent décide seul, `handoff_reason: customer_request`) : il dit s'il lâche le
    * fil après l'avoir annoncé. À `false`, le client lit « un conseiller arrive » et personne n'est prévenu : ne le
    * mettre à `false` qu'avec un `message` qui ne promet personne.
@@ -681,9 +682,6 @@ export interface ClientReglages {
 /** Un objet de réglages relu chez Meta ; tout le reste (aucun réglage, forme inattendue) vaut `{}`. */
 const objetLu = z.record(z.string(), z.unknown()).catch({});
 
-/** Ce que Meta applique quand aucun message de passage n'est choisi (son texte standard) : le poser ne change rien. */
-const HANDOFF_SANS_CHOIX = { message_selection: 'DEFAULT' } as const;
-
 /**
  * Écrit les réglages relus `actuel`, modifiés par `patch`, avec l'audience posée en dernier (aucun patch ne la choisit) :
  * `audience` quand l'appelant la fixe (l'allumage, l'alignement), sinon celle que Meta avait, et la liste si elle est
@@ -691,9 +689,8 @@ const HANDOFF_SANS_CHOIX = { message_selection: 'DEFAULT' } as const;
  * chaque ouverture et fermeture des heures ouvrées : imposer la liste effaçait EVERYONE chez MUTAC chaque jour (mesuré
  * le 2026-11-20, un inconnu resté sans réponse). Les sous-objets sont fusionnés avec l'existant, sinon patcher
  * `handoff.enabled` seul effacerait `message` et `message_selection`, donc le texte lu par le client au transfert.
- * 🔴 Un `handoff` écrit part toujours avec un `message_selection` (`HANDOFF_SANS_CHOIX` sous l'existant) : sans lui, Meta
- * accepte le bloc puis ne le relit pas, et le balayage, qui le croit absent, le réécrivait à chaque passage (mesuré le
- * 2026-11-25 : « 2 tenant(s) basculé(s) » toutes les 5 minutes, MUTAC sans bloc à la relecture).
+ * ⚠️ La fusion ne préserve que ce que Meta REND : un `handoff` éteint est caché, son message de passage vient donc de la
+ * base, posé dans le patch par l'appelant.
  */
 function ecrireReglages(
   client: ClientReglages,
@@ -703,12 +700,12 @@ function ecrireReglages(
   agentId: string | undefined,
   audience?: AudienceDeLAgent,
 ): Promise<unknown> {
-  const fusion = (cle: 'rollout' | 'followup' | 'handoff', dessous: Record<string, unknown> = {}): Record<string, unknown> => {
+  const fusion = (cle: 'rollout' | 'followup' | 'handoff'): Record<string, unknown> => {
     const valeur = patch[cle];
-    return valeur ? { [cle]: { ...dessous, ...objetLu.parse(actuel[cle]), ...valeur } } : {};
+    return valeur ? { [cle]: { ...objetLu.parse(actuel[cle]), ...valeur } } : {};
   };
   const corps: AgentSettings = {
-    ...actuel, ...patch, ...fusion('rollout'), ...fusion('followup'), ...fusion('handoff', HANDOFF_SANS_CHOIX),
+    ...actuel, ...patch, ...fusion('rollout'), ...fusion('followup'), ...fusion('handoff'),
     ai_audience: audience ?? audienceLue(actuel) ?? AUDIENCE_DE_L_AGENT,
   };
   // Relu à l'instant : c'est la configuration qu'on vient de lire qu'on réécrit, pas « la plus récente ».

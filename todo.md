@@ -29,6 +29,20 @@
 - La cause « scénario » de l'ancienne escalade par `advance` ne s'écrit plus pour `humain` non reliée : l'événement
   `escaladee` nomme l'agent (voulu).
 
+## 🟡 Le message de passage gardé en base : la relecture (2026-11-26, aucun rouge)
+
+- Aucun rattrapage : la colonne est nulle partout au déploiement. Un espace dont le choix n'est visible que chez Meta le
+  perd à sa prochaine extinction puis rallumage, jusqu'à ce qu'il le refasse dans la console (MUTAC : refait après le
+  déploiement). Rattrapage possible : base nulle et bloc visible portant une sélection, l'écrire en base.
+- Sans choix en base, le bloc part sans `message_selection` (le plancher `DEFAULT` est retiré) : jamais mesuré si Meta
+  rend un `{ enabled: true }` seul. S'il ne le rend pas, le balayage réécrit toutes les 5 minutes pendant les heures
+  ouvrées, sans effet pour le client.
+- Meta puis base, sans atomicité : une base en échec après Meta laisse l'ancien choix en base, qui reprend la main à la
+  bascule suivante (re-choisir le corrige).
+- L'état de l'agent montre le bloc visible chez Meta même s'il diffère de la base, qui l'emporte à l'écriture.
+- Non testés : `handoffMessageSelection` seul sur une base en `CUSTOM`, et un texte envoyé avec `AGENT` ou `DEFAULT`
+  (parti chez Meta, pas gardé en base).
+
 ## 🟡 Le passage de main de l'agent de Meta écrit complet : la relecture (2026-11-25, aucun rouge)
 
 - La route `PATCH .../settings` pose `handoff.enabled` depuis le mode en base quand l'écran ne l'envoie pas, même si Meta
@@ -36,7 +50,6 @@
   message. Cohérent avec l'écran (`always`) et la règle « la base fait foi » ; le poser seulement s'il manque à l'existant
   (dans `ecrireReglages`) éviterait aussi la lecture du mode.
 - `get` ou `horairesEffectifs` en échec rend 500 au choix du message (avant, Meta refusait de toute façon).
-- Un `message_selection: null` explicite relu chez Meta écraserait `DEFAULT` (improbable) : un `??` sur la clé.
 - Le test de parité du mode par défaut lit `web/lib/api/stats.ts` par une regex, fragile à un reformatage.
 
 ## 🟡 « Je corrige » sans rien proposer : la relecture (2026-11-25, aucun rouge)

@@ -3,6 +3,7 @@ import { reconcilierHandoffSurHoraires } from '../src/mba/handoff';
 import type { PilotageHandoffDeps } from '../src/mba/handoff';
 import type { MbaClient, AgentSettings } from '../src/mba/client';
 import type { BusinessHours } from '../src/workflow/conditions';
+import type { ChoixMessagePassage } from '../src/settings/store.pg';
 
 const HEURES: BusinessHours = {
   '0': { closed: true, open: '', close: '' },
@@ -24,8 +25,10 @@ function deps(options: {
   tenants?: string[];
   lectureEchoue?: string;
   ecritureEchoue?: string;
-}): { deps: PilotageHandoffDeps; ecrits: Array<{ tenantId: string; enabled: boolean }> } {
+  choix?: ChoixMessagePassage | null;
+}): { deps: PilotageHandoffDeps; ecrits: Array<{ tenantId: string; enabled: boolean }>; blocs: unknown[] } {
   const ecrits: Array<{ tenantId: string; enabled: boolean }> = [];
+  const blocs: unknown[] = [];
   const tenants = options.tenants ?? ['t1'];
   const actuel = options.actuel === undefined ? false : options.actuel;
   const client = (tenantId: string) => ({
@@ -39,6 +42,7 @@ function deps(options: {
       if (options.ecritureEchoue === tenantId) throw new Error('502');
       const enabled = (corps.handoff as { enabled: boolean }).enabled;
       ecrits.push({ tenantId, enabled });
+      blocs.push(corps.handoff);
       return {};
     },
   } as unknown as MbaClient);
@@ -52,16 +56,29 @@ function deps(options: {
           timezone: options.timezone ?? 'Europe/Paris',
           businessHours: HEURES,
         })),
+        lireMessagePassage: async () => options.choix ?? null,
       },
       numeros: { getTenantPhoneNumberId: async () => 'PN1' },
       meta: { mbaClientForTenant: async (tenantId) => client(tenantId) },
       now: () => options.now,
     },
     ecrits,
+    blocs,
   };
 }
 
 describe('reconcilierHandoffSurHoraires', () => {
+  it('🔴 rallume le passage de main avec le message gardé en base, pas le texte standard', async () => {
+    // MUTAC, 2026-11-26 : éteint la nuit, le bloc est caché par Meta ; à 08:30 le balayage le rallumait, et le texte
+    // standard remplaçait « Rédigé par l'agent ». Le choix en base est réécrit à chaque bascule, dans les deux sens.
+    const matin = deps({ now: OUVERT, actuel: 'absent', choix: { message_selection: 'AGENT' } });
+    expect(await reconcilierHandoffSurHoraires(matin.deps)).toBe(1);
+    expect(matin.blocs).toEqual([{ enabled: true, message_selection: 'AGENT' }]);
+    const soir = deps({ now: FERME, actuel: true, choix: { message_selection: 'AGENT' } });
+    await reconcilierHandoffSurHoraires(soir.deps);
+    expect(soir.blocs).toEqual([{ enabled: false, message_selection: 'AGENT' }]);
+  });
+
   it('dans les heures d’ouverture, active le passage de main', async () => {
     const cible = deps({ now: OUVERT, actuel: false });
     expect(await reconcilierHandoffSurHoraires(cible.deps)).toBe(1);

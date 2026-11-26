@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Guard } from '../auth/middleware';
 import { AudienceNonConfirmee, FENETRES_BUDGET, MbaClient, UNITES_BUDGET, ecrireRollout, ecrireRolloutPuisDrapeau, modifierSettings } from '../mba/client';
-import type { BudgetAgent, BusinessInfo, Faq, FenetreBudget, Skill, UniteBudget } from '../mba/client';
+import type { AgentSettings, BudgetAgent, BusinessInfo, Faq, FenetreBudget, Skill, UniteBudget } from '../mba/client';
 import { ID_MESSAGE_RE, validerCreation, validerModification } from '../mba/messages-interactifs';
 import { extraireDepuisCsvHorsBoucle, extraireDepuisHtmlHorsBoucle, extraireDepuisJson, normaliser, planifierImport } from '../mba/faq-import';
 import type { FaqRow } from '../mba/faq-import';
@@ -18,7 +18,7 @@ import { appliquerActivation, EtatMetaIllisible, MetaARefuse, type ActivationDep
 import { creerAlignerAudience } from '../mba/audience';
 import type { ReglageDuRepondeur } from '../repondeur/mode';
 import { handoffVouluMaintenant } from '../mba/handoff';
-import type { HorairesEffectifs, MbaHandoffMode } from '../settings/store.pg';
+import type { ChoixMessagePassage, HorairesEffectifs, MbaHandoffMode } from '../settings/store.pg';
 import {
   appliquerMutationConnaissance,
   type MutationConnaissanceMba, type ResultatMutationConnaissance,
@@ -80,6 +80,9 @@ export interface MbaRouteDeps {
     get(tenantId: string): Promise<ReglageDuRepondeur & { mbaHandoffMode: MbaHandoffMode | null }>;
     /** Les heures d'ouverture effectives, pour le mode « heures ouvrées » (`handoffVouluMaintenant`). */
     horairesEffectifs(tenantId: string): Promise<HorairesEffectifs>;
+    /** Le message de passage gardé en base : Meta cache le bloc d'un passage éteint (`avecMessageEnBase`). */
+    lireMessagePassage(tenantId: string): Promise<ChoixMessagePassage | null>;
+    poserMessagePassage(tenantId: string, choix: ChoixMessagePassage): Promise<void>;
   };
   /**
    * Attendre, en millisecondes, avant la seconde relecture de l'audience à l'allumage (`ecrireRollout`). Injectée et
@@ -145,6 +148,21 @@ function refusPlafond(err: unknown): string | null {
 const MAX_IMPORT = 500;
 
 const DATA_URL_RE = /^data:([a-z0-9.+/-]+);base64,([A-Za-z0-9+/=]+)$/i;
+
+/**
+ * Les réglages lus chez Meta, avec le message de passage gardé en base quand Meta cache le bloc (passage éteint) : sans
+ * lui, l'écran annonçait « aucun choix » hors horaires. Sans `enabled`, qu'on ne connaît pas : l'écran ne lit que le
+ * choix et le texte. Un bloc visible reste celui de Meta, qui est ce qui s'applique.
+ */
+async function avecMessageEnBase(
+  settings: AgentSettings | null,
+  deps: Pick<MbaRouteDeps, 'reglages'>,
+  tenantId: string,
+): Promise<AgentSettings | null> {
+  if (settings === null || settings.handoff) return settings;
+  const choix = await deps.reglages.lireMessagePassage(tenantId);
+  return choix === null ? settings : { ...settings, handoff: { ...choix } };
+}
 
 /** Contexte commun à toutes les routes : tenant vérifié, numéro vérifié, client prêt. null = déjà répondu. */
 async function contexte(
@@ -456,7 +474,7 @@ export function registerMba(app: FastifyInstance, deps: MbaRouteDeps, garde: Gua
       eligible,
       onboarded: settings !== null,
       agentId: typeof settings?.agent_id === 'string' ? settings.agent_id : null,
-      settings,
+      settings: await avecMessageEnBase(settings, deps, ctx.tenant),
     });
   });
 
@@ -495,31 +513,47 @@ export function registerMba(app: FastifyInstance, deps: MbaRouteDeps, garde: Gua
       if (typeof b.handoffEnabled !== 'boolean') return reply.code(400).send({ error: 'handoffEnabled invalide (booléen)' });
       handoff.enabled = b.handoffEnabled;
     }
+    let texte: string | undefined;
     if (b.handoffMessage !== undefined) {
       if (!nonEmpty(b.handoffMessage)) return reply.code(400).send({ error: 'handoffMessage invalide (texte non vide)' });
-      handoff.message = (b.handoffMessage as string).trim();
+      // Seul, le texte changerait chez Meta et pas en base, qui le remettrait à la bascule suivante.
+      if (b.handoffMessageSelection === undefined) {
+        return reply.code(400).send({ error: 'handoffMessage s’envoie avec handoffMessageSelection' });
+      }
+      texte = (b.handoffMessage as string).trim();
+      handoff.message = texte;
     }
+    /** Le message de passage choisi par cet appel, enregistré en base une fois accepté par Meta. */
+    let choix: ChoixMessagePassage | undefined;
     if (b.handoffMessageSelection !== undefined) {
-      if (b.handoffMessageSelection !== 'DEFAULT' && b.handoffMessageSelection !== 'AGENT' && b.handoffMessageSelection !== 'CUSTOM') {
+      const selection = b.handoffMessageSelection;
+      if (selection !== 'DEFAULT' && selection !== 'AGENT' && selection !== 'CUSTOM') {
         return reply.code(400).send({ error: "handoffMessageSelection invalide ('DEFAULT' | 'AGENT' | 'CUSTOM')" });
       }
       // `CUSTOM` sans texte laisserait l'agent annoncer un transfert avec on ne sait quelle phrase. On exige le
       // texte dans le même appel plutôt que d'aller relire l'existant : la règle est prévisible.
-      if (b.handoffMessageSelection === 'CUSTOM' && handoff.message === undefined) {
-        return reply.code(400).send({ error: 'handoffMessage requis avec handoffMessageSelection CUSTOM' });
+      if (selection === 'CUSTOM') {
+        if (texte === undefined) return reply.code(400).send({ error: 'handoffMessage requis avec handoffMessageSelection CUSTOM' });
+        choix = { message_selection: 'CUSTOM', message: texte };
+      } else {
+        choix = { message_selection: selection };
       }
-      handoff.message_selection = b.handoffMessageSelection;
+      handoff.message_selection = selection;
     }
     if (Object.keys(handoff).length > 0) {
-      // 🔴 Meta refuse un `handoff` sans `enabled`, et ne relit pas celui que le balayage pose seul : sans cette ligne,
-      // choisir le message échouait pour tout espace qui n'en avait jamais choisi (MUTAC, 2026-11-25).
+      // 🔴 Meta refuse un `handoff` sans `enabled`, et cache celui d'un passage éteint : sans cette ligne, choisir le
+      // message échouait pour tout espace qui n'en avait jamais choisi (MUTAC, 2026-11-25).
       if (handoff.enabled === undefined) handoff.enabled = await handoffVouluMaintenant(deps.reglages, ctx.tenant);
-      patch.handoff = handoff;
+      // 🔴 Toute écriture du bloc reprend le message de passage de la base : Meta le cache dès que le passage est éteint,
+      // et le balayage le perdait en le rallumant (MUTAC, 2026-11-26). Un choix neuf ne s'y enregistre qu'APRÈS que Meta
+      // l'a accepté : refusé mais gardé, il ferait échouer chaque bascule du balayage, qui le reprend.
+      patch.handoff = choix === undefined ? { ...(await deps.reglages.lireMessagePassage(ctx.tenant)), ...handoff } : handoff;
     }
     if (Object.keys(patch).length === 0) return reply.code(400).send({ error: 'aucun réglage à modifier' });
 
     await modifierSettings(ctx.client, ctx.pn, patch);
-    return reply.code(200).send(await ctx.client.getSettings(ctx.pn));
+    if (choix !== undefined) await deps.reglages.poserMessagePassage(ctx.tenant, choix);
+    return reply.code(200).send(await avecMessageEnBase(await ctx.client.getSettings(ctx.pn), deps, ctx.tenant));
   });
 
   /**

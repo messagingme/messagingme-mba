@@ -174,12 +174,12 @@ describe('modifierSettings : survivre à un champ que Meta ajouterait', () => {
     });
   });
 
-  it('🔴 un handoff jamais choisi part avec message_selection DEFAULT, sinon Meta ne le relit pas', async () => {
-    // Mesuré le 2026-11-25 : écrit avec le seul `enabled`, le bloc est accepté puis absent à la relecture, et le balayage
-    // le réécrivait toutes les 5 minutes. `DEFAULT` est ce que Meta applique quand rien n'est choisi.
+  it('un handoff que Meta cache part tel que le patch le dit : la fusion n’invente aucun message', async () => {
+    // Meta cache le bloc d'un passage éteint (MUTAC, 2026-11-26) : rien à fusionner, le message vient du patch, que
+    // l'appelant complète du choix gardé en base. Poser ici le texte standard l'écrivait par-dessus ce choix.
     const { impl, appels } = faux([{ body: [{ agent_id: 'a1' }] }, { body: {} }]);
     await modifierSettings(new MbaClient('tok', impl), 'PN1', { handoff: { enabled: false } });
-    expect((appels[1]!.body as { handoff: unknown }).handoff).toEqual({ enabled: false, message_selection: 'DEFAULT' });
+    expect((appels[1]!.body as { handoff: unknown }).handoff).toEqual({ enabled: false });
   });
 
   it('sans handoff dans le patch, aucun bloc handoff n’est fabriqué', async () => {

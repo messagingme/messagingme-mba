@@ -5,6 +5,22 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : le message de passage à un humain gardé en base (MUTAC, migration 0328)
+
+**Mesuré chez MUTAC.** Le correctif de la veille (`DEFAULT` posé sous tout bloc `handoff`) supposait que Meta relit un
+bloc dès que `message_selection` est posé. C'est faux : Meta CACHE le bloc tant que `enabled` vaut `false`. « Rédigé par
+l'agent » choisi à 08:22 (heure de Paris, hors horaires, passage éteint) est accepté sans erreur et absent de la
+relecture faite aussitôt ; à 08:30 le balayage des heures ouvrées rallume le passage, et le bloc reparaît avec `enabled:
+true, message_selection: DEFAULT`. Le balayage lisait « absent » et la fusion des réglages n'avait plus rien à
+préserver : le choix du client était perdu chaque nuit. Recoché pendant les horaires, il tient (`AGENT` relu à 08:48).
+
+**Le correctif.** Le choix vit chez nous : `tenant_settings.mba_handoff_message` (0328, `jsonb` nullable, `migration=avant`).
+Toute écriture du bloc le reprend (balayage, changement de mode, interrupteur seul), par-dessus ce que Meta rend ; un
+choix neuf ne s'y enregistre qu'après que Meta l'a accepté (refusé mais gardé, il ferait échouer chaque bascule du
+balayage) ; l'état de l'agent le montre quand Meta cache le bloc. Le `DEFAULT` de la veille est retiré : il écrivait le
+texte standard par-dessus un choix caché. `handoffMessage` seul est refusé (il changerait Meta et pas la base). Banc
+PGlite (toutes les migrations) pour la colonne ; sept mutations vues tomber.
+
 ## 2026-11-26 : CSM virtuel, B9 : le pilote passe de bout en bout
 
 Sur la SANDBOX, sans code neuf, avec les outils des lots C à F en production. La demande « Qualifie mes leads WhatsApp

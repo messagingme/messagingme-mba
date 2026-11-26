@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { handoffVouluMaintenant, MODE_HANDOFF_PAR_DEFAUT, reglerModeHandoff } from '../src/mba/handoff';
 import type { PilotageHandoffDeps } from '../src/mba/handoff';
 import type { MbaClient, AgentSettings } from '../src/mba/client';
-import type { MbaHandoffMode } from '../src/settings/store.pg';
+import type { ChoixMessagePassage, MbaHandoffMode } from '../src/settings/store.pg';
 import type { BusinessHours } from '../src/workflow/conditions';
 
 const FERME: BusinessHours = Object.fromEntries(
@@ -15,6 +15,8 @@ function pilotage(options: {
   numero?: string | null;
   putEchoue?: boolean;
   now?: number;
+  /** Le message de passage gardé en base. */
+  choix?: ChoixMessagePassage | null;
 } = {}): {
   deps: PilotageHandoffDeps;
   modes: MbaHandoffMode[];
@@ -37,6 +39,7 @@ function pilotage(options: {
         setMbaHandoffMode: async (_tenant, mode) => { modes.push(mode); },
         horairesEffectifs: async () => ({ timezone: 'Europe/Paris', businessHours: FERME }),
         tenantsHandoffSurHoraires: async () => [],
+        lireMessagePassage: async () => options.choix ?? null,
       },
       numeros: { getTenantPhoneNumberId: async () => options.numero === undefined ? 'PN1' : options.numero },
       meta: { mbaClientForTenant: async () => client },
@@ -52,8 +55,7 @@ describe('reglerModeHandoff : un seul protocole possède le choix et son applica
     const { deps, modes, puts } = pilotage();
     expect(await reglerModeHandoff(deps, 't1', 'always')).toEqual({ appliqueChezMeta: true });
     expect(modes).toEqual(['always']);
-    // `DEFAULT` : sans choix de message, Meta accepte le bloc puis ne le relit pas (2026-11-25).
-    expect(puts[0]?.handoff).toEqual({ enabled: true, message_selection: 'DEFAULT' });
+    expect(puts[0]?.handoff).toEqual({ enabled: true });
   });
 
   it('« jamais » préserve les autres réglages et les autres champs de handoff', async () => {
@@ -72,7 +74,28 @@ describe('reglerModeHandoff : un seul protocole possède le choix et son applica
     const { deps, modes, puts } = pilotage();
     expect(await reglerModeHandoff(deps, 't1', 'business_hours')).toEqual({ appliqueChezMeta: true });
     expect(modes).toEqual(['business_hours']);
-    expect(puts[0]?.handoff).toEqual({ enabled: false, message_selection: 'DEFAULT' });
+    expect(puts[0]?.handoff).toEqual({ enabled: false });
+  });
+
+  it('🔴 le message de passage vient de la base quand Meta cache le bloc', async () => {
+    // MUTAC, 2026-11-26 : passage éteint hors horaires, Meta ne rend plus le bloc, et le rallumer posait le texte
+    // standard par-dessus « Rédigé par l'agent ». Le choix en base est la seule mémoire qui reste.
+    const { deps, puts } = pilotage({ settings: { agent_id: 'AG1' }, choix: { message_selection: 'AGENT' } });
+    await reglerModeHandoff(deps, 't1', 'always');
+    expect(puts[0]?.handoff).toEqual({ enabled: true, message_selection: 'AGENT' });
+    const perso = pilotage({ settings: { agent_id: 'AG1' }, choix: { message_selection: 'CUSTOM', message: 'Un conseiller vous répond ici.' } });
+    await reglerModeHandoff(perso.deps, 't1', 'never');
+    expect(perso.puts[0]?.handoff).toEqual({ enabled: false, message_selection: 'CUSTOM', message: 'Un conseiller vous répond ici.' });
+  });
+
+  it('le choix en base l’emporte sur un bloc visible chez Meta : la console est la source de vérité', async () => {
+    const { deps, puts } = pilotage({
+      settings: { agent_id: 'AG1', handoff: { enabled: true, message: 'Ancien texte', message_selection: 'CUSTOM' } },
+      choix: { message_selection: 'AGENT' },
+    });
+    await reglerModeHandoff(deps, 't1', 'never');
+    // Le texte d'avant reste dans le bloc, sans effet hors `CUSTOM`.
+    expect(puts[0]?.handoff).toEqual({ enabled: false, message: 'Ancien texte', message_selection: 'AGENT' });
   });
 
   it('une panne Meta ne retire pas le choix enregistré et sera rattrapée par le balayage', async () => {

@@ -5,6 +5,7 @@ import { signSession } from '../src/auth/token';
 import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import { MbaClient } from '../src/mba/client';
 import type { MbaRouteDeps } from '../src/http/mba';
+import type { ChoixMessagePassage, MbaHandoffMode } from '../src/settings/store.pg';
 import { MetaApiError } from '../src/meta/errors';
 import { mbaInerte } from './routes-inertes';
 import { csvLent, retardPendant } from './boucle';
@@ -85,6 +86,26 @@ function app(overClient: Record<string, Methode> = {}, overDeps: Partial<MbaRout
 }
 const url = (suffixe: string) => `/tenants/t1/mba/${PN}${suffixe}`;
 
+/**
+ * Des réglages d'espace avec le message de passage en base. Chaque enregistrement note combien d'écritures Meta l'ont
+ * précédé (`suivre` reçoit le journal du faux client) : un choix ne s'enregistre qu'une fois accepté par Meta.
+ */
+function avecMessageEnBase(enBase: ChoixMessagePassage | null, mode: MbaHandoffMode | null = null) {
+  const poses: Array<{ choix: ChoixMessagePassage; ecrituresMeta: number }> = [];
+  let meta: Array<{ m: string }> = [];
+  const reglages: MbaRouteDeps['reglages'] = {
+    setMbaEnabled: async () => {},
+    get: async () => ({
+      mbaEnabled: true, repondeurMode: 'mba' as const, repondeurAgentId: null, repondeurWorkflowId: null,
+      repondeurAdresseId: null, mbaHandoffMode: mode,
+    }),
+    horairesEffectifs: async () => { throw new Error('horairesEffectifs non attendu hors heures ouvrées'); },
+    lireMessagePassage: async () => enBase,
+    poserMessagePassage: async (_t, choix) => { poses.push({ choix, ecrituresMeta: meta.filter((a) => a.m === 'putSettings').length }); },
+  };
+  return { reglages, poses, suivre: (appels: Array<{ m: string }>) => { meta = appels; } };
+}
+
 describe('routes MBA : isolation', () => {
   it('agent -> 403 (groupe admin-only)', async () => {
     const { server } = app();
@@ -139,7 +160,8 @@ describe('routes MBA : état et réglages', () => {
   });
 
   it('PATCH settings écrit le passage de main, les trois champs dans le MÊME sous-objet', async () => {
-    const { server, appels } = app();
+    const base = avecMessageEnBase(null);
+    const { server, appels } = app({}, { reglages: base.reglages });
     const res = await server.inject({
       method: 'PATCH',
       url: url('/settings'),
@@ -170,6 +192,8 @@ describe('routes MBA : état et réglages', () => {
             repondeurAdresseId: null, mbaHandoffMode: c.mode,
           }),
           horairesEffectifs: async () => { throw new Error('horairesEffectifs non attendu hors heures ouvrées'); },
+          lireMessagePassage: async () => null,
+          poserMessagePassage: async () => {},
         },
       });
       const res = await server.inject({ method: 'PATCH', url: url('/settings'), ...h(adminTok), payload: { handoffMessageSelection: 'AGENT' } });
@@ -180,6 +204,51 @@ describe('routes MBA : état et réglages', () => {
     }
   });
 
+  it('🔴 choisir le message l’enregistre en base, APRÈS que Meta l’a accepté', async () => {
+    // Meta cache le bloc d'un passage éteint (MUTAC, 2026-11-26) : la base est la seule mémoire du choix. Enregistré
+    // avant un refus de Meta, il ferait échouer chaque bascule du balayage, qui le reprend.
+    const cas: Array<[Record<string, unknown>, ChoixMessagePassage]> = [
+      [{ handoffMessageSelection: 'AGENT' }, { message_selection: 'AGENT' }],
+      [{ handoffMessageSelection: 'CUSTOM', handoffMessage: ' Un conseiller vous répond ici. ' }, { message_selection: 'CUSTOM', message: 'Un conseiller vous répond ici.' }],
+    ];
+    for (const [payload, choix] of cas) {
+      const base = avecMessageEnBase(null);
+      const { server, appels } = app({}, { reglages: base.reglages });
+      base.suivre(appels);
+      expect((await server.inject({ method: 'PATCH', url: url('/settings'), ...h(adminTok), payload })).statusCode).toBe(200);
+      expect(base.poses).toEqual([{ choix, ecrituresMeta: 1 }]);
+      await server.close();
+    }
+    const refus = avecMessageEnBase(null);
+    const { server } = app({ putSettings: () => { throw new MetaApiError(400, { message: 'refusé', type: 'MbaError' }); } }, { reglages: refus.reglages });
+    const res = await server.inject({ method: 'PATCH', url: url('/settings'), ...h(adminTok), payload: { handoffMessageSelection: 'AGENT' } });
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(refus.poses).toEqual([]);
+    await server.close();
+  });
+
+  it('🔴 l’interrupteur seul repart avec le message en base, que Meta ne rend plus', async () => {
+    const base = avecMessageEnBase({ message_selection: 'CUSTOM', message: 'Un conseiller vous répond ici.' });
+    const { server, appels } = app({}, { reglages: base.reglages });
+    expect((await server.inject({ method: 'PATCH', url: url('/settings'), ...h(adminTok), payload: { handoffEnabled: false } })).statusCode).toBe(200);
+    const put = appels.find((a) => a.m === 'putSettings');
+    expect((put?.args[1] as { handoff: unknown }).handoff).toEqual({ enabled: false, message_selection: 'CUSTOM', message: 'Un conseiller vous répond ici.' });
+    expect(base.poses).toEqual([]);
+    await server.close();
+  });
+
+  it('l’état de l’agent montre le message en base quand Meta cache le bloc, celui de Meta sinon', async () => {
+    const base = avecMessageEnBase({ message_selection: 'AGENT' });
+    const cache = app({}, { reglages: base.reglages });
+    const res = await cache.server.inject({ method: 'GET', url: url('/status'), ...h(adminTok) });
+    expect(res.json().settings.handoff).toEqual({ message_selection: 'AGENT' });
+    await cache.server.close();
+    const visible = app({ getSettings: () => ({ agent_id: 'AG1', handoff: { enabled: true, message: '', message_selection: 'DEFAULT' } }) }, { reglages: base.reglages });
+    const lu = await visible.server.inject({ method: 'GET', url: url('/status'), ...h(adminTok) });
+    expect(lu.json().settings.handoff).toEqual({ enabled: true, message: '', message_selection: 'DEFAULT' });
+    await visible.server.close();
+  });
+
   it('PATCH settings : passage de main mal formé -> 400', async () => {
     const { server } = app();
     const bad = async (payload: unknown) => (await server.inject({ method: 'PATCH', url: url('/settings'), ...h(adminTok), payload: payload as object })).statusCode;
@@ -188,6 +257,8 @@ describe('routes MBA : état et réglages', () => {
     expect(await bad({ handoffMessageSelection: 'MAISON' })).toBe(400);
     // CUSTOM sans texte : l'agent annoncerait le transfert avec une phrase qu'on ne choisit pas.
     expect(await bad({ handoffMessageSelection: 'CUSTOM' })).toBe(400);
+    // Le texte seul changerait chez Meta et pas en base, qui le remettrait à la bascule suivante.
+    expect(await bad({ handoffMessage: 'Un conseiller vous répond ici.' })).toBe(400);
     await server.close();
   });
 
@@ -211,6 +282,8 @@ describe('routes MBA : état et réglages', () => {
       // Un espace dont l'agent n'est pas le répondeur : l'alignement garde la liste, aucune écriture de plus.
       get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null, mbaHandoffMode: null }),
       horairesEffectifs: async () => { throw new Error('horairesEffectifs non attendu'); },
+      lireMessagePassage: async () => null,
+      poserMessagePassage: async () => { throw new Error('poserMessagePassage non attendu'); },
     },
   });
 
@@ -254,6 +327,8 @@ describe('routes MBA : état et réglages', () => {
         setMbaEnabled: async (t, enabled) => { drapeaux.push([t, enabled, meta.filter((a) => a.m === 'putSettings').length]); },
         get: async () => ({ mbaEnabled: false, repondeurMode: 'equipe' as const, repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null, mbaHandoffMode: null }),
       horairesEffectifs: async () => { throw new Error('horairesEffectifs non attendu'); },
+        lireMessagePassage: async () => null,
+        poserMessagePassage: async () => { throw new Error('poserMessagePassage non attendu'); },
       },
     });
     meta = appels;

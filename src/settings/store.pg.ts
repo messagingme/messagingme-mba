@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { z } from 'zod';
 import { enTransaction } from '../db/transaction';
 import type { BusinessHours } from '../workflow/conditions';
 import { estFrequenceMention, type FrequenceMentionIa } from '../agent/agent-store';
@@ -145,6 +146,21 @@ function horairesEffectifsDe(r: Pick<LigneReglages, 'timezone' | 'business_hours
 export type MbaHandoffMode = 'always' | 'business_hours' | 'never';
 
 /**
+ * Le message que l'agent de Meta écrit au client quand il passe la main, tel que la console l'a choisi (migration
+ * 0328). 🔴 Il vit ICI parce que Meta CACHE le bloc `handoff` de ses réglages tant que `enabled` vaut `false` (mesuré
+ * chez MUTAC le 2026-11-26) : relu chez Meta hors horaires, le choix n'existe plus, et le balayage qui rallume le passage
+ * le matin écrivait le texte standard par-dessus. Toute écriture du bloc le reprend d'ici.
+ */
+export type ChoixMessagePassage =
+  | { message_selection: 'DEFAULT' | 'AGENT' }
+  | { message_selection: 'CUSTOM'; message: string };
+
+const ChoixMessagePassageLu = z.union([
+  z.object({ message_selection: z.enum(['DEFAULT', 'AGENT']) }),
+  z.object({ message_selection: z.literal('CUSTOM'), message: z.string().min(1) }),
+]);
+
+/**
  * Les colonnes de `tenant_settings` qu'un setter écrit seules.
  * 🔴 Union fermée : c'est ce qui rend sûr le nom de colonne interpolé dans `poser`, aucune valeur venue
  * d'une requête ne peut y entrer.
@@ -152,7 +168,7 @@ export type MbaHandoffMode = 'always' | 'business_hours' | 'never';
 type ColonneReglage =
   | 'hubspot_actif' | 'salesforce_actif' | 'mba_relais_cle_id' | 'agents_peuvent_prendre' | 'mention_ia_frequence'
   | 'optout_request_id' | 'mba_handoff_mode' | 'agent_transfert_mode' | 'timezone' | 'business_hours'
-  | 'control_handback_seconds' | 'hubspot_lists_enabled' | 'contacts_remplacer_anciens';
+  | 'control_handback_seconds' | 'hubspot_lists_enabled' | 'contacts_remplacer_anciens' | 'mba_handoff_message';
 
 /**
  * Le choix de « Qui répond au client », tel que `PgTenantSettingsStore.setRepondeur` l'écrit : une cible par mode, et
@@ -315,7 +331,7 @@ export class PgTenantSettingsStore {
   /** Upsert ciblé d'un seul réglage : crée la ligne de l'espace au besoin, n'écrase aucun autre réglage. */
   private async poser(tenantId: string, colonne: ColonneReglage, valeur: unknown): Promise<void> {
     await this.pool.query(
-      `insert into tenant_settings (tenant_id, ${colonne}, updated_at) values ($1, $2${colonne === 'business_hours' ? '::jsonb' : ''}, now())
+      `insert into tenant_settings (tenant_id, ${colonne}, updated_at) values ($1, $2${colonne === 'business_hours' || colonne === 'mba_handoff_message' ? '::jsonb' : ''}, now())
        on conflict (tenant_id) do update set ${colonne} = excluded.${colonne}, updated_at = now()`,
       [tenantId, valeur],
     );
@@ -437,6 +453,21 @@ export class PgTenantSettingsStore {
    */
   async setMbaHandoffMode(tenantId: string, mode: MbaHandoffMode): Promise<void> {
     await this.poser(tenantId, 'mba_handoff_mode', mode);
+  }
+
+  /**
+   * Le message de passage choisi dans la console, `null` s'il ne l'a jamais été ou si la valeur est illisible (une base
+   * en retard ne rend pas la colonne : `select *`). Lu à part, comme le choix HubSpot : seuls les écrivains du bloc
+   * `handoff` et l'écran le lisent.
+   */
+  async lireMessagePassage(tenantId: string): Promise<ChoixMessagePassage | null> {
+    const lu = ChoixMessagePassageLu.safeParse((await this.lireLigne(tenantId))?.mba_handoff_message);
+    return lu.success ? lu.data : null;
+  }
+
+  /** Enregistre le message de passage. L'écriture chez Meta est faite par l'appelant. */
+  async poserMessagePassage(tenantId: string, choix: ChoixMessagePassage): Promise<void> {
+    await this.poser(tenantId, 'mba_handoff_message', JSON.stringify(choix));
   }
 
   /**

@@ -1,6 +1,6 @@
 import { modifierSettings } from './client';
 import type { MbaClient } from './client';
-import type { HorairesEffectifs, MbaHandoffMode } from '../settings/store.pg';
+import type { ChoixMessagePassage, HorairesEffectifs, MbaHandoffMode } from '../settings/store.pg';
 import { withinBusinessHours, type BusinessHours } from '../workflow/conditions';
 import { messageDe } from '../lib/erreur';
 
@@ -14,6 +14,8 @@ export interface PilotageHandoffDeps {
     setMbaHandoffMode(tenantId: string, mode: MbaHandoffMode): Promise<void>;
     horairesEffectifs(tenantId: string): Promise<HorairesEffectifs>;
     tenantsHandoffSurHoraires(): Promise<Array<{ tenantId: string; timezone: string; businessHours: BusinessHours }>>;
+    /** Le message de passage choisi dans la console : Meta ne le rend plus quand le passage est éteint. */
+    lireMessagePassage(tenantId: string): Promise<ChoixMessagePassage | null>;
   };
   meta: { mbaClientForTenant(tenantId: string): Promise<MbaClient> };
   /** Numéro du tenant. `null` = aucun numéro, donc rien à régler chez Meta. */
@@ -24,8 +26,10 @@ export interface PilotageHandoffDeps {
 /**
  * État actuel de `handoff.enabled` chez Meta, en trois cas à ne pas confondre :
  * - `true` / `false` : lu chez Meta ;
- * - `'absent'` : réglages lisibles mais `handoff` jamais configuré (« Null if not configured ») : l'état réel est
- *   inconnu, donc il faut écrire même si la valeur voulue est `false`, sinon un agent neuf ne serait jamais configuré ;
+ * - `'absent'` : réglages lisibles sans bloc `handoff` : jamais configuré (« Null if not configured »), ou ÉTEINT, que
+ *   Meta cache (mesuré le 2026-11-26). Les deux se lisent pareil : il faut écrire même si la valeur voulue est `false`,
+ *   sinon un agent neuf ne serait jamais configuré. Hors horaires, le balayage réécrit donc à chaque passage le même
+ *   bloc éteint, avec le message en base : sans effet pour le client ;
  * - `null` : rien à lire (pas de numéro, ou agent pas encore créé) : ne rien écrire à l'aveugle.
  */
 type EtatHandoff = boolean | 'absent' | null;
@@ -42,14 +46,17 @@ async function lireHandoffEnabled(deps: PilotageHandoffDeps, tenantId: string): 
 }
 
 /**
- * Écrit `handoff.enabled`. No-op sans numéro. Les autres champs de `handoff` (le texte lu par le client et
- * qui le rédige) sont préservés par la fusion par sous-objet de `modifierSettings`.
+ * Écrit `handoff.enabled`, avec le message de passage choisi dans la console. No-op sans numéro. 🔴 Le message vient de
+ * la BASE : Meta cache le bloc d'un passage éteint, donc la fusion de `modifierSettings` n'a rien à préserver au
+ * moment où le balayage le rallume, et le texte standard remplaçait chaque matin le choix du client (MUTAC,
+ * 2026-11-26). Rien en base : la fusion garde ce que Meta rend, comme avant.
  */
 async function ecrireHandoffEnabled(deps: PilotageHandoffDeps, tenantId: string, enabled: boolean): Promise<void> {
   const pn = await deps.numeros.getTenantPhoneNumberId(tenantId);
   if (pn === null) return;
+  const choix = await deps.reglages.lireMessagePassage(tenantId);
   const client = await deps.meta.mbaClientForTenant(tenantId);
-  await modifierSettings(client, pn, { handoff: { enabled } });
+  await modifierSettings(client, pn, { handoff: { ...choix, enabled } });
 }
 
 function valeurVoulue(
@@ -68,8 +75,9 @@ export const MODE_HANDOFF_PAR_DEFAUT: MbaHandoffMode = 'always';
 
 /**
  * `handoff.enabled` tel que le mode de l'espace le veut à l'instant. 🔴 L'écriture du MESSAGE de passage en a besoin :
- * Meta refuse un bloc `handoff` sans `enabled` (« violated JSON schema constraint 'required' »), et ne relit pas celui
- * que le balayage avait posé seul : choisir le message échouait chez MUTAC (2026-11-25). La base est la source de vérité.
+ * Meta refuse un bloc `handoff` sans `enabled` (« violated JSON schema constraint 'required' »), et cache celui d'un
+ * passage éteint, donc la fusion n'en a pas à fournir : choisir le message échouait chez MUTAC (2026-11-25). La base est
+ * la source de vérité.
  */
 export async function handoffVouluMaintenant(
   reglages: {
