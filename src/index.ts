@@ -1895,6 +1895,8 @@ async function main(): Promise<void> {
     },
     emails: emetteurEmails,
     pageOffre: `${config.APP_URL.trim().replace(/\/+$/, '')}/offre`,
+    // Les étiquettes en direct (segments Shopify enrichis, lot 6d) : le magasin de la synchronisation des étiquettes.
+    etiquettes: new PgEtiquettesStore(pool),
   };
   /** La relance des paniers abandonnés (lot 2), par le MÊME envoi que les messages de commande. */
   const relancePaniers: DepsRelance = {

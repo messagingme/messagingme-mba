@@ -24,7 +24,8 @@ export { SYNCHRO_PERIMEE_MINUTES, type IssueSynchro };
  * 🔴 UNE SYNCHRONISATION À LA FOIS : pg-boss ne déduplique rien, deux jobs du même espace peuvent tourner ensemble. Le job
  * prend la synchronisation par un BAIL (`for update skip locked`, puis `bail_jusqua` et un JETON) ; toute écriture se fait
  * dans une transaction qui verrouille d'abord la ligne d'état PAR CE JETON : un porteur dont le bail a été repris n'écrit
- * plus rien. Un worker mort laisse son bail expirer, et un autre passage reprend au dernier client lu.
+ * plus rien. Un worker mort laisse son bail expirer, et un autre passage reprend au dernier client lu. Une seule écriture
+ * se fait hors du bail, et c'est voulu : `appliquerDuWebhook` (lot 6d), un webhook d'étiquettes appliqué tel quel.
  *
  * 🔴 AUCUNE FICHE SUPPRIMÉE N'EST TOUCHÉE, AUCUNE FICHE N'EST CRÉÉE : avant d'écrire, la transaction verrouille les fiches
  * visées (`for key share`, en conflit avec le `for update` de `purgeMany`) et ne garde que les fiches ACTIVES ; une purge
@@ -108,6 +109,9 @@ export interface MagasinEtiquettes {
   /** Les segments lus de l'espace, pour la carte, le volet et l'outil. */
   segments(tenantId: string): Promise<SegmentShopifyVue[]>;
 }
+
+/** L'effet d'un webhook d'étiquettes (lot 6d) : les étiquettes ajoutées à un client, ou retirées. */
+export type SensEtiquettes = 'ajout' | 'retrait';
 
 /**
  * Un segment suivi à lire : son nom, où sa lecture en était (curseur de page, requête asynchrone) et quand elle a commencé
@@ -653,6 +657,45 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
       }
       await avancer(client, tenantId, jeton, { clientsLus: 0, trouves: 0, sansFiche: 0 });
       return true;
+    });
+  }
+
+  /**
+   * LOT 6d. UN WEBHOOK D'ÉTIQUETTES (`customer.tags_added`, `customer.tags_removed`), appliqué tel quel : ces étiquettes
+   * entrent sur chaque fiche ACTIVE reliée au client (le couple fiche-client, lot 6b bis), ou en sortent, sans la casse.
+   * Seulement si la synchronisation est allumée et l'offre n'est pas la Free (qui synchronise à la demande) ; un client
+   * relié à aucune fiche n'écrit rien. Hors du bail de la synchronisation : une relecture qui a lu Shopify AVANT
+   * l'événement et écrit APRÈS lui le défait, comme deux webhooks arrivés dans le désordre (`occurredAt` n'est pas lu) ;
+   * la relecture suivante répare, au plus 24 h plus tard. La casse se compare des deux côtés en SQL, comme le critère
+   * (`src/crm/segments.ts`). Rend le nombre de lignes écrites ou retirées.
+   */
+  async appliquerDuWebhook(tenantId: string, clientId: string, etiquettes: readonly string[], sens: SensEtiquettes): Promise<number> {
+    if (etiquettes.length === 0) return 0;
+    return enTransaction(this.pool, async (client) => {
+      const fiches = (await client.query<{ contact_id: string }>(
+        `select l.contact_id from shopify_clients l
+           join shopify_etiquettes_synchro e on e.tenant_id = $1 and e.allumee
+          where l.tenant_id = $1 and l.client_id = $2 and offre_de_l_espace($1) <> 'base'`,
+        [tenantId, clientId],
+      )).rows.map((x) => x.contact_id);
+      const vivantes = [...(await verrouillerFiches(client, tenantId, fiches))];
+      if (vivantes.length === 0) return 0;
+      if (sens === 'ajout') {
+        const r = await client.query(
+          `insert into shopify_etiquettes (tenant_id, contact_id, client_id, etiquette)
+           select $1, f.id, $2, e.etiquette from unnest($3::uuid[]) as f(id) cross join unnest($4::text[]) as e(etiquette)
+           on conflict (tenant_id, contact_id, client_id, etiquette) do nothing`,
+          [tenantId, clientId, vivantes, [...etiquettes]],
+        );
+        return r.rowCount ?? 0;
+      }
+      const r = await client.query(
+        `delete from shopify_etiquettes
+          where tenant_id = $1 and client_id = $2 and contact_id = any($3::uuid[])
+            and lower(etiquette) in (select lower(x) from unnest($4::text[]) as x)`,
+        [tenantId, clientId, vivantes, [...etiquettes]],
+      );
+      return r.rowCount ?? 0;
     });
   }
 

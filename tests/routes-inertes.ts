@@ -1141,6 +1141,7 @@ export const etiquettesInertes: DepsEtiquettes = {
   lireClients: neDevraitPasEtreAppelee('shopify.etiquettes.lireClients'),
   chercher: neDevraitPasEtreAppelee('shopify.etiquettes.chercher'),
   listerSegments: neDevraitPasEtreAppelee('shopify.etiquettes.listerSegments'),
+  abonner: neDevraitPasEtreAppelee('shopify.etiquettes.abonner'),
   lireMembres: neDevraitPasEtreAppelee('shopify.etiquettes.lireMembres'),
   creerRequete: neDevraitPasEtreAppelee('shopify.etiquettes.creerRequete'),
   suivreRequete: neDevraitPasEtreAppelee('shopify.etiquettes.suivreRequete'),

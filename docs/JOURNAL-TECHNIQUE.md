@@ -5,6 +5,29 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : segments Shopify, lot 6d : les étiquettes Shopify en direct
+
+Plan : `docs/superpowers/plans/2026-11-26-segments-shopify-lot-6d-webhooks-etiquettes.md` (spec, chantier 4, lot 4b).
+Une étiquette posée ou retirée sur un client dans Shopify arrive sur ses fiches sans attendre la relecture quotidienne,
+pour une boutique branchée par la console, hors Free, synchronisation allumée. Aucune migration. Les sujets
+`CUSTOMER_TAGS_ADDED` et `CUSTOMER_TAGS_REMOVED` s'abonnent à part du branchement (`SUJETS_ETIQUETTES`), pendant chaque
+synchronisation, une fois les téléphones cherchés et avant le premier client lu ; une boutique déjà branchée se réabonne
+ainsi d'elle-même. Le récepteur applique tels quels les ajouts ou les retraits (sans la casse, comparée des deux côtés en
+SQL) sur chaque fiche active reliée au client, en une écriture, et répond toujours 200 ; la relecture quotidienne reste le
+filet. La doc de Shopify ne dit ni l'en-tête exact du sujet ni si `tags` porte les seules étiquettes changées : les deux
+écritures du sujet sont acceptées, un sujet inconnu se journalise par son nom, et l'essai réel tranche. Le
+`shopify.app.toml` de la skill n'est pas touché (une ligne fausse ferait échouer `shopify app deploy`) : les boutiques
+de Claude Code gardent la relecture quotidienne.
+
+La relecture indépendante n'a trouvé aucun rouge. Ses jaunes peu coûteux sont pris dans le lot : la casse comparée en SQL
+des deux côtés (comme le critère), pas d'abonnement en Free, un seul abonnement par synchronisation (il se faisait à
+chaque passage de la recherche par téléphone), l'origine de la boutique requise par le type, la table des en-têtes
+renommée (`SENS_DU_SUJET`, distincte de la liste GraphQL), un journal seulement quand une ligne bouge, l'exception au bail
+nommée en tête du magasin, la course avec la relecture dite. L'aide de la boutique et `features.md` promettent « en
+quelques secondes » : elles partent APRÈS l'essai réel, seul à prouver l'en-tête et le sens de `tags`. Mesure : 15
+mutations scriptées ; au premier passage, une survivante (le retrait sans la casse, que le test exerçait avec la casse
+déjà en minuscules) a montré un trou de test, comblé et prouvé rouge.
+
 ## 2026-11-26 : CSM virtuel, lot G (B7) : Claude lève les prérequis d'une mise en service
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-g-prerequis.md`. Suit le pilote (B9), réussi le même jour.

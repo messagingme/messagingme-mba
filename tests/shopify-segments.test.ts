@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  AUCUNE_BOUTIQUE_ETIQUETTES, BOUTIQUE_COUPEE_ETIQUETTES, REQUETE_ASYNCHRONE_ATTENTE_S, REQUETE_ASYNCHRONE_MAX_MS, SYNCHRO_ETEINTE, lireSegments,
+  AUCUNE_BOUTIQUE_ETIQUETTES, BOUTIQUE_COUPEE_ETIQUETTES, PASSAGE_ETIQUETTES_MS, REQUETE_ASYNCHRONE_ATTENTE_S, REQUETE_ASYNCHRONE_MAX_MS, SYNCHRO_ETEINTE, lireSegments,
   suivreSegmentsShopify, traiterEtiquettes,
 } from '../src/shopify/etiquettes';
 import {
@@ -400,5 +400,64 @@ describe('la lecture GraphQL des segments', () => {
     expect(await suivreRequeteAsynchrone(ACCES, { ...P, requete: 'q', appeler: suivi({ id: 'q', done: false }) })).toEqual({ ok: true, etat: 'en_cours' });
     expect(await suivreRequeteAsynchrone(ACCES, { ...P, requete: 'q', appeler: suivi(null) })).toEqual({ ok: true, etat: 'perdue' });
     expect(await suivreRequeteAsynchrone(ACCES, { ...P, requete: 'q', appeler: faux({ json: { data: { autre: 1 } } }).appeler })).toEqual({ ok: true, etat: 'perdue' });
+  });
+});
+
+describe('les étiquettes en direct : l’abonnement en début de synchronisation (lot 6d)', () => {
+  it('🔴 une boutique de la console s’abonne aux deux sujets d’étiquettes au début d’une synchronisation, une fois', async () => {
+    const f = monterEtiquettes({ ...BASE });
+    await synchroniser(f);
+    expect(f.trace.abonnements).toEqual([['CUSTOMER_TAGS_ADDED', 'CUSTOMER_TAGS_REMOVED']]);
+    expect(f.trace.issues).toEqual([{ issue: 'lue', message: null }]);
+  });
+
+  it('🔴 jamais en Free (qui synchronise à la demande)', async () => {
+    const f = monterEtiquettes({ ...BASE, offre: 'base' });
+    await synchroniser(f);
+    expect(f.trace.abonnements).toEqual([]);
+    expect(f.trace.issues).toEqual([{ issue: 'lue', message: null }]);
+  });
+
+  it('🔴 une recherche par téléphone en plusieurs passages n’abonne qu’une fois, avant le premier client lu', async () => {
+    const fiches = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`bbbbbbbb-0000-4000-8000-${String(i).padStart(12, '0')}`, { telephone: tel(100 + i), active: true }]));
+    const f = monterEtiquettes({
+      fiches, boutiqueClients: { 2001: { telephone: tel(100), tags: ['VIP'] }, 2002: { telephone: tel(159), tags: [] } }, msParLot: PASSAGE_ETIQUETTES_MS / 2,
+    });
+    const abonner = f.deps.abonner.bind(f.deps);
+    const lusALAbonnement: number[] = [];
+    f.deps.abonner = async (acces, sujets) => { lusALAbonnement.push(f.trace.lots.length); return abonner(acces, sujets); };
+    await synchroniser(f);
+    expect(f.trace.recherches.length).toBeGreaterThan(0);
+    expect(f.trace.issues).toEqual([]);
+    expect(f.trace.abonnements).toEqual([]);
+    for (let i = 0; i < 6 && f.trace.issues.length === 0; i += 1) await traiterEtiquettes(f.deps, JOB);
+    expect(f.trace.abonnements).toHaveLength(1);
+    expect(lusALAbonnement).toEqual([0]);
+    expect(f.trace.lots.length).toBeGreaterThan(0);
+    expect(f.trace.issues).toEqual([{ issue: 'lue', message: null }]);
+  });
+
+  it('🔴 jamais une boutique de Claude Code (ses webhooks sont dans son app)', async () => {
+    const f = monterEtiquettes({ ...BASE, boutique: { ...BOUTIQUE_ETIQUETTES, origine: 'claude_code' } });
+    await synchroniser(f);
+    expect(f.trace.abonnements).toEqual([]);
+    expect(f.trace.issues).toEqual([{ issue: 'lue', message: null }]);
+  });
+
+  it('🔴 un refus ou une panne de l’abonnement ne bloque rien : la synchronisation aboutit', async () => {
+    for (const abonnement of [{ ok: false as const, message: 'Shopify refuse' }, 'leve' as const]) {
+      const f = monterEtiquettes({ ...BASE, abonnement });
+      await synchroniser(f);
+      expect(f.trace.issues, JSON.stringify(abonnement)).toEqual([{ issue: 'lue', message: null }]);
+    }
+  });
+
+  it('un passage repris en cours de lecture des clients ne se réabonne pas', async () => {
+    const f = monterEtiquettes({ ...BASE, liensDeDepart: [{ clientId: '1001', contactId: A }] });
+    await f.deps.magasin.regler(T, true);
+    await f.deps.magasin.demander(T, { auPlusUneFoisParJour: false });
+    f.etat()!.curseur = '1000';
+    await traiterEtiquettes(f.deps, JOB);
+    expect(f.trace.abonnements).toEqual([]);
   });
 });

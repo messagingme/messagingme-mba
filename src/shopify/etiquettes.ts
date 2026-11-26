@@ -11,8 +11,9 @@ import {
   creerRequeteAsynchrone, lirePageMembres, listerSegments, suivreRequeteAsynchrone, type ListeSegments, type PageMembres,
   type RequeteAsynchrone, type SuiviRequete,
 } from './segments-lues';
+import { abonnerWebhooks, SUJETS_ETIQUETTES, type IssueAbonnement } from './abonnements';
 import type { CoutRequete } from './reprise';
-import type { PgShopifyStore } from './store.pg';
+import type { OrigineBoutique, PgShopifyStore } from './store.pg';
 import type { Offre } from '../offres/offres';
 import { BORNES_SEGMENTS, type EtiquettesShopifyLuesVue, type SegmentsShopifyLusVue, type SynchroEtiquettesVue } from '../../web/lib/partage/segments';
 import { journaliser } from '../lib/journal';
@@ -82,7 +83,12 @@ export const SANS_READ_CUSTOMERS = 'Pour lire les étiquettes de vos clients, l�
 export interface DepsEtiquettes {
   magasin: MagasinEtiquettes;
   /** La boutique de l'espace et son secret déchiffré ; `null` sans boutique (effacée). */
-  boutique(tenantId: string): Promise<{ domaine: string; clientId: string; secret: string; pays: string | null; etat: string } | null>;
+  boutique(tenantId: string): Promise<{ domaine: string; clientId: string; secret: string; pays: string | null; etat: string; origine: OrigineBoutique } | null>;
+  /**
+   * Lot 6d : abonne les sujets d'étiquettes d'une boutique de la console (`abonnerWebhooks` avec `SUJETS_ETIQUETTES`) ;
+   * idempotent, un sujet déjà abonné vaut « déjà ».
+   */
+  abonner(acces: { domaine: string; jeton: string }, sujets: readonly string[]): Promise<IssueAbonnement>;
   /** L'état de la boutique, sans son secret : seule une boutique branchée se synchronise. */
   etatBoutique(tenantId: string): Promise<string | null>;
   jeton(domaine: string, clientId: string, secret: string): Promise<IssueJeton>;
@@ -126,6 +132,7 @@ export function cablerEtiquettes(o: {
     lireClients: (acces, p) => lireClientsParIds(acces, p),
     chercher: (acces, p) => chercherParTelephones(acces, p),
     listerSegments: (acces, p) => listerSegments(acces, p),
+    abonner: (acces, sujets) => abonnerWebhooks(acces, undefined, sujets),
     lireMembres: (acces, p) => lirePageMembres(acces, p),
     creerRequete: (acces, p) => creerRequeteAsynchrone(acces, p),
     suivreRequete: (acces, p) => suivreRequeteAsynchrone(acces, p),
@@ -366,6 +373,21 @@ async function passage(deps: DepsEtiquettes, tenantId: string, jeton: string, cu
     });
     if ((await deps.magasin.ecrireRecherche(tenantId, jeton, { cherchees: fiches.map((f) => f.contactId), trouves, complete: r.complete })) === null) return;
     apres = fiches[fiches.length - 1]!.telephone;
+  }
+
+  // Lot 6d : les étiquettes en direct. Une boutique de la CONSOLE, hors Free (qui synchronise à la demande), s'abonne ici
+  // aux deux sujets d'étiquettes, une fois les téléphones cherchés et avant le premier client lu : un changement arrivé
+  // ensuite est lu par cette synchronisation ou porté par le webhook, et une boutique déjà branchée se réabonne ainsi
+  // d'elle-même. Une recherche par téléphone en plusieurs passages n'abonne donc qu'une fois ; seule l'attente d'un segment
+  // asynchrone, quand aucun client n'est relié, repasse ici (l'abonnement répond alors « déjà »). Jamais une boutique de
+  // Claude Code (ses webhooks sont dans son app), et un refus ne bloque rien : la relecture quotidienne reste le filet.
+  if (curseurDepart === null && b.origine === 'console' && (await deps.offre(tenantId)) !== 'base') {
+    try {
+      const a = await deps.abonner(acces, SUJETS_ETIQUETTES);
+      if (!a.ok) journaliser('warn', 'shopify_etiquettes_abonnement_refuse', { tenantId, message: a.message.slice(0, 200) });
+    } catch (err) {
+      journaliser('warn', 'shopify_etiquettes_abonnement_en_echec', { tenantId, erreur: messageDe(err) });
+    }
   }
 
   // 2. Les clients reliés, par lots, depuis le dernier lu : leurs étiquettes remplacées en bloc sur chacune de leurs fiches.

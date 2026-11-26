@@ -6,6 +6,8 @@ import {
 } from '../src/shopify/etiquettes.pg';
 import { etiquettesUtiles, type LotClients, type RechercheTelephones } from '../src/shopify/etiquettes-lues';
 import type { ListeSegments, PageMembres, SuiviRequete } from '../src/shopify/segments-lues';
+import type { IssueAbonnement } from '../src/shopify/abonnements';
+import type { OrigineBoutique } from '../src/shopify/store.pg';
 import { BORNES_SEGMENTS, type SegmentShopifyVue } from '../web/lib/partage/segments';
 import type { IssueJeton } from '../src/shopify/connexion';
 import type { Offre } from '../src/offres/offres';
@@ -23,7 +25,7 @@ import type { Offre } from '../src/offres/offres';
  */
 
 export const T_ETIQUETTES = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
-export const BOUTIQUE_ETIQUETTES = { domaine: 'b.myshopify.com', clientId: 'cid', secret: 'shpss_x', pays: 'FR', etat: 'connectee' };
+export const BOUTIQUE_ETIQUETTES = { domaine: 'b.myshopify.com', clientId: 'cid', secret: 'shpss_x', pays: 'FR', etat: 'connectee', origine: 'console' as OrigineBoutique };
 export const DROITS_ETIQUETTES = ['read_customers', 'read_orders', 'read_checkouts', 'read_fulfillments', 'read_products'];
 export const MIDI_ETIQUETTES = Date.UTC(2026, 10, 24, 12);
 
@@ -90,6 +92,8 @@ export function monterEtiquettes(o: {
   requetesOubliees?: boolean;
   /** La taille d'une page de membres (1 000 chez Shopify). */
   membresParPage?: number;
+  /** Lot 6d : ce que rend l'abonnement des sujets d'étiquettes (`ok` par défaut), ou `leve` pour une panne. */
+  abonnement?: IssueAbonnement | 'leve';
 } = {}) {
   const horloge = { t: MIDI_ETIQUETTES };
   const fiches = new Map(Object.entries(o.fiches ?? {}));
@@ -151,6 +155,8 @@ export function monterEtiquettes(o: {
     pages: [] as Array<{ segmentId: string; requete: string | null; apres: string | null }>,
     requetesCreees: [] as string[],
     suivis: [] as string[],
+    /** Lot 6d : les sujets abonnés, appel par appel. */
+    abonnements: [] as string[][],
   };
   /**
    * `synchroVivante` (`src/shopify/etiquettes-garde.ts`), terme pour terme : une comparaison qui porte sur une valeur
@@ -479,6 +485,11 @@ export function monterEtiquettes(o: {
       if (!q || o.requetesOubliees) return { ok: true, etat: 'perdue' };
       q.suivis += 1;
       return { ok: true, etat: prete(q) ? 'prete' : 'en_cours' };
+    },
+    abonner: async (_acces, sujets) => {
+      trace.abonnements.push([...sujets]);
+      if (o.abonnement === 'leve') throw new Error('Shopify absent');
+      return o.abonnement ?? { ok: true, abonnes: [...sujets], deja: [] };
     },
     offre: async () => o.offre ?? 'pro',
     enfiler: async (job, dansSecondes) => { trace.jobs.push({ job, dansSecondes }); },

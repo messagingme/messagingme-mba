@@ -188,6 +188,8 @@ function monter(o: {
   joignabilite?: FauxJoignabilite;
   /** L'écriture du lien de suivi en panne. */
   lienLeve?: boolean;
+  /** Lot 6d : l'écriture des étiquettes d'un webhook en panne. */
+  etiquettesLeve?: boolean;
 } = {}) {
   const journal = {
     reserve: [] as string[], issues: [] as Array<[string, string]>, liberes: [] as string[], liees: [] as unknown[],
@@ -202,6 +204,8 @@ function monter(o: {
     liens: [] as Array<[string, string, string]>,
     /** L'ordre des arrêts de parcours et des envois. */
     ordre: [] as string[],
+    /** Lot 6d : les webhooks d'étiquettes appliqués (espace, client, étiquettes, sens). */
+    etiquettes: [] as Array<[string, string, string[], string]>,
   };
   const messages = o.messages ?? [MESSAGE];
   const offres = new FauxOffres(o.offre ?? 'pro');
@@ -254,6 +258,13 @@ function monter(o: {
     ecrireLienDeSuivi: async (t, fiche, lien) => {
       if (o.lienLeve) throw new Error('champ indisponible');
       journal.liens.push([t, fiche, lien]);
+    },
+    etiquettes: {
+      appliquerDuWebhook: async (t, client, etiquettes, sens) => {
+        if (o.etiquettesLeve) throw new Error('base indisponible');
+        journal.etiquettes.push([t, client, [...etiquettes], sens]);
+        return etiquettes.length;
+      },
     },
   };
   return { deps, journal, offres, parcours, joignabilite };
@@ -1029,5 +1040,48 @@ describe('le lien de suivi sur la fiche (agent IA)', () => {
     const long = `https://suivi.example/${'a'.repeat(400)}`;
     expect(lienDeSuivi({ ...expedition, tracking_url: long })).toBe(long);
     expect(lienDeSuivi({ ...expedition, tracking_url: '  http://suivi/6A1  ' })).toBe('http://suivi/6A1');
+  });
+});
+
+/**
+ * LES ÉTIQUETTES EN DIRECT (segments Shopify enrichis, lot 6d) : `customer.tags_added` et `customer.tags_removed`
+ * s'appliquent tels quels, toujours en 200 ; l'écriture en base est éprouvée sur PGlite
+ * (`tests/integration/shopify-etiquettes-webhook.integration.test.ts`).
+ */
+describe('les webhooks d’étiquettes (lot 6d)', () => {
+  const corps = (tags: unknown[], customerId = 'gid://shopify/Customer/5001') => ({ customerId, tags, occurredAt: '2026-11-26T10:00:00.000Z' });
+
+  it('🔴 ajoutées ou retirées : le client du GID, les étiquettes utiles (sans espaces de bord, dédupliquées), toujours 200', async () => {
+    const { deps, journal } = monter();
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'customer.tags_added', corps([' VIP ', 'VIP', 'Fidèle']))).toEqual({ statut: 200 });
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'customer.tags_removed', corps(['VIP']))).toEqual({ statut: 200 });
+    expect(journal.etiquettes).toEqual([
+      [BOUTIQUE.tenantId, '5001', ['VIP', 'Fidèle'], 'ajout'],
+      [BOUTIQUE.tenantId, '5001', ['VIP'], 'retrait'],
+    ]);
+    expect(journal.envois).toEqual([]);
+  });
+
+  it('les deux écritures du sujet sont acceptées', async () => {
+    const { deps, journal } = monter();
+    await traiterWebhookShopify(deps, BOUTIQUE, 'customers/tags_added', corps(['A']));
+    await traiterWebhookShopify(deps, BOUTIQUE, 'customers/tags_removed', corps(['A']));
+    expect(journal.etiquettes.map((e) => e[3])).toEqual(['ajout', 'retrait']);
+  });
+
+  it('🔴 un corps illisible, un GID qui n’est pas celui d’un client, ou une écriture en panne : 200, rien d’écrit ou rien de levé', async () => {
+    const { deps, journal } = monter();
+    for (const c of [{ tags: ['A'] }, corps(['A'], 'gid://shopify/Order/5001'), corps(['A'], '5001'), { customerId: 'gid://shopify/Customer/1', tags: 'A' }]) {
+      expect(await traiterWebhookShopify(deps, BOUTIQUE, 'customer.tags_added', c), JSON.stringify(c)).toEqual({ statut: 200 });
+    }
+    expect(journal.etiquettes).toEqual([]);
+    const panne = monter({ etiquettesLeve: true });
+    expect(await traiterWebhookShopify(panne.deps, BOUTIQUE, 'customer.tags_added', corps(['A']))).toEqual({ statut: 200 });
+  });
+
+  it('🔴 une boutique débranchée n’écrit rien', async () => {
+    const { deps, journal } = monter();
+    expect(await traiterWebhookShopify(deps, { ...BOUTIQUE, etat: 'coupee' }, 'customer.tags_added', corps(['A']))).toEqual({ statut: 200 });
+    expect(journal.etiquettes).toEqual([]);
   });
 });

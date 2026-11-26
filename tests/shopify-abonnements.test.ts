@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { abonnerWebhooks, ADRESSE_WEBHOOKS, SUJETS_ABONNES } from '../src/shopify/abonnements';
+import { abonnerWebhooks, ADRESSE_WEBHOOKS, SUJETS_ABONNES, SUJETS_ETIQUETTES } from '../src/shopify/abonnements';
 
 /**
  * L'ABONNEMENT DES WEBHOOKS D'UNE BOUTIQUE BRANCHÉE PAR LA CONSOLE (conception 2026-10-22). Shopify est simulé.
@@ -45,5 +45,14 @@ describe('l’abonnement des webhooks par l’API', () => {
     expect((r as { message: string }).message).toContain('CHECKOUTS_CREATE');
     expect(await abonnerWebhooks(ACCES, shopify(() => ({ statut: 502, corps: {} })).appeler)).toMatchObject({ ok: false });
     expect(await abonnerWebhooks(ACCES, shopify(() => ({ corps: { errors: [{ message: 'Throttled' }] } })).appeler)).toMatchObject({ ok: false });
+  });
+});
+
+describe('les sujets d’étiquettes (lot 6d)', () => {
+  it('🔴 abonnés à part du branchement, par leur liste ; le branchement garde ses six sujets', async () => {
+    expect(SUJETS_ABONNES).toEqual(['ORDERS_CREATE', 'ORDERS_PAID', 'FULFILLMENTS_CREATE', 'CHECKOUTS_CREATE', 'CHECKOUTS_UPDATE', 'APP_UNINSTALLED']);
+    const s = shopify(() => ({ corps: cree }));
+    expect(await abonnerWebhooks(ACCES, s.appeler, SUJETS_ETIQUETTES)).toEqual({ ok: true, abonnes: ['CUSTOMER_TAGS_ADDED', 'CUSTOMER_TAGS_REMOVED'], deja: [] });
+    expect(s.envois.map((e) => e.topic)).toEqual(['CUSTOMER_TAGS_ADDED', 'CUSTOMER_TAGS_REMOVED']);
   });
 });

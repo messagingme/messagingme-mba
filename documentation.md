@@ -3555,7 +3555,18 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   ne le propose que sur `etiquettesShopify: true` de `GET .../contacts/segments` ; `GET .../contacts/segments/etiquettes-shopify`
   rend les 50 étiquettes que portent le plus de fiches et l'état (une lecture seule, qui n'enfile rien) ; `find_contacts`
   rend `shopify_tags_synced_at`, `get_shopify_state` l'état et la liste (`shopify_tags`). La copie vers une étiquette
-  Messaging Me est l'action en masse (ou `tag_contacts`) sur la cible du critère : jamais la synchronisation. L'onglet
+  Messaging Me est l'action en masse (ou `tag_contacts`) sur la cible du critère : jamais la synchronisation. 🔴 LES
+  ÉTIQUETTES EN DIRECT (lot 6d, sans migration) : les sujets GraphQL `CUSTOMER_TAGS_ADDED` et `CUSTOMER_TAGS_REMOVED`
+  (`SUJETS_ETIQUETTES`, `src/shopify/abonnements.ts`) s'abonnent À PART du branchement, au mieux, pendant chaque
+  synchronisation d'une boutique de la CONSOLE hors Free, une fois les téléphones cherchés et avant le premier client lu
+  (un refus ne bloque rien, un sujet déjà abonné vaut « déjà ») ; jamais une
+  boutique de Claude Code, dont le `shopify.app.toml` ne les porte pas (l'écriture du sujet dans le toml n'est pas vérifiée,
+  et une ligne fausse ferait échouer `shopify app deploy`). Le récepteur (`traiterWebhookShopify`) accepte
+  `customer.tags_added` et `customers/tags_added` (la doc ne dit pas l'en-tête exact), lit `{ customerId, tags }` par Zod
+  et applique TELS QUELS les ajouts ou les retraits (`appliquerDuWebhook`, sans la casse au retrait) sur chaque fiche
+  ACTIVE reliée au client, synchronisation allumée et hors Free, en une écriture, sans appel à Shopify ni file ; il répond
+  TOUJOURS 200 (une panne se journalise, la relecture quotidienne répare). Un sujet inconnu se journalise par son nom
+  (`shopify_sujet_inconnu`). L'onglet
   Shopify de la fiche lit ses étiquettes au mieux ;
 - 🔴 **les segments natifs Shopify** (segments Shopify enrichis, lot 6c, migration 0327 ; `src/shopify/segments-lues.ts`,
   le troisième temps de `src/shopify/etiquettes.ts`) : les segments que le marchand construit DANS SHOPIFY, lus par la

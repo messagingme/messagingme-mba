@@ -577,7 +577,8 @@ describe.skipIf(!url)('les étiquettes Shopify : la synchronisation périmée et
     lireMembres: async () => { throw new Error('aucun segment suivi'); },
     creerRequete: async () => { throw new Error('aucun segment suivi'); },
     suivreRequete: async () => { throw new Error('aucun segment suivi'); },
-  } satisfies Pick<DepsEtiquettes, 'listerSegments' | 'lireMembres' | 'creerRequete' | 'suivreRequete'>;
+    abonner: async () => ({ ok: true as const, abonnes: [], deja: [] }),
+  } satisfies Pick<DepsEtiquettes, 'listerSegments' | 'lireMembres' | 'creerRequete' | 'suivreRequete' | 'abonner'>;
 
   it('🔴 commande-cadeau : la commande notée ne relie rien ; seuls les numéros que Shopify rend pour la cliente la relient', async () => {
     const fiche = async (tel: string) =>
@@ -589,7 +590,7 @@ describe.skipIf(!url)('les étiquettes Shopify : la synchronisation périmée et
     const recherches: string[][] = [];
     const deps: DepsEtiquettes = {
       magasin,
-      boutique: async () => ({ domaine: DOMAINE, clientId: 'cid', secret: 'x', pays: 'FR', etat: 'connectee' }),
+      boutique: async () => ({ domaine: DOMAINE, clientId: 'cid', secret: 'x', pays: 'FR', etat: 'connectee', origine: 'console' as const }),
       etatBoutique: async () => 'connectee',
       jeton: async () => ({ ok: true, jeton: 'jeton-boutique' }),
       droits: async () => ({ ok: true, droits: ['read_customers'] }),
@@ -624,7 +625,7 @@ describe.skipIf(!url)('les étiquettes Shopify : la synchronisation périmée et
     const cliente = (await pool.query<{ id: string }>(`select id from contacts where tenant_id = $1 and phone_e164 = '+33611116001'`, [t])).rows[0]!.id;
     const deps: DepsEtiquettes = {
       magasin,
-      boutique: async () => ({ domaine: DOMAINE, clientId: 'cid', secret: 'x', pays: 'FR', etat: 'connectee' }),
+      boutique: async () => ({ domaine: DOMAINE, clientId: 'cid', secret: 'x', pays: 'FR', etat: 'connectee', origine: 'console' as const }),
       etatBoutique: async () => 'connectee',
       jeton: async () => ({ ok: true, jeton: 'jeton-boutique' }),
       droits: async () => ({ ok: true, droits: ['read_customers'] }),

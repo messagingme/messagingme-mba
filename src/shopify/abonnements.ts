@@ -21,6 +21,12 @@ import { API_VERSION_SHOPIFY } from './connexion';
 export const ADRESSE_WEBHOOKS = 'https://api.messagingme.app/shopify/webhooks';
 /** Les sujets de `shopify.app.toml`, sans les sujets RGPD, au format de l'API (`WebhookSubscriptionTopic`). */
 export const SUJETS_ABONNES = ['ORDERS_CREATE', 'ORDERS_PAID', 'FULFILLMENTS_CREATE', 'CHECKOUTS_CREATE', 'CHECKOUTS_UPDATE', 'APP_UNINSTALLED'] as const;
+/**
+ * Les étiquettes des clients en direct (segments Shopify enrichis, lot 6d) : sujets GraphQL seulement (pas de sujet REST),
+ * droit `read_customers`. Abonnés À PART du branchement, au mieux, au début de chaque synchronisation des étiquettes
+ * (`./etiquettes.ts`) : un refus ne doit jamais faire échouer un branchement.
+ */
+export const SUJETS_ETIQUETTES = ['CUSTOMER_TAGS_ADDED', 'CUSTOMER_TAGS_REMOVED'] as const;
 
 const DELAI_MS = 10_000;
 const CORPS_MAX = 64_000;
@@ -44,15 +50,16 @@ export type IssueAbonnement =
   | { ok: true; abonnes: string[]; deja: string[] }
   | { ok: false; message: string };
 
-/** Abonne les six sujets ; s'arrête au premier refus qui n'est pas « déjà », et le rend avec son sujet. */
+/** Abonne ces sujets (ceux du branchement par défaut) ; s'arrête au premier refus qui n'est pas « déjà », et le rend avec son sujet. */
 export async function abonnerWebhooks(
   acces: { domaine: string; jeton: string },
   /** `fetchPublic` en production : le domaine vient du marchand. Injectable pour éprouver sans réseau. */
   appeler: typeof fetch = fetchPublic,
+  sujets: readonly string[] = SUJETS_ABONNES,
 ): Promise<IssueAbonnement> {
   const abonnes: string[] = [];
   const deja: string[] = [];
-  for (const sujet of SUJETS_ABONNES) {
+  for (const sujet of sujets) {
     let lu: z.infer<typeof schemaReponse>;
     try {
       const res = await appeler(`https://${acces.domaine}/admin/api/${API_VERSION_SHOPIFY}/graphql.json`, {

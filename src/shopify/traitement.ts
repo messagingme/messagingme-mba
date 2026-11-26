@@ -1,4 +1,4 @@
-import type { ZodError } from 'zod';
+import { z, type ZodError } from 'zod';
 import { journaliser } from '../lib/journal';
 import { messageDe } from '../lib/erreur';
 import { moisDeParis } from '../offres/compteurs';
@@ -21,6 +21,8 @@ import type { SourceOffres } from '../offres/offre.pg';
 import type { WorkflowExecutor } from '../workflow/executor';
 import type { PgVentesStore } from './ventes.pg';
 import type { ProgrammerPreuve } from './preuve-utm';
+import { etiquettesUtiles } from './etiquettes-lues';
+import type { PgEtiquettesStore, SensEtiquettes } from './etiquettes.pg';
 
 /**
  * LE TRAITEMENT D'UN WEBHOOK SHOPIFY DÉJÀ VÉRIFIÉ (plan 2026-10-21, lot 1), sujet par sujet.
@@ -95,6 +97,8 @@ export interface DepsTraitementShopify {
    * d'automation : un champ écrit par un webhook n'est pas un geste du contact.
    */
   ecrireLienDeSuivi(tenantId: string, contactId: string, lien: string): Promise<void>;
+  /** Les étiquettes en direct (segments Shopify enrichis, lot 6d) : le magasin de la synchronisation, ENTIER. */
+  etiquettes: Pick<PgEtiquettesStore, 'appliquerDuWebhook'>;
 }
 
 /** La clé du champ de fiche qui porte le lien de suivi du dernier colis expédié. */
@@ -158,12 +162,46 @@ export type IssueEvenement = Exclude<IssueShopify, 'en_cours'> | IssueAvantEnvoi
 
 const SUJETS_RGPD = new Set(['customers/redact', 'customers/data_request', 'shop/redact']);
 
+/**
+ * LES DEUX SUJETS D'ÉTIQUETTES (lot 6d). La doc de Shopify écrit le sujet `customer.tags_added` sans dire la valeur de
+ * l'en-tête `X-Shopify-Topic` : les deux écritures sont acceptées, et un sujet inconnu se journalise par son nom.
+ */
+const SENS_DU_SUJET: Readonly<Record<string, SensEtiquettes>> = {
+  'customer.tags_added': 'ajout', 'customers/tags_added': 'ajout',
+  'customer.tags_removed': 'retrait', 'customers/tags_removed': 'retrait',
+};
+/** Le corps d'un webhook d'étiquettes, d'après l'exemple de la doc : `{ customerId, tags, occurredAt }`. */
+const schemaEtiquettesClient = z.object({ customerId: z.string(), tags: z.array(z.unknown()) });
+
+/**
+ * 🔴 UN WEBHOOK D'ÉTIQUETTES RÉPOND TOUJOURS 200 (recommandation de la spec) : une panne d'écriture se journalise au lieu
+ * de faire réessayer Shopify pendant des heures sur un client bavard ; la relecture quotidienne répare. Une étiquette
+ * n'est pas une confirmation de commande.
+ */
+async function etiquettesDuClient(deps: DepsTraitementShopify, b: BoutiqueRecue, sujet: string, sens: SensEtiquettes, corps: unknown): Promise<ReponseTraitement> {
+  const e = schemaEtiquettesClient.safeParse(corps);
+  const clientId = e.success ? /^gid:\/\/shopify\/Customer\/(\d{1,19})$/.exec(e.data.customerId)?.[1] : undefined;
+  if (!e.success || clientId === undefined) {
+    journaliser('warn', 'shopify_etiquettes_webhook_illisible', { tenantId: b.tenantId, sujet });
+    return OK;
+  }
+  try {
+    const n = await deps.etiquettes.appliquerDuWebhook(b.tenantId, clientId, etiquettesUtiles(e.data.tags).etiquettes, sens);
+    if (n > 0) journaliser('info', 'shopify_etiquettes_webhook', { tenantId: b.tenantId, sujet, etiquettes: e.data.tags.length, lignes: n });
+  } catch (err) {
+    journaliser('warn', 'shopify_etiquettes_webhook_en_echec', { tenantId: b.tenantId, sujet, erreur: messageDe(err) });
+  }
+  return OK;
+}
+
 export async function traiterWebhookShopify(
   deps: DepsTraitementShopify, b: BoutiqueRecue, sujet: string, corps: unknown,
 ): Promise<ReponseTraitement> {
   // Une boutique coupée n'écoute plus que le RGPD, et la désinstallation d'une boutique de la console : c'est le seul
   // signal qui efface son branchement, le parcours nominal étant « Couper » puis désinstaller (relecture des lots 0 et 1).
   if (b.etat === 'coupee' && !SUJETS_RGPD.has(sujet) && !(sujet === 'app/uninstalled' && b.origine === 'console')) return OK;
+  const sens = SENS_DU_SUJET[sujet];
+  if (sens !== undefined) return etiquettesDuClient(deps, b, sujet, sens, corps);
   switch (sujet) {
     case 'orders/paid': {
       const c = schemaCommande.safeParse(corps);
@@ -239,7 +277,8 @@ export async function traiterWebhookShopify(
       await deps.store.effacerBoutique(b.tenantId);
       return OK;
     default:
-      // Un sujet inconnu ne se réessaie pas.
+      // Un sujet inconnu ne se réessaie pas ; son nom se journalise (un en-tête qu'on n'attendait pas se voit ainsi).
+      journaliser('info', 'shopify_sujet_inconnu', { tenantId: b.tenantId, sujet: sujet.slice(0, 80) });
       return OK;
   }
 }

@@ -455,6 +455,26 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 6d (les étiquettes en direct) : la relecture (2026-11-26, aucun rouge)
+
+Les jaunes peu coûteux sont corrigés dans le lot (casse en SQL, Free sans abonnement, un abonnement par synchronisation,
+origine requise, constante renommée, journal à vide, commentaires, plan). Restent :
+- **Les liens sont lus sans verrou** (`appliquerDuWebhook`, `etiquettes.pg.ts`) : une synchronisation qui défait un lien
+  du client entre la lecture et l'insertion fait échouer TOUTE l'insertion en 23503 (journalisé, 200, la relecture
+  répare), et un interblocage avec `ecrireRecherche` est possible (Postgres en tue un). Après `verrouillerFiches`,
+  verrouiller les liens du client sur les fiches vivantes (`for key share`, triés par fiche), jamais avant les fiches
+  (cycle avec la purge).
+- **Une relecture qui a lu Shopify avant l'événement et écrit après le défait**, comme deux webhooks dans le désordre
+  (`occurredAt` ignoré) : perdu jusqu'à la relecture suivante (24 h au plus). Comparer à la date de lecture du client si
+  cela se voit en vrai.
+- **L'abonnement n'est jamais retiré** : une synchronisation éteinte, ou un espace passé en Free, reçoit encore les
+  webhooks (une vérification, une transaction à vide). Un étiquetage en masse dans Shopify devient une rafale de
+  requêtes, sans file.
+- **L'attente d'un segment asynchrone, quand aucun client n'est relié, se réabonne toutes les 15 s** (réponse « déjà »).
+- **Aucun `lock_timeout` sur la transaction du webhook** : derrière une longue purge, Shopify réessaie (sans perte).
+- **`fiches_etiquetees` reste périmé** jusqu'à la synchronisation suivante (affichage seulement).
+- **Les boutiques de Claude Code** : la ligne du sujet dans `shopify.app.toml` se mesure au premier déploiement réel.
+
 ## 🟡 Segments Shopify, lot 6c (les segments construits dans Shopify) : la relecture (2026-11-25, un rouge corrigé)
 
 Le rouge (le motif d'identifiant de la lecture console sans sa barre oblique inverse : aucun segment affiché) est
