@@ -57,6 +57,10 @@ const LIGNES_TOUS_RAYONS: Record<string, Record<string, string>> = {
     'graphe: async (t, id) => (await workflowStore.getById(id, t))?.graph ?? null,':
       'la relecture du graphe d’un parcours en cours (le rangement d’un formulaire)',
   },
+  'src/index.ts': {
+    'getWorkflowGraph: async (wfId, tenant) => (await workflowStore.getById(wfId, tenant))?.graph ?? null,':
+      'le scénario d’une campagne : les trois rayons (Julien, 2026-11-26), comme `POLITIQUE_DE_LANCEMENT.campagne_scenario`',
+  },
 };
 
 const RE_SQL = /\b(from|join) workflows\b/i;

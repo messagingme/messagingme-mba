@@ -285,7 +285,13 @@ export const POLITIQUE_DE_LANCEMENT = {
   automatisme_chaine: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'accord_fiche', rayons: ['general'], devantUnEvenement: 'remplace' },
   automatisme_publicite_ou_widget: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'accord_fiche', rayons: ['general'], devantUnEvenement: 'remplace' },
   lien_de_test: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'brouillon_fige', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre', rayons: RAYONS, devantUnEvenement: 'remplace' },
-  campagne_scenario: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'accord_fiche_sauf_ouverture', rayons: ['general'], devantUnEvenement: 'remplace' },
+  /**
+   * Les trois rayons (Julien, 2026-11-26, seconde exception à la décision 1, après `inbox`) : une campagne lance aussi un
+   * scénario Shopify ou HubSpot. Aucune commande derrière elle : la création refuse une source « variable du parcours »
+   * (`validateParamMapping` sans `accepterVariables`), et un bloc suivant qui en lit une échoue pour ce contact, la
+   * variable nommée (`envois-bloc.ts`). `campagne_bloc` (`/v1/sends`) reste au Builder : rien ne le demande.
+   */
+  campagne_scenario: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'accord_fiche_sauf_ouverture', rayons: RAYONS, devantUnEvenement: 'remplace' },
   campagne_bloc: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre', rayons: ['general'], devantUnEvenement: 'remplace' },
   /**
    * Un workflow HubSpot (décisions 3, 4 et 8 du cadrage du 2026-10-29) : une machine, pas un opérateur qui lance. Il

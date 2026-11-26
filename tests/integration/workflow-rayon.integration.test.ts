@@ -65,6 +65,22 @@ describe.skipIf(!url)('rayon des scénarios (Postgres)', () => {
     expect((await store.listPublies(tenantId, 'general')).map((p) => p.code)).not.toContain(shopify.code);
   });
 
+  it('le résumé dit les modèles que le graphe EN LIGNE envoie, sans doublon ni bloc sans nom (rangement des campagnes)', async () => {
+    const bloc = (id: string, templateName: string, language = 'fr') =>
+      ({ id, type: 'template' as const, position: { x: 0, y: 0 }, data: { templateName, language } });
+    const avecModeles: WorkflowGraph = {
+      nodes: [bloc('t1', ' commande_expediee '), bloc('t2', 'commande_expediee', 'en'), bloc('t3', '  '), bloc('t4', 'relance'), graphe.nodes[0]!],
+      edges: [],
+    };
+    const w = await store.insert(tenantId, 'Commande expédiée', avecModeles, 'shopify');
+    // Le brouillon seul ne compte pas : c'est le graphe en ligne que la campagne enverra.
+    expect((await store.listResume(tenantId, 'shopify')).find((r) => r.id === w.id)?.modeles).toEqual([]);
+    await store.publish(w.id, tenantId);
+    const lu = (await store.listResume(tenantId, 'shopify')).find((r) => r.id === w.id);
+    expect([...(lu?.modeles ?? [])].sort()).toEqual(['commande_expediee', 'relance']);
+    expect((await store.listResume(tenantId, 'shopify')).find((r) => r.id === shopify.id)?.modeles).toEqual([]);
+  });
+
   it('🔴 l’API publique résout le scénario Shopify comme un inconnu, par code comme par identifiant', async () => {
     expect(await store.lireParApi(tenantId, shopify.code)).toBeNull();
     expect(await store.lireParApi(tenantId, shopify.id)).toBeNull();

@@ -4,6 +4,7 @@ import type { CampaignCategory } from '../campaign/types';
 import { validateParamMapping } from '../crm/template';
 import { refusDePlafond } from '../campaign/plafond';
 import { scanOpening } from '../workflow/engine';
+import { donneesDEvenementLues } from '../workflow/evenement';
 import type { WorkflowGraph } from '../workflow/graph';
 import { nonEmpty, estUuid } from './scope';
 import {
@@ -149,6 +150,8 @@ export async function preparerCampagne(body: unknown, tenantId: string, deps: Pr
     if (scan.sautsHorsScenario.length > 0) {
       return refuser(400, { error: "Ce scénario saute vers un autre scénario (« Aller à ») avant son premier envoi : une campagne doit ouvrir sur un envoi de ce scénario. Choisis directement le scénario d'arrivée." });
     }
+    const lues = refusDonneesDEvenement(graph, 'Ce scénario');
+    if (lues) return refuser(400, { error: lues });
     // Un bloc RCS configuré ouvre à froid : il ne passe pas par WhatsApp, donc aucune fenêtre de 24 h ne
     // s'y applique. Exiger un template en ouverture fermait la porte à toute campagne RCS par scénario.
     if (!scan.firstTemplate && !scan.rcsOpen) {
@@ -310,9 +313,12 @@ export async function preparerCampagne(body: unknown, tenantId: string, deps: Pr
       // d'un autre espace. `getWorkflowGraph` est scopée, elle rend null hors espace.
       if (e.workflowId !== undefined) {
         if (!(await scenariosOuverts())) return refuser(STATUT_REFUS_OFFRE, corpsRefusFonction('scenarios'));
-        if (!estUuid(e.workflowId) || !(await deps.getWorkflowGraph(e.workflowId, tenantId))) {
+        const grapheEtage = estUuid(e.workflowId) ? await deps.getWorkflowGraph(e.workflowId, tenantId) : null;
+        if (!grapheEtage) {
           return refuser(422, { error: `L'étage ${e.rang} vise un scénario inconnu de cet espace.` });
         }
+        const lues = refusDonneesDEvenement(grapheEtage, `Le scénario de l'étage ${e.rang}`);
+        if (lues) return refuser(422, { error: lues });
       }
       // 🔴 La garde du répondeur du premier étage, sur l'agent de cet étage (sa forme est déjà jugée par
       // `problemeDeChaine`) : un agent recopié d'un autre espace, un brouillon ou un agent désactivé sont refusés.
@@ -417,4 +423,16 @@ export async function preparerCampagne(body: unknown, tenantId: string, deps: Pr
   };
 
   return { ok: true, input };
+}
+
+/**
+ * 🔴 UNE CAMPAGNE N'A PAS D'ÉVÉNEMENT DERRIÈRE ELLE (scénarios Shopify et HubSpot admis, Julien, 2026-11-26) : un scénario
+ * qui lit une donnée de la commande plus loin que son template d'ouverture est refusé, la donnée nommée, plutôt que
+ * d'envoyer un message troué à chaque contact. Vaut pour la console, l'API publique et le MCP (`preparerCampagne`).
+ */
+function refusDonneesDEvenement(graph: WorkflowGraph, sujet: string): string | null {
+  const lues = donneesDEvenementLues(graph, scanOpening(graph).firstTemplate?.id ?? null);
+  if (lues.length === 0) return null;
+  return `${sujet} lit une donnée de la commande (${lues.map((k) => `« ${k} »`).join(', ')}) : une campagne n'a pas de `
+    + 'commande derrière elle, le message partirait vide à cet endroit. Retirez cette donnée du scénario, ou lancez-le par son automation.';
 }

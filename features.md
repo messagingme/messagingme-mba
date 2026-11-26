@@ -1685,6 +1685,18 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
   « Service, puis Marketing » touche donc toute la liste avec son Service, et seulement les contacts d'accord avec son
   Marketing. ⚠️ Un message texte du contact arrivé à ce moment part au répondeur habituel ; un clic sur un bouton reste
   sans suite si l'agent de Meta ne répond pas.
+- ✅ **Une campagne lance aussi un scénario Shopify ou HubSpot, et les listes de l'étage se rangent par origine**
+  (2026-11-26). Dans « Modèle et scénario », les scénarios se rangent en **Scénarios**, **Automations Shopify** et
+  **Automations HubSpot** ; dans « Modèle seul », les modèles en **Automations Shopify**, **Automations HubSpot** et
+  **Autres modèles** (un modèle est « Shopify » quand un scénario Shopify l'envoie). Un seul groupe présent : la
+  liste reste à plat. Une campagne n'a pas de commande derrière elle : une variable du premier modèle qui lisait une
+  donnée de la commande (numéro, lien du panier) reste affichée sous « Données Shopify » et le récapitulatif bloque,
+  la variable nommée, jusqu'à ce qu'un champ de la fiche la remplace. Un scénario qui lit une donnée de la commande plus
+  loin que son premier modèle (un texte, un autre modèle) est refusé à la création, la donnée nommée : il enverrait un
+  message troué à chaque contact.
+  Au survol, « Modèle seul » et « Modèle et scénario » s'expliquent par un exemple (une bulle avec son bouton lien, un
+  modèle relié à un message rapide), et l'aperçu du modèle garde ses variables en `{{1}}`, `{{2}}`… : on voit où tombe
+  chacune de celles que les sélecteurs demandent.
 - ✅ **Un étage « modèle et scénario » ne redemande pas ce que devient la conversation** (2026-09-14).
   Quand chaque étage ouvre un scénario, la question « Que se passe-t-il quand le contact répond ? »
   disparaît, et l'écran dit à sa place que **le scénario s'en charge** : c'est lui qui décide si un

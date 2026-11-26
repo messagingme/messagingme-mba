@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { schemaVariables } from '../api/variables';
+import type { WorkflowGraph } from './graph';
 
 /**
  * L'ÉVÉNEMENT D'UN PARCOURS (menu « Scénario », lot 4, spec décisions 21, 28 et 29 ; migrations 0297 et 0298).
@@ -74,6 +75,28 @@ export function variablesDuTexte(evenement: EvenementDuParcours | null): Record<
   const prefixe = evenement.origine.split(':')[0] ?? '';
   if (prefixe === '') return {};
   return Object.fromEntries(Object.entries(evenement.variables).map(([k, v]) => [`${prefixe}.${k}`, v]));
+}
+
+/** Une donnée d'événement lue par le TEXTE d'un bloc (`variablesDuTexte`) : `{{shopify.numero_commande}}`. */
+const CLE_DU_TEXTE = /\{\{\s*((?:shopify|hubspot)\.[A-Za-z0-9_]+)\s*\}\}/g;
+
+/**
+ * Les données d'un événement que ce graphe lit, hors des variables du template d'ouverture (`ouverture`, l'identifiant de
+ * son bloc) : une campagne les remplace par les siennes (`firstTemplateParams`). Sert à refuser une campagne sur un
+ * scénario Shopify ou HubSpot (Julien, 2026-11-26) qui les lit plus loin : une campagne n'a pas d'événement derrière
+ * elle, un template y échouerait pour chaque contact et un texte partirait avec un trou (`renderText` rend '').
+ */
+export function donneesDEvenementLues(graph: WorkflowGraph, ouverture: string | null): string[] {
+  const lues = new Set<string>();
+  for (const n of graph.nodes) {
+    for (const m of JSON.stringify(n.data ?? {}).matchAll(CLE_DU_TEXTE)) lues.add(m[1]!);
+    if (n.type !== 'template' || n.id === ouverture || !Array.isArray(n.data.variables)) continue;
+    for (const v of n.data.variables as unknown[]) {
+      const s = (v as { source?: { type?: unknown; key?: unknown } } | null)?.source;
+      if (s?.type === 'variable' && typeof s.key === 'string') lues.add(s.key);
+    }
+  }
+  return [...lues];
 }
 
 /**

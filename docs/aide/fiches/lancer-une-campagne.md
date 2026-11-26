@@ -2,7 +2,7 @@
 description: Lancer une campagne WhatsApp ou RCS en cinq étapes : le nom, le canal, le contenu, l'audience, puis le récapitulatif et l'envoi.
 ecran: campagnes
 source_section: Campagnes
-source_empreinte: 7cfde6
+source_empreinte: 32e670
 publique: oui
 rubrique: parler-aux-clients
 rang: 5

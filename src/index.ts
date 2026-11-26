@@ -2017,11 +2017,9 @@ async function main(): Promise<void> {
     // Campagne au fil de l'eau : le webhook doit appartenir à l'espace et être actif. Même garde que pour le
     // numéro Meta et l'agent RCS, sur la troisième porte d'entrée des destinataires.
     webhookUsableByTenant: (id, tenant) => webhookStore.usableByTenant(tenant, id),
-    // Une campagne ne lance que le Builder (menu « Scénario », décision 1) : un autre rayon se lit comme un inconnu.
-    getWorkflowGraph: async (wfId, tenant) => {
-      const w = await workflowStore.getById(wfId, tenant);
-      return w?.rayon === 'general' ? w.graph : null;
-    },
+    // Les trois rayons (Julien, 2026-11-26, exception à la décision 1 du menu « Scénario ») : une campagne lance aussi un
+    // scénario Shopify ou HubSpot, comme `POLITIQUE_DE_LANCEMENT.campagne_scenario`. `getById` est scopée à l'espace.
+    getWorkflowGraph: async (wfId, tenant) => (await workflowStore.getById(wfId, tenant))?.graph ?? null,
     // L'agent qu'un étage désigne comme répondeur (0263) : le magasin lui-même, dont `byId` est scopée à l'espace. Pas de
     // flèche : l'ordre (espace, agent) est celui du magasin, et une méthode détachée perdrait son `this`.
     agents: agentStore,

@@ -2399,8 +2399,13 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   Où c'est tenu : les listes du magasin prennent le rayon en paramètre REQUIS (le compilateur énumère les appelants) ;
   les méthodes `...ParApi` (API publique, Claude Code, MCP) ne voient que `general`, en dur ; le nom est unique PAR
   rayon ; `lancer` refuse un rayon que la politique du type n'admet pas (`POLITIQUE_DE_LANCEMENT[type].rayons` : le lien
-  de test et l'Inbox les admettent tous, l'Inbox depuis le 2026-11-26, sa liste lue par `GET /workflows?rayons=tous`,
-  comme celle de Mes tableaux : les deux seules listes qui traversent les rayons ; un template qui lit une variable du parcours y est refusé au clic, variable nommée) ; un « Aller à » résout sa cible dans le rayon du scénario d'origine (`resoudreBloc`,
+  de test, l'Inbox et la campagne (`campagne_scenario`) les admettent tous, les deux dernières depuis le 2026-11-26, leurs
+  listes lues par `GET /workflows?rayons=tous`, comme celle de Mes tableaux : les trois seules listes qui traversent les
+  rayons ; un template qui lit une variable du parcours y est refusé au clic, variable nommée. Une campagne n'a pas
+  d'événement : sa création refuse une source `variable` (`validateParamMapping` sans `accepterVariables`) et un scénario
+  qui lit une donnée d'événement plus loin que son template d'ouverture (`donneesDEvenementLues`), sa garde
+  `getWorkflowGraph` lit tous les rayons, et la liste de ses modèles se range par le champ `modeles` du résumé, les noms
+  des templates du graphe en ligne) ; un « Aller à » résout sa cible dans le rayon du scénario d'origine (`resoudreBloc`,
   `resolveNode(…, rayon)`) ; une automation et son scénario sont du même rayon (`scenarioDuRayon`). ⚠️ `getById`
   ignore le rayon, délibérément : il relit le graphe d'un parcours en cours, quel que soit son rayon. Toute lecture par
   identifiant qui VALIDE un choix compare donc `.rayon` elle-même, et `tests/inventaire-rayon-scenarios.test.ts` le

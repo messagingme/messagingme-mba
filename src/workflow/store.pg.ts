@@ -76,6 +76,11 @@ export interface WorkflowResumeRow {
    * de l'ouvrir.
    */
   canalOuverture: CanalOuverture;
+  /**
+   * Les noms des modèles que ses blocs envoient (version en ligne), sans doublon. La console en déduit l'origine d'un
+   * modèle (celui d'un scénario Shopify ou HubSpot) pour ranger la liste des modèles d'une campagne.
+   */
+  modeles: string[];
 }
 
 /** Un scénario en ligne tel que le catalogue de l'API publique le lit : le graphe publié, jamais le brouillon. */
@@ -334,14 +339,19 @@ export class PgWorkflowStore {
     const res = await this.pool.query<{
       id: string; tenant_id: string; name: string; code: string | null;
       created_at: Date; updated_at: Date; published_at: Date | null;
-      node_count: number; has_draft: boolean; graph: WorkflowGraph;
+      node_count: number; has_draft: boolean; graph: WorkflowGraph; modeles: string[];
     }>(
       // `jsonb_array_length` et `is not null` se calculent dans Postgres. `coalesce(...,'[]')` : un graphe sans
       // `nodes` (ligne ancienne) ne doit pas faire échouer la requête pour tout l'espace.
       `select id, tenant_id, name, code, created_at, updated_at, published_at,
               jsonb_array_length(coalesce(graph->'nodes', '[]'::jsonb)) as node_count,
               (draft_graph is not null) as has_draft,
-              graph
+              graph,
+              -- Meme lecture que modelesDuGraphe (modeles-de-bloc.ts, qui importe ce fichier) : un bloc template nomme.
+              -- Le CASE garde la liste : jsonb_array_elements leve 22023 sur un nodes qui n'est pas un tableau.
+              array(select distinct btrim(n->'data'->>'templateName')
+                      from jsonb_array_elements(case when jsonb_typeof(graph->'nodes') = 'array' then graph->'nodes' else '[]'::jsonb end) n
+                     where n->>'type' = 'template' and coalesce(btrim(n->'data'->>'templateName'), '') <> '') as modeles
          from workflows where tenant_id = $1 and ${PUBLIC} and rayon = $2 order by created_at desc`,
       [tenantId, rayon],
     );
@@ -359,6 +369,7 @@ export class PgWorkflowStore {
       // qu'elle refusera, ni cacher un scénario qu'elle accepterait. Le booléen est dérivé du canal.
       campaignEligible: canalDOuverture(r.graph) !== null,
       canalOuverture: canalDOuverture(r.graph),
+      modeles: r.modeles ?? [],
     }));
   }
 

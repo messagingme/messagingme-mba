@@ -35,7 +35,7 @@ const sampleRow = (over: Partial<WorkflowRow> = {}): WorkflowRow => ({
 const resumeW1: WorkflowResumeRow = {
   id: W1, tenantId: 't1', name: 'Onboarding', code: null,
   createdAt: '2026-07-13T00:00:00.000Z', updatedAt: '2026-07-13T00:00:00.000Z', publishedAt: null,
-  nodeCount: 1, hasDraft: false, campaignEligible: true, canalOuverture: 'whatsapp',
+  nodeCount: 1, hasDraft: false, campaignEligible: true, canalOuverture: 'whatsapp', modeles: [],
 };
 
 function app(over: Partial<Omit<WorkflowRouteDeps, 'scenarios'>> & { scenarios?: Partial<ScenariosDep> } = {}) {
@@ -602,14 +602,14 @@ describe('GET /workflows : le RÉSUMÉ, jamais les graphes', () => {
         listResume: async () => [{
           id: W1, tenantId: 't1', name: 'Onboarding', rayon: 'general', code: 'scn_k7m2p3_x',
           createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z', publishedAt: null,
-          nodeCount: 4, hasDraft: true, campaignEligible: true, canalOuverture: 'whatsapp' as const,
+          nodeCount: 4, hasDraft: true, campaignEligible: true, canalOuverture: 'whatsapp' as const, modeles: ['bienvenue'],
         }],
       },
     });
     const res = await server.inject({ method: 'GET', url: '/tenants/t1/workflows', ...h(adminTok) });
     expect(res.statusCode).toBe(200);
     const [w] = res.json<{ workflows: Array<Record<string, unknown>> }>().workflows;
-    expect(w).toMatchObject({ nodeCount: 4, hasDraft: true, campaignEligible: true });
+    expect(w).toMatchObject({ nodeCount: 4, hasDraft: true, campaignEligible: true, modeles: ['bienvenue'] });
     // La preuve qui compte : aucun graphe dans la charge utile.
     expect(w).not.toHaveProperty('graph');
     expect(w).not.toHaveProperty('draftGraph');
