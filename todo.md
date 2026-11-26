@@ -10,6 +10,15 @@
 - **Console** : passer l'origine d'une donnée JSON de « champ » à autre chose laisse le type JSON, que le serveur refuse ;
   le ramener à « texte ».
 
+## 🟡 « Quand votre équipe est joignable » par agent : la relecture (2026-11-26, aucun rouge)
+
+- Un agent ne peut pas revenir à « suit l'espace » : `coalesce($14, …)` n'écrit pas de nul, et seul `set_transfer_mode`
+  sans `agent_id` efface les choix, pour tous les agents à la fois.
+- Un onglet ancien de « Sécurité » > « IA » (avant le push de la console) qui enregistre la carte efface les choix par
+  agent (`PATCH /settings/transfert-agent`, voulu, mais sans le dire à l'écran).
+- `parleDesHoraires` reste une expression régulière : une formulation positive inattendue peut proposer, ou manquer,
+  « Seulement aux heures d'ouverture » (la ligne du diff se jette).
+
 ## 🟡 Le coût chiffré à la grille de Meta quand Meta refuse son tarif : la relecture (2026-11-26, aucun rouge)
 
 - « Détail par template » (`getPricing`, `web/components/analytics/cartes.tsx`) reste la lecture brute de Meta : chez un

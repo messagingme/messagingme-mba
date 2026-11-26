@@ -47,7 +47,7 @@ function monter(o: { statut: StatutAgent; fichesConnaissance?: number; historiqu
     id: AG, label: 'Conseiller', status: o.statut,
     mentionIa: 'Vous échangez avec un assistant automatique.', modele: 'modele-config',
     maxTours: 8, maxAppelsOutils: 12, budgetMicroEur: 30_000, inactiviteMinutes: 30,
-    contactInconnu: 'lecture_seule', contenu: FICHE_COMPLETE, ficheVersion: 1,
+    contactInconnu: 'lecture_seule', transfertMode: null, contenu: FICHE_COMPLETE, ficheVersion: 1,
   };
   const cap = { patches: [] as PatchAgent[], lignes: [] as LigneHistorique[], audits: [] as Array<{ tenant: string; acteur: { userId: string | null; email: string | null }; action: string; cible: { kind: string; id: string }; detail: Record<string, unknown> | undefined }> };
   const audits = cap.audits;

@@ -3249,6 +3249,8 @@ async function main(): Promise<void> {
           mentionIaFrequence: (await settingsStore.get(tenant)).mentionIaFrequence ?? 'session',
           // Idem pour le délai d'inactivité, depuis que l'entretien demande quand l'agent lâche un contact muet.
           inactiviteMinutes: fiche.inactiviteMinutes,
+          // Ce que l'agent promet en passant la main (0330) : la ligne de diff de l'entretien se compare à lui.
+          transfertMode: fiche.transfertMode,
           fiche: fiche.contenu,
           // Les outils maison, par leur handler : c'est par lui que l'assistant les désigne.
           outils: outils.filter((o) => o.origin === 'mba')

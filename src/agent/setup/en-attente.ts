@@ -41,6 +41,9 @@ export function rendreProposition(
       outilsDebranches: brancheables(contexte.catalogue, p.outilsDebranches, true),
       scenarios,
       outilsAActiver,
+      ...(p.mentionIaFrequence !== undefined ? { mentionIaFrequence: p.mentionIaFrequence } : {}),
+      ...(p.inactiviteMinutes !== undefined ? { inactiviteMinutes: p.inactiviteMinutes } : {}),
+      ...(p.transfertMode !== undefined ? { transfertMode: p.transfertMode } : {}),
     },
     changements: [
       ...differences(contexte, p, outilsAActiver),

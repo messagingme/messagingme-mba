@@ -126,7 +126,9 @@ describe('SCHEMA_PROPOSITION', () => {
     // les BORNES (longueurs, tailles de tableaux, motifs) divergeaient sans que rien ne le voie. Elles sont
     // comparées ailleurs, dans `tests/agent-setup-bornes.test.ts`.
     const zod = propositionSchema.shape;
-    expect(Object.keys(SCHEMA_PROPOSITION.properties).sort()).toEqual(Object.keys(zod).sort());
+    // `transfertMode` est posé par le SERVEUR (`tour-entretien.ts`) et retiré de la sortie du modèle : jamais annoncé.
+    const DU_SERVEUR = new Set(['transfertMode']);
+    expect(Object.keys(SCHEMA_PROPOSITION.properties).sort()).toEqual(Object.keys(zod).filter((k) => !DU_SERVEUR.has(k)).sort());
     const ficheZod = zod.fiche.unwrap().shape;
     expect(Object.keys(SCHEMA_PROPOSITION.properties.fiche.properties).sort()).toEqual(Object.keys(ficheZod).sort());
   });

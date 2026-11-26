@@ -20,10 +20,11 @@ export interface DepsContexteAgent {
    */
   politiqueMentionIa?(tenantId: string): Promise<FrequenceMentionIa | null>;
   /**
-   * L'équipe est-elle joignable, et sinon quand reprend-elle : réglage d'espace, lu ici pour que le bac à sable
-   * et la production produisent la même phrase. Absente : la consigne n'en dit rien, et le tour la tient pour joignable.
+   * L'équipe est-elle joignable, et sinon quand reprend-elle, selon le mode de CET agent (`null` = celui de l'espace) :
+   * lu ici pour que le bac à sable et la production produisent la même phrase. Absente : la consigne n'en dit rien, et
+   * le tour la tient pour joignable.
    */
-  disponibiliteEquipe?(tenantId: string): Promise<EquipePourPrompt | null>;
+  disponibiliteEquipe?(tenantId: string, modeAgent: ModeTransfert | null): Promise<EquipePourPrompt | null>;
 }
 
 export async function lireContexteAgent(
@@ -46,7 +47,7 @@ export async function lireContexteAgent(
     contactInconnu: fiche.contactInconnu,
     // `?? undefined` et non `?? { disponible: true }` : absent, la consigne reste celle d'avant le réglage, muette ;
     // `{ disponible: true }` la ferait dire « joignable ».
-    equipe: (deps.disponibiliteEquipe ? await deps.disponibiliteEquipe(tenantId) : null) ?? undefined,
+    equipe: (deps.disponibiliteEquipe ? await deps.disponibiliteEquipe(tenantId, fiche.transfertMode) : null) ?? undefined,
   };
 }
 
@@ -75,8 +76,10 @@ export async function lireContexteAvecReglages(
     agents: deps.agents,
     outils: deps.outils,
     politiqueMentionIa: async () => reglages.mentionIaFrequence,
-    disponibiliteEquipe: async () => equipePourPrompt(
-      reglages.agentTransfertMode ?? MODE_TRANSFERT_DEFAUT,
+    // 🔴 Le mode de l'agent d'abord (décision de Julien, 2026-11-26), celui de l'espace pour un agent qui n'a rien
+    // choisi, puis le défaut : un agent existant dit exactement ce qu'il disait.
+    disponibiliteEquipe: async (_t, modeAgent) => equipePourPrompt(
+      modeAgent ?? reglages.agentTransfertMode ?? MODE_TRANSFERT_DEFAUT,
       new Date(),
       reglages.timezone,
       reglages.businessHours,

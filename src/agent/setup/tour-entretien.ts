@@ -58,6 +58,13 @@ export interface PropositionAffichee {
    * Décidé par le serveur, jamais par le modèle ; leur ligne \`outil.<handler>.actif\` du diff se garde ou se jette.
    */
   outilsAActiver?: string[];
+  /**
+   * 🔴 LES RÉGLAGES HORS FICHE, rendus à l'écran qui les ENVOIE (`appliquerProposition`) : absents d'ici, le diff les
+   * montrait et « Enregistrer » n'en écrivait rien (relevé le 2026-11-26, le défaut déjà payé le 2026-09-11).
+   */
+  mentionIaFrequence?: Proposition['mentionIaFrequence'];
+  inactiviteMinutes?: number;
+  transfertMode?: Proposition['transfertMode'];
 }
 
 export interface ReponseTourEntretien {
@@ -497,6 +504,14 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
           outils: [...(propositionFinale.outils ?? []).filter((o) => o.handler !== HANDLER_RECHERCHE), outilRecherche],
         };
       }
+      /** Une condition sur les heures d'ouverture : l'agent promet selon elles (`agents.transfert_mode`, 0330). */
+      const horaires = parleDesHoraires([
+        ...listeBascules.map((b) => b.moyen),
+        ...reponses.filter((r) => r.point === 'humain').map((r) => r.valeur),
+      ]);
+      if (!enEntretien && horaires && contexte.transfertMode !== 'business_hours') {
+        propositionFinale = { ...propositionFinale, transfertMode: 'business_hours' };
+      }
       const outilsAActiver = [
         ...(outilFiche ? [outilFiche.handler] : []),
         ...(outilTransfert ? [outilTransfert.handler] : []),
@@ -524,10 +539,7 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
           modele: contexte.modele ?? null,
           importEnCours: importLance,
           scenarios: desMoments,
-          horaires: parleDesHoraires([
-            ...listeBascules.map((b) => b.moyen),
-            ...reponses.filter((r) => r.point === 'humain').map((r) => r.valeur),
-          ]),
+          horaires,
         })}`;
       }
 

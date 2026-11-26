@@ -74,6 +74,7 @@ export const saisieDeModification = z.object({
   budgetMicroEur: z.number().int().min(1).max(100_000_000).optional(),
   inactiviteMinutes: z.number().int().min(1).max(1440).optional(),
   contactInconnu: z.enum(['aucun_outil', 'lecture_seule', 'tous']).optional(),
+  transfertMode: z.enum(['always', 'business_hours', 'never']).optional(),
   // 🔴 `fichePatchSchema` et non `ficheAgentSchema.partial()` : le `.default()` survit au `.partial()`, et la
   // fusion jsonb écraserait alors toute la fiche (ton, règles, sorties) en n'enregistrant que l'objectif.
   contenu: fichePatchSchema.optional(),
@@ -308,7 +309,7 @@ async function completudeRefusee(
 const NOMS_DES_CHAMPS: Readonly<Record<string, string>> = {
   label: 'libellé', status: 'statut', mentionIa: 'mention d’IA', modele: 'modèle', maxTours: 'tours',
   maxAppelsOutils: 'appels d’outils', budgetMicroEur: 'budget', inactiviteMinutes: 'inactivité',
-  contactInconnu: 'contact inconnu', nom: 'nom', objectif: 'objectif', ton: 'ton', personnalite: 'personnalité',
+  contactInconnu: 'contact inconnu', transfertMode: 'quand l’équipe est joignable', nom: 'nom', objectif: 'objectif', ton: 'ton', personnalite: 'personnalité',
   reglesTransfert: 'règles de transfert', sorties: 'règles d’arrêt',
 };
 

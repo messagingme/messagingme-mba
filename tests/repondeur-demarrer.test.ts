@@ -40,7 +40,7 @@ const AGENT = 'ag-1';
 
 const agentActif = (o: Partial<AgentComplet> = {}): AgentComplet => ({
   id: AGENT, label: 'Léa', status: 'active', mentionIa: 'IA.', modele: 'm', maxTours: 8, maxAppelsOutils: 12,
-  budgetMicroEur: 30_000, inactiviteMinutes: 30, contactInconnu: 'tous',
+  budgetMicroEur: 30_000, inactiviteMinutes: 30, contactInconnu: 'tous', transfertMode: null,
   contenu: { ...ficheVide(), sorties: [{ code: 'rdv_pris', label: 'Rendez-vous pris' }] }, ficheVersion: 1, ...o,
 });
 

@@ -34,7 +34,6 @@ describe('PgTenantSettingsStore : un setter écrit SA colonne, et seulement elle
     ['mention_ia_frequence', (s) => s.setMentionIaFrequence(T, 'jamais'), upsert('mention_ia_frequence'), 'jamais'],
     ['optout_request_id', (s) => s.setOptoutRequestId(T, null), upsert('optout_request_id'), null],
     ['mba_handoff_mode', (s) => s.setMbaHandoffMode(T, 'never'), upsert('mba_handoff_mode'), 'never'],
-    ['agent_transfert_mode', (s) => s.setAgentTransfertMode(T, 'always'), upsert('agent_transfert_mode'), 'always'],
     ['timezone', (s) => s.setTimezone(T, 'Europe/Paris'), upsert('timezone'), 'Europe/Paris'],
     ['business_hours', (s) => s.setBusinessHours(T, DEFAULT_BUSINESS_HOURS), upsert('business_hours', '$2::jsonb'), JSON.stringify(DEFAULT_BUSINESS_HOURS)],
     ['control_handback_seconds', (s) => s.setControlHandbackSeconds(T, 0), upsert('control_handback_seconds'), 0],
@@ -65,6 +64,15 @@ describe('PgTenantSettingsStore : un setter écrit SA colonne, et seulement elle
     // 🔴 Avant RC6 : `repondeur_agent_id = case when excluded.mba_enabled then null ...`. Revenu, il éteindrait l'agent
     // IA répondeur chaque fois que quelqu'un rallume l'agent de Meta.
     expect(a?.sql).not.toContain('repondeur_agent_id =');
+  });
+
+  it('🔴 agent_transfert_mode : la valeur de l’espace, et chaque agent la reprend (0330), d’une seule instruction', async () => {
+    const { pool, appels } = fauxPool();
+    await new PgTenantSettingsStore(pool).setAgentTransfertMode(T, 'always');
+    expect(appels).toHaveLength(1);
+    expect(appels[0]?.params).toEqual([T, 'always']);
+    expect(appels[0]?.sql).toContain('update agents set transfert_mode = null where tenant_id = $1 and transfert_mode is not null');
+    expect(appels[0]?.sql).toContain(upsert('agent_transfert_mode'));
   });
 
   it('setRepondeur : le mode et sa cible d’un seul coup, les cibles des autres modes remises à nul', async () => {

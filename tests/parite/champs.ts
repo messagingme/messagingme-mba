@@ -145,6 +145,7 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
     absents: {
       budgetMicroEur: 'converti : set_agent_limits le prend en euros (budget_eur)',
       status: 'posé par activate_agent (active : vrai ou faux)',
+      transfertMode: 'posé par set_transfer_mode (agent_id, mode)',
     },
   },
 

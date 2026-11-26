@@ -1,3 +1,4 @@
+import type { ModeTransfert } from './disponibilite-equipe';
 import type { FicheAgentContenu } from './fiche';
 
 /**
@@ -85,6 +86,11 @@ export interface AgentComplet {
   budgetMicroEur: number;
   inactiviteMinutes: number;
   contactInconnu: 'aucun_outil' | 'lecture_seule' | 'tous';
+  /**
+   * Ce que l'agent a le droit de promettre en passant la main (« Quand votre équipe est joignable », réglé sur son
+   * outil « Passer la main »). `null` = la valeur de l'espace, puis `always` (`lireContexteAgentComplet`).
+   */
+  transfertMode: ModeTransfert | null;
   contenu: FicheAgentContenu;
   /** Compteur d'écritures de la fiche. L'écran le renvoie tel quel dans son patch : c'est le verrou. */
   ficheVersion: number;
@@ -101,6 +107,7 @@ export interface PatchAgent {
   budgetMicroEur?: number;
   inactiviteMinutes?: number;
   contactInconnu?: 'aucun_outil' | 'lecture_seule' | 'tous';
+  transfertMode?: ModeTransfert;
   /**
    * La partie jsonb, déjà validée et partielle : seules les clés présentes sont écrites (fusion, pas
    * remplacement). Le formulaire enregistre champ par champ et l'IA de construction écrit aussi : un

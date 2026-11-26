@@ -180,7 +180,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
     id: AG, label: 'Conseiller', status: o.statut ?? 'draft',
     mentionIa: o.mentionIa ?? 'Vous échangez avec un assistant automatique.', modele: 'modele-config',
     maxTours: 8, maxAppelsOutils: 12, budgetMicroEur: 30_000, inactiviteMinutes: 30,
-    contactInconnu: 'lecture_seule', contenu: FICHE_COMPLETE, ficheVersion: 4,
+    contactInconnu: 'lecture_seule', transfertMode: null, contenu: FICHE_COMPLETE, ficheVersion: 4,
   };
   const cap = {
     lectures: [] as string[],
@@ -1006,6 +1006,17 @@ describe('les outils de l’agent appellent les fonctions de la console, dans l�
     expect((await appeler(server, JETON.brut, 'set_transfer_mode', { mode: 'parfois' })).texte).toBe('mode requis (always | business_hours | never)');
     expect((await appeler(server, JETON.brut, 'set_transfer_mode', { mode: 'never' })).json()).toEqual({ mode: 'never' });
     expect(cap.modes).toEqual([{ tenant: 't1', mode: 'never' }]);
+    await server.close();
+  });
+
+  it('🔴 set_transfer_mode avec agent_id : la fiche de CET agent, par modifierAgent, jamais le réglage de l’espace', async () => {
+    const { server, cap } = monter();
+    const r = await appeler(server, JETON.brut, 'set_transfer_mode', { mode: 'business_hours', agent_id: AG });
+    expect(r.isError, r.texte).toBe(false);
+    expect(r.json()).toEqual({ mode: 'business_hours', agent_id: AG });
+    expect(cap.patches).toEqual([{ tenant: 't1', patch: { transfertMode: 'business_hours' } }]);
+    expect(cap.modes).toEqual([]);
+    expect(cap.historique[0]).toMatchObject({ element: 'fiche_agent', origine: 'mcp', surfaceId: AG });
     await server.close();
   });
 

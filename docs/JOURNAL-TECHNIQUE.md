@@ -333,6 +333,16 @@ jusqu'à l'équipe ; l'agent de Meta est ensuite remis en répondeur. Relevé, c
 5 minutes du brouillon à la mise en ligne : les plafonds actuels n'ont pas à bouger. Un constat : une conversation que
 l'essai a passée à l'équipe doit être rendue au répondeur avant que le même numéro relance le parcours (`todo.md`).
 
+## 2026-11-26 : « Quand votre équipe est joignable » réglé par agent
+
+Julien : le réglage vivait dans « Sécurité » > « IA », pour tout l'espace, alors que le MBA a le sien dans son menu ;
+il le veut sur chaque agent IA. Migration 0330 (`agents.transfert_mode`, nul = l'espace), le choix sur l'outil
+« Passer la main » (et « Qualifier et transférer »), `set_transfer_mode` avec un `agent_id` facultatif, et l'entretien
+qui propose « Seulement aux heures d'ouverture » quand le passage de main dépend des horaires. Relevé en chemin :
+`rendreProposition` ne rendait à l'écran ni `inactiviteMinutes` ni `mentionIaFrequence`, donc le diff les montrait et
+« Enregistrer » n'en écrivait rien, le défaut déjà payé le 2026-09-11 et revenu avec l'extraction du tour en module.
+Corrigé dans le lot, tenu par un test HTTP.
+
 ## 2026-11-26 : l'entretien de MUTAC bis, et l'import d'un site qu'on croyait raté
 
 Julien, en construisant « MUTAC bis » : l'entretien n'a pas demandé l'adresse du site (« les pages de notre site » a

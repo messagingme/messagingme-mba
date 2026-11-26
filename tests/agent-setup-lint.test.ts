@@ -120,7 +120,7 @@ const COMPLET: AgentComplet = {
   id: AG, label: 'Conseiller séjours', status: 'draft',
   mentionIa: 'Vous échangez avec un assistant automatique.', modele: 'modele-test',
   maxTours: 8, maxAppelsOutils: 12, budgetMicroEur: 30_000, inactiviteMinutes: 30,
-  contactInconnu: 'lecture_seule', contenu: ficheVide(), ficheVersion: 1,
+  contactInconnu: 'lecture_seule', transfertMode: null, contenu: ficheVide(), ficheVersion: 1,
 };
 
 function app(etat: EtatPourLint | null, modeles?: AgentsRouteDeps['modelesProposes']) {

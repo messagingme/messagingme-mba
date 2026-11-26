@@ -148,9 +148,9 @@ export function copierModeleEmail(q: Q, source: string, destination: string, id:
 export async function copierAgent(q: Q, source: string, destination: string, id: string, label: string): Promise<string> {
   const copie = await inserer(q, `
     insert into agents (tenant_id, label, fiche, fiche_version, mention_ia, modele, max_tours, max_appels_outils, budget_micro_eur,
-                        inactivite_minutes, contact_inconnu, status)
+                        inactivite_minutes, contact_inconnu, transfert_mode, status)
     select $3, $4, fiche, fiche_version, mention_ia, modele, max_tours, max_appels_outils, budget_micro_eur,
-           inactivite_minutes, contact_inconnu, 'draft'
+           inactivite_minutes, contact_inconnu, transfert_mode, 'draft'
       from agents where id = $1 and tenant_id = $2
     returning id`, [id, source, destination, label], 'l’agent');
   await q.query(`

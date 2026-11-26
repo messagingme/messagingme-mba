@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { assainirProposition, propositionSchema } from '../src/agent/setup/proposition';
+import { assainirProposition, differences, propositionSchema, type EtatCourant } from '../src/agent/setup/proposition';
+import { ficheVide } from '../src/agent/fiche';
 import {
   adresseDansLeMessage, AGENDA, manquesDeCouverture, siteSansAdresse,
   type EtatEntretien,
@@ -70,7 +71,7 @@ describe('🔴 un site nommé sans son adresse fait demander l’adresse (le tou
   });
 });
 
-describe('🔴 une condition sur les heures d’ouverture dit où les régler (décision de Julien, 2026-11-26)', () => {
+describe('🔴 une condition sur les heures d’ouverture dit où vérifier les horaires (décision de Julien, 2026-11-26)', () => {
   const base: EntreeFin = {
     aAppliquer: true, connaissanceUrl: null, fichesDeConnaissance: 3, bascules: [], outilsApi: 0, outilsMcp: 0, modele: null,
   };
@@ -79,14 +80,35 @@ describe('🔴 une condition sur les heures d’ouverture dit où les régler (d
     expect(parleDesHoraires(['passer la main pendant les heures ouvrées, sinon proposer le lien'])).toBe(true);
     expect(parleDesHoraires(['en dehors des horaires, donner le lien de réservation'])).toBe(true);
     expect(parleDesHoraires(['proposer le lien de réservation', undefined])).toBe(false);
+    expect(parleDesHoraires(['passer la main, même en dehors des heures ouvrées'])).toBe(false);
   });
 
-  it('l’étape « Horaires » nomme les deux réglages, et seulement quand la condition existe', () => {
+  it('l’étape « Horaires » renvoie aux horaires de l’espace, et seulement quand la condition existe', () => {
     const avec = etapesDeFin({ ...base, horaires: true }).join('\n');
     expect(avec).toContain('« Fuseau & heures d’ouverture »');
-    expect(avec).toContain('« Sécurité » > « IA »');
-    expect(avec).toContain('« Seulement aux heures d’ouverture »');
+    // Le mode de l'agent part dans la proposition : l'étape ne renvoie plus à aucun autre écran de réglage.
+    expect(avec).not.toContain('Sécurité');
     expect(avec).not.toContain('MBA');
     expect(etapesDeFin(base).join('\n')).not.toContain('Horaires');
+  });
+});
+
+describe('🔴 « Quand votre équipe est joignable » se propose sur l’agent (décision de Julien, 2026-11-26)', () => {
+  const courant = (transfertMode: EtatCourant['transfertMode']): EtatCourant => ({
+    mentionIaFrequence: 'session', inactiviteMinutes: 30, fiche: ficheVide(), outils: [], transfertMode,
+  });
+
+  it('le modèle ne peut pas le poser : l’assainissement le retire', () => {
+    const r = propositionSchema.safeParse(assainirProposition({ message: 'ok', transfertMode: 'never' }));
+    expect(r.success && r.data.transfertMode).toBeUndefined();
+  });
+
+  it('posé par le serveur, il fait une ligne du diff ; déjà le bon, aucune', () => {
+    const p = { message: 'ok', reponses: [], bascules: [], transfertMode: 'business_hours' as const };
+    expect(differences(courant(null), p)).toEqual([{
+      champ: 'transfertMode', label: 'Quand votre équipe est joignable',
+      avant: 'le réglage de l’espace', apres: 'Seulement aux heures d’ouverture',
+    }]);
+    expect(differences(courant('business_hours'), p)).toEqual([]);
   });
 });

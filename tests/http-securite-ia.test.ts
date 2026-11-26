@@ -149,7 +149,7 @@ describe('le contexte d’un tour lit la politique de l’ESPACE', () => {
   const fiche = {
     id: AG, label: 'A', status: 'active' as const, mentionIa: 'Je suis une IA.', modele: 'm',
     maxTours: 8, maxAppelsOutils: 12, budgetMicroEur: 30_000, inactiviteMinutes: 30,
-    contactInconnu: 'lecture_seule' as const, contenu: ficheVide(), ficheVersion: 1,
+    contactInconnu: 'lecture_seule' as const, transfertMode: null, contenu: ficheVide(), ficheVersion: 1,
   } satisfies AgentComplet;
   const deps = (politique?: FrequenceMentionIa | null) => ({
     agents: { complet: async () => fiche },

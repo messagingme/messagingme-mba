@@ -430,7 +430,7 @@ describe('🔴 cas 3 de la revue du lot 5 : l’agent répondeur désactivé ou 
   function gestion(statut: AgentComplet['status']) {
     let agent: AgentComplet = {
       id: AG, label: 'Léa', status: statut, mentionIa: 'IA.', modele: 'modele-config', maxTours: 8, maxAppelsOutils: 12,
-      budgetMicroEur: 30_000, inactiviteMinutes: 30, contactInconnu: 'tous', contenu: ficheVide(), ficheVersion: 1,
+      budgetMicroEur: 30_000, inactiviteMinutes: 30, contactInconnu: 'tous', transfertMode: null, contenu: ficheVide(), ficheVersion: 1,
     };
     const oublis: string[] = [];
     const deps: AgentsRouteDeps = {

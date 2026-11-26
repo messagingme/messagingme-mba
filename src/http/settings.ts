@@ -277,7 +277,11 @@ export function registerSettings(
     });
   });
 
-  /** ...et son écriture, admin seulement, comme tout ce qui change ce qu'un robot dit à de vrais contacts. */
+  /**
+   * ...et son écriture, admin seulement, comme tout ce qui change ce qu'un robot dit à de vrais contacts. Depuis 0330 elle
+   * vaut pour TOUS les agents : elle efface le choix propre de chacun (`setAgentTransfertMode`). La console ne l'appelle
+   * plus (le choix se fait par agent, sur l'outil « Passer la main ») ; elle reste pour un onglet ancien.
+   */
   app.patch('/tenants/:tenantId/settings/transfert-agent', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     // `reglerModeTransfert`, que l'outil MCP `set_transfer_mode` appelle aussi.

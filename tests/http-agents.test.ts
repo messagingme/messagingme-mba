@@ -52,7 +52,7 @@ const COMPLET: AgentComplet = {
   id: AG1, label: 'Conseiller séjours', status: 'draft',
   mentionIa: 'Vous échangez avec un assistant automatique.', modele: 'modele-test',
   maxTours: 8, maxAppelsOutils: 12, budgetMicroEur: 30_000, inactiviteMinutes: 30,
-  contactInconnu: 'lecture_seule', contenu: ficheVide(), ficheVersion: 1,
+  contactInconnu: 'lecture_seule', transfertMode: null, contenu: ficheVide(), ficheVersion: 1,
 };
 
 const ACTIFS: AgentResume[] = [{ id: AG1, label: 'Conseiller séjours', status: 'active', sorties: [{ code: 'besoin_cerne', label: 'Besoin cerné' }], modele: 'anthropic/claude-haiku-4.5' }];

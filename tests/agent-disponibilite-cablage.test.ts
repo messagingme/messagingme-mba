@@ -55,19 +55,22 @@ describe('la disponibilité de l’équipe est câblée', () => {
     // Une disponibilité calculée à l'ouverture d'une conversation serait fausse sur celle qui traverse
     // l'heure de fermeture, c'est-à-dire précisément celles qui nous intéressent.
     expect(debut).toBeGreaterThan(-1);
-    expect(contexte.slice(debut)).toMatch(/disponibiliteEquipe: async \(\) => equipePourPrompt\([\s\S]{0,200}new Date\(\)/);
+    expect(contexte.slice(debut)).toMatch(/disponibiliteEquipe: async \([^)]*\) => equipePourPrompt\([\s\S]{0,200}new Date\(\)/);
   });
 
   const fiche = {
     id: 'ag1', label: 'A', status: 'active' as const, mentionIa: 'Je suis une IA.', modele: 'm',
     maxTours: 8, maxAppelsOutils: 12, budgetMicroEur: 30_000, inactiviteMinutes: 30,
-    contactInconnu: 'lecture_seule' as const, contenu: ficheVide(), ficheVersion: 1,
+    contactInconnu: 'lecture_seule' as const, transfertMode: null, contenu: ficheVide(), ficheVersion: 1,
   } satisfies AgentComplet;
   const SEMAINE: BusinessHours = Object.fromEntries(['0', '1', '2', '3', '4', '5', '6'].map((j) => [j, { closed: true, open: '09:00', close: '18:00' }]));
-  const monter = (reglages: { agentTransfertMode: ModeTransfert | null; mentionIaFrequence: FrequenceMentionIa | null }) => {
+  const monter = (
+    reglages: { agentTransfertMode: ModeTransfert | null; mentionIaFrequence: FrequenceMentionIa | null },
+    modeAgent: ModeTransfert | null = null,
+  ) => {
     const lectures: string[] = [];
     const deps = {
-      agents: { complet: async () => fiche },
+      agents: { complet: async () => ({ ...fiche, transfertMode: modeAgent }) },
       outils: { listActifs: async () => [] },
       reglages: {
         get: async (t: string) => {
@@ -85,6 +88,15 @@ describe('la disponibilité de l’équipe est câblée', () => {
     expect((await lireContexteAvecReglages(ferme.deps, 't1', 'ag1'))?.equipe).toEqual({ disponible: false, reouverture: null });
     const ouvert = monter({ agentTransfertMode: 'always', mentionIaFrequence: null });
     expect((await lireContexteAvecReglages(ouvert.deps, 't1', 'ag1'))?.equipe).toEqual({ disponible: true, reouverture: null });
+  });
+
+  it('🔴 le mode de L’AGENT l’emporte sur celui de l’espace ; sans choix, l’espace (décision de Julien, 2026-11-26)', async () => {
+    const agentFerme = monter({ agentTransfertMode: 'always', mentionIaFrequence: null }, 'never');
+    expect((await lireContexteAvecReglages(agentFerme.deps, 't1', 'ag1'))?.equipe).toEqual({ disponible: false, reouverture: null });
+    const agentOuvert = monter({ agentTransfertMode: 'never', mentionIaFrequence: null }, 'always');
+    expect((await lireContexteAvecReglages(agentOuvert.deps, 't1', 'ag1'))?.equipe).toEqual({ disponible: true, reouverture: null });
+    const sansChoix = monter({ agentTransfertMode: 'never', mentionIaFrequence: null }, null);
+    expect((await lireContexteAvecReglages(sansChoix.deps, 't1', 'ag1'))?.equipe).toEqual({ disponible: false, reouverture: null });
   });
 
   it('🔴 lit les horaires ET le fuseau de l’espace (dans le texte : un fuseau en dur ne se verrait pas à l’exécution)', () => {

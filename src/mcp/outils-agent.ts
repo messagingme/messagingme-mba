@@ -376,7 +376,8 @@ export const OUTILS_AGENT: OutilMcp[] = [
       return {
         agent: vueAgent(agent),
         limites: vueLimites(agent),
-        transfer_mode: reglages.agentTransfertMode ?? MODE_TRANSFERT_DEFAUT,
+        // Le mode de CET agent, sinon celui de l'espace, sinon le défaut : celui que son tour applique (`lireContexteAgentComplet`).
+        transfer_mode: agent.transfertMode ?? reglages.agentTransfertMode ?? MODE_TRANSFERT_DEFAUT,
         outils: maison.filter((o) => !estAction(o)).map((o) => ({ code: handlerMaison(o), nom: o.name, titre: o.title, actif: o.actif })),
         // Les actions à part, avec leur cible : c'est ce que set_agent_action modifie.
         actions: maison.filter(estAction).map(vueAction),
@@ -1037,18 +1038,29 @@ export const OUTILS_AGENT: OutilMcp[] = [
     ...ficheOutilMcp('set_transfer_mode'),
     fonction: null,
     description:
-      'What the workspace\'s AI agents can promise when they hand over to the team: always (an advisor right away), '
-      + 'business_hours (during the workspace\'s opening hours, otherwise the time it resumes), never (no promise of a '
-      + 'delay). This setting does not decide the handover: the conversation arrives in "To handle" in every case. It '
-      + 'applies to all the workspace\'s agents (transfer_mode in get_agent).',
+      'What an AI agent can promise when it hands over to the team: always (an advisor right away), business_hours '
+      + '(during the workspace\'s opening hours, otherwise the time it resumes), never (no promise of a delay). This '
+      + 'setting does not decide the handover: the conversation arrives in "To handle" in every case. With agent_id it '
+      + 'sets that agent only; without it, it sets every agent of the workspace (transfer_mode in get_agent).',
     annotations: ecriture('Set the handover promise', true, false),
     entree: {
       type: 'object',
-      properties: { mode: { type: 'string', enum: [...MODES_TRANSFERT], description: 'always, business_hours or never.' } },
+      properties: {
+        mode: { type: 'string', enum: [...MODES_TRANSFERT], description: 'always, business_hours or never.' },
+        agent_id: { ...AGENT_ID, description: 'The agent to set. Omitted: every agent of the workspace.' },
+      },
       required: ['mode'],
     },
-    ecran: () => LISTES.securiteIa,
-    async executer(deps, tenantId, args) {
+    ecran: (args) => (args.agent_id !== undefined ? ECRANS.agent(args.agent_id) : LISTES.agents),
+    async executer(deps, tenantId, args, personne) {
+      // Un agent : sa fiche, par la porte de la console (ses bornes, sa ligne d'historique).
+      if (args.agent_id !== undefined) {
+        const id = texteObligatoire(args, 'agent_id', 100);
+        const auteur = { userId: signataire(personne), origine: 'mcp' as const };
+        const agent = valeurOuRefus(await modifierAgent(deps.agentIa.gestion, tenantId, id, { transfertMode: args.mode }, auteur));
+        return { mode: agent.transfertMode, agent_id: agent.id };
+      }
+      // Sans agent : l'espace, et chaque agent reprend cette valeur (`setAgentTransfertMode` efface leurs choix).
       return { mode: valeurOuRefus(await reglerModeTransfert(deps.agentIa.reglages, tenantId, args.mode)) };
     },
   },

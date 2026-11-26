@@ -1,3 +1,4 @@
+import { estModeTransfert } from './disponibilite-equipe';
 import type { Pool } from 'pg';
 import { enTransaction } from '../db/transaction';
 import type { AgentComplet, AgentResume, AgentStore, FicheAgent, PatchAgent, SortieAgent, StatutAgent } from './agent-store';
@@ -210,6 +211,7 @@ export class PgAgentStore implements AgentStore {
          budget_micro_eur = coalesce($9, budget_micro_eur),
          inactivite_minutes = coalesce($10, inactivite_minutes),
          contact_inconnu = coalesce($11, contact_inconnu),
+         transfert_mode = coalesce($14, transfert_mode),
          fiche = case when $12::jsonb is null then fiche else fiche || $12::jsonb end,
          fiche_version = fiche_version + (case when $12::jsonb is null then 0 else 1 end),
          updated_at = now()
@@ -225,6 +227,7 @@ export class PgAgentStore implements AgentStore {
         patch.inactiviteMinutes ?? null, patch.contactInconnu ?? null,
         patch.contenu ? JSON.stringify(patch.contenu) : null,
         patch.ficheVersionAttendue ?? null,
+        patch.transfertMode ?? null,
       ],
     ).catch(surLabelDejaPris);
     const r = res.rows[0];
@@ -246,7 +249,7 @@ function surLabelDejaPris(err: unknown): never {
 }
 
 const COLONNES_COMPLETES = `id, label, status, mention_ia, modele, max_tours, max_appels_outils,
-                            budget_micro_eur, inactivite_minutes, contact_inconnu, fiche, fiche_version`;
+                            budget_micro_eur, inactivite_minutes, contact_inconnu, transfert_mode, fiche, fiche_version`;
 
 interface LigneComplete {
   id: string;
@@ -259,6 +262,7 @@ interface LigneComplete {
   budget_micro_eur: string;
   inactivite_minutes: number;
   contact_inconnu: AgentComplet['contactInconnu'];
+  transfert_mode: string | null;
   fiche: unknown;
   fiche_version: number;
 }
@@ -278,6 +282,7 @@ function versComplet(r: LigneComplete): AgentComplet {
     budgetMicroEur: Number(r.budget_micro_eur ?? 0),
     inactiviteMinutes: r.inactivite_minutes,
     contactInconnu: r.contact_inconnu,
+    transfertMode: estModeTransfert(r.transfert_mode) ? r.transfert_mode : null,
     contenu: parse.success ? parse.data : ficheVide(),
     ficheVersion: r.fiche_version,
   };

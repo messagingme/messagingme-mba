@@ -1340,6 +1340,26 @@ describe('le oui aux données de la fiche pose l’outil', () => {
   const AVANT_LE_DERNIER: EntretienComplet = { messages: [QUESTION], auteurs: [], poses: [...BASE], reponses: toutesLesReponses(), bascules: [] };
   const muet = reponse(JSON.stringify({ message: 'Parfait.', reponses: [], fiche: {} }));
 
+  it('🔴 un réglage hors fiche proposé ARRIVE à l’écran qui l’envoie (le délai d’inactivité était montré, jamais écrit)', async () => {
+    const delai = reponse(JSON.stringify({ message: 'Noté.', reponses: [], fiche: {}, inactiviteMinutes: 120 }));
+    const res = await app({ entretien: ENTRETIEN_FINI, suite: [delai, muet] }).executer('deux heures');
+    expect(res.changements).toContainEqual(expect.objectContaining({ champ: 'inactiviteMinutes' }));
+    expect(res.proposition.inactiviteMinutes).toBe(120);
+  });
+
+  it('🔴 « passer la main pendant les heures ouvrées » : la proposition règle l’agent en « Seulement aux heures d’ouverture » (2026-11-26)', async () => {
+    const horaires: EntretienComplet = {
+      ...AVANT_LE_DERNIER,
+      reponses: toutesLesReponses().map((r) => (r.point === 'humain' ? { ...r, valeur: 'pendant les heures ouvrées, sinon le lien de réservation' } : r)),
+    };
+    const res = await app({ entretien: horaires, integrations: SHOPIFY, suite: [muet, muet] }).executer('oui');
+    expect(res.couverture.manquants).toEqual([]);
+    expect(res.proposition.transfertMode).toBe('business_hours');
+    expect(res.changements).toContainEqual(expect.objectContaining({ champ: 'transfertMode', apres: 'Seulement aux heures d’ouverture' }));
+    const sans = await app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] }).executer('oui');
+    expect(sans.proposition.transfertMode).toBeUndefined();
+  });
+
   it('🔴 « oui » : l’outil « Lire la fiche du contact » est dans la proposition, avec la carte, et son activation a sa ligne', async () => {
     const a = app({ entretien: AVANT_LE_DERNIER, integrations: SHOPIFY, suite: [muet, muet] });
     const res = await a.executer('oui');

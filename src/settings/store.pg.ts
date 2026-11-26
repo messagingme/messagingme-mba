@@ -474,8 +474,20 @@ export class PgTenantSettingsStore {
    * Enregistre quand l'équipe est joignable pour les agents IA. Rien n'est écrit chez Meta : ce réglage ne
    * concerne que nos agents.
    */
+  /**
+   * Le mode de l'ESPACE, et chaque agent le reprend : son choix propre (`agents.transfert_mode`, 0330) est effacé, sans
+   * quoi « tous les agents » (set_transfer_mode sans agent_id) ne vaudrait que pour ceux qui n'ont rien choisi.
+   */
   async setAgentTransfertMode(tenantId: string, mode: ModeTransfert): Promise<void> {
-    await this.poser(tenantId, 'agent_transfert_mode', mode);
+    // Une seule instruction, donc atomique : l'effacement des choix des agents et la valeur de l'espace ensemble.
+    await this.pool.query(
+      `with agents_repris as (
+         update agents set transfert_mode = null where tenant_id = $1 and transfert_mode is not null
+       )
+       insert into tenant_settings (tenant_id, agent_transfert_mode, updated_at) values ($1, $2, now())
+       on conflict (tenant_id) do update set agent_transfert_mode = excluded.agent_transfert_mode, updated_at = now()`,
+      [tenantId, mode],
+    );
   }
 
   /** Règle le fuseau IANA du tenant (validé en amont par la route). */

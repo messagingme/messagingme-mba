@@ -1071,7 +1071,9 @@ datées de l'ouverture de la session ou après (`dejaAnnonce`, `src/agent/brain.
 
 🔴 **CE QUI VARIE DANS LE TEMPS SE DIT DANS LES DEUX SENS, À CHAQUE TOUR**, parce que cette mémoire rend au modèle
 ses propres phrases d'hier. La disponibilité de l'équipe (`promptSysteme`, `src/agent/prompt.ts`) est écrite
-joignable OU fermée dès que l'espace a un mode (`agent_transfert_mode`, `always` par défaut), suivie d'une phrase
+joignable OU fermée selon le mode de l'AGENT (`agents.transfert_mode`, 0330, réglé sur son outil « Passer la main »),
+sinon celui de l'espace (`agent_transfert_mode`), sinon `always` (`lireContexteAgentComplet`) ; `set_transfer_mode`
+sans `agent_id` règle l'espace ET efface le choix de chaque agent, d'une seule instruction. Elle est suivie d'une phrase
 qui déclare périmé tout message plus ancien annonçant une autre disponibilité de l'équipe ou une autre date de
 reprise. Une consigne muette laisse le modèle répéter la date de reprise périmée que sa mémoire lui rend.
 ⚠️ L'heure courante n'y entre pas : elle changerait la consigne à chaque minute, dont le début est servi par le

@@ -1,6 +1,14 @@
 import type { FrequenceMentionIa } from '../agent-store';
 import { parse as secureJsonParse } from 'secure-json-parse';
 import { z } from 'zod';
+import type { ModeTransfert } from '../disponibilite-equipe';
+
+/** Les libellés de l'écran (« Quand votre équipe est joignable », réglages de l'outil « Passer la main »). */
+const LIBELLES_TRANSFERT: Record<ModeTransfert, string> = {
+  always: 'À toute heure',
+  business_hours: 'Seulement aux heures d’ouverture',
+  never: 'Jamais en direct',
+};
 import {
   BORNES_FICHE, CODE_SORTIE_RE, fichePatchSchema, MAX_SORTIES, normaliserCodeSortie,
   type FicheAgentContenu,
@@ -129,6 +137,12 @@ export const propositionSchema = z.object({
    * 1440, même CHECK sur la colonne) : accepter plus ferait un 500 au moment d'appliquer.
    */
   inactiviteMinutes: z.number().int().min(1).max(1440).optional(),
+  /**
+   * Ce que l'agent promet en passant la main (`agents.transfert_mode`, 0330). Posé par le SERVEUR, jamais par le modèle
+   * (retiré par `assainirProposition`, absent du schéma annoncé) : une condition sur les heures d'ouverture au point
+   * `humain` ou dans un moment le met à `business_hours` (`parleDesHoraires`). Une ligne du diff, gardée ou jetée.
+   */
+  transfertMode: z.enum(['always', 'business_hours', 'never']).optional(),
   /** Handlers uniques, comme les codes de sortie : deux entrées pour le même outil feraient deux lignes de
    *  diff sous la même clé, et une seconde création refusée. */
   outils: z.array(outilProposeSchema).max(BORNES_PROPOSITION.outils)
@@ -160,7 +174,8 @@ export function neProposeRien(p: Proposition): boolean {
   return Object.keys(p.fiche ?? {}).length === 0
     && (p.outils ?? []).length === 0 && (p.connecteurs ?? []).length === 0
     && (p.outilsBranches ?? []).length === 0 && (p.outilsDebranches ?? []).length === 0
-    && p.mentionIaFrequence === undefined && p.inactiviteMinutes === undefined && p.connaissanceUrl === undefined;
+    && p.mentionIaFrequence === undefined && p.inactiviteMinutes === undefined && p.connaissanceUrl === undefined
+    && p.transfertMode === undefined;
 }
 
 const estObjet = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -231,6 +246,8 @@ export function assainirProposition(brut: unknown): unknown {
     if (URL_PUBLIQUE_RE.test(avecSchema) && /^https?:\/\/[^/\s]+\.[^/\s]+/i.test(avecSchema)) p.connaissanceUrl = avecSchema;
     else delete p.connaissanceUrl;
   }
+  // Décidé par le serveur seul (`tour-entretien.ts`) : le modèle ne règle pas ce que l'agent promet.
+  delete p.transfertMode;
 
   p.reponses = entrees(p.reponses, BORNES_PROPOSITION.reponses, (r) => {
     couper(r, 'point', BORNES_PROPOSITION.point);
@@ -505,6 +522,8 @@ export interface EtatCourant {
   mentionIaFrequence: FrequenceMentionIa;
   /** Le délai d'inactivité actuel, en minutes. */
   inactiviteMinutes: number;
+  /** Ce que l'agent promet en passant la main : son choix, sinon `null` (celui de l'espace). Absent : inconnu. */
+  transfertMode?: ModeTransfert | null;
   /** Les outils déjà posés sur l'agent, par handler, avec leurs mots actuels. */
   outils: Array<{ handler: string; description: string; nePasUtiliser: string;
     /** Le scénario qu'un outil `lancer_scenario` vise (RC4), pour ne pas en reproposer un second. */
@@ -596,6 +615,16 @@ export function differences(
       label: 'Annonce « je suis une IA » (pour tout l’espace)',
       avant: LIBELLES_MENTION[courant.mentionIaFrequence] ?? courant.mentionIaFrequence,
       apres: LIBELLES_MENTION[proposition.mentionIaFrequence] ?? proposition.mentionIaFrequence,
+    });
+  }
+
+  // Ce que l'agent promet en passant la main, posé par le serveur sur une condition d'horaires.
+  if (proposition.transfertMode !== undefined && proposition.transfertMode !== courant.transfertMode) {
+    out.push({
+      champ: 'transfertMode',
+      label: 'Quand votre équipe est joignable',
+      avant: courant.transfertMode ? LIBELLES_TRANSFERT[courant.transfertMode] : 'le réglage de l’espace',
+      apres: LIBELLES_TRANSFERT[proposition.transfertMode],
     });
   }
 

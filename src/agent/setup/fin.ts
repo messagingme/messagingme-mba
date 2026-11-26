@@ -32,12 +32,14 @@ export interface EntreeFin {
 
 /**
  * 🔴 « PASSER LA MAIN PENDANT LES HEURES OUVRÉES, SINON DONNER LE LIEN » (MUTAC, 2026-11-26). L'agent sait si l'équipe est
- * joignable seulement si l'espace a réglé ses horaires ET choisi « Seulement pendant mes heures d'ouverture » ; sinon il
- * la tient pour toujours joignable, et la condition ne joue jamais. Décision de Julien : l'entretien dit où le régler.
+ * joignable selon les horaires de l'espace ET son propre mode : l'entretien propose « Seulement aux heures d'ouverture »
+ * sur l'agent (`transfertMode`, décision de Julien du même jour) et dit où vérifier les horaires.
  */
 const HORAIRES = /heures? (ouvr|d.ouverture|de bureau)|horaires|en dehors des|hors des heures|jours? ouvr/i;
+/** « même en dehors des heures », « 24 h sur 24 » : le contraire d'une condition, rien n'est proposé. */
+const A_TOUTE_HEURE = /m[êe]me en dehors|m[êe]me hors|24 ?h|à toute heure|a toute heure|tout le temps|jour et nuit/i;
 export function parleDesHoraires(textes: ReadonlyArray<string | undefined>): boolean {
-  return textes.some((t) => typeof t === 'string' && HORAIRES.test(t));
+  return textes.some((t) => typeof t === 'string' && HORAIRES.test(t) && !A_TOUTE_HEURE.test(t));
 }
 
 export const TITRE_FIN = 'Pour finir :';
@@ -84,11 +86,9 @@ export function etapesDeFin(e: EntreeFin): string[] {
     }
   }
   if (e.horaires) {
-    // Le réglage des agents IA (`agent_transfert_mode`), dans « Sécurité » > « IA », jamais celui de l'agent de Meta.
-    out.push('Horaires : vous liez le passage de main aux heures d’ouverture. Réglez-les dans « Paramètres » > « Général » '
-      + '(« Fuseau & heures d’ouverture »), puis dans « Sécurité » > « IA », sous « Quand votre équipe est joignable », '
-      + 'choisissez « Seulement aux heures d’ouverture » : sans ces deux réglages, l’agent tient votre équipe pour '
-      + 'toujours joignable.');
+    // Le mode de l'agent part dans la proposition (« Seulement aux heures d'ouverture ») ; les horaires sont de l'espace.
+    out.push('Horaires : vous liez le passage de main aux heures d’ouverture. Vérifiez-les dans « Paramètres » > '
+      + '« Général » (« Fuseau & heures d’ouverture ») : hors de ces heures, l’agent dira quand votre équipe reprend.');
   }
   out.push(e.modele
     ? `Modèle : l’agent utilise ${e.modele}. Changez-le dans l’onglet « Modèle » si besoin.`
