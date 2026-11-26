@@ -1,7 +1,7 @@
 ---
 description: Console, Inbox et Performance Lab : les trois onglets de la console Messaging Me, ce que chacun range, et où trouver le compte et les paramètres.
 source_section: Navigation (trois onglets en haut, barre latérale par onglet)
-source_empreinte: aee758
+source_empreinte: 762e61
 publique: oui
 rubrique: demarrer-console
 rang: 6

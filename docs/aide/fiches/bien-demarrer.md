@@ -2,7 +2,7 @@
 description: Bien démarrer sur Messaging Me : les cinq étapes que la console coche d'elle-même, et la carte qui vous guide écran par écran.
 ecran: accueil
 source_section: Navigation (trois onglets en haut, barre latérale par onglet)
-source_empreinte: aee758
+source_empreinte: 762e61
 publique: oui
 rubrique: demarrer-console
 rang: 2
@@ -36,7 +36,8 @@ balise sur votre site, et vos visiteurs vous écrivent sur WhatsApp en un clic.
 
 **6. Reprendre où vous en êtes.** Une fois la fenêtre fermée, la carte « Bien démarrer » en haut de l'Accueil dit où
 vous en êtes ; « Continuer » rouvre les étapes, tout comme « Bien démarrer » en haut du panneau d'aide. La carte
-disparaît quand les cinq étapes sont faites.
+disparaît quand les cinq étapes sont faites. Vous n'en avez pas besoin ? Sa croix « Ne plus afficher » la retire de
+l'Accueil ; les étapes restent dans le panneau d'aide.
 
 **Bon à savoir.** La carte qui vous accompagne ne gêne rien : la console reste cliquable dessous. Son bouton de repli
 la range en pastille, la croix l'arrête, et si vous vous éloignez de l'écran de l'étape, « Y aller » vous y ramène.

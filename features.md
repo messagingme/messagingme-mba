@@ -369,8 +369,9 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   scénario n'est proposé que si l'offre l'ouvre). Un autre membre n'a que **la visite** (ces écrans sont
   d'administrateur). La fenêtre revient à chaque connexion tant qu'aucun choix n'est fait (un bouton d'étape, « Faire
   le tour de la console » ou « Plus tard ») ; la fermer par la croix ne compte pas. Ensuite, **une carte « Bien
-  démarrer, N étapes sur 5 »** en haut de l'Accueil la rouvre par « Continuer », jusqu'à ce que tout soit fait ; le
-  panneau d'aide la rouvre aussi (« Bien démarrer »). **« Me guider »** (pour l'agent IA, 2026-11-24) lance une carte
+  démarrer, N étapes sur 5 »** en haut de l'Accueil la rouvre par « Continuer », jusqu'à ce que tout soit fait, ou
+  jusqu'à sa croix « Ne plus afficher », qui la masque pour de bon sur ce navigateur et pour cet espace (pour un espace
+  qui n'ira pas au bout) ; le panneau d'aide la rouvre aussi (« Bien démarrer »). **« Me guider »** (pour l'agent IA, 2026-11-24) lance une carte
   qui accompagne de page en page, en haut à droite : elle dit l'étape (« Créez votre agent », « Restez dans Construire
   en parlant », « Décrivez votre activité », « Relisez, puis activez »), encadre l'élément à toucher, passe seule à la
   suivante quand le geste est fait, propose « Y aller » si l'on s'éloigne de l'écran, se replie en pastille et se

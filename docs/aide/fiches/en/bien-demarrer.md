@@ -1,7 +1,7 @@
 ---
 description: Getting started with Messaging Me: the five steps the console ticks off by itself, and the card that guides you screen by screen.
 slug: getting-started
-traduit_de: 869978
+traduit_de: bba375
 ---
 # Getting started
 
@@ -29,7 +29,8 @@ website, and your visitors message you on WhatsApp in one click.
 
 **6. Pick up where you left off.** Once the window is closed, the “Getting started” card at the top of Home says where
 you are; “Continue” reopens the steps, as does “Getting started” at the top of the help panel. The card disappears
-once the five steps are done.
+once the five steps are done. Don’t need it? Its “Don’t show again” cross removes it from Home; the steps stay in the
+help panel.
 
 **Good to know.** The card that goes with you blocks nothing: the console stays clickable underneath. Its collapse
 button folds it into a badge, the cross stops it, and if you wander off the step's screen, “Go there” brings you
