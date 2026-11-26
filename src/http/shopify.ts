@@ -44,13 +44,13 @@ export const PHRASE_ASSISTANT_RETIRE = 'Les messages Shopify sont devenus des sc
 // un onglet ouvert avec l'ancien bundle l'envoie encore, et un corps strict lui rendrait 400.
 const consentementIgnore = { consentementAffirme: z.boolean().optional() };
 export const corpsBranchement = z.object({ boutique: z.string().max(200), clientId: z.string().max(300), secret: z.string().max(300) }).strict();
-const corpsReglage = z.object({ delaiMinutes: z.number().int().optional(), ...consentementIgnore }).strict();
+export const corpsReglage = z.object({ delaiMinutes: z.number().int().optional(), ...consentementIgnore }).strict();
 export const corpsImport = z.object({ maximum: z.number().int() }).strict();
 const corpsPause = z.object({ pause: z.boolean() }).strict();
 // `agentId` : la relance de panier avec agent IA seulement (2026-11-20), l'agent qui répond au bouton « Vous avez une question ? ».
-const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int().optional(), agentId: z.string().uuid().optional() }).strict();
+export const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int().optional(), agentId: z.string().uuid().optional() }).strict();
 // La langue choisit la phrase attestée côté serveur (`TEXTE_ATTESTATION_SHOPIFY`) : jamais un texte reçu.
-const corpsAttestation = z.object({ coche: z.boolean(), langue: z.enum(['fr', 'en']).optional() }).strict();
+export const corpsAttestation = z.object({ coche: z.boolean(), langue: z.enum(['fr', 'en']).optional() }).strict();
 // Le rattrapage des commandes (lot 5) : aucun réglage, la fenêtre se décide côté serveur (60 jours, 24 mois en Pro, lot 7a).
 export const corpsRattrapage = z.object({}).strict();
 // Les étiquettes des clients (segments Shopify enrichis, lot 6b) : le réglage du marchand ; « maintenant » ne prend rien.

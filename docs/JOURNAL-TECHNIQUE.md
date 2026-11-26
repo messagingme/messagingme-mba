@@ -5,6 +5,40 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : CSM virtuel : la parité des critères, les routes Business et Entreprise, le chantier Shopify tranché
+
+Plan `docs/superpowers/plans/2026-11-26-csm-lot1-parite-criteres-et-offres.md`. Julien : « être super rigoureux pour
+qu'on n'oublie rien, comme on va devoir tout coder et pas que faire grâce à la console ». En relisant ce que les segments
+Shopify avaient livré contre la table de parité, trois trous. `GET /contacts` passait pour servie par `find_contacts`
+alors que la cible MCP ne sait poser ni l'exclusion d'une étiquette, ni la joignabilité, ni le risque, ni un champ
+personnalisé : la parité des champs ne lit que le corps des routes d'écriture, les critères d'une route de lecture
+n'étaient tenus par rien. Les 116 routes Business et Entreprise n'étaient nommées nulle part (le plan B1 les renvoie au
+lot 7 « sans liste écrite à la main »). Dix routes Shopify portaient encore « chantier à part », chantier fini le jour même.
+
+Deux gardes neuves, dont la liste attendue se dérive du code : `tests/parite/criteres.ts` (chaque critère d'audience de
+la console a son argument MCP, prouvé par `lireCibleMcp`, ou un `aFaire` B10) et `tests/parite/offres-superieures.ts`
+(chaque route fermée au Pro, une par une, avec ce qu'un outil devra en exposer). Huit mutations, toutes rouges. Les dix
+routes Shopify tranchées ; la parité des champs, nourrie de leurs trois corps, a trouvé un écart neuf (l'`agent_id` de
+`set_shopify_message` n'annonce pas le format uuid). Le plan du lot I range les nouveaux restes dans ses livraisons 5 et
+7. Et la feuille de route Shopify, relue contre la spec entière : les trois critères Pro du chantier 7 (« a répondu dans
+les N jours », « a cliqué dans les N jours », « a cliqué sans jamais répondre ») ne sont entrés dans aucun lot ; ils vont
+au `todo.md` avec les questions ouvertes encore sans réponse. Règle : à la fin d'un chantier, on relit sa feuille de
+route contre la spec ENTIÈRE, pas lot par lot, et une exclusion « à part » se tranche le jour où son chantier finit.
+
+## 2026-11-26 : « Commande et dernière conversation » dans le volet Shopify, et l'audience à la largeur d'une liste
+
+Trois retouches demandées par Julien pendant l'essai du lot 7b, poussées sans déploiement (la console part au push).
+Les libellés d'abord (`d577c66e3`) : « aucune après l'analyse » ne disait rien au marchand ; le menu s'appelle
+« Commande et dernière conversation » et dit les gestes du client (« pas de commande depuis la conversation », « une
+commande depuis la conversation », « conversation après sa dernière commande »). Puis sa place (`c6ddde067`) : « il ne
+marche que si on a Shopify » ; le choix quitte la section « Dernière analyse » pour le volet Shopify, sous les boutons
+« sans commander », absent sans boutique ou sans l'annonce de l'API, et posé il ouvre le volet. Enfin l'étape Audience
+de l'assistant de campagne (« là c'est sur une mini colonne ») prend la largeur `max-w-liste` au lieu de
+`max-w-formulaire` : sur un 13 pouces (1 280 × 800), le contenu passe d'une colonne de 768 pixels au plus à environ 990, ce que l'e2e tient
+(plus de 900). La capture de l'aide « Lancer une campagne » est refaite ; la fiche « Importer mes contacts » atteint la
+base au prochain déploiement. Règle : un critère qui ne vit qu'avec une intégration se range dans le volet de cette
+intégration, pas dans une section qui la suppose.
+
 ## 2026-11-26 : CSM virtuel, lot H (B8, livraison 2) en production, son essai réel fait
 
 Déployée avec le correctif de l'assertion de bout en bout de la page MCP (`265eb2e09`, run 45872171348), plugin 0.3.74.

@@ -36,9 +36,13 @@ const aFaire = (brique: Brique, quoi: string): Decision => ({ aFaire: brique, qu
 const ecran = (quoi: string): Decision => exclue(`plomberie d’écran : ${quoi}`);
 /** Une fonction d'une offre supérieure dont la route reste ouverte au Pro (pour débrancher, ou parce que le handler refuse). */
 const lot7 = (quoi: string): Decision => exclue(`${quoi} : offre Business ou Entreprise, au lot 7`);
-const SHOPIFY = exclue('Shopify : chantier à part (décision du 23 novembre 2026)');
 const ASSISTANT = exclue('l’assistant de construction de l’agent IA : exclu exprès du lot 1');
 const ICI_PAR_LE_LIEN = outil('start_whatsapp_connection');
+/**
+ * Les critères d'audience que la console pose et que la cible MCP ne sait pas encore poser : leur liste vit dans
+ * `tests/parite/criteres.ts` (ses `aFaire`), tenue par `tests/parite-criteres.test.ts`.
+ */
+const CRITERES_A_FAIRE = 'les critères d’audience que la console pose et que la cible MCP ne pose pas encore : les aFaire de tests/parite/criteres.ts';
 
 export const ADRESSES: Readonly<Record<string, Decision>> = {
   // Webhooks entrants (webhooksAdmin)
@@ -71,11 +75,12 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /integrations/shopify': outil('get_shopify_state'),
   'DELETE /integrations/shopify': outil('disconnect_shopify'),
   'POST /integrations/shopify': outil('connect_shopify'),
-  'PATCH /integrations/shopify': SHOPIFY,
-  'POST /integrations/shopify/attestation': SHOPIFY,
-  'PUT /integrations/shopify/lignes/:evenement': SHOPIFY,
-  'POST /integrations/shopify/messages': SHOPIFY,
-  'PATCH /integrations/shopify/messages/:evenement': SHOPIFY,
+  // Le chantier Shopify à part (décision du 23 novembre) est fini le 2026-11-26 : chaque route a reçu sa décision.
+  'PATCH /integrations/shopify': aFaire('B10', 'Shopify : mettre la boutique en pause (ses parcours s’arrêtent) ou la reprendre'),
+  'POST /integrations/shopify/attestation': enPartie(['set_shopify_message'], 'retirer l’attestation du consentement des clients (la décocher éteint les automations allumées)'),
+  'PUT /integrations/shopify/lignes/:evenement': outil('set_shopify_message'),
+  'POST /integrations/shopify/messages': exclue('route retirée : elle répond 410, l’assistant des messages Shopify n’existe plus'),
+  'PATCH /integrations/shopify/messages/:evenement': outil('set_shopify_message'),
   'GET /integrations/shopify/clients/apercu': outil('preview_shopify_customers'),
   'POST /integrations/shopify/clients/import': outil('import_shopify_customers'),
   'GET /integrations/shopify/commandes/apercu': outil('preview_shopify_order_history'),
@@ -266,15 +271,16 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /conversations/:conversationId/release': outil('control_conversation'),
 
   // La liste des contacts et l'import (import)
-  'GET /contacts': outil('find_contacts', 'search_contacts'),
-  'GET /contacts/segments': SHOPIFY,
-  'GET /contacts/segments/produits': SHOPIFY,
-  'GET /contacts/segments/collections': SHOPIFY,
+  'GET /contacts': enPartie(['find_contacts', 'search_contacts'], CRITERES_A_FAIRE),
+  // La boutique (get_shopify_state), et les dates du suivi et du rattrapage dans la réponse de find_contacts.
+  'GET /contacts/segments': outil('get_shopify_state', 'find_contacts'),
+  'GET /contacts/segments/produits': enPartie(['get_shopify_state'], 'chercher un produit acheté par son titre ou son SKU (q), au-delà des 20 plus achetés'),
+  'GET /contacts/segments/collections': enPartie(['get_shopify_state'], 'chercher une collection par son titre (q), au-delà des 50 que l’outil rend'),
   // Les étiquettes Shopify lues et l'état de leur synchronisation (lot 6b) : `get_shopify_state` les rend (shopify_tags).
-  'GET /contacts/segments/etiquettes-shopify': outil('get_shopify_state'),
+  'GET /contacts/segments/etiquettes-shopify': enPartie(['get_shopify_state'], 'chercher une étiquette Shopify par son texte (q), au-delà des 50 que l’outil rend'),
   'GET /contacts/segments/segments-shopify': outil('get_shopify_state'),
-  'GET /contacts/count': outil('find_contacts'),
-  'GET /contacts/ids': outil('find_contacts'),
+  'GET /contacts/count': enPartie(['find_contacts'], CRITERES_A_FAIRE),
+  'GET /contacts/ids': enPartie(['find_contacts'], CRITERES_A_FAIRE),
   'POST /contacts/import/preview': aFaire('B10', 'contacts : aperçu d’un import'),
   'POST /contacts/import': aFaire('B10', 'contacts : importer (consentement déclaré)'),
 
@@ -293,7 +299,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'PATCH /contacts/:contactId': enPartie(['set_contact_field', 'tag_contacts'], 'le nom, l’e-mail, le consentement et le retrait d’étiquettes sur une fiche'),
   'GET /contacts/:contactId/history': aFaire('B10', 'contacts : l’historique d’une fiche'),
   'GET /contacts/:contactId/resume': outil('get_contact'),
-  'GET /contacts/:contactId/shopify': SHOPIFY,
+  'GET /contacts/:contactId/shopify': aFaire('B10', 'Shopify : les achats d’une fiche (commandes, produits, montants, ventes attribuées)'),
   'GET /contacts/:contactId/bilan': aFaire('B10', 'contacts : risque, joignabilité et source du consentement d’une fiche'),
   'GET /contacts/:contactId/history/export': aFaire('B10', 'contacts : l’export RGPD de l’historique'),
   'POST /contacts': aFaire('B10', 'contacts : ajouter un contact'),

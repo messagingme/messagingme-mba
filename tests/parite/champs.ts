@@ -1,6 +1,8 @@
 import type { z } from 'zod';
 import { ajoutSchema, patchSchema } from '../../src/http/agent-tools';
-import { corpsBranchement, corpsEtiquettes, corpsImport, corpsRattrapage, corpsSegments, corpsSynchroEtiquettes } from '../../src/http/shopify';
+import {
+  corpsAttestation, corpsBranchement, corpsEtiquettes, corpsImport, corpsLigne, corpsRattrapage, corpsReglage, corpsSegments, corpsSynchroEtiquettes,
+} from '../../src/http/shopify';
 import { corpsSchema, corpsRendreSchema } from '../../src/http/offre-paiement';
 import { corpsQuiRepond, corpsRepondeur } from '../../src/http/agents';
 import { CORPS_OPTION } from '../../src/http/credit-whatsapp';
@@ -58,6 +60,16 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'PUT /integrations/shopify/etiquettes': { schema: corpsEtiquettes, noms: { allumee: 'enabled' } },
   'POST /integrations/shopify/etiquettes/synchro': { schema: corpsSynchroEtiquettes },
   'PUT /integrations/shopify/segments': { schema: corpsSegments },
+  // Le chantier Shopify à part est fini le 2026-11-26 : l'interrupteur d'une automation, son délai, et l'attestation.
+  'PUT /integrations/shopify/lignes/:evenement': { schema: corpsLigne, noms: { actif: 'active', delaiMinutes: 'delay_minutes', agentId: 'agent_id' } },
+  'PATCH /integrations/shopify/messages/:evenement': {
+    schema: corpsReglage, noms: { delaiMinutes: 'delay_minutes' },
+    absents: { consentementAffirme: 'ignoré par la route depuis l’attestation du 2026-11-20 : l’outil atteste par customers_consent_attested' },
+  },
+  'POST /integrations/shopify/attestation': {
+    schema: corpsAttestation, noms: { coche: 'customers_consent_attested' },
+    absents: { langue: 'l’outil enregistre la phrase en français, la langue de la console d’origine' },
+  },
 
   // Le numéro : la page du lien de `start_whatsapp_connection`, et le portail de l'abonnement
   'POST /numero-fourni': PAR_LA_PAGE,
@@ -169,6 +181,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
  * champs). Une ligne se retire le jour où l'outil la comble ; le test refuse une ligne qui ne se vérifie plus.
  */
 export const ECARTS: Readonly<Record<string, readonly string[]>> = {
+  // B10, Shopify : l'identifiant de l'agent qui relance un panier, que la route exige au format uuid
+  'PUT /integrations/shopify/lignes/:evenement': ['agentId : motif non annoncé'],
   // B10, agent IA : la fiche (le cadrage les dit « console seulement »)
   'PATCH /agents/:agentId': [
     'contactInconnu : absent de l’outil',

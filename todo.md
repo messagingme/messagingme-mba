@@ -500,6 +500,21 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify : ce que la feuille de route n'a pas porté (relevé le 2026-11-26, chantier fini)
+
+La feuille de route de la spec (`docs/superpowers/specs/2026-11-21-segments-shopify-enrichis.md`, lots 1 à 7) est
+livrée. En la relisant contre la spec entière, ceci n'est entré dans aucun lot :
+- **Les trois critères Pro du chantier 7 (« Pro, léger, coût IA nul »)** : « a répondu dans les N jours », « a cliqué un
+  lien suivi dans les N jours », « a cliqué dans les N jours et n'a jamais répondu », dans « Achats et activité » et en MCP
+  (`replied_within_days`, `clicked_within_days`, `clicked_without_reply_days`, bornes de `BORNES_SEGMENTS`). Les deux
+  dates existent depuis le lot 4 (`derniere_reponse_le`, `dernier_clic_le`) ; seuls les boutons sans période sont
+  livrés. Le lot 7 de la feuille de route a pris le rattrapage sur 24 mois et le rapport à l'analyse, pas ces critères.
+- **Ce que la spec laisse « en attente »** : l'appartenance à une collection au jour du paiement, l'historique des
+  analyses (la fiche n'en garde qu'une), une intention « délai de livraison », la copie automatique des étiquettes Shopify
+  vers les étiquettes Messaging Me. (Les remboursements déduits sont déjà plus bas, § Shopify.)
+- **Les questions ouvertes 5 à 22 de la spec** (§ « Questions ouvertes ») n'ont pas de réponse écrite, sauf 1 à 4 :
+  à trancher par Julien, une par une, ou à déclarer closes par ce qui a été livré.
+
 ## 🟡 Segments Shopify, lot 7b (la commande face à la dernière analyse) : la relecture (2026-11-26, un rouge corrigé)
 
 Le rouge (la commande comparée à l'heure du job d'analyse, pas au dernier message) est corrigé et tenu sur PGlite ; les
@@ -510,6 +525,8 @@ jaunes lourds sont pris dans le lot (l'annonce par l'API, la partition, la joint
   de la boutique compte comme « aucune après ». Le MCP rend `orders_recorded_since`, la console ne le dit pas ici.
 - **Un espace redescendu d'Entreprise garde ses anciennes analyses** : l'annonce lui retire le critère, mais un
   brouillon de campagne qui le portait déjà le garde visible pour être retiré.
+- Le commentaire de `CLES_SEGMENT.commandeVsAnalyse` (`web/lib/partage/segments.ts`) dit encore `analyse_le` : la
+  clause compare au dernier message analysé (`analyse_fenetre_fin`). À corriger avec le prochain lot qui touche `web/`.
 
 ## 🟡 Segments Shopify, lot 7a (le rattrapage sur 24 mois) : la relecture (2026-11-26, un rouge corrigé)
 

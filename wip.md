@@ -60,8 +60,15 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
 - Lot G (plan `2026-11-26-csm-lot1-g-prerequis.md`) : B7, les prérequis (`get_account_status`, `request_number_code`,
   `activate_number`, `contact_support`), en production le 2026-11-26 (`6fa36d7a3`, run 45819186413, plugin 0.3.71),
   essai réel fait (291, `docs/prive/ESSAIS-REELS.md`).
+- La parité des critères et des routes Business et Entreprise (plan `2026-11-26-csm-lot1-parite-criteres-et-offres.md`,
+  demandée par Julien le 2026-11-26 : « ne rien oublier »). `tests/parite/criteres.ts` : chaque critère d'audience de la
+  console a son argument MCP ou un `aFaire` B10 (l'exclusion d'étiquette, la joignabilité, le risque, un champ
+  personnalisé, un nom ou un numéro combinés), et `GET /contacts` porte un `reste` qui y renvoie.
+  `tests/parite/offres-superieures.ts` : les 116 routes Business et Entreprise, une par une, la liste du lot 7. Les dix
+  routes Shopify « à part » sont tranchées (le chantier est fini) : deux `aFaire` B10 de plus (la pause de la boutique,
+  les achats d'une fiche), des `reste` (retirer l'attestation, chercher un produit, une collection, une étiquette) et un écart de champ (`agent_id`).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
-  ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
+  ouverts au Pro, RCS, traduction de l'Inbox), chacune écrite avec sa raison dans la table, et les décisions Shopify.
 
 ## LE CENTRE D'AIDE (EN COURS)
 

@@ -35,7 +35,9 @@ ajoutée sans décision casse la CI.
   test qui l'exigera s'ajoute à la fin du lot, pas avant (il serait rouge pendant tout le lot).
 - Exclusions proposées hors du plan, à relire par Julien : la plomberie d'écran (compteurs, identité de la séance,
   catalogue des blocs de l'éditeur), HubSpot et l'agent de Meta restés ouverts au Pro pour pouvoir débrancher (lot 7),
-  le RCS (lot 7), Shopify (chantier à part, décision du 23 novembre).
+  le RCS (lot 7), Shopify (chantier à part, décision du 23 novembre ; tranché le 2026-11-26, chantier fini).
+- Suite (2026-11-26) : les critères d'une route de lecture et les routes Business et Entreprise ont leurs gardes,
+  `2026-11-26-csm-lot1-parite-criteres-et-offres.md`.
 
 ## A2 · Parité des champs (après A1)
 

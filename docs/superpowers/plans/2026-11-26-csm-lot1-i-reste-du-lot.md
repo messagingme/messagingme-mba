@@ -45,7 +45,10 @@ paiement reste un geste de la personne.
    l'import et le réglage des outils d'un serveur MCP.
 5. **Les campagnes** (10) : la liste et le statut ; les destinataires en échec d'une campagne et le renvoi à l'un d'eux
    (au oui, comme tout envoi) ; arrêter, archiver, désarchiver, supprimer ; les brouillons du formulaire de la console
-   sont de la plomberie d'écran (exclue, raison écrite).
+   sont de la plomberie d'écran (exclue, raison écrite). Et les critères d'audience que la cible MCP ne pose pas encore
+   (les `aFaire` de `tests/parite/criteres.ts`, ajoutés le 2026-11-26 : exclure une étiquette, écarter les injoignables,
+   le risque, un champ personnalisé, un nom ou un numéro combinés aux autres critères), qui lèvent le `reste` de
+   `GET /contacts`, `/contacts/count` et `/contacts/ids`.
 6. **L'offre, le compte, l'équipe et le numéro** (31) : les factures, le tarif réel, l'état de la ligne de crédit, le
    portail Stripe, les sièges et les packs (lien de paiement) ; résilier et démarrer le Pro avant la fin de l'essai (au
    oui) ; les applications autorisées, les clés d'API (révoquer : au oui), les préférences d'e-mails, le nom et le fuseau ;
@@ -55,8 +58,11 @@ paiement reste un geste de la personne.
    entrants (brancher un scénario : au oui), les formulaires WhatsApp (publier chez Meta : au oui), les automations
    (allumer : au oui), les scénarios (dupliquer, la Fonction JS d'essai, le modèle d'un bloc, annuler une programmation),
    la médiathèque, les médias d'en-tête, les chiffres (audit, statistiques, ROI, joignabilité), les réglages lus, le
-   rejeu des échecs des webhooks sortants, supprimer un widget ; puis le test qui exige qu'il ne reste ni `aFaire` ni
-   `reste`.
+   rejeu des échecs des webhooks sortants, supprimer un widget ; Shopify, tranché le 2026-11-26 (la pause de la boutique,
+   les achats d'une fiche, retirer l'attestation, chercher un produit, une collection ou une étiquette Shopify au-delà de
+   ce que `get_shopify_state` rend, l'écart `agent_id` de `set_shopify_message`) ; puis le test qui exige qu'il ne reste ni `aFaire` ni
+   `reste`, dans `tests/parite/adresses.ts` comme dans `tests/parite/criteres.ts`. Les 116 routes Business et
+   Entreprise (`tests/parite/offres-superieures.ts`) ne sont pas de ce lot : c'est la liste du lot 7.
 
 Chaque livraison a sa relecture indépendante, ses mutations, son déploiement et la note de version du plugin.
 
