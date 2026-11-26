@@ -101,6 +101,14 @@ quelques secondes » : elles partent APRÈS l'essai réel, seul à prouver l'en-
 mutations scriptées ; au premier passage, une survivante (le retrait sans la casse, que le test exerçait avec la casse
 déjà en minuscules) a montré un trou de test, comblé et prouvé rouge.
 
+En production le 2026-11-26 : run 45836450121 (`821a7d85e`, aucune migration, qui emportait les coûts MUTAC et la
+loupe de l'Inbox des sessions voisines). Essai réel par Julien sur « Messaging Me demo », relu en base et chez Shopify :
+« Synchroniser maintenant » a abonné `CUSTOMER_TAGS_ADDED` et `CUSTOMER_TAGS_REMOVED`, à côté des six sujets du
+branchement ; la balise « essai » posée sur le client « VIP » est arrivée sur sa fiche en quelques secondes, l'autre
+client de la même fiche intact ; retirée, elle est partie et « VIP » est resté. Mesuré donc : l'en-tête du sujet est
+l'une des deux écritures acceptées, et `tags` ne porte que les étiquettes changées. L'aide de la boutique et
+`features.md` sont parties après cette preuve.
+
 ## 2026-11-26 : CSM virtuel, lot G (B7) : Claude lève les prérequis d'une mise en service
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-g-prerequis.md`. Suit le pilote (B9), réussi le même jour.

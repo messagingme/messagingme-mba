@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 5d0d85
+traduit_de: 88cb1b
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -157,7 +157,8 @@ taken out of a collection no longer counts in it.
 
 And the tags you put on your customers in Shopify (VIP, wholesale...), in the “Shopify tags” block, apart from your
 Messaging Me tags: the same word on both sides makes two criteria. They are read when you click “**Sync now**” on the
-Shopify card: the first reading starts at once, then every day, and the same button starts it again. A record gets the
+Shopify card: the first reading starts at once, then every day, and the same button starts it again; a tag you then add
+or remove in Shopify arrives within seconds. A record gets the
 tags of every Shopify customer who has its number, in their contact details or their addresses; “Sync
 now” reads every number again, the daily reading adds the new records. Target one or more (all of them, or any of them);
 the block gives the date of the last reading.

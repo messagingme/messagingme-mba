@@ -3370,7 +3370,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   le marchand la lance, jamais le branchement. Son premier geste l'allume : une première lecture part aussitôt, en
   arrière-plan, puis une relecture au plus toutes les 24 h en Pro, Business et Entreprise, et le même bouton la relance ;
   la carte dit la date de la dernière synchronisation (depuis le 2026-11-26, plus d'interrupteur : seul Claude Code
-  l'éteint, par `sync_shopify_customer_tags`). Elle cherche
+  l'éteint, par `sync_shopify_customer_tags`). Depuis le lot 6d (2026-11-26), une étiquette posée ou retirée sur un client
+  dans Shopify arrive sur ses fiches en quelques secondes, pour une boutique branchée par la console, Pro et au-delà,
+  synchronisation allumée : chaque synchronisation l'abonne aux événements d'étiquettes ; une boutique de Claude Code
+  attend la relecture quotidienne, qui reste le filet partout. Elle cherche
   chaque fiche par son numéro chez Shopify : une fiche reçoit les étiquettes de CHAQUE client qui porte ce numéro, dans ses
   coordonnées ou ses adresses, et un client les donne à chaque fiche de ses numéros (lot 6b bis,
   2026-11-25, décision de Julien : « le max de numéros ») ; jamais par une commande notée. « Synchroniser maintenant »,
