@@ -44,7 +44,11 @@ describe('le câblage des signaux dans le worker', () => {
   it('🔴 le wamid du STOP suit jusqu’au dépôt : une flèche qui l’oublierait compilerait quand même', () => {
     // `InboundOptOut` déclare trois paramètres, et une flèche à deux lui reste assignable : le typage ne voit pas
     // l'oubli, et l'`em_event_id` du désabonnement redeviendrait un aléa.
-    expect(worker).toMatch(/inboundOptOut: \(tenant, waId, messageId\) => contactStore\.setOptInByWaId\(tenant, waId, 'opted_out', 'personne', SOURCE_STOP_WHATSAPP, messageId\)/);
+    // Depuis le 2026-11-26, la flèche vit dans `creerOptOutEntrant` (`desabonner`, `src/mba/retrait-stop.ts`), et les deux
+    // files de réception (`webhook`, `application-entrant`) reçoivent la même fonction.
+    expect(worker).toMatch(/desabonner: \(tenant, waId, messageId\) => contactStore\.setOptInByWaId\(tenant, waId, 'opted_out', 'personne', SOURCE_STOP_WHATSAPP, messageId\)/);
+    expect(worker.match(/\binboundOptOut: optOutEntrant,/g)).toHaveLength(1);
+    expect(worker.match(/\boptOut: optOutEntrant,/g)).toHaveLength(1);
   });
 
   it('🔴 les DEUX files qui voient des accusés passent le puits, et la réponse arrive par les deux files d’entrants, jamais par celle des accusés', () => {

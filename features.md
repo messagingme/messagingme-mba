@@ -5660,6 +5660,19 @@ du 2026-10-27.
   aucune API, seulement à la main, une fois par numéro. Côté scénario, on passe ensuite la main à l'agent par un message
   rapide (« posez-nous votre question ») relié au bloc « Envoyer au MBA », jamais par un bloc Question.
 
+- ✅ **Un client qui écrit STOP : l'agent confirme, puis se tait** (2026-11-26). Un contact désabonné par son « Stop »
+  s'est vu proposer un conseiller : quand Meta envoie les messages libres à son agent, celui-ci reçoit le
+  STOP en même temps que Messaging Me et y répond seul. Désormais :
+  - **à chaque allumage**, l'agent reçoit la consigne « arret-des-messages » s'il n'en a aucune de ce nom : à une
+    demande d'arrêt, il répond seulement « Votre demande de ne plus recevoir de messages sur WhatsApp est bien prise
+    en compte. Vous ne recevrez plus de communications de notre part. », sans conseiller ni question. Elle reste une
+    consigne de l'espace, modifiable et supprimable dans l'onglet « Consignes » ; elle n'est reposée qu'au prochain
+    allumage ;
+  - **2 minutes après le STOP**, le contact sort de la liste de l'agent, le temps que celui-ci confirme : sur sa liste
+    seule, l'agent ne lui répond plus et ne le relance plus. Répondeur ouvert à tout le monde, seule la consigne joue.
+  ⚠️ La relance automatique de l'agent (une heure sans réponse) peut écrire à un contact qui vient de dire STOP : elle
+  a été coupée sur les trois agents allumés le 2026-11-26.
+
 - ✅ **Onglet « Activation »** (2026-08-21) : les deux réglages qui décident **qui parle au client**, réunis au
   même endroit, en deux questions. (1) *Quand le client demande un humain, ou que l'agent ne sait pas* : l'agent
   passe la main et la conversation remonte dans « À traiter » ; ou seulement pendant vos heures d'ouverture (en

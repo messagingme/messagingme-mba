@@ -1,5 +1,17 @@
 # todo.md : backlog
 
+## 🟡 Un STOP fait taire l'agent de Meta : la relecture (2026-11-26, aucun rouge)
+
+- 🟡 **Forme du numéro (Brésil, Mexique)** : le retrait programmé au STOP compare le `waId` du webhook tel quel à
+  `mba_liste` (`presents`, `src/mba/retrait-stop.ts`), quand le retrait avant un modèle essaie `formesDuNumero`. Une ligne
+  posée sous la forme de la fiche n'est pas vue : aucun retrait, comme avant le lot.
+- Le job ne relit pas le consentement : un contact réabonné, ou confié de nouveau par un opérateur, dans les 2 minutes
+  ressort quand même de la liste (limite écrite dans le module).
+- Un refus de Meta au retrait (`retirer` rend `false`) termine le job sans rejeu : le contact reste sur la liste.
+- Si Meta paginait `listSkills`, la consigne STOP pourrait être recréée en double à l'allumage ; rien ne le montre aujourd'hui.
+- La fiche d'aide du répondeur de Meta ne dit pas la consigne STOP posée à l'allumage, ni la relance à 1 h qui peut écrire
+  à un contact désabonné (relances coupées à la main sur les trois agents allumés le 2026-11-26).
+
 ## 🟡 L'Inbox lance les scénarios Shopify et HubSpot : la relecture (2026-11-26, aucun rouge)
 
 - 🟡 **Un refus au clic laisse le fil repris par l'app** : `runFrom` reprend le fil (`reprise: 'oui'`) AVANT le premier

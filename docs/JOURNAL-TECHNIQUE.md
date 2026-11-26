@@ -5,6 +5,27 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : un STOP fait taire l'agent de Meta (MUTAC)
+
+**Vécu chez MUTAC à 9 h 56 (heure de Paris).** Un contact répond « Stop » à la campagne `relance_pdf`. Nous le désabonnons
+(`whatsapp_stop`), mais Meta envoie les messages libres directement à son agent (routage Business Suite, audience
+`EVERYONE`) : l'agent lui répond 20 s plus tard en proposant un conseiller, sa consigne `orienter-vers-un-conseiller`
+exigeant un conseiller à CHAQUE réponse. Un second contact (« Stop » à 10 h 13) reçoit par chance une confirmation
+propre. Notre plateforme ne peut pas faire taire l'agent pour un contact en `EVERYONE` : seule sa consigne joue avant
+sa réponse.
+
+**À la main, le même jour (décisions de Julien).** Une consigne `arret-des-messages` sur les trois agents allumés en
+production (MUTAC, Groupama PJ, SANDBOX, relevés en base), plus l'exception dans la consigne conseiller de MUTAC ; au bac
+à sable, 8 formulations sur 8 rendent la phrase de confirmation exacte. Les relances à 1 h de l'agent coupées sur les
+trois (Meta cache alors le bloc `followup` : le rallumer demande de reposer son délai).
+
+**Le lot.** La consigne se pose à chaque allumage (`poserConsigneStop`, appelée par `ecrireRollout` après le PUT qui
+allume, donc par les trois chemins d'allumage), si l'agent n'en a aucune de ce titre ; elle ne lève jamais. Le STOP
+reçu enfile, pour un contact sur la liste de l'agent, son retrait 2 minutes après (`mba-retrait-stop`), le temps que
+l'agent confirme : retiré à l'instant, il se tairait avant (décision de Julien). Les deux câblages du STOP du worker
+passent par la même fonction (`creerOptOutEntrant`). Six mutations vues tomber. Plan :
+`docs/superpowers/plans/2026-11-26-stop-agent-de-meta.md`.
+
 ## 2026-11-26 : la carte Shopify refaite, lisible
 
 Julien, devant la carte de Tools > Intégrations : « cet écran est illisible ». En tête, le nom de la boutique en grand

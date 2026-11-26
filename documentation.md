@@ -2820,7 +2820,13 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
     répondrait à ce contact le jour où on le rallume. `false` = refus de Meta, et chaque appelant garde son
     comportement de refus (409 dans l'Inbox, démarrage de scénario annulé avec le motif « le contact n'a pas pu
     être retiré de la liste de l'agent de Meta », lead `reprise_refusee`). Une panne de `mba_liste` LÈVE, elle
-    n'est jamais rendue comme un refus : le job ou la requête échoue et se rejoue.
+    n'est jamais rendue comme un refus : le job ou la requête échoue et se rejoue ;
+  - 🔴 **un STOP fait sortir de la liste, 2 minutes après** (2026-11-26) : `creerOptOutEntrant` (`src/mba/retrait-stop.ts`),
+    le STOP des deux files de réception (`webhook`, `application-entrant`), écrit la fiche `opted_out` PUIS, si le contact
+    est sur la liste, enfile `mba-retrait-stop` à `DELAI_RETRAIT_STOP_MS` : Meta fait taire l'agent dès que le contact
+    sort, et retiré à l'instant, il perdrait la confirmation que l'agent prépare. Le job fait `retirer`. Une panne de la
+    lecture ou de l'enfilement est journalisée et ne fait jamais échouer le désabonnement. Sans effet en `EVERYONE`, où
+    seule la consigne STOP joue.
   🔴 **L'audience suit le répondeur** (2026-11-20) : `EVERYONE` quand l'agent de Meta est le répondeur de l'espace,
   `ALLOWLISTED_ONLY` sinon (`audienceVoulue`). Elle s'aligne chez Meta (`creerAlignerAudience`, au mieux, jamais
   bloquante) après chaque geste qui change le répondeur ou l'allumage : « Qui répond au client » (juste après le réglage,
@@ -2838,7 +2844,10 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   liste et suit l'ordre de Meta : l'audience, une relecture, puis `rollout.enabled` (`ecrireRollout`) ; l'agent ne
   s'ouvre à tout le monde qu'à l'alignement qui suit. Une
   relecture qui ne rend pas encore la liste est refaite UNE fois après `RELECTURE_AUDIENCE_ATTENTE_MS` (Meta
-  peut propager avec retard) ; toujours pas, on n'allume pas. 🔴 Les trois chemins d'allumage écrivent ensuite
+  peut propager avec retard) ; toujours pas, on n'allume pas. 🔴 Allumé, l'agent reçoit la consigne STOP
+  (`poserConsigneStop`, `src/mba/consigne-stop.ts`) s'il n'en a aucune de ce titre, APRÈS le PUT qui allume et sans
+  jamais faire échouer l'allumage : quand Meta lui envoie les messages libres, il reçoit le STOP en même temps que nous,
+  et sa consigne est le seul levier qui joue avant sa réponse. Une liste de consignes illisible ne crée rien. Les trois chemins d'allumage écrivent ensuite
   notre drapeau `tenant_settings.mba_enabled`, que toute la mécanique de la liste lit : `mba-activation`
   (l'Accueil), `rollout` (l'onglet Aperçu) et la mise en service de l'assistant. Le PATCH des réglages refuse
   `aiAudience` (400), et la liste n'a plus de route : une entrée posée à la main échapperait à notre table.

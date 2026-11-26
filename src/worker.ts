@@ -37,6 +37,7 @@ import { FILE_ETIQUETTES, cablerEtiquettes, relancerEtiquettesDues, traiterEtiqu
 import { PgEtiquettesStore } from './shopify/etiquettes.pg';
 import type { SansWhatsappSink } from './webhooks/delivery';
 import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
+import { FILE_RETRAIT_STOP, creerOptOutEntrant, traiterRetraitStop } from './mba/retrait-stop';
 import { FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsOubli, type ProgrammerOubli } from './shopify/preparation';
 import { PgModelesDeBloc } from './workflow/modeles-de-bloc.pg';
 import { surStatutDesModeles, trancherModeleDeBloc, type DepsMiseEnLigne } from './workflow/modeles-de-bloc';
@@ -637,6 +638,20 @@ export async function demarrerWorker(): Promise<void> {
   await queue.work(FILE_ISSUE_EVENEMENT, async (data) => { await traiterIssueEvenement(issueEvenement, data); });
 
   /**
+   * 🔴 Le STOP reçu (`src/mba/retrait-stop.ts`), le même sur les deux files de réception : la fiche passe `opted_out`
+   * (la source `whatsapp_stop` le distingue d’un refus posé à la main ; le wamid suit jusqu’au signal, un STOP
+   * redélivré garde le même `em_event_id`), puis le contact sort de la liste de l’agent de Meta 2 minutes après, le temps
+   * que l’agent confirme. Sans lui, un contact qui répond STOP resterait `opted_in` et recevrait la campagne suivante.
+   */
+  const optOutEntrant = creerOptOutEntrant({
+    desabonner: (tenant, waId, messageId) => contactStore.setOptInByWaId(tenant, waId, 'opted_out', 'personne', SOURCE_STOP_WHATSAPP, messageId),
+    liste: listeDeLAgent,
+    programmer: (job, quand) => queue.enqueue(FILE_RETRAIT_STOP, job, { groupId: job.tenantId, startAfter: quand }),
+    now: () => Date.now(),
+  });
+  await queue.work(FILE_RETRAIT_STOP, async (data) => { await traiterRetraitStop(listeDeLAgent, data); });
+
+  /**
    * 🔴 LA PORTE D'UNE FREE PLEINE (décision de Julien du 2026-10-25, `src/webhooks/espace-plein.ts`), sur les deux files
    * qui enregistrent des entrants : `webhook` (Meta et 360dialog) et `application-entrant`. Le compte est celui du magasin
    * des contacts (la limite de l'offre, toutes les fiches actives) ; l'alerte part par les e-mails du produit, une par jour.
@@ -840,10 +855,8 @@ export async function demarrerWorker(): Promise<void> {
       livraisonTemplates,
       // Segments Shopify, lot 2a : un 131026 enfile la suppression d'une fiche née d'un envoi Shopify, jamais écrite.
       sansWhatsapp,
-      // 🔴 Opt-out par mot-clé sur WhatsApp (STOP, désabonner...) : sans lui, un contact qui répond STOP
-      // resterait `opted_in` et recevrait la campagne suivante. La source `whatsapp_stop` le distingue d'un refus
-      // posé à la main. Le wamid du STOP suit jusqu'au signal : un STOP redélivré garde le même `em_event_id`.
-      inboundOptOut: (tenant, waId, messageId) => contactStore.setOptInByWaId(tenant, waId, 'opted_out', 'personne', SOURCE_STOP_WHATSAPP, messageId),
+      // 🔴 Opt-out par mot-clé sur WhatsApp (STOP, désabonner...) : `optOutEntrant`, plus haut.
+      inboundOptOut: optOutEntrant,
       /**
        * Répartition d'une réponse de campagne (`campaigns.assignation`). Le tour de rôle se joue à l'arrivée de
        * la réponse, pas au lancement : répartir d'avance attribuerait des conversations qui n'existeront jamais.
@@ -896,8 +909,8 @@ export async function demarrerWorker(): Promise<void> {
       inbox: inboxStore,
       entrants: {
         upsertContact: (tenant, m) => contactStore.upsertFromInbound(tenant, m.waId, m.profileName),
-        // 🔴 Le STOP, comme sur la file `webhook` : même écriture, même source.
-        optOut: (tenant, waId, messageId) => contactStore.setOptInByWaId(tenant, waId, 'opted_out', 'personne', SOURCE_STOP_WHATSAPP, messageId),
+        // 🔴 Le STOP, comme sur la file `webhook` : la même fonction (`optOutEntrant`).
+        optOut: optOutEntrant,
         signalReponse: puitsSignaux.reponse,
         detenteur: fil,
       },

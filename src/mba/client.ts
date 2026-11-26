@@ -4,6 +4,7 @@ import type { MetaErrorBody } from '../meta/errors';
 import type { FetchLike } from '../meta/templates';
 import type { EvenementAgent } from './evenement';
 import { journaliser } from '../lib/journal';
+import { poserConsigneStop, type ClientConsigneStop } from './consigne-stop';
 import {
   PAGES_MAX, depuisMeta, lirePage, versMetaCreation, versMetaModification,
   type CreationMessageInteractif, type MessageInteractif, type ModificationMessageInteractif,
@@ -762,9 +763,13 @@ export const RELECTURE_AUDIENCE_ATTENTE_MS = 2000;
  * rend pas l'audience de la liste, on attend (`attendre`, injectée : un test vérifie l'attente sans dormir) et on
  * relit UNE fois de plus ; toujours pas, on n'allume pas : un agent allumé pour tout le monde répondrait par-dessus
  * nos scénarios. Éteindre n'a pas d'ordre à suivre. `agentId` : la configuration visée, quand l'appelant la connaît.
+ *
+ * 🔴 Allumé, l'agent reçoit sa consigne STOP s'il n'en a pas (`poserConsigneStop`, 2026-11-26), APRÈS le PUT qui allume :
+ * jamais sur un allumage refusé, et sans le faire échouer (elle ne lève pas). C'est ici, et pas chez les appelants, parce
+ * que les trois chemins qui allument l'agent (Accueil et « Qui répond au client », route `rollout`, assistant) y passent.
  */
 export async function ecrireRollout(
-  client: ClientReglages,
+  client: ClientReglages & ClientConsigneStop,
   phoneNumberId: string,
   enabled: boolean,
   o: { attendre(ms: number): Promise<void>; agentId?: string },
@@ -780,7 +785,10 @@ export async function ecrireRollout(
     relu = objetLu.parse(await client.getSettings(phoneNumberId));
   }
   if (relu.ai_audience !== AUDIENCE_DE_L_AGENT) throw new AudienceNonConfirmee(relu.ai_audience);
-  return ecrireReglages(client, phoneNumberId, relu, { rollout: { enabled: true } }, agentId, AUDIENCE_DE_L_AGENT);
+  const allume = await ecrireReglages(client, phoneNumberId, relu, { rollout: { enabled: true } }, agentId, AUDIENCE_DE_L_AGENT);
+  const agentAllume = agentId ?? (typeof relu.agent_id === 'string' ? relu.agent_id : undefined);
+  await poserConsigneStop(client, phoneNumberId, agentAllume);
+  return allume;
 }
 
 /**
@@ -789,7 +797,7 @@ export async function ecrireRollout(
  * chez Meta restait à `false` chez nous, et ses réponses en `standby` n'étaient prises par personne (vécu par la route).
  */
 export async function ecrireRolloutPuisDrapeau(
-  client: ClientReglages,
+  client: ClientReglages & ClientConsigneStop,
   phoneNumberId: string,
   enabled: boolean,
   o: { attendre(ms: number): Promise<void>; agentId?: string },

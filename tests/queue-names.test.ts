@@ -19,6 +19,7 @@ import { FILE_COLLECTIONS } from '../src/shopify/collections';
 import { FILE_ETIQUETTES } from '../src/shopify/etiquettes';
 import { FILE_ISSUE_EVENEMENT } from '../src/mba/issue-evenement';
 import { FILE_HUBSPOT_STOP } from '../src/crm/hubspot-stop';
+import { FILE_RETRAIT_STOP } from '../src/mba/retrait-stop';
 import { FILE_CONVERSIONS_META } from '../src/pub/conversions-meta';
 
 /**
@@ -65,6 +66,7 @@ describe('queue names (source unique)', () => {
       if (name === 'FILE_CONVERSIONS_META') return FILE_CONVERSIONS_META;
       if (name === 'FILE_ISSUE_EVENEMENT') return FILE_ISSUE_EVENEMENT;
       if (name === 'FILE_HUBSPOT_STOP') return FILE_HUBSPOT_STOP;
+      if (name === 'FILE_RETRAIT_STOP') return FILE_RETRAIT_STOP;
       throw new Error(`constante de file inconnue du test : ${name} (ajoute sa résolution ici)`);
     });
     const worked = [...new Set([...literals, ...resolved])];
@@ -98,6 +100,7 @@ describe('queue names (source unique)', () => {
       FILE_CONVERSIONS_META,
       FILE_ISSUE_EVENEMENT,
       FILE_HUBSPOT_STOP,
+      FILE_RETRAIT_STOP,
     };
     const resolus = new Set([...literals, ...viaConst.map((n) => RESOLUTION[n] ?? n)]);
     for (const q of BASE_QUEUES) {

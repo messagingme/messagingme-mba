@@ -58,6 +58,8 @@ export const FILES_PAR_ROLE: Record<NomDeFile, Appartenance> = {
   'conversions-meta': 'principal',
   // L'issue d'un événement envoyé à l'agent de Meta (2026-11-10) : un client attend la réponse derrière.
   'agent-evenement-issue': 'principal',
+  // Le retrait de la liste de l'agent de Meta 2 minutes après un STOP (2026-11-26) : à côté de l'issue des événements.
+  'mba-retrait-stop': 'principal',
   // Les messages reçus par la filière application (2026-10-22) : un client attend la réponse derrière.
   'application-entrant': 'principal',
   // Les premiers messages de la filière application (2026-10-23) : une commande payée, un panier, attendent derrière.

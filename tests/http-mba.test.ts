@@ -292,7 +292,8 @@ describe('routes MBA : état et réglages', () => {
     const { server, appels } = app({}, drapeauNote(journal));
     const res = await server.inject({ method: 'PUT', url: url('/rollout'), ...h(adminTok), payload: { enabled: true } });
     expect(res.statusCode).toBe(200);
-    expect(appels.map((a) => a.m)).toEqual(['getSettings', 'putSettings', 'getSettings', 'putSettings', 'getSettings']);
+    // `listSkills` et `createSkill` : la consigne STOP, posée après l'allumage (`src/mba/consigne-stop.ts`).
+    expect(appels.map((a) => a.m)).toEqual(['getSettings', 'putSettings', 'getSettings', 'putSettings', 'listSkills', 'createSkill', 'getSettings']);
     const [audience, allumage] = appels.filter((a) => a.m === 'putSettings').map((a) => a.args[1] as Record<string, unknown>);
     expect(audience).toMatchObject({ ai_audience: 'ALLOWLISTED_ONLY', rollout: { enabled: false } });
     expect(allumage).toMatchObject({ ai_audience: 'ALLOWLISTED_ONLY', rollout: { enabled: true } });

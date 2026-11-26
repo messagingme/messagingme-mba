@@ -276,16 +276,21 @@ describe('ecrireRollout : allumer dans l’ordre', () => {
     return { attentes, attendre: async (ms: number) => { attentes.push(ms); } };
   };
 
-  it('🔴 audience, relecture, puis rollout : quatre appels, dans cet ordre, et aucune attente', async () => {
+  it('🔴 audience, relecture, puis rollout : quatre appels, dans cet ordre, et aucune attente ; puis la consigne STOP', async () => {
     const d = sansDormir();
     const { impl, appels } = faux([
       { body: [{ agent_id: 'a1', ai_audience: 'EVERYONE', rollout: { enabled: false }, never_say_phrases: ['x'] }] },
       { body: {} },
       { body: [{ agent_id: 'a1', ai_audience: 'ALLOWLISTED_ONLY', rollout: { enabled: false }, never_say_phrases: ['x'] }] },
       { body: {} },
+      { body: [] },
+      { body: {} },
     ]);
     await ecrireRollout(new MbaClient('tok', impl), 'PN1', true, d);
-    expect(appels.map((a) => a.method)).toEqual(['GET', 'PUT', 'GET', 'PUT']);
+    // Les deux derniers : la consigne STOP (`src/mba/consigne-stop.ts`), lue puis posée APRÈS l'allumage, sous son agent_id.
+    expect(appels.map((a) => a.method)).toEqual(['GET', 'PUT', 'GET', 'PUT', 'GET', 'POST']);
+    expect(appels[5]!.url).toContain('agent_config/skills?agent_id=a1');
+    expect(appels[5]!.body).toMatchObject({ title: 'arret-des-messages' });
     expect(d.attentes).toEqual([]);
     const audience = appels[1]!.body as Record<string, unknown>;
     expect(audience.ai_audience).toBe('ALLOWLISTED_ONLY');
@@ -317,9 +322,11 @@ describe('ecrireRollout : allumer dans l’ordre', () => {
       { body: [{ agent_id: 'a1', ai_audience: 'EVERYONE', rollout: { enabled: false } }] },
       { body: [{ agent_id: 'a1', ai_audience: 'ALLOWLISTED_ONLY', rollout: { enabled: false } }] },
       { body: {} },
+      { body: [{ title: 'arret-des-messages', description: 'd', skill: 's' }] },
     ]);
     await ecrireRollout(new MbaClient('tok', impl), 'PN1', true, d);
-    expect(appels.map((a) => a.method)).toEqual(['GET', 'PUT', 'GET', 'GET', 'PUT']);
+    // Le dernier GET : la consigne STOP, déjà là, donc pas réécrite.
+    expect(appels.map((a) => a.method)).toEqual(['GET', 'PUT', 'GET', 'GET', 'PUT', 'GET']);
     expect(d.attentes).toEqual([RELECTURE_AUDIENCE_ATTENTE_MS]);
     expect(appels[4]!.body).toMatchObject({ rollout: { enabled: true }, ai_audience: 'ALLOWLISTED_ONLY' });
   });
