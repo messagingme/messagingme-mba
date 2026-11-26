@@ -5,6 +5,30 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : les contacts de l'Entreprise et du Business, et la fiche d'offre de /ops
+
+**La fiche d'offre de /ops (f17eb3ea2, 5614265db, déployée le 2026-11-25).** Demande de Julien après avoir réglé MUTAC
+(10 000 contacts, plafond IA de 50 €) : après l'enregistrement, la case « Régler les contacts et la commission » se
+refermait et ses valeurs n'étaient plus lisibles qu'entre parenthèses ; chaque réglage exigeait une note. Les champs du
+devis s'affichent désormais remplis, ne partent que s'ils changent, et la note n'est exigée que pour poser ou retirer
+une offre (celle de la ligne de crédit devient facultative). Un e2e qui attendait le bouton grisé faute de note a rendu
+la CI front rouge : la recherche qui l'aurait trouvé s'était arrêtée sur son délai.
+
+**Lot A, les alertes de contacts de l'Entreprise (23b8e4dab, déployé).** Plan
+`docs/superpowers/plans/2026-11-26-contacts-packs-business-et-alertes-entreprise.md`. Une Entreprise dont /ops a posé
+une limite reçoit les alertes à 80 et 100 % et l'e-mail d'espace plein, qui renvoient au Support (décision de Julien :
+« il nous contacte et on s'arrange »), et l'équipe un Telegram. Relecture : aucun rouge, un jaune corrigé (une offre
+illisible faisait tomber l'e-mail des autres offres).
+
+**Lot B, les packs du Business (082fae169 puis 1b99214d7, e07bf0011, déployés).** Un Business achète des packs de
+1 000 contacts à 20 € HT par mois, en abonnement Stripe à part ; sa fin de droit les résilie. La migration 0329 est
+partie seule et a été appliquée avant le code (la porte de l'espace plein la lit). Le code a d'abord rougi le job
+`integration` : le test du remplacement ne posait la limite du Business que dans un faux, alors que la porte la relit
+désormais en base ; corrigé dans le test. Une consigne « ne déployez pas la tête » envoyée aux sessions voisines les a
+bloquées pour rien (Julien : « tu bloques tout le monde ») : levée, et la règle va à la mémoire du projet.
+
+**Reste** : les deux essais réels (un pack acheté sur un Business de test ; une Entreprise de test limitée à 3 contacts).
+
 ## 2026-11-26 : un STOP fait taire l'agent de Meta (MUTAC)
 
 **Vécu chez MUTAC à 9 h 56 (heure de Paris).** Un contact répond « Stop » à la campagne `relance_pdf`. Nous le désabonnons
