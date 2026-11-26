@@ -4688,6 +4688,12 @@ réponse qui part, un outil qui s'exécute, une sortie qui reprend le scénario,
   déjà écrits : chez un agent qui en avait un, la règle se réécrit dans l'outil. « Construire en parlant » pose l'outil
   avec la règle que vous lui donnez et l'active à l'enregistrement ; une réponse « jamais » ne pose rien. Sans l'outil
   actif, l'agent ne promet plus qu'un humain va reprendre. Claude (`update_agent`) écrit la règle dans l'outil.
+- ✅ **« Quand votre équipe est joignable » se règle par agent** (2026-11-26, décision de Julien), dans « Modifier » de
+  l'outil « Passer la main à un humain » (et de « Qualifier et transférer ») : « À toute heure », « Seulement aux
+  heures d'ouverture » (hors des horaires de « Paramètres » > « Général », l'agent dit quand l'équipe reprend) ou
+  « Jamais en direct ». Un agent qui n'a rien choisi suit l'ancien réglage de l'espace ; la carte a quitté « Sécurité »
+  > « IA ». « Construire en parlant » le règle quand vous liez le passage de main aux heures d'ouverture, et Claude
+  (`set_transfer_mode`) le règle pour un agent, ou pour tous.
 - ✅ **Périmètre et garde-fous** : **tours maximum** (1 à 20, 8 par défaut), **appels d'outils maximum** (0 à
   60, 12 par défaut), **inactivité en minutes** (1 à 1440, 30 par défaut, au-delà le parcours part par « Pas de
   réponse »), et **ce que l'agent a le droit de faire face à un contact inconnu du mini-CRM** : aucun outil,

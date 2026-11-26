@@ -50,6 +50,11 @@ export interface AgentComplet {
   budgetMicroEur: number;
   inactiviteMinutes: number;
   contactInconnu: 'aucun_outil' | 'lecture_seule' | 'tous';
+  /**
+   * Ce que l'agent promet en passant la main (0330) ; `null` = le réglage de l'espace. Optionnel : une API d'avant
+   * le lot ne le rend pas, et l'écran ne propose alors rien (`TransfertEquipe`).
+   */
+  transfertMode?: 'always' | 'business_hours' | 'never' | null;
   contenu: FicheContenu;
   /** Compteur d'écritures de la fiche, renvoyé tel quel dans un patch de fiche : c'est le verrou qui empêche
    *  deux surfaces d'écraser la même clé en silence. */

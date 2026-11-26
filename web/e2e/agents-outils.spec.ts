@@ -82,9 +82,14 @@ const AGENT = {
   id: AG, label: 'Conseiller séjours', status: 'draft',
   mentionIa: 'Vous échangez avec un assistant automatique.', modele: 'modele-test',
   maxTours: 8, maxAppelsOutils: 12, budgetMicroEur: 30000, inactiviteMinutes: 30,
-  contactInconnu: 'lecture_seule',
+  contactInconnu: 'lecture_seule', transfertMode: null,
   contenu: { nom: '', objectif: '', ton: '', personnalite: '', reglesTransfert: '', sorties: [] },
   ficheVersion: 4,
+};
+/** « Passer la main », actif : ses réglages portent « Quand votre équipe est joignable » (2026-11-26). */
+const RELAIS = {
+  ...base, id: 'o9', name: 'mba_escalader', title: 'Passer la main à un humain', binding: { handler: 'escalader' },
+  risk: 'write', actif: true, activeLe: '2026-11-26T10:00:00.000Z', expose: { name: 'mba_escalader', description: 'Relais.', parameters: SCHEMA },
 };
 
 type Appel = { method: string; url: string; body: unknown };
@@ -161,6 +166,7 @@ async function mock(page: import('@playwright/test').Page, appels: Appel[], depa
     if (/\/tags(\?|$)/.test(url)) return json({ tags: [{ tag: 'rdv_pris', count: 3 }] });
     if (url.includes('/agent-requetes')) return json({ requetes: [REQUETE], champs: [], catalogue: { contact: [], systeme: [], entetesReserves: [] } });
     if (url.includes('/agent-sources')) return json({ sources: [{ id: SRC, kind: 'http', label: 'ERP', status: 'active' }] });
+    if (/\/settings\/transfert-agent$/.test(url)) return json({ mode: 'always', reglee: false });
     if (new RegExp(`/agents/${AG}$`).test(url)) return json({ agent: AGENT });
     if (/\/agents(\?|$)/.test(url)) return json({ agents: [{ id: AG, label: 'Conseiller séjours', status: 'draft', sorties: [], modele: 'anthropic/claude-haiku-4.5' }] });
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
@@ -220,6 +226,19 @@ test.describe('Agents IA : « Toujours là »', () => {
     await expect.poll(() => appels.find((a) => a.method === 'DELETE')?.url, { timeout: 5000 }).toMatch(/\/tools\/o3$/);
     await expect(page.getByTestId('toujours-etat-terminer')).toContainText('Inactif');
     await expect(page.getByTestId('toujours-retirer-terminer')).toHaveCount(0);
+  });
+
+  test('🔴 « Quand votre équipe est joignable » se règle sur « Passer la main » de CET agent ; la case de l’espace s’épingle (2026-11-26)', async ({ page }) => {
+    const appels: Appel[] = [];
+    await mock(page, appels, [RELAIS]);
+    await onglet(page);
+    await page.getByTestId('toujours-modifier-escalader').click();
+    await expect(page.getByTestId('transfert-agent')).toContainText('ne coupe jamais le transfert');
+    // L'agent n'a rien choisi : la case cochée est celle de l'espace, et la cliquer l'épingle sur l'agent.
+    await expect(page.getByTestId('transfert-agent-always').locator('input')).toBeChecked();
+    await page.getByTestId('transfert-agent-business_hours').locator('input').click();
+    await expect.poll(() => appels.some((a) => a.method === 'PATCH' && new RegExp(`/agents/${AG}$`).test(a.url)
+      && (a.body as { transfertMode?: string } | null)?.transfertMode === 'business_hours'), { timeout: 5000 }).toBe(true);
   });
 
   test('🔴 un « terminer » actif que le modèle ne VOIT PAS est signalé, et « Modifier » montre pourquoi', async ({ page }) => {

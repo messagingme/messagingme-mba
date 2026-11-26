@@ -505,6 +505,10 @@ function Ecran({ tenantId }: { tenantId: string }) {
                   sorties: ouvert.contenu.sorties,
                   enregistrer: async (sorties) => { await enregistrer({ contenu: { ...ouvert.contenu, sorties } }); },
                 }}
+                transfert={{
+                  mode: ouvert.transfertMode,
+                  enregistrer: async (transfertMode) => { await enregistrer({ transfertMode }); },
+                }}
               />
             )}
             {onglet === 'perimetre' && <OngletPerimetre agent={ouvert} busy={busy} onSave={enregistrer} />}

@@ -2,7 +2,7 @@
 description: Tester un agent IA avant de l'activer : lui écrire comme un client, voir ses outils, reposer une question, puis lire son historique.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 2d6113
+source_empreinte: 78dde1
 publique: oui
 rubrique: parler-aux-clients
 rang: 16

@@ -219,3 +219,13 @@ describe('Le délai d’inactivité dans une proposition', () => {
     expect(restreindreProposition(PROPOSITION, [], new Map()).inactiviteMinutes).toBeUndefined();
   });
 });
+
+describe('🔴 « Quand votre équipe est joignable » dans une proposition (2026-11-26)', () => {
+  const AVEC = { ...PROPOSITION, transfertMode: 'business_hours' as const };
+  const LIGNE: Changement[] = [{ champ: 'transfertMode', label: 'Quand votre équipe est joignable', avant: 'le réglage de l’espace', apres: 'Seulement aux heures d’ouverture' }];
+
+  it('GARDÉE, la valeur part ; JETÉE, elle est omise', () => {
+    expect(restreindreProposition(AVEC, LIGNE, new Map([['transfertMode', 'Seulement aux heures d’ouverture']])).transfertMode).toBe('business_hours');
+    expect(restreindreProposition(AVEC, LIGNE, new Map()).transfertMode).toBeUndefined();
+  });
+});

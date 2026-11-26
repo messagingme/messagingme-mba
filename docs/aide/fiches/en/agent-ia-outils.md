@@ -1,6 +1,6 @@
 ---
 slug: give-tools-to-an-ai-agent
-traduit_de: 56fe23
+traduit_de: c084ae
 description: Give tools to an AI agent: the always-there moves, then a tag, a detail, a block, a scenario, an action or chained steps.
 ---
 # Give tools to an AI agent
@@ -22,7 +22,9 @@ click “Activate” on each one it needs.
 - “Hand over to a human”: the conversation moves to “To handle” at once and stays there until someone answers; the
   journey leaves through “Handed to a human”. The agent never takes the floor again on its own. Its “When to call it”
   says when to hand over, the way you would say it: “as soon as a refund comes up, or if the contact gets upset”. The
-  “Build by talking” assistant fills it in and enables it when you answer.
+  “Build by talking” assistant fills it in and enables it when you answer. In “Edit”, “When your team is reachable”
+  says what this agent promises: an advisor “At any time”, “Only during business hours” (outside your hours, it says
+  when the team is back) or “Never live”. Each agent has its own; the hours are those of “Settings” > “General”.
 - “Search the knowledge base”: to call before any substantive question.
 - “Read the contact record”: their name, their fields and their latest analysis (sentiment, satisfaction, urgency,
   topic). Their fields include those HubSpot imports and the tracking link of their last Shopify parcel. If a Shopify

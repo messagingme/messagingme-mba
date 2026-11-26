@@ -10,6 +10,11 @@ import { CodeSortieInput } from '@/components/AgentSorties';
 import type { SortieAgent } from '@/lib/api-agent';
 import { Bouton } from '@/components/Bouton';
 import type { GesteMoment, ModeleOutil, OutilAgent, TexteBilingue } from '@/lib/api-agent-tools';
+import { TransfertEquipe } from './TransfertEquipe';
+import type { ModeTransfertAgent } from '@/lib/api/inbox';
+
+/** Les outils qui passent la main : c'est sur eux que se règle ce que l'agent promet (`TransfertEquipe`). */
+const HANDLERS_DE_TRANSFERT = new Set(['escalader', 'qualifier_transferer']);
 
 /**
  * LES RÉGLAGES D'UN OUTIL POSÉ SUR UN AGENT IA : son nom vu par le modèle, ses deux consignes, ses gestes, l'autonomie
@@ -95,7 +100,7 @@ export function SchemaModele({ outil }: { outil: OutilAgent }) {
   );
 }
 
-export function ReglagesOutil({ outil, modele, busy, onSave, onAutonomie, reglesArret }: {
+export function ReglagesOutil({ outil, modele, busy, onSave, onAutonomie, reglesArret, transfert }: {
   outil: OutilAgent;
   modele: ModeleOutil | undefined;
   busy: boolean;
@@ -103,6 +108,8 @@ export function ReglagesOutil({ outil, modele, busy, onSave, onAutonomie, regles
   onAutonomie: (v: boolean) => void;
   /** Les règles d'arrêt, quand l'outil en dérive ses valeurs (« Terminer ») : elles se règlent ici. */
   reglesArret?: { sorties: SortieAgent[]; onChange: (sorties: SortieAgent[]) => void };
+  /** Ce que l'agent promet en passant la main, réglé sur ses outils de transfert (`TransfertEquipe`). */
+  transfert?: { tenantId: string; mode: ModeTransfertAgent | null | undefined; onChange: (mode: ModeTransfertAgent) => void };
 }) {
   const t = useT();
   return (
@@ -146,6 +153,10 @@ export function ReglagesOutil({ outil, modele, busy, onSave, onAutonomie, regles
       />
 
       <Gestes outil={outil} busy={busy} onSave={(gestes) => onSave({ gestes })} />
+
+      {transfert && HANDLERS_DE_TRANSFERT.has(String(outil.binding.handler ?? '')) && (
+        <TransfertEquipe tenantId={transfert.tenantId} modeAgent={transfert.mode} busy={busy} onChoisir={transfert.onChange} />
+      )}
 
       {/* 🔴 LES RÈGLES D'ARRÊT SE RÈGLENT ICI depuis le 2026-11-25 (décision de Julien) : « Objectif et transferts » n'était
           pas clair. Une règle reste une sortie du bloc Agent IA ; aucune n'est obligatoire. */}

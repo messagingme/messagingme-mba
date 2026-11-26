@@ -23,6 +23,7 @@ import { Icone } from '@/components/Icone';
 import { useConfirmation } from '@/components/Confirmation';
 import { Squelette } from '@/components/Squelette';
 import { erreurDeChargement } from '@/lib/http';
+import type { ModeTransfertAgent } from '@/lib/api/inbox';
 
 type Mode =
   | { vue: 'liste' } | { vue: 'choix' } | { vue: 'mcp' } | { vue: 'connecteur' }
@@ -100,13 +101,15 @@ function libelleCible(o: OutilAgent, noms: Noms, t: Traduire): string {
  * ⚠️ `onChange` EXISTE PARCE QUE LE BANDEAU D'AVERTISSEMENT VIT AILLEURS : ce panneau écrit dans SA table, et la page
  * relit ses manques quand on le lui dit (Julien, 2026-09-11).
  */
-export function AgentOutils({ tenantId, agentId, onChange, reglesArret }: {
+export function AgentOutils({ tenantId, agentId, onChange, reglesArret, transfert }: {
   tenantId: string; agentId: string; onChange?: () => void;
   /**
    * Les règles d'arrêt de l'agent, réglées dans l'outil « Terminer » depuis le 2026-11-25 (décision de Julien) : elles
    * vivent dans la fiche (`sorties`), l'écrit passe par l'écran parent et son verrou de version.
    */
   reglesArret?: { sorties: SortieAgent[]; enregistrer: (sorties: SortieAgent[]) => Promise<void> };
+  /** Ce que l'agent promet en passant la main (`agents.transfert_mode`), réglé sur ses outils de transfert. */
+  transfert?: { mode: ModeTransfertAgent | null | undefined; enregistrer: (mode: ModeTransfertAgent) => Promise<void> };
 }) {
   const t = useT();
   const confirmer = useConfirmation();
@@ -214,6 +217,9 @@ export function AgentOutils({ tenantId, agentId, onChange, reglesArret }: {
       onAutonomie={(v) => agir(async () => { await autonomieOutil(tenantId, agentId, o.id, v); })}
       {...(reglesArret ? {
         reglesArret: { sorties: reglesArret.sorties, onChange: (sorties: SortieAgent[]) => agir(() => reglesArret.enregistrer(sorties)) },
+      } : {})}
+      {...(transfert ? {
+        transfert: { tenantId, mode: transfert.mode, onChange: (mode: ModeTransfertAgent) => agir(() => transfert.enregistrer(mode)) },
       } : {})}
     />
   );

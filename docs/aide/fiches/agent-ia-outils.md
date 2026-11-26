@@ -2,7 +2,7 @@
 description: Donner des outils à un agent IA : les gestes toujours là, puis un tag, une information, un bloc, un scénario, une action ou des étapes.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 2d6113
+source_empreinte: 78dde1
 publique: oui
 rubrique: parler-aux-clients
 rang: 15
@@ -27,7 +27,10 @@ IA : cliquez sur « Activer » pour chacun de ceux dont il a besoin.
 - « Passer la main à un humain » : la conversation remonte tout de suite dans « À traiter » et y reste tant que personne
   n'a répondu ; le parcours sort par « Transfert à un humain ». L'agent ne reprend jamais la parole tout seul. Son
   « Quand l'appeler » dit quand passer la main, comme vous le diriez : « dès qu'on parle d'un remboursement, ou si le
-  contact s'énerve ». L'assistant « Construire en parlant » le remplit et l'active quand vous lui répondez.
+  contact s'énerve ». L'assistant « Construire en parlant » le remplit et l'active quand vous lui répondez. Dans
+  « Modifier », « Quand votre équipe est joignable » dit ce que cet agent promet : un conseiller « À toute heure »,
+  « Seulement aux heures d'ouverture » (hors de vos horaires, il dit quand l'équipe reprend) ou « Jamais en direct ».
+  Chaque agent a le sien ; les horaires sont ceux de « Paramètres » > « Général ».
 - « Chercher dans la base de connaissance » : à appeler avant toute question de fond.
 - « Lire la fiche du contact » : son nom, ses champs et sa dernière analyse (sentiment, satisfaction, urgence, sujet).
   Ses champs comprennent ceux que HubSpot importe et le lien de suivi de son dernier colis Shopify. Si une boutique

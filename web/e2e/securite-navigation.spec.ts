@@ -282,29 +282,14 @@ test.describe('Centre de sécurité & compliance', () => {
   });
 
   /**
-   * 🔴 QUAND L'EQUIPE EST JOIGNABLE, ET CE QUE L'AGENT A LE DROIT DE PROMETTRE (lot 1 du 2026-09-18).
-   *
-   * Demande de Julien : « il faut que le user setup si il veut qu'on transfere a toute heure ou jamais en
-   * dehors des heures ouvrees ». Le reglage vit a cote de l'annonce d'IA parce que les deux decident de ce
-   * qu'un robot DIT au nom de la marque.
+   * QUAND L'EQUIPE EST JOIGNABLE : ce reglage a vecu ici du 2026-09-18 au 2026-11-26, pour tout l'espace. Il se regle
+   * desormais par agent, sur son outil « Passer la main » (decision de Julien). Cet ecran ne doit plus le montrer.
    */
-  test('🔴 le reglage de disponibilite de l equipe s ENVOIE, et l ecran dit qu il ne coupe PAS le transfert', async ({ page }) => {
-    const ecritures: Ecriture[] = [];
-    await monter(page, { ecritures });
+  test('« Quand votre equipe est joignable » a quitte cet ecran : il se regle par agent (2026-11-26)', async ({ page }) => {
+    await monter(page, { ecritures: [] });
     await page.goto('/securite/ia');
-    await expect(page.getByTestId('transfert-agent')).toBeVisible();
-    await expect(page.getByTestId('transfert-agent-defaut')).toBeVisible();
-
-    /**
-     * 🔴 LA PHRASE QUI EMPECHE LE CONTRESENS, et elle vaut le test. Sans elle un client lit « jamais » et
-     * croit avoir coupe le transfert, alors que la conversation remonte toujours dans « A traiter ».
-     */
-    await expect(page.getByTestId('transfert-agent')).toContainText('ne coupe jamais le transfert');
-
-    await page.getByTestId('transfert-agent-business_hours').locator('input').check();
-    await expect(page.getByTestId('transfert-agent-ok')).toBeVisible();
-    expect(ecritures).toEqual([{ chemin: '/tenants/t-e2e/settings/transfert-agent', corps: { mode: 'business_hours' } }]);
-    await expect(page.getByTestId('transfert-agent-defaut')).toHaveCount(0);
+    // Decision de Julien : le reglage vit sur l'outil « Passer la main » de chaque agent (TransfertEquipe).
+    await expect(page.getByTestId('transfert-agent')).toHaveCount(0);
   });
 
   /**

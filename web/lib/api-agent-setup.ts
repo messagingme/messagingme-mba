@@ -27,6 +27,8 @@ export interface PropositionConstruction {
   /** Combien de minutes l'agent attend une réponse avant de lâcher. Même nature que le champ ci-dessus :
    *  un réglage hors fiche que l'entretien demande depuis le 2026-09-11. */
   inactiviteMinutes?: number;
+  /** Ce que l'agent promet en passant la main (0330), posé par le serveur sur une condition d'heures d'ouverture. */
+  transfertMode?: 'always' | 'business_hours' | 'never';
   fiche: {
     nom?: string;
     objectif?: string;
@@ -156,15 +158,19 @@ export function restreindreProposition(
      * rien a reecrire. Omettre laisse la colonne inchangee, ce qui est exactement le sens de « jeter ».
      */
     ...(proposition.mentionIaFrequence !== undefined
-      && (!avantDe.has('mentionIaFrequence') || gardees.has('mentionIaFrequence'))
+      && avantDe.has('mentionIaFrequence') && gardees.has('mentionIaFrequence')
       ? { mentionIaFrequence: proposition.mentionIaFrequence }
       : {}),
     // ⚠️ MEME REGLE, ET LE MEME PIEGE : un reglage hors fiche oublie ICI serait pose par l entretien,
     // affiche par le diff, et jete a l application, sans que rien ne le signale. C est le defaut typique
     // d une capacite cablee sur deux consommateurs sur trois, deja paye une fois dans ce depot.
     ...(proposition.inactiviteMinutes !== undefined
-      && (!avantDe.has('inactiviteMinutes') || gardees.has('inactiviteMinutes'))
+      && avantDe.has('inactiviteMinutes') && gardees.has('inactiviteMinutes')
       ? { inactiviteMinutes: proposition.inactiviteMinutes }
+      : {}),
+    ...(proposition.transfertMode !== undefined
+      && avantDe.has('transfertMode') && gardees.has('transfertMode')
+      ? { transfertMode: proposition.transfertMode }
       : {}),
     /**
      * L'activation suit la même règle : sa ligne jetée, l'outil n'est pas activé. Et seulement pour un outil qui part :
@@ -313,6 +319,8 @@ export async function appliquerProposition(
       ? { contenu: proposition.fiche, ficheVersionAttendue: ficheVersion }
       : {}),
     ...(proposition.inactiviteMinutes !== undefined ? { inactiviteMinutes: proposition.inactiviteMinutes } : {}),
+    // Même piège que les deux réglages hors fiche ci-dessus : calculé par `restreindreProposition`, envoyé ICI.
+    ...(proposition.transfertMode !== undefined ? { transfertMode: proposition.transfertMode } : {}),
   };
   // 🔴 ON N ENVOIE QUE S IL Y A QUELQUE CHOSE A ENVOYER, mais on envoie des qu IL Y A QUELQUE CHOSE : la
   // condition portait sur la seule fiche, donc une proposition qui ne changeait QU UN reglage hors fiche
