@@ -5,6 +5,30 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : un STOP se compte à part dans Mes tableaux
+
+Demande de Julien : un STOP répondu à un template se comptait dans « A répondu (sans cliquer) ». Commit `2f1703cc2`,
+déployé avec `a43c927e7`.
+
+**Une poignée, pas une nature.** Le moteur (`executor.advance`) range une réponse écrite qui est une demande d'arrêt
+(`estDemandeArret`, la règle même qui désabonne, sur un message texte seulement) sous `reply_text` avec la poignée
+`stop` (`MESURE_STOP`, `web/lib/partage/mesure-stop.ts`), comme la pièce reçue l'est sous `fichier`. La nature reste
+celle que le CHECK de 0063 autorise : aucune migration. « A répondu (sans cliquer) » (poignée nulle) ne le compte plus,
+et Mes tableaux propose « A répondu STOP » sur chaque bloc de message, en gris ardoise. Les STOP d'avant restent dans
+« A répondu » : l'ancien journal ne les distingue pas.
+
+**Le coût d'une campagne l'écarte en SQL, pas dans son calcul.** `mesuresScenarioParCampagne` regroupe par (bloc,
+nature) SANS la poignée (pour ne pas compter deux fois une personne) : un filtre dans `assemblerDetailCampagne` aurait
+été mort. Le prédicat est dans la requête, et un cas d'intégration le tient.
+
+**Vérifications.** Le test du moteur échoue sans la correction et passe avec ; tsc, lint, auto-attaque (aucune
+trouvaille) et la console verts ; CI verte sur `2f1703cc2`. Fiche « Lire mes résultats » relue, son empreinte mise à
+jour, rechargée en production (373 lignes, 0 retirée).
+
+**Deux pertes de temps, sur des pièges déjà écrits.** La boucle de push attendait aussi le déploiement d'un pair
+resté en attente d'approbation ; celle de déploiement passait la liste des runs à `jq`, absent du poste, et a tourné
+40 minutes à vide. La seconde est désormais refusée par un hook du poste (`brain/LEARNINGS.md`, même date).
+
 ## 2026-11-26 : segments Shopify, lot 6d : les étiquettes Shopify en direct
 
 Plan : `docs/superpowers/plans/2026-11-26-segments-shopify-lot-6d-webhooks-etiquettes.md` (spec, chantier 4, lot 4b).
