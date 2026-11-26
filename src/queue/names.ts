@@ -200,6 +200,12 @@ export const SONDAGE_FILET_NOTIFIE = 60;
  * total. Pas de réveil à l'arrivée (hors de `FILES_NOTIFIEES`, le worker d'analyse n'écoute pas) ni de changement de
  * cadence : la première analyse d'une rafale attend toujours son tour, les suivantes plus.
  *
+ * `shopify-sans-whatsapp` (2026-11-26) : une fiche Shopify morte supprimée par job, en 0 s, sondée toutes les 60 s.
+ * Mesuré le même jour (instantané de la veille de charge) : 18 jobs en 15 min pendant une campagne, le plus vieux prêt
+ * à 318 s, traitement p95 0,0 s ; avec 4 prêts, la rafale (au-delà de 20) ne partait pas, et la file avançait d'un job par
+ * minute. Le vidage ne change ni la cadence de 60 s ni le réveil (hors de `FILES_NOTIFIEES`) : une seule boucle, donc une
+ * purge et un appel à l'agent de Meta à la fois, sans connexion de plus. Il ne retire que l'attente entre deux purges.
+ *
  * `push-analysis` (2026-11-21) : la suite de `analyze-conversation`, une boucle (concurrence 1). Mesuré le 2026-11-21
  * (`pgboss.job`) : vingt jobs de 0 s prêts vers 10:20, pris un par tour de 30 s, jusqu'à 539 s d'attente, et
  * l'alerte de retard de file. La rafale de pg-boss ne s'engage qu'AU-DELÀ de 20 prêts (`> SEUIL_RAFALE`) : 21 jobs
@@ -207,7 +213,7 @@ export const SONDAGE_FILET_NOTIFIE = 60;
  * nouveau : une boucle, un envoi à la fois au connecteur HubSpot, un 429 rejoué par `postAnalysis` et un échec par
  * `DELAI_REJEU_VIDAGE_SECONDES`.
  */
-export const FILES_VIDEES_EN_CONTINU: readonly (typeof BASE_QUEUES)[number][] = ['webhook', 'webhook-status', 'analyze-conversation', 'push-analysis'];
+export const FILES_VIDEES_EN_CONTINU: readonly (typeof BASE_QUEUES)[number][] = ['webhook', 'webhook-status', 'analyze-conversation', 'push-analysis', 'shopify-sans-whatsapp'];
 
 export function videeEnContinu(queue: string): boolean {
   return (FILES_VIDEES_EN_CONTINU as readonly string[]).includes(queue);

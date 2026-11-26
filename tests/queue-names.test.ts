@@ -308,7 +308,7 @@ describe('cadence de polling par file', () => {
     expect(videeEnContinu('webhook')).toBe(true);
     expect(filetNotifieSecondes('webhook')).toBeLessThanOrEqual(10);
     // Les autres files ne paient pas un réveil par message sans mesure qui le justifie (`agent-turn` : douze boucles).
-    const videes = ['webhook', 'webhook-status', 'analyze-conversation', 'push-analysis'];
+    const videes = ['webhook', 'webhook-status', 'analyze-conversation', 'push-analysis', 'shopify-sans-whatsapp'];
     for (const q of BASE_QUEUES.filter((x) => !videes.includes(x))) expect(videeEnContinu(q), q).toBe(false);
   });
 
@@ -325,6 +325,13 @@ describe('cadence de polling par file', () => {
     expect(videeEnContinu('push-analysis')).toBe(true);
     expect(notifieePour('push-analysis')).toBe(false);
     expect(pollingSecondsFor('push-analysis')).toBe(30);
+  });
+
+  it('🔴 la suppression des fiches Shopify sans WhatsApp vide son paquet, sans réveil ni cadence changés', () => {
+    // Mesuré le 2026-11-26 (veille de charge) : 18 jobs de 0 s en 15 min, un par minute, le plus vieux prêt à 318 s.
+    expect(videeEnContinu('shopify-sans-whatsapp')).toBe(true);
+    expect(notifieePour('shopify-sans-whatsapp')).toBe(false);
+    expect(pollingSecondsFor('shopify-sans-whatsapp')).toBe(60);
   });
 
   it('🔴 la file des accusés vide son paquet d’un coup, sans être réveillée à l’arrivée', () => {
