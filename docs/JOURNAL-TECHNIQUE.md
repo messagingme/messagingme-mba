@@ -5,6 +5,29 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : les coûts chiffrés à la grille de Meta quand Meta refuse son tarif
+
+Constat de Julien sur MUTAC : la carte « Coûts » affichait 0,00 pour les templates marketing, et « 399 sans tarif rendu
+par Meta ». Ce n'était pas le chemin HubSpot. Mesuré en production (sonde en lecture seule) : `pricing_analytics` sur le
+compte de MUTAC rend 400, code 10, « Application does not have permission for this action ». Meta ne rend le coût qu'à
+un BSP : c'est vrai de TOUT compte que le client paie lui-même, connu depuis le 2026-11-03 pour la régularisation, jamais
+répercuté sur les écrans de coût.
+
+**Le correctif** (`b49396f8d`) : quand le résumé de Meta est absent, `prixFactures` prend le tarif de base France de la
+grille de Meta chargée par `/ops` (`prixMetaFrance` : 0,0712 € le marketing, 0,0248 € l'utility, grille du 2026-10-01,
+relue en production), margé comme l'autre. Un résumé partiel et une devise autre que l'euro restent intacts ; sans
+grille, ou base illisible, « sans tarif » comme avant. Tous les consommateurs de `prixFactures` le prennent ensemble
+(carte des coûts, coût par campagne, coût des messages, ROI Shopify, bilan d'un contact) ; « Détail par template »
+reste la lecture brute.
+
+**Vérifications.** Tests du repli vérifiés dans les deux sens (repli retiré, puis garde de la grille illisible retirée :
+rouges) ; tsc, lint, auto-attaque (aucune trouvaille) ; suite entière, dont les seuls rouges (`sdk-contrat`, deux tests
+à délai) sortent identiques sur origin vierge ; CI verte job par job. Une relecture, aucun rouge, six jaunes à
+`todo.md`. Déployé avec `7d50d91b9` (run 45836450121, lancé par la session Shopify, avec la loupe de l'Inbox).
+
+**Le push refusé deux fois** : origin a bougé deux fois entre la lecture de sa tête et l'envoi. La boucle qui a fini par
+passer rebase, revérifie seulement si la tête touche ses fichiers, attend la CI de la tête, relit origin, puis pousse.
+
 ## 2026-11-26 : un STOP se compte à part dans Mes tableaux
 
 Demande de Julien : un STOP répondu à un template se comptait dans « A répondu (sans cliquer) ». Commit `2f1703cc2`,
