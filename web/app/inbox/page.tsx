@@ -29,6 +29,7 @@ import { InboxDossiers, libelleDossier, type DossierInbox } from '@/components/I
 import {
   apresRangement, destinationsEnLot, estActionRangement, libelleRangement, pastillesStatut, type ActionRangement,
 } from '@/lib/inbox-rangement';
+import { correspond, grouperParJour, GROUPE_URGENTES } from '@/lib/inbox-recherche';
 import {
   listConversations,
   countConversationsParDossier,
@@ -277,6 +278,22 @@ function InboxInner({ session }: { session: Session }) {
    * prendre, ranger, rendre la main). Un compteur et pas un appel : le panneau est un frère du fil, pas son enfant.
    */
   const [versionDetail, setVersionDetail] = useState(0);
+  /**
+   * La loupe (demande de Julien, 2026-11-26). `recherche` est ce qui est tapé, `rechercheAppliquee` ce qui part au
+   * serveur, 300 ms après la dernière frappe : une requête par lettre se battrait avec elle-même. Tant que le champ
+   * n'est pas vidé (la croix), la liste ne montre que ce qui correspond, rafraîchissements compris.
+   */
+  const [recherche, setRecherche] = useState('');
+  const [rechercheAppliquee, setRechercheAppliquee] = useState('');
+  useEffect(() => {
+    const minuterie = setTimeout(() => setRechercheAppliquee(recherche.trim()), 300);
+    return () => clearTimeout(minuterie);
+  }, [recherche]);
+  /** Les jours REPLIÉS de l'accordéon, par clé de jour. Tous dépliés par défaut ; un repli survit aux rafraîchissements. */
+  const [joursReplies, setJoursReplies] = useState<Set<string>>(new Set());
+  function basculerJour(cle: string): void {
+    setJoursReplies((s) => { const n = new Set(s); if (n.has(cle)) n.delete(cle); else n.add(cle); return n; });
+  }
 
   /**
    * Recharge la PREMIÈRE page. Le filtre est passé au serveur : le faire en mémoire ne voyait que les
@@ -285,7 +302,7 @@ function InboxInner({ session }: { session: Session }) {
   const reload = useCallback(async () => {
     setError(null);
     try {
-      const r = await listConversations(session.tenantId, { limit: TAILLE_PAGE, ...dossierEnParams(dossier) });
+      const r = await listConversations(session.tenantId, { limit: TAILLE_PAGE, recherche: rechercheAppliquee, ...dossierEnParams(dossier) });
       const liste = Array.isArray(r?.conversations) ? r.conversations : [];
       setConversations(liste);
       setPeutPrendre(r?.peutPrendre === true);
@@ -305,7 +322,7 @@ function InboxInner({ session }: { session: Session }) {
     } finally {
       setLoading(false);
     }
-  }, [session.tenantId, t, dossier]);
+  }, [session.tenantId, t, dossier, rechercheAppliquee]);
 
   /** Page SUIVANTE, à la suite de la dernière conversation affichée. */
   const chargerPlus = useCallback(async () => {
@@ -323,6 +340,8 @@ function InboxInner({ session }: { session: Session }) {
         // 🔴 ET SON RANG D'URGENCE, tel que le serveur l'a rendu : « À traiter » met les urgentes en tête, et une
         // page qui s'arrête à la frontière reprendrait sinon au mauvais endroit (migration 0216).
         before: { at: dernier.curseur ?? dernier.lastMessageAt, id: dernier.id, urgente: dernier.urgente === true },
+        // La MÊME loupe que la première page, sinon la suite ne serait pas la suite.
+        recherche: rechercheAppliquee,
         ...dossierEnParams(dossier),
       });
       const suite = Array.isArray(r?.conversations) ? r.conversations : [];
@@ -338,7 +357,7 @@ function InboxInner({ session }: { session: Session }) {
     } finally {
       setChargementPage(false);
     }
-  }, [session.tenantId, conversations, dossier, chargementPage]);
+  }, [session.tenantId, conversations, dossier, chargementPage, rechercheAppliquee]);
 
   /**
    * Les compteurs du menu, comptés par le SERVEUR sur toute la base (pas sur la page affichée).
@@ -368,7 +387,8 @@ function InboxInner({ session }: { session: Session }) {
 
   // Changer de dossier VIDE la sélection : garder des lignes cochées dans un dossier qu'on ne regarde plus
   // ferait ranger des conversations qu'on ne voit pas.
-  useEffect(() => { setCochees(new Set()); }, [dossier]);
+  // Même règle pour la loupe : une ligne cochée puis masquée par la recherche serait rangée sans être vue.
+  useEffect(() => { setCochees(new Set()); }, [dossier, rechercheAppliquee]);
 
   /** Coche ou décoche une ligne. */
   function basculerCoche(id: string): void {
@@ -518,8 +538,10 @@ function InboxInner({ session }: { session: Session }) {
     return () => { arreter(); document.removeEventListener('visibilitychange', tick); };
   }, [reload]);
 
-  // Le filtre est appliqué par le SERVEUR (`reload` le passe en paramètre) : la liste reçue est déjà la bonne.
-  const visible = conversations;
+  // Le dossier et la loupe sont appliqués par le SERVEUR (`reload` les passe en paramètre). La loupe l'est AUSSI ici,
+  // sur la page reçue : un serveur d'avant `?q=` rend la liste entière (`correspond`).
+  const visible = rechercheAppliquee === '' ? conversations : conversations.filter((c) => correspond(c, rechercheAppliquee));
+  const groupes = grouperParJour(visible, dossier === 'aTraiter');
 
   /** Un geste de l'en-tête du fil vient d'avoir lieu : la liste se recharge, et le panneau Détail se relit. */
   const apresGeste = useCallback(() => {
@@ -588,6 +610,35 @@ function InboxInner({ session }: { session: Session }) {
           </TitrePage>
           <button onClick={reload} className="shrink-0 text-xs text-brand-600 hover:underline">{t('Rafraîchir', 'Refresh')}</button>
         </div>
+        {/* LA LOUPE (demande de Julien, 2026-11-26) : nom, numéro ou dernier message, dans le dossier ouvert. La croix
+            vide le champ et rend toute la liste. */}
+        <div className="relative mb-2">
+          <Icone nom="rechercher" taille="ligne" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-400" />
+          <input
+            type="text"
+            role="searchbox"
+            data-testid="inbox-recherche"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setRecherche(''); }}
+            maxLength={80}
+            placeholder={t('Nom, numéro ou message', 'Name, number or message')}
+            aria-label={t('Rechercher une conversation', 'Search a conversation')}
+            className={`${inputCls} pl-8 pr-8`}
+          />
+          {recherche !== '' && (
+            <button
+              type="button"
+              data-testid="inbox-recherche-effacer"
+              onClick={() => setRecherche('')}
+              aria-label={t('Effacer la recherche', 'Clear search')}
+              title={t('Effacer la recherche', 'Clear search')}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            >
+              <Icone nom="fermer" taille="ligne" />
+            </button>
+          )}
+        </div>
         {/* Rangement en LOT : la barre n'apparaît qu'avec au moins une ligne cochée, pour ne pas occuper une
             place permanente au-dessus de la liste.
 
@@ -619,7 +670,9 @@ function InboxInner({ session }: { session: Session }) {
           <Squelette forme="lignes" />
         ) : visible.length === 0 ? (
           <div className="px-4 py-10 text-center text-sm text-ink-500">
-            {dossier === 'aTraiter'
+            {rechercheAppliquee !== ''
+              ? t(`Aucune conversation ne correspond à « ${rechercheAppliquee} ».`, `No conversation matches “${rechercheAppliquee}”.`)
+              : dossier === 'aTraiter'
               ? t('Rien à traiter : toutes les conversations sont gérées par le scénario.', 'Nothing to handle: every conversation is handled by the scenario.')
               : dossier === 'urgentes'
                 ? t('Aucune conversation urgente : marquez-en une depuis « Ranger dans… » quand elle presse.', 'No urgent conversation: mark one from “File in…” when it is pressing.')
@@ -635,7 +688,25 @@ function InboxInner({ session }: { session: Session }) {
           </div>
         ) : (
           <ul className="space-y-1.5 lg:flex-1 lg:overflow-y-auto">
-            {visible.map((c) => (
+            {groupes.map((g) => {
+              const replie = joursReplies.has(g.cle);
+              return (
+              <Fragment key={g.cle}>
+              {/* L'ACCORDÉON PAR JOUR (demande de Julien, 2026-11-26) : le jour du DERNIER contact, reçu ou envoyé.
+                  Sans nombre, comme le titre : un jour coupé par la pagination afficherait un compte faux. */}
+              <li className={g === groupes[0] ? '' : 'pt-2'}>
+                <button
+                  type="button"
+                  onClick={() => basculerJour(g.cle)}
+                  aria-expanded={!replie}
+                  data-testid={`inbox-jour-${g.cle}`}
+                  className="flex w-full items-center gap-1.5 rounded-controle px-1 py-0.5 text-left text-xs font-semibold uppercase tracking-wide text-ink-500 hover:bg-ink-50 hover:text-ink-700"
+                >
+                  <Icone nom="deplier" taille="ligne" className={`shrink-0 transition-transform duration-150 ${replie ? '-rotate-90' : ''}`} />
+                  {g.cle === GROUPE_URGENTES ? t('Urgentes', 'Urgent') : dayLabel(g.instant ?? g.cle, locale)}
+                </button>
+              </li>
+              {!replie && g.lignes.map((c) => (
               <li key={c.id}>
                 {/*
                   DEUX gestes distincts sur la même vignette, donc deux boutons FRÈRES et non imbriqués (un
@@ -746,7 +817,9 @@ function InboxInner({ session }: { session: Session }) {
                         </span>
                       )}
                     </span>
-                    <span className="pointer-events-none shrink-0 text-xs text-ink-500">{jourHeure(c.lastMessageAt, locale)}</span>
+                    {/* L'heure seule : le jour est dans l'en-tête de l'accordéon, sauf pour les urgentes en tête
+                        d'« À traiter », groupées hors des jours, qui gardent jour et heure. */}
+                    <span className="pointer-events-none shrink-0 text-xs text-ink-500">{g.cle === GROUPE_URGENTES ? jourHeure(c.lastMessageAt, locale) : hourMin(c.lastMessageAt, locale)}</span>
                   </div>
                   {/* 🔴 PLUS AUCUN BADGE DANS LA LISTE (demande de Julien, 2026-09-11 : « quand un agent a
                       la main, laisse juste le frame en blanc, pas obligé d'écrire Vous avez la main »).
@@ -757,7 +830,10 @@ function InboxInner({ session }: { session: Session }) {
                       et le besoin du mot juste. */}
                 </div>
               </li>
-            ))}
+              ))}
+              </Fragment>
+              );
+            })}
             {/* Chargement à la demande plutôt qu'au défilement : l'auto-refresh de 15 s recharge la première
                 page, et un défilement infini se battrait avec lui à chaque tour. */}
             {peutCharger && (

@@ -170,6 +170,8 @@ export function listConversations(
      */
     before?: { at: string; id: string; urgente?: boolean };
     aTraiter?: boolean; urgentes?: boolean; affectee?: string | 'aucune'; signalees?: boolean; archivees?: boolean; traitees?: boolean; id?: string;
+    /** La loupe : nom, numéro ou dernier message. Combinée au dossier. */
+    recherche?: string;
   } = {},
 ): Promise<{
   conversations: Conversation[];
@@ -195,6 +197,8 @@ export function listConversations(
   if (opts.archivees) p.set('archivees', '1');
   // Le dossier « Traité » (migration 0160). Il n'exclut PAS de « Tout », contrairement à Archivé.
   if (opts.traitees) p.set('traitees', '1');
+  // La loupe. Un serveur qui ne la connaît pas encore l'ignore : l'écran filtre alors la page reçue lui-même.
+  if (opts.recherche && opts.recherche.trim() !== '') p.set('q', opts.recherche.trim());
   // Le curseur part ENTIER ou pas du tout : le serveur ignore une moitié, autant ne pas l'envoyer.
   if (opts.before) {
     p.set('beforeAt', opts.before.at);

@@ -307,6 +307,7 @@ export function registerInbox(app: FastifyInstance, deps: InboxRouteDeps, garde:
     const q = (req.query ?? {}) as {
       limit?: unknown; beforeAt?: unknown; beforeId?: unknown; beforeUrgente?: unknown; id?: unknown;
       aTraiter?: unknown; urgentes?: unknown; signalees?: unknown; archivees?: unknown; traitees?: unknown; affectee?: unknown;
+      q?: unknown;
     };
     const opts: ListConversationsOptions = {};
     /**
@@ -331,6 +332,8 @@ export function registerInbox(app: FastifyInstance, deps: InboxRouteDeps, garde:
      * lire. `'aucune'` est une valeur, le dossier « Non affectées », pas une absence.
      */
     if (typeof q.affectee === 'string' && q.affectee !== '') opts.affectee = q.affectee;
+    // La loupe de l'Inbox (`?q=`). Bornée et nettoyée par le magasin ; la route ne lit que sa forme.
+    if (typeof q.q === 'string' && q.q.trim() !== '') opts.recherche = q.q;
     // Le curseur n'a de sens qu'entier : une moitié rendrait une page arbitraire, donc on exige les deux.
     if (typeof q.beforeAt === 'string' && q.beforeAt !== '' && typeof q.beforeId === 'string' && q.beforeId !== '') {
       // Le rang d'urgence du point de reprise, que seul « À traiter » lit (`ListConversationsOptions.before`). Absent

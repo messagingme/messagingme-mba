@@ -1907,6 +1907,14 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
 
 ## Inbox
 
+- **LA LOUPE ET LES JOURS DE LA LISTE** (2026-11-26, demande de Julien). Au-dessus de la liste des conversations,
+  un champ de recherche cherche un nom, un numéro (tapé avec ou sans « + » ni espaces) ou un mot du dernier
+  message, dans le dossier ouvert. Tant qu'il n'est pas vidé, la liste ne montre que ce qui correspond,
+  rafraîchissements et « Charger plus » compris ; la croix dans le champ (ou Échap) le vide et rend toute la liste.
+  La liste est rangée **par jour du dernier contact**, reçu ou envoyé (« Aujourd'hui », « Hier », puis la date) :
+  un clic sur un jour le replie ou le déplie, et chaque ligne n'affiche plus que l'heure. Dans « À traiter », les
+  conversations urgentes forment un premier groupe « Urgentes », avant les jours.
+
 - 🟡 **LE PANNEAU DÉTAIL D'UNE CONVERSATION** (2026-09-29, écrit, pas encore déployé ; migration 0192). Quand
   une conversation est choisie, la colonne des conversations se partage : la liste en haut, le détail en bas,
   moitié-moitié, chacun défile seul. Il montre **qui est la personne** (nom, prénom, téléphone, e-mail, ses tags,

@@ -1,11 +1,15 @@
 ---
 slug: reply-in-the-inbox
-traduit_de: 9065c1
+traduit_de: 19d61c
 ---
 # Reply to a customer in the Inbox
 
 The Inbox reads like a mailbox: a column of folders on the left, the list of conversations in the middle, the open
 conversation on the right.
+
+The list is grouped by day of the last message: click a day to fold it. The magnifying
+glass above it finds a conversation by name, number or a word of the last message; the cross brings the whole list
+back.
 
 **1. Open “To handle”.** This is the folder of conversations where the ball is in your court. A conversation leaves
 it as soon as someone on your side, or the bot, has replied: you are then waiting for the customer, there is nothing

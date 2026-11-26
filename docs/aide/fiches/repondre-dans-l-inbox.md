@@ -1,7 +1,7 @@
 ---
 ecran: inbox
 source_section: Inbox
-source_empreinte: 7b85c3
+source_empreinte: 70379e
 publique: oui
 rubrique: parler-aux-clients
 rang: 1
@@ -12,6 +12,9 @@ video: oui
 
 L'Inbox se lit comme une boîte mail : une colonne de dossiers à gauche, la liste des conversations au milieu, la
 conversation ouverte à droite.
+
+La liste est rangée par jour du dernier message : un clic sur un jour le replie. La
+loupe au-dessus retrouve une conversation par nom, numéro ou mot du dernier message ; la croix rend toute la liste.
 
 **1. Ouvrir « À traiter ».** C'est le dossier des conversations où la balle est dans votre camp. Une
 conversation en sort dès que quelqu'un de chez vous, ou le robot, a répondu : on attend alors le client, il n'y

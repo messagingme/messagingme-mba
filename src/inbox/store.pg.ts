@@ -144,6 +144,18 @@ export interface ListConversationsOptions {
    */
   depuis?: string;
   jusqua?: string;
+  /**
+   * La loupe de l'Inbox : un texte cherché, sans casse, dans le nom du contact, son numéro et l'aperçu du dernier
+   * message. Il se COMBINE au dossier (on cherche dans ce qu'on regarde). Les jokers de LIKE y sont littéraux, et un
+   * numéro tapé avec espaces ou « + » se compare sur ses seuls chiffres. Vide = aucun filtre. Même règle à l'écran,
+   * pour les conversations déjà chargées : `web/lib/inbox-recherche.ts`.
+   */
+  recherche?: string;
+}
+
+/** Le texte tapé dans la loupe, en motif LIKE littéral : `%`, `_` et l'antislash ne sont pas des jokers. */
+function motifLitteral(texte: string): string {
+  return `%${texte.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
 }
 
 export interface ConversationMessage {
@@ -1123,6 +1135,19 @@ export class PgInboxStore implements InboxStore {
       where.push(`(c.signalee_le is not null or exists (select 1 from conversation_analysis a where a.conversation_id = c.id and a.abusive))`);
     }
     if (opts.traitees === true) where.push('c.traitee_le is not null');
+    const recherche = (opts.recherche ?? '').trim().slice(0, 80);
+    if (recherche !== '') {
+      params.push(motifLitteral(recherche));
+      const texte = `$${params.length}`;
+      // Le numéro, sur ses seuls chiffres dès que le texte en porte trois (« +33 6 12 » trouve 33612…), sinon tel quel.
+      const chiffres = recherche.replace(/\D/g, '');
+      let numero = `c.wa_id ilike ${texte}`;
+      if (chiffres.length >= 3) {
+        params.push(`%${chiffres}%`);
+        numero = `c.wa_id like $${params.length}`;
+      }
+      where.push(`(ct.profile_name ilike ${texte} or ${numero} or c.last_preview ilike ${texte})`);
+    }
     if (opts.depuis !== undefined) {
       params.push(opts.depuis);
       where.push(`c.last_message_at >= $${params.length}::timestamptz`);

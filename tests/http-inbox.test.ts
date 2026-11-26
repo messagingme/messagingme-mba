@@ -1557,6 +1557,16 @@ describe('les filtres de la liste arrivent au magasin', () => {
     expect(vus[0]).toMatchObject({ aTraiter: true, signalees: true, archivees: true, traitees: true });
     await a.close();
   });
+
+  it('la loupe (`?q=`) passe au magasin ; vide ou blanche, aucun filtre', async () => {
+    vus.length = 0;
+    const a = espion();
+    await a.inject({ method: 'GET', url: '/tenants/t1/conversations?q=Dupont&aTraiter=1', ...auth() });
+    await a.inject({ method: 'GET', url: '/tenants/t1/conversations?q=%20%20', ...auth() });
+    expect(vus[0]).toMatchObject({ recherche: 'Dupont', aTraiter: true });
+    expect(vus[1]).not.toHaveProperty('recherche');
+    await a.close();
+  });
 });
 
 /**
