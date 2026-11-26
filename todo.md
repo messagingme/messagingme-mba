@@ -1,5 +1,20 @@
 # todo.md : backlog
 
+## 🟡 Le coût chiffré à la grille de Meta quand Meta refuse son tarif : la relecture (2026-11-26, aucun rouge)
+
+- « Détail par template » (`getPricing`, `web/components/analytics/cartes.tsx`) reste la lecture brute de Meta : chez un
+  client qui paie lui-même, il dit « Prix Meta indisponible » à côté d'une carte « Coûts » chiffrée. Adapter son libellé
+  (« tarif de la grille de Meta ») ou lui donner le même repli.
+- Un espace payé par la ligne de crédit du partenaire (Crédit WhatsApp) n'a pas de COST non plus : il est désormais
+  estimé au tarif de base France × marge template, pas au prix qu'il paie (`prixMessage`, commission du crédit). Le
+  brancher sur `prixMessage` pour ces numéros.
+- Tarif France pour tous les envois : un destinataire étranger est mal estimé (ni marché ni palier). Le pays est
+  dans `wa_id` ; le volume par pays demanderait de changer `getCostVolume`.
+- Une panne passagère de Meta (429) fait passer une minute du tarif réel au tarif de la grille : écart faible.
+- Tests à ajouter : grille sans utility (« sans tarif » partiel), espace sans WABA (le repli s'y applique aussi).
+- Le ROI Shopify d'un tel espace compte désormais le service et le RCS dans le coût (la devise passe de `null` à
+  `EUR`) : son ROI baisse, c'est voulu, à dire si un client le remarque.
+
 ## 🟡 Un STOP fait taire l'agent de Meta : la relecture (2026-11-26, aucun rouge)
 
 - 🟡 **Forme du numéro (Brésil, Mexique)** : le retrait programmé au STOP compare le `waId` du webhook tel quel à

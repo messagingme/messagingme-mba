@@ -1890,8 +1890,9 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
   - À ne pas confondre avec **« Arrêter »**, qui n'existe que sur une campagne au fil de l'eau et qui est
     définitif : la pause est une suspension, l'arrêt est un point final.
 - ✅ **Coût estimé par campagne** : « ≈ X (devise du compte) » par campagne + total, dérivé de VOTRE prix
-  (le tarif Meta de `pricing_analytics`, majoré de votre marge) × nb envoyés facturables. « indisponible »
-  si le prix Meta ne remonte pas (jamais 0).
+  (le tarif Meta de `pricing_analytics`, majoré de votre marge) × nb envoyés facturables. Quand Meta ne rend
+  pas son tarif (un compte WhatsApp que vous payez vous-même), le tarif de base France de la grille publiée par
+  Meta le remplace. « indisponible » si aucun des deux n'est connu (jamais 0).
 - ✅ **Les templates avec un VISUEL d'en-tête partent correctement** (2026-08-17). WhatsApp exige que l'image
   (ou la vidéo, ou le document) d'en-tête soit fournie à chaque envoi : celle déposée à la création du template
   ne sert qu'à sa validation par Meta. **Rien à faire côté utilisateur** : l'image est reprise du template

@@ -8,6 +8,7 @@ import { PLAFOND_TOURS_IA } from '../src/stats/cout-ia';
 import { ventilationVide } from '../src/agent/natures-credit';
 import { estimationMbaMicroEur } from '../web/lib/partage/agent-meta';
 import type { PricingSummary } from '../src/meta/pricing';
+import type { GrilleMeta } from '../src/credit-whatsapp/grille';
 import type { LienTrace } from '../src/links/tracked-links.pg';
 
 /**
@@ -62,6 +63,8 @@ function monter(o: {
   bilan?: Awaited<ReturnType<DepsChiffrage['historique']['bilanContact']>>;
   liens?: Partial<DepsChiffrage['liens']>;
   retentionJours?: number;
+  /** La grille de Meta chargée par `/ops` ; absente par défaut, ce qui garde le « sans tarif » d'avant. */
+  grilleMeta?: GrilleMeta | null | 'panne';
 } = {}) {
   const appels: Appel[] = [];
   const note = (m: string) => (...args: unknown[]) => { appels.push({ m, args }); };
@@ -103,6 +106,11 @@ function monter(o: {
         };
       },
     },
+    grilleMeta: async () => {
+      note('grilleMeta')();
+      if (o.grilleMeta === 'panne') throw new Error('base injoignable');
+      return o.grilleMeta ?? null;
+    },
     historique: { bilanContact: async () => o.bilan ?? null },
     scenarios: { getById: async (...a) => { note('getById')(...a); return { graph: o.graphe ?? { nodes: [] } }; } },
     liens: {
@@ -128,6 +136,65 @@ const ligneRcs = (campaignId: string): VolumeCampagneRow => ({
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+/** Une grille de Meta : la France et un autre marché, plus chers, qu'aucun repli ne doit lire. */
+const GRILLE_META: GrilleMeta = {
+  id: 'g1',
+  enVigueurLe: '2026-10-01',
+  tarifs: [
+    { marche: 'FR', categorie: 'marketing', palier: 0, prixMicroEur: 100_000 },
+    { marche: 'FR', categorie: 'utility', palier: 0, prixMicroEur: 20_000 },
+    { marche: 'DE', categorie: 'marketing', palier: 0, prixMicroEur: 900_000 },
+    { marche: 'DE', categorie: 'utility', palier: 0, prixMicroEur: 900_000 },
+  ],
+};
+
+const VOLUME_MIXTE = {
+  getCostVolume: async () => [
+    { date: '2026-09-02', category: 'marketing', count: 10 },
+    { date: '2026-09-02', category: 'utility', count: 100 },
+  ],
+};
+
+describe('🔴 Meta refuse son tarif (compte payé par le client, code 10) : la grille de Meta prend le relais', () => {
+  it('les envois sont chiffrés au tarif France de la grille, margé une fois, en euros', async () => {
+    const { chiffrage } = monter({ tarif: async () => null, grilleMeta: GRILLE_META, stats: VOLUME_MIXTE });
+    const s = await chiffrage.getCostSeries(T, PLAGE, {});
+    // (10 x 0,10 + 100 x 0,02) x 1,5 : le cas MUTAC, 399 envois chiffrés au lieu de « sans tarif ».
+    expect(s.total).toBe(4.5);
+    expect(s.sansTarif).toBe(0);
+    expect(s.currency).toBe('EUR');
+  });
+
+  it('le coût des messages et le bilan d un contact lisent le même repli', async () => {
+    const { chiffrage } = monter({ tarif: async () => null, grilleMeta: GRILLE_META, stats: VOLUME_MIXTE });
+    const prix = await chiffrage.getPrixLeviers(T, PLAGE);
+    expect(prix.tarifs.marketing).toBeCloseTo(0.15, 6);
+    expect(prix.tarifs.utility).toBeCloseTo(0.03, 6);
+  });
+
+  it('sans grille chargée, rien n est inventé : « sans tarif » comme avant', async () => {
+    const { chiffrage } = monter({ tarif: async () => null, grilleMeta: null, stats: VOLUME_MIXTE });
+    const s = await chiffrage.getCostSeries(T, PLAGE, {});
+    expect(s.total).toBe(0);
+    expect(s.sansTarif).toBe(110);
+    expect(s.currency).toBeNull();
+  });
+
+  it('une grille illisible (base en panne) rend « sans tarif », jamais une erreur des écrans de coût', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { chiffrage } = monter({ tarif: async () => null, grilleMeta: 'panne', stats: VOLUME_MIXTE });
+    const s = await chiffrage.getCostSeries(T, PLAGE, {});
+    expect(s.sansTarif).toBe(110);
+  });
+
+  it('quand Meta rend son tarif, la grille n est même pas lue', async () => {
+    const { chiffrage, argsDe } = monter({ grilleMeta: { ...GRILLE_META, tarifs: [] }, stats: VOLUME_MIXTE });
+    const s = await chiffrage.getCostSeries(T, PLAGE, {});
+    expect(s.total).toBe(4.5);
+    expect(argsDe('grilleMeta')).toHaveLength(0);
+  });
 });
 
 describe('la marge est BRANCHÉE sur chaque chemin qui rend un prix', () => {

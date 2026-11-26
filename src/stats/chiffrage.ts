@@ -1,6 +1,8 @@
 import { cacheCourt } from '../lib/cache-court';
 import { messageDe } from '../lib/erreur';
 import type { PricingSummary } from '../meta/pricing';
+import type { GrilleMeta } from '../credit-whatsapp/grille';
+import { prixMetaFrance } from '../mcp/prix-meta';
 import type { LienTrace } from '../links/tracked-links.pg';
 import {
   noeudsTemplate, compteursDeClics, liensRcsDesNoeuds, compteursDeClicsRcs, type CompteurClic, type NoeudTemplate,
@@ -82,6 +84,13 @@ export interface DepsChiffrage {
   waba: { getTenantWabaId(tenantId: string): Promise<string | null> };
   /** Le client de tarif de l'espace : jeton par espace, repli sur le jeton global. */
   meta: { pricingClientForTenant(tenantId: string): Promise<ClientTarif> };
+  /**
+   * La grille de Meta en euros chargée par `/ops` (celle du Crédit WhatsApp) : le tarif de repli quand Meta ne rend pas
+   * le sien. 🔴 Requise : Meta refuse `pricing_analytics` (code 10) sur tout compte que le client paie lui-même, puisque
+   * nous ne sommes pas BSP (mesuré le 2026-11-03, puis chez MUTAC le 2026-11-26), et sans repli la carte des coûts de ces
+   * espaces affiche 0,00 pour des centaines d'envois.
+   */
+  grilleMeta(): Promise<GrilleMeta | null>;
   /** Le bilan d'un contact : ses envois par catégorie et ses profondeurs d'engagement. */
   historique: {
     bilanContact(tenantId: string, contactId: string): Promise<{ envois: VolumeContactRow[]; profondeurs: number[] } | null>;
@@ -216,10 +225,27 @@ export function creerChiffrage(d: DepsChiffrage): LecturesDeCout {
     const pricing = pricingClientT && wabaId
       ? await tarifMeta(tenant, startTs, endTs, () => pricingClientT.getPricingAnalytics(wabaId, startTs, endTs))
       : null;
+    if (pricing === null) {
+      // Meta ne rend rien (compte payé par le client, 360dialog, panne) : le tarif de base de Meta pour la France, lu
+      // dans sa grille publiée, en euros. Une estimation, comme tout l'écran ; sans grille, « sans tarif » comme avant.
+      // Seulement quand Meta ne rend RIEN : un résumé partiel garde ses trous, une devise de compte autre que l'euro
+      // ne se mélange jamais à la grille.
+      // Une lecture de grille en échec retombe sur « sans tarif » : elle ne doit pas faire tomber les écrans de coût.
+      const repli = prixMetaFrance(await d.grilleMeta().catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error('grille de Meta illisible pour le repli de tarif:', messageDe(err));
+        return null;
+      }));
+      return tarifsFactures({
+        marketing: repli?.par_message_livre.marketing,
+        utility: repli?.par_message_livre.utility,
+        currency: repli ? repli.devise : null,
+      }, grilleDepuisLigne(ligne));
+    }
     return tarifsFactures({
-      marketing: pricing?.byCategory['marketing']?.ratePerMessage,
-      utility: pricing?.byCategory['utility']?.ratePerMessage,
-      currency: pricing?.currency,
+      marketing: pricing.byCategory['marketing']?.ratePerMessage,
+      utility: pricing.byCategory['utility']?.ratePerMessage,
+      currency: pricing.currency,
     }, grilleDepuisLigne(ligne));
   };
 

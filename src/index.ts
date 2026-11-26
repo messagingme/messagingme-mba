@@ -739,6 +739,7 @@ async function main(): Promise<void> {
         throw err;
       }),
     },
+    grilleMeta: () => reglagesCreditWhatsapp.grilleEnVigueur(),
     historique: contactHistoryStore,
     scenarios: workflowStore,
     liens: trackedLinkStore,

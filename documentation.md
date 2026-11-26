@@ -323,7 +323,7 @@ pour identifiant, statut remis en MAJUSCULES, jamais modifiable, pagination `lim
 téléchargement direct (`estCdnDeMeta`), une adresse `/m/` se lit dans la médiathèque de l'espace, tout le reste passe
 par le téléchargement GARDÉ. L'en-tête d'un modèle CRÉÉ sur un tel espace est une image de sa médiathèque (adresse `/m/`,
 la forme mesurée) ; une vidéo y est refusée. Ce qui reste Graph (statut du numéro, agent de Meta, tarif) échoue donc
-FERMÉ pour un tel espace ; le tarif y est « absent », comme sans tarif, et toute autre route qui heurte
+FERMÉ pour un tel espace ; le tarif de Meta y est « absent » (les coûts prennent alors la grille de Meta), et toute autre route qui heurte
 `CompteChez360dialog` rend un 409 lisible (gestionnaire d'erreurs de `src/server.ts`), jamais un 500. `account-status`
 dit le `fournisseur` (lu en SQL avec le numéro, rien n'est déchiffré) ; pour 360dialog il n'interroge pas Meta, et sa
 pastille est grise « connecté », ou rouge quand la clé a été refusée. La connexion par Embedded Signup est REFUSÉE sur un
@@ -5811,6 +5811,12 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   catégorie chez Meta est gardé 30 s, pas plus.
 - Un compte qui ne reçoit AUCUN `COST` de `pricing_analytics` (un compte payé par la ligne d'un partenaire) a un résumé de
   coût inconnu, jamais « 0 € » ; un compte qui en reçoit garde la lecture point par point.
+- 🔴 **Quand Meta ne rend aucun tarif, les écrans de coût prennent la grille de Meta** (`prixFactures`,
+  `src/stats/chiffrage.ts`) : son tarif de base France (`prixMetaFrance`), margé comme l'autre. C'est le cas de TOUT compte
+  que le client paie lui-même (Meta refuse `pricing_analytics` en code 10 hors BSP, mesuré chez MUTAC le 2026-11-26), d'un
+  compte 360dialog et d'une panne. Seulement quand le résumé est ABSENT : un résumé partiel garde ses trous, et une devise
+  de compte autre que l'euro ne se mélange jamais à la grille. Sans grille chargée, « sans tarif » comme avant.
+  « Détail par template » (`getPricing`) reste, lui, la lecture brute de Meta.
 - 🔴 **La régularisation sur les volumes de Meta** (`src/credit-whatsapp/regularisation.ts`, tâche horaire
   `credit-whatsapp-regularisation` du rôle `principal`) est le seul filet de ce que la garde et l'accusé ne voient pas
   (une provision en doute, un accusé perdu, un message jamais livré, un rejeu qui envoie deux fois, un envoi hors
