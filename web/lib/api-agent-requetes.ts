@@ -25,7 +25,8 @@ export type OrigineVariable =
 
 export interface VariableRequete {
   nom: string;
-  type: 'string' | 'number' | 'integer' | 'boolean';
+  /** `json` : la valeur d'un champ JSON du contact, insérée telle quelle dans un corps JSON (seule origine permise : un champ). */
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'json';
   origine: OrigineVariable;
   description?: string;
   requis?: boolean;

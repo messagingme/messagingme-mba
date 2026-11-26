@@ -2,7 +2,7 @@
 description: Brancher votre CRM ou votre boutique : déclarer le système, mettre au point un appel, l'essayer, puis le donner à un agent IA ou à un scénario.
 ecran: connecteurs
 source_section: Brancher vos systèmes : les connecteurs API (menu « Tools » > Connecteurs API)
-source_empreinte: 049168
+source_empreinte: 3c13fd
 publique: oui
 rubrique: parler-aux-clients
 rang: 13
@@ -54,6 +54,8 @@ personnalisé, une valeur système (la date, le dernier message du contact) ou u
 - Pour envoyer une pièce reçue dans un scénario (photo, PDF), choisissez le corps « formulaire avec fichier » et
   cochez « fichier » sur la ligne qui porte la pastille du champ de la pièce : c'est le fichier qui part, et seul le
   bloc Appel API d'un scénario joue cet appel.
+- Une donnée qui vient d'un champ JSON peut avoir le type « JSON » : dans un corps en JSON brut, elle part telle quelle,
+  en objet. Les images d'une réponse rangée dans un champ JSON ne sont jamais gardées.
 - L'authentification ne se met pas dans les en-têtes d'un appel : elle vit sur le système.
 
 **5. Essayer, cocher, enregistrer.** « Essayer » joue l'appel avec vos valeurs d'essai et montre ce qui est parti, le

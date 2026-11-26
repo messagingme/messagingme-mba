@@ -633,6 +633,9 @@ function OngletVariables({ brouillon, maj, champs, catalogue }: {
             <option value="number">{t('nombre', 'number')}</option>
             <option value="integer">{t('entier', 'integer')}</option>
             <option value="boolean">{t('oui/non', 'yes/no')}</option>
+            {/* Un champ JSON du contact, inséré tel quel dans un corps en JSON brut (par exemple une analyse renvoyée
+                plus tôt par un autre appel). Le serveur refuse ce type pour une donnée qui ne vient pas d'un champ. */}
+            {(v.origine.type === 'champ' || v.type === 'json') && <option value="json">{t('JSON', 'JSON')}</option>}
           </select>
           {/* La case seule, sous l'intitulé « Obligatoire » ; la hauteur est celle d'un champ, pour rester alignée. */}
           <div className="flex h-[38px] w-24 items-center">

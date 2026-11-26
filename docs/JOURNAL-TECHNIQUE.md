@@ -5,6 +5,14 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : une réponse se range sans ses images, et un champ JSON s'insère tel quel dans un appel
+
+Suite de l'essai Everial. Mesuré sur une vraie CNI ce jour : chaque face s'analyse seule (`/analyze`) et signale l'autre
+manquante (`ValidationRulePlugin.CheckPageExistsRequiredError`) ; `/consolidate` (`{"validations": [...]}`) réunit les
+faces et lève la règle, avec le MÊME résultat que les arbres portent leurs images ou non (134 Ko contre 5 Ko envoyés).
+⚠️ Son `status` vaut `ok` même quand une face manque : le dossier complet se lit à l'absence de la règle. Plan
+`2026-11-26-json-sans-images-et-variable-json`.
+
 ## 2026-11-26 : segments Shopify, lot 7a : le rattrapage remonte à 24 mois en Pro
 
 Plan : `docs/superpowers/plans/2026-11-26-segments-shopify-lot-7a-historique-24-mois.md` (spec, chantier 2, lot 2b ;

@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 Donnée JSON et réponse sans images (plan `2026-11-26-json-sans-images-et-variable-json`) : la relecture (2026-11-26, aucun rouge)
+
+- **La route n'impose pas que la donnée JSON vienne d'un champ de TYPE json** : un champ texte rempli par un bloc Question,
+  déclaré json, se relit en objet (le contenu du nœud visé change, jamais les clés du gabarit). Injecter le type des champs
+  dans la route (`clesDeChamps` ne rend que les clés) et ne proposer l'option qu'aux champs json dans la console.
+- **`estUneImage` retire sans trace une longue chaîne base64url** (jeton opaque de continuation, blob signé) : la compter
+  ou la journaliser, et le dire dans la doc ; une data URI noyée dans un texte (HTML) n'est pas vue.
+- **Console** : passer l'origine d'une donnée JSON de « champ » à autre chose laisse le type JSON, que le serveur refuse ;
+  le ramener à « texte ».
+
 ## 🟡 Le coût chiffré à la grille de Meta quand Meta refuse son tarif : la relecture (2026-11-26, aucun rouge)
 
 - « Détail par template » (`getPricing`, `web/components/analytics/cartes.tsx`) reste la lecture brute de Meta : chez un

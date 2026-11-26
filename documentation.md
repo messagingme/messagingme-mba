@@ -610,6 +610,13 @@ publication d'un brouillon qui attend un fichier sans elle est refusée (422 `fi
   d'opt-out et le relais du MBA, qui refusent alors l'appel au lieu d'envoyer le texte à la place du fichier. Délai
   `DELAI_APPEL_PIECE_MS` (30 s) et lecture de la réponse jusqu'à `MAX_OCTETS_REPONSE_PIECE` (2 Mo) pour ces appels.
 
+🔴 **Une réponse rangée dans un champ `json` perd ses images** (`sansImages`, `src/lib/sans-images.ts`, dans
+`valeurPourChampJson`) : data URI d'image ou base64 d'au moins 1 000 caractères, clé ou élément de liste retiré. Une
+pièce d'identité ne doit pas devenir une donnée de fiche (console, export, API). **Une donnée de type `json`**
+(`TypeVariable`) se relit en objet (`lireValeurJson`) et, seule dans un corps JSON, s'insère telle quelle ; vide, elle
+disparaît d'une liste (`construireCorps`, `variablesJson`). La route la réserve à l'origine `champ` et au corps JSON brut ;
+`paramsDuConnecteur` et le relais du MBA ne l'exposent jamais au modèle.
+
 🔴 **Une source `oauth_password` ne porte pas de jeton, elle le DEMANDE** (`src/agent/jeton-oauth.ts`, migration 0325).
 `agent_tool_sources.auth_oauth` garde ce qui n'est pas secret (adresse du jeton, `client_id`, identifiant, scope), le
 mot de passe reste dans `auth_secret_enc`. `jetonsOAuth.entetes(source)` est le point de passage UNIQUE des en-têtes

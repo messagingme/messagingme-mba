@@ -1,7 +1,7 @@
 ---
 description: Connect your CRM or shop: declare the system, set up a call, try it, then give it to an AI agent or a scenario.
 slug: connect-an-api-connector
-traduit_de: f376dd
+traduit_de: 10e4de
 ---
 # Connect an API connector
 
@@ -48,6 +48,8 @@ value (the date, the contact's last message) or a fixed value.
 - To send a document received in a scenario (photo, PDF), choose the "form with file" body and tick "file" on the line
   holding the chip of the document's field: the file itself is sent, and only a scenario API Call block runs this
   call.
+- A piece of data taken from a JSON field can have the "JSON" type: in a raw JSON body, it is sent as is, as an object.
+  Images in a response stored in a JSON field are never kept.
 - Authentication does not go in a call's headers: it lives on the system.
 
 **5. Try, tick, save.** "Try" runs the call with your test values and shows what went out, the status, the duration

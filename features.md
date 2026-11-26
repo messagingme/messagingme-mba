@@ -3844,6 +3844,13 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   attend alors jusqu'à 30 secondes et lit une réponse jusqu'à 2 Mo. L'agent IA et l'agent de Meta ne l'envoient
   jamais. « Essayer » y envoie un petit fichier texte, de quoi voir la forme de la réponse. Une pièce qui n'est plus
   dans le champ, ou qui a plus de 7 jours, fait échouer l'appel sans rien envoyer.
+- ✅ **Une donnée de type JSON** (2026-11-26) : une donnée qui vient d'un **champ JSON** du contact peut être déclarée
+  « JSON ». Placée dans un corps en JSON brut (`["{{recto}}", "{{verso}}"]`), elle part **telle quelle**, en objet, pas
+  en texte : de quoi renvoyer à un système le résultat d'un appel précédent (une analyse de pièce recto, puis verso, à
+  consolider). Vide, elle disparaît d'une liste au lieu d'y laisser un trou. Réservée aux champs du contact (jamais
+  décidée par l'agent) et au corps en JSON brut.
+- ✅ **Aucune image dans une fiche** (2026-11-26) : une réponse rangée dans un champ JSON perd ses images (photo,
+  signature d'une pièce, vignettes en base64) avant d'être écrite. Le reste de la réponse est gardé.
 - ✅ **Dire d'où vient chaque donnée envoyée** : décidée par l'agent, le **numéro ou le nom du contact**, un
   **champ personnalisé** de sa fiche, une **valeur système**, ou une constante. Une donnée peut être marquée
   « sans elle, on n'appelle pas ». **L'agent ne peut pas fabriquer un identifiant de client** : c'est ce qui
