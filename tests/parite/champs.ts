@@ -140,6 +140,7 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
 
   // Les réglages
   'PATCH /settings/transfert-agent': A_LA_MAIN,
+  'PATCH /settings/poussee-optout': A_LA_MAIN,
   'PATCH /settings/business-hours': A_LA_MAIN,
 
   // Les modèles WhatsApp

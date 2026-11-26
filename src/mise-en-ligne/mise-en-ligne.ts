@@ -189,6 +189,7 @@ const demandeDe = (g: ActionGardee): DemandeAction => {
     case 'suppression': return { type: 'suppression', contacts: g.contacts };
     case 'modele': return { type: 'modele', modele: g.modele, langue: g.langue, valeurs: g.valeurs, declarePar: g.declarePar, ...personneDe(g) };
     case 'envoi_scenario': return { type: 'envoi_scenario', scenario: g.scenario, valeurs: g.valeurs, declarePar: g.declarePar, ...personneDe(g) };
+    case 'poussee_optout': return { type: 'poussee_optout', requete: g.requete };
   }
 };
 
@@ -245,6 +246,7 @@ async function recapitulatifDe(deps: DepsMisesEnLigne, tenant: string, gardees: 
       case 'suppression':
       case 'modele':
       case 'envoi_scenario':
+      case 'poussee_optout':
         lignes.push(...recapitulatifEnvoi(g));
         break;
     }
@@ -423,8 +425,28 @@ async function executer(deps: DepsMisesEnLigne, tenant: string, id: string): Pro
  * la console pour une campagne ; une suppression et un modèle envoyé, aucune (toutes les offres).
  */
 function fonctionDe(a: ActionGardee): Fonction | null {
-  if (a.type === 'suppression' || a.type === 'modele') return null;
-  return a.type === 'campagne' ? 'console' : 'scenarios';
+  // Exhaustif, sans `default` : un type d'action de plus ne compile pas tant que sa fonction n'est pas dite ici. La poussée
+  // des désabonnements est ouverte à toutes les offres (une Free redescendue d'un Pro doit pouvoir la couper).
+  switch (a.type) {
+    case 'suppression':
+    case 'modele':
+    case 'poussee_optout':
+      return null;
+    case 'campagne':
+      return 'console';
+    case 'publier':
+    case 'restaurer':
+    case 'repondeur':
+    case 'envoi_scenario':
+      return 'scenarios';
+    default: {
+      // Une action que cette version ne connaît pas (écrite par une image plus récente) : aucune fonction ici, et
+      // `executerAction` la refuse fermée (`action_inconnue`). Le `never` refuse la compilation d'un type oublié plus haut.
+      const inconnue: never = a;
+      void inconnue;
+      return null;
+    }
+  }
 }
 
 async function executerAction(

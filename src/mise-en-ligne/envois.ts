@@ -13,6 +13,7 @@ import type { BulkTarget, FicheASupprimer, PgContactStore } from '../crm/contact
 import { effacerContacts, type DepsEffacement } from '../crm/effacement';
 import { numeroMasque } from '../emails-produit/alertes';
 import { estUuid } from '../http/scope';
+import { appelDeLEspace } from '../http/settings';
 import { refus, type Issue, type StatutRefus } from '../lib/issue';
 import { journaliser } from '../lib/journal';
 import type { Fonction } from '../offres/offres';
@@ -30,7 +31,10 @@ import type { MagasinScenariosApi } from '../workflow/scenarios-api';
  *  - `suppression` : effacer des contacts, par `effacerContacts`, l'effacement de la purge de la console et de
  *    `DELETE /v1/contacts/{id}` ;
  *  - `modele` et `envoi_scenario` (livraison 2) : envoyer un modèle, ou faire partir un scénario, vers UNE personne, par le
- *    cycle de `POST /v1/sends`, sous une clé d'idempotence tirée du oui : une reprise ne renvoie rien.
+ *    cycle de `POST /v1/sends`, sous une clé d'idempotence tirée du oui : une reprise ne renvoie rien ;
+ *  - `poussee_optout` (B10, livraison 1c) : choisir l'appel de connecteur prévenu à chaque désabonnement, ou n'en prévenir
+ *    aucun, par le MÊME réglage que l'écran des paramètres : brancher un appel fait partir des données de contact chez un
+ *    tiers (la table de parité le marque « au clic »).
  * 🔴 Une campagne et une suppression ne gardent aucune donnée de contact (0316) : des identifiants, l'état d'une
  * campagne, des compteurs. Un envoi à une personne garde, le temps du clic seulement, son numéro (ou sa fiche), les
  * valeurs de ses variables et le numéro masqué que le récapitulatif montre : ils s'effacent quand le oui se ferme
@@ -52,6 +56,18 @@ export interface DepsEnvoisAuOui {
     selection(tenantId: string, cible: BulkTarget, limite: number): Promise<FicheASupprimer[]>;
     /** L'effacement de la purge de la console : les MÊMES objets (`effacerContacts`). */
     effacement: DepsEffacement;
+  };
+  /**
+   * La poussée des désabonnements (B10, livraison 1c) : l'appel de connecteur prévenu à chaque refus, que la console règle
+   * dans ses paramètres (`GET` et `PATCH .../settings/poussee-optout`).
+   */
+  pousseeOptout: {
+    /** Les appels de connecteur de l'espace, la MÊME liste que l'écran. */
+    lister(tenantId: string): Promise<Array<{ id: string; label: string }>>;
+    /** L'appel prévenu aujourd'hui, `null` si aucun. */
+    actuelle(tenantId: string): Promise<string | null>;
+    /** Le MÊME réglage que la route de la console (`setOptoutRequestId`). */
+    choisir(tenantId: string, requestId: string | null): Promise<void>;
   };
   /** Les envois à une personne (livraison 2) : le cycle de `POST /v1/sends`, ses MÊMES dépendances que l'API. */
   individuels: {
@@ -108,6 +124,8 @@ export const RECAPITULATIF_EFFACE = 'Le détail de cet envoi (son destinataire, 
 export type DemandeEnvoi =
   | { type: 'campagne'; campagne: string }
   | { type: 'suppression'; contacts: string[] }
+  /** `requete` : l'appel de connecteur à prévenir, `null` pour n'en prévenir aucun. */
+  | { type: 'poussee_optout'; requete: string | null }
   | DemandeIndividuelle;
 
 /** Ce qui est gardé, montré, et ce qui partira tel quel. */
@@ -115,9 +133,14 @@ export type EnvoiGarde =
   /** `motif` : celui de la pause d'une reprise (`null` pour un brouillon) ; il est montré, gardé, et relu à l'exécution. */
   | { type: 'campagne'; campagne: string; nom: string; reprise: boolean; etat: EtatConfirme; motif: MotifDePause | null }
   | { type: 'suppression'; contacts: string[]; nom: string }
+  /**
+   * `actuelle` : l'appel prévenu au moment de la préparation, et `nomActuel` son libellé ; ils entrent dans l'empreinte, et
+   * le clic refuse si le réglage a changé.
+   */
+  | { type: 'poussee_optout'; requete: string | null; nom: string; actuelle: string | null; nomActuel: string | null }
   | EnvoiIndividuelGarde;
 
-const TYPES_D_ENVOI: ReadonlySet<string> = new Set(['campagne', 'suppression', 'modele', 'envoi_scenario']);
+const TYPES_D_ENVOI: ReadonlySet<string> = new Set(['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout']);
 export const estDemandeEnvoi = (d: { type: string }): d is DemandeEnvoi => TYPES_D_ENVOI.has(d.type);
 export const estEnvoiGarde = (g: { type: string }): g is EnvoiGarde => TYPES_D_ENVOI.has(g.type);
 
@@ -136,6 +159,7 @@ export async function releverEnvoi(
   deps: DepsEnvoisAuOui, tenant: string, fonctions: ReadonlySet<Fonction>, d: DemandeEnvoi, maintenant: number,
 ): Promise<Issue<EnvoiGarde>> {
   if (d.type === 'modele' || d.type === 'envoi_scenario') return releverIndividuel(deps, tenant, fonctions, d);
+  if (d.type === 'poussee_optout') return releverPoussee(deps, tenant, d.requete);
   if (d.type === 'campagne') {
     // Les campagnes sont une fonction de la console (Pro et au-delà), comme le bouton « Lancer » : relue au clic aussi.
     if (!fonctions.has('console')) return refusFonction('console');
@@ -170,6 +194,47 @@ export async function releverEnvoi(
   // Triés : la même liste de fiches donne la même empreinte, quel que soit l'ordre de la base.
   const contacts = fiches.map((f) => f.id).sort();
   return { ok: true, valeur: { type: 'suppression', contacts, nom: pluriel(contacts.length, 'contact') } };
+}
+
+/**
+ * La poussée relue : l'appel existe DANS l'espace (🔴 jamais accepté sur sa seule forme : un identifiant pris ailleurs
+ * ferait partir la poussée chez un autre client, et la clé étrangère ignore l'espace), et le choix change quelque chose.
+ */
+async function releverPoussee(deps: DepsEnvoisAuOui, tenant: string, requete: string | null): Promise<Issue<EnvoiGarde>> {
+  const actuelle = await deps.pousseeOptout.actuelle(tenant);
+  // L'appel en place se nomme : l'admin voit ce qu'il coupe ou remplace (il ne peut pas être supprimé tant qu'il est branché).
+  const nomActuel = actuelle === null ? null : (await appelDeLEspace(deps.pousseeOptout, tenant, actuelle))?.label ?? actuelle;
+  if (requete === null) {
+    if (actuelle === null) return refus(409, 'aucun appel n’est prévenu des désabonnements : il n’y a rien à couper');
+    return { ok: true, valeur: { type: 'poussee_optout', requete: null, nom: 'la poussée des désabonnements', actuelle, nomActuel } };
+  }
+  const r = await appelDeLEspace(deps.pousseeOptout, tenant, requete);
+  if (!r) return refus(404, 'cet appel de connecteur n’existe pas dans cet espace (get_optout_push)');
+  if (actuelle === requete) return refus(409, `l’appel « ${r.label} » est déjà prévenu à chaque désabonnement : rien à changer`);
+  return { ok: true, valeur: { type: 'poussee_optout', requete, nom: `l’appel « ${r.label} »`, actuelle, nomActuel } };
+}
+
+/**
+ * Pose le réglage montré. 🔴 Relu d'abord, comme la branche des campagnes : au premier clic, `accepter` vient de relire,
+ * mais une REPRISE (après une coupure) ne repasse pas par le relevé. Déjà posé (l'écriture était passée avant la coupure) :
+ * le résultat, sans réécrire ; changé depuis par quelqu'un d'autre : rien n'est écrit ; l'appel supprimé depuis :
+ * introuvable, plutôt qu'une clé étrangère qui ferait échouer chaque reprise. La trace dit quel appel, à la place duquel.
+ */
+async function executerPoussee(
+  deps: DepsEnvoisAuOui, tenant: string, g: Extract<EnvoiGarde, { type: 'poussee_optout' }>, auteur: { auth: { userId: string } }, audit: AuditSink,
+): Promise<ResultatAction> {
+  const fait: ResultatAction = { ok: true, etat: g.requete === null ? 'debranche' : 'branche' };
+  const actuelle = await deps.pousseeOptout.actuelle(tenant);
+  if (actuelle === g.requete) return fait;
+  if (actuelle !== g.actuelle) {
+    return { ok: false, code: 'modifiee', message: 'le réglage a changé depuis votre clic : ce bouton n’a rien écrit. Demandez à Claude un nouveau bouton.' };
+  }
+  if (g.requete !== null && (await appelDeLEspace(deps.pousseeOptout, tenant, g.requete)) === null) {
+    return { ok: false, code: 'not_found', message: 'cet appel de connecteur n’existe plus dans cet espace : rien n’a été écrit.' };
+  }
+  await deps.pousseeOptout.choisir(tenant, g.requete);
+  await makeJournal(audit)(tenant, auteur, 'settings.poussee_optout', { kind: 'settings', id: 'poussee_optout' }, { requestId: g.requete, avant: g.actuelle });
+  return fait;
 }
 
 /** La personne seule, sans le reste de l'action : un numéro, ou une fiche. */
@@ -258,6 +323,7 @@ export function libelleEnvoi(g: EnvoiGarde): string {
   if (g.type === 'suppression') return `Supprimer ${pluriel(g.contacts.length, 'contact')}`;
   if (g.type === 'modele') return 'Envoyer à 1 contact';
   if (g.type === 'envoi_scenario') return 'Lancer le scénario pour 1 contact';
+  if (g.type === 'poussee_optout') return g.requete === null ? 'Couper la poussée des désabonnements' : 'Prévenir cet appel à chaque désabonnement';
   const n = pluriel(g.etat.recipientCount, 'contact');
   if (g.reprise) return `Reprendre l’envoi à ${n}`;
   return g.etat.prevueLe === null ? `Envoyer à ${n}` : `Programmer l’envoi à ${n}`;
@@ -288,6 +354,15 @@ export function recapitulatifEnvoi(g: EnvoiGarde): string[] {
       'Claude vous a montré lesquels dans la conversation, avant de vous envoyer ici. La suppression ne se rattrape pas.',
     ];
   }
+  if (g.type === 'poussee_optout') {
+    if (g.requete === null) {
+      return [`L’appel « ${g.nomActuel ?? ''} » n’est plus prévenu des désabonnements. Les refus restent respectés ici : seul votre autre système n’en est plus informé.`];
+    }
+    return [
+      `À chaque désabonnement, ${g.nom} reçoit le numéro de la personne et ce qu’il lit de sa fiche (son nom, ses étiquettes, ses champs) : ces données partent chez ce tiers, dès votre clic.`,
+      ...(g.nomActuel === null ? [] : [`Il remplace l’appel « ${g.nomActuel} », prévenu jusqu’ici.`]),
+    ];
+  }
   const e = g.etat;
   const modele = `le modèle « ${e.templateName} » (${e.templateLanguage}, ${e.category})`;
   const n = pluriel(e.recipientCount, 'contact');
@@ -312,6 +387,7 @@ export async function executerEnvoi(
   deps: DepsEnvoisAuOui, tenant: string, g: EnvoiGarde, auteur: { auth: { userId: string } }, audit: AuditSink, ctx: ContexteExecution,
 ): Promise<ResultatAction> {
   if (g.type === 'modele' || g.type === 'envoi_scenario') return executerIndividuel(deps, tenant, g, ctx);
+  if (g.type === 'poussee_optout') return executerPoussee(deps, tenant, g, auteur, audit);
   if (g.type === 'campagne') {
     const destinataires = g.etat.recipientCount;
     const etat = await deps.campagnes.repo.etatPourConfirmation(tenant, g.campagne);

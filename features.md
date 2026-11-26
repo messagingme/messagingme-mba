@@ -3560,7 +3560,9 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   il liste les désabonnés, les messages qui ressemblent à une demande d'arrêt sans en être une nette (à relire, personne
   n'est désabonné) et les contacts bloqués ; il lit l'historique d'une fiche, son bilan (ce que ses envois ont coûté chez
   Meta, jusqu'où ses parcours sont allés) et exporte tous ses envois pour une demande d'accès RGPD, l'export étant tracé
-  au journal au nom de la personne.
+  au journal au nom de la personne. Il dit enfin quel appel de connecteur est prévenu à chaque désabonnement, et en
+  choisit un autre ou n'en prévient plus aucun (`get_optout_push`, `set_optout_push`) : comme un envoi, ce choix passe
+  par le bouton qu'un administrateur clique dans la console, parce que des données de contact partent chez ce tiers.
 - ✅ **Envoyer un message simple** : un texte, à une personne, tout de suite, visible dans l'Inbox. Deux routes,
   parce que leurs règles n'ont presque rien en commun : `POST /v1/messages/whatsapp` (dans la fenêtre de 24 h)
   et `POST /v1/messages/rcs` (sans fenêtre, mais seulement vers quelqu'un qui a consenti ou qui vous a déjà

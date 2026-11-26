@@ -296,6 +296,16 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 1c, la poussée des désabonnements au oui) : ce qui reste de la relecture (2026-11-27, aucun rouge)
+
+Corrigés avant de pousser : la Free qui ne pouvait pas aller au bout du clic, la reprise qui ne relisait pas le réglage,
+la liste des appels et la règle d'appartenance recopiées, le récapitulatif qui ne nommait pas l'appel en place, la trace
+`settings.poussee_optout`, l'écran et la description de `get_go_live`. Reste :
+- `demandeDe` (`src/mise-en-ligne/mise-en-ligne.ts`) n'a pas de cas par défaut : une image plus ancienne, face à un oui
+  proposé d'un type qu'elle ne connaît pas, répond 500 au clic au lieu d'un refus lisible (rien n'est écrit). Un défaut qui
+  fait refuser `relever` proprement suffirait, pour le prochain type.
+- Aucun test ne fait passer `get_optout_push` et `set_optout_push` par le serveur MCP (garde d'offre, trace B0c).
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 1b, l'import, les listes, l'histoire d'une fiche) : ce qui reste de la relecture (2026-11-26, un rouge corrigé avant de pousser)
 
 Corrigés avant de pousser : un import qui effacerait les plus anciens (« le plus ancien laisse sa place ») est refusé

@@ -1014,8 +1014,11 @@ la console et le MCP reçoivent les mêmes objets, jamais une recopie (`tests/mc
 câblage). L'étape `activer_numero` de `get_setup_state` propose ces outils.
 
 🔴 **Les envois au oui (lot 1 du CSM virtuel, B8)** : un lancement, une programmation ou une reprise de campagne, une
-suppression de contacts, et l'envoi d'un modèle ou d'un scénario à UNE personne (`send_template_to_contact`,
-`send_scenario_to_contact`), partent sur le clic d'un admin, par le oui de mise en ligne (`mises_en_ligne`) :
+suppression de contacts, l'envoi d'un modèle ou d'un scénario à UNE personne (`send_template_to_contact`,
+`send_scenario_to_contact`), et le choix de l'appel de connecteur prévenu à chaque désabonnement (`set_optout_push`,
+B10 livraison 1c, action `poussee_optout` : des données de contact partent chez ce tiers ; le clic relit l'appel DANS
+l'espace et le réglage montré, le même `setOptoutRequestId` que l'écran des paramètres), partent sur le clic d'un admin,
+par le oui de mise en ligne (`mises_en_ligne`) :
 `src/mise-en-ligne/envois.ts` porte leur relevé (ce qui est gardé, montré, et relu au clic), leur bouton, leur
 récapitulatif et leur exécution, rejouable sans double effet. Un envoi est SEUL dans sa mise en ligne. `reprendre`, que
 `launch_campaign` et `delete_contacts` appellent, reprend une exécution acceptée et coupée, et n'accepte JAMAIS : seule

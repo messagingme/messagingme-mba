@@ -37,6 +37,8 @@ export const LISTES = {
   scenarios: '/workflows',
   /** Sécurité > IA (l'annonce d'IA) ; la promesse de transfert se règle par agent depuis 0330 (outil « Passer la main »). */
   securiteIa: '/securite/ia',
+  /** Sécurité > Consentement, où vit l'appel prévenu à chaque désabonnement (`set_optout_push`). */
+  consentement: '/securite/consentement',
   webhooks: '/developers/evenements',
   widgets: '/widgets',
 } as const;

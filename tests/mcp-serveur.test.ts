@@ -969,6 +969,9 @@ describe('serveur MCP : cohérence du catalogue', () => {
       // L'import d'un CSV (B10, livraison 1b) : réimporter le même fichier ne change rien de plus (les numéros connus sont
       // mis à jour, les étiquettes réunies), rien ne part chez un tiers.
       import_contacts: [true, true, false],
+      // La poussée des désabonnements (B10, livraison 1c) : chaque appel prépare un bouton de plus, rien ne change avant le
+      // clic d'un admin ; le clic écrit un réglage de l'espace, et la poussée elle-même part plus tard, par le worker.
+      set_optout_push: [true, false, false],
       // Depuis B8 (2026-11-26), le clic d'un admin envoie ; l'outil prend l'identifiant de ce oui et rend toujours le même
       // résultat, une reprise coupée ne renvoie rien ; une reprise repart chez Meta.
       launch_campaign: [true, true, true],

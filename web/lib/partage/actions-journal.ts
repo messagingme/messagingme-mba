@@ -12,6 +12,9 @@ const CATALOGUE_ACTIONS_AUDIT = {
   // détail porte leur nombre, leurs identifiants internes et le chemin qui créait, jamais un numéro ni un nom.
   'contacts.remplaces': ['Contacts les plus anciens remplacés', 'Oldest contacts replaced'],
   'settings.contacts_remplacer_anciens': ['Remplacement des contacts les plus anciens réglé', 'Oldest contacts replacement set'],
+  // L'appel de connecteur prévenu à chaque désabonnement (B10, livraison 1c), choisi au clic d'un admin : le détail porte
+  // l'appel choisi et celui qu'il remplace, des identifiants, jamais une donnée de contact.
+  'settings.poussee_optout': ['Appel prévenu des désabonnements choisi', 'Unsubscription push call chosen'],
   'contact.optin': ['Passage en opt-in', 'Marked as opted in'],
   'contact.optout': ['Passage en opt-out', 'Marked as opted out'],
   'workflow.published': ['Scénario mis en ligne', 'Scenario published'],

@@ -5514,6 +5514,8 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | list_unsubscribed_contacts | mcp:read | The contacts who asked not to be contacted any more, newest first, with the date and the source of the refusal. |
 | list_possible_refusals | mcp:read | Messages of the last 30 days that look like a request to stop without being a clear STOP, to read: nobody is unsubscribed. |
 | list_blocked_contacts | mcp:read | The blocked contacts, most recently blocked first. |
+| get_optout_push | mcp:read OAuth connection required | The connector call notified at each unsubscription, and those the workspace can choose. |
+| set_optout_push | mcp:write OAuth connection required | Choose the call notified at each unsubscription, or none: an administrator clicks to accept it. |
 | block_contact | mcp:write OAuth connection required | Block or unblock a contact: nothing is sent to them anymore, their messages are still recorded. |
 | prepare_contacts_deletion | mcp:write OAuth connection required | Prepare the deletion of a selection of contacts without erasing anything (tags, consent, a list, the N oldest, 1,000 at most): their count, 10 records at most and the link of the button an administrator clicks to delete. |
 | delete_contacts | mcp:write OAuth connection required | What an administrator’s click deleted: records, conversations and messages erased, as in the console; nothing goes without that click. The click is refused if a record shown was deleted since. |

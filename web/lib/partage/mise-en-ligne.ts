@@ -8,16 +8,20 @@
 export const TYPES_ACTION = ['publier', 'restaurer', 'repondeur'] as const;
 /**
  * Les envois au oui (lot 1 du CSM virtuel, B8) : lancer, programmer ou reprendre une campagne, effacer des contacts,
- * envoyer un modèle ou faire partir un scénario vers UNE personne. Ils sont préparés par LEURS outils (`prepare_campaign`,
- * `control_campaign`, `prepare_contacts_deletion`, `send_template_to_contact`, `send_scenario_to_contact`), jamais par
- * `propose_go_live`, et chacun est SEUL dans sa mise en ligne.
+ * envoyer un modèle ou faire partir un scénario vers UNE personne, et choisir l'appel de connecteur prévenu à chaque
+ * désabonnement (B10, livraison 1c : des données partent chez un tiers). Ils sont préparés par LEURS outils
+ * (`prepare_campaign`, `control_campaign`, `prepare_contacts_deletion`, `send_template_to_contact`,
+ * `send_scenario_to_contact`, `set_optout_push`), jamais par `propose_go_live`, et chacun est SEUL dans sa mise en ligne.
  */
-export const TYPES_ENVOI = ['campagne', 'suppression', 'modele', 'envoi_scenario'] as const;
+export const TYPES_ENVOI = ['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout'] as const;
 export type TypeAction = (typeof TYPES_ACTION)[number] | (typeof TYPES_ENVOI)[number];
 
-/** Le résultat d'une action, une fois exécutée : `programme` = la publication attend la validation d'un template par Meta. */
+/**
+ * Le résultat d'une action, une fois exécutée : `programme` = la publication attend la validation d'un template par Meta ;
+ * `branche` = le répondeur, ou l'appel prévenu des désabonnements, branché ; `debranche` = plus aucun appel prévenu.
+ */
 export type ResultatAction =
-  | { ok: true; etat: 'publie' | 'programme' | 'branche' }
+  | { ok: true; etat: 'publie' | 'programme' | 'branche' | 'debranche' }
   /**
    * Une campagne : `envoyee` (elle part), `programmee` (à sa date), `reprise` (une pause levée), `deja_partie` (lancée
    * avant cette exécution : par celle qu'une coupure a interrompue, ou depuis la console). `destinataires` : ceux en

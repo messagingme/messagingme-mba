@@ -94,6 +94,17 @@ export interface SettingsRouteDeps {
  * écriture ouverte à l'encadrement, `/settings/agents-peuvent-prendre` (un réglage d'équipe, pas une
  * décision de la marque).
  */
+/**
+ * L'appel de connecteur de CET espace, ou `null` : 🔴 jamais accepté sur sa seule forme, un identifiant pris ailleurs ferait
+ * partir la poussée des désabonnements chez un autre client, et la clé étrangère ignore l'espace. Partagée par
+ * `PATCH .../settings/poussee-optout` et le oui de `set_optout_push` (B10, livraison 1c) : une seule règle.
+ */
+export async function appelDeLEspace(
+  source: { lister(tenantId: string): Promise<Array<{ id: string; label: string }>> }, tenant: string, id: string,
+): Promise<{ id: string; label: string } | null> {
+  return (await source.lister(tenant)).find((r) => r.id === id) ?? null;
+}
+
 export function registerSettings(
   app: FastifyInstance,
   deps: SettingsRouteDeps,
@@ -204,6 +215,7 @@ export function registerSettings(
    * uuid pris ailleurs ferait partir la poussée chez un autre client, et la clé étrangère ignore le tenant.
    */
   app.patch('/tenants/:tenantId/settings/poussee-optout', opts, async (req, reply) => {
+    const lister = { lister: (t: string) => deps.listerRequetesConnecteur(t) };
     const tenant = espaceVerifie(req);
     const brut = (req.body as { requestId?: unknown } | null)?.requestId;
     if (brut === null) {
@@ -214,8 +226,7 @@ export function registerSettings(
       return reply.code(400).send({ error: 'requestId (identifiant de requête, ou null) requis' });
     }
     const requestId = brut.trim();
-    const connues = await deps.listerRequetesConnecteur(tenant);
-    if (!connues.some((r) => r.id === requestId)) {
+    if ((await appelDeLEspace(lister, tenant, requestId)) === null) {
       // 400 et non 500 : Cloudflare remplace le corps des 5xx, et c'est un message destiné à l'utilisateur.
       return reply.code(400).send({ error: 'cette requête n’existe pas dans cet espace' });
     }

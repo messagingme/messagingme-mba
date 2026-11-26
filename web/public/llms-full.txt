@@ -5515,6 +5515,8 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | list_unsubscribed_contacts | mcp:read | Les contacts qui ont demandé à ne plus être contactés, du plus récent au plus ancien, avec la date et la source du refus. |
 | list_possible_refusals | mcp:read | Les messages des 30 derniers jours qui ressemblent à une demande d’arrêt sans être un STOP net, à relire : personne n’est désabonné. |
 | list_blocked_contacts | mcp:read | Les contacts bloqués, du plus récemment bloqué au plus ancien. |
+| get_optout_push | mcp:read connexion OAuth requise | L’appel de connecteur prévenu à chaque désabonnement, et ceux que l’espace peut choisir. |
+| set_optout_push | mcp:write connexion OAuth requise | Choisir l’appel prévenu à chaque désabonnement, ou n’en prévenir aucun : un administrateur clique pour l’accepter. |
 | block_contact | mcp:write connexion OAuth requise | Bloquer ou débloquer un contact : plus rien ne lui part, ses messages restent enregistrés. |
 | prepare_contacts_deletion | mcp:write connexion OAuth requise | Préparer la suppression d’une sélection de contacts sans rien effacer (étiquettes, consentement, une liste, les N plus anciens, 1 000 au plus) : leur nombre, 10 fiches au plus et le lien du bouton qu’un administrateur clique pour supprimer. |
 | delete_contacts | mcp:write connexion OAuth requise | Ce que le clic d’un administrateur a supprimé : fiches, conversations et messages effacés, comme dans la console ; rien ne part sans ce clic. Le clic est refusé si une fiche montrée a été effacée depuis. |

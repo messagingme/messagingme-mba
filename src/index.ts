@@ -2167,6 +2167,9 @@ async function main(): Promise<void> {
    * personne par le MÊME cycle que `POST /v1/sends`, sans compteur : un envoi parti sur le clic est un envoi de la
    * console, hors du quota du jour de l'API. Les magasins ENTIERS : leurs méthodes lisent `this`.
    */
+  /** Les appels de connecteur de l'espace, la MÊME liste pour l'écran des paramètres et le oui de `set_optout_push`. */
+  const listerRequetesConnecteur = async (tenant: string): Promise<Array<{ id: string; label: string }>> =>
+    (await agentRequetes.lister(tenant)).map((r) => ({ id: r.id, label: r.label }));
   const misesEnLigne: DepsMisesEnLigne = {
     store: new PgMisesEnLigne(pool),
     scenarios: workflowStore,
@@ -2181,6 +2184,13 @@ async function main(): Promise<void> {
         envoyer: (tenant, corps) => lancerEnvoiPublic(depsEnvois, tenant, corps, undefined, async () => true),
         contacts: contactStore,
         scenarios: workflowStore,
+      },
+      // La poussée des désabonnements (B10, livraison 1c) : la MÊME liste d'appels et le MÊME réglage que l'écran des
+      // paramètres (`listerRequetesConnecteur`, `setOptoutRequestId`).
+      pousseeOptout: {
+        lister: listerRequetesConnecteur,
+        actuelle: async (tenant) => (await settingsStore.get(tenant)).optoutRequestId,
+        choisir: (tenant, requestId) => settingsStore.setOptoutRequestId(tenant, requestId),
       },
     },
     audit: auditSink,
@@ -3043,7 +3053,7 @@ async function main(): Promise<void> {
        * Le connecteur prévenu à chaque désabonnement : on ne rend que l'identifiant et le libellé, l'écran du
        * Consentement a besoin de nommer un appel, pas de connaître son adresse, ses en-têtes ni ce qu'il envoie.
        */
-      listerRequetesConnecteur: async (tenant) => (await agentRequetes.lister(tenant)).map((r) => ({ id: r.id, label: r.label })),
+      listerRequetesConnecteur,
       // Le plus ancien laisse sa place (lot 2 du 2026-11-24) : l'offre relue SANS cache, un Business tout juste posé coche.
       remplacement: {
         lire: (tenant) => settingsStore.contactsRemplacerAnciens(tenant),

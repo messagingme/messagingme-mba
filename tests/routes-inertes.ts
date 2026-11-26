@@ -653,6 +653,7 @@ export const envoisAuOuiInertes: DepsEnvoisAuOui = {
     selection: neDevraitPasEtreAppelee('envois.suppression.selection'),
     effacement: { contacts: {}, suppressionsDuJour: {}, listeDeLAgent: {}, enVol: {} } as unknown as DepsEnvoisAuOui['suppression']['effacement'],
   },
+  pousseeOptout: { lister: async () => [], actuelle: async () => null, choisir: neDevraitPasEtreAppelee('envois.pousseeOptout.choisir') },
 };
 
 /**

@@ -154,6 +154,10 @@ export const CATALOGUE_MCP = {
   get_contact_report: { scope: 'mcp:read' },
   // L'export RGPD se trace au nom de son auteur : une personne, jamais une clé d'API.
   export_contact_history: { scope: 'mcp:read', exigePersonne: true },
+  // L'appel prévenu à chaque désabonnement : la console le réserve aux administrateurs, jusqu'à sa lecture (des données
+  // de contact partent chez ce tiers). Le choix passe au oui (B10, livraison 1c).
+  get_optout_push: { scope: 'mcp:read', exigePersonne: true },
+  set_optout_push: { scope: 'mcp:write', exigePersonne: true },
   /** Le connecteur Shopify (2026-10-21) : les quatre exigent une personne nommée, la lecture comprise. */
   connect_shopify: { scope: 'mcp:write', exigePersonne: true },
   set_shopify_message: { scope: 'mcp:write', exigePersonne: true },

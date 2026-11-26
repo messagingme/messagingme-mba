@@ -5,6 +5,35 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, livraison 1c) : Claude choisit l'appel prévenu à chaque désabonnement, au clic d'un admin
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 1, troisième temps (1c). Avec elle, la
+livraison 1 (les contacts, les champs et les étiquettes : 17 routes) est complète.
+
+**Le geste passe au oui, comme un envoi.** Choisir l'appel de connecteur prévenu à chaque désabonnement fait partir des
+données de contact chez un tiers, et la table de parité le marque « au clic ». Il devient une action du oui de mise en
+ligne, `poussee_optout` (`src/mise-en-ligne/envois.ts`), plutôt qu'une seconde mécanique : `set_optout_push` prépare sans
+rien écrire, le bouton nomme l'effet (« Prévenir cet appel à chaque désabonnement », « Couper la poussée des
+désabonnements »), le récapitulatif dit ce qui part (le numéro et ce que l'appel lit de la fiche) et nomme l'appel
+remplacé ou coupé. Le clic relit que l'appel existe DANS l'espace (`appelDeLEspace`, désormais la seule règle, que la route
+de la console appelle aussi) et que le réglage n'a pas bougé depuis ce qui a été montré, puis pose le même
+`setOptoutRequestId` que l'écran des paramètres, avec une ligne `settings.poussee_optout` au nom de l'admin.
+`get_optout_push` lit le réglage et les appels de l'espace ; les deux outils sont réservés à une personne, comme la console
+les réserve aux administrateurs, et ouverts à toutes les offres. Le contrat partagé du oui gagne le type et le résultat
+`debranche`, que la page affiche. Aucune migration.
+
+**La relecture indépendante : aucun rouge.** Corrigés avant de pousser : la Free préparait le bouton mais son clic
+échouait, faute du constructeur de scénarios (la fonction exigée par action, `fonctionDe`, est désormais un `switch`
+exhaustif tenu par un contrôle `never`, qui laisse une action d'une image plus récente au refus fermé « action
+inconnue ») ; une reprise après une coupure aurait rebranché l'ancien appel par-dessus un réglage changé depuis, ou levé
+une erreur de clé étrangère sur un appel supprimé (l'exécution relit désormais, sur le modèle des campagnes) ; la liste des
+appels recopiée dans le câblage, la règle d'appartenance réécrite ; le récapitulatif qui ne nommait pas l'appel en
+place ; l'absence de trace ; l'écran et la description de `get_go_live`. Le reste est au `todo.md`.
+
+Preuves : 16 mutations nommées, toutes rouges. Dans la copie de travail : typecheck (racine et console), lint,
+l'auto-attaque, la suite racine et celle de la console ; sur l'arbre fusionné avec les pairs, avant le push : typecheck,
+lint, auto-attaque, les tests ciblés et la suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-26 : CSM virtuel, lot I (B10, livraison 1b) : Claude importe un CSV, lit les listes de conformité et l'histoire d'une fiche
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 1, deuxième temps (1b). La livraison

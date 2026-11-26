@@ -58,7 +58,8 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
 - Lot I (plan `2026-11-26-csm-lot1-i-reste-du-lot.md`) : B10, le reste du lot, les 158 routes `aFaire('B10')` de la table
   de parité, en sept livraisons. Livraison 1a (champs, étiquettes, création d'un contact : 7 outils) poussée
   (`57cbd2860`) ; 1b (l'import d'un CSV, les listes de conformité, l'historique, le bilan et l'export d'une fiche :
-  8 outils) écrite, en vérification ; 1c (la poussée d'opt-out au oui) ensuite.
+  8 outils) poussée (`e9eb3598e`) ; 1c (la poussée d'opt-out au oui : 2 outils, une action `poussee_optout` du oui)
+  écrite, en vérification. La livraison 1 sera alors complète.
 - Lot G (plan `2026-11-26-csm-lot1-g-prerequis.md`) : B7, les prérequis (`get_account_status`, `request_number_code`,
   `activate_number`, `contact_support`), en production le 2026-11-26 (`6fa36d7a3`, run 45819186413, plugin 0.3.71),
   essai réel fait (291, `docs/prive/ESSAIS-REELS.md`).

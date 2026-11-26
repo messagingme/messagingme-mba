@@ -352,8 +352,8 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   // Les réglages de l'espace (settings)
   'GET /settings': aFaire('B10', 'aide : lire les réglages de l’espace (heures d’ouverture, fuseau)'),
   'PUT /settings': lot7('l’agent de Meta (son interrupteur)'),
-  'GET /settings/poussee-optout': aFaire('B10', 'contacts : lire l’appel de connecteur prévenu à chaque désabonnement'),
-  'PATCH /settings/poussee-optout': aFaire('B10', 'contacts : choisir l’appel de connecteur prévenu à chaque désabonnement, au clic (des données partent chez un tiers)'),
+  'GET /settings/poussee-optout': outil('get_optout_push'),
+  'PATCH /settings/poussee-optout': outil('set_optout_push'),
   'GET /settings/mention-ia': aFaire('B10', 'agent IA : lire la fréquence de la mention d’IA'),
   'PATCH /settings/mention-ia': aFaire('B10', 'agent IA : régler la fréquence de la mention d’IA'),
   'GET /settings/transfert-agent': aFaire('B10', 'agent IA : lire ce que les agents promettent au transfert'),

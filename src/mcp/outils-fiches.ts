@@ -1,7 +1,9 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, OutilMcp } from './outils';
-import { RefusOutil, familleDuRefus, refusDuCoeur, texteObligatoire } from './saisie';
-import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
+import { RefusOutil, familleDuRefus, refusDuCoeur, texteObligatoire, valeurOuRefus } from './saisie';
+import { ecriture, LOURDE, personneRequise, plafondCouteux, signataire } from './outils-agent';
+import { proposer } from '../mise-en-ligne/mise-en-ligne';
+import { boutonDuOui } from './outils-mise-en-ligne';
 import { renommerEtiquette, supprimerEtiquette, type TagsRouteDeps } from '../http/tags';
 import { creerContactALaMain, exporterHistorique, refusPossibles, type ContactsRouteDeps } from '../http/contacts';
 import { apercuImport, effacementsDeLImportPour, importerCsv, type DepsApercuImport, type DepsImportCsv } from '../http/import';
@@ -134,6 +136,8 @@ function ficheDonnee(args: Record<string, unknown>): string {
 }
 /** Un uuid, et la borne que le schéma annonce ; exportée pour le test des bornes. */
 export const LONGUEUR_MAX_ID_FICHE = 36;
+/** L'identifiant d'un appel de connecteur, ou « none » ; exportée pour le test des bornes. */
+export const LONGUEUR_MAX_ID_REQUETE = 64;
 const FICHE = { contact_id: { type: 'string' as const, minLength: 1, maxLength: LONGUEUR_MAX_ID_FICHE, description: 'The contact id (search_contacts, get_contact).' } };
 
 /**
@@ -510,6 +514,53 @@ export const OUTILS_FICHES: OutilMcp[] = [
       );
       if (!r) throw new RefusOutil('contact inconnu dans cet espace', 'not_found');
       return r;
+    },
+  },
+  {
+    ...ficheOutilMcp('get_optout_push'),
+    fonction: null,
+    description: 'The connector call notified at each unsubscription, if any (request_id, null for none), and the connector '
+      + 'calls of the workspace that can be chosen (id, label). At each unsubscription, that call receives the number of '
+      + 'the person and what it reads from the record (name, tags, fields): data that leaves for that third party. '
+      + 'set_optout_push changes it, on the click of an administrator.',
+    annotations: lecture('Read the unsubscription push'),
+    entree: { type: 'object', properties: {}, additionalProperties: false },
+    async executer(deps, tenantId) {
+      const p = deps.misesEnLigne.envois.pousseeOptout;
+      const [actuelle, appels] = await Promise.all([p.actuelle(tenantId), p.lister(tenantId)]);
+      return { request_id: actuelle, requests: appels.map((a) => ({ id: a.id, label: a.label })) };
+    },
+  },
+  {
+    ...ficheOutilMcp('set_optout_push'),
+    fonction: null,
+    description: 'Prepares the choice of the connector call notified at each unsubscription (an id from get_optout_push), '
+      + 'or "none" to notify none. Nothing changes until an administrator clicks the button of the go_live link in the '
+      + 'console, after reading what will leave for that third party (the number of the person and what the call reads '
+      + 'from the record). The click reads again that the call still exists in the workspace and that the setting has '
+      + 'not changed since. get_go_live with go_live_id then tells what was done.',
+    annotations: ecriture('Choose the unsubscription push', false, false),
+    entree: {
+      type: 'object',
+      properties: {
+        request_id: { type: 'string', minLength: 1, maxLength: LONGUEUR_MAX_ID_REQUETE, description: 'The connector call (get_optout_push), or "none".' },
+      },
+      required: ['request_id'],
+      additionalProperties: false,
+    },
+    ecran: () => LISTES.consentement,
+    async executer(deps, tenantId, args, personne) {
+      signataire(personne);
+      const brut = texteObligatoire(args, 'request_id', LONGUEUR_MAX_ID_REQUETE);
+      // 🔴 Au oui : brancher un appel fait partir des données de contact chez un tiers. L'outil prépare, l'admin clique.
+      const oui = valeurOuRefus(await proposer(
+        deps.misesEnLigne, tenantId, personneRequise(personne), [{ type: 'poussee_optout', requete: brut === 'none' ? null : brut }],
+      ));
+      return {
+        go_live: boutonDuOui(oui),
+        a_savoir: `Rien n’a changé : un administrateur clique « ${oui.libelle} » dans la console, après avoir lu ce qui change. `
+          + 'Après le clic, get_go_live avec go_live_id dit ce qui a été fait.',
+      };
     },
   },
 ];

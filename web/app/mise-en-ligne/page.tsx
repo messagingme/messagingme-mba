@@ -84,6 +84,7 @@ function MiseEnLigneInner({ session }: { session: Session }) {
     switch (r.etat) {
       case 'programme': return t('programmé : il part dès que Meta valide son template', 'scheduled: it goes live as soon as Meta approves its template');
       case 'branche': return t('branché', 'switched on');
+      case 'debranche': return t('débranché', 'switched off');
       case 'publie': return t('publié', 'published');
       // Les envois au oui (B8) : une campagne, une suppression de contacts.
       case 'envoyee': return t(`part à ${r.destinataires} contact(s)`, `sending to ${r.destinataires} contact(s)`);
