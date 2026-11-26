@@ -31,6 +31,14 @@ describe.skipIf(!url)('la loupe de l’Inbox', () => {
     await store.recordInbound(tenantId, entrant('33611110001', 'wamid.itest-rech-1', 'ma commande 100% arrivée', 'Marie Dupont'));
     await store.recordInbound(tenantId, entrant('33622220002', 'wamid.itest-rech-2', 'bonjour', 'Paul Martin'));
     await store.recordInbound(autreTenantId, entrant('33633330003', 'wamid.itest-rech-3', 'bonjour', 'Marie Autre'));
+    // `recordInbound` n'écrit que le message : la fiche du contact, qui porte le nom, est créée par le webhook. Ici, à
+    // la main, rattachée à sa conversation comme en production.
+    for (const [espace, waId, nom] of [[tenantId, '33611110001', 'Marie Dupont'], [tenantId, '33622220002', 'Paul Martin'], [autreTenantId, '33633330003', 'Marie Autre']]) {
+      const contact = (await pool.query<{ id: string }>(
+        `insert into contacts (tenant_id, phone_e164, profile_name) values ($1, $2, $3) returning id`, [espace, `+${waId}`, nom],
+      )).rows[0]!.id;
+      await pool.query('update conversations set contact_id = $1 where tenant_id = $2 and wa_id = $3', [contact, espace, waId]);
+    }
   });
 
   afterAll(async () => {
