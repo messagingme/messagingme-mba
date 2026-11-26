@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 136d58
+traduit_de: 5d0d85
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -77,14 +77,9 @@ you choose how many to import, the most recent first.
 
 The records are tagged “Shopify” and arrive without WhatsApp consent: an email or SMS agreement is not one.
 
-**8. Follow up, pause or cut.** The Shopify card shows the connected store, the last event received and the figures for
-the last 30 days: messages sent, customers left out and why. The pause switch stops every send without disconnecting
-anything; “Cut” disconnects the store.
-
-While paused, your automations keep their settings, but nothing goes out, neither first message nor follow-up; the
-journeys under way stop, and a checkout abandoned during the pause is never reminded afterwards. After “Cut”, the app
-stays installed on your store: uninstall it from the store apps page, whose link is on the card. You can reconnect it
-from the card.
+**8. Disconnect or reconnect.** At the top of the Shopify card, your store’s name and, facing it, “**Disconnect**”: no
+message goes out anymore, your contacts, their orders and their tags stay. Once disconnected, the same button becomes
+“**Reconnect**” and asks again for its app’s keys.
 
 **Good to know.** Each message from the store makes the customer’s record consenting everywhere, campaigns included,
 on the strength of your confirmation; a customer who replied STOP stays opted out and gets nothing.
@@ -161,8 +156,8 @@ as it is in your store at that reading, whose date the section gives, not as it 
 taken out of a collection no longer counts in it.
 
 And the tags you put on your customers in Shopify (VIP, wholesale...), in the “Shopify tags” block, apart from your
-Messaging Me tags: the same word on both sides makes two criteria. They are read when you turn on “Sync the tags” on
-the Shopify card: the first reading starts at once, then every day, and “Sync now” starts it again. A record gets the
+Messaging Me tags: the same word on both sides makes two criteria. They are read when you click “**Sync now**” on the
+Shopify card: the first reading starts at once, then every day, and the same button starts it again. A record gets the
 tags of every Shopify customer who has its number, in their contact details or their addresses; “Sync
 now” reads every number again, the daily reading adds the new records. Target one or more (all of them, or any of them);
 the block gives the date of the last reading.
@@ -170,7 +165,7 @@ the block gives the date of the last reading.
 does not follow Shopify afterwards. No record is created, and neither the reading nor the copy gives consent.
 
 And the segments you build in Shopify (Customers > Segments), in the “Shopify segments” block. On the Shopify card,
-with the sync on, tick the ones to follow, 20 at most, then “**Save the followed segments**”: their members are read at
+after a first sync, tick the ones to follow, 20 at most, then “**Save the followed segments**”: their members are read at
 once, then every day. A customer in the segment counts for every record of their numbers. Target one or more (all of
 them, or any of them); each segment gives the date of its last reading, and “Copy as a Messaging Me tag” works for it
 too.

@@ -5,6 +5,21 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : la carte Shopify refaite, lisible
+
+Julien, devant la carte de Tools > Intégrations : « cet écran est illisible ». En tête, le nom de la boutique en grand
+et, en face, « Débrancher » (l'ancien « Couper ») ou, débranchée, « Rebrancher », qui ouvre ses clés ; puis une ligne
+par geste, son bouton dans une même colonne de même largeur (`LigneShopify`) : l'import des clients abonnés, le
+rattrapage (dessous, la date du dernier), « Synchroniser maintenant » (dessous, la date de la dernière synchronisation)
+et les segments à suivre. Retirés : le texte sur les automations, l'interrupteur de pause, la ligne des paniers, la
+mention des demandes d'effacement, les chiffres des 30 derniers jours et le lien vers la page des apps. 🔴 La pause ne se
+posait que depuis cette carte : elle ne se pose plus nulle part ; une boutique déjà en pause garde sa ligne, avec
+« Reprendre ». L'interrupteur de la synchronisation des étiquettes disparaît aussi : « Synchroniser maintenant »
+l'allume la première fois, et seul Claude Code l'éteint. « Coupée » devient « débranchée » dans la console. Dans le même
+lot, la partie « Segments Shopify » se relit quand une synchronisation part, et la synchronisation des étiquettes quand
+le choix des segments la lance (vu à l'essai du lot 6c, deux e2e rouges avant le correctif). Méthode : en direct
+(console seule) ; les e2e de la carte réécrits, la capture de l'étape 8 de l'aide refaite.
+
 ## 2026-11-26 : l'Inbox et Mes tableaux voient les scénarios Shopify et HubSpot
 
 **La demande.** Julien voulait relancer un client depuis l'Inbox par un scénario d'automation (« Lancer un scénario »,
@@ -193,8 +208,11 @@ nomme le segment, la liste des 5 segments (2 points réels), « Customers who ha
 (2 membres) et par le chemin asynchrone (la création acceptée avec `read_customers`, prête en moins de 2 s, les mêmes 2
 membres par `queryId`). Mesure neuve : une requête que Shopify ne connaît pas rend `INTERNAL_SERVER_ERROR`, pas un nœud
 nul ; elle est donc traitée en panne passagère, bornée par les 30 minutes (au `todo.md`). Plugin 0.3.69 (run
-45668209533), qui emporte la 0.3.68 de B6a, dont la publication n'avait pas démarré côté GitHub. Essai réel : à faire par
-Julien.
+45668209533), qui emporte la 0.3.68 de B6a, dont la publication n'avait pas démarré côté GitHub. Essai réel fait par
+Julien le 2026-11-26 sur « Messaging Me demo », relu en base : « Synchroniser maintenant » liste les 5 segments,
+« Customers who have purchased at least once » suivi et lu (2 clients chez Shopify, 1 fiche, la sienne), « Cibler »
+la retient. L'essai a montré que la partie « Segments Shopify » de la carte ne se relisait pas après « Synchroniser
+maintenant » : corrigé le lendemain avec la carte refaite (ci-dessus).
 
 ## 2026-11-25 : CSM virtuel, lot F (B6a) : Claude simule un parcours avant de le proposer
 

@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés, et leur suite.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: cd8f7d
+source_empreinte: 03515b
 publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
@@ -86,14 +86,9 @@ vous choisissez combien en importer, les plus récents d'abord.
 
 Les fiches sont étiquetées « Shopify » et arrivent sans consentement WhatsApp : un accord e-mail ou SMS n'en est pas un.
 
-**8. Suivre, mettre en pause ou couper.** La carte Shopify montre la boutique branchée, le dernier événement reçu et les
-chiffres des 30 derniers jours : messages partis, clients écartés et pourquoi. L'interrupteur de pause arrête tous les
-envois sans rien débrancher ; « Couper » débranche la boutique.
-
-En pause, vos automations gardent leur réglage, mais rien ne part, ni premier message ni suite ; les parcours en cours
-s'arrêtent, et un panier abandonné pendant la pause n'est jamais relancé après coup. Après « Couper », l'app reste
-installée sur votre boutique : désinstallez-la depuis la page des apps de la boutique, dont le lien est sur la carte.
-Vous pourrez la rebrancher depuis la carte.
+**8. Débrancher ou rebrancher.** En haut de la carte Shopify, le nom de votre boutique et, en face, « **Débrancher** » :
+plus aucun message ne part, vos contacts, leurs commandes et leurs étiquettes restent. Débranchée, le même bouton devient
+« **Rebrancher** » et redemande les clés de son app.
 
 **Bon à savoir.** Chaque message de la boutique rend la fiche du client consentante partout, campagnes comprises,
 sur la foi de votre attestation ; un client qui a répondu STOP le reste et ne reçoit rien.
@@ -172,8 +167,8 @@ telle qu'elle était le jour de la commande : un produit sorti d'une collection 
 
 Et les étiquettes que vous posez sur vos clients dans Shopify (VIP, grossiste...), dans le bloc « Étiquettes Shopify »,
 à part de vos étiquettes Messaging Me : un même mot des deux côtés fait deux critères. Elles se lisent quand vous
-allumez « Synchroniser les étiquettes » sur la carte Shopify : la première lecture part aussitôt, puis chaque jour, et
-« Synchroniser maintenant » la relance. Une fiche reçoit les étiquettes de chaque client Shopify qui a son numéro, dans
+cliquez « **Synchroniser maintenant** » sur la carte Shopify : la première lecture part aussitôt, puis chaque jour, et le
+même bouton la relance. Une fiche reçoit les étiquettes de chaque client Shopify qui a son numéro, dans
 ses coordonnées ou ses adresses ; « Synchroniser maintenant » relit tous les numéros, la lecture
 de chaque jour ajoute les nouvelles fiches. Ciblez-en une ou
 plusieurs (toutes, ou l'une d'elles) ; le bloc dit la date de la dernière lecture. « Copier en étiquette Messaging Me »
@@ -181,7 +176,7 @@ pose maintenant l'étiquette de votre choix sur les fiches qui portent cette ét
 pas Shopify ensuite. Aucune fiche n'est créée, et ni la lecture ni la copie ne donnent de consentement.
 
 Et les segments que vous construisez dans Shopify (Clients > Segments), dans le bloc « Segments Shopify ». Sur la carte
-Shopify, la synchronisation allumée, cochez ceux à suivre, 20 au plus, puis « **Enregistrer les segments suivis** » :
+Shopify, après une première synchronisation, cochez ceux à suivre, 20 au plus, puis « **Enregistrer les segments suivis** » :
 leurs membres se lisent aussitôt, puis chaque jour. Un client du segment compte pour chaque fiche de ses numéros.
 Ciblez-en un ou plusieurs (tous, ou l'un d'eux) ; chaque segment donne la date de sa dernière lecture, et « Copier en
 étiquette Messaging Me » existe aussi pour lui.

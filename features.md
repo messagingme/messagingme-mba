@@ -3222,12 +3222,14 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
     développeur (son adresse et ses droits se copient d'un clic), l'installer sur la boutique, copier son identifiant et
     son secret ; puis les coller dans la carte, cocher l'attestation du consentement des clients (sans elle, le bouton
     « Brancher la boutique » reste grisé), et la carte branche la boutique et abonne ses événements ;
-  - **avec une boutique**, la **pause** (2026-11-19) : la boutique reste branchée et ses automations gardent leur
-    réglage, mais plus rien ne part, ni premier message ni suite ; les parcours en cours s'arrêtent, et un panier
-    abandonné pendant la pause n'est jamais relancé après le rallumage. Puis l'import des clients abonnés, les chiffres
-    des 30 jours et des paniers, et « Couper » (plus aucun message ; l'app se désinstalle depuis la boutique ; une
-    boutique coupée se rebranche depuis la carte). Les messages se règlent dans Scénario > Automation > Shopify
-    (ci-dessous) : ils ont quitté la carte le 2026-11-19, avec l'assistant qui les écrivait.
+  - **avec une boutique** (refaite le 2026-11-26, « cet écran est illisible ») : le nom de la boutique en grand et, en
+    face, « **Débrancher** » (plus aucun message ne part ; contacts, commandes et étiquettes restent) ou, débranchée,
+    « **Rebrancher** », qui ouvre ses clés. Puis une ligne par geste, son bouton aligné dans une même colonne :
+    l'import des clients abonnés, le rattrapage des 60 derniers jours (dessous, la date du dernier), la synchronisation
+    des étiquettes (« Synchroniser maintenant », dessous la date de la dernière) et les segments à suivre. La **pause**
+    ne se pose plus : une boutique mise en pause avant ce jour garde sa ligne, avec « Reprendre ». Les chiffres des 30
+    jours et des paniers et le lien vers la page des apps ont quitté la carte. Les messages se règlent dans Scénario >
+    Automation > Shopify (ci-dessous) : ils ont quitté la carte le 2026-11-19, avec l'assistant qui les écrivait.
 - **Scénario > Automation > Shopify** (offre Pro et au-delà, 2026-11-19 ; sa page, `/automations/shopify`, depuis le lot 7
   du menu « Scénario ») : l'entrée n'apparaît dans la barre qu'avec une boutique branchée ; ouverte sans boutique, la
   page dit de la brancher dans Tools > Intégrations. En tête, la case de l'attestation du consentement des clients
@@ -3352,10 +3354,11 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   marchand l'obtient sans validation de Shopify, et si Shopify refuse la version (une app d'organisation partenaire), on
   le retire : rien d'autre n'en a besoin aujourd'hui.
 - **Les étiquettes des clients Shopify** (2026-11-24, segments Shopify enrichis, lot 6b) : pour cibler par étiquette
-  Shopify (détail dans « Contacts & CRM »), le réglage « **Synchroniser les étiquettes** » de la carte, **éteint par
-  défaut** : seul le marchand l'allume, jamais le branchement. Allumé, une première lecture part aussitôt, en arrière-plan,
-  puis une relecture au plus toutes les 24 h en Pro, Business et Entreprise, et « Synchroniser maintenant » la relance ;
-  la carte dit la dernière synchronisation et ses comptes (clients lus, fiches qui portent une étiquette). Elle cherche
+  Shopify (détail dans « Contacts & CRM »), « **Synchroniser maintenant** » sur la carte, **éteinte par défaut** : seul
+  le marchand la lance, jamais le branchement. Son premier geste l'allume : une première lecture part aussitôt, en
+  arrière-plan, puis une relecture au plus toutes les 24 h en Pro, Business et Entreprise, et le même bouton la relance ;
+  la carte dit la date de la dernière synchronisation (depuis le 2026-11-26, plus d'interrupteur : seul Claude Code
+  l'éteint, par `sync_shopify_customer_tags`). Elle cherche
   chaque fiche par son numéro chez Shopify : une fiche reçoit les étiquettes de CHAQUE client qui porte ce numéro, dans ses
   coordonnées ou ses adresses, et un client les donne à chaque fiche de ses numéros (lot 6b bis,
   2026-11-25, décision de Julien : « le max de numéros ») ; jamais par une commande notée. « Synchroniser maintenant »,
@@ -3370,7 +3373,7 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   au plus une fois par 24 h, sans relecture quotidienne ; `get_shopify_state` en dit l'état et les étiquettes lues.
 - **Les segments Shopify** (2026-11-25, segments Shopify enrichis, lot 6c) : pour cibler les segments que le marchand
   construit dans Shopify (détail dans « Contacts & CRM »), la MÊME synchronisation que les étiquettes (le même réglage, la
-  même relecture, « Synchroniser maintenant ») relit la liste des segments de la boutique. Sur la carte, sous ce réglage,
+  même relecture, « Synchroniser maintenant ») relit la liste des segments de la boutique. Sur la carte, sous cette ligne,
   le marchand coche ceux à suivre, 20 au plus, et « Enregistrer les segments suivis » lance leur lecture (en Free, qui
   synchronise au plus une fois par 24 h, le choix est gardé et lu à la prochaine). Les membres
   viennent de Shopify, page par page (sa requête n'est jamais réévaluée ici), et remplacent ceux d'avant à la fin d'une

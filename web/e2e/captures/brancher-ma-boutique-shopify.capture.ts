@@ -5,7 +5,7 @@ import { bloc, centrer, fermerPanneau, fleche, ouvrir, simulerEditeur, type Grap
 /**
  * « Brancher ma boutique Shopify » : la carte de Tools > Intégrations sans boutique, le mode opératoire chez Shopify, les
  * clés collées, les automations de l'écran Automation, le scénario du panier dans le builder (son premier message, puis
- * sa suite), l'import des clients abonnés, la carte d'une boutique branchée (pause, couper), le retour sur investissement
+ * sa suite), l'import des clients abonnés, la carte d'une boutique branchée (son nom, « Débrancher »), le retour sur investissement
  * et les filtres d'achats. Les états sont ceux que lisent `web/e2e/shopify.spec.ts` et `web/e2e/workflow-shopify.spec.ts` ;
  * rien n'est branché, rien n'est envoyé.
  */
@@ -180,10 +180,10 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await page.getByTestId('modale-fermer').click();
       await expect(page.getByTestId('shopify-import')).toHaveCount(0);
 
-      // 8. La boutique branchée : ses chiffres, la pause, et « Couper ».
+      // 8. La boutique branchée : son nom en grand, « Débrancher » en face, puis une ligne par geste (2026-11-26).
       await page.goto('/integrations#integration-shopify');
-      await expect(carte.getByTestId('integration-shopify-compteurs')).toBeVisible();
-      await capturer(page, CLE, 8, locale, carte, 'haut', carte.getByTestId('integration-shopify-pause-interrupteur'));
+      await expect(carte.getByTestId('integration-shopify-debrancher')).toBeVisible();
+      await capturer(page, CLE, 8, locale, carte, 'haut', carte.getByTestId('integration-shopify-debrancher'));
 
       // 9. Performance Lab > Quantitatif > Shopify : le chiffre, sa part prouvée, le coût et le ROI par source.
       await page.goto('/dashboard/shopify');

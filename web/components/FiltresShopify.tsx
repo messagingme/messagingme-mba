@@ -108,7 +108,7 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
               `Rattrapées aussi depuis le ${formatDate(boutique.rattrapeesDepuis, locale)}, pour les fiches qui existaient alors.`,
               `Also caught up since ${formatDate(boutique.rattrapeesDepuis, locale)}, for the records that existed then.`,
             )}`}
-            {boutique.coupeeLe && ` ${t(`Boutique coupée le ${formatDate(boutique.coupeeLe, locale)}.`, `Store disconnected on ${formatDate(boutique.coupeeLe, locale)}.`)}`}
+            {boutique.coupeeLe && ` ${t(`Boutique débranchée le ${formatDate(boutique.coupeeLe, locale)}.`, `Store disconnected on ${formatDate(boutique.coupeeLe, locale)}.`)}`}
           </p>
         )}
       </div>

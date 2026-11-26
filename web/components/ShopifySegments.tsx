@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useLocale, useT } from '@/lib/i18n';
 import { formatDate } from '@/lib/day';
 import { Bouton } from '@/components/Bouton';
+import { LigneShopify } from '@/components/LigneShopify';
 import { routeInconnue } from '@/lib/canaux-services';
 import { lireSegmentsShopifyCarte, suivreSegmentsShopify } from '@/lib/api-shopify';
 import { BORNES_SEGMENTS, type SegmentsShopifyLusVue } from '@/lib/partage/segments';
@@ -20,9 +21,13 @@ const RELECTURE_MS = 10_000;
  *
  * Rien tant que la synchronisation est éteinte (c'est elle qui les lit) ou que l'API est plus ancienne (404 du routeur).
  */
-export function ShopifySegments({ tenantId, onMessage }: {
+export function ShopifySegments({ tenantId, onMessage, relire: aRelire = 0, onSynchro }: {
   tenantId: string;
   onMessage: (m: { genre: 'ok' | 'erreur'; texte: string }) => void;
+  /** Change quand l'autre partie de la carte a lancé la synchronisation commune : relire, puis la suivre jusqu'à sa fin. */
+  relire?: number;
+  /** Ce geste a lancé (ou trouvé en cours) la synchronisation commune : la carte fait relire l'autre partie. */
+  onSynchro?: () => void;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -36,7 +41,7 @@ export function ShopifySegments({ tenantId, onMessage }: {
     .catch((e: unknown) => { if (routeInconnue(e)) setVue('absente'); })
     .finally(() => setTour((n) => n + 1)), [tenantId]);
 
-  useEffect(() => { void relire(); }, [relire]);
+  useEffect(() => { void relire(); }, [relire, aRelire]);
   const v = vue !== null && vue !== 'absente' ? vue : null;
   useEffect(() => {
     if (!v?.synchro.enCours) return undefined;
@@ -61,6 +66,7 @@ export function ShopifySegments({ tenantId, onMessage }: {
     setEnCours(true);
     try {
       const { lancee, vue: rendue } = await suivreSegmentsShopify(tenantId, [...coches]);
+      if (lancee || rendue?.enCours) onSynchro?.();
       setChoix(null);
       onMessage({
         genre: 'ok',
@@ -83,46 +89,46 @@ export function ShopifySegments({ tenantId, onMessage }: {
   const fiches = (n: number): string => (n === 1 ? t('1 fiche', '1 record') : t(`${n} fiches`, `${n} records`));
 
   return (
-    <div className="space-y-1" data-testid="integration-shopify-segments">
-      <p className="text-ink-900">
-        {t(
-          `Segments Shopify à suivre, ${BORNES_SEGMENTS.segmentsShopifyMax} au plus : la synchronisation lit leurs membres, pour filtrer vos contacts.`,
-          `Shopify segments to follow, ${BORNES_SEGMENTS.segmentsShopifyMax} at most: the sync reads their members, to filter your contacts.`,
-        )}
-      </p>
-      {listes.length === 0 ? (
-        <p className="text-ink-500" data-testid="integration-shopify-segments-aucun">
-          {t('Aucun segment lu dans la boutique : la prochaine synchronisation les liste.', 'No segment read in the store yet: the next sync lists them.')}
-        </p>
-      ) : (
-        <ul className="space-y-0.5" data-testid="integration-shopify-segments-liste">
-          {listes.map((s) => (
-            <li key={s.segmentId}>
-              <label className="flex items-start gap-2 text-ink-700">
-                <input
-                  type="checkbox" className="mt-0.5" checked={coches.has(s.segmentId)} disabled={enCours}
-                  onChange={() => basculer(s.segmentId)} data-testid="integration-shopify-segment"
-                />
-                <span>
-                  {s.nom}
-                  {s.suivi && (
-                    <span className="text-ink-400">
-                      {s.luLe
-                        ? ` · ${fiches(s.fiches)} · ${t(`lu le ${formatDate(s.luLe, locale)}`, `read on ${formatDate(s.luLe, locale)}`)}${s.partiel ? t(', dernière lecture inachevée', ', last reading unfinished') : ''}`
-                        : ` · ${t('pas encore lu', 'not read yet')}`}
+    <LigneShopify
+      testid="integration-shopify-segments"
+      libelle={t(`Segments Shopify à suivre, ${BORNES_SEGMENTS.segmentsShopifyMax} au plus`, `Shopify segments to follow, ${BORNES_SEGMENTS.segmentsShopifyMax} at most`)}
+      detail={(
+        <>
+          {listes.length === 0 ? (
+            <p className="text-ink-500" data-testid="integration-shopify-segments-aucun">
+              {t('Aucun segment lu dans la boutique : la prochaine synchronisation les liste.', 'No segment read in the store yet: the next sync lists them.')}
+            </p>
+          ) : (
+            <ul className="space-y-0.5" data-testid="integration-shopify-segments-liste">
+              {listes.map((s) => (
+                <li key={s.segmentId}>
+                  <label className="flex items-start gap-2 text-ink-700">
+                    <input
+                      type="checkbox" className="mt-0.5" checked={coches.has(s.segmentId)} disabled={enCours}
+                      onChange={() => basculer(s.segmentId)} data-testid="integration-shopify-segment"
+                    />
+                    <span>
+                      {s.nom}
+                      {s.suivi && (
+                        <span className="text-ink-400">
+                          {s.luLe
+                            ? ` · ${fiches(s.fiches)} · ${t(`lu le ${formatDate(s.luLe, locale)}`, `read on ${formatDate(s.luLe, locale)}`)}${s.partiel ? t(', dernière lecture inachevée', ', last reading unfinished') : ''}`
+                            : ` · ${t('pas encore lu', 'not read yet')}`}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
-      {change && (
-        <Bouton type="button" taille="petite" variante="secondaire" disabled={enCours} data-testid="integration-shopify-segments-enregistrer" onClick={() => void enregistrer()}>
+      bouton={change ? (
+        <Bouton type="button" taille="petite" variante="secondaire" className="w-full" disabled={enCours} data-testid="integration-shopify-segments-enregistrer" onClick={() => void enregistrer()}>
           {t('Enregistrer les segments suivis', 'Save the followed segments')}
         </Bouton>
-      )}
-    </div>
+      ) : undefined}
+    />
   );
 }

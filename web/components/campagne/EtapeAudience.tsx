@@ -197,7 +197,7 @@ export function EtapeAudience({
             onClick={() => choisirSource('shopify')}
             libelle="Shopify"
             icone={<span aria-hidden="true"><LogoShopify className="h-3.5 w-3.5" /></span>}
-            aide={boutique?.coupeeLe ? `Boutique coupée le ${formatDate(boutique.coupeeLe, 'fr')} : les filtres lisent les commandes déjà enregistrées.` : undefined}
+            aide={boutique?.coupeeLe ? `Boutique débranchée le ${formatDate(boutique.coupeeLe, 'fr')} : les filtres lisent les commandes déjà enregistrées.` : undefined}
             testId="audience-source-shopify"
           />
         )}

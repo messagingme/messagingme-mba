@@ -50,6 +50,7 @@ const ETIQUETTES_LUES = {
 interface Trace {
   branchements: unknown[];
   pauses: unknown[];
+  coupures: number;
   lignes: Array<{ evenement: string; corps: unknown }>;
   /** Les POST de l'attestation, et l'ordre de tous les POST (le branchement, puis l'attestation). */
   attestations: unknown[];
@@ -89,10 +90,14 @@ async function monter(page: Page, o: {
    * Les segments Shopify lus (lot 6c) : la liste (`absente` : le 404 du routeur) et un refus du serveur au choix. Leur
    * synchronisation est celle des étiquettes (`etiquettes.synchro`).
    */
-  segments?: { lus?: Array<Record<string, unknown>> | 'absente'; refus?: { statut: number; error: string } };
+  segments?: {
+    lus?: Array<Record<string, unknown>> | 'absente'; refus?: { statut: number; error: string };
+    /** La liste que rend le serveur une fois « Synchroniser maintenant » parti (la synchronisation lit la liste). */
+    apresSynchro?: Array<Record<string, unknown>>;
+  };
 }): Promise<Trace> {
   const trace: Trace = {
-    branchements: [], pauses: [], lignes: [], attestations: [], posts: [], rattrapages: 0, reglagesEtiquettes: [], synchrosEtiquettes: 0, segmentsSuivis: [],
+    branchements: [], pauses: [], coupures: 0, lignes: [], attestations: [], posts: [], rattrapages: 0, reglagesEtiquettes: [], synchrosEtiquettes: 0, segmentsSuivis: [],
   };
   let segmentsLus = o.segments?.lus;
   let rattrapage = o.rattrapage?.etat ?? null;
@@ -138,6 +143,7 @@ async function monter(page: Page, o: {
       trace.segmentsSuivis.push(corps);
       if (o.segments?.refus) return json({ error: o.segments.refus.error }, o.segments.refus.statut);
       if (Array.isArray(segmentsLus)) segmentsLus = segmentsLus.map((s) => ({ ...s, suivi: corps.segments.includes(String(s.segmentId)) }));
+      if (corps.segments.length > 0 && synchroEtiquettes !== undefined && synchroEtiquettes !== 'absente') synchroEtiquettes = { ...synchroEtiquettes, enCours: true };
       return json({ synchro: { ...(synchroEtiquettes as Record<string, unknown>), enCours: true, lancee: corps.segments.length > 0 } }, 202);
     }
     if (chemin.endsWith('/integrations/shopify/etiquettes') && req.method() === 'PUT') {
@@ -154,8 +160,14 @@ async function monter(page: Page, o: {
       trace.synchrosEtiquettes += 1;
       if (o.etiquettes?.refus) return json({ error: o.etiquettes.refus.error }, o.etiquettes.refus.statut);
       if (synchroEtiquettes !== undefined && synchroEtiquettes !== 'absente') synchroEtiquettes = { ...synchroEtiquettes, enCours: true };
+      if (o.segments?.apresSynchro) segmentsLus = o.segments.apresSynchro;
       const lancee = o.etiquettes?.dejaEnCours !== true;
       return json({ synchro: { ...(synchroEtiquettes as Record<string, unknown>), lancee } }, lancee ? 202 : 200);
+    }
+    if (chemin.endsWith('/integrations/shopify') && req.method() === 'DELETE') {
+      trace.coupures += 1;
+      if (etat !== 'absente') etat = { ...etat, boutique: { ...(etat.boutique as Record<string, unknown>), etat: 'coupee' } };
+      return json({ dejaCoupee: false, pageApps: null });
     }
     if (chemin.endsWith('/integrations/shopify') && req.method() === 'PATCH') {
       trace.pauses.push(req.postDataJSON());
@@ -250,10 +262,7 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     expect(trace.branchements[0]).toEqual({ boutique: 'https://admin.shopify.com/store/ma-boutique', clientId: 'cid', secret: 'shpss_secret' });
     await expect.poll(() => trace.attestations).toEqual([{ coche: true, langue: 'fr' }]);
     expect(trace.posts).toEqual(['branchement', 'attestation']);
-    // Plus d'assistant : les messages sont des automations, que la carte renvoie à LEUR page (menu « Scénario », lot 7).
-    const versLesAutomations = carte.getByTestId('integration-shopify-automations').getByRole('link');
-    await expect(versLesAutomations).toHaveText('Scénario > Automation > Shopify');
-    await expect(versLesAutomations).toHaveAttribute('href', PAGE);
+    // Les messages sont des automations : le message du branchement dit où les allumer (la carte n'en parle plus, 2026-11-26).
     await expect(carte.getByTestId('integration-shopify-message')).toContainText('Boutique branchée');
     await expect(carte.getByTestId('integration-shopify-message')).toContainText('Scénario > Automation > Shopify');
   });
@@ -281,50 +290,70 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     const message = carte.getByTestId('integration-shopify-message');
     await expect(message).toContainText('Boutique branchée, mais votre attestation n’a pas pu être enregistrée');
     await expect(message).toContainText('Scénario > Automation > Shopify');
-    await expect(carte.getByTestId('integration-shopify-etat')).toContainText('branchée');
+    await expect(carte.getByTestId('integration-shopify-etat')).toContainText('Branchée');
     expect(trace.branchements).toHaveLength(1);
   });
 
-  test('🔴 la pause se confirme, puis part ; la reprise part sans question', async ({ page }) => {
+  test('🔴 branchée : le nom de la boutique en grand, « Débrancher » en face, qui se confirme puis part', async ({ page }) => {
     const trace = await monter(page, {});
     const carte = page.getByTestId('integration-shopify');
-    await carte.getByTestId('integration-shopify-pause-interrupteur').click();
-    await repondre(page, true, 'Aucun message Shopify ne partira plus');
-    await expect.poll(() => trace.pauses).toEqual([{ pause: true }]);
-    await expect(carte.getByTestId('integration-shopify-message')).toContainText('Boutique en pause');
+    await expect(carte.getByTestId('integration-shopify-nom')).toHaveText('Ma Boutique');
+    await expect(carte.getByTestId('integration-shopify-etat')).toContainText('Branchée · ma-boutique.myshopify.com');
+    await expect(carte.getByTestId('integration-shopify-rebrancher')).toHaveCount(0);
+    await carte.getByTestId('integration-shopify-debrancher').click();
+    await repondre(page, true, 'Plus aucun message de commande ne partira');
+    await expect.poll(() => trace.coupures).toBe(1);
+    await expect(carte.getByTestId('integration-shopify-message')).toContainText('Boutique débranchée');
+    await expect(carte.getByTestId('integration-shopify-etat')).toContainText('Débranchée : plus aucun message ne part');
+    await expect(carte.getByTestId('integration-shopify-rebrancher')).toBeVisible();
   });
 
-  test('🔴 en pause, la carte le dit ; la reprise part sans question', async ({ page }) => {
+  test('🔴 débranchée : « Rebrancher » en face ouvre les clés ; aucune ligne de geste', async ({ page }) => {
+    await monter(page, { etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, etat: 'coupee' } } });
+    const carte = page.getByTestId('integration-shopify');
+    await expect(carte.getByTestId('integration-shopify-debrancher')).toHaveCount(0);
+    await expect(carte.getByTestId('shopify-brancher')).toHaveCount(0);
+    for (const id of ['integration-shopify-importer', 'integration-shopify-rattraper', 'integration-shopify-etiquettes-maintenant']) {
+      await expect(carte.getByTestId(id), id).toHaveCount(0);
+    }
+    await carte.getByTestId('integration-shopify-rebrancher').click();
+    await expect(carte.getByTestId('shopify-brancher')).toBeVisible();
+    await expect(carte.getByTestId('shopify-boutique')).toBeVisible();
+  });
+  test('🔴 en pause (posée avant la refonte), la carte le dit ; « Reprendre » part sans question', async ({ page }) => {
     const trace = await monter(page, { etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, pauseLe: '2026-11-19T10:00:00.000Z' } } });
     const carte = page.getByTestId('integration-shopify');
     await expect(carte.getByTestId('integration-shopify-pause')).toContainText('En pause depuis');
-    await carte.getByTestId('integration-shopify-pause-interrupteur').click();
+    await carte.getByTestId('integration-shopify-reprendre').click();
     await expect.poll(() => trace.pauses).toEqual([{ pause: false }]);
     await expect(page.getByTestId('confirmation')).toHaveCount(0);
   });
-
-  test('🔴 la ligne des paniers dit les relances parties et les récupérés de la même date, leur montant, les tests à part (plan 2026-10-30)', async ({ page }) => {
+  test('🔴 la carte branchée ne porte plus ni texte des automations, ni pause, ni paniers, ni chiffres des 30 jours, ni lien des apps (2026-11-26)', async ({ page }) => {
     await monter(page, {
       etat: {
-        ...RELANCE_ACTIVE,
-        paniers: {
-          relances: { envoye: 3 }, fermesATemps: 1, enAttente: 2,
-          relancesParties: 4, recuperes: 2, montantsRecuperes: [{ devise: 'EUR', montant: '59.9' }], recuperesTest: 1,
-        },
+        ...RELANCE_ACTIVE, compteurs: { envoye: 6, sans_telephone: 4 },
+        paniers: { relances: { envoye: 3 }, fermesATemps: 1, enAttente: 2, relancesParties: 4, recuperes: 2, montantsRecuperes: [], recuperesTest: 0 },
       },
     });
-    const ligneDesPaniers = page.getByTestId('integration-shopify-paniers');
-    await expect(ligneDesPaniers).toContainText('4 relances parties, 2 récupérés');
-    await expect(ligneDesPaniers).toContainText(/59,90\s€/);
-    await expect(ligneDesPaniers).toContainText('et 1 de test, non comptés');
+    const carte = page.getByTestId('integration-shopify');
+    await expect(carte.getByTestId('integration-shopify-nom')).toBeVisible();
+    for (const id of ['integration-shopify-automations', 'integration-shopify-pause', 'integration-shopify-paniers', 'integration-shopify-compteurs', 'integration-shopify-rgpd']) {
+      await expect(carte.getByTestId(id), id).toHaveCount(0);
+    }
+    await expect(carte.getByRole('link', { name: 'La page des apps de la boutique' })).toHaveCount(0);
+    await expect(carte).not.toContainText('Les 30 derniers jours');
   });
-
-  test('la ligne des paniers ne se montre que si l’automation du panier est en service', async ({ page }) => {
-    await monter(page, { etat: { ...BRANCHEE, lignes: [ligne('order_paid'), ligne('checkout_abandoned', { actif: false })] } });
-    await expect(page.getByTestId('integration-shopify-etat')).toBeVisible();
-    await expect(page.getByTestId('integration-shopify-paniers')).toHaveCount(0);
+  test('🔴 les boutons de la carte s’alignent : même colonne, même largeur', async ({ page }) => {
+    await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES } });
+    const carte = page.getByTestId('integration-shopify');
+    await expect(carte.getByTestId('integration-shopify-etiquettes-maintenant')).toBeVisible();
+    const boites = await Promise.all(['integration-shopify-debrancher', 'integration-shopify-importer', 'integration-shopify-rattraper', 'integration-shopify-etiquettes-maintenant']
+      .map(async (id) => (await carte.getByTestId(id).boundingBox())!));
+    for (const b of boites) {
+      expect(Math.abs(b.x - boites[0]!.x)).toBeLessThan(1);
+      expect(Math.abs(b.width - boites[0]!.width)).toBeLessThan(1);
+    }
   });
-
   test('🔴 le rattrapage des commandes : l’aperçu compte, fiches d’acheteurs à créer comprises, le lancement part une fois, la carte dit qu’il tourne (lots 5 et 5b)', async ({ page }) => {
     const trace = await monter(page, {});
     const carte = page.getByTestId('integration-shopify');
@@ -353,20 +382,18 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     expect(trace.rattrapages).toBe(1);
     await expect(carte.getByTestId('integration-shopify-message')).toContainText('Rattrapage lancé');
     await expect(carte.getByTestId('integration-shopify-rattrapage-etat')).toContainText('En cours, lancé le');
-    // Pendant qu'il tourne, aucun second lancement n'est proposé.
-    await expect(carte.getByTestId('integration-shopify-rattraper')).toHaveCount(0);
+    // Pendant qu'il tourne, aucun second lancement n'est possible : le bouton reste à sa place, grisé.
+    await expect(carte.getByTestId('integration-shopify-rattraper')).toBeDisabled();
   });
 
-  test('un aperçu partiel le dit ; un rattrapage terminé dit son bilan, fiches créées et plafond compris', async ({ page }) => {
+  test('un aperçu partiel le dit ; un rattrapage terminé dit sa date, et seulement elle', async ({ page }) => {
     const termine = {
       ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z',
       comptes: { lues: 42, rattachees: 25, deja: 10, sansFiche: 5, sansNumero: 2, fichesCreees: 20, horsPlafond: 3 },
     };
     await monter(page, { rattrapage: { etat: termine, apercu: { ...APERCU_RATTRAPAGE, complet: false } } });
     const etat = page.getByTestId('integration-shopify-rattrapage-etat');
-    await expect(etat).toContainText('Terminé le');
-    await expect(etat).toContainText('42 commandes payées créées depuis le');
-    await expect(etat).toContainText('25 rattachées à une fiche, 20 fiches d’acheteurs créées, 10 déjà connues, 7 sans fiche ou sans numéro, non gardées, 3 au-delà de la limite de contacts de votre offre, non gardées.');
+    await expect(etat).toHaveText('Dernier rattrapage le 23/11/2026');
     await page.getByTestId('integration-shopify-rattraper').click();
     await expect(page.getByTestId('shopify-rattrapage-partiel')).toContainText('l’aperçu n’a pas tout lu');
   });
@@ -393,20 +420,11 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
 
   test('🔴 une API d’avant le lot 5b ne crée aucune fiche : l’aperçu garde le texte du lot 5, aucune création promise', async ({ page }) => {
     await monter(page, { rattrapage: { apercu: APERCU_RATTRAPAGE_LOT5, etat: { ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z', comptes: { lues: 3, rattachees: 1, deja: 1, sansFiche: 1, sansNumero: 0 } } } });
-    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).toContainText('1 rattachée à une fiche, 1 déjà connue, 1 sans fiche ou sans numéro, non gardée.');
-    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).not.toContainText('acheteur');
+    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).toHaveText('Dernier rattrapage le 23/11/2026');
     await page.getByTestId('integration-shopify-rattraper').click();
     await expect(page.getByTestId('shopify-rattrapage-apercu')).toContainText('5 sans fiche à leur numéro : comptées, jamais gardées');
     await expect(page.getByTestId('shopify-rattrapage-fiches')).toHaveCount(0);
     await expect(page.getByTestId('shopify-rattrapage-regle')).toContainText('Aucune fiche n’est créée et aucun message ne part');
-  });
-
-  test('un seul : le singulier, en français jusqu’à un', async ({ page }) => {
-    const un = { ...REPRISE, statut: 'termine', finiLe: '2026-11-23T12:05:00.000Z', comptes: { lues: 1, rattachees: 1, deja: 0, sansFiche: 0, sansNumero: 0, fichesCreees: 1, horsPlafond: 1 } };
-    await monter(page, { rattrapage: { etat: un } });
-    await expect(page.getByTestId('integration-shopify-rattrapage-etat'))
-      .toContainText('1 commande payée créée depuis le');
-    await expect(page.getByTestId('integration-shopify-rattrapage-etat')).toContainText('1 rattachée à une fiche, 1 fiche d’acheteur créée, 0 déjà connue, 0 sans fiche ou sans numéro, non gardée, 1 au-delà de la limite de contacts de votre offre, non gardée.');
   });
 
   test('un rattrapage arrêté par Shopify dit sa raison, et se relance', async ({ page }) => {
@@ -421,45 +439,35 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await expect(page.getByTestId('integration-shopify-rattrapage')).toHaveCount(0);
   });
 
-  test('🔴 les étiquettes Shopify (lot 6b) : allumer part une fois et lance la lecture ; la carte dit qu’elle tourne', async ({ page }) => {
+  test('🔴 les étiquettes Shopify (lot 6b) : jamais synchronisées, « Synchroniser maintenant » les allume et lance la lecture, une fois', async ({ page }) => {
     const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_ETEINTES } });
     const bloc = page.getByTestId('integration-shopify-etiquettes');
-    await expect(bloc).toContainText('Elles restent à part de vos étiquettes Messaging Me');
-    await expect(bloc.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
+    await expect(bloc).toContainText('Synchroniser les étiquettes Shopify de vos clients');
+    await expect(page.getByRole('switch')).toHaveCount(0);
     expect(trace.reglagesEtiquettes).toHaveLength(0);
-    await bloc.getByTestId('integration-shopify-etiquettes-interrupteur').click();
-    await expect(page.getByTestId('integration-shopify-message')).toContainText('Synchronisation des étiquettes allumée');
+    await bloc.getByTestId('integration-shopify-etiquettes-maintenant').click();
+    await expect(page.getByTestId('integration-shopify-message')).toContainText('Synchronisation lancée');
     expect(trace.reglagesEtiquettes).toEqual([{ allumee: true }]);
-    await expect(bloc.getByTestId('integration-shopify-etiquettes-en-cours')).toContainText('Synchronisation en cours : 0 client lu.');
-    await expect(bloc.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
+    expect(trace.synchrosEtiquettes).toBe(0);
+    await expect(bloc.getByTestId('integration-shopify-etiquettes-en-cours')).toContainText('En cours : 0 client lu.');
+    await expect(bloc.getByTestId('integration-shopify-etiquettes-maintenant')).toBeDisabled();
   });
-
-  test('🔴 allumée : la carte dit la dernière synchronisation et ses comptes ; « maintenant » part une fois', async ({ page }) => {
+  test('🔴 allumée : la date de la dernière synchronisation, et seulement elle ; « maintenant » part une fois', async ({ page }) => {
     const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES } });
     const etat = page.getByTestId('integration-shopify-etiquettes-etat');
-    await expect(etat).toContainText('Dernière synchronisation le');
-    await expect(etat).toContainText('12 clients lus, 6 fiches portent au moins une étiquette, 4 clients sans fiche, oubliés. Relue chaque jour.');
+    await expect(etat).toHaveText(/^Dernière synchronisation le \d{2}\/\d{2}\/\d{4}$/);
     await page.getByTestId('integration-shopify-etiquettes-maintenant').click();
     await expect(page.getByTestId('integration-shopify-message')).toContainText('Synchronisation lancée');
     expect(trace.synchrosEtiquettes).toBe(1);
-    await expect(page.getByTestId('integration-shopify-etiquettes-en-cours')).toContainText('12 clients lus, 3 fiches reliées par leur numéro.');
-    await expect(page.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
+    expect(trace.reglagesEtiquettes).toEqual([]);
+    await expect(page.getByTestId('integration-shopify-etiquettes-en-cours')).toContainText('En cours : 12 clients lus.');
+    await expect(page.getByTestId('integration-shopify-etiquettes-maintenant')).toBeDisabled();
   });
-
   test('🔴 « maintenant » quand une synchronisation tourne déjà (lancee: false) : la carte ne dit pas « lancée »', async ({ page }) => {
     const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES, dejaEnCours: true } });
     await page.getByTestId('integration-shopify-etiquettes-maintenant').click();
     await expect(page.getByTestId('integration-shopify-message')).toHaveText('Une synchronisation tourne déjà : elle continue.');
     expect(trace.synchrosEtiquettes).toBe(1);
-  });
-
-  test('éteindre garde les étiquettes lues, et la carte le dit', async ({ page }) => {
-    const trace = await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES } });
-    await page.getByTestId('integration-shopify-etiquettes-interrupteur').click();
-    await expect(page.getByTestId('integration-shopify-message')).toContainText('celles déjà lues restent');
-    expect(trace.reglagesEtiquettes).toEqual([{ allumee: false }]);
-    await expect(page.getByTestId('integration-shopify-etiquettes-etat')).toContainText('Éteinte : plus de relecture.');
-    await expect(page.getByTestId('integration-shopify-etiquettes-maintenant')).toHaveCount(0);
   });
 
   test('🔴 un refus du serveur (l’offre Free, une fois par 24 heures) se dit sur la carte, et l’état reste', async ({ page }) => {
@@ -506,6 +514,24 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     expect(trace.segmentsSuivis).toEqual([{ segments: ['12'] }]);
     await expect(cases.nth(1)).toBeChecked();
     await expect(bloc.getByTestId('integration-shopify-segments-enregistrer')).toHaveCount(0);
+  });
+
+  test('🔴 « Synchroniser maintenant » relit aussi les segments, sans recharger la page ; le choix des segments relit l’état des étiquettes', async ({ page }) => {
+    await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES }, segments: { lus: [], apresSynchro: SEGMENTS_LUS } });
+    const bloc = page.getByTestId('integration-shopify-segments');
+    await expect(bloc.getByTestId('integration-shopify-segments-aucun')).toBeVisible();
+    await page.getByTestId('integration-shopify-etiquettes-maintenant').click();
+    await expect(bloc.getByTestId('integration-shopify-segment')).toHaveCount(2);
+    await expect(bloc.getByTestId('integration-shopify-segments-aucun')).toHaveCount(0);
+  });
+
+  test('🔴 le choix des segments lance la synchronisation commune : la partie des étiquettes dit qu’elle tourne', async ({ page }) => {
+    await monter(page, { etiquettes: { synchro: ETIQUETTES_LUES }, segments: { lus: SEGMENTS_LUS } });
+    await expect(page.getByTestId('integration-shopify-etiquettes-etat')).toContainText('Dernière synchronisation le');
+    await page.getByTestId('integration-shopify-segment').nth(1).check();
+    await page.getByTestId('integration-shopify-segments-enregistrer').click();
+    await expect(page.getByTestId('integration-shopify-etiquettes-en-cours')).toBeVisible();
+    await expect(page.getByTestId('integration-shopify-etiquettes-maintenant')).toBeDisabled();
   });
 
   test('un refus du serveur au choix des segments se dit sur la carte', async ({ page }) => {
@@ -692,7 +718,7 @@ test.describe('Scénario > Automation > Shopify : les automations de la boutique
 
   test('la coupure se dit, sans aucune ligne', async ({ page }) => {
     await monter(page, { ecran: PAGE, etat: { ...BRANCHEE, boutique: { ...BOUTIQUE, etat: 'coupee' } } });
-    await expect(page.getByTestId('automations-shopify-coupee')).toContainText('Boutique coupée');
+    await expect(page.getByTestId('automations-shopify-coupee')).toContainText('Boutique débranchée');
     await expect(page.getByTestId('automations-shopify-order_paid')).toHaveCount(0);
   });
 

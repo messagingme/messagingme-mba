@@ -79,7 +79,7 @@ function BulleBoutique() {
 
 export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
   tenantId: string;
-  /** Une boutique déjà branchée ou coupée : seules les clés sont redemandées, repliées, le mode opératoire à portée. */
+  /** Une boutique débranchée, ouverte par « Rebrancher » : seules les clés sont redemandées, le mode opératoire à portée. */
   rebrancher?: boolean;
   /** `avertissement` : la boutique est branchée, mais l'attestation n'a pas pu être enregistrée (à dire au marchand). */
   onBranche: (avertissement?: string) => Promise<void>;
@@ -262,13 +262,9 @@ export function ShopifyBrancher({ tenantId, rebrancher = false, onBranche }: {
     </>
   );
 
+  // Rebrancher : le bouton « Rebrancher » de la carte ouvre directement les clés (Julien, 2026-11-26).
   if (rebrancher) {
-    return (
-      <details className="mt-2 text-sm" data-testid="shopify-rebrancher">
-        <summary className="cursor-pointer text-brand-600">{t('Rebrancher la boutique (nouvelles clés, ou événements à réabonner)', 'Reconnect the store (new keys, or events to subscribe again)')}</summary>
-        <div className="mt-3 space-y-4" data-testid="shopify-brancher">{formulaire}</div>
-      </details>
-    );
+    return <div className="space-y-4 text-sm" data-testid="shopify-brancher">{formulaire}</div>;
   }
 
   return (

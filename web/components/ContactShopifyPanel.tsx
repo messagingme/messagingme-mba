@@ -67,7 +67,7 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
           `${boutique.nom ?? boutique.domaine}: paid orders recorded since ${depuis}, test orders included, refunds not deducted.`,
         )}
         {plusAnciennes && ` ${t('Les plus anciennes viennent d’un branchement précédent ou du rattrapage des commandes.', 'Older ones come from a previous connection or from the order catch-up.')}`}
-        {boutique.coupeeLe && ` ${t(`Boutique coupée le ${formatDate(boutique.coupeeLe, locale)}.`, `Store disconnected on ${formatDate(boutique.coupeeLe, locale)}.`)}`}
+        {boutique.coupeeLe && ` ${t(`Boutique débranchée le ${formatDate(boutique.coupeeLe, locale)}.`, `Store disconnected on ${formatDate(boutique.coupeeLe, locale)}.`)}`}
       </p>
 
       <div data-testid="fiche-shopify-resume" className="grid grid-cols-[150px_1fr] items-center gap-x-3 gap-y-2">

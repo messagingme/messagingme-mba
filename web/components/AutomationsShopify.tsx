@@ -274,7 +274,7 @@ export function AutomationsShopify({ tenantId }: { tenantId: string }) {
       )}
       {b.etat === 'coupee' ? (
         <p className="text-sm text-ink-900" data-testid="automations-shopify-coupee">
-          {t('Boutique coupée : rien ne part. Rebranchez-la dans ', 'Store cut: nothing goes out. Reconnect it in ')}
+          {t('Boutique débranchée : rien ne part. Rebranchez-la dans ', 'Store disconnected: nothing goes out. Reconnect it in ')}
           <Link href="/integrations#integration-shopify" className="text-brand-600 hover:underline">{t('Tools > Intégrations', 'Tools > Integrations')}</Link>.
         </p>
       ) : (

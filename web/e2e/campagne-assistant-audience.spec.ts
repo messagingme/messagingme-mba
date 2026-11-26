@@ -303,9 +303,9 @@ test.describe('l onglet Shopify de l audience', () => {
     await monter(page, { boutique: { coupeeLe: '2026-11-15T10:00:00.000Z' } });
     const bouton = page.getByTestId('audience-source-shopify');
     await expect(bouton).toBeEnabled();
-    await expect(bouton).toHaveAttribute('title', /Boutique coupée le 15\/11\/2026/);
+    await expect(bouton).toHaveAttribute('title', /Boutique débranchée le 15\/11\/2026/);
     await bouton.click();
-    await expect(page.getByTestId('filtres-achats-suivi')).toContainText('Boutique coupée le');
+    await expect(page.getByTestId('filtres-achats-suivi')).toContainText('Boutique débranchée le');
   });
 
   // Un brouillon repris montre ce qui filtre : un volet fermé cacherait pourquoi la liste a maigri.

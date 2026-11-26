@@ -5,6 +5,7 @@ import { useLocale, useT } from '@/lib/i18n';
 import { formatDate } from '@/lib/day';
 import { Modale } from '@/components/Modale';
 import { Bouton } from '@/components/Bouton';
+import { LigneShopify } from '@/components/LigneShopify';
 import { routeInconnue } from '@/lib/canaux-services';
 import { apercuRattrapageShopify, lancerRattrapageShopify, lireRattrapageShopify } from '@/lib/api-shopify';
 import type { ApercuRepriseVue, RepriseShopifyVue } from '@/lib/partage/reprise-shopify';
@@ -61,41 +62,38 @@ export function ShopifyRattrapage({ tenantId, onLance }: { tenantId: string; onL
   if (reprise === 'absente') return null;
   const date = (iso: string) => formatDate(iso, locale);
   const comptes = r?.comptes;
-  // Les fiches créées (lot 5b) : dites seulement par une API qui les compte ; le plafond, seulement s'il a écarté quelqu'un.
+  // Les fiches créées (lot 5b), pendant que le rattrapage tourne : dites seulement par une API qui les compte. Terminé, la
+  // carte ne dit plus que sa date (Julien, 2026-11-26) : le bilan se lit dans l'aperçu du prochain.
   const creees = comptes?.fichesCreees === undefined
     ? ''
     : `, ${nombre(comptes.fichesCreees, ['fiche d’acheteur créée', 'fiches d’acheteurs créées'], ['buyer record created', 'buyer records created'])}`;
-  const hors = comptes?.horsPlafond ?? 0;
-  const horsPlafond = hors > 0
-    ? `, ${nombre(hors, ['au-delà de la limite de contacts de votre offre, non gardée', 'au-delà de la limite de contacts de votre offre, non gardées'], ['over your plan’s contact limit, not kept', 'over your plan’s contact limit, not kept'])}`
-    : '';
 
   return (
-    <div className="space-y-1" data-testid="integration-shopify-rattrapage">
-      <p className="flex flex-wrap items-center gap-2 text-ink-900">
-        {r === null
+    <div data-testid="integration-shopify-rattrapage">
+      <LigneShopify
+        libelle={r === null
           ? t(
             'Les commandes payées avant le branchement n’entrent pas dans vos segments : rattrapez celles des 60 derniers jours.',
             'Orders paid before the connection are not in your segments: catch up those of the last 60 days.',
           )
-          : t('Le rattrapage des commandes des 60 derniers jours :', 'The catch-up of the orders of the last 60 days:')}
-        {!vivante && (
-          <Bouton type="button" taille="petite" variante="secondaire" onClick={() => setOuvert(true)} data-testid="integration-shopify-rattraper">
+          : t('Le rattrapage des commandes des 60 derniers jours', 'The catch-up of the orders of the last 60 days')}
+        bouton={(
+          <Bouton type="button" taille="petite" variante="secondaire" className="w-full" disabled={vivante} onClick={() => setOuvert(true)} data-testid="integration-shopify-rattraper">
             {r === null ? t('Rattraper', 'Catch up') : t('Relancer', 'Run again')}
           </Bouton>
         )}
-      </p>
-      {r !== null && comptes && (
+        detail={r !== null && comptes && (
         <p className={r.statut === 'refuse' || r.statut === 'erreur' || r.interrompue ? 'text-danger' : 'text-ink-500'} data-testid="integration-shopify-rattrapage-etat">
           {r.interrompue
             ? t(`Le rattrapage lancé le ${date(r.commenceLe)} s’est interrompu : relancez-le.`, `The catch-up started on ${date(r.commenceLe)} stopped: run it again.`)
             : vivante
               ? `${t(`En cours, lancé le ${date(r.commenceLe)} : `, `Running, started on ${date(r.commenceLe)}: `)}${nombre(comptes.lues, ['commande lue', 'commandes lues'], ['order read', 'orders read'])}, ${nombre(comptes.rattachees, ['rattachée à une fiche', 'rattachées à une fiche'], ['attached to a record', 'attached to a record'])}${creees}.`
               : r.statut === 'termine'
-                ? `${t(`Terminé le ${date(r.finiLe ?? r.commenceLe)} : `, `Done on ${date(r.finiLe ?? r.commenceLe)}: `)}${nombre(comptes.lues, ['commande payée créée', 'commandes payées créées'], ['paid order created', 'paid orders created'])}${t(` depuis le ${date(r.fenetreDebut)}, `, ` since ${date(r.fenetreDebut)}, `)}${nombre(comptes.rattachees, ['rattachée à une fiche', 'rattachées à une fiche'], ['attached to a record', 'attached to a record'])}${creees}, ${nombre(comptes.deja, ['déjà connue', 'déjà connues'], ['already known', 'already known'])}, ${nombre(comptes.sansFiche + comptes.sansNumero, ['sans fiche ou sans numéro, non gardée', 'sans fiche ou sans numéro, non gardées'], ['without a record or a phone, not kept', 'without a record or a phone, not kept'])}${horsPlafond}.`
+                ? t(`Dernier rattrapage le ${date(r.finiLe ?? r.commenceLe)}`, `Last catch-up on ${date(r.finiLe ?? r.commenceLe)}`)
                 : t(`Arrêté : ${r.erreur ?? 'raison inconnue'}`, `Stopped: ${r.erreur ?? 'unknown reason'}`)}
-        </p>
-      )}
+          </p>
+        )}
+      />
       {ouvert && (
         <ApercuRattrapage
           tenantId={tenantId}
