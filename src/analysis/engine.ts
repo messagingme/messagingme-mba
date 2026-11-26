@@ -29,15 +29,29 @@ export function countExchanges(messages: AnalysisMessage[]): number {
 }
 
 /**
+ * Le texte d'une ligne du transcript. Deux messages ne se lisent pas tels que le fil les garde : un modèle n'y figure
+ * que par son nom (« Template « relance_devis » », `src/inbox/outbound-log.ts`), et un clic sur un bouton par son seul
+ * libellé. Lus bruts, le modèle a pris une conversation de prise de rendez-vous pour « une instruction technique »
+ * (MUTAC, 2026-11-26) : on les décrit pour ce qu'ils sont.
+ */
+function texteDuMessage(m: AnalysisMessage): string {
+  const body = (m.body ?? '').trim();
+  if (body === '') return `[${m.type ?? 'message'}]`;
+  if (m.direction === 'out' && m.type === 'template') {
+    return `[message WhatsApp pré-enregistré envoyé par l'entreprise, connu par son nom : ${body.replace(/^Template\s+/, '')}]`;
+  }
+  if (m.direction === 'in' && m.type === 'button') return `[le client a cliqué sur le bouton « ${body} »]`;
+  // Un bouton de réponse, une ligne de liste ou la fin d'un formulaire (`contentOf`, `src/webhooks/inbound.ts`).
+  if (m.direction === 'in' && m.type === 'interactive') return `[le client a répondu par un choix du message : « ${body} »]`;
+  return body;
+}
+
+/**
  * Transcript « Client:/Agent: » chronologique, borné en caractères. Trop long, on garde la fin (l'épisode récent
  * porte le sentiment et l'intention), avec un marqueur de troncature en tête.
  */
 export function buildTranscript(messages: AnalysisMessage[], maxChars = 6000): string {
-  const lines = messages.map((m) => {
-    const who = m.direction === 'in' ? 'Client' : 'Agent';
-    const text = (m.body ?? '').trim() || `[${m.type ?? 'message'}]`;
-    return `${who}: ${text}`;
-  });
+  const lines = messages.map((m) => `${m.direction === 'in' ? 'Client' : 'Agent'}: ${texteDuMessage(m)}`);
   let out = lines.join('\n');
   if (out.length > maxChars) {
     out = `[...début tronqué...]\n${out.slice(out.length - maxChars)}`;
@@ -66,6 +80,10 @@ export const DESCRIPTIONS_INTENTION: Record<Intent, string> = {
 const SYSTEM_INSTRUCTIONS = [
   'Tu es un analyste de conversations WhatsApp (support et commercial).',
   'Analyse la conversation et renvoie UNIQUEMENT un objet JSON valide, sans texte autour, sans balises de code.',
+  // Les deux lignes que `texteDuMessage` met entre crochets : sans cette phrase, une conversation faite d'un modèle et
+  // d'un clic passe pour « pas une vraie conversation ».
+  "Une ligne entre crochets décrit un message automatique. Un message pré-enregistré n'est connu que par son nom ;",
+  "un clic sur un bouton ou un choix est une vraie réponse du client, qui exprime sa demande (ex. « Prendre RDV » = prise_rdv).",
   'Champs attendus :',
   '- sentiment : "positif" | "neutre" | "negatif" (ressenti global du client).',
   // Liste et descriptions dérivées de `INTENTS` : une copie à la main serait celle qu'on oublie.

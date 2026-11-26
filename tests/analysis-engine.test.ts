@@ -19,6 +19,23 @@ describe('engine — buildTranscript', () => {
   it('remplace un corps vide par [type]', () => {
     expect(buildTranscript([{ direction: 'in', body: null, type: 'image' }])).toContain('Client: [image]');
   });
+  it('décrit un modèle envoyé et un clic sur un bouton pour ce qu’ils sont (MUTAC, 2026-11-26)', () => {
+    const t = buildTranscript([
+      { direction: 'out', body: 'Template « relance_devis » (Julien)', type: 'template' },
+      { direction: 'in', body: 'Prendre RDV', type: 'button' },
+      { direction: 'in', body: 'Rappel demain', type: 'interactive' },
+      { direction: 'out', body: 'Pour prendre RDV, cliquez sur le lien', type: 'text' },
+    ]);
+    expect(t).toBe([
+      "Agent: [message WhatsApp pré-enregistré envoyé par l'entreprise, connu par son nom : « relance_devis » (Julien)]",
+      'Client: [le client a cliqué sur le bouton « Prendre RDV »]',
+      'Client: [le client a répondu par un choix du message : « Rappel demain »]',
+      'Agent: Pour prendre RDV, cliquez sur le lien',
+    ].join('\n'));
+  });
+  it('dit au modèle qu’un clic est une vraie réponse du client', () => {
+    expect(buildPrompt('x').system).toContain('un clic sur un bouton ou un choix est une vraie réponse du client');
+  });
   it('tronque en gardant la FIN (épisode récent)', () => {
     const msgs: AnalysisMessage[] = Array.from({ length: 50 }, (_, i) => ({ direction: 'in', body: `msg-${i}-xxxxxxxxxx`, type: 'text' }));
     const t = buildTranscript(msgs, 100);

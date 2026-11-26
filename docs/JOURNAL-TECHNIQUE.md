@@ -28,6 +28,17 @@ TaskStop pour être repointé sur la tête (accord de la session voisine) a lanc
 approuvé celui-là (le lot Inbox seul), puis le second (23b8e4dab, les alertes de contacts) : deux clics au lieu d'un.
 Récidive de la leçon du 2026-11-10, promue ce jour dans `~/CLAUDE.md`.
 
+## 2026-11-26 : l'analyse lit un modèle et un clic pour ce qu'ils sont (MUTAC)
+
+- **Le symptôme** : chez MUTAC, la note « Conversation MM » posée dans HubSpot sur un prospect qui avait cliqué « Prendre
+  RDV » disait « pas une conversation WhatsApp réelle mais une instruction technique pour un template d'agent ».
+- **La cause** : le transcript passé au modèle reprenait le fil tel quel. Un modèle envoyé n'y est que son nom
+  (`Template « … »`, `src/inbox/outbound-log.ts`), et un clic n'y est que son libellé, comme un texte tapé.
+- **Le correctif** (`texteDuMessage`, `src/analysis/engine.ts`) : un modèle sortant devient « message WhatsApp
+  pré-enregistré envoyé par l'entreprise, connu par son nom », un `button` entrant « le client a cliqué sur le bouton »,
+  un `interactive` entrant « le client a répondu par un choix du message » ; la consigne dit qu'un clic est une vraie
+  réponse. Les notes déjà posées dans HubSpot ne changent pas. Le texte du modèle lui-même n'est toujours pas donné.
+
 ## 2026-11-26 : le message de passage à un humain gardé en base (MUTAC, migration 0328)
 
 **Mesuré chez MUTAC.** Le correctif de la veille (`DEFAULT` posé sous tout bloc `handoff`) supposait que Meta relit un
