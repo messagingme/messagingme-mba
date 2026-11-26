@@ -1908,7 +1908,7 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
 
 ## Inbox
 
-- **LA LOUPE ET LES JOURS DE LA LISTE** (2026-11-26, demande de Julien). Au-dessus de la liste des conversations,
+- **LA LOUPE ET LES JOURS DE LA LISTE** (2026-11-26, demande de Julien, en ligne). Au-dessus de la liste des conversations,
   un champ de recherche cherche un nom, un numéro (tapé avec ou sans « + » ni espaces) ou un mot du dernier
   message, dans le dossier ouvert. Tant qu'il n'est pas vidé, la liste ne montre que ce qui correspond,
   rafraîchissements et « Charger plus » compris ; la croix dans le champ (ou Échap) le vide et rend toute la liste.

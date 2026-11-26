@@ -5,6 +5,32 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : une loupe dans l'Inbox, et la liste rangée par jour
+
+Demande de Julien : retrouver une conversation par une recherche (une croix dans le champ rend toute la liste), et voir
+la liste par jour, repliable. Commits `2f8e95546` et `664bdfbe0`, déployés avec `821a7d85e` (run 45836450121, lancé par
+la session Shopify), aide rechargée en production (373 lignes, 0 retirée). Aucune migration.
+
+**La loupe filtre au serveur ET à l'écran.** `?q=` sur la liste des conversations (`recherche` de `listConversations`) :
+nom de la fiche, numéro (sur ses chiffres dès trois), aperçu du dernier message, jokers de LIKE littéraux, combiné au
+dossier. L'écran applique la même règle à la page reçue (`web/lib/inbox-recherche.ts`) : Vercel publie la console au
+push, l'API attend son déploiement, et un serveur d'avant `?q=` aurait rendu la liste entière sous une loupe remplie.
+
+**Les jours** suivent `last_message_at`, qui bouge à la réception comme à l'envoi. Dans « À traiter », les urgentes,
+mises en tête par le serveur, forment un premier groupe : rangées dans leur jour, elles auraient fait réapparaître un
+vieux jour en haut de la liste.
+
+**L'incident : la CI d'intégration rouge sur `2f8e95546`, une vingtaine de minutes.** Le test de recherche par nom
+supposait que `recordInbound` crée la fiche du contact ; il n'écrit que le message (la fiche vient du webhook), donc
+aucune conversation n'avait de nom. Code juste, test faux, signalé par la session Shopify. Le correctif crée la fiche et
+la rattache ; prouvé sur le banc PGlite dans les deux sens (le nom retiré du SQL : rouge) avant de repousser. Un
+déploiement lancé par un pair sur le commit rouge a été annulé avant l'approbation.
+
+**Vérifications.** tsc, lint, auto-attaque, suite racine (seul rouge `sdk-contrat`, identique sur origin vierge), 43 e2e
+de l'Inbox dont deux neufs contre une console construite depuis la copie, tests vérifiés dans les deux sens. Pas de
+relecteur séparé : une lecture et de l'interface, sans envoi ni argent. Personne n'a encore essayé sur de vraies
+conversations.
+
 ## 2026-11-26 : les coûts chiffrés à la grille de Meta quand Meta refuse son tarif
 
 Constat de Julien sur MUTAC : la carte « Coûts » affichait 0,00 pour les templates marketing, et « 399 sans tarif rendu
