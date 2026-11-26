@@ -94,6 +94,23 @@ test qui passe par le vrai `fetch` d'undici ; la pause de 60 s après un mot de 
 - « Jamais sans avoir demandé son nom, puis transférer » se lit comme « jamais » et ne pose rien.
 - `NOMS_DES_CHAMPS` (historique, `gestion.ts`) garde « règles de transfert » pour un champ désormais ignoré.
 
+## 🟡 Les packs de contacts du Business (lot B du plan `2026-11-26-contacts-packs-business-et-alertes-entreprise`) : la relecture (2026-11-26, aucun rouge)
+
+Le jaune 1 (une fin de droit en panne hors Stripe sans trace) est corrigé dans le lot : Julien est prévenu.
+
+1. **Pas d'e-mail aux admins sur un renouvellement des packs refusé** (`traitement-abonnements.ts`, `traiterPacks`) :
+   seule l'équipe est prévenue, le Pro et l'option passent par `paiementRefuse`. Un modèle d'e-mail de plus.
+2. **« En vente » ne se lit pas pareil** : la route des packs du Business exige le prix mensuel seul, `packsContactsEnVente`
+   (e-mails, `phraseLimite`, vue) les deux prix, lus une fois au démarrage du worker ; `packsBusinessEnVente` est exporté
+   et inutilisé. Une seule règle.
+3. **Les factures des packs s'affichent en « autre »** dans l'onglet Facturation (`objetDe`, `gestion-pro.ts`) :
+   `packs_contacts_business` à ajouter à `ObjetFacture` et au rendu.
+4. **Résiliés chez Stripe avant le webhook `deleted`**, l'admin qui retire un pack lit « paiement en attente » au lieu
+   d'une phrase juste (`packs-business.ts`). Sans effet sur l'argent.
+5. **Finis chez nous, vivants chez Stripe** (`a_verifier`) : chaque événement suivant redonne l'alerte tant que
+   personne n'a résilié à la main. Voulu, bruyant.
+6. **Ni e2e de la page Offre en Business, ni avertissement dans /ops** avant un retrait (« ses packs seront résiliés »).
+
 ## 🟡 Les alertes de contacts de l'Entreprise (lot A du plan `2026-11-26-contacts-packs-business-et-alertes-entreprise`) : la relecture (2026-11-26, aucun rouge)
 
 1. **Le Telegram d'une Entreprise pleine sans administrateur connecté ne part pas** (`creerAlerteEspacePlein`) : il suit

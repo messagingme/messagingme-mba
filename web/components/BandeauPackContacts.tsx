@@ -10,15 +10,16 @@ import { fmtNum } from '@/lib/format';
 const SEUIL = 0.8;
 
 /**
- * LE PACK DE CONTACTS PROPOSÉ SUR LA PAGE CONTACTS (demande de Julien du 2026-11-25) : un Pro à 80 % de sa limite ou plus
- * lit où il en est, et « Ajouter 1 000 contacts » ouvre l'achat sur la page Offre (`?pack=ajouter`), qui dit le prix et
- * demande la confirmation. Rien hors Pro, rien tant que les packs ne sont pas en vente, rien sur une API plus ancienne.
+ * LE PACK DE CONTACTS PROPOSÉ SUR LA PAGE CONTACTS (demande de Julien du 2026-11-25) : un Pro ou un Business (2026-11-26) à
+ * 80 % de sa limite ou plus lit où il en est, et « Ajouter 1 000 contacts » ouvre l'achat sur la page Offre
+ * (`?pack=ajouter`), qui dit le prix et demande la confirmation. Rien hors Pro et Business, rien tant que les packs ne sont
+ * pas en vente, rien sur une API plus ancienne.
  */
 export function BandeauPackContacts({ tenantId }: { tenantId: string }) {
   const t = useT();
   const { locale } = useLocale();
   const vue = useOffre(tenantId);
-  if (!vue || vue.offre !== 'pro' || !vue.packsContacts || !vue.prixPackContacts) return null;
+  if (!vue || (vue.offre !== 'pro' && vue.offre !== 'business') || !vue.packsContacts || !vue.prixPackContacts) return null;
   const limite = vue.limites.contacts;
   const compte = vue.usage.contacts;
   if (limite === null || limite <= 0 || compte < limite * SEUIL) return null;

@@ -3,7 +3,7 @@ import {
   creerTraitementAbonnements, FENETRE_ARRET_JOURS, type DepsTraitementAbonnements, type EvenementStripeVerifie,
 } from '../src/stripe/traitement-abonnements';
 import type { IssueFinDeDroitOption } from '../src/stripe/option-credit-whatsapp';
-import { stripeNumeroInerte, stripeOptionInerte, stripeProInerte } from './routes-inertes';
+import { stripeNumeroInerte, stripeOptionInerte, stripePacksBusinessInerte, stripeProInerte } from './routes-inertes';
 
 const TENANT = '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01';
 
@@ -16,6 +16,7 @@ function creer(over: Partial<DepsTraitementAbonnements> = {}) {
     numero: stripeNumeroInerte,
     pro: stripeProInerte,
     option: stripeOptionInerte,
+    packsBusiness: stripePacksBusinessInerte,
     paiementRefuse: async () => {},
     signalerPro: async () => {},
     signalerConversion: async () => {},
@@ -404,5 +405,135 @@ describe('l’option du Crédit WhatsApp', () => {
       .resolves.toEqual({ issue: 'illisible', domaine: 'option' });
     await expect(o.traitement.traiter(evenement('invoice.paid', { id: 'in_x', parent: { subscription_details: { subscription: 'sub_opt', metadata: { produit: 'option_credit_whatsapp' } } } })))
       .resolves.toEqual({ issue: 'illisible', domaine: 'option' });
+  });
+});
+
+/**
+ * LES PACKS DE CONTACTS DU BUSINESS (2026-11-26) : aiguillés sur leur marque avant le numéro, leurs packs toujours RELUS
+ * chez Stripe, le cache de l'offre vidé à chaque écriture (la limite de contacts en dépend), en retard sans perdre leurs
+ * packs, finis à l'annonce de Stripe, et résiliés s'ils sont payés alors que l'espace n'est plus en Business.
+ */
+describe('les packs de contacts du Business', () => {
+  const META = { tenant_id: TENANT, produit: 'packs_contacts_business' };
+  function packs(o: {
+    relu?: { statut: string; packs: number } | null; connu?: boolean; premiereFin?: boolean; issue?: 'fini' | 'doublon'; nouveau?: boolean;
+    droit?: 'garde_son_droit' | 'resilie'; disparu?: boolean;
+  } = {}) {
+    const journal: string[] = [];
+    const alertes: string[] = [];
+    const ligne = { abonnementId: 'sub_pk', tenantId: TENANT, livemode: true, statut: 'actif' as const, packs: 2, periodeFin: null, finiLe: null, finRaison: null };
+    const dep: DepsTraitementAbonnements['packsBusiness'] = {
+      enregistrer: async (a) => {
+        if (o.disparu) throw Object.assign(new Error('fk'), { code: '23503' });
+        journal.push(`enregistrer:${a.abonnementId}:${a.packs}`);
+        return o.issue === undefined ? { etat: 'enregistre', tenantId: TENANT, nouveau: o.nouveau ?? true } : { etat: o.issue };
+      },
+      majStatut: async (id, statut) => { journal.push(`statut:${id}:${statut}`); return o.connu === false ? null : { ...ligne, statut }; },
+      noterPacks: async (id, n) => { journal.push(`packs:${id}:${n}`); return o.connu === false ? null : { ...ligne, packs: n }; },
+      finir: async (id, raison) => { journal.push(`finir:${id}:${raison}`); return { ...ligne, finRaison: raison, premiereFin: o.premiereFin ?? true }; },
+      chezStripe: async () => (o.relu === undefined ? { statut: 'active', packs: 2 } : o.relu),
+      resilier: async (id) => { journal.push(`resilier:${id}`); return true; },
+      finDeDroit: async (t, cas) => { journal.push(`droit:${t}:${cas}`); return o.droit ?? 'garde_son_droit'; },
+      invalider: (t) => { journal.push(`invalider:${t}`); },
+      alerter: async (texte) => { alertes.push(texte); },
+    };
+    return { traitement: creer({ packsBusiness: dep }), journal, alertes };
+  }
+  const session = { id: 'cs_pk', mode: 'subscription', payment_status: 'paid', subscription: 'sub_pk', metadata: META };
+  const facture = (billing_reason = 'subscription_cycle') => ({
+    id: 'in_1', billing_reason, amount_paid: 2000, parent: { subscription_details: { subscription: 'sub_pk', metadata: META } },
+    lines: { data: [{ period: { end: 1_800_000_000 } }] },
+  });
+
+  it('🔴 la session payée enregistre les packs RELUS chez Stripe, vide le cache de l’offre, relit le droit (un Business), et l’équipe le sait', async () => {
+    const p = packs({ relu: { statut: 'active', packs: 1 } });
+    expect(p.traitement.concerne(evenement('checkout.session.completed', session))).toBe(true);
+    await expect(p.traitement.traiter(evenement('checkout.session.completed', session))).resolves.toEqual({ issue: 'acquitte' });
+    expect(p.journal).toEqual(['enregistrer:sub_pk:1', `invalider:${TENANT}`, `droit:${TENANT}:payee_sans_droit`]);
+    expect(p.alertes).toEqual([`Nouveaux packs de contacts du Business : espace ${TENANT} (sub_pk), 1 pack, soit 1000 contacts de plus.`]);
+    // Une session impayée, ou un abonnement pas encore payé : rien.
+    const impaye = packs();
+    await impaye.traitement.traiter(evenement('checkout.session.completed', { ...session, payment_status: 'unpaid' }));
+    const incomplet = packs({ relu: { statut: 'incomplete', packs: 1 } });
+    await incomplet.traitement.traiter(evenement('checkout.session.completed', session));
+    expect([impaye.journal, incomplet.journal, incomplet.alertes]).toEqual([[], [], []]);
+  });
+
+  it('🔴 payés alors que l’espace n’est plus en Business : la fin de droit les résilie, aucune annonce de nouveaux packs', async () => {
+    const p = packs({ droit: 'resilie' });
+    await p.traitement.traiter(evenement('checkout.session.completed', session));
+    expect(p.journal).toEqual(['enregistrer:sub_pk:2', `invalider:${TENANT}`, `droit:${TENANT}:payee_sans_droit`]);
+    expect(p.alertes).toEqual([]);
+  });
+
+  it('un doublon, un abonnement déjà fini chez nous, un espace supprimé : rien n’est inventé, l’équipe est prévenue', async () => {
+    const doublon = packs({ issue: 'doublon' });
+    await doublon.traitement.traiter(evenement('checkout.session.completed', session));
+    expect(doublon.alertes[0]).toMatch(/en double : sub_pk .* À annuler et rembourser chez Stripe/);
+    const fini = packs({ issue: 'fini' });
+    await fini.traitement.traiter(evenement('checkout.session.completed', session));
+    expect(fini.alertes[0]).toMatch(/finis chez nous, mais Stripe les dit active\. À résilier chez Stripe/);
+    const disparu = packs({ disparu: true });
+    await expect(disparu.traitement.traiter(evenement('checkout.session.completed', session))).resolves.toEqual({ issue: 'acquitte' });
+    expect(disparu.alertes[0]).toMatch(/L'espace supprimé .* paie encore ses packs de contacts sub_pk : à résilier chez Stripe/);
+    // Rien de relu chez Stripe : rien d'enregistré, mais le paiement se dit.
+    const illisible = packs({ relu: null });
+    await illisible.traitement.traiter(evenement('checkout.session.completed', session));
+    expect([illisible.journal, illisible.alertes[0]]).toEqual([[], expect.stringMatching(/ne sont PAS enregistrés, à vérifier/)]);
+  });
+
+  it('🔴 une modification relit les packs chez Stripe et vide le cache ; inconnue, elle enregistre ; un impayé abandonné est résilié puis fini', async () => {
+    const modif = packs({ relu: { statut: 'active', packs: 4 } });
+    await modif.traitement.traiter(evenement('customer.subscription.updated', { id: 'sub_pk', metadata: META }));
+    expect(modif.journal).toEqual(['packs:sub_pk:4', `invalider:${TENANT}`]);
+    const inconnu = packs({ relu: { statut: 'active', packs: 1 }, connu: false });
+    await inconnu.traitement.traiter(evenement('customer.subscription.updated', { id: 'sub_pk', metadata: META }));
+    expect(inconnu.journal).toEqual(['packs:sub_pk:1', 'enregistrer:sub_pk:1', `invalider:${TENANT}`, `droit:${TENANT}:payee_sans_droit`]);
+    // 🔴 `unpaid` reste vivant chez Stripe, qui le prélèverait encore : résilié d'abord.
+    const impaye = packs({ relu: { statut: 'unpaid', packs: 2 } });
+    await impaye.traitement.traiter(evenement('customer.subscription.updated', { id: 'sub_pk', metadata: META }));
+    expect(impaye.journal).toEqual(['resilier:sub_pk', 'finir:sub_pk:impaye', `invalider:${TENANT}`]);
+    expect(impaye.alertes[0]).toMatch(/terminés \(impayé\) .* 2000 contacts de moins sur sa limite/);
+    // Une quantité hors bornes posée à la main : rien n'est inventé sous la borne basse.
+    const zero = packs({ relu: { statut: 'active', packs: 0 } });
+    await zero.traitement.traiter(evenement('customer.subscription.updated', { id: 'sub_pk', metadata: META }));
+    expect([zero.journal, zero.alertes[0]]).toEqual([[], expect.stringMatching(/hors des bornes/)]);
+  });
+
+  it('🔴 la fin annoncée par Stripe : finie une fois, le cache vidé, l’équipe prévenue une fois', async () => {
+    const fin = packs();
+    await fin.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_pk', metadata: META, cancellation_details: { reason: 'cancellation_requested' } }));
+    expect(fin.journal).toEqual(['finir:sub_pk:resiliation', `invalider:${TENANT}`]);
+    expect(fin.alertes).toHaveLength(1);
+    const rejeu = packs({ premiereFin: false });
+    await rejeu.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_pk', metadata: META }));
+    expect(rejeu.alertes).toEqual([]);
+  });
+
+  it('🔴 les factures : un renouvellement refusé met en retard (les packs restent), le prorata refusé ne change rien ; payée, les packs sont relus', async () => {
+    const echec = packs();
+    await echec.traitement.traiter(evenement('invoice.payment_failed', facture()));
+    expect(echec.journal).toEqual(['statut:sub_pk:en_retard']);
+    expect(echec.alertes[0]).toMatch(/Renouvellement des packs de contacts du Business échoué/);
+    const prorata = packs();
+    await prorata.traitement.traiter(evenement('invoice.payment_failed', facture('subscription_update')));
+    expect([prorata.journal, prorata.alertes]).toEqual([[], []]);
+    const payee = packs({ relu: { statut: 'active', packs: 3 } });
+    await payee.traitement.traiter(evenement('invoice.paid', facture('subscription_update')));
+    expect(payee.journal).toEqual(['statut:sub_pk:actif', 'packs:sub_pk:3', `invalider:${TENANT}`]);
+    // Arrivée avant la session : la facture suffit à enregistrer.
+    const avant = packs({ connu: false, relu: { statut: 'active', packs: 1 } });
+    await avant.traitement.traiter(evenement('invoice.paid', facture('subscription_create')));
+    expect(avant.journal).toEqual(['statut:sub_pk:actif', 'enregistrer:sub_pk:1', `invalider:${TENANT}`, `droit:${TENANT}:payee_sans_droit`]);
+  });
+
+  it('🔴 un événement des packs ne tombe jamais dans le chemin du numéro (qui acquitte en silence) : marqué mais illisible, 422', async () => {
+    // Le numéro et l'option inertes LÈVENT sur toute écriture : passer par eux ferait échouer ce test.
+    const p = packs();
+    await expect(p.traitement.traiter(evenement('customer.subscription.updated', { metadata: { produit: 'packs_contacts_business' } })))
+      .resolves.toEqual({ issue: 'illisible', domaine: 'packs' });
+    await expect(p.traitement.traiter(evenement('invoice.paid', { id: 'in_x', parent: { subscription_details: { subscription: 'sub_pk', metadata: { produit: 'packs_contacts_business' } } } })))
+      .resolves.toEqual({ issue: 'illisible', domaine: 'packs' });
+    expect(p.traitement.concerne(evenement('checkout.session.completed', { metadata: { produit: 'packs_contacts_business' } }))).toBe(true);
   });
 });

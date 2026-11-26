@@ -64,8 +64,11 @@ const LIBELLE_LIMITE: Record<NomLimite, (max: number, contexte: ContexteLimite) 
   clesApi: (m) => `${m} clés d’API actives (révoquez-en une pour en créer une autre ; la clé de l’agent de Meta ne compte pas)`,
 };
 
-/** Les packs de contacts du Pro se paient-ils en ligne ? Les mêmes conditions que la page de l'offre (`src/index.ts`). */
-function packsContactsEnVente(): boolean {
+/**
+ * Les packs de contacts se paient-ils en ligne ? Les mêmes conditions que la page de l'offre (`src/index.ts`), pour le Pro
+ * comme pour le Business (qui ne prend que le prix mensuel, posé avec l'annuel ou pas du tout, `src/config.ts`).
+ */
+export function packsContactsEnVente(): boolean {
   return config.STRIPE_SECRET_KEY !== '' && config.STRIPE_PRIX_PACK_CONTACTS_MOIS !== '' && config.STRIPE_PRIX_PACK_CONTACTS_AN !== '';
 }
 
@@ -119,10 +122,15 @@ export function phraseLimite(limite: NomLimite, max: number, contexte: ContexteL
       : 'Passez en Business pour la lever';
     return `Limite de votre offre atteinte : ${LIBELLE_LIMITE[limite](max, contexte)}. ${suite} : ${adresseOffre()}`;
   }
-  // Les contacts d'un Business ou d'une Entreprise (2026-11-25) : Julien relève leur limite dans /ops, sur demande. La
-  // grille ne la devine plus (un Business réglé à 1 000 contacts lirait « passez en Business »), l'offre connue décide.
+  // Les contacts d'un Business ou d'une Entreprise (2026-11-25) : la grille ne devine plus leur limite (un Business réglé à
+  // 1 000 contacts lirait « passez en Business »), l'offre connue décide. Le Business achète un pack de 1 000, au prix
+  // mensuel, quand les packs sont en vente (2026-11-26) ; sinon, comme l'Entreprise, il les demande au Support.
   if (limite === 'contacts' && (contexte.offre === 'business' || contexte.offre === 'entreprise')) {
-    const suite = contexte.offre === 'business' ? 'Demandez plus de contacts depuis le Support, ou passez en Entreprise' : 'Demandez plus de contacts depuis le Support';
+    const suite = contexte.offre === 'entreprise'
+      ? 'Demandez plus de contacts depuis le Support'
+      : packsContactsEnVente()
+        ? `Ajoutez ${nb(CONTACTS_PAR_PACK)} contacts depuis la page Offre (${nb(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100)} € HT par mois), ou passez en Entreprise`
+        : 'Demandez plus de contacts depuis le Support, ou passez en Entreprise';
     return `Limite de votre offre atteinte : ${LIBELLE_LIMITE[limite](max, contexte)}. ${suite} : ${adresseOffre()}`;
   }
   // Les utilisateurs d'un Business (spec Business) : Julien relève la limite dans /ops, facturée hors Stripe, quelle

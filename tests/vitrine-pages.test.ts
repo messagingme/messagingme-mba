@@ -64,6 +64,8 @@ const ATTENDU: Record<string, number> = {
   // Le Business (spec Business) : posé à la main, jamais payé en ligne ; ses chiffres viennent du code comme les autres.
   'business.prix-mois': PRIX_BUSINESS_HT_CENTIMES.mois / 100,
   'business.contacts': DROITS.business.limites.contacts ?? NaN,
+  // Le pack de 1 000 contacts du Business (2026-11-26), au mois seulement : le même prix que celui du Pro.
+  'business.pack-contacts-mois': PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100,
   'business.utilisateurs': DROITS.business.limites.utilisateurs ?? NaN,
   'business.siege-mois': PRIX_SIEGE_BUSINESS_HT_CENTIMES.mois / 100,
   'business.adresses-webhook': DROITS.business.limites.adressesWebhook ?? NaN,

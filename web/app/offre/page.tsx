@@ -473,7 +473,7 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
         );
       })()}
 
-      {/* Les packs de 1 000 contacts du Pro (2026-11-24) : rien hors Pro, ni sur une API plus ancienne. */}
+      {/* Les packs de 1 000 contacts du Pro (2026-11-24) et du Business (2026-11-26) : rien ailleurs, ni sur une API plus ancienne. */}
       <PacksContactsPro tenantId={session.tenantId} vue={vue} />
 
       {/* L'ancien bloc, pour une API qui ne rend pas encore l'abonnement (la console part avant l'API). */}

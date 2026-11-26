@@ -98,14 +98,15 @@ function deps(o: {
 }
 
 describe('🔴 la limite de contacts du Pro et ses packs (droitsDe, et là seulement)', () => {
-  it('1 000 contacts de plus par pack, en Pro seulement : le Business et la Free gardent leur grille, l’Entreprise son devis', () => {
+  it('1 000 contacts de plus par pack, en Pro et en Business (2026-11-26) : la Free garde sa grille, l’Entreprise son devis', () => {
     expect(CONTACTS_PAR_PACK).toBe(1000);
     expect(PRIX_PACK_CONTACTS_HT_CENTIMES).toEqual({ mois: 2000, an: 24000 });
     expect(droitsDe('pro', null).limites.contacts).toBe(1000);
     expect(droitsDe('pro', null, 0, 2).limites.contacts).toBe(3000);
     expect(droitsDe('pro', null, 1, 2).limites.utilisateurs).toBe(4);
     expect(droitsDe('pro', null, 0, -3).limites.contacts).toBe(1000);
-    expect(droitsDe('business', null, 0, 4).limites.contacts).toBe(DROITS.business.limites.contacts);
+    // Le Business a ses propres packs, sur un abonnement à part (`src/stripe/packs-business.ts`) : l'appelant passe les siens.
+    expect(droitsDe('business', null, 0, 4).limites.contacts).toBe((DROITS.business.limites.contacts ?? 0) + 4000);
     expect(droitsDe('base', null, 0, 4).limites.contacts).toBe(DROITS.base.limites.contacts);
     expect(droitsDe('entreprise', { utilisateurs: null, conservationJours: null, contacts: 10_000 }, 0, 4).limites.contacts).toBe(10_000);
     // Copie neuve : la grille n'est jamais touchée.

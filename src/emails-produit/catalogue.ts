@@ -108,10 +108,11 @@ const RAISON_MISE_EN_LIGNE: Variable = { description: 'Ce qui a empêché la mis
 /** La limite de contacts du Pro, lue dans la grille (`DROITS.pro`), que l'e-mail de la Free cite (spec offres v2, livraison 5). */
 const LIMITE_PRO: Variable = { description: 'La limite de contacts de l’offre Pro', forme: 'texte', exemple: '5000' };
 /**
- * Le pack de contacts du Pro (2026-11-25) : ses contacts, son prix HT au mois et à l'an, lus dans `CONTACTS_PAR_PACK` et
- * `PRIX_PACK_CONTACTS_HT_CENTIMES` (`src/offres/offres.ts`), jamais recopiés ici ; le lien ouvre l'achat sur la page Offre.
+ * Le pack de contacts du Pro (2026-11-25), et du Business (2026-11-26, au mois seulement) : ses contacts, son prix HT au
+ * mois et à l'an, lus dans `CONTACTS_PAR_PACK` et `PRIX_PACK_CONTACTS_HT_CENTIMES` (`src/offres/offres.ts`), jamais recopiés
+ * ici ; le lien ouvre l'achat sur la page Offre.
  */
-const CONTACTS_PACK: Variable = { description: 'Les contacts qu’un pack ajoute au Pro', forme: 'texte', exemple: '1 000' };
+const CONTACTS_PACK: Variable = { description: 'Les contacts qu’un pack ajoute à la limite', forme: 'texte', exemple: '1 000' };
 const PRIX_PACK_MOIS: Variable = { description: 'Le prix HT d’un pack de contacts au mois, en euros', forme: 'texte', exemple: '20' };
 const PRIX_PACK_AN: Variable = { description: 'Le prix HT d’un pack de contacts à l’an, en euros', forme: 'texte', exemple: '240' };
 const LIEN_PACK: Variable = { description: 'L’achat d’un pack de contacts, sur la page Offre de la console', forme: 'lien', exemple: 'https://console.messagingme.app/offre?pack=ajouter' };
@@ -803,7 +804,7 @@ export const CATALOGUE = [
     categorie: 'service',
     aide: LIGNES_AIDE.offre,
     nom: 'Offre Business : 80 % des contacts',
-    quand: 'Un espace Business atteint 80 % de sa limite de contacts, ceux qui lui ont écrit les premiers compris. Une fois à chaque franchissement.',
+    quand: 'Un espace Business atteint 80 % de sa limite de contacts, ceux qui lui ont écrit les premiers compris, quand les packs de contacts ne sont pas en vente. Une fois à chaque franchissement.',
     variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
     textes: {
       fr: {
@@ -829,7 +830,7 @@ export const CATALOGUE = [
     categorie: 'service',
     aide: LIGNES_AIDE.offre,
     nom: 'Offre Business : limite de contacts atteinte',
-    quand: 'Un espace Business atteint sa limite de contacts, ceux qui lui ont écrit les premiers compris. Une fois à chaque franchissement.',
+    quand: 'Un espace Business atteint sa limite de contacts, ceux qui lui ont écrit les premiers compris, quand les packs de contacts ne sont pas en vente. Une fois à chaque franchissement.',
     variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
     textes: {
       fr: {
@@ -852,10 +853,68 @@ export const CATALOGUE = [
       },
     },
   },
+  // Le Business achète des packs de contacts depuis le 2026-11-26 : tant qu'ils sont en vente, ses alertes de franchissement
+  // proposent le pack (au prix mensuel seul) au lieu de l'Entreprise (`emissionContacts`). Les deux d'au-dessus restent pour
+  // une copie où les packs ne sont pas en vente.
+  {
+    cle: 'limite_contacts_business_pack_80',
+    categorie: 'service',
+    aide: LIGNES_AIDE.offre,
+    nom: 'Offre Business : 80 % des contacts, le pack proposé',
+    quand: 'Un espace Business atteint 80 % de sa limite de contacts, ceux qui lui ont écrit les premiers compris, quand les packs de contacts sont en vente. Une fois à chaque franchissement.',
+    variables: { limite: LIMITE, contacts_pack: CONTACTS_PACK, prix_pack_mois: PRIX_PACK_MOIS, lien_pack: LIEN_PACK },
+    textes: {
+      fr: {
+        sujet: 'Vous approchez de votre limite de contacts',
+        corps: 'Bonjour,\n\nL’espace {{espace}} compte 80 % des {{limite}} contacts que l’offre Business permet, ceux qui '
+          + 'vous ont écrit les premiers compris. Au-delà, il ne sera plus possible d’en créer ni d’en importer, et un '
+          + 'nouveau client qui vous écrit n’entrera pas dans Messaging Me.\n\nAjoutez {{contacts_pack}} contacts pour '
+          + '{{prix_pack_mois}} € HT par mois, en un clic depuis la page Offre.',
+        bouton: { libelle: 'Ajouter des contacts', lien: '{{lien_pack}}' },
+      },
+      en: {
+        sujet: 'You are close to your contact limit',
+        corps: 'Hello,\n\nThe {{espace}} workspace has 80% of the {{limite}} contacts the Business plan allows, including '
+          + 'those who wrote to you first. Beyond that, creating or importing contacts will no longer be possible, and a '
+          + 'new customer who writes to you will not get into Messaging Me.\n\nAdd {{contacts_pack}} contacts for '
+          + '€{{prix_pack_mois}} excl. VAT a month, in one click from the Plan page.',
+        bouton: { libelle: 'Add contacts', lien: '{{lien_pack}}' },
+      },
+    },
+  },
+  {
+    cle: 'limite_contacts_business_pack_100',
+    categorie: 'service',
+    aide: LIGNES_AIDE.offre,
+    nom: 'Offre Business : limite de contacts atteinte, le pack proposé',
+    quand: 'Un espace Business atteint sa limite de contacts, ceux qui lui ont écrit les premiers compris, quand les packs de contacts sont en vente. Une fois à chaque franchissement.',
+    variables: { limite: LIMITE, contacts_pack: CONTACTS_PACK, prix_pack_mois: PRIX_PACK_MOIS, lien_pack: LIEN_PACK },
+    textes: {
+      fr: {
+        sujet: 'Limite atteinte : votre espace Business est plein',
+        corps: 'Bonjour,\n\nL’espace {{espace}} a atteint les {{limite}} contacts que l’offre Business permet, ceux qui vous '
+          + 'ont écrit les premiers compris : créer ou importer un contact est refusé, et un nouveau client qui vous écrit '
+          + 'n’entre plus dans Messaging Me (son message n’y est pas enregistré, et vos agents IA ne lui répondent pas).'
+          + '\n\nAjoutez {{contacts_pack}} contacts pour {{prix_pack_mois}} € HT par mois, en un clic depuis la page Offre : '
+          + 'la limite monte dès le paiement accepté. Ou supprimez des contacts dont vous n’avez plus besoin.',
+        bouton: { libelle: 'Ajouter des contacts', lien: '{{lien_pack}}' },
+      },
+      en: {
+        sujet: 'Limit reached: your Business workspace is full',
+        corps: 'Hello,\n\nThe {{espace}} workspace has reached the {{limite}} contacts the Business plan allows, including '
+          + 'those who wrote to you first: creating or importing a contact is refused, and a new customer who writes to you '
+          + 'no longer gets into Messaging Me (their message is not recorded there, and your AI agents do not reply to '
+          + 'them).\n\nAdd {{contacts_pack}} contacts for €{{prix_pack_mois}} excl. VAT a month, in one click from the Plan '
+          + 'page: the limit goes up as soon as the payment is accepted. Or delete contacts you no longer need.',
+        bouton: { libelle: 'Add contacts', lien: '{{lien_pack}}' },
+      },
+    },
+  },
   {
     // La porte d'un espace plein (décisions de Julien du 2026-10-25 et du 2026-11-13, `src/webhooks/espace-plein.ts`) : le
-    // message d'un inconnu n'est pas entré, en Free, en Pro ou en Business. Une occasion par jour (`plein:<jour>`), quel
-    // que soit le nombre d'inconnus. Le texte ne nomme pas l'offre : l'alerte ne connaît que la limite.
+    // message d'un inconnu n'est pas entré, en Free, en Pro ou en Business (celui-ci a sa variante qui propose le pack, tant
+    // que les packs sont en vente). Une occasion par jour (`plein:<jour>`), quel que soit le nombre d'inconnus. Le texte ne
+    // nomme pas l'offre : l'alerte ne connaît que la limite.
     cle: 'espace_plein_entrant',
     categorie: 'service',
     aide: LIGNES_AIDE.offre,
@@ -879,6 +938,36 @@ export const CATALOGUE = [
           + 'conversation, and your AI agents did not reply to them.\n\nMove to the next plan up to receive all your '
           + 'customers, or delete contacts you no longer need by asking Claude.\n\nThis alert is sent at most once a day.',
         bouton: { libelle: 'See plans', lien: '{{lien_offre}}' },
+      },
+    },
+  },
+  {
+    // La porte d'un espace plein, pour le Business (2026-11-26) : le même événement que `espace_plein_entrant`, une occasion
+    // par jour, et le pack de 1 000 contacts au lieu d'une offre supérieure, tant que les packs sont en vente.
+    cle: 'espace_plein_entrant_business',
+    categorie: 'service',
+    aide: LIGNES_AIDE.offre,
+    nom: 'Espace Business plein : un nouveau client n’est pas entré',
+    quand: 'Un inconnu écrit à un espace Business qui a déjà tous ses contacts, quand les packs de contacts sont en vente : son message n’entre pas dans Messaging Me. Une fois par jour au plus.',
+    variables: { limite: LIMITE, contacts_pack: CONTACTS_PACK, prix_pack_mois: PRIX_PACK_MOIS, lien_pack: LIEN_PACK },
+    textes: {
+      fr: {
+        sujet: 'Votre espace est plein : un nouveau client n’est pas entré',
+        corps: 'Bonjour,\n\nUn nouveau client vous a écrit sur WhatsApp, mais l’espace {{espace}} a déjà les {{limite}} '
+          + 'contacts que permet votre offre Business : son message n’est pas entré dans Messaging Me. Il n’a ni fiche ni '
+          + 'conversation, et vos agents IA ne lui ont pas répondu.\n\nAjoutez {{contacts_pack}} contacts pour '
+          + '{{prix_pack_mois}} € HT par mois, en un clic depuis la page Offre, ou supprimez des contacts dont vous n’avez '
+          + 'plus besoin, en le demandant à Claude.\n\nCette alerte part une fois par jour au plus.',
+        bouton: { libelle: 'Ajouter des contacts', lien: '{{lien_pack}}' },
+      },
+      en: {
+        sujet: 'Your workspace is full: a new customer did not get in',
+        corps: 'Hello,\n\nA new customer wrote to you on WhatsApp, but the {{espace}} workspace already has the {{limite}} '
+          + 'contacts your Business plan allows: their message did not get into Messaging Me. They have no record and no '
+          + 'conversation, and your AI agents did not reply to them.\n\nAdd {{contacts_pack}} contacts for '
+          + '€{{prix_pack_mois}} excl. VAT a month, in one click from the Plan page, or delete contacts you no longer need '
+          + 'by asking Claude.\n\nThis alert is sent at most once a day.',
+        bouton: { libelle: 'Add contacts', lien: '{{lien_pack}}' },
       },
     },
   },

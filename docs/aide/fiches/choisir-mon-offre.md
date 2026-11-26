@@ -2,7 +2,7 @@
 description: Free, Pro, Business ou Entreprise : ce que chaque offre de Messaging Me ouvre, ses limites, et comment changer d'offre ou gérer l'abonnement.
 ecran: offre
 source_section: Offres (menu « Paramètres » > Offre)
-source_empreinte: 6a93cb
+source_empreinte: 9e62bd
 publique: oui
 rubrique: demarrer-console
 rang: 1
@@ -66,8 +66,9 @@ et le Performance Lab complet demandent l'Entreprise.
 écrivent les premiers compris. Quand votre espace est plein, créer ou importer un contact est refusé, et un nouveau
 client qui vous écrit n'entre pas dans Messaging Me : son message n'est pas enregistré et votre agent IA ne lui répond
 pas. Un e-mail vous prévient, une fois par jour au plus. Vos contacts déjà présents vous écrivent comme avant, et un
-contact supprimé libère sa place : demandez à Claude de supprimer ceux dont vous n'avez plus besoin. En Business, des
-contacts de plus se demandent au Support ; en Entreprise, leur nombre se règle avec vous, ou reste sans limite.
+contact supprimé libère sa place : demandez à Claude de supprimer ceux dont vous n'avez plus besoin. En formule Pro et
+en offre Business, des contacts de plus s'achètent par pack de 1 000 (plus bas) ; en Entreprise, leur nombre se règle avec vous, ou
+reste sans limite.
 
 **En Business et en Entreprise : effacer le plus ancien plutôt que refuser.** Dans Paramètres, la case « Quand l'espace
 est plein, le contact le plus ancien laisse sa place » fait entrer chaque nouveau contact en effaçant définitivement votre
@@ -78,6 +79,12 @@ l'aperçu dit combien des plus anciens seront effacés.
 la formule mensuelle, 240 € HT par an avec l'annuelle. Le prorata jusqu'à la fin de votre période est facturé tout de
 suite sur la carte de la formule Pro, et votre limite monte dès que ce paiement est accepté. « Retirer 1 000 contacts »
 ne rembourse rien et n'efface aucun contact : supprimez d'abord ceux en trop.
+
+**Ajouter 1 000 contacts en offre Business.** Sur la page Offre, « Ajouter 1 000 contacts » coûte 20 € HT par mois, sur
+un abonnement à part. Le premier pack se paie sur la page sécurisée de Stripe, et votre limite monte dès que le paiement
+est confirmé. Les suivants facturent le prorata du mois en cours sur la même carte. « Retirer 1 000 contacts » ne
+rembourse rien et n'efface aucun contact ; retirer le dernier arrête cet abonnement. Si votre espace quitte l'offre
+Business, l'abonnement de vos packs s'arrête aussi, sans remboursement.
 
 **Les widgets WhatsApp.** Un en formule Free, cinq en formule Pro, sans limite en Business et en Entreprise. Un espace
 qui en a plus que son offre n'en permet garde les siens, qui continuent de marcher : seule la création d'un nouveau est

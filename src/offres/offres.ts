@@ -228,7 +228,8 @@ export const PRIX_SIEGE_HT_CENTIMES: Readonly<{ mois: number; an: number }> = { 
  * `docs/superpowers/plans/2026-11-24-contacts-packs-et-remplacement.md`) : un pack ajoute 1 000 contacts à la limite du Pro,
  * 20 € HT par mois sur un Pro mensuel, 240 € HT par an sur un Pro annuel (sans remise), en quantité sur son abonnement
  * Stripe (`src/stripe/packs-contacts.ts`). La route d'achat recoupe ces prix avec ceux posés chez Stripe ; la vue de
- * l'offre, le refus de limite et la vitrine les montrent : jamais recopiés ailleurs. Le Pro seulement.
+ * l'offre, le refus de limite et la vitrine les montrent : jamais recopiés ailleurs. Le Business en achète aussi depuis le
+ * 2026-11-26, au prix mensuel seulement, sur un abonnement Stripe à part (`src/stripe/packs-business.ts`).
  */
 export const CONTACTS_PAR_PACK = 1000;
 export const PRIX_PACK_CONTACTS_HT_CENTIMES: Readonly<{ mois: number; an: number }> = { mois: 2000, an: 24000 };
@@ -246,9 +247,11 @@ export const PRIX_SIEGE_BUSINESS_HT_CENTIMES: Readonly<{ mois: number }> = { moi
  * neuve.
  * 🔴 `sieges` : les sièges payés du Pro vivant (`abonnements_offre.sieges`, livraison 7), ajoutés aux utilisateurs du Pro
  * ICI SEULEMENT, pour que l'invitation et le gel lisent la même limite (un membre payé n'est jamais gelé).
- * 🔴 `packsContacts` : de même, les packs payés du Pro vivant (`abonnements_offre.packs_contacts`), 1 000 contacts chacun,
- * ajoutés ICI SEULEMENT à sa limite de contacts : les gardes de création et l'usage lisent cette limite. Seule la porte de
- * l'espace plein relit les packs en base (`PgContactStore.inconnusRefuses`), avec l'offre, et les ajoute par le même calcul.
+ * 🔴 `packsContacts` : de même, les packs payés du Pro vivant (`abonnements_offre.packs_contacts`), ou ceux du Business
+ * (`packs_contacts_business`, son abonnement à part, 2026-11-26), 1 000 contacts chacun, ajoutés ICI SEULEMENT à la limite
+ * de contacts (pour le Business, après celle de `/ops`) : les gardes de création et l'usage lisent cette limite. Seule la
+ * porte de l'espace plein relit les packs en base (`PgContactStore.inconnusRefuses`), avec l'offre, et les ajoute par le
+ * même calcul. Une autre offre les ignore : une Entreprise a ses propres limites.
  * 🔴 Le Business ne prend de `/ops` que sa limite d'utilisateurs, et `null` y veut dire « les 5 de la grille », jamais
  * « sans limite » comme pour l'Entreprise : le reste de sa grille ne se négocie pas.
  */
@@ -256,9 +259,12 @@ export function droitsDe(offre: Offre, surcharge: SurchargeEntreprise | null, si
   const d = DROITS[offre];
   const limites: Limites = { ...d.limites };
   if (offre === 'pro' && limites.utilisateurs !== null) limites.utilisateurs += Math.max(0, sieges);
-  if (offre === 'pro' && limites.contacts !== null) limites.contacts += CONTACTS_PAR_PACK * Math.max(0, packsContacts);
   if (offre === 'business' && surcharge?.utilisateurs != null) limites.utilisateurs = surcharge.utilisateurs;
   if (offre === 'business' && surcharge?.contacts != null) limites.contacts = surcharge.contacts;
+  // Les packs APRÈS la limite de /ops : un Business réglé à 8 000 contacts qui paie deux packs en a 10 000.
+  if ((offre === 'pro' || offre === 'business') && limites.contacts !== null) {
+    limites.contacts += CONTACTS_PAR_PACK * Math.max(0, packsContacts);
+  }
   if (offre === 'entreprise' && surcharge !== null) {
     limites.utilisateurs = surcharge.utilisateurs;
     if (surcharge.conservationJours !== null) limites.conservationJours = surcharge.conservationJours;

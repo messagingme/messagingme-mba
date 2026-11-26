@@ -98,9 +98,9 @@ export class PgSuppressionEspaceStore {
     const clients = (await this.pool.query<{ customer_id: string; livemode: boolean }>(
       'select customer_id, livemode from stripe_clients where tenant_id = $1 order by livemode desc', [tenantId],
     )).rows.map((r) => ({ customerId: r.customer_id, livemode: r.livemode, lien: lienTableauStripe('customers', r.customer_id, r.livemode) }));
-    // Les abonnements que Stripe peut encore facturer : le numéro fourni (lot 3c), l'offre Pro (lot 6) et l'option du Crédit
-    // WhatsApp (lot 4a). Vivant = pas encore résilié (numéro) ou sans fin annoncée par Stripe (offre, option), la
-    // définition de chacun des magasins.
+    // Les abonnements que Stripe peut encore facturer : le numéro fourni (lot 3c), l'offre Pro (lot 6), l'option du Crédit
+    // WhatsApp (lot 4a) et les packs de contacts du Business (2026-11-26). Vivant = pas encore résilié (numéro) ou sans fin
+    // annoncée par Stripe (offre, option, packs), la définition de chacun des magasins.
     const abonnements: AbonnementStripe[] = [
       ...(await this.pool.query<{ id: string; statut: string; livemode: boolean }>(
         'select stripe_subscription_id as id, statut, livemode from abonnements_numero where tenant_id = $1 order by cree_le', [tenantId],
@@ -111,6 +111,9 @@ export class PgSuppressionEspaceStore {
       ...(await this.pool.query<{ id: string; statut: string; livemode: boolean; vivant: boolean }>(
         'select stripe_subscription_id as id, statut, livemode, fini_le is null as vivant from options_credit_whatsapp where tenant_id = $1 order by cree_le', [tenantId],
       )).rows.map((r) => ({ id: r.id, produit: 'option_credit_whatsapp' as const, statut: r.statut, livemode: r.livemode, vivant: r.vivant, lien: lienTableauStripe('subscriptions', r.id, r.livemode) })),
+      ...(await this.pool.query<{ id: string; statut: string; livemode: boolean; vivant: boolean }>(
+        'select stripe_subscription_id as id, statut, livemode, fini_le is null as vivant from packs_contacts_business where tenant_id = $1 order by cree_le', [tenantId],
+      )).rows.map((r) => ({ id: r.id, produit: 'packs_contacts_business' as const, statut: r.statut, livemode: r.livemode, vivant: r.vivant, lien: lienTableauStripe('subscriptions', r.id, r.livemode) })),
     ];
 
     const f = (await this.pool.query<{ id: string; numero: string }>(

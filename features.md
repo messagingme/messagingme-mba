@@ -4288,9 +4288,11 @@ boîte par sous-menu.
     l'espace dépasse ;
   - un espace Free, Pro ou Business plein, un nouveau client qui a écrit et n'est pas entré (une fois par jour au plus,
     quel que soit le nombre de clients écartés) : passer à l'offre supérieure, ou supprimer des contacts en le demandant
-    à Claude ; un espace Entreprise plein, la même alerte, qui renvoie au Support pour relever la limite ;
+    à Claude ; un espace Business plein, la même alerte, qui propose le pack de 1 000 contacts (20 € HT par mois) tant
+    qu'il est en vente ; un espace Entreprise plein, la même alerte, qui renvoie au Support pour relever la limite ;
   - en offre Pro, 80 % puis 100 % des contacts, ceux qui ont écrit les premiers compris, à chaque franchissement ; ces
-    alertes renvoient au Business ; en offre Business, les mêmes, qui renvoient à l'Entreprise ; en offre Entreprise
+    alertes renvoient au Business ; en offre Business, les mêmes, qui proposent le pack de 1 000 contacts (20 € HT par
+    mois, depuis le 2026-11-26), ou l'Entreprise tant que les packs ne sont pas en vente ; en offre Entreprise
     dont le contrat fixe une limite de contacts, les mêmes, qui renvoient au Support (pas de pack ni d'offre
     supérieure : la limite se relève sur demande), et dont celle de 100 % dit, quand l'option « le plus ancien laisse
     sa place » est active, que chaque nouveau contact efface désormais le plus ancien. Notre équipe est prévenue en
@@ -5353,7 +5355,7 @@ du 2026-10-27.
   supprimée libère sa place. Ce qui compte vient de l'offre de l'espace, sur la réception de Meta, celle de 360dialog et
   l'application WhatsApp Business reliée par QR code.
 - ✅ **En Business et en Entreprise, la limite de contacts se règle dans `/ops`** (décision de Julien du 2026-11-25) : un
-  Business garde les 5 000 de la grille tant qu'aucune n'est posée ; une Entreprise sans limite posée n'en a pas, et rien
+  Business garde les 5 000 de la grille tant qu'aucune n'est posée, plus ses packs payés (plus bas) ; une Entreprise sans limite posée n'en a pas, et rien
   n'y est compté ni refusé.
 - ✅ **En Business et en Entreprise, le plus ancien peut laisser sa place** (décision de Julien du 2026-11-24) : une option,
   décochée par défaut, qu'un administrateur coche dans Paramètres (après une confirmation qui dit l'irréversible) ou que
@@ -5426,8 +5428,20 @@ du 2026-10-27.
   la limite qui reste, et la phrase dit combien en supprimer d'abord. Une création refusée faute de place, en Pro,
   propose le pack. Dès 80 % de la limite, la page Contacts le propose aussi (le compte, le prix, et « Ajouter 1 000
   contacts »), comme les deux e-mails de limite du Pro (80 % et plein) ; leur bouton ouvre la page Offre sur la
-  confirmation de l'achat. Le Pro seulement : le Business n'a pas de packs. Claude lit les packs et leur prix (`get_plan`).
+  confirmation de l'achat. Claude lit les packs et leur prix (`get_plan`).
   ⚠️ Tant que les deux prix du pack ne sont pas posés chez Stripe, la page Offre dit « pas encore en vente ».
+- ✅ **Le Business achète aussi ses contacts en plus, par pack de 1 000** (décisions de Julien du 2026-11-26) : 20 € HT par
+  mois seulement, sur un abonnement Stripe à part, puisque le Business est facturé hors Stripe. Sa limite devient celle
+  posée dans `/ops` (ou les 5 000 de la grille) plus 1 000 par pack payé. Sur la page Offre, le premier « Ajouter 1 000
+  contacts » ouvre la page de paiement de Stripe (sans code promo) : la limite monte quand Stripe confirme le paiement, et
+  l'administrateur revient sur la page Offre, qui le dit. Les packs suivants facturent le prorata du mois sur la carte de
+  cet abonnement, et ne s'appliquent qu'une fois ce paiement accepté. « Retirer 1 000 contacts » ne rembourse rien et
+  n'efface rien, refusé tant que les contacts ne tiennent pas ; retirer le dernier résilie l'abonnement. Une création
+  refusée faute de place, les deux e-mails de limite du Business (80 % et plein) et celui d'un nouveau client refusé
+  proposent le pack, comme la page Contacts dès 80 %. 🔴 Le pack ne vit qu'avec le Business : retirer le Business dans
+  `/ops` (ou poser l'Entreprise à sa place) résilie son abonnement chez Stripe, sans remboursement, et la limite revient à
+  celle de l'offre ; des packs payés alors que l'espace n'est plus en Business sont résiliés, et nous sommes prévenus pour
+  décider du remboursement.
 - ✅ **Le numéro fourni est inclus dans le Pro, le Business et l'Entreprise** (livraison B2b, puis spec Business) : un
   espace en Pro obtient son numéro sans payer, depuis
   la page « Connecter WhatsApp » ou le lien que donne Claude (qui ne lui annonce alors aucun prix). Si la réserve ne
@@ -5482,7 +5496,8 @@ du 2026-10-27.
   jamais de purge). Le Business avec sa limite d'utilisateurs (vide = les cinq de la grille), facturé hors Stripe :
   `/ops` signale un Pro payé encore vivant, un numéro payé à part, un numéro fourni que plus rien ne couvrirait au
   retrait ; poser le Business arrête le numéro payé à part et complète le crédit offert jusqu'à dix euros, une fois par
-  espace ; le retirer lance la fin du numéro fourni s'il n'est plus couvert. La même route ramène un espace en Free.
+  espace ; le retirer lance la fin du numéro fourni s'il n'est plus couvert, et résilie l'abonnement de ses packs de
+  contacts (sans remboursement). La même route ramène un espace en Free.
   Les espaces qui existaient avant le lot 6 sont tous en Entreprise, sans aucune limite.
 - ✅ **Les coûts suivent l'offre** (livraison C) :
   - la **commission sur le crédit IA** : 100 % en Free (10 € de crédit y paient 5 € de consommation des modèles,

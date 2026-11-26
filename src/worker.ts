@@ -163,6 +163,7 @@ import { creerAvisAbonnement } from './numero/avis-abonnement';
 import { creerClientDidww } from './didww/client';
 import { creerTravailEmail, reprendreLesEnvois } from './emails-produit/envoi';
 import { balayerLimites, creerAlerteEspacePlein, limitesAlertables } from './emails-produit/alertes';
+import { packsContactsEnVente } from './offres/refus';
 import type { EspacesPleins } from './webhooks/espace-plein';
 import { balayerAccompagnement, balayerRecap } from './emails-produit/accompagnement';
 import { PgOffresStore } from './offres/offre.pg';
@@ -649,6 +650,8 @@ export async function demarrerWorker(): Promise<void> {
       pageOffre: `${config.APP_URL.trim().replace(/\/+$/, '')}/offre`,
       pageSupport: `${config.APP_URL.trim().replace(/\/+$/, '')}/support`,
       alerterEquipe: async (texte) => { alert(`contacts-entreprise:${texte}`, texte); },
+      // Un Business plein se voit proposer le pack de contacts, quand il est en vente (2026-11-26).
+      packsEnVente: packsContactsEnVente(),
     }),
   };
 
@@ -1282,6 +1285,8 @@ export async function demarrerWorker(): Promise<void> {
     pageSupport: `${config.APP_URL.trim().replace(/\/+$/, '')}/support`,
     remplacerAnciens: (t) => settingsStore.contactsRemplacerAnciens(t),
     alerterEquipe: async (texte) => { alert(`contacts-entreprise:${texte}`, texte); },
+    // Les alertes du Business proposent le pack de contacts, quand il est en vente (2026-11-26).
+    packsEnVente: packsContactsEnVente(),
     moisDeParis: () => moisDeParis(Date.now()),
   }), { enEchec: echecDeBalayage('emails-produit-limites', 'sweeper:emails-produit-limites') });
   /**

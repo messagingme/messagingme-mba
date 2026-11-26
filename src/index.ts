@@ -54,7 +54,12 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
-import { changerPacksContacts, packsContactsChezStripe, type DepsPacksContacts } from './stripe/packs-contacts';
+import { packsContactsChezStripe, type DepsPacksContacts } from './stripe/packs-contacts';
+import {
+  changerPacksContactsDeLOffre, finDeDroitPacks, packsBusinessChezStripe, resilierPacksChezStripe, type DepsFinDeDroitPacks,
+  type DepsPacksBusiness,
+} from './stripe/packs-business';
+import { PgPacksBusinessStore } from './offres/packs-business.pg';
 import { formuleEnRetard, formuleEtPrise, optionPrenable, repriseOuverte } from './offres/formule-payee';
 import { connexionParLaLigne, fenetreRefuseeParLaLigne, numeroAvecCarte, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
 import { poserLaLigne, type DepsPose } from './credit-whatsapp/pose';
@@ -1344,6 +1349,35 @@ async function main(): Promise<void> {
     alerter: (texte) => siegesDeLaConsole.alerter(texte),
   };
   /**
+   * Les packs de contacts du Business (2026-11-26, `src/stripe/packs-business.ts`) : un abonnement à part, au prix MENSUEL
+   * du pack, avec le MÊME Stripe, les MÊMES clients et la MÊME règle du mode test que le Pro et l'option. Le magasin passé
+   * entier (ses méthodes lisent `this.pool`).
+   */
+  const packsBusiness = new PgPacksBusinessStore(pool);
+  const packsBusinessDeLaConsole: DepsPacksBusiness = {
+    stripe: paiementDeLaConsole.stripe,
+    clients: paiementDeLaConsole.clients,
+    payeurAutorise: (payeur) => paiementDeLaConsole.payeurAutorise(payeur),
+    urlConsole: config.APP_URL,
+    prixPackMois: config.STRIPE_PRIX_PACK_CONTACTS_MOIS,
+    packs: packsBusiness,
+    contacts: async (tenant) => (await offresStore.usage(tenant)).contacts,
+    invalider: (tenant) => offres.invalider(tenant),
+    alerter: (texte) => siegesDeLaConsole.alerter(texte),
+    verrous: verrousCourts,
+  };
+  /**
+   * 🔴 Leur fin de droit : au retrait du Business dans `/ops`, et quand des packs sont payés alors que l'espace n'est plus en
+   * Business (le webhook). L'offre est relue SANS cache : elle vient de changer.
+   */
+  const finDeDroitDesPacks: DepsFinDeDroitPacks = {
+    stripe: paiementDeLaConsole.stripe,
+    packs: packsBusiness,
+    enBusiness: async (tenant) => (await offresSansCache.offreDe(tenant)).offre === 'business',
+    invalider: (tenant) => offres.invalider(tenant),
+    alerter: (texte) => siegesDeLaConsole.alerter(texte),
+  };
+  /**
    * Sa fin de droit (spec du 2026-10-30, « Fin ») : après la fin d'un Pro (le webhook) et le retrait d'une offre posée à
    * la main (`/ops`). L'offre est relue SANS cache : elle vient de changer.
    */
@@ -2174,6 +2208,8 @@ async function main(): Promise<void> {
         finOffreManuelle: (tenant, finiLe) => surFinDeLOffreManuelle(numeroInclus, { tenantId: tenant, finiLe }),
         // L'option du Crédit WhatsApp sans offre qui y donne droit (lot 4a) : résiliée, ses lignes arrêtées.
         finDeDroitOption: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant, 'fin_de_droit'),
+        // Les packs de contacts du Business, à sa sortie (2026-11-26) : leur abonnement résilié, sans remboursement.
+        finDeDroitPacks: (tenant) => finDeDroitPacks(finDeDroitDesPacks, tenant, 'fin_de_droit'),
         // La conversion dite au client (lot C du Crédit WhatsApp) : un Business confirmé.
         signalerConversion: (tenant) => signalerConversion(conversionDeLaConsole, tenant),
         // L'IA d'une Entreprise réglée : les alertes du mois réarmées tout de suite ; la clé remontée en arrière-plan, comme
@@ -2203,8 +2239,13 @@ async function main(): Promise<void> {
       rendreLeNumero: (tenant, rendre) => abonnementsOffre.rendreLeNumero(tenant, rendre),
       // Les utilisateurs en plus du Pro (livraison 7).
       sieges: (tenant, demande, payeur) => changerSieges(siegesDeLaConsole, tenant, demande, payeur),
-      // Les packs de 1 000 contacts du Pro (2026-11-24).
-      packsContacts: (tenant, demande, payeur) => changerPacksContacts(packsContactsDeLaConsole, tenant, demande, payeur),
+      // Les packs de 1 000 contacts du Pro (2026-11-24) et du Business (2026-11-26, son abonnement à part). Le Business se lit
+      // SANS cache : un espace qui vient de passer en Business ne doit pas prendre le chemin du Pro, qui le refuserait.
+      packsContacts: (tenant, demande, payeur) => changerPacksContactsDeLOffre({
+        pro: packsContactsDeLaConsole,
+        business: packsBusinessDeLaConsole,
+        businessDe: async (t) => (await offresSansCache.offreDe(t)).business ?? null,
+      }, tenant, demande, payeur),
       // Résilier le Pro, annuler la résiliation, et les factures de l'espace (2026-10-26).
       resiliation: (tenant, resilier, payeur) => changerResiliationPro(gestionProDeLaConsole, tenant, resilier, payeur),
       // Démarrer la formule Pro avant la fin de l'essai (révision du Crédit WhatsApp, 2026-11-04).
@@ -2652,6 +2693,20 @@ async function main(): Promise<void> {
           repriseOuverte: async (tenant) => repriseOuverte(await formuleDe(tenant), Date.now()),
           enVente: () => optionEnVente(optionDeLaConsole),
           prevenirArret: optionArretee,
+        },
+        // Les packs de contacts du Business (2026-11-26) : relus chez Stripe à chaque événement, le cache de l'offre vidé à
+        // chaque écriture, et résiliés s'ils sont payés sans Business.
+        packsBusiness: {
+          enregistrer: (a) => packsBusiness.enregistrer(a),
+          majStatut: (abonnementId, statut, periodeFin, finFactureEchouee) => packsBusiness.majStatut(abonnementId, statut, periodeFin, finFactureEchouee),
+          noterPacks: (abonnementId, packs) => packsBusiness.noterPacks(abonnementId, packs),
+          finir: (abonnementId, raison, finiLe) => packsBusiness.finir(abonnementId, raison, finiLe),
+          chezStripe: (abonnementId) => packsBusinessChezStripe(packsBusinessDeLaConsole, abonnementId),
+          resilier: (abonnementId) => resilierPacksChezStripe(packsBusinessDeLaConsole, abonnementId),
+          // 🔴 Le cas voyage tel quel : une flèche à un paramètre l'avalerait, « sans remboursement » au mauvais cas.
+          finDeDroit: (tenant, cas) => finDeDroitPacks(finDeDroitDesPacks, tenant, cas),
+          invalider: (tenant) => offres.invalider(tenant),
+          alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
         },
       },
     } : {}),

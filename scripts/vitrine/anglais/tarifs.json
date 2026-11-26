@@ -96,7 +96,7 @@
  {"fr":"Scénarios conversationnels complexes","en":"Complex conversational scenarios"},
  {"fr":"Canal e-mail sortant, orchestrable avec WhatsApp","en":"Outbound email channel, orchestrated with WhatsApp"},
  {"fr":"Agents IA en nombre illimité","en":"Unlimited AI agents"},
- {"contexte":"<li><strong><span data-offre=\"business.contacts\">5&nbsp;000</span> contacts</strong>, ceux qui vous écrivent compris</li>","en":"<li><strong><span data-offre=\"business.contacts\">5,000</span> contacts</strong>, including those who write to you</li>"},
+ {"contexte":"<li><strong><span data-offre=\"business.contacts\">5&nbsp;000</span> contacts</strong>, ceux qui vous écrivent compris, puis <span data-offre=\"business.pack-contacts-mois\">20</span>&nbsp;€ par mois les 1&nbsp;000 de plus</li>","en":"<li><strong><span data-offre=\"business.contacts\">5,000</span> contacts</strong>, including those who write to you, then €<span data-offre=\"business.pack-contacts-mois\">20</span> a month for each extra 1,000</li>"},
  {"contexte":"<li data-fonction=\"business:widget_personnalise\">Widgets personnalisables et <span data-offre=\"business.widgets\">illimités</span></li>","en":"<li data-fonction=\"business:widget_personnalise\">Customisable widgets, <span data-offre=\"business.widgets\">unlimited</span></li>"},
  {"fr":"Des tableaux de bord personnalisés","en":"Custom dashboards"},
  {"fr":"Canal e-mail entrant et sortant, orchestrable avec WhatsApp","en":"Inbound and outbound email channel, orchestrated with WhatsApp"},

@@ -137,6 +137,23 @@ describe('🔴 la porte d’un espace plein : qui n’y entre pas (`inconnusRefu
       .toEqual({ waIds: new Set(['33622222222']), limite: 5000 });
   });
 
+  it('🔴 les packs du Business (2026-11-26) : relus EN BASE avec l’offre, ajoutés après la limite de /ops, même quand le cache retarde', async () => {
+    // Le cache figé à 5 000, comme une copie qui n'a pas vu l'achat : la porte relit les deux packs vivants.
+    const business = limite({ max: 5000, offre: 'business' });
+    expect(await new PgContactStore(pool([], 6999, 'business', { packs_business: 2 }).p, undefined, business).inconnusRefuses(T, ['33622222222'])).toBeNull();
+    expect(await new PgContactStore(pool([], 7000, 'business', { packs_business: 2 }).p, undefined, business).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 7000 });
+    // Après la limite posée dans /ops : 8 000 + 1 pack.
+    expect(await new PgContactStore(pool([], 9000, 'business', { business_contacts: 8000, packs_business: 1 }).p, undefined, business).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 9000 });
+    // Chacun ses packs : ceux d'un Pro ne comptent pas pour un Business, ni ceux du Business pour un Pro.
+    expect(await new PgContactStore(pool([], 5000, 'business', { packs: 3 }).p, undefined, business).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 5000 });
+    const pro = limite({ max: 1000, offre: 'pro' });
+    expect(await new PgContactStore(pool([], 1000, 'pro', { packs_business: 3 }).p, undefined, pro).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 1000 });
+  });
+
   it('🔴 une Entreprise limitée dans /ops refuse l’inconnu au-delà, comme le Business (2026-11-25)', async () => {
     const entreprise = limite({ max: 10_000, offre: 'entreprise' });
     expect(await new PgContactStore(pool([], 10_000, 'entreprise', { entreprise_contacts: 10_000 }).p, undefined, entreprise).inconnusRefuses(T, ['33622222222']))

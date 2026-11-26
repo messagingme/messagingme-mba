@@ -4693,7 +4693,7 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   relit l'offre EN BASE dans la même requête (le cache du worker retarde de 30 s sur un paiement ou un changement
   d'offre) et, si elle a changé, prend la limite de CETTE offre par `droitsDe` (la grille, ou la limite posée dans
   `/ops` pour le Business et l'Entreprise, relue dans la même requête), jamais celle du cache : sans quoi un espace passé
-  de Free à Pro refuserait encore ses clients à 100. Le Pro relit toujours ses packs. Une offre inchangée garde la
+  de Free à Pro refuserait encore ses clients à 100. Le Pro et le Business relisent toujours leurs packs (chacun les siens). Une offre inchangée garde la
   limite du cache : une limite changée dans `/ops` vaut à la réception au plus 30 s plus tard. Le STOP d'un
   inconnu écarté est retenu par les deux écritures de `processInbound` (la fiche, puis le refus), et rien d'autre.
   L'écart est journalisé `entrant_ecarte_espace_plein`, sans le numéro ni le texte. La porte ne lève jamais : une lecture
@@ -4942,6 +4942,28 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   de la place. Le tarif réel du Pro (`tarifDuPro`) met les lignes de pack à part, comme celles des sièges. Les mêmes
   avertissements valent : les lignes de pack se reconnaissent à leur prix, et une image antérieure ignore les packs (elle
   refuserait les créations et les entrants d'un Pro qui en a payé : compter `packs_contacts > 0 and fini_le is null`).
+  🔴 **Les packs de contacts du Business** (décisions de Julien du 2026-11-26, `src/stripe/packs-business.ts`, migration 0329
+  `packs_contacts_business`, magasin `src/offres/packs-business.pg.ts`) : le Business est facturé hors Stripe, ses packs
+  prennent donc un ABONNEMENT À PART, sur le modèle de l'option Ligne de crédit, au seul prix MENSUEL du pack
+  (`STRIPE_PRIX_PACK_CONTACTS_MOIS`), marqué `produit: packs_contacts_business` (session et abonnement) ; sa quantité est
+  le nombre de packs, et une seule vivante par espace (index partiel). La même route que le Pro
+  (`changerPacksContactsDeLOffre` choisit le chemin sur l'offre relue SANS cache) : sans abonnement vivant, le premier pack
+  rend l'adresse d'une session Checkout (verrou court, sessions ouvertes des packs expirées, prix relu chez Stripe, codes
+  promo fermés), et seul le webhook signé l'enregistre ; ensuite, un pack à la fois change la quantité (le prorata facturé
+  et appliqué seulement payé, la clé `pack-business-…`), et le retrait du dernier résilie l'abonnement, sans avoir. La
+  limite vaut la limite de `/ops` (ou les 5 000 de la grille) plus 1 000 par pack vivant (en retard compris), dans
+  `droitsDe` SEULEMENT, lue par `PgOffresStore.offreDe` (`OffreEspace.business`) et relue EN BASE par la porte. Le webhook
+  (`traiterPacks`, aiguillé sur la marque avant le numéro) relit les packs chez Stripe à chaque événement et vide le cache
+  de l'offre à chaque écriture. 🔴 **La fin de droit** (`finDeDroitPacks`) : quand l'espace n'est plus en Business (retiré
+  dans `/ops`, ou l'Entreprise posée à sa place, geste `finDeDroitPacks` de `jouerLesGestes`), l'abonnement est résilié
+  chez Stripe sans remboursement, relu au besoin, et noté fini (`fin_de_droit`) ; des packs payés alors que l'espace
+  n'est plus en Business le sont aussi, l'équipe décidant du remboursement. Une résiliation que Stripe ne confirme pas se
+  dit sur Telegram, et un paiement suivant sur l'abonnement fini chez nous le redit. La suppression d'un espace liste
+  l'abonnement des packs parmi ceux à résilier à la main. Les alertes de contacts du Business et l'e-mail de son espace
+  plein proposent le pack (`limite_contacts_business_pack_*`, `espace_plein_entrant_business`) quand les packs sont en
+  vente, l'Entreprise sinon. ⚠️ **Retour arrière** : une image antérieure ignore les packs du Business (elle refuserait
+  les entrants d'un Business qui en a payé, et laisserait ses packs facturés au retrait du Business) : compter
+  `select count(*) from packs_contacts_business where fini_le is null`.
   ⚠️ **Le compte Stripe est partagé avec d'autres activités** : tout code promo actif sans restriction de produit
   s'applique au Pro, au numéro fourni, et à la recharge, qui crédite le montant AVANT remise. Restreindre chaque code à ses produits se
   fait chez Stripe.

@@ -42,7 +42,7 @@ class MagasinMemoire {
   readonly conversions: string[] = [];
   finiLe: Date | null = null;
   complement = 9_000_000;
-  echec: 'passage' | 'credit' | 'fin' | null = null;
+  echec: 'passage' | 'credit' | 'fin' | 'packs' | null = null;
   readonly ecritures: Array<{ tenantId: string; reglage: EcritureEntreprise }> = [];
   readonly invalides: string[] = [];
   readonly audits: Array<{ tenant: string; acteur: { userId: string | null; email: string | null }; action: string; cible: { kind: string; id: string }; detail: Record<string, unknown> | undefined }> = [];
@@ -96,6 +96,11 @@ class MagasinMemoire {
           return 'porte';
         },
         finDeDroitOption: async (t) => { this.gestesJoues.push(`option:${t}`); return 'sans_option'; },
+        finDeDroitPacks: async (t) => {
+          this.gestesJoues.push(`packs:${t}`);
+          if (this.echec === 'packs') throw new Error('Stripe indisponible');
+          return 'resilie';
+        },
         signalerConversion: async (t) => { this.conversions.push(t); },
       },
     };
@@ -173,7 +178,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       tenantId: T1, entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, ...SANS_BUSINESS, ...SANS_CREDIT_WA,
-      alertes: SANS_ALERTE, gestes: { creditOffert: null, finDuNumero: 'porte', finDeLOption: 'sans_option', echecs: [] }, utilisateursProposes: 10,
+      alertes: SANS_ALERTE, gestes: { creditOffert: null, finDuNumero: 'porte', finDeLOption: 'sans_option', finDesPacks: null, echecs: [] }, utilisateursProposes: 10,
     });
     // Quitter l'Entreprise sans autre offre : le numéro fourni que plus rien ne couvre suit le chemin d'un impayé (spec Business).
     expect(magasin.gestesJoues).toEqual([`fin:${T1}`, `option:${T1}`]);
@@ -354,15 +359,16 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     await server.close();
   });
 
-  it('🔴 PUT retire le Business : la fin du numéro fourni est demandée, à la date du retrait', async () => {
+  it('🔴 PUT retire le Business : la fin du numéro fourni est demandée, à la date du retrait, et ses packs de contacts résiliés', async () => {
     const { server, magasin } = monter();
     magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
     const avant = Date.now();
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: false, note: 'fin de l’essai' } });
     expect(res.statusCode).toBe(200);
-    expect(magasin.gestesJoues).toEqual([`fin:${T1}`, `option:${T1}`]);
+    // 🔴 Les packs de contacts du Business (2026-11-26) : leur abonnement à part est résilié avec le Business.
+    expect(magasin.gestesJoues).toEqual([`fin:${T1}`, `option:${T1}`, `packs:${T1}`]);
     expect(magasin.finiLe!.getTime()).toBeGreaterThanOrEqual(avant);
-    expect(res.json()).toMatchObject({ business: false, gestes: { creditOffert: null, finDuNumero: 'porte', echecs: [] } });
+    expect(res.json()).toMatchObject({ business: false, gestes: { creditOffert: null, finDuNumero: 'porte', finDesPacks: 'resilie', echecs: [] } });
     await server.close();
   });
 
@@ -378,6 +384,8 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     expect(magasin.ecritures.map((e) => e.reglage.contactsBusiness)).toEqual([6000, undefined, null]);
     expect(magasin.audits[0]!.detail).toMatchObject({ contactsBusiness: 6000, contactsBusinessAvant: null });
     expect(magasin.invalides).toEqual([T1, T1, T1]);
+    // Un Business resté posé garde ses packs : aucune fin de droit.
+    expect(magasin.gestesJoues).toEqual([]);
     await server.close();
   });
 
@@ -392,15 +400,16 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     await server.close();
   });
 
-  it('PUT pose l’Entreprise sur un Business : le Business tombe, sans geste de fin (l’Entreprise couvre le numéro)', async () => {
+  it('PUT pose l’Entreprise sur un Business : le Business tombe avec ses packs, sans fin du numéro (l’Entreprise le couvre)', async () => {
     const { server, magasin } = monter();
     magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: 6, contactsBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: 20, note: 'devis Entreprise signé' } });
     expect(res.statusCode).toBe(200);
     expect(magasin.reglages.get(T1)).toMatchObject({ entreprise: true, business: false });
-    // La reprise des campagnes du Crédit WhatsApp, devenu illimité avec l'Entreprise, et le réglage de son Crédit IA
-    // (alertes réarmées, clé remontée) ; aucun geste de fin.
-    expect(magasin.gestesJoues).toEqual([`reprise-credit:${T1}`, `ia-entreprise:${T1}`]);
+    // 🔴 La fin de droit des packs de contacts du Business, que l'Entreprise ne compte pas (2026-11-26) ; la reprise des
+    // campagnes du Crédit WhatsApp, devenu illimité avec l'Entreprise, et le réglage de son Crédit IA (alertes réarmées, clé
+    // remontée) ; aucune fin du numéro.
+    expect(magasin.gestesJoues).toEqual([`packs:${T1}`, `reprise-credit:${T1}`, `ia-entreprise:${T1}`]);
     await server.close();
   });
 
@@ -434,6 +443,17 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     expect(magasin.gestesJoues).toEqual([`passage:${T1}`, `credit:${T1}`]);
     expect(res.json()).toMatchObject({ gestes: { creditOffert: 9_000_000, echecs: ['passage'] } });
     expect(lignes.filter((l) => l.msg === 'ops_offre_geste_echoue')).toHaveLength(1);
+    await server.close();
+  });
+
+  it('🔴 la fin des packs du Business qui échoue (Stripe) n’annule pas le retrait : la réponse le dit (2026-11-26)', async () => {
+    const { server, magasin } = monter();
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, contactsBusiness: null, businessEssaiFinLe: null, remplacerAnciens: false });
+    magasin.echec = 'packs';
+    const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: false, note: 'fin du Business' } });
+    expect(res.statusCode).toBe(200);
+    expect(magasin.reglages.get(T1)).toMatchObject({ business: false });
+    expect(res.json()).toMatchObject({ gestes: { finDesPacks: null, echecs: ['packs'] } });
     await server.close();
   });
 

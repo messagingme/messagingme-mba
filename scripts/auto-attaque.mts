@@ -365,6 +365,12 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
       finDeDroit: async () => 'sans_option' as const, alerter: async () => undefined,
       lignes: async () => [], repriseOuverte: async () => false, enVente: () => false, prevenirArret: async () => undefined,
     },
+    // Les packs de contacts du Business (2026-11-26) : aucun abonnement ne se résout, rien n'est relu chez Stripe ni résilié.
+    packsBusiness: {
+      enregistrer: async () => ({ etat: 'doublon' as const }), majStatut: async () => null, noterPacks: async () => null,
+      finir: async () => null, chezStripe: async () => null, resilier: async () => false,
+      finDeDroit: async () => 'sans_packs' as const, invalider: () => undefined, alerter: async () => undefined,
+    },
   } satisfies StripeWebhookRouteDeps,
   // Le pont du code (lot 3a) : un VRAI secret aussi, et une réserve vide. Une signature fausse ou absente doit tomber
   // avant la réserve (sonde 12).

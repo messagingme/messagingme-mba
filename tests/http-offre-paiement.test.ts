@@ -287,6 +287,14 @@ describe('POST /tenants/:tenantId/offre/packs-contacts (2026-11-24)', () => {
     }
   });
 
+  it('le premier pack d’un Business (2026-11-26) : la route rend l’adresse de la page de paiement de Stripe, telle quelle', async () => {
+    const { server } = monter({ packsContacts: async () => ({ ok: true, valeur: { url: 'https://checkout.stripe.com/c/1' } }) });
+    const r = await poster(server, '/tenants/t1/offre/packs-contacts', admin, { depuis: 0, cible: 1 });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ url: 'https://checkout.stripe.com/c/1' });
+    await server.close();
+  });
+
   it('un refus garde son statut, sa phrase et sa cause (les contacts en trop pour un retrait)', async () => {
     const { server } = monter({
       packsContacts: async () => refus(409, 'Votre espace compte 1 500 contacts : supprimez-en d’abord 500, pour tenir dans 1 000 contacts.', { code: 'contacts_en_trop' }),

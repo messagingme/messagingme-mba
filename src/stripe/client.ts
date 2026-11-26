@@ -281,11 +281,11 @@ export interface DemandeAbonnement {
   /** Une clé par geste : elle protège d'un rejeu du même appel, pas de deux paiements voulus. */
   idempotence: string;
   /**
-   * Ce qui est vendu (lot 6, B1) : le numéro fourni, le Pro, ou l'option du Crédit WhatsApp (lot 4a). Le webhook route
-   * l'abonnement sur cette métadonnée.
+   * Ce qui est vendu (lot 6, B1) : le numéro fourni, le Pro, l'option du Crédit WhatsApp (lot 4a), ou les packs de
+   * contacts du Business (2026-11-26). Le webhook route l'abonnement sur cette métadonnée.
    */
-  produit: 'numero' | 'pro' | 'option_credit_whatsapp';
-  /** La quantité de la ligne (les places de l'option) ; 1 par défaut. */
+  produit: 'numero' | 'pro' | 'option_credit_whatsapp' | 'packs_contacts_business';
+  /** La quantité de la ligne (les places de l'option, les packs du Business) ; 1 par défaut. */
   quantite?: number;
   /** `false` ferme le champ « code promo » (l'option : une place offerte ferait envoyer des messages payés au partenaire). */
   codesPromo?: boolean;

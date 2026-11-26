@@ -279,6 +279,11 @@ export interface DepsLimites {
    * qu'elle refuse des clients ou efface des contacts. Ne lève jamais (`sendTelegram`).
    */
   alerterEquipe(texte: string): Promise<void>;
+  /**
+   * Les packs de contacts se paient-ils en ligne (Stripe câblé et `STRIPE_PRIX_PACK_CONTACTS_MOIS` posé) ? Les alertes du
+   * Business proposent alors le pack (2026-11-26), sinon l'Entreprise comme avant.
+   */
+  packsEnVente: boolean;
   /** Le mois civil de Paris (`AAAA-MM`) : l'occasion des modèles, dont le compteur repart chaque mois. */
   moisDeParis(): string;
 }
@@ -328,10 +333,10 @@ function seuilContactsAtteint(fiches: number, limite: number, s: SeuilContacts):
   return s === SEUIL_DEPASSEE ? fiches > limite : seuilAtteint(fiches, limite, s);
 }
 
-/** L'e-mail du seuil le plus haut franchi, avec les textes de l'offre : la Free renvoie au Pro, le Pro au Business, le
- *  Business à l'Entreprise, l'Entreprise au Support. */
+/** L'e-mail du seuil le plus haut franchi, avec les textes de l'offre : la Free renvoie au Pro, le Pro à son pack, le
+ *  Business à son pack (ou à l'Entreprise quand les packs ne sont pas en vente), l'Entreprise au Support. */
 function emissionContacts(tenantId: string, offre: LimitesAlertables['offre'], seuil: SeuilContacts, generation: number,
-  fiches: number, limite: number, pages: { offre: string; support: string }, remplacer: boolean): Parameters<Emettre>[0] {
+  fiches: number, limite: number, pages: { offre: string; support: string }, remplacer: boolean, packsEnVente: boolean): Parameters<Emettre>[0] {
   const occasion = `franchissement:${generation}`;
   const pageOffre = pages.offre;
   // À 100 %, l'option dit ce qui arrive au contact suivant : il entre, et le plus ancien sort (lot 2 du 2026-11-24).
@@ -339,6 +344,16 @@ function emissionContacts(tenantId: string, offre: LimitesAlertables['offre'], s
     const cle = seuil !== 100 ? 'limite_contacts_entreprise_80'
       : remplacer ? 'limite_contacts_entreprise_remplacement' : 'limite_contacts_entreprise_100';
     return { cle, tenantId, occasion, a: 'admins', valeurs: { limite: String(limite), lien_support: pages.support } };
+  }
+  // Le Business propose son pack (2026-11-26) : sa taille et son prix MENSUEL lus dans la grille, et un lien qui ouvre l'achat.
+  if (offre === 'business' && packsEnVente) {
+    return {
+      cle: seuil === 100 ? 'limite_contacts_business_pack_100' : 'limite_contacts_business_pack_80', tenantId, occasion, a: 'admins',
+      valeurs: {
+        limite: String(limite), contacts_pack: CONTACTS_PAR_PACK.toLocaleString('fr-FR'),
+        prix_pack_mois: String(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100), lien_pack: `${pageOffre}?pack=ajouter`,
+      },
+    };
   }
   if (offre === 'business') {
     return {
@@ -418,7 +433,7 @@ export async function balayerLimites(d: DepsLimites): Promise<number> {
           try {
             remplacer = entreprise && plusHaut.seuil === 100 && await d.remplacerAnciens(tenantId);
             await d.emettre(emissionContacts(tenantId, l.offre, plusHaut.seuil, plusHaut.generation, crees, l.contacts,
-              { offre: d.pageOffre, support: d.pageSupport }, remplacer));
+              { offre: d.pageOffre, support: d.pageSupport }, remplacer, d.packsEnVente));
           } catch (err) {
             // 🔴 Le seuil est posé AVANT la réservation : sans ce relâchement, une émission ratée (base, pool) perdrait
             // l'alerte jusqu'à un retour sous le seuil, qui à 100 % peut ne jamais venir. Relâchés, les seuils franchis
@@ -467,6 +482,8 @@ export function creerAlerteEspacePlein(d: {
   pageSupport: string;
   /** Nous prévenir sur Telegram, pour une Entreprise, une fois par jour comme l'e-mail. Ne lève jamais (`sendTelegram`). */
   alerterEquipe(texte: string): Promise<void>;
+  /** Les packs de contacts se paient-ils en ligne ? Un Business plein se voit alors proposer le pack (2026-11-26). */
+  packsEnVente: boolean;
   now?: () => Date;
 }): (tenantId: string, limite: number) => Promise<void> {
   return async (tenantId, limite) => {
@@ -490,6 +507,17 @@ export function creerAlerteEspacePlein(d: {
           await d.alerterEquipe(`Contacts : l'Entreprise ${tenantId} est pleine (${limite} contacts) et vient de refuser `
             + 'un nouveau client qui lui écrivait. À appeler pour relever sa limite dans /ops.');
         }
+        return;
+      }
+      // Un Business plein : le pack de 1 000 contacts plutôt qu'une offre supérieure, quand il est en vente (2026-11-26).
+      if (offre === 'business' && d.packsEnVente) {
+        await d.emettre({
+          cle: 'espace_plein_entrant_business', tenantId, occasion, a: 'admins',
+          valeurs: {
+            limite: String(limite), contacts_pack: CONTACTS_PAR_PACK.toLocaleString('fr-FR'),
+            prix_pack_mois: String(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100), lien_pack: `${d.pageOffre}?pack=ajouter`,
+          },
+        });
         return;
       }
       await d.emettre({

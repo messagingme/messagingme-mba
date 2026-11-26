@@ -205,8 +205,26 @@ describe('les sièges du Pro dans la vue (spec offres v2, livraison 7)', () => {
     expect(v.prixPackContacts).toEqual({ moisCentimes: 2000, anCentimes: 24000 });
   });
 
-  it('hors Pro : aucun pack (le Business n’en reçoit pas) ; packs pas en vente : aucun prix', async () => {
+  it('🔴 les packs du Business (2026-11-26) : la limite de /ops comprise, ses packs en plus, au mois seulement', async () => {
+    const v = await creerVueOffre({
+      offres: {
+        offreDe: async () => ({
+          offre: 'business' as const, retourEnBaseLe: null, business: { contactsInclus: 8000, packsContacts: 2 },
+          droits: droitsDe('business', { utilisateurs: null, conservationJours: null, contacts: 8000 }, 0, 2),
+        }),
+      },
+      usage: async () => ({ contacts: 0, automations: 0, membres: 1 }), modelesDuMois: { etatDuMois: async () => null }, proEnVente: true,
+      suiteDuNumero: async () => null, siegesEnVente: true, packsContactsEnVente: true, abonnement: async () => null,
+      ongletCreditWhatsapp: async () => false,
+    })('t1');
+    expect(v.packsContacts).toEqual({ inclus: 8000, achetes: 2, contactsParPack: 1000, periodicite: 'mois' });
+    expect(v.limites.contacts).toBe(10_000);
+    expect(v.prixPackContacts).toEqual({ moisCentimes: 2000, anCentimes: 24000 });
+  });
+
+  it('hors Pro et Business : aucun pack ; un Business lu sans ses packs (une source plus ancienne) non plus ; packs pas en vente : aucun prix', async () => {
     expect((await avecSieges('business', null)('t1')).packsContacts).toBeNull();
+    expect((await avecSieges('entreprise', null)('t1')).packsContacts).toBeNull();
     expect((await avecSieges('base', null)('t1')).packsContacts).toBeNull();
     expect((await avecSieges('pro', { sieges: 0, periodicite: 'an' }, true, false)('t1')).prixPackContacts).toBeNull();
   });

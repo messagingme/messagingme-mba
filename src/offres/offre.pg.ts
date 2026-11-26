@@ -1,8 +1,9 @@
 import type { Pool } from 'pg';
 import { enTransaction } from '../db/transaction';
 import { ficheActive } from '../crm/contact-store.pg';
-import { droitsDe, type Droits, type Offre } from './offres';
+import { DROITS, droitsDe, type Droits, type Offre } from './offres';
 import { automationComptee } from './automations';
+import { PACKS_BUSINESS_VIVANTS_SQL } from './packs-business.pg';
 import { SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
 
 /**
@@ -22,6 +23,11 @@ export interface OffreEspace {
    * formule, qui fixe le prix du siège et du pack suivants. `null` ou absent hors Pro.
    */
   pro?: { sieges: number; packsContacts: number; periodicite: 'mois' | 'an' } | null;
+  /**
+   * Le Business (2026-11-26) : les contacts qu'il comprend (la limite de `/ops`, ou les 5 000 de la grille) et ses packs
+   * payés sur leur abonnement à part (`packs_contacts_business`), déjà comptés dans `droits`. `null` ou absent hors Business.
+   */
+  business?: { contactsInclus: number; packsContacts: number } | null;
 }
 
 export interface SourceOffres {
@@ -39,9 +45,10 @@ export class PgOffresStore implements SourceOffres {
       offre: string; entreprise_utilisateurs: number | null; entreprise_contacts: number | null;
       entreprise_commission_pct: number | null; conservation: number | null; dernier_fini: Date | null;
       sieges: number | null; packs_contacts: number | null; periodicite: 'mois' | 'an' | null; business_utilisateurs: number | null;
-      business_contacts: number | null;
+      business_contacts: number | null; packs_business: number | null;
     }>(
       `select offre_de_l_espace($1::uuid) as offre,
+              ${PACKS_BUSINESS_VIVANTS_SQL('$1::uuid')} as packs_business,
               (select t.entreprise_utilisateurs from tenants t where t.id = $1::uuid) as entreprise_utilisateurs,
               (select t.business_utilisateurs from tenants t where t.id = $1::uuid) as business_utilisateurs,
               (select t.business_contacts from tenants t where t.id = $1::uuid) as business_contacts,
@@ -60,6 +67,11 @@ export class PgOffresStore implements SourceOffres {
     const pro = offre === 'pro' && l?.periodicite
       ? { sieges: l.sieges ?? 0, packsContacts: l.packs_contacts ?? 0, periodicite: l.periodicite }
       : null;
+    // Ses packs ne comptent qu'en Business : retiré dans /ops, l'espace perd leur limite tout de suite (leur fin de droit
+    // résilie l'abonnement chez Stripe).
+    const business = offre === 'business'
+      ? { contactsInclus: l?.business_contacts ?? DROITS.business.limites.contacts ?? 0, packsContacts: l?.packs_business ?? 0 }
+      : null;
     return {
       offre,
       droits: droitsDe(offre, offre === 'entreprise'
@@ -71,9 +83,10 @@ export class PgOffresStore implements SourceOffres {
         : offre === 'business'
           ? { utilisateurs: l?.business_utilisateurs ?? null, conservationJours: null, contacts: l?.business_contacts ?? null }
           : null,
-      pro?.sieges ?? 0, pro?.packsContacts ?? 0),
+      pro?.sieges ?? 0, pro?.packsContacts ?? business?.packsContacts ?? 0),
       retourEnBaseLe: offre === 'base' ? (l?.dernier_fini ?? null) : null,
       pro,
+      business,
     };
   }
 

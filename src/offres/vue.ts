@@ -93,8 +93,9 @@ export interface VueOffre {
   /** Le prix HT d'un siège, en centimes (`PRIX_SIEGE_HT_CENTIMES`) ; `null` tant que les sièges ne sont pas en vente. */
   prixSiege: { moisCentimes: number; anCentimes: number } | null;
   /**
-   * Les packs de contacts du Pro vivant (2026-11-24) : les contacts inclus, les packs achetés (déjà comptés dans
-   * `limites.contacts`), les contacts d'un pack et la formule, qui fixe le prix du suivant. `null` hors Pro.
+   * Les packs de contacts du Pro vivant (2026-11-24) ou du Business (2026-11-26) : les contacts inclus (en Business, la
+   * limite de `/ops` ou les 5 000 de la grille), les packs achetés (déjà comptés dans `limites.contacts`), les contacts d'un
+   * pack et la formule, qui fixe le prix du suivant (toujours `mois` en Business). `null` hors Pro et Business.
    */
   packsContacts: { inclus: number; achetes: number; contactsParPack: number; periodicite: 'mois' | 'an' } | null;
   /** Le prix HT d'un pack, en centimes (`PRIX_PACK_CONTACTS_HT_CENTIMES`) ; `null` tant que les packs ne sont pas en vente. */
@@ -196,7 +197,7 @@ export function grilleDesOffres(): VueOffre['grille'] {
 
 export function creerVueOffre(d: DepsVueOffre): (tenantId: string) => Promise<VueOffre> {
   return async (tenantId) => {
-    const [{ offre, droits, pro }, usage, mois, suite, abonnement, ongletCreditWhatsapp] = await Promise.all([
+    const [{ offre, droits, pro, business }, usage, mois, suite, abonnement, ongletCreditWhatsapp] = await Promise.all([
       d.offres.offreDe(tenantId), d.usage(tenantId), d.modelesDuMois.etatDuMois(tenantId), d.suiteDuNumero(tenantId), d.abonnement(tenantId),
       d.ongletCreditWhatsapp(tenantId),
     ]);
@@ -225,7 +226,10 @@ export function creerVueOffre(d: DepsVueOffre): (tenantId: string) => Promise<Vu
       prixSiege: d.siegesEnVente ? { moisCentimes: PRIX_SIEGE_HT_CENTIMES.mois, anCentimes: PRIX_SIEGE_HT_CENTIMES.an } : null,
       packsContacts: offre === 'pro' && pro
         ? { inclus: DROITS.pro.limites.contacts ?? 0, achetes: pro.packsContacts, contactsParPack: CONTACTS_PAR_PACK, periodicite: pro.periodicite }
-        : null,
+        // Le Business : son abonnement à part est mensuel seulement (décision de Julien du 2026-11-26).
+        : offre === 'business' && business
+          ? { inclus: business.contactsInclus, achetes: business.packsContacts, contactsParPack: CONTACTS_PAR_PACK, periodicite: 'mois' }
+          : null,
       prixPackContacts: d.packsContactsEnVente
         ? { moisCentimes: PRIX_PACK_CONTACTS_HT_CENTIMES.mois, anCentimes: PRIX_PACK_CONTACTS_HT_CENTIMES.an }
         : null,

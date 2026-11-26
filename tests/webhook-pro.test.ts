@@ -4,7 +4,7 @@ import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import type { StripeWebhookRouteDeps } from '../src/http/credit-stripe';
 import type { AbonnementOffre, IssueEnregistrementPro, PeriodiciteOffre, RaisonFinOffre } from '../src/offres/abonnements-offre.pg';
-import { stripeNumeroInerte, stripeOptionInerte } from './routes-inertes';
+import { stripeNumeroInerte, stripeOptionInerte, stripePacksBusinessInerte } from './routes-inertes';
 import type { FinDuPro } from '../src/offres/numero-inclus';
 
 /**
@@ -66,6 +66,7 @@ function monter(o: {
     signalerConversion: async (t) => { cap.conversions.push(t); },
     numero: stripeNumeroInerte,
     option: { ...stripeOptionInerte, finDeDroit: async (t, cas) => { cap.finsDeDroitOption.push(`${t}:${cas}`); return 'sans_option'; } },
+    packsBusiness: stripePacksBusinessInerte,
     pro: {
       enregistrer: async (a) => { if (o.panne !== undefined) throw o.panne; cap.enregistres.push(a); const neuf = !connus.has(a.abonnementId); connus.add(a.abonnementId); return o.issue ?? { etat: 'enregistre', tenantId: T1, nouveau: neuf }; },
       majStatut: async (abonnementId, statut, periodeFin, finEchouee = null) => {

@@ -31,10 +31,12 @@ export interface OffrePaiementRouteDeps {
    */
   sieges(tenantId: string, demande: DemandeSieges, payeur: string): Promise<Issue<{ sieges: number }>>;
   /**
-   * Les packs de 1 000 contacts du Pro (2026-11-24, `changerPacksContacts`, `src/stripe/packs-contacts.ts`) : les mêmes
-   * règles que les sièges, et un retrait refusé tant que les contacts comptés ne tiennent pas dans ce qui reste.
+   * Les packs de 1 000 contacts (`changerPacksContactsDeLOffre`, `src/stripe/packs-business.ts`) : ceux du Pro (2026-11-24),
+   * sur son abonnement, aux mêmes règles que les sièges ; ceux du Business (2026-11-26), sur un abonnement à part, dont le
+   * premier rend l'adresse de la page de paiement (`url`). Un retrait est refusé tant que les contacts comptés ne tiennent
+   * pas dans ce qui reste.
    */
-  packsContacts(tenantId: string, demande: DemandePacks, payeur: string): Promise<Issue<{ packs: number }>>;
+  packsContacts(tenantId: string, demande: DemandePacks, payeur: string): Promise<Issue<{ packs: number } | { url: string }>>;
   /** Résilier le Pro à la fin de sa période, ou annuler cette résiliation (`changerResiliationPro`, `src/stripe/gestion-pro.ts`). */
   resiliation(tenantId: string, resilier: boolean, payeur: string): Promise<Issue<{ finPrevueLe: string | null }>>;
   /**
@@ -100,8 +102,9 @@ export function registerOffrePaiement(app: FastifyInstance, deps: OffrePaiementR
   });
 
   /**
-   * Les packs de 1 000 contacts du Pro (2026-11-24) : un administrateur, sous le plafond coûteux (chaque ajout écrit chez
-   * Stripe et facture un prorata). La page Offre l'appelle : « Ajouter 1 000 contacts » et « Retirer ».
+   * Les packs de 1 000 contacts du Pro (2026-11-24) et du Business (2026-11-26) : un administrateur, sous le plafond coûteux
+   * (chaque ajout écrit chez Stripe et facture un prorata, ou ouvre une page de paiement). La page Offre l'appelle :
+   * « Ajouter 1 000 contacts » et « Retirer ». Rend `{ packs }`, ou `{ url }` pour le premier pack d'un Business.
    */
   app.post('/tenants/:tenantId/offre/packs-contacts', couteux, async (req, reply) => {
     const tenant = espaceVerifie(req);

@@ -20,6 +20,7 @@ import { refusDesEtiquettesShopify, refusDesSegmentsShopify } from '../shopify/e
 import { COLONNES_ANALYSE_FICHE, analyseDeLaLigne, type AnalyseDeFiche, type LigneAnalyseFiche } from '../analysis/fiche';
 import { LimiteOffreError } from '../offres/refus';
 import { droitsDe, estOffre, offreRemplaceLesAnciens, type LimiteContacts } from '../offres/offres';
+import { PACKS_BUSINESS_VIVANTS_SQL } from '../offres/packs-business.pg';
 import {
   affectationsDUpsert, ecritureDuConsentement, issueDeLaTransition, type AutoriteParWaId, type CompteDeLEcriture,
   type FicheDeLEcriture,
@@ -403,12 +404,13 @@ export class PgContactStore implements ContactStore {
     if (limite === null) return null;
     const uniques = [...new Set(waIds)];
     const r = await this.pool.query<{
-      offre: string | null; packs: number | null; business_contacts: number | null; entreprise_contacts: number | null;
-      comptees: number; connus: string[] | null; remplacer: boolean | null;
+      offre: string | null; packs: number | null; packs_business: number | null; business_contacts: number | null;
+      entreprise_contacts: number | null; comptees: number; connus: string[] | null; remplacer: boolean | null;
     }>(
       `select offre_de_l_espace($1::uuid) as offre,
               ${REMPLACER_SQL},
               (select a.packs_contacts from abonnements_offre a where a.tenant_id = $1::uuid and a.fini_le is null) as packs,
+              ${PACKS_BUSINESS_VIVANTS_SQL('$1::uuid')} as packs_business,
               (select t.business_contacts from tenants t where t.id = $1::uuid) as business_contacts,
               (select t.entreprise_contacts from tenants t where t.id = $1::uuid) as entreprise_contacts,
               (select count(*) from contacts x where x.tenant_id = $1 and ${FICHE_ACTIVE})::int as comptees,
@@ -425,14 +427,15 @@ export class PgContactStore implements ContactStore {
     const offreLue = estOffre(ligne?.offre) ? ligne.offre : 'base';
     // 🔴 ET LA LIMITE DE CETTE OFFRE-LÀ (2026-11-13) : garder celle du cache ferait refuser à 100 un espace qui vient de
     // passer en Pro. Une offre changée prend sa limite par `droitsDe` sur ce que la MÊME requête a relu : la grille, ou la
-    // limite posée dans `/ops` pour le Business et l'Entreprise (2026-11-25). Le Pro relit toujours ses packs (2026-11-24) :
-    // un pack acheté sur une copie de l'API vaut tout de suite à la réception. Une offre inchangée garde la limite du cache.
-    const max = offreLue === limite.offre && offreLue !== 'pro'
+    // limite posée dans `/ops` pour le Business et l'Entreprise (2026-11-25). Le Pro et le Business relisent toujours leurs
+    // packs (2026-11-24 et 2026-11-26), chacun les siens : un pack acheté sur une copie de l'API vaut tout de suite à la
+    // réception. Une autre offre inchangée garde la limite du cache.
+    const max = offreLue === limite.offre && offreLue !== 'pro' && offreLue !== 'business'
       ? limite.max
       : droitsDe(offreLue, {
         utilisateurs: null, conservationJours: null,
         contacts: offreLue === 'entreprise' ? ligne?.entreprise_contacts ?? null : ligne?.business_contacts ?? null,
-      }, 0, ligne?.packs ?? 0).limites.contacts;
+      }, 0, (offreLue === 'business' ? ligne?.packs_business : ligne?.packs) ?? 0).limites.contacts;
     if (max === null) return null;
     const connus = new Set(ligne?.connus ?? []);
     const refuses = uniques.filter((w) => !connus.has(w)).slice(Math.max(0, max - (ligne?.comptees ?? 0)));

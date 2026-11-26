@@ -1063,7 +1063,7 @@ export type EtapeSuppressionNom =
   | 'verrou' | 'cle_vercel' | 'mba_eteint' | 'mba_liste' | 'waba_desabonne' | 'salesforce' | 'hubspot' | 'numero_fourni' | 'fichiers' | 'purge';
 
 /** Un objet Stripe, avec le lien du tableau de bord (dans le bon mode) : Julien y résilie à la main. */
-export interface AbonnementStripeOps { id: string; produit: 'numero' | 'offre' | 'option_credit_whatsapp'; statut: string; livemode: boolean; vivant: boolean; lien: string }
+export interface AbonnementStripeOps { id: string; produit: 'numero' | 'offre' | 'option_credit_whatsapp' | 'packs_contacts_business'; statut: string; livemode: boolean; vivant: boolean; lien: string }
 export interface ClientStripeOps { customerId: string; livemode: boolean; lien: string }
 
 /** Ce que la cascade emportera, lu AVANT la suppression (`GET /ops/espaces/:tenantId/suppression`). */

@@ -901,6 +901,19 @@ export const stripeOptionInerte: StripeWebhookRouteDeps['option'] = {
   prevenirArret: neDevraitPasEtreAppelee('stripe.option.prevenirArret'),
 };
 
+/** Les packs de contacts du Business (2026-11-26), pour les montages qui n'en parlent pas : chaque geste LÈVE. */
+export const stripePacksBusinessInerte: StripeWebhookRouteDeps['packsBusiness'] = {
+  enregistrer: neDevraitPasEtreAppelee('stripe.packsBusiness.enregistrer'),
+  majStatut: neDevraitPasEtreAppelee('stripe.packsBusiness.majStatut'),
+  noterPacks: neDevraitPasEtreAppelee('stripe.packsBusiness.noterPacks'),
+  finir: neDevraitPasEtreAppelee('stripe.packsBusiness.finir'),
+  chezStripe: neDevraitPasEtreAppelee('stripe.packsBusiness.chezStripe'),
+  resilier: neDevraitPasEtreAppelee('stripe.packsBusiness.resilier'),
+  finDeDroit: async () => 'sans_packs',
+  invalider: () => {},
+  alerter: async () => {},
+};
+
 /**
  * Le statut d'un message, l'envoi au format de Meta et les modèles (lot 13), pour les montages qui n'en parlent pas :
  * aucun message connu, aucun modèle, un espace sans compte WhatsApp, et chaque geste qui écrit LÈVE (un test qui envoie

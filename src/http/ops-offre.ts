@@ -32,7 +32,7 @@ export interface OpsOffreDeps {
   /**
    * Les gestes qui suivent la pose ou le retrait d'une offre à la main (spec Business), après l'écriture : aucun ne la
    * défait, un échec se journalise et la réponse le dit. Aucun n'écrit chez Stripe (aucun objet Stripe pour le Business),
-   * sauf la fin de droit de l'option du Crédit WhatsApp, qui la résilie (lot 4a).
+   * sauf les fins de droit de l'option du Crédit WhatsApp (lot 4a) et des packs de contacts du Business, qui les résilient.
    */
   gestes: {
     /** L'entrée en Business : les avis du numéro oubliés, les campagnes `numero_suspendu` reprises (`surPassageEnPro`). */
@@ -58,6 +58,12 @@ export interface OpsOffreDeps {
      */
     finDeDroitOption(tenantId: string): Promise<string>;
     /**
+     * 🔴 La sortie du Business (retiré, ou l'Entreprise posée à sa place) : l'abonnement à part de ses packs de contacts est
+     * résilié chez Stripe sans remboursement et noté fini (`finDeDroitPacks`, 2026-11-26), sinon le client paierait des
+     * packs que plus rien ne compte. Elle écrit chez Stripe. Rend ce qu'elle a fait.
+     */
+    finDeDroitPacks(tenantId: string): Promise<string>;
+    /**
      * La conversion dite au client (lot C du Crédit WhatsApp, moment 2, `signalerConversion`) : un Business devenu confirmé
      * (posé sans essai, ou son essai confirmé). Elle relit la formule payée et ne part qu'une fois ; ne lève jamais.
      */
@@ -71,7 +77,9 @@ interface BilanGestes {
   finDuNumero: string | null;
   /** La fin de droit de l'option du Crédit WhatsApp (lot 4a) : `resiliee`, `garde_son_droit` (un Pro vivant), etc. */
   finDeLOption: string | null;
-  echecs: Array<'passage' | 'credit' | 'fin' | 'reprise_credit_whatsapp' | 'ia_entreprise' | 'option'>;
+  /** La fin de droit des packs de contacts du Business (2026-11-26) : `resilie`, `sans_packs`, `a_verifier`, etc. */
+  finDesPacks: string | null;
+  echecs: Array<'passage' | 'credit' | 'fin' | 'reprise_credit_whatsapp' | 'ia_entreprise' | 'option' | 'packs'>;
 }
 
 /** 10 utilisateurs proposés à l'écran ; la route accepte toute limite positive, ou `null` (sans limite). */
@@ -205,7 +213,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
  * échoué : un échec se journalise, l'offre posée reste posée.
  */
 async function jouerLesGestes(deps: OpsOffreDeps, tenantId: string, avant: ReglageEntreprise, apres: ReglageEntreprise): Promise<BilanGestes> {
-  const bilan: BilanGestes = { creditOffert: null, finDuNumero: null, finDeLOption: null, echecs: [] };
+  const bilan: BilanGestes = { creditOffert: null, finDuNumero: null, finDeLOption: null, finDesPacks: null, echecs: [] };
   const tenter = async <T>(geste: BilanGestes['echecs'][number], f: () => Promise<T>): Promise<T | null> => {
     try {
       return await f();
@@ -225,6 +233,11 @@ async function jouerLesGestes(deps: OpsOffreDeps, tenantId: string, avant: Regla
     bilan.finDuNumero = await tenter('fin', () => deps.gestes.finOffreManuelle(tenantId, new Date()));
     // Plus de Business ni d'Entreprise : l'option du Crédit WhatsApp n'y a plus droit, sauf un Pro vivant (elle le lit).
     bilan.finDeLOption = await tenter('option', () => deps.gestes.finDeDroitOption(tenantId));
+  }
+  // 🔴 La sortie du Business, vers la Free ou vers l'Entreprise (qui le fait tomber) : ses packs n'y comptent plus, leur
+  // abonnement à part se résilie. Elle relit l'offre elle-même : un Business resté posé garde ses packs.
+  if (avant.business && !avant.entreprise && (!apres.business || apres.entreprise)) {
+    bilan.finDesPacks = await tenter('packs', () => deps.gestes.finDeDroitPacks(tenantId));
   }
   // L'Entreprise posée (lue sur l'état relu) : son Crédit WhatsApp devient illimité (décision du 2026-11-02), les campagnes
   // arrêtées faute de crédit repartent. Le retrait ne relance rien : la garde juge le solde au prochain envoi.

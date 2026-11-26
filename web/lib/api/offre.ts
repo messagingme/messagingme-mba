@@ -42,12 +42,13 @@ export function changerSieges(tenantId: string, depuis: number, cible: number): 
 }
 
 /**
- * Porte les packs de contacts du Pro de `depuis` (ce que l'écran a lu) à `cible`, un pack à la fois (2026-11-24) : un ajout
- * facture le prorata sur la carte du Pro et ne s'applique que s'il est payé (sinon un 402 `paiement_pack_contacts_incomplet`
- * avec la facture à régler) ; un retrait ne rembourse rien et est refusé tant que les contacts comptés ne tiennent pas
- * (409 `contacts_en_trop`). Rend les packs que Stripe a appliqués.
+ * Porte les packs de contacts du Pro ou du Business de `depuis` (ce que l'écran a lu) à `cible`, un pack à la fois
+ * (2026-11-24, 2026-11-26) : un ajout facture le prorata sur la carte de l'abonnement et ne s'applique que s'il est payé
+ * (sinon un 402 `paiement_pack_contacts_incomplet` avec la facture à régler) ; un retrait ne rembourse rien et est refusé
+ * tant que les contacts comptés ne tiennent pas (409 `contacts_en_trop`). Rend les packs que Stripe a appliqués, ou, pour le
+ * premier pack d'un Business, l'adresse de la page de paiement de Stripe (`url`).
  */
-export function changerPacksContacts(tenantId: string, depuis: number, cible: number): Promise<{ packs: number }> {
+export function changerPacksContacts(tenantId: string, depuis: number, cible: number): Promise<{ packs: number } | { url: string }> {
   return request(`/tenants/${tenantId}/offre/packs-contacts`, { method: 'POST', body: JSON.stringify({ depuis, cible }) });
 }
 

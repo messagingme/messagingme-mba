@@ -1361,7 +1361,9 @@ function SuppressionEspace({ jeton, tenantId, nom, onFermer, onPerdue }: {
                 <li key={a.id}>
                   {a.produit === 'numero'
                     ? t('Abonnement du numéro', 'Number subscription')
-                    : a.produit === 'option_credit_whatsapp' ? t('Option Ligne de crédit', 'Credit line option') : t('Abonnement Pro', 'Pro subscription')}
+                    : a.produit === 'option_credit_whatsapp' ? t('Option Ligne de crédit', 'Credit line option')
+                      : a.produit === 'packs_contacts_business' ? t('Packs de contacts du Business', 'Business contact packs')
+                        : t('Abonnement Pro', 'Pro subscription')}
                   {' '}({a.statut}{a.livemode ? '' : ', test'}) :{' '}
                   <a href={a.lien} target="_blank" rel="noreferrer" className="font-mono text-brand-600 underline">{a.id}</a>
                 </li>

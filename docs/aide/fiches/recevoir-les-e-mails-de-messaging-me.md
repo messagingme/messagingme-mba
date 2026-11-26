@@ -1,6 +1,6 @@
 ---
 source_section: Les e-mails de Messaging Me aux administrateurs
-source_empreinte: 0e1646
+source_empreinte: 830250
 ---
 # Les e-mails que Messaging Me vous envoie
 
@@ -25,7 +25,8 @@ de passer en Pro. Au-delà de votre limite de contacts (au retour en formule Fre
 dit combien en supprimer pour y revenir, en le demandant à Claude. Quand votre espace Free, Pro ou Business est plein
 et qu'un nouveau client vous écrit, un e-mail vous dit que son message n'est pas entré, une fois par jour au plus. En
 offres Pro et Business, 80 % puis 100 % de vos contacts, ceux qui vous ont écrit les premiers compris : l'alerte du Pro
-renvoie au Business, celle du Business à l'Entreprise. En offre Entreprise, si votre contrat fixe une limite de contacts,
+renvoie au Business ; celle du Business, comme l'e-mail de son espace plein, propose d'ajouter 1 000 contacts pour 20 € HT
+par mois. En offre Entreprise, si votre contrat fixe une limite de contacts,
 les mêmes alertes vous invitent à nous écrire depuis le Support pour la relever, comme l'e-mail d'un espace plein. Si l'option Ligne de crédit s'arrête (une résiliation, un impayé) alors que votre formule permet de
 la reprendre, un e-mail vous dit que vos envois par la ligne de crédit sont arrêtés, votre solde conservé, et
 comment envoyer de nouveau.

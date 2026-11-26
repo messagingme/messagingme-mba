@@ -96,13 +96,13 @@ describe('🔴 l’espace Free plein qui écarte un nouveau client', () => {
     };
   }
   function alerte(j: ReturnType<typeof journal>, maintenant = '2026-10-25T10:00:00.000Z', fuseau = 'Europe/Paris',
-    offre: 'base' | 'pro' | 'business' | 'entreprise' = 'pro', telegrams: string[] = []) {
+    offre: 'base' | 'pro' | 'business' | 'entreprise' = 'pro', telegrams: string[] = [], packsEnVente = false) {
     const emetteur = creerEmetteurEmails({
       adminsConnectes: async () => ['id-admin'], reserver: j.reserver, fuseau: async () => fuseau, enfiler: async (job) => { j.jobs.push(job); },
     });
     return creerAlerteEspacePlein({
       emettre: (e) => emetteur.emettre(e), fuseau: async () => fuseau, offre: async () => offre, pageOffre: 'https://c/offre',
-      pageSupport: 'https://c/support', alerterEquipe: async (t) => { telegrams.push(t); }, now: () => new Date(maintenant),
+      pageSupport: 'https://c/support', alerterEquipe: async (t) => { telegrams.push(t); }, packsEnVente, now: () => new Date(maintenant),
     });
   }
 
@@ -127,6 +127,30 @@ describe('🔴 l’espace Free plein qui écarte un nouveau client', () => {
     }
   });
 
+  it('🔴 un Business plein (2026-11-26) : le pack de 1 000 contacts au prix mensuel, quand il est en vente ; sinon l’e-mail habituel', async () => {
+    const j = journal();
+    const telegrams: string[] = [];
+    await alerte(j, undefined, undefined, 'business', telegrams, true)('t1', 6000);
+    expect([...j.lignes]).toEqual(['t1/espace_plein_entrant_business/id-admin/plein:2026-10-25']);
+    expect(j.valeurs[0]).toEqual({
+      limite: '6000', contacts_pack: CONTACTS_PAR_PACK.toLocaleString('fr-FR'), prix_pack_mois: String(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100),
+      lien_pack: 'https://c/offre?pack=ajouter', _fuseau: 'Europe/Paris',
+    });
+    // Aucun Telegram : c'est l'Entreprise seule que nous appelons.
+    expect(telegrams).toEqual([]);
+    const m = modeleDe('espace_plein_entrant_business')!;
+    const v = { limite: '6000', espace: 'A', contacts_pack: '1 000', prix_pack_mois: '20', lien_pack: 'https://c/offre?pack=ajouter' };
+    expect(rendre(m, m.textes.fr, v, 'fr').text).toMatch(/Ajoutez 1 000 contacts pour 20 € HT par mois/);
+    expect(rendre(m, m.textes.en, v, 'en').text).toMatch(/Add 1 000 contacts for €20 excl. VAT a month/);
+    for (const l of ['fr', 'en'] as const) {
+      expect(rendre(m, m.textes[l], v, l).text, l).not.toMatch(/Entreprise|Enterprise|offre supérieure|next plan|par an|a year/);
+    }
+    // Hors vente, ou une autre offre : l'e-mail habituel.
+    await alerte(j, undefined, undefined, 'business', telegrams, false)('t2', 5000);
+    await alerte(j, undefined, undefined, 'pro', telegrams, true)('t3', 1000);
+    expect([...j.lignes].slice(1)).toEqual(['t2/espace_plein_entrant/id-admin/plein:2026-10-25', 't3/espace_plein_entrant/id-admin/plein:2026-10-25']);
+  });
+
   it('une fois par jour et par espace, pas deux : le jour de l’espace pour occasion ; le lendemain, de nouveau', async () => {
     const j = journal();
     await alerte(j)('t1', 100);
@@ -149,7 +173,7 @@ describe('🔴 l’espace Free plein qui écarte un nouveau client', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const a = creerAlerteEspacePlein({
       emettre: async () => { throw new Error('base'); }, fuseau: async () => 'Europe/Paris', offre: async () => 'entreprise',
-      pageOffre: 'x', pageSupport: 'y', alerterEquipe: async () => {},
+      pageOffre: 'x', pageSupport: 'y', alerterEquipe: async () => {}, packsEnVente: true,
     });
     await expect(a('t1', 100)).resolves.toBeUndefined();
   });
@@ -159,7 +183,7 @@ describe('🔴 l’espace Free plein qui écarte un nouveau client', () => {
     const emissions: string[] = [];
     const a = creerAlerteEspacePlein({
       emettre: async (e) => { emissions.push(e.cle); return { destinataires: 1, reserves: 1 }; }, fuseau: async () => 'Europe/Paris',
-      offre: async () => { throw new Error('base'); }, pageOffre: 'x', pageSupport: 'y', alerterEquipe: async () => {},
+      offre: async () => { throw new Error('base'); }, pageOffre: 'x', pageSupport: 'y', alerterEquipe: async () => {}, packsEnVente: true,
     });
     await a('t1', 100);
     expect(emissions).toEqual(['espace_plein_entrant']);
@@ -380,6 +404,38 @@ describe('les limites de la Free et du Pro', () => {
     }
   });
 
+  it('🔴 un Business reçoit le pack de contacts à 80 et 100 % quand il est en vente (2026-11-26), l’Entreprise sinon', async () => {
+    const { d, e, telegrams } = banc({
+      b80: { modelesMois: null, contacts: 7000, crees: 5600, offre: 'business' },
+      b100: { modelesMois: null, contacts: 5000, crees: 5000, offre: 'business' },
+    }, true);
+    await balayerLimites(d);
+    expect(e.emissions.map((x) => [x.tenantId, x.cle, x.valeurs.limite])).toEqual([
+      ['b80', 'limite_contacts_business_pack_80', '7000'],
+      ['b100', 'limite_contacts_business_pack_100', '5000'],
+    ]);
+    expect(e.emissions[0]!.valeurs).toEqual({
+      limite: '7000', contacts_pack: CONTACTS_PAR_PACK.toLocaleString('fr-FR'), prix_pack_mois: String(PRIX_PACK_CONTACTS_HT_CENTIMES.mois / 100),
+      lien_pack: 'https://c/offre?pack=ajouter',
+    });
+    expect(telegrams).toEqual([]);
+    for (const cle of ['limite_contacts_business_pack_80', 'limite_contacts_business_pack_100']) {
+      const m = modeleDe(cle)!;
+      const v = { limite: '5000', espace: 'A', contacts_pack: '1 000', prix_pack_mois: '20', lien_pack: 'https://c/offre?pack=ajouter' };
+      expect(rendre(m, m.textes.fr, v, 'fr').text, cle).toMatch(/Ajoutez 1 000 contacts pour 20 € HT par mois/);
+      expect(rendre(m, m.textes.fr, v, 'fr').text, cle).toMatch(/ceux qui vous ont écrit les premiers compris/);
+      expect(rendre(m, m.textes.en, v, 'en').text, cle).toMatch(/Add 1 000 contacts for €20 excl. VAT a month/);
+      for (const l of ['fr', 'en'] as const) {
+        // Le Business ne prend que le prix mensuel, et le pack remplace l'Entreprise.
+        expect(rendre(m, m.textes[l], v, l).text, cle + l).not.toMatch(/Entreprise|Enterprise|par an|a year|offre Pro|Pro plan/);
+      }
+    }
+    // Hors vente : les textes d'avant, qui renvoient à l'Entreprise.
+    const hors = banc({ b100: { modelesMois: null, contacts: 5000, crees: 5000, offre: 'business' } }, false);
+    await balayerLimites(hors.d);
+    expect(hors.e.emissions.map((x) => x.cle)).toEqual(['limite_contacts_business_100']);
+  });
+
   it('🔴 un Pro reçoit l’alerte du Pro, qui renvoie au Business (spec Business) ; la Free cite la limite du Pro, lue dans la grille', async () => {
     const { d, e } = banc({
       pro: { modelesMois: null, contacts: 5000, crees: 4000, offre: 'pro' },
@@ -442,7 +498,7 @@ describe('les limites de la Free et du Pro', () => {
   });
 
   /** Un banc : des espaces, leurs usages, et l'état des seuils comme en base (migration 0235). */
-  function banc(espaces: Record<string, { modelesMois: number | null; contacts: number | null; modeles?: number | null; crees?: number; offre?: 'free' | 'pro' | 'business' | 'entreprise' }>) {
+  function banc(espaces: Record<string, { modelesMois: number | null; contacts: number | null; modeles?: number | null; crees?: number; offre?: 'free' | 'pro' | 'business' | 'entreprise' }>, packsEnVente = false) {
     const e = emetteur();
     const seuils = new Map<string, { atteint: boolean; generation: number }>();
     const telegrams: string[] = [];
@@ -465,6 +521,7 @@ describe('les limites de la Free et du Pro', () => {
       pageSupport: 'https://c/support',
       remplacerAnciens: async (t) => remplacer.has(t),
       alerterEquipe: async (t) => { telegrams.push(t); },
+      packsEnVente,
       moisDeParis: () => '2026-10',
     };
     return { d, e, espaces, telegrams, remplacer };

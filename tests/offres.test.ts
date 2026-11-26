@@ -148,8 +148,12 @@ describe('les refus nomment l’offre qui lève la limite ou ouvre la fonction (
       const p = phraseLimite('contacts', 1000, { offre: 'pro' });
       expect(p).toMatch(/1.000 contacts, ceux qui vous écrivent compris\. Ajoutez 1.000 contacts depuis la page Offre \(20 € HT par mois, 240 € HT par an/);
       expect(p).toMatch(/ou passez en Business : https?:\/\/.*\/offre$/);
-      // Le Business n'a pas de packs : Julien relève sa limite dans /ops (2026-11-25).
-      expect(phraseLimite('contacts', 5000, { offre: 'business' })).toMatch(/Demandez plus de contacts depuis le Support, ou passez en Entreprise/);
+      // Le Business achète aussi ses packs (2026-11-26), au prix mensuel seul : jamais l'annuel, jamais le Support.
+      const b = phraseLimite('contacts', 5000, { offre: 'business' });
+      expect(b).toMatch(/5.000 contacts, ceux qui vous écrivent compris\. Ajoutez 1.000 contacts depuis la page Offre \(20 € HT par mois\), ou passez en Entreprise : https?:\/\/.*\/offre$/);
+      expect(b).not.toMatch(/par an|Support/);
+      // Une Entreprise n'a pas de pack : « il nous contacte et on s'arrange ».
+      expect(phraseLimite('contacts', 5000, { offre: 'entreprise' })).toMatch(/Demandez plus de contacts depuis le Support : /);
     } finally {
       Object.assign(config, { STRIPE_SECRET_KEY: avant.cle, STRIPE_PRIX_PACK_CONTACTS_MOIS: avant.mois, STRIPE_PRIX_PACK_CONTACTS_AN: avant.an });
     }
@@ -179,6 +183,20 @@ describe('🔴 la limite de contacts : toutes les origines, dans toutes les offr
     expect(droitsDe('business', surcharge(6000)).limites.utilisateurs).toBe(DROITS.business.limites.utilisateurs);
     expect(droitsDe('pro', surcharge(6000)).limites.contacts).toBe(1000);
     expect(droitsDe('base', surcharge(6000)).limites.contacts).toBe(100);
+  });
+
+  it('🔴 les packs du Business (2026-11-26) : 1 000 contacts chacun, APRÈS la limite de /ops (ou la grille) ; ignorés hors Pro et Business', () => {
+    const surcharge = (contacts: number | null) => ({ utilisateurs: null, conservationJours: null, contacts });
+    expect(droitsDe('business', surcharge(8000), 0, 2).limites.contacts).toBe(10_000);
+    expect(droitsDe('business', surcharge(null), 0, 1).limites.contacts).toBe(6000);
+    expect(droitsDe('business', null, 0, 3).limites.contacts).toBe(8000);
+    // Un nombre négatif (une lecture abîmée) ne retire rien.
+    expect(droitsDe('business', null, 0, -2).limites.contacts).toBe(5000);
+    // Ses utilisateurs ne bougent pas, et une Entreprise ou une Free ne lisent jamais de packs.
+    expect(droitsDe('business', null, 0, 2).limites.utilisateurs).toBe(DROITS.business.limites.utilisateurs);
+    expect(droitsDe('entreprise', surcharge(300), 0, 5).limites.contacts).toBe(300);
+    expect(droitsDe('entreprise', null, 0, 5).limites.contacts).toBeNull();
+    expect(droitsDe('base', null, 0, 5).limites.contacts).toBe(100);
   });
 
   it('la limite de contacts des droits, avec l’offre qui la fixe ; sans limite, rien', () => {

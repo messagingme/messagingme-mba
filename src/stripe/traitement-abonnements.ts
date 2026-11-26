@@ -6,6 +6,9 @@ import type { PgAbonnementsNumeroStore } from './abonnements.pg';
 import type { PgOptionsCreditStore, RaisonFinOption } from '../credit-whatsapp/options.pg';
 import { arretDesLignes } from '../credit-whatsapp/etat-ligne';
 import type { CasFinDeDroit, IssueFinDeDroitOption } from './option-credit-whatsapp';
+import type { PgPacksBusinessStore, RaisonFinPacks } from '../offres/packs-business.pg';
+import { PACKS_BUSINESS_MAX, PRODUIT_PACKS_BUSINESS, type IssueFinDeDroitPacks } from './packs-business';
+import { CONTACTS_PAR_PACK } from '../offres/offres';
 import { finPrevueDe } from './client';
 import { lienTableauStripe } from './liens';
 
@@ -128,6 +131,26 @@ export interface DepsTraitementAbonnements {
     prevenirArret(tenantId: string, abonnementId: string): Promise<void>;
   };
   /**
+   * Les packs de contacts du Business (2026-11-26, `src/stripe/packs-business.ts`) : leur abonnement à part, ses packs RELUS
+   * chez Stripe à chaque événement (la charge peut arriver après un plus récent), le cache de l'offre vidé à chaque écriture
+   * (la limite de contacts en dépend), et leur fin de droit quand ils sont payés sans Business. 🔴 Aiguillés AVANT le
+   * numéro, qui acquitte en silence ce qu'il ne reconnaît pas.
+   */
+  packsBusiness: Pick<PgPacksBusinessStore, 'enregistrer' | 'majStatut' | 'noterPacks' | 'finir'> & {
+    /** `packsBusinessChezStripe` : `null` quand rien n'est à relire (pas en vente, ou un refus durable, l'équipe prévenue). */
+    chezStripe(abonnementId: string): Promise<{ statut: string; packs: number } | null>;
+    /** `resilierPacksChezStripe` : un impayé que Stripe abandonne en `unpaid` reste vivant chez lui. Ne lève jamais sur Stripe. */
+    resilier(abonnementId: string): Promise<boolean>;
+    /**
+     * `finDeDroitPacks` : des packs payés alors que l'espace n'est plus en Business se résilient (`payee_sans_droit`). Rend
+     * `garde_son_droit` pour un Business. 🔴 `cas` est transmis tel quel au câblage.
+     */
+    finDeDroit(tenantId: string, cas: CasFinDeDroit): Promise<IssueFinDeDroitPacks>;
+    /** Le cache de l'offre de CETTE copie : la limite de contacts suit les packs tout de suite ici, en moins de 30 s ailleurs. */
+    invalider(tenantId: string): void;
+    alerter(texte: string): Promise<void>;
+  };
+  /**
    * L'e-mail aux admins d'un renouvellement refusé (lot 7, livraison B), une fois par facture : Stripe réessaie la même
    * facture, et chaque essai raté redonne un `invoice.payment_failed`. Ne lève jamais (`creerPaiementRefuse`).
    */
@@ -156,7 +179,7 @@ export interface EvenementStripeVerifie {
 export type IssueTraitementAbonnement =
   | { issue: 'non_abonnement' }
   | { issue: 'acquitte' }
-  | { issue: 'illisible'; domaine: 'pro' | 'numero' | 'option' };
+  | { issue: 'illisible'; domaine: 'pro' | 'numero' | 'option' | 'packs' };
 
 const NON_ABONNEMENT = { issue: 'non_abonnement' } as const;
 const ACQUITTE = { issue: 'acquitte' } as const;
@@ -313,6 +336,31 @@ function objetDeLOption(type: string, objet: unknown): boolean {
   return (type.startsWith('invoice.') ? factureMarqueeOptionSchema : marqueOptionSchema).safeParse(objet).success;
 }
 
+/**
+ * Les packs de contacts du Business (2026-11-26) : leur marque suffit à les aiguiller, comme l'option. Un objet marqué mais
+ * mal formé est refusé en 422, jamais confié au numéro, qui l'acquitterait en silence.
+ */
+const marquePacksSchema = z.object({ metadata: z.object({ produit: z.literal(PRODUIT_PACKS_BUSINESS) }) });
+const factureMarqueePacksSchema = z.object({ parent: z.object({ subscription_details: marquePacksSchema }) });
+const metaPacksSchema = z.object({ tenant_id: z.uuid(), produit: z.literal(PRODUIT_PACKS_BUSINESS) });
+const sessionPacksSchema = z.object({
+  id: z.string().min(1),
+  mode: z.literal('subscription'),
+  payment_status: z.string(),
+  subscription: z.union([z.string().startsWith('sub_'), z.object({ id: z.string().startsWith('sub_') })]),
+  metadata: metaPacksSchema,
+});
+const abonnementPacksSchema = z.object({
+  id: z.string().startsWith('sub_'),
+  metadata: metaPacksSchema,
+  cancellation_details: z.object({ reason: z.string().nullable().optional() }).nullable().optional(),
+  ended_at: z.number().int().nullable().optional(),
+});
+
+function objetDesPacks(type: string, objet: unknown): boolean {
+  return (type.startsWith('invoice.') ? factureMarqueePacksSchema : marquePacksSchema).safeParse(objet).success;
+}
+
 /** Les places d'une option, bornées comme en base (1 à 20). Une quantité posée à la main hors bornes est ramenée. */
 const PLACES_MIN = 1;
 const PLACES_MAX = 20;
@@ -325,11 +373,14 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       // La création d'un abonnement du Pro (essai de 14 jours) ; celle du numéro ne nous apprend rien.
       || (e.type === 'customer.subscription.created' && objetDuPro(e.type, e.objet))
       || (e.type === 'checkout.session.completed'
-        && (sessionNumeroSchema.safeParse(e.objet).success || objetDuPro(e.type, e.objet) || objetDeLOption(e.type, e.objet)));
+        && (sessionNumeroSchema.safeParse(e.objet).success || objetDuPro(e.type, e.objet) || objetDeLOption(e.type, e.objet)
+          || objetDesPacks(e.type, e.objet)));
   }
 
-  function illisible(e: EvenementStripeVerifie, domaine: 'pro' | 'numero' | 'option'): IssueTraitementAbonnement {
-    const cle = { pro: 'stripe_pro_illisible', numero: 'stripe_abonnement_illisible', option: 'stripe_option_wa_illisible' } as const;
+  function illisible(e: EvenementStripeVerifie, domaine: 'pro' | 'numero' | 'option' | 'packs'): IssueTraitementAbonnement {
+    const cle = {
+      pro: 'stripe_pro_illisible', numero: 'stripe_abonnement_illisible', option: 'stripe_option_wa_illisible', packs: 'stripe_packs_business_illisible',
+    } as const;
     journaliser('error', cle[domaine], { evenement: e.id, type: e.type });
     return { issue: 'illisible', domaine };
   }
@@ -857,12 +908,147 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     return ACQUITTE;
   }
 
+  /**
+   * LES PACKS DE CONTACTS DU BUSINESS (2026-11-26). Enregistrés à la session payée, ou à la première facture payée arrivée
+   * avant ; leurs packs RELUS chez Stripe à chaque événement (un pack n'existe que payé) ; en retard sur un échec de
+   * renouvellement, ses packs restant tant que Stripe relance ; finis quand Stripe l'annonce (résilié, ou un impayé qu'il
+   * abandonne). Chaque écriture vide le cache de l'offre : la limite de contacts en dépend.
+   */
+  async function traiterPacks(e: EvenementStripeVerifie): Promise<IssueTraitementAbonnement> {
+    const p = deps.packsBusiness;
+    const lien = (abonnementId: string): string => lienTableauStripe('subscriptions', abonnementId, e.livemode);
+    /** Les packs relus, ramenés aux bornes de la base ; `null` sous la borne basse (rien n'est inventé, l'équipe prévenue). */
+    const borner = async (packs: number, abonnementId: string): Promise<number | null> => {
+      if (packs >= 1 && packs <= PACKS_BUSINESS_MAX) return packs;
+      await p.alerter(`Packs de contacts du Business ${abonnementId} : ${packs} pack(s) chez Stripe, hors des bornes (1 à ${PACKS_BUSINESS_MAX}). À régler.`);
+      return packs > PACKS_BUSINESS_MAX ? PACKS_BUSINESS_MAX : null;
+    };
+    const finir = async (abonnementId: string, raison: RaisonFinPacks, fin: Date): Promise<void> => {
+      const a = await p.finir(abonnementId, raison, fin);
+      if (a === null) return;
+      p.invalider(a.tenantId);
+      if (a.premiereFin) {
+        await p.alerter(`Packs de contacts du Business terminés (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${a.packs * CONTACTS_PAR_PACK} contacts de moins sur sa limite.`);
+      }
+    };
+    /** Enregistre l'abonnement relu chez Stripe. `facture` : le montant (centimes) de la facture payée qui a mené ici. */
+    const enregistrer = async (tenantId: string, abonnementId: string, periodeFin: Date | null, facture: number | null = null): Promise<void> => {
+      const lu = await p.chezStripe(abonnementId);
+      // Rien de relu (pas en vente dans cette copie, ou un refus durable) : rien n'est inventé, mais le paiement se dit.
+      if (lu === null) {
+        await p.alerter(`Packs de contacts du Business ${abonnementId} payés par l'espace ${tenantId}, mais rien n'a pu être relu chez Stripe : ils ne sont PAS enregistrés, à vérifier. ${lien(abonnementId)}`);
+        return;
+      }
+      if (lu.statut !== 'active' && lu.statut !== 'past_due') {
+        // Une facture réglée sur un abonnement que Stripe dit fini (restée ouverte après une résiliation, payée à la main) :
+        // de l'argent reçu pour rien. Pas encore payé (`incomplete`), sans facture : aucun pack n'existe, rien à dire.
+        if (facture !== null && facture > 0) {
+          await p.alerter(`Facture de ${(facture / 100).toFixed(2).replace('.', ',')} € payée pour les packs de contacts ${abonnementId} de l'espace ${tenantId}, que Stripe dit ${lu.statut} : à vérifier, et à rembourser si elle a été réglée après la fin. ${lien(abonnementId)}`);
+        }
+        return;
+      }
+      const packs = await borner(lu.packs, abonnementId);
+      if (packs === null) return;
+      let issue: Awaited<ReturnType<typeof p.enregistrer>>;
+      try {
+        issue = await p.enregistrer({ tenantId, abonnementId, livemode: e.livemode, packs, periodeFin });
+      } catch (err) {
+        // Un espace supprimé peut encore être facturé : la clé étrangère ne guérira pas au rejeu, alerte et acquittement.
+        if (!espaceDisparu(err)) throw err;
+        journaliser('error', 'stripe_packs_business_espace_disparu', { tenantId, abonnement: abonnementId, livemode: e.livemode });
+        await p.alerter(`L'espace supprimé ${tenantId} paie encore ses packs de contacts ${abonnementId} : à résilier chez Stripe. ${lien(abonnementId)}`);
+        return;
+      }
+      if (issue.etat === 'enregistre') {
+        p.invalider(issue.tenantId);
+        // 🔴 Des packs payés alors que l'espace n'est plus en Business (un Checkout ouvert, réglé après le retrait du Business :
+        // la session vit 24 h) se résilient, et l'équipe décide du remboursement.
+        if ((await p.finDeDroit(issue.tenantId, 'payee_sans_droit')) !== 'garde_son_droit') return;
+        if (issue.nouveau) {
+          await p.alerter(`Nouveaux packs de contacts du Business : espace ${issue.tenantId} (${abonnementId}), ${packs} pack${packs > 1 ? 's' : ''}, soit ${packs * CONTACTS_PAR_PACK} contacts de plus.`);
+        }
+      } else if (issue.etat === 'doublon') {
+        await p.alerter(`Packs de contacts du Business en double : ${abonnementId} pour l'espace ${tenantId}, qui a déjà un abonnement des packs vivant. À annuler et rembourser chez Stripe. ${lien(abonnementId)}`);
+      } else {
+        // Finis chez nous, vivants chez Stripe (une résiliation à la main restée à faire) : le client paie pour rien.
+        await p.alerter(`Packs de contacts du Business ${abonnementId} de l'espace ${tenantId} : finis chez nous, mais Stripe les dit ${lu.statut}${facture !== null ? ' et les a facturés' : ''}. À résilier chez Stripe, et la facture à rembourser si besoin. ${lien(abonnementId)}`);
+      }
+    };
+
+    if (e.type === 'checkout.session.completed') {
+      const lu = sessionPacksSchema.safeParse(e.objet);
+      if (!lu.success) return illisible(e, 'packs');
+      if (lu.data.payment_status !== 'paid' && lu.data.payment_status !== 'no_payment_required') return ACQUITTE;
+      await enregistrer(lu.data.metadata.tenant_id, idDe(lu.data.subscription), null);
+      return ACQUITTE;
+    }
+
+    if (e.type === 'customer.subscription.deleted') {
+      const lu = abonnementPacksSchema.safeParse(e.objet);
+      if (!lu.success) return illisible(e, 'packs');
+      await finir(lu.data.id, raisonDeLaFin(lu.data.cancellation_details?.reason), lu.data.ended_at ? new Date(lu.data.ended_at * 1000) : new Date(maintenant()));
+      return ACQUITTE;
+    }
+
+    if (e.type === 'customer.subscription.updated') {
+      const lu = abonnementPacksSchema.safeParse(e.objet);
+      if (!lu.success) return illisible(e, 'packs');
+      const relu = await p.chezStripe(lu.data.id);
+      if (relu === null) return ACQUITTE;
+      // Stripe abandonne ses relances en marquant l'abonnement impayé : c'est la fin. Un `unpaid` reste vivant chez Stripe,
+      // qui le prélèverait au règlement d'une facture en retard : il est résilié d'abord.
+      if (relu.statut === 'unpaid' || relu.statut === 'canceled' || relu.statut === 'incomplete_expired') {
+        if (relu.statut === 'unpaid') await p.resilier(lu.data.id);
+        await finir(lu.data.id, relu.statut === 'unpaid' ? 'impaye' : 'resiliation', new Date(maintenant()));
+        return ACQUITTE;
+      }
+      if (relu.statut !== 'active' && relu.statut !== 'past_due') return ACQUITTE;
+      const packs = await borner(relu.packs, lu.data.id);
+      if (packs === null) return ACQUITTE;
+      // Un abonnement encore inconnu (sa session pas encore traitée) : la modification l'enregistre.
+      const note = await p.noterPacks(lu.data.id, packs);
+      if (note === null) await enregistrer(lu.data.metadata.tenant_id, lu.data.id, null);
+      else p.invalider(note.tenantId);
+      return ACQUITTE;
+    }
+
+    const lu = factureSchema.safeParse(e.objet);
+    const details = lu.success ? lu.data.parent?.subscription_details : null;
+    const meta = metaPacksSchema.safeParse(details?.metadata ?? {});
+    if (!lu.success || !details || !meta.success) return illisible(e, 'packs');
+    const abonnementId = idDe(details.subscription);
+    const fins = (lu.data.lines?.data ?? []).map((l) => l.period?.end).filter((v): v is number => typeof v === 'number');
+    const finFacture = fins.length > 0 ? new Date(Math.max(...fins) * 1000) : null;
+    if (e.type === 'invoice.payment_failed') {
+      // Le prorata d'un pack refusé : l'ajout attendait ce paiement et n'est pas appliqué, l'abonnement reste à jour.
+      if (lu.data.billing_reason === 'subscription_update') return ACQUITTE;
+      const a = await p.majStatut(abonnementId, 'en_retard', null, finFacture);
+      if (a?.statut === 'en_retard') {
+        await p.alerter(`Renouvellement des packs de contacts du Business échoué : espace ${a.tenantId} (${a.abonnementId}). Stripe réessaie ; ses packs comptent jusqu'à ce qu'il abandonne. ${lien(abonnementId)}`);
+      }
+      return ACQUITTE;
+    }
+    // Une facture payée : le renouvellement, ou le prorata d'un pack (l'ajout en attente s'applique alors). Les packs se
+    // relisent ; une facture arrivée avant la session suffit à enregistrer l'abonnement.
+    const paye = await p.majStatut(abonnementId, 'actif', finFacture);
+    if (paye === null) {
+      await enregistrer(meta.data.tenant_id, abonnementId, finFacture, lu.data.amount_paid ?? 0);
+      return ACQUITTE;
+    }
+    const relu = await p.chezStripe(abonnementId);
+    const packs = relu === null ? null : await borner(relu.packs, abonnementId);
+    if (packs !== null) await p.noterPacks(abonnementId, packs);
+    p.invalider(paye.tenantId);
+    return ACQUITTE;
+  }
+
   async function traiter(e: EvenementStripeVerifie): Promise<IssueTraitementAbonnement> {
     if (!concerne(e)) return NON_ABONNEMENT;
-    // Le Pro est aiguillé en premier, puis l'option ; un objet marqué ne tombe jamais dans le chemin du numéro, qui
-    // acquitte en silence ce qu'il ne reconnaît pas.
+    // Le Pro est aiguillé en premier, puis l'option et les packs du Business ; un objet marqué ne tombe jamais dans le
+    // chemin du numéro, qui acquitte en silence ce qu'il ne reconnaît pas.
     if (objetDuPro(e.type, e.objet)) return traiterPro(e);
     if (objetDeLOption(e.type, e.objet)) return traiterOption(e);
+    if (objetDesPacks(e.type, e.objet)) return traiterPacks(e);
     return traiterNumero(e);
   }
 

@@ -1,7 +1,7 @@
 ---
 description: Free, Pro, Business or Enterprise: what each Messaging Me plan opens, its limits, and how to change plan or manage the subscription.
 slug: choose-my-plan
-traduit_de: 6643d0
+traduit_de: f38bdf
 ---
 # Choose my plan
 
@@ -60,8 +60,8 @@ require Enterprise.
 first. When your workspace is full, creating or importing a contact is refused, and a new customer who writes to you
 does not get into Messaging Me: their message is not recorded and your AI agent does not reply to them. An email lets
 you know, at most once a day. Your existing contacts write to you as before, and a deleted contact frees its place: ask
-Claude to delete the ones you no longer need. On Business, more contacts can be requested from Support; on Enterprise,
-their number is agreed with you, or stays unlimited.
+Claude to delete the ones you no longer need. On Pro and Business, more contacts are bought in packs of 1,000 (below); on
+Enterprise, their number is agreed with you, or stays unlimited.
 
 **On Business and Enterprise: delete the oldest instead of refusing.** In Settings, the box "When the workspace is full,
 the oldest contact makes room" lets each new contact in by permanently deleting your oldest contact, with its
@@ -72,6 +72,12 @@ will be deleted.
 plan, €240 excl. VAT a year with the yearly one. The prorated amount until the end of your period is charged right away
 on the Pro card, and your limit goes up as soon as that payment is accepted. "Remove 1,000 contacts" refunds nothing
 and deletes no contact: delete the extra ones first.
+
+**Add 1,000 contacts on Business.** On the Plan page, "Add 1,000 contacts" costs €20 excl. VAT a month, on a separate
+subscription. The first pack is paid on the secure Stripe page, and your limit goes up as soon as the payment is
+confirmed. The next ones charge the prorated amount for the current month on the same card. "Remove 1,000 contacts"
+refunds nothing and deletes no contact; removing the last one stops this subscription. If your workspace leaves the
+Business plan, the subscription of your packs stops too, with no refund.
 
 **WhatsApp widgets.** One on Free, five on Pro, no limit on Business and Enterprise. A workspace that has more than its
 plan allows keeps its own, which keep working: only creating a new one is refused.

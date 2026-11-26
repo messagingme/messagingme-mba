@@ -10,6 +10,7 @@ import { PgCompteurDebit } from '../../src/db/debit.pg';
 import { QuotaModeles } from '../../src/offres/compteurs';
 import { PgAbonnementsNumeroStore } from '../../src/stripe/abonnements.pg';
 import { PgAbonnementsOffreStore } from '../../src/offres/abonnements-offre.pg';
+import { PgPacksBusinessStore } from '../../src/offres/packs-business.pg';
 import { PgRcsAgentStore } from '../../src/rcs/store.pg';
 import { PgConditionsCreditStore } from '../../src/credit-whatsapp/conditions.pg';
 
@@ -839,5 +840,52 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     expect(await pros.noterPacksContacts('sub_packsA', 4)).toBeNull();
     // Fini, l'espace revient en Free : ses packs ne comptent plus nulle part.
     expect((await offres.offreDe(t)).droits.limites.contacts).toBe(100);
+  });
+
+  it('🔴 0329 : les packs du Business, sur leur abonnement à part ; comptés APRÈS la limite de /ops, relus EN BASE par la porte, et rien hors Business', async () => {
+    const t = await espace('itest-packs-business');
+    await pool.query('update tenants set offre_business = true, business_contacts = 3 where id = $1', [t]);
+    const packs = new PgPacksBusinessStore(pool);
+    expect(await packs.vivant(t)).toBeNull();
+    let o = await offres.offreDe(t);
+    expect([o.offre, o.droits.limites.contacts, o.business]).toEqual(['business', 3, { contactsInclus: 3, packsContacts: 0 }]);
+    await pool.query(
+      `insert into contacts (tenant_id, phone_e164) select $1, '+3369993' || lpad(g::text, 4, '0') from generate_series(1, 3) g`,
+      [t],
+    );
+    // La porte lit le cache de l'offre (ici figé à 3, comme une copie qui n'a pas vu l'achat) ET les packs en base.
+    const porte = new PgContactStore(pool, undefined, async () => ({ max: 3, offre: 'business' }));
+    expect(await porte.inconnusRefuses(t, ['33600000002'])).toEqual({ waIds: new Set(['33600000002']), limite: 3 });
+    const a = { tenantId: t, abonnementId: 'sub_packsB', livemode: false, packs: 1, periodeFin: null };
+    expect(await packs.enregistrer(a)).toEqual({ etat: 'enregistre', tenantId: t, nouveau: true });
+    // Rejoué (la session et sa première facture) : la même ligne, plus neuve.
+    expect(await packs.enregistrer(a)).toEqual({ etat: 'enregistre', tenantId: t, nouveau: false });
+    expect(await porte.inconnusRefuses(t, ['33600000002'])).toBeNull();
+    o = await offres.offreDe(t);
+    expect([o.droits.limites.contacts, o.business]).toEqual([1003, { contactsInclus: 3, packsContacts: 1 }]);
+    // Un AUTRE abonnement vivant pour le même espace : un doublon, rien n'est écrit.
+    expect(await packs.enregistrer({ ...a, abonnementId: 'sub_packsC', packs: 2 })).toEqual({ etat: 'doublon' });
+    expect((await packs.noterPacks('sub_packsB', 2))!.packs).toBe(2);
+    await expect(packs.noterPacks('sub_packsB', 0)).rejects.toMatchObject({ code: '23514', constraint: 'packs_contacts_business_packs_chk' });
+    // Un échec dont la période est déjà payée est un rejeu tardif : rien n'est écrit. En retard, ses packs comptent encore.
+    const periode = new Date('2026-12-26T00:00:00Z');
+    expect((await packs.majStatut('sub_packsB', 'actif', periode))!.statut).toBe('actif');
+    expect(await packs.majStatut('sub_packsB', 'en_retard', null, periode)).toBeNull();
+    expect((await packs.majStatut('sub_packsB', 'en_retard', null, new Date('2027-01-26T00:00:00Z')))!.statut).toBe('en_retard');
+    expect((await offres.offreDe(t)).droits.limites.contacts).toBe(2003);
+    // Le Business retiré : ses packs ne comptent plus, même encore vivants (leur fin de droit les résilie).
+    await pool.query('update tenants set offre_business = false where id = $1', [t]);
+    o = await offres.offreDe(t);
+    expect([o.offre, o.business, o.droits.limites.contacts]).toEqual(['base', null, 100]);
+    // Finis une fois : la date et la raison de la première fin restent.
+    expect(await packs.finir('sub_packsB', 'fin_de_droit', new Date('2026-12-01T00:00:00Z')))
+      .toMatchObject({ premiereFin: true, finRaison: 'fin_de_droit', statut: 'resilie' });
+    expect(await packs.finir('sub_packsB', 'resiliation', new Date('2026-12-02T00:00:00Z')))
+      .toMatchObject({ premiereFin: false, finRaison: 'fin_de_droit', finiLe: new Date('2026-12-01T00:00:00Z') });
+    expect(await packs.vivant(t)).toBeNull();
+    expect(await packs.noterPacks('sub_packsB', 3)).toBeNull();
+    expect(await packs.enregistrer(a)).toEqual({ etat: 'fini' });
+    // Un nouvel abonnement peut vivre après la fin du premier.
+    expect(await packs.enregistrer({ ...a, abonnementId: 'sub_packsC' })).toEqual({ etat: 'enregistre', tenantId: t, nouveau: true });
   });
 });

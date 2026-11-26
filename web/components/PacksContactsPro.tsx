@@ -12,11 +12,14 @@ import { fmtNum } from '@/lib/format';
 import type { VueOffre } from '@/lib/offre';
 
 /**
- * LES CONTACTS DE LA FORMULE PRO (décision de Julien du 2026-11-24, plan `2026-11-24-contacts-packs-et-remplacement.md`,
- * lot 1) : les 1 000 contacts inclus, les packs de 1 000 achetés en plus, « Ajouter 1 000 contacts » au prix de la formule
- * et « Retirer 1 000 contacts ». L'ajout facture le prorata sur la carte du Pro, et ne s'applique que s'il est payé ; sinon
- * la facture à régler est proposée. Le retrait ne rembourse rien et n'efface rien : il est refusé tant que les contacts ne
- * tiennent pas. Rien ne s'affiche hors Pro, ni sur une API plus ancienne (`packsContacts` absent).
+ * LES CONTACTS EN PLUS DE LA FORMULE PRO (décision de Julien du 2026-11-24, plan `2026-11-24-contacts-packs-et-remplacement.md`,
+ * lot 1) ET DE L'OFFRE BUSINESS (2026-11-26, plan `2026-11-26-contacts-packs-business-et-alertes-entreprise.md`, lot B) :
+ * les contacts inclus, les packs de 1 000 achetés en plus, « Ajouter 1 000 contacts » au prix de la formule et « Retirer
+ * 1 000 contacts ». En Pro, l'ajout facture le prorata sur la carte du Pro. En Business, le premier pack ouvre la page de
+ * paiement de Stripe (un abonnement à part, au mois), les suivants facturent le prorata sur la carte de cet abonnement. Un
+ * ajout ne s'applique que s'il est payé ; sinon la facture à régler est proposée. Le retrait ne rembourse rien et n'efface
+ * rien : il est refusé tant que les contacts ne tiennent pas. Rien ne s'affiche hors Pro et Business, ni sur une API plus
+ * ancienne (`packsContacts` absent).
  */
 export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: VueOffre }) {
   const t = useT();
@@ -27,6 +30,8 @@ export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: Vue
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [facture, setFacture] = useState<string | null>(null);
+  /** Le retour de la page de paiement du premier pack d'un Business (`/offre?packs=recus`). */
+  const [paiementRecu, setPaiementRecu] = useState(false);
   // Venu du bandeau de la page Contacts ou de l'e-mail de limite (`/offre?pack=ajouter`, 2026-11-25) : le bloc se montre et
   // la confirmation de l'achat s'ouvre, une fois ; l'adresse perd le paramètre, pour qu'un rechargement ne la rouvre pas.
   const params = useSearchParams();
@@ -35,6 +40,7 @@ export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: Vue
   const dejaOuvert = useRef(false);
   const ajouterUn = useRef<(() => Promise<void>) | null>(null);
   const demandeAjout = params.get('pack') === 'ajouter';
+  const retourPaiement = params.get('packs');
   useEffect(() => {
     if (!demandeAjout || dejaOuvert.current || ajouterUn.current === null) return;
     dejaOuvert.current = true;
@@ -42,27 +48,42 @@ export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: Vue
     bloc.current?.scrollIntoView({ block: 'center' });
     void ajouterUn.current();
   }, [demandeAjout, router]);
+  // Revenu de Stripe : le paiement est confirmé par le webhook, souvent quelques secondes après ; l'adresse perd le paramètre.
+  useEffect(() => {
+    if (retourPaiement !== 'recus' && retourPaiement !== 'abandon') return;
+    setPaiementRecu(retourPaiement === 'recus');
+    router.replace('/offre', { scroll: false });
+  }, [retourPaiement, router]);
 
   const p = vue.packsContacts;
-  if (vue.offre !== 'pro' || p === null) return null;
+  if ((vue.offre !== 'pro' && vue.offre !== 'business') || p === null) return null;
+  const business = vue.offre === 'business';
   const achetes = choisis ?? p.achetes;
   const total = p.inclus + p.contactsParPack * achetes;
   const pack = fmtNum(p.contactsParPack, locale);
   const prix = vue.prixPackContacts ? (p.periodicite === 'an' ? vue.prixPackContacts.anCentimes : vue.prixPackContacts.moisCentimes) : null;
   const prixDit = prix === null ? '' : `${fmtNum(prix / 100, locale)} €`;
 
+  /** Ce que la confirmation d'un ajout dit du paiement : la carte de la formule Pro, ou la page de Stripe pour le premier pack d'un Business. */
+  function messageAjout(): string {
+    if (business) {
+      return achetes === 0
+        ? t(`${prixDit} HT par mois, sur un abonnement à part. Vous payez sur la page sécurisée de Stripe, et votre limite monte dès que le paiement est confirmé.`,
+          `${prixDit} excl. VAT a month, on a separate subscription. You pay on the secure Stripe page, and your limit goes up as soon as the payment is confirmed.`)
+        : t(`${prixDit} HT par mois. Le prorata jusqu’à la fin du mois en cours est facturé maintenant, sur la carte de vos contacts en plus.`,
+          `${prixDit} excl. VAT a month. The prorated amount until the end of the current month is charged now, on the card of your extra contacts.`);
+    }
+    return p!.periodicite === 'an'
+      ? t(`${prixDit} HT par an. Le prorata jusqu’à la fin de votre période est facturé maintenant, sur la carte de la formule Pro (pendant un essai, rien n’est facturé avant sa fin).`,
+        `${prixDit} excl. VAT a year. The prorated amount until the end of your period is charged now, on the Pro card (during a trial, nothing is charged before it ends).`)
+      : t(`${prixDit} HT par mois. Le prorata jusqu’à la fin de votre période est facturé maintenant, sur la carte de la formule Pro (pendant un essai, rien n’est facturé avant sa fin).`,
+        `${prixDit} excl. VAT a month. The prorated amount until the end of your period is charged now, on the Pro card (during a trial, nothing is charged before it ends).`);
+  }
+
   async function changer(cible: number): Promise<void> {
     const ajout = cible > achetes;
     const ok = await confirmer(ajout
-      ? {
-        titre: t(`Ajouter ${pack} contacts`, `Add ${pack} contacts`),
-        message: p!.periodicite === 'an'
-          ? t(`${prixDit} HT par an. Le prorata jusqu’à la fin de votre période est facturé maintenant, sur la carte de la formule Pro (pendant un essai, rien n’est facturé avant sa fin).`,
-            `${prixDit} excl. VAT a year. The prorated amount until the end of your period is charged now, on the Pro card (during a trial, nothing is charged before it ends).`)
-          : t(`${prixDit} HT par mois. Le prorata jusqu’à la fin de votre période est facturé maintenant, sur la carte de la formule Pro (pendant un essai, rien n’est facturé avant sa fin).`,
-            `${prixDit} excl. VAT a month. The prorated amount until the end of your period is charged now, on the Pro card (during a trial, nothing is charged before it ends).`),
-        confirmer: t('Ajouter', 'Add'),
-      }
+      ? { titre: t(`Ajouter ${pack} contacts`, `Add ${pack} contacts`), message: messageAjout(), confirmer: t('Ajouter', 'Add') }
       : {
         titre: t(`Retirer ${pack} contacts`, `Remove ${pack} contacts`),
         message: t('La période en cours n’est pas remboursée. Vos contacts doivent tenir dans la limite qui reste : aucun n’est effacé pour faire de la place.',
@@ -74,7 +95,18 @@ export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: Vue
     setErreur(null);
     setFacture(null);
     try {
-      setChoisis((await changerPacksContacts(tenantId, achetes, cible)).packs);
+      const r = await changerPacksContacts(tenantId, achetes, cible);
+      // Le premier pack d'un Business : la page de paiement de Stripe, d'où l'on revient sur `/offre?packs=recus`.
+      if ('url' in r) {
+        if (r.url.startsWith('https://')) {
+          window.location.assign(r.url);
+          return;
+        }
+        setErreur(t('Le paiement n’a pas pu être préparé. Réessayez dans un instant ; si cela persiste, contactez-nous.',
+          'The payment could not be prepared. Try again in a moment; if it persists, contact us.'));
+        return;
+      }
+      setChoisis(r.packs);
       // La limite de contacts a changé : la jauge et la coquille relisent la vue entière.
       await relireOffre(tenantId);
     } catch (err) {
@@ -91,13 +123,17 @@ export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: Vue
   // Le geste que l'effet du haut joue quand on arrive par `?pack=ajouter` : seulement si les packs sont en vente.
   ajouterUn.current = prix === null ? null : () => changer(achetes + 1);
 
+  const comprend = (n: string): string => (business
+    ? t(`Votre offre Business comprend ${n} contacts`, `Your Business plan includes ${n} contacts`)
+    : t(`Votre formule Pro comprend ${n} contacts`, `Your Pro plan includes ${n} contacts`));
+
   return (
     <section ref={bloc} id="packs-contacts" className="flex flex-wrap items-center gap-3 rounded-carte border border-ink-200 bg-white p-5" data-testid="offre-packs-contacts">
       <p className="min-w-0 flex-1 text-sm text-ink-500">
         {achetes === 0
-          ? t(`Votre formule Pro comprend ${fmtNum(p.inclus, locale)} contacts.`, `Your Pro plan includes ${fmtNum(p.inclus, locale)} contacts.`)
-          : t(`Votre formule Pro comprend ${fmtNum(p.inclus, locale)} contacts, et ${achetes} pack${achetes > 1 ? 's' : ''} de ${pack} contacts en plus : ${fmtNum(total, locale)} contacts en tout.`,
-            `Your Pro plan includes ${fmtNum(p.inclus, locale)} contacts, and ${achetes} extra pack${achetes > 1 ? 's' : ''} of ${pack} contacts: ${fmtNum(total, locale)} contacts in all.`)}
+          ? `${comprend(fmtNum(p.inclus, locale))}.`
+          : `${comprend(fmtNum(p.inclus, locale))}${t(`, et ${achetes} pack${achetes > 1 ? 's' : ''} de ${pack} contacts en plus : ${fmtNum(total, locale)} contacts en tout.`,
+            `, and ${achetes} extra pack${achetes > 1 ? 's' : ''} of ${pack} contacts: ${fmtNum(total, locale)} contacts in all.`)}`}
         {prix === null
           ? t(' Les contacts en plus ne sont pas encore en vente.', ' Extra contacts are not on sale yet.')
           : p.periodicite === 'an'
@@ -113,6 +149,12 @@ export function PacksContactsPro({ tenantId, vue }: { tenantId: string; vue: Vue
         <Bouton variante="secondaire" onClick={() => void changer(achetes - 1)} enCours={enCours} disabled={enCours} data-testid="offre-retirer-pack">
           {t(`Retirer ${pack} contacts`, `Remove ${pack} contacts`)}
         </Bouton>
+      )}
+      {paiementRecu && (
+        <p className="w-full text-sm text-ink-700" data-testid="offre-packs-paiement-recu">
+          {t('Paiement reçu : vos contacts en plus s’ajoutent dès que Stripe le confirme, en général dans la minute. Rechargez la page pour voir votre nouvelle limite.',
+            'Payment received: your extra contacts are added as soon as Stripe confirms it, usually within a minute. Reload the page to see your new limit.')}
+        </p>
       )}
       {erreur && (
         <p className="w-full text-sm text-danger" data-testid="offre-packs-erreur">
