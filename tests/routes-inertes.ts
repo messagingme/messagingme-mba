@@ -1224,8 +1224,22 @@ export const mcpShopifyInerte: Pick<DepsMcp, 'shopify'> = {
 
 /** Les champs depuis l'assistant (2026-10-20), pour les montages qui n'en parlent pas : lire rend « aucun », écrire lève. */
 export const mcpChampsInertes: Pick<DepsMcp, 'champs' | 'ensureSocleField'> = {
-  champs: { list: async () => [], create: neDevraitPasEtreAppelee('champs.create') },
+  champs: {
+    list: async () => [], create: neDevraitPasEtreAppelee('champs.create'),
+    updateField: neDevraitPasEtreAppelee('champs.updateField'), deleteField: neDevraitPasEtreAppelee('champs.deleteField'),
+  },
   ensureSocleField: neDevraitPasEtreAppelee('ensureSocleField'),
+};
+
+/**
+ * Les étiquettes et la création d'un contact (lot 1 du CSM virtuel, B10), pour les montages qui n'en parlent pas : la
+ * liste est vide, chaque écriture lève. Leurs outils ont leur fichier, `tests/mcp-fiches.test.ts`.
+ */
+export const mcpFichesInertes: Pick<DepsMcp, 'referentielEtiquettes' | 'createOneContact'> = {
+  referentielEtiquettes: {
+    listDistinct: async () => [], rename: neDevraitPasEtreAppelee('etiquettes.rename'), remove: neDevraitPasEtreAppelee('etiquettes.remove'),
+  },
+  createOneContact: neDevraitPasEtreAppelee('createOneContact'),
 };
 
 /**

@@ -43,6 +43,7 @@ import { OUTILS_PREREQUIS, type DepsPrerequisMcp } from './outils-prerequis';
 import { OUTILS_MODELES, type DepsModelesMcp } from './outils-modeles';
 import { OUTILS_CAMPAGNES, type DepsCampagnesMcp } from './outils-campagnes';
 import { OUTILS_CHAMPS, type DepsChampsMcp } from './outils-champs';
+import { OUTILS_FICHES, type DepsFichesMcp } from './outils-fiches';
 import { OUTILS_SUPPRESSION, type DepsSuppressionMcp } from './outils-suppression';
 import { OUTILS_SHOPIFY } from './outils-shopify';
 import type { DepsGestionShopify } from '../shopify/gestion';
@@ -57,6 +58,7 @@ export { RefusOutil } from './saisie';
 // Les bornes d'un fichier d'outils que `tests/mcp-serveur.test.ts` relit dans les schémas : exportées d'ici.
 export { MAX_CONTACTS_TROUVES, LONGUEUR_MAX_NOM_MODELE, LONGUEUR_MAX_LANGUE, LONGUEUR_MAX_NOM_CAMPAGNE } from './outils-campagnes';
 export { LONGUEUR_MAX_LIBELLE_CHAMP, LONGUEUR_MAX_CLE_CHAMP, LONGUEUR_MAX_VALEUR_CHAMP } from './outils-champs';
+export { LONGUEUR_MAX_ETIQUETTE_OUTIL, LONGUEUR_MAX_NOM_CONTACT } from './outils-fiches';
 export { MESSAGE_SUPPORT_MAX, SUJET_SUPPORT_MAX } from './outils-prerequis';
 
 /**
@@ -81,7 +83,7 @@ export type { ScopeMcp } from '../../web/lib/partage/catalogue-mcp';
 /** Les actions d'agent IA rendues par `get_conversation` : les plus récentes, la conversation en porte peu. */
 export const ACTIONS_DE_LA_CONVERSATION = 10;
 
-export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
+export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
   /**
@@ -113,6 +115,8 @@ export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp, 
     /** L'action en masse du mini-CRM (`tag_contacts`) : la MÊME écriture que la route, qui n'émet rien. */
     applyEditsMany(tenantId: string, target: BulkTarget, edits: BulkEdits): Promise<IssueActionEnMasse>;
     findByPhone(tenantId: string, phoneE164: string): Promise<ContactRow | null>;
+    /** Combien de fiches ont chaque champ rempli (`get_field_usage`), la MÊME lecture que la route de la console. */
+    fieldUsage(tenantId: string): Promise<{ total: number; parChamp: Record<string, number> }>;
     /**
      * Bloquer ou débloquer (`block_contact`) : le MÊME geste que la fiche du contact (`PATCH .../blocked`), signé de la
      * personne. `false` : aucune fiche vivante de ce nom dans l'espace.
@@ -1205,6 +1209,8 @@ export const OUTILS: OutilMcp[] = [
   ...OUTILS_SUPPRESSION,
   // Les champs depuis l'assistant (2026-10-20) : `src/mcp/outils-champs.ts`.
   ...OUTILS_CHAMPS,
+  // Les étiquettes et la création d'un contact (lot 1 du CSM virtuel, B10) : `src/mcp/outils-fiches.ts`.
+  ...OUTILS_FICHES,
   // Le connecteur Shopify (2026-10-21) : `src/mcp/outils-shopify.ts`.
   ...OUTILS_SHOPIFY,
   // Les chiffres de l'espace, pour les graphiques de Claude (2026-10-13) : leur fichier, `src/mcp/outils-chiffres.ts`.

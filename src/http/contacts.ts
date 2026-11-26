@@ -201,6 +201,70 @@ export function parseBulkTarget(raw: unknown): BulkTarget | null {
 const asStringArray = (v: unknown): string[] =>
   Array.isArray(v) ? nettoyerEtiquettes(v.map(String), 50) : [];
 
+/** Ce que l'écran saisit pour créer un contact à la main, et que l'outil `create_contact` donne de même (B10). */
+export interface SaisieContact { phone?: unknown; name?: unknown; fields?: unknown; tags?: unknown; optIn?: unknown; bsuid?: unknown }
+
+/** L'issue d'une création : le statut et le corps que la route rend, ou que l'outil traduit. */
+export type IssueCreationContact =
+  | { ok: true; statut: 200 | 201; corps: { status: 'created' | 'updated'; contactId: string | undefined } }
+  | { ok: false; statut: 400 | 402; corps: Record<string, unknown> };
+
+/**
+ * Crée (ou met à jour) un contact saisi à la main, partagée par `POST /contacts` et l'outil `create_contact` (lot 1 du
+ * CSM virtuel, B10) : les champs validés contre les définitions de l'espace, l'opt-in par défaut, l'upsert partagé, la
+ * limite de contacts de l'offre, et la ligne `contact.created` au nom de l'auteur.
+ */
+export async function creerContactALaMain(
+  deps: Pick<ContactsRouteDeps, 'champs' | 'ensureSocleField' | 'createOneContact' | 'audit'>,
+  tenant: string, b: SaisieContact, auteur: { auth?: { userId: string } },
+): Promise<IssueCreationContact> {
+  const phone = typeof b.phone === 'string' ? b.phone.trim() : '';
+  if (phone === '') return { ok: false, statut: 400, corps: { error: 'téléphone requis' } };
+  const rawFields = b.fields && typeof b.fields === 'object' && !Array.isArray(b.fields) ? (b.fields as Record<string, unknown>) : {};
+
+  // Les champs sont validés ici contre les définitions de l'espace, alors que l'upsert partagé auto-créerait
+  // toute clé inconnue : une saisie à la main ne doit pas inventer un champ. Un champ socle absent est matérialisé.
+  const fields: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(rawFields)) {
+    const val = String(raw ?? '').trim();
+    if (val === '') continue;
+    const def = await defPourEcriture(deps, tenant, key);
+    if (!def) return { ok: false, statut: 400, corps: { error: `champ inconnu : ${key}` } };
+    const refusJson = refusSaisieJson(def.type, def.label);
+    if (refusJson !== null) return { ok: false, statut: 400, corps: { error: refusJson } };
+    if (!validateFieldValue(def.type, val)) return { ok: false, statut: 400, corps: { error: `valeur invalide pour « ${def.label} » (${def.type})` } };
+    fields[key] = canonicalizeFieldValue(def.type, val);
+  }
+
+  // 🔴 Opt-in par défaut : saisir un numéro à la main suppose qu'on l'a obtenu de la personne ; muet, le contact
+  // serait écarté du marketing sans que l'écran le dise. Calculé une fois : la valeur sert à créer et à journaliser.
+  const optIn = b.optIn !== false;
+
+  const name = typeof b.name === 'string' && b.name.trim() !== '' ? b.name.trim().slice(0, 120) : undefined;
+  const res = await deps.createOneContact(tenant, {
+    phone,
+    ...(name ? { name } : {}),
+    ...(Object.keys(fields).length > 0 ? { fields } : {}),
+    tags: asStringArray(b.tags),
+    optIn,
+    // Facultatif, et surtout pas une seconde identité obligatoire : le numéro reste la clé de ce chemin.
+    ...(typeof b.bsuid === 'string' && b.bsuid.trim() !== '' ? { bsuid: b.bsuid.trim().slice(0, 200) } : {}),
+  });
+  // La limite de contacts de l'offre (lot 6) : 402, la phrase et le lien vers l'offre, jamais un 400 de saisie.
+  // La phrase est celle du magasin, qui connaît l'offre (le pack de contacts d'un Pro, 2026-11-24) : une limite hors
+  // grille, celle d'un Pro qui a des packs, ne se devine pas ici.
+  if (res.status === 'error' && res.limite !== undefined) {
+    const corps = corpsRefusLimite(new LimiteOffreError(tenant, 'contacts', res.limite));
+    return { ok: false, statut: STATUT_REFUS_OFFRE, corps: res.reason ? { ...corps, error: res.reason } : corps };
+  }
+  if (res.status === 'error') return { ok: false, statut: 400, corps: { error: res.reason ?? 'contact invalide' } };
+  // Le détail dit `updated` quand le numéro était déjà connu : sans ça, l'historique laisserait croire à une
+  // création alors que la fiche existait. L'opt-in figure ici plutôt que sur une ligne `contact.optin` à part,
+  // parce qu'il n'y a eu qu'une action de l'opérateur.
+  await makeJournal(deps.audit)(tenant, auteur, 'contact.created', { kind: 'contact', id: res.contactId ?? 'inconnu' }, { status: res.status, optIn });
+  return { ok: true, statut: res.status === 'created' ? 201 : 200, corps: { status: res.status, contactId: res.contactId } };
+}
+
 export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, garde: Guard, gardeEncadrement: Guard, limiteCouteuse?: PreHandler): void {
   const opts = { preHandler: garde };
   /**
@@ -348,52 +412,8 @@ export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, 
   app.post('/tenants/:tenantId/contacts', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     if (forbidNonAdmin(req, reply)) return;
-    const b = (req.body ?? {}) as { phone?: unknown; name?: unknown; fields?: unknown; tags?: unknown; optIn?: unknown; bsuid?: unknown };
-    const phone = typeof b.phone === 'string' ? b.phone.trim() : '';
-    if (phone === '') return reply.code(400).send({ error: 'téléphone requis' });
-    const rawFields = b.fields && typeof b.fields === 'object' && !Array.isArray(b.fields) ? (b.fields as Record<string, unknown>) : {};
-
-    // Les champs sont validés ici contre les définitions de l'espace, alors que l'upsert partagé auto-créerait
-    // toute clé inconnue : une saisie à la main ne doit pas inventer un champ. Un champ socle absent est matérialisé.
-    const fields: Record<string, string> = {};
-    for (const [key, raw] of Object.entries(rawFields)) {
-      const val = String(raw ?? '').trim();
-      if (val === '') continue;
-      const def = await defPourEcriture(deps, tenant, key);
-      if (!def) return reply.code(400).send({ error: `champ inconnu : ${key}` });
-      const refusJson = refusSaisieJson(def.type, def.label);
-      if (refusJson !== null) return reply.code(400).send({ error: refusJson });
-      if (!validateFieldValue(def.type, val)) return reply.code(400).send({ error: `valeur invalide pour « ${def.label} » (${def.type})` });
-      fields[key] = canonicalizeFieldValue(def.type, val);
-    }
-
-    // 🔴 Opt-in par défaut : saisir un numéro à la main suppose qu'on l'a obtenu de la personne ; muet, le contact
-    // serait écarté du marketing sans que l'écran le dise. Calculé une fois : la valeur sert à créer et à journaliser.
-    const optIn = b.optIn !== false;
-
-    const name = typeof b.name === 'string' && b.name.trim() !== '' ? b.name.trim().slice(0, 120) : undefined;
-    const res = await deps.createOneContact(tenant, {
-      phone,
-      ...(name ? { name } : {}),
-      ...(Object.keys(fields).length > 0 ? { fields } : {}),
-      tags: asStringArray(b.tags),
-      optIn,
-      // Facultatif, et surtout pas une seconde identité obligatoire : le numéro reste la clé de ce chemin.
-      ...(typeof b.bsuid === 'string' && b.bsuid.trim() !== '' ? { bsuid: b.bsuid.trim().slice(0, 200) } : {}),
-    });
-    // La limite de contacts de l'offre (lot 6) : 402, la phrase et le lien vers l'offre, jamais un 400 de saisie.
-    // La phrase est celle du magasin, qui connaît l'offre (le pack de contacts d'un Pro, 2026-11-24) : une limite hors
-    // grille, celle d'un Pro qui a des packs, ne se devine pas ici.
-    if (res.status === 'error' && res.limite !== undefined) {
-      const corps = corpsRefusLimite(new LimiteOffreError(tenant, 'contacts', res.limite));
-      return reply.code(STATUT_REFUS_OFFRE).send(res.reason ? { ...corps, error: res.reason } : corps);
-    }
-    if (res.status === 'error') return reply.code(400).send({ error: res.reason ?? 'contact invalide' });
-    // Le détail dit `updated` quand le numéro était déjà connu : sans ça, l'historique laisserait croire à une
-    // création alors que la fiche existait. L'opt-in figure ici plutôt que sur une ligne `contact.optin` à part,
-    // parce qu'il n'y a eu qu'une action de l'opérateur.
-    await journal(tenant, req, 'contact.created', { kind: 'contact', id: res.contactId ?? 'inconnu' }, { status: res.status, optIn });
-    return reply.code(res.status === 'created' ? 201 : 200).send({ status: res.status, contactId: res.contactId });
+    const r = await creerContactALaMain(deps, tenant, (req.body ?? {}) as SaisieContact, req);
+    return reply.code(r.statut).send(r.corps);
   });
 
   app.post('/tenants/:tenantId/contacts/bulk', couteux, async (req, reply) => {

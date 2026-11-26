@@ -164,12 +164,12 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /demarrage': enPartie(['get_setup_state'], 'la progression « Bien démarrer » de la console, dont l’étape des premiers scénarios'),
 
   // Les champs (fields)
-  'GET /user-fields/usage': aFaire('B10', 'contacts : savoir où un champ est utilisé'),
+  'GET /user-fields/usage': outil('get_field_usage'),
   'GET /champs-fiche': ecran('le catalogue des champs et des opérateurs de filtre de l’écran des contacts ; find_contacts annonce les siens'),
   'GET /user-fields': outil('list_fields'),
   'POST /user-fields': outil('create_field'),
-  'PATCH /user-fields/:key': aFaire('B10', 'contacts : modifier un champ'),
-  'DELETE /user-fields/:key': aFaire('B10', 'contacts : supprimer un champ'),
+  'PATCH /user-fields/:key': outil('update_field'),
+  'DELETE /user-fields/:key': outil('delete_field'),
 
   // Les médias d'en-tête des modèles (media)
   'POST /media': aFaire('B10', 'modèles : déposer un média d’en-tête'),
@@ -179,10 +179,10 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /agents/:agentId/test': outil('test_agent'),
 
   // Les étiquettes (tags)
-  'GET /tags': aFaire('B10', 'contacts : lister les étiquettes'),
+  'GET /tags': outil('list_tags'),
   'POST /tags': enPartie(['tag_contacts'], 'créer une étiquette sans la poser sur des contacts'),
-  'PATCH /tags': aFaire('B10', 'contacts : renommer une étiquette'),
-  'DELETE /tags': aFaire('B10', 'contacts : supprimer une étiquette'),
+  'PATCH /tags': outil('rename_tag'),
+  'DELETE /tags': outil('delete_tag'),
 
   // Les clés d'API (apiKeys)
   'POST /api-keys': outil('create_api_key'),
@@ -302,7 +302,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /contacts/:contactId/shopify': aFaire('B10', 'Shopify : les achats d’une fiche (commandes, produits, montants, ventes attribuées)'),
   'GET /contacts/:contactId/bilan': aFaire('B10', 'contacts : risque, joignabilité et source du consentement d’une fiche'),
   'GET /contacts/:contactId/history/export': aFaire('B10', 'contacts : l’export RGPD de l’historique'),
-  'POST /contacts': aFaire('B10', 'contacts : ajouter un contact'),
+  'POST /contacts': enPartie(['create_contact'], 'le BSUID'),
   'POST /contacts/bulk': enPartie(['tag_contacts', 'set_contact_field'], 'l’opt-in, l’opt-out et le retrait d’étiquettes en masse'),
   'POST /contacts/export': humain('extraire des données personnelles dans un fichier : la personne coche chaque colonne, et le geste est tracé au journal'),
   'GET /audit': aFaire('B10', 'chiffres : le journal d’audit'),

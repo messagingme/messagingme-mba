@@ -297,6 +297,7 @@ import { executerChezMeta } from './ops/duplication/meta-execution';
 import { statutsDuModele, type DepsCreationModele } from './api/creer-modele';
 import { placesDeTelechargement, telechargerEnteteProduction } from './api/entete-par-url';
 import { jugerCible, lancerEnvoiPublic, type DepsEnvoiPublic } from './api/envoi-public';
+import type { ContactsRouteDeps } from './http/contacts';
 import { tenter } from './lib/tenter';
 import { messageDe, texteDe } from './lib/erreur';
 import { PgStripeStore } from './stripe/store.pg';
@@ -431,6 +432,18 @@ async function main(): Promise<void> {
   const contactHistoryStore = new PgContactHistoryStore(pool);
   const templateHintStore = new PgTemplateHintStore(pool);
   const tagStore = new PgTagStore(pool);
+  /**
+   * La création d'un contact à la main, pour ses DEUX appelants : la route de la console (`POST /contacts`) et l'outil
+   * `create_contact` (lot 1 du CSM virtuel, B10). Même upsert que le webhook entrant, avec le pays par défaut du tenant.
+   */
+  const creerUnContactALaMain: ContactsRouteDeps['createOneContact'] = async (tenant, input) => {
+    const [r] = await upsertContactsFromApi(tenant, [input], {
+      contacts: contactStore, fields: fieldStore, defaultCountry: config.DEFAULT_COUNTRY as CountryCode, chemin: 'console',
+    });
+    return r
+      ? { status: r.status, ...(r.contactId ? { contactId: r.contactId } : {}), ...(r.reason ? { reason: r.reason } : {}), ...(r.limite !== undefined ? { limite: r.limite } : {}) }
+      : { status: 'error', reason: 'aucun résultat' };
+  };
   const statsStore = new PgStatsStore(pool);
   const performanceStore = new PgPerformanceStore(pool);
   // Agrégats d'analyse de conversation. `enabled` = état de la feature côté serveur (empty-state différencié).
@@ -3523,14 +3536,7 @@ async function main(): Promise<void> {
       // Création à la main : même upsert que le webhook entrant, avec le pays par défaut du tenant.
       // Les suppressions de contacts du jour de l'offre (lot 6), sur le compteur partagé des copies.
       suppressionsDuJour: quotaSuppressions,
-      createOneContact: async (tenant, input) => {
-        const [r] = await upsertContactsFromApi(tenant, [input], {
-          contacts: contactStore, fields: fieldStore, defaultCountry: config.DEFAULT_COUNTRY as CountryCode, chemin: 'console',
-        });
-        return r
-          ? { status: r.status, ...(r.contactId ? { contactId: r.contactId } : {}), ...(r.reason ? { reason: r.reason } : {}), ...(r.limite !== undefined ? { limite: r.limite } : {}) }
-          : { status: 'error', reason: 'aucun résultat' };
-      },
+      createOneContact: creerUnContactALaMain,
       contactHistory: contactHistoryStore,
       // Le coût d'un contact, aux mêmes tarifs que la fiche de campagne : `src/stats/chiffrage.ts`.
       getBilanContact: chiffrage.getBilanContact,
@@ -4273,6 +4279,10 @@ async function main(): Promise<void> {
         ensureSocleField: async (tenant, key, label, type) => { await ensureFieldByKey(fieldStore, tenant, key, label, type); },
         // La pose d'étiquettes de `tag_conversation` : le MÊME module que la fiche et l'agent, appelé SANS publier.
         etiquettes: workflowRuntime.etiquettes,
+        // Les étiquettes du menu Contenu et la création d'un contact (lot 1 du CSM virtuel, B10) : le MÊME magasin et la
+        // MÊME création que les routes de la console.
+        referentielEtiquettes: tagStore,
+        createOneContact: creerUnContactALaMain,
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),

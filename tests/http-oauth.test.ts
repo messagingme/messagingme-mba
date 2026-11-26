@@ -14,7 +14,7 @@ import { nouvelIdentifiantClient } from '../src/oauth/clients.pg';
 import { FakeQueue } from './fake-queue';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { jamaisDesabonne } from './consentement';
-import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { filiereApiSeule, aucunPremierMessage } from './gardes';
 
 /**
@@ -223,6 +223,7 @@ function monter(o: { publicApiUrl?: string; fiches?: Record<string, ClientResolu
       contactIdsForTarget: async () => [],
       applyEditsMany: async () => { throw new Error('applyEditsMany ne devrait pas être appelée'); },
       findByPhone: async () => null,
+      fieldUsage: async () => ({ total: 0, parChamp: {} }),
       setBlocked: async () => { throw new Error('setBlocked ne devrait pas être appelée'); },
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
@@ -243,6 +244,7 @@ function monter(o: { publicApiUrl?: string; fiches?: Record<string, ClientResolu
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
+    ...mcpFichesInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,

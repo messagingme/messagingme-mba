@@ -7730,7 +7730,13 @@ Ajouté par le lot 4 de l'API publique :
    offres, comme l'API. `set_contact_field` est l'action en masse « définir un champ » du mini-CRM : la garde
    `defPourEcriture` (exportée de `src/http/contacts.ts`, un champ de base absent est créé à la volée),
    `validateFieldValue` puis `canonicalizeFieldValue`, et `applyEditsMany`, qui n'émet aucun événement ; fonction
-   `console`, plafond des opérations coûteuses, cible de `lireCibleMcp`.
+   `console`, plafond des opérations coûteuses, cible de `lireCibleMcp`. Le reste du menu Contenu (B10, livraison 1a)
+   passe par les fonctions que les routes appellent désormais aussi : `modifierChamp` et `supprimerChamp`
+   (`src/http/fields.ts` ; la suppression n'efface que la définition, les valeurs restent dans `contacts.fields`),
+   `renommerEtiquette` et `supprimerEtiquette` (`src/http/tags.ts`), `creerContactALaMain` (`src/http/contacts.ts` :
+   validation des champs contre l'espace, opt-in par défaut pour l'écran, que l'outil exige au contraire (`opt_in`),
+   l'upsert de la console `creerUnContactALaMain` partagé dans `src/index.ts`, limite de contacts, ligne
+   `contact.created`) ; les outils vivent dans `src/mcp/outils-champs.ts` et `src/mcp/outils-fiches.ts`.
 63. 🔴 **Une suppression de contacts en masse depuis l'assistant n'efface que les fiches montrées** (2026-10-26,
    `src/mcp/outils-suppression.ts`, plan `docs/superpowers/plans/2026-10-26-free-au-dela-de-100-contacts.md`). Deux
    outils ouverts à toutes les offres, au nom d'une personne : `prepare_contacts_deletion` (rien n'est écrit) rend le

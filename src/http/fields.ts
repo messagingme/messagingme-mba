@@ -44,9 +44,57 @@ export async function creerChamp(champs: Pick<ChampsDep, 'create'>, tenantId: st
   return { ok: true, champ: def };
 }
 
+/** L'issue d'une modification ou d'une suppression de champ : la route la traduit en statut, l'outil en refus. */
+export type IssueGestionChamp<T> = { ok: true; valeur: T } | { ok: false; statut: 400 | 403 | 404 | 409; erreur: string };
+
 /**
- * Gestion des user fields (menu Contenu), admin. On édite libellé et type ; la clé est immuable (la renommer
- * casserait les paramMapping de campagnes et les valeurs `contacts.fields` indexées par clé).
+ * Modifie le libellé ou le type d'un champ perso, la clé restant immuable (la renommer casserait les paramMapping de
+ * campagnes et les valeurs `contacts.fields` indexées par clé). Partagée par `PATCH /user-fields/:key` et l'outil
+ * `update_field` (lot 1 du CSM virtuel, B10) : les MÊMES gardes des deux côtés.
+ */
+export async function modifierChamp(
+  champs: Pick<ChampsDep, 'list' | 'updateField'>, tenantId: string, key: string, b: { label?: unknown; type?: unknown },
+): Promise<IssueGestionChamp<{ key: string; label?: string; type?: UserFieldType }>> {
+  if (isSystemFieldKey(key)) return { ok: false, statut: 403, erreur: 'champ système (non modifiable)' };
+  const patch: { label?: string; type?: UserFieldType } = {};
+  if (b.label !== undefined) {
+    if (!nonEmpty(b.label)) return { ok: false, statut: 400, erreur: 'label vide' };
+    // Même garde qu'à la création : renommer un champ perso en « Nom » fabriquerait le doublon par l'autre
+    // porte. La clé, elle, reste immuable, donc le renommage ne peut pas créer de collision de clé.
+    if (isReservedFieldLabel(b.label)) return { ok: false, statut: 409, erreur: `« ${b.label.trim()} » correspond à un champ de base déjà présent` };
+    patch.label = b.label.trim();
+  }
+  if (b.type !== undefined) {
+    if (typeof b.type !== 'string' || !isUserFieldType(b.type)) return { ok: false, statut: 400, erreur: 'type invalide' };
+    /**
+     * 🔴 Un champ `json` garde son type, et aucun champ ne le devient (spec du 2026-11-11) : des valeurs de 1 000
+     * caractères relues comme du JSON, ou des JSON de 16 Ko dans un champ texte, casseraient les deux lecteurs.
+     */
+    const actuel = (await champs.list(tenantId)).find((f) => f.key === key);
+    if (actuel && actuel.type !== b.type && (actuel.type === 'json' || b.type === 'json')) {
+      return { ok: false, statut: 409, erreur: 'le type JSON se choisit à la création et ne se change plus, dans aucun sens' };
+    }
+    patch.type = b.type;
+  }
+  if (patch.label === undefined && patch.type === undefined) return { ok: false, statut: 400, erreur: 'rien à mettre à jour (label ou type)' };
+  const ok = await champs.updateField(tenantId, key, patch);
+  if (!ok) return { ok: false, statut: 404, erreur: 'champ inconnu' };
+  return { ok: true, valeur: { key, ...patch } };
+}
+
+/**
+ * Supprime la DÉFINITION d'un champ perso (les valeurs restent dans les fiches, invisibles). Partagée par
+ * `DELETE /user-fields/:key` et l'outil `delete_field` (B10).
+ */
+export async function supprimerChamp(champs: Pick<ChampsDep, 'deleteField'>, tenantId: string, key: string): Promise<IssueGestionChamp<{ key: string; deleted: true }>> {
+  if (isSystemFieldKey(key)) return { ok: false, statut: 403, erreur: 'champ système (non supprimable)' };
+  const ok = await champs.deleteField(tenantId, key);
+  if (!ok) return { ok: false, statut: 404, erreur: 'champ inconnu' };
+  return { ok: true, valeur: { key, deleted: true } };
+}
+
+/**
+ * Gestion des user fields (menu Contenu), admin. On édite libellé et type ; la clé est immuable (`modifierChamp`).
  */
 export function registerFields(app: FastifyInstance, deps: FieldsRouteDeps, garde: Guard): void {
   const opts = { preHandler: garde };
@@ -95,40 +143,14 @@ export function registerFields(app: FastifyInstance, deps: FieldsRouteDeps, gard
   app.patch('/tenants/:tenantId/user-fields/:key', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const { key } = req.params as { key: string };
-    if (isSystemFieldKey(key)) return reply.code(403).send({ error: 'champ système (non modifiable)' });
-    const b = (req.body ?? {}) as { label?: unknown; type?: unknown };
-    const patch: { label?: string; type?: UserFieldType } = {};
-    if (b.label !== undefined) {
-      if (!nonEmpty(b.label)) return reply.code(400).send({ error: 'label vide' });
-      // Même garde qu'à la création : renommer un champ perso en « Nom » fabriquerait le doublon par l'autre
-      // porte. La clé, elle, reste immuable, donc le renommage ne peut pas créer de collision de clé.
-      if (isReservedFieldLabel(b.label)) return reply.code(409).send({ error: `« ${b.label.trim()} » correspond à un champ de base déjà présent` });
-      patch.label = b.label.trim();
-    }
-    if (b.type !== undefined) {
-      if (typeof b.type !== 'string' || !isUserFieldType(b.type)) return reply.code(400).send({ error: 'type invalide' });
-      /**
-       * 🔴 Un champ `json` garde son type, et aucun champ ne le devient (spec du 2026-11-11) : des valeurs de 1 000
-       * caractères relues comme du JSON, ou des JSON de 16 Ko dans un champ texte, casseraient les deux lecteurs.
-       */
-      const actuel = (await deps.fields.list(tenant)).find((f) => f.key === key);
-      if (actuel && actuel.type !== b.type && (actuel.type === 'json' || b.type === 'json')) {
-        return reply.code(409).send({ error: 'le type JSON se choisit à la création et ne se change plus, dans aucun sens' });
-      }
-      patch.type = b.type;
-    }
-    if (patch.label === undefined && patch.type === undefined) return reply.code(400).send({ error: 'rien à mettre à jour (label ou type)' });
-    const ok = await deps.fields.updateField(tenant, key, patch);
-    if (!ok) return reply.code(404).send({ error: 'champ inconnu' });
-    return reply.code(200).send({ key, ...patch });
+    const r = await modifierChamp(deps.fields, tenant, key, (req.body ?? {}) as { label?: unknown; type?: unknown });
+    return r.ok ? reply.code(200).send(r.valeur) : reply.code(r.statut).send({ error: r.erreur });
   });
 
   app.delete('/tenants/:tenantId/user-fields/:key', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const { key } = req.params as { key: string };
-    if (isSystemFieldKey(key)) return reply.code(403).send({ error: 'champ système (non supprimable)' });
-    const ok = await deps.fields.deleteField(tenant, key);
-    if (!ok) return reply.code(404).send({ error: 'champ inconnu' });
-    return reply.code(200).send({ key, deleted: true });
+    const r = await supprimerChamp(deps.fields, tenant, key);
+    return r.ok ? reply.code(200).send(r.valeur) : reply.code(r.statut).send({ error: r.erreur });
   });
 }

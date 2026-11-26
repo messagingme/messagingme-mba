@@ -1,9 +1,9 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, OutilMcp } from './outils';
-import { RefusOutil, familleDuRefus, texteObligatoire } from './saisie';
+import { RefusOutil, familleDuRefus, texteObligatoire, type CodeRefus } from './saisie';
 import { CHAMPS_CIBLE_FILTRES, CHAMPS_CIBLE_IDENTIFIANTS, lireCibleMcp } from './cible';
 import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
-import { creerChamp, type ChampsDep } from '../http/fields';
+import { creerChamp, modifierChamp, supprimerChamp, type ChampsDep } from '../http/fields';
 import { defPourEcriture } from '../crm/fields';
 import { MAX_OCTETS_CHAMP_JSON, USER_FIELD_TYPES, canonicalizeFieldValue, validateFieldValue } from '../crm/fields';
 import type { UserFieldDef } from '../crm/types';
@@ -17,13 +17,19 @@ import { LISTES } from './ecran';
  * « définir un champ » du mini-CRM (`defPourEcriture`, `validateFieldValue`, `applyEditsMany`, qui n'émet rien).
  */
 export interface DepsChampsMcp {
-  /** Le référentiel des champs, le MÊME que l'écran et `/v1/fields`. */
-  champs: Pick<ChampsDep, 'list' | 'create'>;
+  /** Le référentiel des champs, le MÊME que l'écran et `/v1/fields` (`PgFieldStore`, passé entier). */
+  champs: Pick<ChampsDep, 'list' | 'create' | 'updateField' | 'deleteField'>;
   /** Matérialise un champ de base (prénom, e-mail) absent, comme l'action en masse de la console. */
   ensureSocleField(tenantId: string, key: string, label: string, type: UserFieldDef['type']): Promise<void>;
 }
 
 const lecture = (title: string): AnnotationsMcp => ({ title, readOnlyHint: true, openWorldHint: false });
+
+/**
+ * La famille d'un refus de `modifierChamp` ou de `supprimerChamp` : leur 403 dit « champ système », pas « droits » (B0a
+ * réserve `forbidden` à « passer par une personne connectée », et l'agent l'est déjà). Ce champ-là ne se touche pas.
+ */
+const familleGestionChamp = (statut: number): CodeRefus => (statut === 403 ? 'unsupported' : familleDuRefus(statut));
 
 /** Libellé d'un champ : de quoi le reconnaître dans la console. */
 export const LONGUEUR_MAX_LIBELLE_CHAMP = 80;
@@ -77,6 +83,74 @@ export const OUTILS_CHAMPS: OutilMcp[] = [
       const r = await creerChamp(deps.champs, tenantId, label, typeof args.type === 'string' ? args.type : '');
       if (!r.ok) throw new RefusOutil(r.erreur, familleDuRefus(r.statut));
       return { key: r.champ.key, label: r.champ.label, type: r.champ.type };
+    },
+  },
+  /*
+   * Le reste du menu Contenu > Champs (lot 1 du CSM virtuel, B10, livraison 1a) : où un champ sert, le modifier, le
+   * supprimer, par les MÊMES fonctions que la route (`modifierChamp`, `supprimerChamp`).
+   */
+  {
+    ...ficheOutilMcp('get_field_usage'),
+    fonction: null,
+    description: 'How many contact records have each custom field filled in, out of the total of records: before changing '
+      + 'or deleting a field, or to pick the field an email block sends to (a field empty everywhere would send nothing). '
+      + 'A key whose field was deleted can appear: its values stay on the records.',
+    annotations: lecture('Read field usage'),
+    entree: { type: 'object', properties: {}, additionalProperties: false },
+    async executer(deps, tenantId) {
+      const u = await deps.contacts.fieldUsage(tenantId);
+      return { total: u.total, filled: u.parChamp };
+    },
+  },
+  {
+    ...ficheOutilMcp('update_field'),
+    fonction: null,
+    description: 'Changes the label or the type of a custom contact field, as the console does; its key never changes, so '
+      + 'campaigns and records keep working. A system field cannot be changed, a label that would duplicate a base field '
+      + 'is refused, and a json field keeps its type for good (no field becomes json). Give label, type or both: only the '
+      + 'fields provided change, what is omitted is not touched.',
+    annotations: ecriture('Update a contact field', true, false),
+    entree: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', minLength: 1, maxLength: LONGUEUR_MAX_CLE_CHAMP, description: 'The field key (list_fields).' },
+        label: { type: 'string', minLength: 1, maxLength: LONGUEUR_MAX_LIBELLE_CHAMP, description: 'The new label.' },
+        type: { type: 'string', enum: [...USER_FIELD_TYPES], description: 'The new value type.' },
+      },
+      required: ['key'],
+      additionalProperties: false,
+    },
+    ecran: () => LISTES.champs,
+    async executer(deps, tenantId, args, personne) {
+      signataire(personne);
+      const key = texteObligatoire(args, 'key', LONGUEUR_MAX_CLE_CHAMP);
+      const label = args.label === undefined ? undefined : texteObligatoire(args, 'label', LONGUEUR_MAX_LIBELLE_CHAMP);
+      const r = await modifierChamp(deps.champs, tenantId, key, { label, type: args.type });
+      if (!r.ok) throw new RefusOutil(r.erreur, familleGestionChamp(r.statut));
+      return r.valeur;
+    },
+  },
+  {
+    ...ficheOutilMcp('delete_field'),
+    fonction: null,
+    description: 'Deletes a custom contact field, as the console does: it leaves the screens, the variable lists and the '
+      + 'filters. The values already written on records are kept, hidden, and what reads the key (a campaign variable, a '
+      + 'scenario) still reads them. A system field cannot be deleted. get_field_usage tells how many records have it '
+      + 'filled in.',
+    annotations: ecriture('Delete a contact field', true, false),
+    entree: {
+      type: 'object',
+      properties: { key: { type: 'string', minLength: 1, maxLength: LONGUEUR_MAX_CLE_CHAMP, description: 'The field key (list_fields).' } },
+      required: ['key'],
+      additionalProperties: false,
+    },
+    ecran: () => LISTES.champs,
+    async executer(deps, tenantId, args, personne) {
+      signataire(personne);
+      const key = texteObligatoire(args, 'key', LONGUEUR_MAX_CLE_CHAMP);
+      const r = await supprimerChamp(deps.champs, tenantId, key);
+      if (!r.ok) throw new RefusOutil(r.erreur, familleGestionChamp(r.statut));
+      return r.valeur;
     },
   },
   {

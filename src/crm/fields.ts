@@ -39,6 +39,9 @@ export const CTWA_AD_ID_FIELD_LABEL = 'Pub (identifiant)';
 export const CTWA_AD_TITLE_FIELD_KEY = 'pub_titre';
 export const CTWA_AD_TITLE_FIELD_LABEL = 'Pub (titre)';
 
+/** La longueur d'une valeur saisie, hors champ `json` (plafonné en octets, `MAX_OCTETS_CHAMP_JSON`). */
+export const LONGUEUR_MAX_VALEUR_SAISIE = 1000;
+
 /** Valide une valeur (string) selon le type déclaré du user field. Vide -> invalide (utiliser un retrait).
  *  Valeurs stockées en string. Partagée par la fiche contact, l'import CSV et le report de WhatsApp Flow. */
 export function validateFieldValue(type: UserFieldType, value: string): boolean {
@@ -46,7 +49,7 @@ export function validateFieldValue(type: UserFieldType, value: string): boolean 
   if (v === '') return false;
   // Un `json` a son propre plafond, en octets (`MAX_OCTETS_CHAMP_JSON`), à la place des 1 000 caractères.
   if (type === 'json') return jsonDeChamp(v) !== null;
-  if (v.length > 1000) return false;
+  if (v.length > LONGUEUR_MAX_VALEUR_SAISIE) return false;
   if (type === 'number') return Number.isFinite(Number(v));
   // date et datetime : tout ce qui est non ambigu (voir `date-iso.ts`) est accepté, le reste refusé.
   if (type === 'date' || type === 'datetime') return normaliserDate(v, type).ok;

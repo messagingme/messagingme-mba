@@ -3533,6 +3533,14 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   comme dans la console (`create_field`, la clé vient du libellé) et en remplit un sur une cible de contacts ou une liste
   de conversations (`set_contact_field`, en Pro, comme l'action en masse de la liste des contacts, sans déclencher
   d'automation). Une variable de modèle d'une campagne préparée par Claude peut ainsi venir d'un champ de la fiche.
+  Depuis le 2026-11-26 (lot 1 du CSM virtuel, B10), il fait aussi le reste du menu Contenu, dans toutes les offres et au
+  nom d'une personne : où un champ sert (`get_field_usage`), modifier son libellé ou son type (`update_field`, sa clé ne
+  change pas), le supprimer (`delete_field`, les valeurs déjà écrites restent dans les fiches, cachées) ; lister les
+  étiquettes avec leurs comptes (`list_tags`), en renommer une (`rename_tag`, un nom déjà pris fusionne les deux) ou la
+  retirer de toutes les fiches (`delete_tag`) ; et ajouter un contact à la main (`create_contact` : numéro, nom, champs,
+  étiquettes et accord du contact, que Claude dit toujours au nom du client, là où l'écran pré-coche la case ; la limite
+  de contacts de l'offre s'applique ; un numéro déjà connu met sa fiche à jour, un STOP reste un STOP). Aucun de ces
+  gestes ne démarre d'automation.
 - ✅ **Envoyer un message simple** : un texte, à une personne, tout de suite, visible dans l'Inbox. Deux routes,
   parce que leurs règles n'ont presque rien en commun : `POST /v1/messages/whatsapp` (dans la fenêtre de 24 h)
   et `POST /v1/messages/rcs` (sans fenêtre, mais seulement vers quelqu'un qui a consenti ou qui vous a déjà

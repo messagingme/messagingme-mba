@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -112,6 +112,7 @@ function app(
       contactIdsForTarget: async () => [],
       applyEditsMany: async () => { throw new Error('applyEditsMany ne devrait pas être appelée'); },
       findByPhone: async () => null,
+      fieldUsage: async () => ({ total: 0, parChamp: {} }),
       setBlocked: async () => { throw new Error('setBlocked ne devrait pas être appelée'); },
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
@@ -143,6 +144,7 @@ function app(
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
+    ...mcpFichesInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
@@ -957,6 +959,13 @@ describe('serveur MCP : cohérence du catalogue', () => {
       tag_contacts: [true, true, false],
       // Un brouillon de plus à chaque appel, et rien ne part.
       prepare_campaign: [true, false, false],
+      // Le menu Contenu et la création d'un contact (lot 1 du CSM virtuel, B10) : refaire le même geste ne change rien de
+      // plus (un numéro connu met sa fiche à jour), rien ne part chez un tiers.
+      update_field: [true, true, false],
+      delete_field: [true, true, false],
+      rename_tag: [true, true, false],
+      delete_tag: [true, true, false],
+      create_contact: [true, true, false],
       // Depuis B8 (2026-11-26), le clic d'un admin envoie ; l'outil prend l'identifiant de ce oui et rend toujours le même
       // résultat, une reprise coupée ne renvoie rien ; une reprise repart chez Meta.
       launch_campaign: [true, true, true],

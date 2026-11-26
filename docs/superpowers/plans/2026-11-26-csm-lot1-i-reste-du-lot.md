@@ -18,8 +18,12 @@ paiement reste un geste de la personne.
 - Une écriture de réglage passe par le MÊME service que la route de la console (jamais une seconde implémentation), au nom
   d'une personne quand elle signe (`exigePersonne`), avec les acquis de B0 : l'écran de ce qu'elle a fait (B0b), sa trace
   au journal d'audit (B0c), un champ omis jamais touché (B0d), un refus dans le vocabulaire fermé (B0a).
-- 🔴 Ce qui touche de vrais contacts ou ne se défait pas part sur le OUI d'un admin (une action de la mise en ligne, seule
-  dans la sienne, comme B8) : la table le dit déjà route par route (« au clic »).
+- 🔴 Part sur le OUI d'un admin (une action de la mise en ligne, seule dans la sienne, comme B8) ce que la table de parité
+  marque « au clic », et seulement cela : la table le dit route par route, on la suit sans en ajouter. Une écriture qui
+  reste dans l'espace est directe, au nom d'une personne, même quand elle ne se défait pas (supprimer un champ, renommer
+  ou retirer une étiquette) : sa description le dit.
+- Une route dont la logique vit dans son handler voit cette logique extraite en fonction partagée, que la route et
+  l'outil appellent (comme `creerChamp`) : jamais deux implémentations.
 - 🔴 Un secret (mot de passe SMTP, clé d'un système ou d'un serveur MCP) ne passe jamais par la conversation : l'outil rend
   l'adresse de la page de la console où la personne le saisit, connectée.
 - Un paiement rend le lien de Stripe (comme `buy_credit`) : la personne paie, jamais Claude.
@@ -28,11 +32,13 @@ paiement reste un geste de la personne.
 
 ## Livraisons, dans l'ordre de la table
 
-1. **Contacts, champs et étiquettes** (23 routes) : lister, renommer et supprimer une étiquette (supprimer : au oui, elle
-   quitte toutes les fiches) ; modifier un champ et savoir où il sert, le supprimer au oui (ses valeurs partent de toutes
-   les fiches) ; l'aperçu et l'import de contacts (l'import au oui : il écrit des fiches et déclare leur consentement) ;
-   les listes des désabonnés, des STOP ambigus et des bloqués ; l'historique, le bilan et l'export RGPD d'une fiche ;
-   ajouter un contact ; l'appel de connecteur prévenu à chaque désabonnement (au oui : des données partent chez un tiers).
+1. **Contacts, champs et étiquettes** (17 routes), en trois temps. **1a** : savoir où un champ sert, le modifier, le
+   supprimer ; lister, renommer et supprimer une étiquette ; ajouter un contact (7 outils ; l'accord s'y DIT, `opt_in`
+   obligatoire, là où l'écran pré-coche la case sous les yeux de la personne). **1b** : l'aperçu et l'import
+   de contacts (🔴 depuis Claude, jamais l'autorité qui réabonne un STOP : `import`, l'accord déclaré par le client) ; les
+   listes des désabonnés, des STOP ambigus et des bloqués ; l'historique, le bilan et l'export RGPD d'une fiche (sa trace
+   au journal, comme la console). **1c** : l'appel de connecteur prévenu à chaque désabonnement, le lire, et le choisir
+   au oui (des données partent chez un tiers).
 2. **L'Inbox** (15) : archiver, signaler, marquer urgent ou traité (et l'inverse), marquer lu ; lire le média d'un
    message ; transcrire un vocal (débité sur le crédit IA, comme la console) ; effacer les messages d'une conversation
    (au oui, ne se rattrape pas) ; qui peut prendre une conversation et le délai de reprise.

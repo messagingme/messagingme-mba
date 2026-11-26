@@ -296,6 +296,20 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 1a, les champs, les étiquettes, un contact) : ce qui reste de la relecture (2026-11-26, aucun rouge)
+
+Corrigés avant de pousser : l'accord dit (`opt_in` obligatoire et booléen), chaque type et chaque borne annoncés
+appliqués, `unsupported` pour un champ système, les descriptions (supprimer un champ, retirer une étiquette, le
+renommage, les clés des champs supprimés), le BSUID noté en partie dans la parité, le nouveau nom d'une étiquette borné
+à 64 caractères par la route, des faux magasins qui lisent `this` et notent l'espace visé. Reste :
+- Une création par Claude qui fait de la place (Business ou Entreprise plein, « le plus ancien laisse sa place ») signe
+  sa trace `contacts.remplaces` du chemin `console` : un chemin `mcp` dans `CheminCreation`. La purge prévient aussi Meta
+  (`oublierChezMeta`), ce que l'annotation `openWorldHint: false` de `create_contact` ne dit pas.
+- Un champ json donné à `create_contact` est refusé par la phrase de la saisie, qui renvoie au MCP : dire plutôt à Claude
+  que `set_contact_field` le remplit (en Pro).
+- Aucun test ne passe par le serveur MCP pour une écriture de ces outils (la double trace `contact.created` et
+  `mcp.ecriture`).
+
 ## 🟡 CSM virtuel, lot H (B8, livraison 2, un modèle ou un scénario pour une personne) : ce qui reste de la relecture (2026-11-26, un rouge corrigé avant de pousser)
 
 - Une lecture « illisible » du modèle chez Meta pendant l'exécution (422 `template_category_unknown`, « réessayez dans un

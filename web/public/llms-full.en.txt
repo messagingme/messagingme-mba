@@ -5505,13 +5505,20 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | --- | --- | --- |
 | search_contacts | mcp:read | Find a contact by name or number, with their latest analysis. |
 | get_contact | mcp:read | A contact record from its number, with their latest analysis and its summary. |
+| create_contact | mcp:write OAuth connection required | Add a contact by hand: number, name, fields, tags, and their consent, always stated (yes or no). |
 | block_contact | mcp:write OAuth connection required | Block or unblock a contact: nothing is sent to them anymore, their messages are still recorded. |
 | prepare_contacts_deletion | mcp:write OAuth connection required | Prepare the deletion of a selection of contacts without erasing anything (tags, consent, a list, the N oldest, 1,000 at most): their count, 10 records at most and the link of the button an administrator clicks to delete. |
 | delete_contacts | mcp:write OAuth connection required | What an administrator’s click deleted: records, conversations and messages erased, as in the console; nothing goes without that click. The click is refused if a record shown was deleted since. |
 | find_contacts | mcp:read | The contacts of a target, like the contact list filters: tags, consent, activity, country and, with a connected Shopify store, orders (count, amount spent, last order) and, on the Enterprise plan, the latest analysis. The total, and up to 100 contacts. |
 | tag_contacts | mcp:write OAuth connection required | Tag the contacts of a target (the criteria of find_contacts) or of a list of conversations: a segment is a tag. Through the console’s bulk action, without starting any automation. |
+| list_tags | mcp:read | The workspace tags, with the number of contacts carrying each one. |
+| rename_tag | mcp:write OAuth connection required | Rename a tag on every record; a name already taken merges the two tags. |
+| delete_tag | mcp:write OAuth connection required | Remove a tag from every record, with no way back. |
 | list_fields | mcp:read | The custom contact fields: key, label, type. A template variable can come from one of them. |
 | create_field | mcp:write OAuth connection required | Create a custom field, as in the console: its key comes from the label. |
+| update_field | mcp:write OAuth connection required | Change the label or the type of a field: its key does not change. |
+| delete_field | mcp:write OAuth connection required | Delete a field: the values already written stay in the records, hidden. |
+| get_field_usage | mcp:read | How many records have each field filled in, out of the total: before changing or deleting a field. |
 | set_contact_field | mcp:write OAuth connection required | Set a field on the contacts of a target (the criteria of find_contacts) or of a list of conversations, like the console’s bulk action, without starting any automation. |
 | prepare_campaign | mcp:write OAuth connection required | Prepare a template campaign without sending anything, for a target (the criteria of find_contacts): a draft visible in the console, a summary (targeted, sent, left out and why, five names, the billable volume) and the link of the button an administrator clicks to send. |
 | launch_campaign | mcp:write OAuth connection required | What an administrator’s click did with a prepared campaign: sending, scheduled for its date or resumed; nothing leaves without that click in the console. Resumes a sending cut short without sending anything twice. |

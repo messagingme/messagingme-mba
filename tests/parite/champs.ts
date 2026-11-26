@@ -86,7 +86,12 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
 
   // Les champs, les étiquettes, les clés
   'POST /user-fields': A_LA_MAIN,
+  'PATCH /user-fields/:key': A_LA_MAIN,
+  'DELETE /user-fields/:key': SANS_CORPS,
   'POST /tags': A_LA_MAIN,
+  'PATCH /tags': A_LA_MAIN,
+  // L'étiquette passe dans l'adresse (`?tag=`), pas dans un corps.
+  'DELETE /tags': SANS_CORPS,
   'POST /api-keys': A_LA_MAIN,
 
   // Le bac à sable et la connaissance de l'agent IA
@@ -127,6 +132,7 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   // Les contacts
   'PATCH /contacts/:contactId/blocked': A_LA_MAIN,
   'PATCH /contacts/:contactId': A_LA_MAIN,
+  'POST /contacts': A_LA_MAIN,
   'POST /contacts/bulk': A_LA_MAIN,
   'POST /contacts/purge': A_LA_MAIN,
 

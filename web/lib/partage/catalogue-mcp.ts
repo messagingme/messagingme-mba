@@ -17,8 +17,9 @@ export const CATALOGUE_MCP = {
   /** Bloquer un contact (2026-10-22) : une décision qui coupe la relation avec un client, signée d'une personne. */
   block_contact: { scope: 'mcp:write', exigePersonne: true },
   /**
-   * Supprimer des contacts en masse (2026-10-26) : un aperçu et son code, puis l'effacement, irréversible, au nom d'une
-   * personne, jamais d'une clé. L'aperçu n'efface rien, mais il est du scope d'écriture, comme `prepare_campaign`.
+   * Supprimer des contacts en masse (2026-10-26) : un aperçu et le bouton de son oui (B8), puis l'effacement, irréversible,
+   * sur le clic d'un admin, préparé au nom d'une personne, jamais d'une clé. L'aperçu n'efface rien, mais il est du scope
+   * d'écriture, comme `prepare_campaign`.
    */
   prepare_contacts_deletion: { scope: 'mcp:write', exigePersonne: true },
   delete_contacts: { scope: 'mcp:write', exigePersonne: true },
@@ -136,6 +137,14 @@ export const CATALOGUE_MCP = {
   list_fields: { scope: 'mcp:read' },
   create_field: { scope: 'mcp:write', exigePersonne: true },
   set_contact_field: { scope: 'mcp:write', exigePersonne: true },
+  /** Le reste des champs, des étiquettes et la création d'un contact (lot 1 du CSM virtuel, B10, livraison 1a). */
+  get_field_usage: { scope: 'mcp:read' },
+  update_field: { scope: 'mcp:write', exigePersonne: true },
+  delete_field: { scope: 'mcp:write', exigePersonne: true },
+  list_tags: { scope: 'mcp:read' },
+  rename_tag: { scope: 'mcp:write', exigePersonne: true },
+  delete_tag: { scope: 'mcp:write', exigePersonne: true },
+  create_contact: { scope: 'mcp:write', exigePersonne: true },
   /** Le connecteur Shopify (2026-10-21) : les quatre exigent une personne nommée, la lecture comprise. */
   connect_shopify: { scope: 'mcp:write', exigePersonne: true },
   set_shopify_message: { scope: 'mcp:write', exigePersonne: true },

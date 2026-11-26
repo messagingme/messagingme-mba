@@ -5,6 +5,42 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : CSM virtuel, lot I (B10, livraison 1a) : Claude gère les champs et les étiquettes, et ajoute un contact
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 1, premier temps (1a). B10 couvre les
+158 routes `aFaire('B10')` de la table de parité en sept livraisons ; la première est coupée en trois (1a les champs, les
+étiquettes et la création d'un contact, 1b l'import, les listes et l'historique, 1c la poussée d'opt-out au oui).
+
+**Sept outils, dans toutes les offres, les écritures au nom d'une personne.** `get_field_usage` (combien de fiches ont
+chaque champ rempli), `update_field` (libellé ou type, la clé ne change pas, ce qui est omis n'est pas touché),
+`delete_field` (la définition seule : les valeurs restent dans les fiches, et ce qui lit la clé les lit encore),
+`list_tags` (avec leurs comptes), `rename_tag` (un nom déjà pris fusionne les deux), `delete_tag` et `create_contact`.
+Chacun appelle la fonction que la route appelle désormais aussi, extraite de son handler sans en changer le
+comportement (`modifierChamp`, `supprimerChamp`, `renommerEtiquette`, `supprimerEtiquette`, `creerContactALaMain`) ;
+l'upsert de la console (`creerUnContactALaMain`) est partagé dans le câblage. Aucun de ces gestes ne démarre
+d'automation, et aucun n'est marqué « au clic » dans la table de parité : B10 la suit sans en ajouter, et le principe du
+plan est réécrit pour le dire (une écriture qui reste dans l'espace est directe, même quand elle ne se défait pas).
+**Une différence avec l'écran, voulue** : l'accord du contact se dit (`opt_in` obligatoire et booléen), là où l'écran
+pré-coche la case sous les yeux de la personne. Omis, il aurait fait passer en « accepte » une fiche arrivée par un
+message, que Claude aurait seulement voulu compléter ; `false` ne déclare rien, et l'opt-in ne régresse jamais en base.
+`POST /contacts` est couvert en partie (le BSUID reste à l'écran). Aucune migration.
+
+**La relecture indépendante : aucun rouge.** Corrigés avant de pousser : l'accord dit, chaque type et chaque borne
+annoncés appliqués (une chaîne « false » valait accord, une étiquette `null` devenait « null », le libellé et le format
+du numéro étaient annoncés sans être appliqués, la valeur d'un champ annonçait 16 Ko au lieu de 1 000 caractères), un
+champ système qui refuse en `unsupported` et plus en `forbidden` (réservé à « passer par une personne connectée »), le
+nouveau nom d'une étiquette borné à 64 caractères par la route (plus long, aucun outil n'aurait pu le renommer ni le
+retirer), quatre descriptions inexactes (supprimer un champ ne fait perdre aucune variable ; retirer une étiquette
+renvoyait à un outil du Pro ; le renommage ne suit pas dans les automations, les scénarios et les cibles ; l'usage des
+champs rend aussi les clés des champs supprimés), la description de `create_contact` qui dit qu'un espace Business ou
+Entreprise plein, réglé pour que le plus ancien laisse sa place, en supprime un à chaque création, et des faux magasins
+qui lisent `this` et notent l'espace visé. Le reste est au `todo.md` (le chemin `mcp` de la trace des contacts
+remplacés, la phrase du refus d'un champ json, un test qui passe par le serveur MCP).
+
+Preuves : 22 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint (racine et console),
+l'auto-attaque, la suite racine et celle de la console ; sur l'arbre fusionné avec les pairs, avant le push : typecheck,
+lint, auto-attaque, les tests ciblés et la suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-26 : CSM virtuel : la parité des critères, les routes Business et Entreprise, le chantier Shopify tranché
 
 Plan `docs/superpowers/plans/2026-11-26-csm-lot1-parite-criteres-et-offres.md`. Julien : « être super rigoureux pour

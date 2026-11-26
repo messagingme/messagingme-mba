@@ -44,13 +44,14 @@ import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { bornesDesChamps, bornesZod, champsDe, muettes, type Borne } from './aide/bornes-zod';
 import { jamaisDesabonne } from './consentement';
-import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { SANS_MCP } from './outils-mcp';
 import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
 import { OUTILS_SCENARIOS } from '../src/mcp/outils-scenarios';
 import { OUTILS_MISE_EN_LIGNE } from '../src/mcp/outils-mise-en-ligne';
 import { OUTILS_PREREQUIS } from '../src/mcp/outils-prerequis';
+import { OUTILS_FICHES } from '../src/mcp/outils-fiches';
 
 /**
  * LES OUTILS MCP DE L'AGENT IA ET DU CRÉDIT (lot 8a, livraison B), montés par `buildServer` derrière la vraie garde
@@ -415,6 +416,7 @@ function monter(o: Options & { usage?: GardeUsageMemoire } = {}) {
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
+    ...mcpFichesInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
@@ -440,6 +442,7 @@ function monter(o: Options & { usage?: GardeUsageMemoire } = {}) {
       contactIdsForTarget: async () => [],
       applyEditsMany: async () => { throw new Error('applyEditsMany ne devrait pas être appelée'); },
       findByPhone: async () => null,
+      fieldUsage: async () => ({ total: 0, parChamp: {} }),
       setBlocked: async () => { throw new Error('setBlocked ne devrait pas être appelée'); },
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
@@ -497,12 +500,13 @@ async function lister(server: Serveur, bearer: string): Promise<string[]> {
  * `tests/mcp-numero.test.ts`, `tests/mcp-evenements.test.ts`, `tests/mcp-serveur.test.ts` (les modèles),
  * `tests/mcp-offre.test.ts`, `tests/mcp-tag-contacts.test.ts` (et ses voisins), `tests/mcp-block-contact.test.ts`,
  * `tests/mcp-suppression.test.ts`, `tests/mcp-mise-en-ligne.test.ts` (le oui de mise en ligne) et
- * `tests/mcp-outils-prerequis.test.ts` (les prérequis d’une mise en service, CSM B7).
+ * `tests/mcp-outils-prerequis.test.ts` (les prérequis d’une mise en service, CSM B7) et `tests/mcp-fiches.test.ts` (les
+ * étiquettes et la création d'un contact, CSM B10).
  */
 const OUTILS_DU_NUMERO = new Set([
   ...[
     ...OUTILS_NUMERO, ...OUTILS_EVENEMENTS, ...OUTILS_MODELES, ...OUTILS_OFFRE, ...OUTILS_CAMPAGNES, ...OUTILS_CHAMPS, ...OUTILS_SHOPIFY,
-    ...OUTILS_SUPPRESSION, ...OUTILS_SCENARIOS, ...OUTILS_MISE_EN_LIGNE, ...OUTILS_PREREQUIS,
+    ...OUTILS_SUPPRESSION, ...OUTILS_SCENARIOS, ...OUTILS_MISE_EN_LIGNE, ...OUTILS_PREREQUIS, ...OUTILS_FICHES,
   ].map((o) => o.nom),
   'block_contact',
 ]);

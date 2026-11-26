@@ -25,6 +25,8 @@ export const LISTES = {
   champs: '/fields',
   cles: '/developers/keys',
   contacts: '/contacts',
+  /** Contenu > Étiquettes (lot 1 du CSM virtuel, B10). */
+  etiquettes: '/tags',
   inbox: '/inbox',
   integrations: '/integrations',
   messagesShopify: '/automations/shopify',
