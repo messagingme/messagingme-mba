@@ -265,6 +265,35 @@ export async function creerContactALaMain(
   return { ok: true, statut: res.status === 'created' ? 201 : 200, corps: { status: res.status, contactId: res.contactId } };
 }
 
+/**
+ * Les refus possibles à confirmer : ce que la règle élargie aurait attrapé, sans l'appliquer. Partagée par
+ * `GET .../contacts/refus-possibles` et l'outil `list_possible_refusals` (lot 1 du CSM virtuel, B10). N'écrit rien et
+ * ne désabonne personne. Le nombre de messages lus remonte (`scannes`) : une liste vide après n'avoir rien lu ne dit pas
+ * la même chose qu'après avoir tout lu. La règle vit dans `src/crm/consentement.ts`, avec ses tests.
+ */
+export async function refusPossibles(contacts: Pick<ContactsDep, 'messagesARelire'>, tenant: string) {
+  const { scannes, messages } = await contacts.messagesARelire(tenant);
+  return { scannes, refus: messages.filter((m) => classerDemandeArret(m.body) === 'peut_etre') };
+}
+
+/**
+ * L'export RGPD de l'historique d'une fiche : ses envois, non capés. Partagée par `GET .../history/export` et l'outil
+ * `export_contact_history` (B10). `null` : aucune fiche de ce nom dans l'espace.
+ * 🔴 Une extraction de données personnelles laisse une trace au nom de son auteur : c'est le geste qu'un DPO veut
+ * retracer. Le nombre, pas le contenu : écrire les lignes recopierait dans une table jamais purgée ce que l'export montre.
+ * `complement` : ce que l'appelant ajoute au détail (l'outil y dit `via: 'mcp'` : l'historique est parti dans une
+ * conversation avec un modèle, ce qu'un DPO doit pouvoir distinguer d'un export de la console).
+ */
+export async function exporterHistorique(
+  deps: Pick<ContactsRouteDeps, 'audit'> & { contactHistory: Pick<ContactsRouteDeps['contactHistory'], 'listSendsForExport'> },
+  tenant: string, contactId: string, auteur: { auth?: { userId: string } }, complement: Record<string, unknown> = {},
+): Promise<{ sends: ContactSend[] } | null> {
+  const sends = await deps.contactHistory.listSendsForExport(tenant, contactId);
+  if (!sends) return null;
+  await makeJournal(deps.audit)(tenant, auteur, 'contact.exporte', { kind: 'contact', id: contactId }, { envois: sends.length, ...complement });
+  return { sends };
+}
+
 export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, garde: Guard, gardeEncadrement: Guard, limiteCouteuse?: PreHandler): void {
   const opts = { preHandler: garde };
   /**
@@ -297,11 +326,7 @@ export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, 
    * remonte (`scannes`) : une liste vide après n'avoir rien lu ne dit pas la même chose qu'après avoir tout lu.
    */
   app.get('/tenants/:tenantId/contacts/refus-possibles', optsEncadrement, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-    const { scannes, messages } = await deps.contacts.messagesARelire(tenant);
-    // La règle vit dans `src/crm/consentement.ts`, avec ses tests. Elle n'est pas recopiée ici.
-    const refus = messages.filter((m) => classerDemandeArret(m.body) === 'peut_etre');
-    return reply.code(200).send({ scannes, refus });
+    return reply.code(200).send(await refusPossibles(deps.contacts, espaceVerifie(req)));
   });
 
   app.get('/tenants/:tenantId/contacts/blocked', opts, async (req, reply) => {
@@ -393,16 +418,9 @@ export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, 
    * télécharge le CSV : le wrapper `request()` fait toujours res.json(), donc pas de CSV brut côté serveur). Admin-only.
    */
   app.get('/tenants/:tenantId/contacts/:contactId/history/export', couteux, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { contactId } = req.params as { contactId: string };
-    const sends = await deps.contactHistory.listSendsForExport(tenant, contactId);
-    if (!sends) return reply.code(404).send({ error: 'contact inconnu' });
-    /**
-     * 🔴 Une extraction de données personnelles laisse une trace : c'est le geste qu'un DPO veut retracer. Le
-     * nombre, pas le contenu : écrire les lignes recopierait dans une table jamais purgée ce que l'export montre.
-     */
-    await journal(tenant, req, 'contact.exporte', { kind: 'contact', id: contactId }, { envois: sends.length });
-    return reply.code(200).send({ sends });
+    const r = await exporterHistorique(deps, espaceVerifie(req), contactId, req);
+    return r ? reply.code(200).send(r) : reply.code(404).send({ error: 'contact inconnu' });
   });
 
   /**

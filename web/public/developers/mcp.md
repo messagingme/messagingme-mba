@@ -202,6 +202,14 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | search_contacts | mcp:read | Chercher un contact par nom ou par numéro, avec sa dernière analyse. |
 | get_contact | mcp:read | La fiche d’un contact à partir de son numéro, avec sa dernière analyse et le résumé de celle-ci. |
 | create_contact | mcp:write connexion OAuth requise | Ajouter un contact à la main : numéro, nom, champs, étiquettes, et son accord, toujours dit (oui ou non). |
+| preview_contacts_import | mcp:read | Lire un fichier CSV de contacts sans rien écrire : ses colonnes, des exemples, la correspondance proposée et les places de l’offre. |
+| import_contacts | mcp:write connexion OAuth requise | Importer un fichier CSV de contacts : les fiches créées ou mises à jour, l’accord toujours dit (oui ou non), un STOP reste un STOP. |
+| get_contact_history | mcp:read | L’historique d’une fiche : les envois reçus et les conversations tenues. |
+| get_contact_report | mcp:read | Le bilan d’une fiche : ce que ses envois ont coûté chez Meta, et jusqu’où ses parcours sont allés. |
+| export_contact_history | mcp:read connexion OAuth requise | Exporter tous les envois d’une fiche pour une demande d’accès RGPD ; l’export est tracé au journal à votre nom. |
+| list_unsubscribed_contacts | mcp:read | Les contacts qui ont demandé à ne plus être contactés, du plus récent au plus ancien, avec la date et la source du refus. |
+| list_possible_refusals | mcp:read | Les messages des 30 derniers jours qui ressemblent à une demande d’arrêt sans être un STOP net, à relire : personne n’est désabonné. |
+| list_blocked_contacts | mcp:read | Les contacts bloqués, du plus récemment bloqué au plus ancien. |
 | block_contact | mcp:write connexion OAuth requise | Bloquer ou débloquer un contact : plus rien ne lui part, ses messages restent enregistrés. |
 | prepare_contacts_deletion | mcp:write connexion OAuth requise | Préparer la suppression d’une sélection de contacts sans rien effacer (étiquettes, consentement, une liste, les N plus anciens, 1 000 au plus) : leur nombre, 10 fiches au plus et le lien du bouton qu’un administrateur clique pour supprimer. |
 | delete_contacts | mcp:write connexion OAuth requise | Ce que le clic d’un administrateur a supprimé : fiches, conversations et messages effacés, comme dans la console ; rien ne part sans ce clic. Le clic est refusé si une fiche montrée a été effacée depuis. |

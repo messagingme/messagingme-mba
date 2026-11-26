@@ -5506,6 +5506,14 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | search_contacts | mcp:read | Find a contact by name or number, with their latest analysis. |
 | get_contact | mcp:read | A contact record from its number, with their latest analysis and its summary. |
 | create_contact | mcp:write OAuth connection required | Add a contact by hand: number, name, fields, tags, and their consent, always stated (yes or no). |
+| preview_contacts_import | mcp:read | Read a CSV of contacts without writing anything: its columns, examples, the proposed mapping and the plan’s free places. |
+| import_contacts | mcp:write OAuth connection required | Import a CSV of contacts: records created or updated, consent always stated (yes or no), a STOP stays a STOP. |
+| get_contact_history | mcp:read | The history of a record: the sends received and the conversations held. |
+| get_contact_report | mcp:read | The report of a record: what its sends cost at Meta, and how far its journeys went. |
+| export_contact_history | mcp:read OAuth connection required | Export every send of a record for a GDPR access request; the export is logged in the audit log under your name. |
+| list_unsubscribed_contacts | mcp:read | The contacts who asked not to be contacted any more, newest first, with the date and the source of the refusal. |
+| list_possible_refusals | mcp:read | Messages of the last 30 days that look like a request to stop without being a clear STOP, to read: nobody is unsubscribed. |
+| list_blocked_contacts | mcp:read | The blocked contacts, most recently blocked first. |
 | block_contact | mcp:write OAuth connection required | Block or unblock a contact: nothing is sent to them anymore, their messages are still recorded. |
 | prepare_contacts_deletion | mcp:write OAuth connection required | Prepare the deletion of a selection of contacts without erasing anything (tags, consent, a list, the N oldest, 1,000 at most): their count, 10 records at most and the link of the button an administrator clicks to delete. |
 | delete_contacts | mcp:write OAuth connection required | What an administrator’s click deleted: records, conversations and messages erased, as in the console; nothing goes without that click. The click is refused if a record shown was deleted since. |

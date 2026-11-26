@@ -4,7 +4,8 @@ import { recognizeColumns } from '../crm/recognize';
 import { importContacts } from '../crm/import';
 import { normalizePhone } from '../crm/phone';
 import type { ContactStore, ImportDeps } from '../crm/import';
-import type { ColumnMapping } from '../crm/types';
+import type { ColumnMapping, ImportReport } from '../crm/types';
+import type { AutoriteImport } from '../crm/transition-consentement';
 import type { ContactRow, ContactFilters, ContactFieldFilter } from '../crm/contact-store.pg';
 import { CONTACT_FILTER_QUERY_KEYS, filtersActive } from '../../web/lib/partage/contact-filters';
 import { gardeEtendue } from '../auth/middleware';
@@ -106,7 +107,7 @@ export function parseFilters(q: Record<string, unknown>): ContactFilters {
  * sans colonne de téléphone : le fichier n'est alors pas relu.
  */
 async function effacementsDeLImport(
-  deps: ImportRouteDeps, tenantId: string, csv: string, mapping: ColumnMapping,
+  deps: DepsApercuImport, tenantId: string, csv: string, mapping: ColumnMapping,
 ): Promise<{ remplacement?: { nouveaux: number; placesLibres: number } }> {
   const colonne = Object.entries(mapping.columns).find(([, c]) => c.target === 'phone')?.[0];
   if (colonne === undefined) return {};
@@ -119,6 +120,16 @@ async function effacementsDeLImport(
   const p = await deps.contacts.placesContacts(tenantId, numeros);
   if (p.limite === null) return {};
   return { remplacement: { nouveaux: numeros.filter((n) => !p.presents.has(n)).length, placesLibres: p.limite - p.comptees } };
+}
+
+/**
+ * Combien des plus anciens contacts un import effacerait pour ce texte et ce mapping : 0 sans l'option « le plus ancien
+ * laisse sa place », sans limite ou sans colonne de téléphone. Le compte que l'outil `import_contacts` exige d'accepter
+ * avant d'écrire (B10), le même que l'aperçu annonce.
+ */
+export async function effacementsDeLImportPour(deps: DepsApercuImport, tenantId: string, csv: string, mapping: ColumnMapping): Promise<number> {
+  const { remplacement } = await effacementsDeLImport(deps, tenantId, csv, mapping);
+  return remplacement ? Math.max(0, remplacement.nouveaux - remplacement.placesLibres) : 0;
 }
 
 export function mappingFromHeaders(headers: string[]): ColumnMapping {
@@ -149,6 +160,76 @@ async function comptesDesBoutons(contacts: ContactsListeDep, tenantId: string): 
   }
 }
 
+/** Ce dont l'aperçu d'un import a besoin : les places de l'offre, et le pays des numéros donnés sans indicatif. */
+export type DepsApercuImport = Pick<ImportRouteDeps, 'defaultCountry'> & { contacts: Pick<ContactsListeDep, 'placesContacts'> };
+/** Ce dont un import a besoin : l'upsert et la garde de l'offre (`ImportDeps`), et le journal d'audit. */
+export type DepsImportCsv = ImportDeps & { audit: AuditSink };
+/** L'issue d'un aperçu ou d'un import : la valeur, ou le statut et le corps que la route rend et que l'outil traduit. */
+export type IssueImport<T> = { ok: true; valeur: T } | { ok: false; statut: 400 | 402; corps: Record<string, unknown> };
+/** Ce que l'aperçu montre : le CSV lu comme l'import le lira, le mapping proposé, et les effacements annoncés. */
+export type ApercuImport = Awaited<ReturnType<typeof apercuCsvHorsBoucle>> & {
+  mapping: ColumnMapping; remplacement?: { nouveaux: number; placesLibres: number };
+};
+/** Ce que saisit un import : le CSV, son mapping (facultatif : celui des en-têtes), ses étiquettes, l'accord déclaré. */
+export interface SaisieImport { csv: unknown; mapping?: unknown; tags?: unknown; optIn: boolean }
+
+/**
+ * L'aperçu d'un import, partagé par `POST .../contacts/import/preview` et l'outil `preview_contacts_import` (lot 1 du
+ * CSM virtuel, B10) : le CSV lu par le même `parseCsv` que l'import réel (en-têtes identiques, pas de désync), le mapping
+ * proposé et, quand l'espace fait de la place, ce que l'import effacerait. N'écrit rien.
+ * ⚠️ L'aperçu de la console ne reçoit que la tête du fichier (`teteCsv`, 512 000 caractères) : l'identité tient tant
+ * qu'elle porte les 50 rangées où `separateurCsv` cherche le séparateur (plus de 10 000 caractères par rangée en moyenne,
+ * l'aperçu et l'import peuvent lire deux séparateurs).
+ */
+export async function apercuImport(deps: DepsApercuImport, tenantId: string, csv: unknown): Promise<IssueImport<ApercuImport>> {
+  if (typeof csv !== 'string' || csv.trim() === '') return { ok: false, statut: 400, corps: { error: 'csv requis (texte brut)' } };
+  const apercu = await apercuCsvHorsBoucle(csv);
+  if (apercu.headers.length === 0) return { ok: false, statut: 400, corps: { error: 'aucune colonne détectée (1re ligne = en-têtes)' } };
+  const mapping = mappingFromHeaders(apercu.headers);
+  return { ok: true, valeur: { ...apercu, mapping, ...(await effacementsDeLImport(deps, tenantId, csv, mapping)) } };
+}
+
+/**
+ * Importe un CSV, partagée par `POST .../contacts/import` et l'outil `import_contacts` (B10) : le mapping vérifié, les
+ * étiquettes nettoyées (64 caractères, 50 au plus), la limite de l'offre sur TOUT le fichier (402, rien d'écrit), une
+ * ligne `contact.imported` par lot au nom de l'auteur (pas une par contact : 50 000 lignes noieraient l'historique ;
+ * l'accord y figure parce qu'il autorise les envois marketing derrière).
+ * 🔴 L'autorité vient de l'appelant : seule la case de l'écran (`import_csv_coche`) lève un STOP ; l'outil passe `import`.
+ */
+export async function importerCsv(
+  deps: DepsImportCsv, tenantId: string, b: SaisieImport, autorite: AutoriteImport, auteur: { auth?: { userId: string } },
+): Promise<IssueImport<ImportReport>> {
+  if (typeof b.csv !== 'string' || b.csv.trim() === '') return { ok: false, statut: 400, corps: { error: 'csv requis (texte brut)' } };
+  // Tags : une chaîne "a, b, c" ou un tableau ; normalisés (trim, non vides, dédup) et bornés comme toute pose.
+  const rawTags = Array.isArray(b.tags)
+    ? (b.tags as unknown[]).map(String)
+    : typeof b.tags === 'string'
+      ? b.tags.split(',')
+      : [];
+  const tags = nettoyerEtiquettes(rawTags, 50);
+  // mapping fourni mais malformé (sans `columns` objet) -> 400, sinon Object.entries lèverait une 500.
+  if (b.mapping !== undefined) {
+    const cols = (b.mapping as { columns?: unknown } | null)?.columns;
+    if (typeof cols !== 'object' || cols === null || Array.isArray(cols)) {
+      return { ok: false, statut: 400, corps: { error: 'mapping invalide (columns requis)' } };
+    }
+  }
+  const parsed = await parseCsvHorsBoucle(b.csv);
+  const mapping = (b.mapping as ColumnMapping | undefined) ?? mappingFromHeaders(parsed.headers);
+  let report: ImportReport;
+  try {
+    report = await importContacts({ rows: parsed.rows, mapping, tenantId, optIn: b.optIn, tags, autorite }, deps);
+  } catch (err) {
+    // La limite de contacts de l'offre (lot 6) : le fichier entier est refusé, rien n'est écrit.
+    if (err instanceof LimiteOffreError) return { ok: false, statut: STATUT_REFUS_OFFRE, corps: corpsRefusLimite(err) };
+    throw err;
+  }
+  await makeJournal(deps.audit)(tenantId, auteur, 'contact.imported', { kind: 'contact', id: 'lot' }, {
+    created: report.created, updated: report.updated, skipped: report.skipped, optIn: b.optIn, tags: tags.length,
+  });
+  return { ok: true, valeur: report };
+}
+
 /**
  * POST /tenants/:tenantId/contacts/import : parse un CSV brut, reconnaît les colonnes (sans mapping fourni),
  * upsert les contacts. Rend un ImportReport.
@@ -158,7 +239,6 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
   // Garde des routes coûteuses : la garde habituelle plus le plafond par espace. `gardeEtendue` aplatit la
   // chaîne, parce que `gardeAdmin` est déjà un tableau et qu'un tableau imbriqué ne serait pas exécuté.
   const couteux = gardeEtendue(garde, limiteCouteuse);
-  const journal = makeJournal(deps.audit);
   // Le CSV complet transite dans le corps. 8 Mo (environ 150 000 contacts), pas plus : le corps est parsé d'un
   // bloc (l'API ne répond à personne d'autre pendant ce temps), et 8 Mo de CSV pèsent ~150 Mo de tas en objets.
   const optsImportCouteux = { ...couteux, bodyLimit: 8 * 1024 * 1024 };
@@ -280,71 +360,23 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
     return reply.code(200).send({ ids });
   });
 
-  // Aperçu : parse le CSV + propose un mapping (même parseCsv que l'import réel -> en-têtes
-  // identiques, pas de désync). Le front affiche l'écran de mapping pré-rempli.
-  // ⚠️ L'aperçu ne reçoit que la tête du fichier (`teteCsv`, 512 000 caractères) : l'identité tient tant qu'elle
-  // porte les 50 rangées où `separateurCsv` cherche le séparateur (plus de 10 000 caractères par rangée en moyenne,
-  // l'aperçu et l'import peuvent lire deux séparateurs).
+  // Aperçu : le front affiche l'écran de mapping pré-rempli (`apercuImport`, que l'outil appelle aussi).
   app.post('/tenants/:tenantId/contacts/import/preview', optsApercuCouteux, async (req, reply) => {
-    const effectiveTenant = espaceVerifie(req);
-    const body = (req.body ?? {}) as { csv?: unknown };
-    if (typeof body.csv !== 'string' || body.csv.trim() === '') {
-      return reply.code(400).send({ error: 'csv requis (texte brut)' });
-    }
-    const apercu = await apercuCsvHorsBoucle(body.csv);
-    if (apercu.headers.length === 0) return reply.code(400).send({ error: 'aucune colonne détectée (1re ligne = en-têtes)' });
-    const mapping = mappingFromHeaders(apercu.headers);
-    return reply.code(200).send({ ...apercu, mapping, ...(await effacementsDeLImport(deps, effectiveTenant, body.csv, mapping)) });
+    const r = await apercuImport(deps, espaceVerifie(req), (req.body as { csv?: unknown } | null)?.csv);
+    return r.ok ? reply.code(200).send(r.valeur) : reply.code(r.statut).send(r.corps);
   });
 
   app.post('/tenants/:tenantId/contacts/import', optsImportCouteux, async (req, reply) => {
-    const effectiveTenant = espaceVerifie(req);
-    const body = (req.body ?? {}) as { csv?: unknown; optIn?: unknown; mapping?: ColumnMapping; tags?: unknown };
-
-    if (typeof body.csv !== 'string' || body.csv.trim() === '') {
-      return reply.code(400).send({ error: 'csv requis (texte brut)' });
-    }
-
-    // Tags : accepte une chaîne "a, b, c" ou un tableau ; normalisés (trim, non vides, dédup).
-    const rawTags = Array.isArray(body.tags)
-      ? (body.tags as unknown[]).map(String)
-      : typeof body.tags === 'string'
-        ? body.tags.split(',')
-        : [];
-    // Normalise + borne : 64 car. max par tag, 50 tags max (évite un stockage aberrant).
-    const tags = nettoyerEtiquettes(rawTags, 50);
-    // mapping fourni mais malformé (sans `columns` objet) -> 400, sinon Object.entries throw en 500.
-    if (body.mapping !== undefined) {
-      const cols = (body.mapping as { columns?: unknown }).columns;
-      if (typeof cols !== 'object' || cols === null || Array.isArray(cols)) {
-        return reply.code(400).send({ error: 'mapping invalide (columns requis)' });
-      }
-    }
-
+    const body = (req.body ?? {}) as { csv?: unknown; optIn?: unknown; mapping?: unknown; tags?: unknown };
     // 🔴 Opt-in par défaut, aligné sur l'écran d'import (case pré-cochée) : un appel qui omet le champ chargerait
     // sinon une liste que le garde-fou de campagne écarte du marketing, sans rien signaler.
     const optIn = body.optIn !== false;
-
-    const parsed = await parseCsvHorsBoucle(body.csv);
-    const mapping = body.mapping ?? mappingFromHeaders(parsed.headers);
     // 🔴 La case cochée réabonne aussi qui a dit STOP : c'est le seul import qui le peut, parce que l'opérateur le
-    // demande. HubSpot, le webhook entrant et la création à la main gardent le STOP.
-    let report: Awaited<ReturnType<typeof importContacts>>;
-    try {
-      report = await importContacts(
-        { rows: parsed.rows, mapping, tenantId: effectiveTenant, optIn, tags, autorite: optIn ? 'import_csv_coche' : 'import' },
-        deps,
-      );
-    } catch (err) {
-      // La limite de contacts de l'offre (lot 6) : le fichier entier est refusé, rien n'est écrit.
-      if (err instanceof LimiteOffreError) return reply.code(STATUT_REFUS_OFFRE).send(corpsRefusLimite(err));
-      throw err;
-    }
-    // Une ligne par lot, pas par contact : un import de 50 000 lignes noierait l'historique. L'opt-in est consigné
-    // parce qu'il autorise les envois marketing derrière : c'est la case que l'opérateur a cochée, et elle engage.
-    await journal(effectiveTenant, req, 'contact.imported', { kind: 'contact', id: 'lot' }, {
-      created: report.created, updated: report.updated, skipped: report.skipped, optIn, tags: tags.length,
-    });
-    return reply.code(200).send(report);
+    // demande. HubSpot, le webhook entrant, la création à la main et l'outil de Claude gardent le STOP.
+    const r = await importerCsv(
+      deps, espaceVerifie(req), { csv: body.csv, mapping: body.mapping, tags: body.tags, optIn },
+      optIn ? 'import_csv_coche' : 'import', req,
+    );
+    return r.ok ? reply.code(200).send(r.valeur) : reply.code(r.statut).send(r.corps);
   });
 }

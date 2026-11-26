@@ -966,6 +966,9 @@ describe('serveur MCP : cohérence du catalogue', () => {
       rename_tag: [true, true, false],
       delete_tag: [true, true, false],
       create_contact: [true, true, false],
+      // L'import d'un CSV (B10, livraison 1b) : réimporter le même fichier ne change rien de plus (les numéros connus sont
+      // mis à jour, les étiquettes réunies), rien ne part chez un tiers.
+      import_contacts: [true, true, false],
       // Depuis B8 (2026-11-26), le clic d'un admin envoie ; l'outil prend l'identifiant de ce oui et rend toujours le même
       // résultat, une reprise coupée ne renvoie rien ; une reprise repart chez Meta.
       launch_campaign: [true, true, true],
@@ -1004,11 +1007,12 @@ describe('serveur MCP : cohérence du catalogue', () => {
       activate_number: [true, false, true],
       contact_support: [true, false, true],
     });
-    // Une lecture ne touche personne hors de l'espace, à QUATRE exceptions nommées : `preview_site` va lire un site tiers,
+    // Une lecture ne touche personne hors de l'espace, à CINQ exceptions nommées : `preview_site` va lire un site tiers,
     // `preview_shopify_customers` les clients de la boutique chez Shopify (lot 3), `preview_shopify_order_history` ses
-    // commandes (segments Shopify, lot 5), `get_account_status` relit le compte WhatsApp chez Meta (CSM, B7).
+    // commandes (segments Shopify, lot 5), `get_account_status` relit le compte WhatsApp chez Meta (CSM, B7), et
+    // `get_contact_report` demande à Meta les tarifs qui chiffrent les envois d'une fiche (CSM, B10).
     const lecturesEnMondeOuvert = OUTILS.filter((x) => x.annotations.readOnlyHint && x.annotations.openWorldHint).map((o) => o.nom);
-    expect(lecturesEnMondeOuvert.sort()).toEqual(['get_account_status', 'preview_shopify_customers', 'preview_shopify_order_history', 'preview_site']);
+    expect(lecturesEnMondeOuvert.sort()).toEqual(['get_account_status', 'get_contact_report', 'preview_shopify_customers', 'preview_shopify_order_history', 'preview_site']);
   });
 
   it('🔴 readOnlyHint vaut exactement « le scope est mcp:read », et chaque écriture déclare destructiveHint et idempotentHint', () => {

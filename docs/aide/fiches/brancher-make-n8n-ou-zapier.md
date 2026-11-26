@@ -2,7 +2,7 @@
 description: Brancher Make, n8n ou Zapier dans les deux sens : recevoir leurs données, et leur envoyer les vôtres, en continu ou à un moment précis d’un scénario.
 ecran: integrations
 source_section: Webhooks entrants (menu Tools) | API publique `/v1` (intégrateurs externes) | Brancher vos systèmes : les connecteurs API (menu « Tools » > Connecteurs API)
-source_empreinte: de4822 | 5767c0 | 3c13fd
+source_empreinte: de4822 | 0795dc | 3c13fd
 publique: oui
 captures: non
 rubrique: parler-aux-clients

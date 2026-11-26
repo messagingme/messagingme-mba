@@ -1235,11 +1235,24 @@ export const mcpChampsInertes: Pick<DepsMcp, 'champs' | 'ensureSocleField'> = {
  * Les étiquettes et la création d'un contact (lot 1 du CSM virtuel, B10), pour les montages qui n'en parlent pas : la
  * liste est vide, chaque écriture lève. Leurs outils ont leur fichier, `tests/mcp-fiches.test.ts`.
  */
-export const mcpFichesInertes: Pick<DepsMcp, 'referentielEtiquettes' | 'createOneContact'> = {
+export const mcpFichesInertes: Pick<
+  DepsMcp, 'referentielEtiquettes' | 'createOneContact' | 'importCsv' | 'listesContacts' | 'historiqueContacts' | 'bilanContact'
+> = {
   referentielEtiquettes: {
     listDistinct: async () => [], rename: neDevraitPasEtreAppelee('etiquettes.rename'), remove: neDevraitPasEtreAppelee('etiquettes.remove'),
   },
   createOneContact: neDevraitPasEtreAppelee('createOneContact'),
+  importCsv: {
+    contacts: {
+      upsertManyByPhone: neDevraitPasEtreAppelee('importCsv.upsertManyByPhone'),
+      verifierPlaceContacts: neDevraitPasEtreAppelee('importCsv.verifierPlaceContacts'),
+      placesContacts: neDevraitPasEtreAppelee('importCsv.placesContacts'),
+    },
+    userFields: { list: async () => [], upsert: neDevraitPasEtreAppelee('importCsv.userFields.upsert') },
+  },
+  listesContacts: { listeDesabonnes: async () => [], listBlocked: async () => [], messagesARelire: async () => ({ scannes: 0, messages: [] }) },
+  historiqueContacts: { getContactHistory: async () => null, listSendsForExport: async () => null },
+  bilanContact: { getBilanContact: async () => null },
 };
 
 /**

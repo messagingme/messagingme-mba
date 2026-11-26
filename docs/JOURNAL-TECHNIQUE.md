@@ -5,6 +5,40 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : CSM virtuel, lot I (B10, livraison 1b) : Claude importe un CSV, lit les listes de conformité et l'histoire d'une fiche
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 1, deuxième temps (1b). La livraison
+1a (les champs, les étiquettes, la création d'un contact) est sur main depuis `57cbd2860`.
+
+**Huit outils, dans toutes les offres.** `preview_contacts_import` et `import_contacts` passent par l'aperçu et l'import
+de la console, extraits de leurs routes (`apercuImport`, `importerCsv`) : la route garde sa case, `import_csv_coche`, qui
+lève un STOP à la demande de l'opérateur ; l'outil passe toujours `import`, qui n'en lève jamais, et l'accord s'y dit
+(`opt_in` obligatoire, comme pour `create_contact`). Le CSV part tel quel (rogné, un TSV dont la première cellule
+d'en-tête est vide glisserait d'une colonne), borné à 200 000 caractères sous le plafond du corps d'un appel MCP, et une
+erreur du lecteur (trop de colonnes, lecture interrompue) revient en refus lisible. `list_unsubscribed_contacts`,
+`list_possible_refusals` (`refusPossibles`, extraite) et `list_blocked_contacts` lisent les listes de conformité ;
+`get_contact_history`, `get_contact_report` (le bilan, qui demande ses tarifs à Meta) et `export_contact_history`
+(`exporterHistorique`, extraite : la trace `contact.exporte` au nom de la personne, avec `via: 'mcp'`) l'histoire d'une
+fiche. L'import et l'export sont réservés à une personne et comptent dans les opérations coûteuses de l'espace. Le
+risque et la joignabilité, que la fiche de la console montre et que `get_contact` ne rend pas, sont notés en partie
+dans la parité. Aucune migration.
+
+**La relecture indépendante : un rouge, corrigé avant de pousser.** Sur un espace Business ou Entreprise plein, réglé
+pour que le plus ancien laisse sa place, `import_contacts` aurait effacé pour de bon autant de fiches anciennes que le
+fichier portait de numéros nouveaux, conversations comprises, en un appel et sans que personne ait vu le nombre :
+contraire à la décision du 2026-11-24, qui veut l'annonce avant la confirmation. L'outil calcule désormais ce nombre
+juste avant d'écrire (`effacementsDeLImportPour`, le calcul de l'aperçu) et refuse en `conflict` tant que
+`delete_oldest` ne l'accepte pas ; l'aperçu et le résultat le rendent déjà calculé. L'écriture reste directe, comme la
+table de parité le veut. Corrigés aussi : le CSV rogné, l'échec interne sur un CSV refusé, un mapping sans téléphone
+(chaque ligne écartée après la création des champs nommés), l'export indiscernable d'un export de la console, les
+sources d'un refus et la borne de l'export dans les descriptions, le manque de la fiche sorti de la parité sans être
+noté, et deux tests qu'un refus voisin masquait. Le reste est au `todo.md`.
+
+Preuves : 27 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint, l'auto-attaque, la suite
+racine et celle de la console, les générés recalculés avant de juger leurs tests ; sur l'arbre fusionné avec les pairs,
+avant le push : typecheck, lint, auto-attaque, les tests ciblés et la suite de la console. L'essai réel suit le
+déploiement.
+
 ## 2026-11-26 : CSM virtuel, lot I (B10, livraison 1a) : Claude gère les champs et les étiquettes, et ajoute un contact
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 1, premier temps (1a). B10 couvre les

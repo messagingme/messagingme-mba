@@ -3552,7 +3552,15 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   retirer de toutes les fiches (`delete_tag`) ; et ajouter un contact à la main (`create_contact` : numéro, nom, champs,
   étiquettes et accord du contact, que Claude dit toujours au nom du client, là où l'écran pré-coche la case ; la limite
   de contacts de l'offre s'applique ; un numéro déjà connu met sa fiche à jour, un STOP reste un STOP). Aucun de ces
-  gestes ne démarre d'automation.
+  gestes ne démarre d'automation. Il lit aussi un fichier CSV de contacts sans rien écrire, puis l'importe
+  (`preview_contacts_import`, `import_contacts` : la même lecture que l'import de la console, l'accord toujours dit, et
+  depuis Claude un STOP reste un STOP même quand l'accord est déclaré ; la limite de l'offre vaut pour tout le fichier,
+  et sur un espace plein réglé pour que le plus ancien laisse sa place, un import qui effacerait des contacts est refusé
+  avec leur nombre, puis ne passe qu'avec l'accord du client sur ce nombre) ;
+  il liste les désabonnés, les messages qui ressemblent à une demande d'arrêt sans en être une nette (à relire, personne
+  n'est désabonné) et les contacts bloqués ; il lit l'historique d'une fiche, son bilan (ce que ses envois ont coûté chez
+  Meta, jusqu'où ses parcours sont allés) et exporte tous ses envois pour une demande d'accès RGPD, l'export étant tracé
+  au journal au nom de la personne.
 - ✅ **Envoyer un message simple** : un texte, à une personne, tout de suite, visible dans l'Inbox. Deux routes,
   parce que leurs règles n'ont presque rien en commun : `POST /v1/messages/whatsapp` (dans la fenêtre de 24 h)
   et `POST /v1/messages/rcs` (sans fenêtre, mais seulement vers quelqu'un qui a consenti ou qui vous a déjà

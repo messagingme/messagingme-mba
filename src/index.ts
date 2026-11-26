@@ -4281,6 +4281,12 @@ async function main(): Promise<void> {
         // MÊME création que les routes de la console.
         referentielEtiquettes: tagStore,
         createOneContact: creerUnContactALaMain,
+        // L'import d'un CSV, les listes de conformité, l'historique, le bilan et l'export d'une fiche (B10, livraison 1b) :
+        // les MÊMES magasins que les routes de la console, passés entiers.
+        importCsv: { contacts: contactStore, userFields: fieldStore, defaultCountry: config.DEFAULT_COUNTRY as CountryCode },
+        listesContacts: contactStore,
+        historiqueContacts: contactHistoryStore,
+        bilanContact: chiffrage,
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),

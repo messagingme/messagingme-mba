@@ -296,6 +296,19 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 1b, l'import, les listes, l'histoire d'une fiche) : ce qui reste de la relecture (2026-11-26, un rouge corrigé avant de pousser)
+
+Corrigés avant de pousser : un import qui effacerait les plus anciens (« le plus ancien laisse sa place ») est refusé
+avec leur nombre tant que `delete_oldest` ne l'accepte pas (le rouge), le CSV passé tel quel, une erreur du lecteur de
+CSV en refus lisible, un mapping sans téléphone refusé, l'export qui dit qu'il part par Claude, les sources d'un refus et
+la borne de l'export dans les descriptions, le risque et la joignabilité notés en partie dans la parité. Reste :
+- `get_contact_history` et `export_contact_history` rendent l'objet du magasin en camelCase (la famille est en
+  snake_case), et `inboxHref` y est relatif, donc inutilisable par Claude.
+- `list_blocked_contacts` n'a pas de plafond (la route de la console non plus).
+- Aucun test ne passe par le serveur MCP pour ces outils (clé inconnue, double trace, écran).
+- La purge du remplacement par l'import de Claude est signée `chemin: 'import'` et prévient Meta (`oublierChezMeta`),
+  ce que `openWorldHint: false` ne dit pas (même jaune que `create_contact`, ci-dessous).
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 1a, les champs, les étiquettes, un contact) : ce qui reste de la relecture (2026-11-26, aucun rouge)
 
 Corrigés avant de pousser : l'accord dit (`opt_in` obligatoire et booléen), chaque type et chaque borne annoncés

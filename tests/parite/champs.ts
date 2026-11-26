@@ -133,6 +133,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'PATCH /contacts/:contactId/blocked': A_LA_MAIN,
   'PATCH /contacts/:contactId': A_LA_MAIN,
   'POST /contacts': A_LA_MAIN,
+  'POST /contacts/import/preview': A_LA_MAIN,
+  'POST /contacts/import': A_LA_MAIN,
   'POST /contacts/bulk': A_LA_MAIN,
   'POST /contacts/purge': A_LA_MAIN,
 

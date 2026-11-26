@@ -145,6 +145,15 @@ export const CATALOGUE_MCP = {
   rename_tag: { scope: 'mcp:write', exigePersonne: true },
   delete_tag: { scope: 'mcp:write', exigePersonne: true },
   create_contact: { scope: 'mcp:write', exigePersonne: true },
+  preview_contacts_import: { scope: 'mcp:read' },
+  import_contacts: { scope: 'mcp:write', exigePersonne: true },
+  list_unsubscribed_contacts: { scope: 'mcp:read' },
+  list_possible_refusals: { scope: 'mcp:read' },
+  list_blocked_contacts: { scope: 'mcp:read' },
+  get_contact_history: { scope: 'mcp:read' },
+  get_contact_report: { scope: 'mcp:read' },
+  // L'export RGPD se trace au nom de son auteur : une personne, jamais une clé d'API.
+  export_contact_history: { scope: 'mcp:read', exigePersonne: true },
   /** Le connecteur Shopify (2026-10-21) : les quatre exigent une personne nommée, la lecture comprise. */
   connect_shopify: { scope: 'mcp:write', exigePersonne: true },
   set_shopify_message: { scope: 'mcp:write', exigePersonne: true },

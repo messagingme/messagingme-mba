@@ -7741,7 +7741,15 @@ Ajouté par le lot 4 de l'API publique :
    `renommerEtiquette` et `supprimerEtiquette` (`src/http/tags.ts`), `creerContactALaMain` (`src/http/contacts.ts` :
    validation des champs contre l'espace, opt-in par défaut pour l'écran, que l'outil exige au contraire (`opt_in`),
    l'upsert de la console `creerUnContactALaMain` partagé dans `src/index.ts`, limite de contacts, ligne
-   `contact.created`) ; les outils vivent dans `src/mcp/outils-champs.ts` et `src/mcp/outils-fiches.ts`.
+   `contact.created`) ; les outils vivent dans `src/mcp/outils-champs.ts` et `src/mcp/outils-fiches.ts`. La livraison 1b
+   y ajoute l'import d'un CSV par `apercuImport` et `importerCsv` (`src/http/import.ts` : la route garde sa case,
+   `import_csv_coche` qui lève un STOP, quand l'outil passe toujours `import` ; 🔴 avant d'écrire, l'outil calcule par
+   `effacementsDeLImportPour` ce que « le plus ancien laisse sa place » effacerait, et refuse en `conflict` tant que
+   `delete_oldest` n'accepte pas ce nombre, comme l'aperçu de la console l'annonce avant sa confirmation), les refus
+   possibles par `refusPossibles`
+   et l'export RGPD par `exporterHistorique` (`src/http/contacts.ts`, la trace `contact.exporte` au nom de l'auteur) ;
+   les désabonnés, les bloqués, l'historique et le bilan sont lus sur les MÊMES magasins que les routes (`contactStore`,
+   `contactHistoryStore`, `chiffrage`, câblés dans `src/index.ts`).
 63. 🔴 **Une suppression de contacts en masse depuis l'assistant n'efface que les fiches montrées** (2026-10-26,
    `src/mcp/outils-suppression.ts`, plan `docs/superpowers/plans/2026-10-26-free-au-dela-de-100-contacts.md`). Deux
    outils ouverts à toutes les offres, au nom d'une personne : `prepare_contacts_deletion` (rien n'est écrit) rend le
