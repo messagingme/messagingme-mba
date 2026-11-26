@@ -3428,6 +3428,18 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   panne les omet sans faire tomber cette réponse, qui est la garde de TOUS les critères de segment. La console masque un
   bouton à zéro ou sans compte, sauf déjà posé. Le MCP les annonce `enum: [true]` (`wrote_without_order`,
   `clicked_without_order`) : la borne appliquée est annoncée ;
+- **la dernière commande face à la dernière analyse** (segments Shopify enrichis, lot 7b, Entreprise) :
+  `segment_commande_vs_analyse`, l'une des valeurs fermées de `RAPPORTS_ANALYSE_COMMANDE` (`aucune_apres`,
+  `commande_apres`, `analyse_apres_commande`), refusée sinon (`lireSegment`). 🔴 Le temps de l'analyse est son DERNIER
+  MESSAGE (`analyse_fenetre_fin`), jamais `analyse_le`, l'heure du passage du job, au moins 25 minutes plus tard : une
+  commande payée entre les deux (la question, puis l'achat) serait dite « avant » et relancée à tort (relecture du lot).
+  La clause relit la fiche par une jointure à `contacts` DANS L'ESPACE, bornée aux fiches analysées, jamais par une
+  corrélation avec la requête principale (son alias change d'un lecteur à l'autre) ; une fiche sans analyse n'est dans
+  aucune valeur, une commande au même instant que le dernier message est « avant » (les trois valeurs font une partition).
+  L'outil (`order_vs_analysis`, énumération annoncée) le refuse sans boutique et sans la fonction `analyse` ; la console
+  ne l'offre que si `GET .../contacts/segments` l'annonce (`analyseCommandes` : une boutique ET la fonction `analyse`),
+  ce qui le ferme aussi à une API plus ancienne, qui refuserait la clé en 400. ⚠️ Le serveur HTTP ne refuse pas le critère
+  sans boutique, comme les boutons « sans commander » : posé à la main, `aucune_apres` y vise toutes les fiches analysées ;
 - 🔴 **le rattrapage des commandes passées** (segments Shopify enrichis, lot 5, migration 0313,
   `src/shopify/reprise.ts`) : les commandes payées CRÉÉES depuis minuit (UTC) il y a 60 jours, ou 24 mois au même jour
   du mois (lot 7a, `fenetreDuRattrapage` : hors Free, quand l'app a `read_all_orders`, lu avec les autres droits ; la

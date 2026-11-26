@@ -8,6 +8,14 @@ import {
  * panneau ne propose alors aucun critère), et une saisie invalide n'est JAMAIS envoyée (le serveur la refuserait en 400,
  * et la liste disparaîtrait).
  */
+describe('l’annonce de la commande face à la dernière analyse (lot 7b)', () => {
+  it('🔴 lue seulement en toutes lettres', () => {
+    const base = { boutique: null, activiteCompleteDepuis: '2026-11-03' };
+    expect(suiviSegmentsDe({ ...base, analyseCommandes: true })).toMatchObject({ analyseCommandes: true });
+    for (const v of ['true', 1, {}, null]) expect(suiviSegmentsDe({ ...base, analyseCommandes: v }), JSON.stringify(v)).not.toHaveProperty('analyseCommandes');
+  });
+});
+
 describe('suiviSegmentsDe', () => {
   it('lit une boutique, ou son absence', () => {
     expect(suiviSegmentsDe({ boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: '2026-11-03' }))

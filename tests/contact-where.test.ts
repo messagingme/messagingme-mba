@@ -415,3 +415,29 @@ describe('buildContactWhere : les boutons « sans commander »', () => {
     }
   });
 });
+
+/**
+ * LE RAPPORT À LA DERNIÈRE ANALYSE (segments Shopify enrichis, lot 7b) : la dernière commande payée face à `analyse_le`.
+ * Le comportement est éprouvé sur Postgres (`tests/integration/segments.integration.test.ts`).
+ */
+describe('buildContactWhere : la commande et la dernière analyse (lot 7b)', () => {
+  const S = CLES_SEGMENT;
+  const clause = (v: string) => buildContactWhere('t1', { fieldFilters: [filtreSegment(S.commandeVsAnalyse, v as 'aucune_apres')] });
+  const fiches = 'join contacts a on a.id = o.contact_id and a.tenant_id = $1 and a.analyse_fenetre_fin is not null';
+  const apres = `select o.contact_id from shopify_commandes o ${fiches} where o.tenant_id = $1 and o.payee_le > a.analyse_fenetre_fin`;
+
+  it('🔴 les trois valeurs, au DERNIER MESSAGE analysé (jamais au passage du job), dans l’espace, sans corréler la requête principale', () => {
+    expect(clause('aucune_apres').where.replace(/\s+/g, ' ')).toContain(`(analyse_fenetre_fin is not null and id not in (${apres}))`);
+    expect(clause('commande_apres').where.replace(/\s+/g, ' ')).toContain(`id in (${apres})`);
+    expect(clause('analyse_apres_commande').where.replace(/\s+/g, ' ')).toContain(
+      `id in (select o.contact_id from shopify_commandes o ${fiches} where o.tenant_id = $1 group by o.contact_id, a.analyse_fenetre_fin having max(o.payee_le) <= a.analyse_fenetre_fin)`,
+    );
+    expect(clause('commande_apres').params).toEqual(['t1']);
+  });
+
+  it('🔴 une autre valeur vise personne, jamais tout l’espace', () => {
+    for (const value of ['"toutes"', '""', 'true', '{}', '{pas du json']) {
+      expect(buildContactWhere('t1', { fieldFilters: [{ key: S.commandeVsAnalyse, op: 'segment', value }] }).where.split(' and '), value).toContain('false');
+    }
+  });
+});

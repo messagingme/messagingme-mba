@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { filtersToQuery, type ContactFilters } from '../web/lib/contact-filters';
 import { parseFilters } from '../src/http/import';
 import { parseBulkTarget } from '../src/http/contacts';
-import { FiltreContactInvalide } from '../src/crm/contact-filters';
+import { FiltreContactInvalide, lireSegment } from '../src/crm/contact-filters';
 import { NIVEAUX_RISQUE } from '../src/engagement/risque';
 import { CLES_SEGMENT, filtreSegment } from '../web/lib/partage/segments';
 
@@ -370,5 +370,17 @@ describe('le critère d’étiquette Shopify : forme canonique et refus', () => 
   it.each(malformes)('🔴 refusé par les deux portes : %s', (_nom, champ) => {
     expect(() => parCorps([champ])).toThrow(FiltreContactInvalide);
     expect(() => parGet([champ])).toThrow(FiltreContactInvalide);
+  });
+});
+
+describe('le rapport à la dernière analyse (lot 7b) : trois valeurs, rien d’autre', () => {
+  const S = CLES_SEGMENT;
+  it('🔴 les trois valeurs passent telles quelles ; toute autre est refusée en la nommant', () => {
+    for (const v of ['aucune_apres', 'commande_apres', 'analyse_apres_commande'] as const) {
+      expect(lireSegment(S.commandeVsAnalyse, JSON.stringify(v))).toBe(v);
+    }
+    for (const v of ['"apres"', '"AUCUNE_APRES"', 'true', '{}', '["commande_apres"]', 'null']) {
+      expect(() => lireSegment(S.commandeVsAnalyse, v), v).toThrow('filtre « commande et dernière analyse » : aucune_apres, commande_apres, analyse_apres_commande');
+    }
   });
 });

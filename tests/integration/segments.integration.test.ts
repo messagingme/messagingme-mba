@@ -164,4 +164,45 @@ describe.skipIf(!url)('les critères de segment (Postgres)', () => {
     expect(await qui(F(seg(S.ecritSansCommande, true), seg(S.clicSansCommande, true)))).toEqual([C3]);
     expect(await qui(F(seg(S.ecritSansCommande, true)), ailleurs)).toEqual([]);
   });
+
+  /** Lot 7b : le rapport à la dernière analyse, contre les fiches du banc (C1 : 3, 25 et 200 jours ; C2 : 10 et 5 ; C3 : aucune). */
+  it('🔴 la commande et la dernière analyse (lot 7b) : aucune après, une après, l’analyse après la dernière ; sans analyse, nulle part ; rien d’un autre espace', async () => {
+    const analyse = async (t: string, phone: string, ilYA: number | null) => pool.query(
+      // Une analyse entière (la contrainte de cohérence de 0196). Le job passe 30 minutes après le dernier message analysé
+      // (`analyse_fenetre_fin`), comme en production (au moins 25 minutes d'inactivité).
+      `update contacts set analyse_le = x.le, analyse_fenetre_fin = x.le - interval '30 minutes', analyse_intention = case when x.le is null then null else 'information' end,
+              analyse_sentiment = case when x.le is null then null else 'neutre' end, analyse_resolue = case when x.le is null then null else true end,
+              analyse_sujet = case when x.le is null then null else 'essai' end, analyse_traitee_par = case when x.le is null then null else 'humain' end,
+              analyse_action = case when x.le is null then null else 'aucune' end
+         from (select case when $3::int is null then null else now() - $3::int * interval '1 day' end as le) x
+        where tenant_id = $1 and phone_e164 = $2`, [t, phone, ilYA],
+    );
+    const rapport = (v: 'aucune_apres' | 'commande_apres' | 'analyse_apres_commande') => F(seg(S.commandeVsAnalyse, v));
+    try {
+      await analyse(ici, C1, 10);
+      await analyse(ici, C2, 1);
+      // C3 analysée il y a 3 jours : la ligne INCOHÉRENTE rangée ailleurs qui la pointe (payée il y a 1 jour) serait « après »
+      // si une commande d'un autre espace comptait.
+      await analyse(ici, C3, 3);
+      await analyse(ici, '+33600300004', 1);
+      await analyse(ailleurs, C1, 3);
+      // 🔴 C5 : sa question (le dernier message analysé), sa commande 10 minutes après, puis le passage du job 20 minutes
+      // plus tard. Sa commande est APRÈS la conversation : jamais « aucune après », jamais relancée à tort.
+      await pool.query(
+        `update contacts c set analyse_le = o.payee_le + interval '20 minutes', analyse_fenetre_fin = o.payee_le - interval '10 minutes',
+                analyse_intention = 'information', analyse_sentiment = 'neutre', analyse_resolue = true, analyse_sujet = 'délai',
+                analyse_traitee_par = 'humain', analyse_action = 'aucune'
+           from shopify_commandes o where o.contact_id = c.id and o.tenant_id = $1 and c.tenant_id = $1 and c.phone_e164 = $2`,
+        [ici, C5],
+      );
+      expect(await qui(rapport('aucune_apres'))).toEqual([C3, C2]);
+      expect(await qui(rapport('commande_apres'))).toEqual([C1, C5]);
+      expect(await qui(rapport('analyse_apres_commande'))).toEqual([C2]);
+      expect(await qui(rapport('commande_apres'), ailleurs)).toEqual([C1]);
+      expect(await qui(rapport('aucune_apres'), ailleurs)).toEqual([]);
+    } finally {
+      for (const p of [C1, C2, C3, C5, '+33600300004']) await analyse(ici, p, null);
+      await analyse(ailleurs, C1, null);
+    }
+  });
 });

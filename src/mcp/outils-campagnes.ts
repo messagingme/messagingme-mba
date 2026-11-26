@@ -137,7 +137,7 @@ function analyseVue(ar: AnalyseEtResume | undefined): Record<string, unknown> | 
  */
 async function suiviDeLaReponse(deps: DepsMcp, tenantId: string, f: ContactFilters): Promise<Record<string, string>> {
   const cles = (f.fieldFilters ?? []).filter((x) => x.op === OP_SEGMENT).map((x) => x.key);
-  const commandes = cles.some((k) => (CLES_COMMANDES as readonly string[]).includes(k));
+  const commandes = cles.some((k) => (CLES_COMMANDES as readonly string[]).includes(k) || k === CLES_SEGMENT.commandeVsAnalyse);
   const activite = cles.some((k) => (CLES_ACTIVITE as readonly string[]).includes(k));
   // Les étiquettes Shopify (lot 6b) : « telles que la dernière synchronisation les a lues », avec sa date.
   const etiquettes = cles.includes(CLES_SEGMENT.etiquetteShopify);

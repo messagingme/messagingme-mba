@@ -5,6 +5,29 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : segments Shopify, lot 7b : la dernière commande face à la dernière analyse (Entreprise)
+
+Plan : `docs/superpowers/plans/2026-11-26-segments-shopify-lot-7b-analyse-et-commandes.md` (spec, chantier 7, lot 7b ;
+feuille de route, lot 7, « ensuite l'Entreprise »). La section « Dernière analyse » des filtres de contacts, et Claude
+Code (`order_vs_analysis`), filtrent la dernière commande au regard de la dernière analyse : aucune après elle (jamais
+commandé, ou seulement avant), au moins une après, ou la dernière avant. Une clé de segment réservée
+(`segment_commande_vs_analyse`, trois valeurs fermées), une clause qui relit `analyse_le` par une jointure dans l'espace,
+un refus sans boutique et sans la fonction `analyse`. Aucun modèle appelé, aucune migration, aucun crédit débité : le
+filtre croise des colonnes déjà payées. Prouvé sur PGlite contre de vraies fiches (analysée sans commande, commandes
+avant, une après, sans analyse, supprimée, un autre espace) et en e2e (le choix part sous sa clé, « peu importe » le
+retire, rien sans l'annonce de l'API).
+
+La relecture indépendante a trouvé un rouge : la clause comparait la commande à `analyse_le`, l'heure du passage du job
+d'analyse, au moins 25 minutes après le dernier message. La question suivie d'un achat dans la demi-heure, le cas le plus
+courant, tombait dans « aucune commande après » : la relance « vous n'avez pas finalisé » serait partie vers qui venait
+d'acheter. Le temps de l'analyse est désormais son DERNIER MESSAGE (`analyse_fenetre_fin`), prouvé sur PGlite par une
+commande payée entre les deux, dans les deux sens. Jaunes pris dans le lot : le critère n'est offert que si
+`GET .../contacts/segments` l'annonce (`analyseCommandes` : une boutique ET la fonction `analyse`), ce qui le retire du
+Pro et du Business (qui voyaient la section d'analyse) et le cache d'une console publiée avant l'API ; une commande au
+même instant que le dernier message est « avant » (une vraie partition) ; la jointure est bornée aux fiches analysées.
+16 mutations scriptées, toutes rouges, dont une survivante au premier passage (une commande d'un autre espace qui
+pointe une fiche d'ici) qui a montré un trou de test, comblé.
+
 ## 2026-11-26 : une réponse se range sans ses images, et un champ JSON s'insère tel quel dans un appel
 
 Suite de l'essai Everial. Mesuré sur une vraie CNI ce jour : chaque face s'analyse seule (`/analyze`) et signale l'autre
@@ -31,6 +54,12 @@ avant cette date ne crée aucune fiche, elle se rattache seulement ; la fenêtre
 l'empreinte gardée deux ans. Jaunes pris dans le lot : l'aperçu partiel prévient que les places peuvent se remplir, une
 reprise est longue au regard de son lancement (une courte qui dure ne l'est jamais), la Free dit les deux conditions,
 les textes publics et les commentaires restés à 60 jours. 19 mutations scriptées, toutes rouges.
+
+En production le 2026-11-26 : run 45849613008 (`1ce125267`, aucune migration, qui emportait le lot B8 du CSM virtuel,
+dont le déploiement avait échoué pendant un incident de Scaleway), l'aide rechargée par le workflow (374 lignes, 0
+retirée), plugin 0.3.73 (run 45850751399). Vérifié par le vrai code déployé, en lecture seule : sur « Messaging Me demo »
+(Entreprise, app sans `read_all_orders`), la fenêtre choisie est de 60 jours avec la raison « droit absent » ; la
+question des purges d'avant la trace répond non pour la démo, oui pour la SANDBOX, comme la mesure.
 
 ## 2026-11-26 : CSM virtuel, lot H (B8, livraison 1) : une campagne et une suppression de contacts partent sur le clic d'un admin
 

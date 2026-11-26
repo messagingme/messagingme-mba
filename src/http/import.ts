@@ -20,6 +20,7 @@ import { messageDe } from '../lib/erreur';
 import { nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite } from '../offres/refus';
+import type { Fonction } from '../offres/offres';
 import { lireCollections, type DepsCollections } from '../shopify/collections';
 import { lireEtiquettes, lireSegments, type DepsEtiquettes } from '../shopify/etiquettes';
 
@@ -44,6 +45,8 @@ export interface ContactsListeDep extends ContactStore {
 
 export interface ImportRouteDeps extends ImportDeps {
   contacts: ContactsListeDep;
+  /** Les fonctions de l'offre de l'espace : le critère « commande et dernière analyse » (lot 7b) exige `analyse`. */
+  fonctions(tenantId: string): Promise<ReadonlySet<Fonction>>;
   /**
    * Les collections lues des produits achetés et l'état de leur lecture (segments Shopify enrichis, lot 6a), pour le
    * volet Shopify : la liste enfile la lecture quand un produit l'attend (`lireCollections`).
@@ -194,6 +197,8 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
     const { boutique } = await deps.contacts.suiviSegments(tenantId);
     // Les pastilles des deux boutons prêts (lot 4) : seulement avec une boutique, sans quoi le volet n'est pas là.
     const boutons = boutique === null ? undefined : await comptesDesBoutons(deps.contacts, tenantId);
+    // La dernière commande face à la dernière analyse (lot 7b) : annoncée seulement avec une boutique ET la fonction `analyse`.
+    const analyseCommandes = boutique !== null && (await deps.fonctions(tenantId)).has('analyse');
     const vue: SuiviSegmentsVue = {
       boutique: boutique === null ? null : {
         devise: boutique.devise, commandesDepuis: boutique.commandesDepuis.toISOString(), coupeeLe: boutique.coupeeLe?.toISOString() ?? null,
@@ -209,6 +214,7 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
       etiquettesShopify: true,
       // Le critère de segment Shopify et la liste des segments lus (lot 6c) : de même.
       segmentsShopify: true,
+      ...(analyseCommandes ? { analyseCommandes: true } : {}),
       ...(boutons ? { boutons } : {}),
     };
     return reply.code(200).send(vue);

@@ -2576,6 +2576,8 @@ async function main(): Promise<void> {
       collections: gestionShopify.collections,
       // Les étiquettes Shopify lues (lot 6b) : le MÊME objet que la carte et `get_shopify_state`.
       etiquettesShopify: gestionShopify.etiquettes,
+      // L'annonce du critère « commande et dernière analyse » (lot 7b) : seulement à l'offre qui a l'analyse.
+      fonctions: async (t) => (await offres.offreDe(t)).droits.fonctions,
     },
     // Le MÊME objet que les campagnes de l'assistant (`mcp.campagnes`, plus bas) : un seul câblage, une seule vérité.
     campaigns: depsCampagnes,

@@ -8,7 +8,7 @@ import { paysConnu, paysPrincipalDe } from './segments';
 import {
   BORNES_SEGMENTS, CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, estCleSegment,
   type AchatsVises, type CleSegment, type CollectionsVisees, type EtiquettesShopifyVisees, type PlageSurJours, type ProduitVise,
-  type Reassort, type SegmentsShopifyVises,
+  type Reassort, type SegmentsShopifyVises, estRapportAnalyseCommande, RAPPORTS_ANALYSE_COMMANDE, type RapportAnalyseCommande,
 } from '../../web/lib/partage/segments';
 
 /**
@@ -94,6 +94,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
   [CLES_SEGMENT.segmentShopify]: 'segment Shopify',
   [CLES_SEGMENT.ecritSansCommande]: 'a écrit sans commander', [CLES_SEGMENT.clicSansCommande]: 'a cliqué sans commander',
   [CLES_SEGMENT.actif]: 'actif', [CLES_SEGMENT.inactif]: 'inactif', [CLES_SEGMENT.pays]: 'pays',
+  [CLES_SEGMENT.commandeVsAnalyse]: 'commande et dernière analyse',
 };
 
 /**
@@ -103,7 +104,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
  */
 export function lireSegment(
   cle: CleSegment, brut: unknown,
-): PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | SegmentsShopifyVises | true {
+): PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | SegmentsShopifyVises | RapportAnalyseCommande | true {
   const nom = NOMS_SEGMENT[cle];
   let v: unknown;
   try { v = typeof brut === 'string' ? JSON.parse(brut) as unknown : undefined; } catch { v = undefined; }
@@ -126,6 +127,11 @@ export function lireSegment(
     case CLES_SEGMENT.actif:
     case CLES_SEGMENT.inactif: return lireJours(v, nom);
     case CLES_SEGMENT.pays: return lirePays(v);
+    case CLES_SEGMENT.commandeVsAnalyse:
+      if (!estRapportAnalyseCommande(v)) {
+        throw new FiltreContactInvalide(`filtre « ${nom} » : ${RAPPORTS_ANALYSE_COMMANDE.join(', ')}, et rien d’autre`);
+      }
+      return v;
   }
 }
 

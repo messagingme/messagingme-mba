@@ -22,6 +22,8 @@ export function suiviSegmentsDe(v: unknown): SuiviSegmentsVue | null {
     ...(o.etiquettesShopify === true ? { etiquettesShopify: true } : {}),
     // Le critère de segment Shopify (lot 6c), de même.
     ...(o.segmentsShopify === true ? { segmentsShopify: true } : {}),
+    // La dernière commande face à la dernière analyse (lot 7b), de même.
+    ...(o.analyseCommandes === true ? { analyseCommandes: true } : {}),
   };
   if (o.boutique === null) return { boutique: null, activiteCompleteDepuis: o.activiteCompleteDepuis, ...annonces };
   const b = o.boutique as Record<string, unknown> | undefined;

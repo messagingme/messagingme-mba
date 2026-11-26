@@ -14,6 +14,7 @@ import { traiterCollections } from '../src/shopify/collections';
 import { MIDI_ETIQUETTES, monterEtiquettes } from './etiquettes-faux';
 import { csvLent, retardPendant } from './boucle';
 import { LimiteOffreError } from '../src/offres/refus';
+import { DROITS, type Fonction } from '../src/offres/offres';
 import { ACTIVITE_COMPLETE_DEPUIS } from '../src/crm/segments';
 import { CLES_SEGMENT, filtreSegment } from '../web/lib/partage/segments';
 
@@ -85,7 +86,7 @@ interface Trace { action: string; target: { kind: string; id: string }; detail: 
 
 function inject(
   contacts: ContactStore, userFields: UserFieldStore, cap?: QueryCapture, journal?: Trace[], collections?: ImportRouteDeps['collections'],
-  etiquettesShopify?: ImportRouteDeps['etiquettesShopify'],
+  etiquettesShopify?: ImportRouteDeps['etiquettesShopify'], fonctions: ReadonlySet<Fonction> = DROITS.entreprise.fonctions,
 ) {
   return buildServer({
     queue: new FakeQueue(),
@@ -112,6 +113,7 @@ function inject(
       audit: journalMuet,
       collections: collections ?? collectionsInertes,
       etiquettesShopify: etiquettesShopify ?? etiquettesInertes,
+      fonctions: async () => fonctions,
       ...(journal ? { audit: async (_t: string, actor: { userId: string | null }, action: string, target: { kind: string; id: string }, detail: Record<string, unknown> = {}) => { journal.push({ action, target, detail, actor }); } } : {}),
     },
   });
@@ -239,6 +241,14 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     await app.close();
   });
 
+  it('🔴 GET des segments : sans la fonction analyse (le Pro), la commande face à la dernière analyse n’est pas annoncée', async () => {
+    const app = inject(new FakeContacts(), new FakeFields(), undefined, undefined, undefined, undefined, DROITS.pro.fonctions);
+    const res = await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments', headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).not.toHaveProperty('analyseCommandes');
+    expect(res.json()).toMatchObject({ segmentsShopify: true });
+  });
+
   it('GET des segments : la boutique, ses dates de suivi et celle de l’activité, en texte', async () => {
     const app = inject(new FakeContacts(), new FakeFields());
     const res = await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments', headers: { authorization: `Bearer ${token}` } });
@@ -253,6 +263,8 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
       etiquettesShopify: true,
       // 🔴 Et celle du critère de segment Shopify (lot 6c), de même.
       segmentsShopify: true,
+      // 🔴 Et celle de la commande face à la dernière analyse (lot 7b) : l'Entreprise, avec une boutique.
+      analyseCommandes: true,
       // Les pastilles des deux boutons prêts (lot 4) : le faux compte rend 3.
       boutons: { ecritSansCommande: 3, clicSansCommande: 3 },
     });
@@ -277,6 +289,8 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     const sans = await lire();
     expect(sans.statusCode).toBe(200);
     expect(sans.json()).not.toHaveProperty('boutons');
+    // Ni la commande face à la dernière analyse (lot 7b), même en Entreprise : elle lit les commandes.
+    expect(sans.json()).not.toHaveProperty('analyseCommandes');
     expect(cap.countFilters).toEqual([]);
     // Une panne des comptes : la réponse, garde de TOUS les critères de segment, reste ; seules les pastilles partent.
     Object.assign(contacts, {

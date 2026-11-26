@@ -48,6 +48,11 @@ export const CLES_SEGMENT = {
   actif: 'segment_actif',
   inactif: 'segment_inactif',
   pays: 'segment_pays',
+  /**
+   * Segments Shopify enrichis, lot 7b (Entreprise) : la dernière commande payée au regard de la DERNIÈRE analyse de la
+   * fiche (`analyse_le`), l'une des `RAPPORTS_ANALYSE_COMMANDE`. Il demande une boutique et la fonction `analyse`.
+   */
+  commandeVsAnalyse: 'segment_commande_vs_analyse',
 } as const;
 export type CleSegment = (typeof CLES_SEGMENT)[keyof typeof CLES_SEGMENT];
 
@@ -68,6 +73,18 @@ export const CLES_COMMANDES: readonly CleSegment[] = [
  */
 export const CLES_SHOPIFY: readonly CleSegment[] = [...CLES_COMMANDES, CLES_SEGMENT.etiquetteShopify, CLES_SEGMENT.segmentShopify];
 export const CLES_ACTIVITE: readonly CleSegment[] = [CLES_SEGMENT.actif, CLES_SEGMENT.inactif];
+
+/**
+ * Le rapport entre la dernière analyse et la dernière commande (lot 7b), trois valeurs fermées (spec, chantier 7) :
+ * `aucune_apres` (une analyse, et aucune commande payée après elle : jamais commandé, ou seulement avant),
+ * `commande_apres` (au moins une commande payée après l'analyse), `analyse_apres_commande` (au moins une commande, et
+ * la dernière avant l'analyse). Une fiche sans analyse n'est dans aucun des trois.
+ */
+export const RAPPORTS_ANALYSE_COMMANDE = ['aucune_apres', 'commande_apres', 'analyse_apres_commande'] as const;
+export type RapportAnalyseCommande = (typeof RAPPORTS_ANALYSE_COMMANDE)[number];
+export function estRapportAnalyseCommande(v: unknown): v is RapportAnalyseCommande {
+  return typeof v === 'string' && (RAPPORTS_ANALYSE_COMMANDE as readonly string[]).includes(v);
+}
 
 /** Au moins `min`, au plus `max`, l'un ou l'autre ou les deux. */
 export interface Plage { min?: number; max?: number }
@@ -150,6 +167,12 @@ export interface SuiviSegmentsVue {
    * critère de segment Shopify.
    */
   segmentsShopify?: boolean;
+  /**
+   * L'API sait cibler la dernière commande face à la dernière analyse (lot 7b), ET l'espace a la fonction `analyse` et
+   * une boutique. 🔴 Absent d'une API plus ancienne (elle refuserait la clé) ou d'un espace sans l'analyse (le critère y
+   * lirait des analyses d'une ancienne offre) : la console ne le propose pas.
+   */
+  analyseCommandes?: boolean;
   /**
    * Le compte de chaque bouton prêt (lot 4), le bouton SEUL, jamais croisé avec les autres filtres (décision de Julien du
    * 2026-11-23). Présent seulement avec une boutique et quand les deux comptes ont pu se lire : absent, la console ne
@@ -250,7 +273,7 @@ export function plagePosee(p: Plage | undefined): boolean {
  */
 export function filtreSegment(
   cle: CleSegment,
-  valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | SegmentsShopifyVises | true,
+  valeur: PlageSurJours | number | string[] | AchatsVises | Reassort | CollectionsVisees | EtiquettesShopifyVisees | SegmentsShopifyVises | RapportAnalyseCommande | true,
 ): ContactFieldFilter {
   return { key: cle, op: OP_SEGMENT, value: JSON.stringify(valeur) };
 }

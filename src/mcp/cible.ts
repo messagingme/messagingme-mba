@@ -11,7 +11,8 @@ import { corpsRefusFonction } from '../offres/refus';
 import type { Fonction } from '../offres/offres';
 import type { ProprieteEntree } from './outils';
 import { RefusOutil } from './saisie';
-import { BORNES_SEGMENTS, CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, type CleSegment } from '../../web/lib/partage/segments';
+import { BORNES_SEGMENTS, CLES_SEGMENT, MOTIF_ID_COLLECTION, OP_SEGMENT, type CleSegment, RAPPORTS_ANALYSE_COMMANDE,
+} from '../../web/lib/partage/segments';
 import type { SuiviSegments } from '../crm/segments';
 
 /**
@@ -204,6 +205,16 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
       + 'least once and have no order recorded. Both buttons can match the same contact. true only, no period; omit it '
       + 'otherwise. Needs the Shopify store.',
   },
+  order_vs_analysis: {
+    type: 'string', enum: [...RAPPORTS_ANALYSE_COMMANDE],
+    description: 'Enterprise plan only. The latest paid order against the LATEST analyzed conversation of the contact, '
+      + 'dated by its last message (not by when the analysis ran; a contact keeps only its latest analysis): aucune_apres = '
+      + 'analyzed, and no paid order after that conversation (never ordered, or only before); commande_apres = at least one '
+      + 'paid order after it; analyse_apres_commande = at least one order, the latest one before it (or at the same time). A contact never analyzed is in none. Combine it with '
+      + 'analysis and the order criteria: "a VIP unhappy about their purchase" is spent min, analysis sentiment negatif and '
+      + 'analyse_apres_commande; "asked about delivery without ordering" has no intent of its own: the closest is analysis '
+      + 'intent information or achat with aucune_apres. Needs the Shopify store.',
+  },
   active_within_days: {
     ...JOURS,
     description: `Contacts who wrote to the workspace or clicked a tracked link in the last N days (1 to ${joursMax}).`,
@@ -246,8 +257,8 @@ export const CHAMPS_CIBLE_FILTRES: Record<string, ProprieteEntree> = {
     },
     description: `Enterprise plan only. Filters on each contact's latest conversation analysis: ${AIDE_ANALYSE}. `
       + `${MAX_FIELD_FILTERS} filters at most in all, the orders, spent, days_since_last_order, bought, not_bought, `
-      + 'days_since_product, collections, shopify_tags, shopify_segments, wrote_without_order, clicked_without_order, active_within_days, '
-      + 'inactive_for_days and countries criteria included.',
+      + 'days_since_product, collections, shopify_tags, shopify_segments, wrote_without_order, clicked_without_order, order_vs_analysis, '
+      + 'active_within_days, inactive_for_days and countries criteria included.',
   },
   ...CHAMPS_CIBLE_SEGMENTS,
 };
@@ -312,7 +323,8 @@ export async function lireCibleMcp(
   if (present(analyse) && !Array.isArray(analyse)) throw new RefusOutil('paramètre « analysis » : une liste de filtres est attendue', 'invalid_args');
   const filtresAnalyse = Array.isArray(analyse) ? analyse : [];
   if (filtresAnalyse.length > MAX_FIELD_FILTERS) throw new RefusOutil(`paramètre « analysis » : ${MAX_FIELD_FILTERS} filtres au plus`, 'invalid_args');
-  if (filtresAnalyse.length > 0 && !fonctions.has('analyse')) throw new RefusOutil(corpsRefusFonction('analyse').error, 'plan_required', { cause: 'plan_feature_unavailable', action: corpsRefusFonction('analyse').upgradeUrl });
+  // Le rapport à la dernière analyse (lot 7b) lit l'analyse : la même fonction que les filtres d'analyse.
+  if ((filtresAnalyse.length > 0 || present(args.order_vs_analysis)) && !fonctions.has('analyse')) throw new RefusOutil(corpsRefusFonction('analyse').error, 'plan_required', { cause: 'plan_feature_unavailable', action: corpsRefusFonction('analyse').upgradeUrl });
   const fieldFilters = filtresAnalyse.map((f: unknown) => {
     const { field, op, value } = (f !== null && typeof f === 'object' ? f : {}) as { field?: unknown; op?: unknown; value?: unknown };
     // Seuls les champs de la dernière analyse : un champ personnalisé n'est pas annoncé, donc pas accepté.
@@ -347,12 +359,12 @@ export async function lireCibleMcp(
 
 const CLES_SEGMENTS = [
   'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'shopify_tags', 'shopify_segments',
-  'wrote_without_order', 'clicked_without_order', 'active_within_days', 'inactive_for_days', 'countries',
+  'wrote_without_order', 'clicked_without_order', 'order_vs_analysis', 'active_within_days', 'inactive_for_days', 'countries',
 ] as const;
 /** Les critères qui demandent une boutique : ceux des commandes, les étiquettes Shopify (lot 6b) et ses segments (lot 6c). */
 const CLES_COMMANDES_MCP = [
   'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'shopify_tags', 'shopify_segments',
-  'wrote_without_order', 'clicked_without_order',
+  'wrote_without_order', 'clicked_without_order', 'order_vs_analysis',
 ] as const;
 
 /**
@@ -441,7 +453,7 @@ async function lireSegmentsMcp(
   };
   if (CLES_COMMANDES_MCP.some((k) => present(args[k])) && (await deps.contacts.suiviSegments(tenantId)).boutique === null) {
     throw new RefusOutil('aucune boutique Shopify dans cet espace : les critères de commande (orders, spent, days_since_last_order, '
-      + 'bought, not_bought, days_since_product, collections, wrote_without_order, clicked_without_order) et les étiquettes '
+      + 'bought, not_bought, days_since_product, collections, wrote_without_order, clicked_without_order, order_vs_analysis) et les étiquettes '
       + 'Shopify (shopify_tags) et ses segments (shopify_segments) n’ont rien à lire. get_shopify_state dit comment la brancher', 'conflict');
   }
   const pays = args.countries;
@@ -459,6 +471,8 @@ async function lireSegmentsMcp(
     // Les boutons prêts passent tels quels : `lireSegment` refuse tout ce qui n'est pas `true`, en le nommant.
     ...(present(args.wrote_without_order) ? [entree(CLES_SEGMENT.ecritSansCommande, args.wrote_without_order)] : []),
     ...(present(args.clicked_without_order) ? [entree(CLES_SEGMENT.clicSansCommande, args.clicked_without_order)] : []),
+    // Lot 7b : la valeur passe telle quelle ; `lireSegment` refuse tout ce qui n'est pas l'une des trois, en le nommant.
+    ...(present(args.order_vs_analysis) ? [entree(CLES_SEGMENT.commandeVsAnalyse, args.order_vs_analysis)] : []),
     ...(present(args.active_within_days) ? [entree(CLES_SEGMENT.actif, args.active_within_days)] : []),
     ...(present(args.inactive_for_days) ? [entree(CLES_SEGMENT.inactif, args.inactive_for_days)] : []),
     ...(present(pays) ? [entree(CLES_SEGMENT.pays, pays)] : []),

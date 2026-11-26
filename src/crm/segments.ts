@@ -332,6 +332,25 @@ export function clauseSegment(cle: CleSegment, valeur: string, add: (v: unknown)
       const n = jours(v);
       return n === null ? 'false' : `(derniere_activite_le is null or derniere_activite_le < ${ilYA(add(n))})`;
     }
+    case CLES_SEGMENT.commandeVsAnalyse: {
+      // Lot 7b. La DERNIÈRE conversation analysée de la fiche face à ses commandes payées. 🔴 Le temps de l'analyse est son
+      // DERNIER MESSAGE (`analyse_fenetre_fin`), jamais `analyse_le` : le job passe au moins 25 minutes après le dernier
+      // message, et une commande payée entre les deux (la question, puis l'achat) serait dite « avant », relancée à tort
+      // (relecture du lot). La contrainte de 0196 rend les deux non nulles ensemble. La fiche relue par une jointure dans
+      // l'espace, bornée aux fiches analysées, jamais par une corrélation avec la requête principale (son alias change d'un
+      // lecteur à l'autre). Une commande au même instant que le dernier message est « avant » : les trois valeurs font une
+      // partition. `contact_id` et `payee_le` ne sont jamais nuls dans `shopify_commandes`.
+      const fiches = 'join contacts a on a.id = o.contact_id and a.tenant_id = $1 and a.analyse_fenetre_fin is not null';
+      const apres = `select o.contact_id from shopify_commandes o ${fiches} where o.tenant_id = $1 and o.payee_le > a.analyse_fenetre_fin`;
+      switch (v) {
+        case 'aucune_apres': return `(analyse_fenetre_fin is not null and id not in (${apres}))`;
+        case 'commande_apres': return `id in (${apres})`;
+        case 'analyse_apres_commande':
+          return `id in (select o.contact_id from shopify_commandes o ${fiches}
+            where o.tenant_id = $1 group by o.contact_id, a.analyse_fenetre_fin having max(o.payee_le) <= a.analyse_fenetre_fin)`;
+        default: return 'false';
+      }
+    }
     case CLES_SEGMENT.pays: {
       // Préfixe ancré, comme « Téléphone commence par » (index `text_pattern_ops`). Un `or` de `like`, jamais
       // `like any` : l'index ne sert pas un tableau. Aucun indicatif connu : personne.

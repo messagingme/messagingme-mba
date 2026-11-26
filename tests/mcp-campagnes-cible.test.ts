@@ -489,3 +489,43 @@ describe('les segments Shopify de l’assistant', () => {
     }
   });
 });
+
+describe('order_vs_analysis (lot 7b) : la commande et la dernière analyse, en Entreprise', () => {
+  const BOUTIQUE: SuiviSegments['boutique'] = { devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null };
+  it('traduit dans le contrat commun, avec les filtres d’analyse', async () => {
+    const { d } = deps({ boutique: BOUTIQUE });
+    expect(await lireCibleMcp({ order_vs_analysis: 'analyse_apres_commande' }, ENTREPRISE, d, T, { identifiants: true })).toEqual({
+      filters: { fieldFilters: [filtreSegment(S.commandeVsAnalyse, 'analyse_apres_commande')] },
+      excludeIds: [],
+    });
+  });
+
+  it('🔴 refusé sans la fonction analyse (le Pro), avec le lien de l’offre, avant toute lecture', async () => {
+    const { d, lus } = deps({ boutique: BOUTIQUE });
+    await expect(lireCibleMcp({ order_vs_analysis: 'commande_apres' }, PRO, d, T, { identifiants: true })).rejects.toMatchObject({ code: 'plan_required' });
+    expect(lus).toEqual([]);
+  });
+
+  it('🔴 refusé sans boutique : « aucune commande après l’analyse » viserait tout l’espace analysé', async () => {
+    const { d } = deps();
+    await expect(lireCibleMcp({ order_vs_analysis: 'aucune_apres' }, ENTREPRISE, d, T, { identifiants: false })).rejects.toThrow(/aucune boutique Shopify/);
+  });
+
+  it.each(['apres', 'AUCUNE_APRES', true, { value: 'aucune_apres' }])('🔴 une autre valeur est refusée, jamais ignorée : %j', async (v) => {
+    const { d } = deps({ boutique: BOUTIQUE });
+    await expect(lireCibleMcp({ order_vs_analysis: v }, ENTREPRISE, d, T, { identifiants: true })).rejects.toThrow('aucune_apres, commande_apres, analyse_apres_commande');
+  });
+
+  it('find_contacts rend la date du suivi des commandes quand il est posé : il les lit', async () => {
+    const { d } = deps({ fonctions: ENTREPRISE, boutique: BOUTIQUE });
+    const r = await OUTILS.find((o) => o.nom === 'find_contacts')!.executer(d, T, { order_vs_analysis: 'aucune_apres' }, null);
+    expect(r).toMatchObject({ orders_recorded_since: '2026-11-03T10:00:00.000Z' });
+  });
+
+  it('🔴 annoncé fermé, sur chaque outil de la cible', () => {
+    for (const nom of ['find_contacts', 'tag_contacts', 'prepare_campaign', 'set_contact_field']) {
+      expect(OUTILS.find((o) => o.nom === nom)!.entree.properties.order_vs_analysis, nom)
+        .toMatchObject({ type: 'string', enum: ['aucune_apres', 'commande_apres', 'analyse_apres_commande'] });
+    }
+  });
+});

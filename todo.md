@@ -487,6 +487,17 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 7b (la commande face à la dernière analyse) : la relecture (2026-11-26, un rouge corrigé)
+
+Le rouge (la commande comparée à l'heure du job d'analyse, pas au dernier message) est corrigé et tenu sur PGlite ; les
+jaunes lourds sont pris dans le lot (l'annonce par l'API, la partition, la jointure bornée). Restent :
+- **Le serveur HTTP ne refuse pas le critère sans boutique** (comme les boutons « sans commander ») : posé à la main,
+  `aucune_apres` y vise toutes les fiches analysées. L'outil refuse, la console ne l'offre pas.
+- **Ce que le suivi ne voit pas** : une commande d'avant le début du suivi (au-delà du rattrapage) ou d'après la coupure
+  de la boutique compte comme « aucune après ». Le MCP rend `orders_recorded_since`, la console ne le dit pas ici.
+- **Un espace redescendu d'Entreprise garde ses anciennes analyses** : l'annonce lui retire le critère, mais un
+  brouillon de campagne qui le portait déjà le garde visible pour être retiré.
+
 ## 🟡 Segments Shopify, lot 7a (le rattrapage sur 24 mois) : la relecture (2026-11-26, un rouge corrigé)
 
 Le rouge (un contact purgé avant la trace des numéros effacés recréé par un rattrapage de 24 mois) est corrigé et tenu

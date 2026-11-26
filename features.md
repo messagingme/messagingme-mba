@@ -730,7 +730,12 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     **résolue** (oui / non) et **analysée depuis moins de N jours** ; chaque champ peut aussi se filtrer
     « sans valeur » (jamais analysée) ou « renseigné ». Ces filtres se cumulent avec les autres. Une fiche jamais
     analysée n'est dans aucune valeur, et « non résolue » ne la retient pas. Le sujet ne se filtre pas (c'est un
-    texte libre). La section n'apparaît que si le serveur sait appliquer ces filtres.
+    texte libre). La section n'apparaît que si le serveur sait appliquer ces filtres. Depuis le 2026-11-26 (segments
+    Shopify enrichis, lot 7b ; offre Entreprise, boutique Shopify branchée), elle filtre aussi la **dernière commande**
+    au regard de la dernière conversation analysée, datée de son dernier message (jamais de l'heure où l'analyse a
+    tourné, une demi-heure plus tard) : **aucune après l'analyse** (jamais commandé, ou seulement avant), **au moins une
+    après l'analyse**, ou **la dernière avant l'analyse** ; une fiche jamais analysée n'est dans aucune. Seule la
+    dernière analyse compte, la fiche n'en garde qu'une. Claude Code a le même critère (`order_vs_analysis`).
   - **Dans les filtres de la liste des contacts**, donc aussi pour **cibler une campagne** (2026-11-03, segments) :
     une partie **Achats et activité** filtre les contacts **actifs** (qui ont écrit ou cliqué un lien suivi) dans les
     N derniers jours, ou **inactifs** depuis N jours, ceux qui n'ont jamais rien fait compris. Elle marche dans tous
