@@ -73,7 +73,7 @@ En plus du débit, des quotas QUOTIDIENS par espace comptent le travail DEMANDÉ
 - Remise à zéro à minuit, heure de Paris.
 - Une requête qui dépasserait le quota est refusée en entier : 429 `quota_exceeded`, avec retry-after jusqu’à minuit. Un lot plus petit peut encore passer.
 - Un nouvel appel avec la même clé d’idempotence ne compte pas, qu’il rejoue un envoi fini ou tombe sur un envoi en cours (409). Un envoi refusé par le quota libère sa clé.
-- Les lectures, les catalogues et les campagnes lancées depuis la console n’ont pas de quota. Le serveur MCP non plus, sauf l’envoi d’un modèle, qui compte dans les modèles.
+- Les lectures, les catalogues, les campagnes lancées depuis la console et le serveur MCP n’ont pas de quota : un modèle préparé par Claude part sur le clic d’un administrateur, comme un envoi de la console.
 - Quota relevé pour un espace : sur demande.
 
 > **Note**

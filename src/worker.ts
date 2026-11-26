@@ -65,6 +65,7 @@ import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff,
 import { creerTravailHubspotStop, FILE_HUBSPOT_STOP, stopPourAnalyse } from './crm/hubspot-stop';
 import { balayerInbox, PgInboxHubspotStore } from './hubspot/inbox';
 import { DUREE_CLE_IDEMPOTENCE_MS } from './api/idempotence';
+import { PgMisesEnLigne } from './mise-en-ligne/store.pg';
 import { PgArriveesPubStore } from './pubs/arrivees.pg';
 import { PgTarifsMetaStore } from './pubs/tarifs-meta.pg';
 import { PgOauthStore } from './oauth/store.pg';
@@ -1883,6 +1884,17 @@ export async function demarrerWorker(): Promise<void> {
     return n;
   };
   taches.programmer('idempotence-api', 60 * 60 * 1000, idempotencySweep, { immediat: true, enEchec: echecDeBalayage('idempotency-sweep', 'sweeper:idempotency') });
+
+  // Le oui d'un envoi à une personne (lot 1 du CSM virtuel, B8) garde son numéro et ses valeurs le temps du clic : un oui
+  // fermé les perd en se fermant (`terminer`), un bouton expiré ou un clic trop ancien pour reprendre les perd ici.
+  const misesEnLigne = new PgMisesEnLigne(pool);
+  const misesEnLigneSweep = async (): Promise<number> => {
+    const n = await misesEnLigne.expurgerEchues();
+    // eslint-disable-next-line no-console
+    if (n > 0) console.log(`mises-en-ligne-sweep: ${n} envoi(s) effacé(s) de leur destinataire`);
+    return n;
+  };
+  taches.programmer('mises-en-ligne-expurgees', 60 * 60 * 1000, misesEnLigneSweep, { immediat: true, enEchec: echecDeBalayage('mises-en-ligne-sweep', 'sweeper:mises-en-ligne') });
 
   // Les événements Shopify (0246) : le dédoublonnage et les chiffres de la carte portent sur 30 jours, et Shopify ne
   // réessaie pas un webhook au-delà de 48 h.

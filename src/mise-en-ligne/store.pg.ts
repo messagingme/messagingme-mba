@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { roleAdminEffectifSql } from '../offres/membres';
+import { DELAI_DE_REPRISE_INDIVIDUELLE_MS, RECAPITULATIF_EFFACE } from './envois';
 import type { ActionGardee, ResultatAction } from './mise-en-ligne';
 
 /**
@@ -39,6 +40,8 @@ export interface Reclamation {
   actions: ActionGardee[];
   resultat: ResultatAction[];
   accepteePar: string;
+  /** ISO 8601 : l'heure du clic, d'où un envoi à une personne ne se reprend plus au-delà de son délai. */
+  accepteeLe: string;
   /** L'admin qui a cliqué l'est encore (actif, administrateur de l'espace). */
   clicValide: boolean;
   /** La personne qui a préparé l'est encore, et l'accès par lequel elle l'a fait n'est pas révoqué. */
@@ -61,6 +64,16 @@ interface Ligne {
   resultat: ResultatAction[];
   terminee_le: Date | null;
 }
+
+/**
+ * 🔴 UN ENVOI À UNE PERSONNE (B8, livraison 2) GARDE SON NUMÉRO, SES VALEURS ET LE NUMÉRO MASQUÉ MONTRÉ LE TEMPS DU CLIC
+ * SEULEMENT. Ils s'effacent de ses actions, avec le récapitulatif qui les montrait et l'empreinte qui les condense, quand
+ * le oui se ferme (`terminer`) et, au balayage horaire du worker, quand le bouton a expiré ou que le clic est trop ancien
+ * pour reprendre (`expurgerEchues`). Le reste demeure : le modèle ou le scénario, la fiche visée, le résultat.
+ */
+const PORTE_UN_CONTACT = `((actions @> '[{"type": "modele"}]' or actions @> '[{"type": "envoi_scenario"}]') and empreinte <> 'expurgee')`;
+const ACTIONS_SANS_CONTACT = `(select jsonb_agg(a - 'telephone' - 'valeurs' - 'destinataire' order by n)
+  from jsonb_array_elements(actions) with ordinality as t(a, n))`;
 
 const COLONNES = `id, libelle, recapitulatif, actions, empreinte, etat, expire_le,
   (etat = 'proposee' and expire_le <= now()) as expiree,
@@ -105,6 +118,20 @@ export class PgMisesEnLigne {
     return { id: r.rows[0]!.id };
   }
 
+  /**
+   * Une mise en ligne PROPOSÉE et vivante de cette personne, sur cette empreinte, ou `null` (B8, livraison 2) : un envoi à
+   * une personne préparé deux fois rend le même bouton. ⚠️ Deux préparations simultanées peuvent encore en créer deux.
+   */
+  async trouverProposee(tenantId: string, proposeePar: string, empreinte: string): Promise<string | null> {
+    const r = await this.pool.query<{ id: string }>(
+      `select id from mises_en_ligne
+        where tenant_id = $1 and proposee_par = $2 and empreinte = $3 and etat = 'proposee' and expire_le > now()
+        order by cree_le desc limit 1`,
+      [tenantId, proposeePar, empreinte],
+    );
+    return r.rows[0]?.id ?? null;
+  }
+
   /** Une mise en ligne de l'espace, ou `null` (inconnue, ou d'un autre espace). L'appelant a vérifié la forme de l'id. */
   async lire(tenantId: string, id: string): Promise<LigneMiseEnLigne | null> {
     const r = await this.pool.query<Ligne>(`select ${COLONNES} from mises_en_ligne where id = $1 and tenant_id = $2`, [id, tenantId]);
@@ -137,12 +164,12 @@ export class PgMisesEnLigne {
    */
   async reclamer(tenantId: string, id: string, jeton: string, bailS: number): Promise<Reclamation | null> {
     const r = await this.pool.query<{
-      actions: ActionGardee[]; resultat: ResultatAction[]; acceptee_par: string; clic_valide: boolean; acces_valide: boolean;
+      actions: ActionGardee[]; resultat: ResultatAction[]; acceptee_par: string; acceptee_le: Date; clic_valide: boolean; acces_valide: boolean;
     }>(
       `update mises_en_ligne m set execution_jeton = $3, execution_bail = now() + make_interval(secs => $4)
         where m.id = $1 and m.tenant_id = $2 and m.etat = 'acceptee'
           and (m.execution_bail is null or m.execution_bail <= now())
-        returning m.actions, m.resultat, m.acceptee_par,
+        returning m.actions, m.resultat, m.acceptee_par, m.acceptee_le,
           ${ADMIN_ACTIF('m.acceptee_par')} as clic_valide,
           (${ADMIN_ACTIF('m.proposee_par')}
             and (m.autorisation_id is null or exists (select 1 from oauth_autorisations a
@@ -151,7 +178,10 @@ export class PgMisesEnLigne {
     );
     const l = r.rows[0];
     if (!l) return null;
-    return { actions: l.actions, resultat: l.resultat, accepteePar: l.acceptee_par, clicValide: l.clic_valide, accesValide: l.acces_valide };
+    return {
+      actions: l.actions, resultat: l.resultat, accepteePar: l.acceptee_par, accepteeLe: l.acceptee_le.toISOString(),
+      clicValide: l.clic_valide, accesValide: l.acces_valide,
+    };
   }
 
   /** Ajoute le résultat de l'action suivante et repousse le bail. `false` : on ne tient plus le bail, il faut s'arrêter. */
@@ -173,13 +203,39 @@ export class PgMisesEnLigne {
     );
   }
 
-  /** Clôt l'exécution (sous le jeton) : `faite` ou `echouee`. `false` : le bail était perdu, un autre a la main. */
+  /**
+   * Clôt l'exécution (sous le jeton) : `faite` ou `echouee`. `false` : le bail était perdu, un autre a la main. Un envoi à
+   * une personne perd au même instant ce qu'il gardait de son destinataire (`PORTE_UN_CONTACT`) : à droite d'un `set`, les
+   * colonnes valent leur ancienne valeur, donc les trois tests voient la même ligne.
+   */
   async terminer(tenantId: string, id: string, jeton: string, etat: 'faite' | 'echouee'): Promise<boolean> {
     const r = await this.pool.query(
-      `update mises_en_ligne set etat = $4, terminee_le = now(), execution_jeton = null, execution_bail = null
+      `update mises_en_ligne set etat = $4, terminee_le = now(), execution_jeton = null, execution_bail = null,
+          actions = case when ${PORTE_UN_CONTACT} then ${ACTIONS_SANS_CONTACT} else actions end,
+          recapitulatif = case when ${PORTE_UN_CONTACT} then jsonb_build_array($5::text) else recapitulatif end,
+          empreinte = case when ${PORTE_UN_CONTACT} then 'expurgee' else empreinte end
         where id = $1 and tenant_id = $2 and etat = 'acceptee' and execution_jeton = $3`,
-      [id, tenantId, jeton, etat],
+      [id, tenantId, jeton, etat, RECAPITULATIF_EFFACE],
     );
     return (r.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * 🔴 LE BALAYAGE HORAIRE DU WORKER, DANS TOUS LES ESPACES (une purge, comme celle des clés d'idempotence) : efface ce
+   * qu'un envoi à une personne gardait de son destinataire quand son bouton a expiré sans clic, quand son clic est trop
+   * ancien pour reprendre (`DELAI_DE_REPRISE_INDIVIDUELLE_MS`, et aucune exécution en cours), et pour un oui fermé que
+   * `terminer` aurait manqué. Rend le nombre de lignes effacées.
+   */
+  async expurgerEchues(): Promise<number> {
+    const r = await this.pool.query(
+      `update mises_en_ligne set actions = ${ACTIONS_SANS_CONTACT}, recapitulatif = jsonb_build_array($1::text), empreinte = 'expurgee'
+        where ${PORTE_UN_CONTACT}
+          and ((etat = 'proposee' and expire_le <= now())
+            or (etat = 'acceptee' and acceptee_le <= now() - make_interval(secs => $2)
+                and (execution_bail is null or execution_bail <= now()))
+            or etat in ('faite', 'echouee'))`,
+      [RECAPITULATIF_EFFACE, Math.ceil(DELAI_DE_REPRISE_INDIVIDUELLE_MS / 1000)],
+    );
+    return r.rowCount ?? 0;
   }
 }

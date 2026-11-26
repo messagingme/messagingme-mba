@@ -9,10 +9,9 @@ import { PARCOURS_MAX, PASSAGES_MAX, type LecteurDeroule } from '../workflow/der
 import type { PgErreursLivraisonStore } from '../ops/erreurs-livraison.pg';
 import { waIdOf } from '../crm/identity';
 import { e164DepuisSaisie } from '../crm/phone';
-import { ecriture, signataire } from './outils-agent';
-import { envoyerAUnePersonne } from './outils-modeles';
+import { LOURDE, ecriture, signataire } from './outils-agent';
+import { preparerEnvoiIndividuel } from './outils-modeles';
 import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
-import { CLE_IDEMPOTENCE_MAX } from '../api/idempotence';
 import { MAX_NODES } from '../workflow/graph';
 import { SORTIE_MAX, simulerParcours, type ContactFictif, type ReponseSimulee } from '../workflow/simulation';
 import { ECRANS, LISTES, lire } from './ecran';
@@ -66,8 +65,6 @@ function rechercheFacultative(args: Record<string, unknown>, cle: string): strin
 }
 
 const lecture = (title: string): AnnotationsMcp => ({ title, readOnlyHint: true, openWorldHint: false });
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Rend la valeur, ou lève le refus du service avec son chemin : le modèle corrige l'endroit exact. */
 function valeurOuRefus<T>(r: ResultatScenario<T>): T {
@@ -486,30 +483,32 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
   /*
    * Faire PARTIR un scénario vers une personne (plan `2026-11-03-outil-envoyer-scenario.md`) : le trou de l'essai réel du
    * 2026-11-02, où il a fallu `POST /v1/sends` depuis un terminal. Le même envoi que `send_template_to_contact`
-   * (`envoyerAUnePersonne`), cible `scenario`. `category: utility` ne déclare rien : le chemin public prend la plus stricte
-   * de celle-ci et de celle que Meta donne au template d'ouverture (`categoriePlusStricte`), donc celle de Meta.
+   * (`preparerEnvoiIndividuel`), cible `scenario`, au oui depuis B8 : l'outil prépare, le clic d'un admin envoie. Le
+   * scénario se désigne par son identifiant, son code ou son nom, et le oui garde son code (`src/mise-en-ligne/envois.ts`).
    */
   {
     ...ficheOutilMcp('send_scenario_to_contact'),
     fonction: 'scenarios',
     description:
-      'Starts a published scenario for ONE person, even outside the 24-hour window, through the same path as POST /v1/sends: '
-      + 'STOP, number unlinked or suspended, the plan\'s monthly templates. The scenario must open with an APPROVED template '
-      + '(or an RCS message); one that opens with a quick message, a question, a form or an AI agent is refused, as it needs '
-      + 'the person to have written within 24 hours. Its category is the one Meta gives the opening template (an RCS '
-      + 'opening is recorded as utility). It takes the conversation back from a team member or an AI agent handling the '
-      + 'person, and replaces a scenario the person was in. Sending '
-      + 'through Claude declares, on the user\'s behalf and under their responsibility, that the person agreed to receive '
-      + 'their messages: the record becomes opted in (marketing included), with who declared it; consent is not a parameter. '
-      + 'A person who sent STOP is never written to. The person is designated by phone (with the country code: '
-      + '+33612345678) or contact_id; an unknown number creates its contact record. values: one value per variable {{1}}, '
-      + '{{2}}... of the OPENING template body, in order (read the person\'s record with get_contact for their first name, '
-      + 'for example). idempotency_key: a key chosen for THIS send (a call replayed with the same key sends nothing again, '
-      + 'for 24 hours). The first message goes out within the minute and the person\'s replies follow the scenario: '
-      + 'returns send_id. Counts toward the workspace\'s heavy operations.',
-    // Monde ouvert : un message part chez une personne. Idempotent : la même clé ne renvoie rien. Destructeur pour la
-    // règle du répertoire de Claude (voir `AnnotationsMcp`), comme l'envoi d'un modèle.
-    annotations: { title: 'Send a scenario to a contact', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+      'Prepares starting a published scenario for ONE person, even outside the 24-hour window, and returns its summary '
+      + '(recapitulatif) and go_live, the button of its yes: the link of the console page where an administrator of the '
+      + 'workspace clicks its start button. NOTHING IS SENT BEFORE THAT CLICK, which Claude cannot give: '
+      + 'show the summary, then give the link. The click sends once, through the same path as POST /v1/sends: STOP, number '
+      + 'unlinked or suspended, the plan\'s monthly templates. The scenario must open with an APPROVED template (or an RCS '
+      + 'message); one that opens with a quick message, a question, a form or an AI agent is refused here, as it needs the '
+      + 'person to have written within 24 hours. Its category is the one Meta gives the opening template (an RCS opening is '
+      + 'recorded as utility). At the click, it takes the conversation back from a team member or an AI agent handling the '
+      + 'person, and replaces a scenario the person was in. The click declares, on the user\'s behalf and under their '
+      + 'responsibility, that the person agreed to receive their messages: the record becomes opted in (marketing '
+      + 'included), with who declared it; consent is not a parameter. A person who sent STOP is refused. The person is '
+      + 'designated by phone (with the country code: +33612345678) or contact_id; an unknown number creates its contact '
+      + 'record at the click. values: one value per variable {{1}}, {{2}}... of the OPENING template body, in order (read '
+      + 'the person\'s record with get_contact for their first name, for example). After the click, the first message '
+      + 'goes out within the minute and the person\'s replies follow the scenario: get_go_live with go_live_id returns '
+      + `send_id. ${LOURDE}`,
+    // Rien ne part avant le clic d'un admin ; chaque appel prépare un nouveau oui : pas idempotente, rien chez un tiers.
+    // Destructrice pour la règle du répertoire de Claude (voir `AnnotationsMcp`), comme l'envoi d'un modèle.
+    annotations: ecriture('Send a scenario to a contact', false, false),
     entree: {
       type: 'object',
       properties: {
@@ -526,22 +525,13 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
             + 'breaks, tabs or more than four spaces in a row (Meta refuses them). Omitted or empty: the fields chosen in the '
             + 'opening block are used, when they cover every variable.',
         },
-        idempotency_key: { type: 'string', minLength: 1, maxLength: CLE_IDEMPOTENCE_MAX, description: 'A key specific to this send (a UUID for example).' },
       },
-      required: ['scenario', 'idempotency_key'],
+      required: ['scenario'],
       additionalProperties: false,
     },
     ecran: () => LISTES.inbox,
     async executer(deps, tenantId, args, personne) {
-      let scenario = texteObligatoire(args, 'scenario', 200);
-      // Le chemin public ne connaît que le code `scn_` et le nom (`resolveScenario`) : l'id que rend `list_scenarios` y
-      // serait cherché comme un nom. Traduit ici, dans l'espace, AVANT l'envoi : un refus n'use alors ni plafond ni quota.
-      if (UUID.test(scenario)) {
-        const ligne = await deps.scenariosApi.scenarios.lireParApi(tenantId, scenario);
-        if (!ligne?.code) throw new RefusOutil('scénario introuvable dans cet espace (list_scenarios)', 'not_found');
-        scenario = ligne.code;
-      }
-      return envoyerAUnePersonne(deps, tenantId, args, personne, { target: { scenario }, category: 'utility' }, 'mcp_scenario_envoye');
+      return preparerEnvoiIndividuel(deps, tenantId, args, personne, { type: 'envoi_scenario', scenario: texteObligatoire(args, 'scenario', 200) });
     },
   },
 ];

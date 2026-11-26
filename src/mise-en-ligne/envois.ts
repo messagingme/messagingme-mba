@@ -1,16 +1,23 @@
 import { MAX_FICHES_PAR_SUPPRESSION } from '../../web/lib/partage/catalogue-mcp';
 import type { ResultatAction } from '../../web/lib/partage/mise-en-ligne';
+import { PREFIXE_ENVOI_API } from '../api/cible-rcs';
+import { compteurEnvoiRefuse, type CibleJugee, type RapportEnvoi, type ReponseEnvoi, type ResultatEnvoiPublic } from '../api/envoi-public';
+import { DUREE_CLE_IDEMPOTENCE_MS } from '../api/idempotence';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { canonique, type EtatConfirme } from '../campaign/confirmation';
 import { lancerCampagne, type DepsLancement } from '../campaign/lancement';
 import { PAUSES_SANS_REPRISE, messageDePause, type MotifDePause } from '../campaign/pause';
+import type { CampaignCategory } from '../campaign/types';
 import { messageManqueCredit } from '../credit-whatsapp/estimation';
-import type { BulkTarget, FicheASupprimer } from '../crm/contact-store.pg';
+import type { BulkTarget, FicheASupprimer, PgContactStore } from '../crm/contact-store.pg';
 import { effacerContacts, type DepsEffacement } from '../crm/effacement';
+import { numeroMasque } from '../emails-produit/alertes';
 import { estUuid } from '../http/scope';
-import { refus, type Issue } from '../lib/issue';
+import { refus, type Issue, type StatutRefus } from '../lib/issue';
+import { journaliser } from '../lib/journal';
 import type { Fonction } from '../offres/offres';
 import { LimiteOffreError, corpsRefusLimite, refusFonction } from '../offres/refus';
+import type { MagasinScenariosApi } from '../workflow/scenarios-api';
 
 /**
  * LES ENVOIS AU OUI (lot 1 du CSM virtuel, B8, plan `docs/superpowers/plans/2026-11-26-csm-lot1-h-envois-au-oui.md`,
@@ -21,9 +28,14 @@ import { LimiteOffreError, corpsRefusLimite, refusFonction } from '../offres/ref
  *  - `campagne` : lancer (ou programmer à sa date) un brouillon, ou reprendre une campagne en pause, par `lancerCampagne`,
  *    le chemin du bouton « Lancer » de la console ;
  *  - `suppression` : effacer des contacts, par `effacerContacts`, l'effacement de la purge de la console et de
- *    `DELETE /v1/contacts/{id}`.
- * 🔴 Rien de ce qui est gardé ne porte une donnée de contact (0316) : des identifiants, l'état d'une campagne, des
- * compteurs. Le nom et le numéro masqué de l'aperçu restent dans la réponse de l'outil, jamais en base.
+ *    `DELETE /v1/contacts/{id}` ;
+ *  - `modele` et `envoi_scenario` (livraison 2) : envoyer un modèle, ou faire partir un scénario, vers UNE personne, par le
+ *    cycle de `POST /v1/sends`, sous une clé d'idempotence tirée du oui : une reprise ne renvoie rien.
+ * 🔴 Une campagne et une suppression ne gardent aucune donnée de contact (0316) : des identifiants, l'état d'une
+ * campagne, des compteurs. Un envoi à une personne garde, le temps du clic seulement, son numéro (ou sa fiche), les
+ * valeurs de ses variables et le numéro masqué que le récapitulatif montre : ils s'effacent quand le oui se ferme
+ * (`terminer`) et, pour un bouton expiré ou un clic trop ancien pour reprendre, au balayage horaire du worker
+ * (`expurgerEchues`).
  */
 export interface DepsEnvoisAuOui {
   /** Le câblage de la route des campagnes : les MÊMES objets que la console et `prepare_campaign`. */
@@ -41,23 +53,76 @@ export interface DepsEnvoisAuOui {
     /** L'effacement de la purge de la console : les MÊMES objets (`effacerContacts`). */
     effacement: DepsEffacement;
   };
+  /** Les envois à une personne (livraison 2) : le cycle de `POST /v1/sends`, ses MÊMES dépendances que l'API. */
+  individuels: {
+    /** La cible jugée sans rien écrire (`jugerCible`) : à la préparation et au clic. */
+    jugerCible(tenantId: string, corps: unknown): Promise<CibleJugee>;
+    /** Le cycle de `POST /v1/sends`, sans compteur : un envoi parti sur le clic d'un admin est un envoi de la console. */
+    envoyer(tenantId: string, corps: unknown): Promise<ResultatEnvoiPublic>;
+    /** Les fiches vivantes de l'espace (`PgContactStore`, passé entier : ses méthodes lisent `this`). */
+    contacts: Pick<PgContactStore, 'getById' | 'findByPhone'>;
+    /** Un scénario du Builder par son identifiant ou son code `scn_` (`PgWorkflowStore`, passé entier). */
+    scenarios: Pick<MagasinScenariosApi, 'lireParApi'>;
+  };
 }
+
+/** La personne d'un envoi, telle que l'outil l'a désignée : son numéro, ou sa fiche. */
+export type PersonneDEnvoi = { telephone: string } | { contact: string };
+
+/**
+ * Ce qu'un envoi à une personne demande : `valeurs`, les variables du corps dans l'ordre ; `declarePar`, la personne qui a
+ * préparé, au nom de qui l'accord du destinataire est déclaré (décision de Julien du 2026-10-25).
+ */
+type DemandeIndividuelle =
+  | ({ type: 'modele'; modele: string; langue: string; valeurs: string[]; declarePar: string } & PersonneDEnvoi)
+  | ({ type: 'envoi_scenario'; scenario: string; valeurs: string[]; declarePar: string } & PersonneDEnvoi);
+
+/**
+ * Ce qui en est gardé. `scenario` : l'identifiant du scénario, `code` : son code `scn_`, que l'envoi vise. 🔴 `telephone`,
+ * `valeurs` et `destinataire` (le numéro masqué montré) s'effacent quand le oui se ferme ou expire : une ligne effacée
+ * ne les porte plus (`ACTIONS_SANS_CONTACT`, `store.pg.ts`).
+ */
+type EnvoiIndividuelGarde =
+  | ({ type: 'modele'; nom: string; modele: string; langue: string; categorie: CampaignCategory; valeurs: string[]; declarePar: string; destinataire: string } & PersonneDEnvoi)
+  | ({ type: 'envoi_scenario'; nom: string; scenario: string; code: string; categorie: CampaignCategory; valeurs: string[]; declarePar: string; destinataire: string } & PersonneDEnvoi);
+
+/** Ce qu'une exécution sait de son oui : la clé d'idempotence d'un envoi à une personne, et l'heure du clic. */
+export interface ContexteExecution {
+  /** `oui:<id>:<rang>` : la même à chaque reprise. */
+  cle: string;
+  /** ISO 8601. */
+  accepteeLe: string;
+  maintenant: number;
+}
+
+/**
+ * 🔴 La clé d'idempotence d'un envoi vit 24 heures (`DUREE_CLE_IDEMPOTENCE_MS`) : au-delà, une reprise pourrait envoyer une
+ * seconde fois. Un envoi à une personne ne se reprend donc plus 23 heures après le clic.
+ */
+export const DELAI_DE_REPRISE_INDIVIDUELLE_MS = DUREE_CLE_IDEMPOTENCE_MS - 60 * 60 * 1000;
+
+/** Le récapitulatif d'un envoi à une personne une fois effacé : seul le résultat reste. */
+export const RECAPITULATIF_EFFACE = 'Le détail de cet envoi (son destinataire, ses valeurs) a été effacé.';
 
 /** Ce que l'outil demande. */
 export type DemandeEnvoi =
   | { type: 'campagne'; campagne: string }
-  | { type: 'suppression'; contacts: string[] };
+  | { type: 'suppression'; contacts: string[] }
+  | DemandeIndividuelle;
 
 /** Ce qui est gardé, montré, et ce qui partira tel quel. */
 export type EnvoiGarde =
   /** `motif` : celui de la pause d'une reprise (`null` pour un brouillon) ; il est montré, gardé, et relu à l'exécution. */
   | { type: 'campagne'; campagne: string; nom: string; reprise: boolean; etat: EtatConfirme; motif: MotifDePause | null }
-  | { type: 'suppression'; contacts: string[]; nom: string };
+  | { type: 'suppression'; contacts: string[]; nom: string }
+  | EnvoiIndividuelGarde;
 
-export const estDemandeEnvoi = (d: { type: string }): d is DemandeEnvoi => d.type === 'campagne' || d.type === 'suppression';
-export const estEnvoiGarde = (g: { type: string }): g is EnvoiGarde => g.type === 'campagne' || g.type === 'suppression';
+const TYPES_D_ENVOI: ReadonlySet<string> = new Set(['campagne', 'suppression', 'modele', 'envoi_scenario']);
+export const estDemandeEnvoi = (d: { type: string }): d is DemandeEnvoi => TYPES_D_ENVOI.has(d.type);
+export const estEnvoiGarde = (g: { type: string }): g is EnvoiGarde => TYPES_D_ENVOI.has(g.type);
 
 const CAMPAGNE_INCONNUE = 'campagne introuvable dans cet espace';
+const SCENARIO_INCONNU = 'scénario introuvable dans cet espace (list_scenarios)';
 const pluriel = (n: number, mot: string): string => `${n} ${mot}${n > 1 ? 's' : ''}`;
 const dateDeParis = (iso: string): string => new Intl.DateTimeFormat('fr-FR', {
   timeZone: 'Europe/Paris', dateStyle: 'full', timeStyle: 'short',
@@ -70,6 +135,7 @@ const dateDeParis = (iso: string): string => new Intl.DateTimeFormat('fr-FR', {
 export async function releverEnvoi(
   deps: DepsEnvoisAuOui, tenant: string, fonctions: ReadonlySet<Fonction>, d: DemandeEnvoi, maintenant: number,
 ): Promise<Issue<EnvoiGarde>> {
+  if (d.type === 'modele' || d.type === 'envoi_scenario') return releverIndividuel(deps, tenant, fonctions, d);
   if (d.type === 'campagne') {
     // Les campagnes sont une fonction de la console (Pro et au-delà), comme le bouton « Lancer » : relue au clic aussi.
     if (!fonctions.has('console')) return refusFonction('console');
@@ -106,9 +172,92 @@ export async function releverEnvoi(
   return { ok: true, valeur: { type: 'suppression', contacts, nom: pluriel(contacts.length, 'contact') } };
 }
 
+/** La personne seule, sans le reste de l'action : un numéro, ou une fiche. */
+export const personneDe = (p: PersonneDEnvoi): PersonneDEnvoi => ('telephone' in p ? { telephone: p.telephone } : { contact: p.contact });
+
+type CibleIndividuelle = { type: 'modele'; modele: string; langue: string } | { type: 'envoi_scenario'; code: string };
+
+/**
+ * Le corps de `POST /v1/sends` d'un envoi à une personne : le MÊME à la préparation, au clic et à chaque reprise, donc la
+ * même empreinte sous la même clé. L'accord de la personne est déclaré au nom de celle qui a préparé (décision de Julien du
+ * 2026-10-25) ; le chemin partagé l'écrit sur la fiche et refuse d'y lever un STOP (`appliquerConsentement`).
+ */
+function corpsIndividuel(
+  c: CibleIndividuelle, personne: PersonneDEnvoi, valeurs: readonly string[], declarePar: string, cle?: string,
+): Record<string, unknown> {
+  return {
+    ...(cle === undefined ? {} : { idempotencyKey: cle }),
+    // `category: utility` ne déclare rien pour un scénario : l'envoi prend la plus stricte de celle-ci et de celle que Meta
+    // donne à son template d'ouverture (`categoriePlusStricte`), donc celle de Meta.
+    ...(c.type === 'modele' ? { target: { template: { name: c.modele, language: c.langue } } } : { target: { scenario: c.code }, category: 'utility' }),
+    ...(valeurs.length > 0 ? { params: valeurs.map((v, i) => ({ position: i + 1, source: { type: 'literal', value: v } })) } : {}),
+    recipients: [{
+      ...('telephone' in personne ? { phone: personne.telephone } : { contactId: personne.contact }),
+      consent: 'opted_in', consentSource: `déclaré dans Claude par ${declarePar}`,
+    }],
+  };
+}
+
+const STATUTS_DE_REFUS: ReadonlySet<number> = new Set([400, 402, 403, 404, 409, 413, 415, 422, 503]);
+
+/** Le refus que l'envoi rendrait (`{ error, code, upgradeUrl }`), avec sa phrase, son code et l'adresse de l'offre. */
+function refusDeLEnvoi(r: ReponseEnvoi): Issue<never> {
+  const c = r.corps as { error?: unknown; code?: unknown; upgradeUrl?: unknown } | null;
+  const statut = (STATUTS_DE_REFUS.has(r.statut) ? r.statut : 422) as StatutRefus;
+  const phrase = typeof c?.error === 'string' ? c.error : `refus ${r.statut}`;
+  const details = {
+    ...(typeof c?.code === 'string' ? { code: c.code } : {}),
+    ...(typeof c?.upgradeUrl === 'string' ? { upgradeUrl: c.upgradeUrl } : {}),
+  };
+  return Object.keys(details).length > 0 ? refus(statut, phrase, details) : refus(statut, phrase);
+}
+
+/**
+ * Relit un envoi à une personne : la fiche (une personne qui a dit STOP, ou bloquée, est refusée dès la préparation), puis
+ * la cible, jugée par les pièces de l'envoi (`jugerCible`) : le modèle approuvé chez Meta et ses variables, le scénario
+ * qui peut partir, la catégorie de Meta, qui entre dans ce qui a été montré.
+ */
+async function releverIndividuel(
+  deps: DepsEnvoisAuOui, tenant: string, fonctions: ReadonlySet<Fonction>, d: DemandeIndividuelle,
+): Promise<Issue<EnvoiGarde>> {
+  // Faire partir un scénario est une fonction des scénarios, relue au clic aussi (`fonctionDe`) ; un modèle part dans
+  // toutes les offres, comme depuis l'écran Modèles.
+  if (d.type === 'envoi_scenario' && !fonctions.has('scenarios')) return refusFonction('scenarios');
+  const personne = personneDe(d);
+  const fiche = 'contact' in personne
+    ? (estUuid(personne.contact) ? await deps.individuels.contacts.getById(tenant, personne.contact) : null)
+    : await deps.individuels.contacts.findByPhone(tenant, personne.telephone);
+  if ('contact' in personne && fiche === null) return refus(404, 'contact introuvable dans cet espace', { code: 'contact_not_found' });
+  if (fiche?.optInStatus === 'opted_out') return refus(409, 'cette personne a répondu STOP : rien ne lui est écrit', { code: 'opted_out' });
+  if (fiche?.blockedAt) return refus(409, 'ce contact est bloqué : rien ne lui est écrit', { code: 'blocked_contact' });
+  // Le numéro masqué que le récapitulatif montre, jamais le numéro entier ni le nom.
+  const destinataire = numeroMasque('telephone' in personne ? personne.telephone : fiche?.phoneE164 ?? fiche?.bsuid ?? '');
+  const commun = { valeurs: [...d.valeurs], declarePar: d.declarePar, destinataire, ...personne };
+  if (d.type === 'modele') {
+    const cible = { type: 'modele' as const, modele: d.modele, langue: d.langue };
+    const j = await deps.individuels.jugerCible(tenant, corpsIndividuel(cible, personne, d.valeurs, d.declarePar));
+    if (!j.ok) return refusDeLEnvoi(j.reponse);
+    return { ok: true, valeur: { ...cible, nom: `le modèle « ${d.modele} » (${d.langue})`, categorie: j.categorie, ...commun } };
+  }
+  // Le scénario par son identifiant ou son code ; un nom, l'envoi le résout. Puis son code, que l'envoi vise : une reprise
+  // part vers le MÊME scénario (son nom, lui, entre dans l'empreinte : renommé avant le clic, le clic est refusé).
+  const ref = estUuid(d.scenario) ? (await deps.individuels.scenarios.lireParApi(tenant, d.scenario))?.code ?? null : d.scenario;
+  if (ref === null) return refus(404, SCENARIO_INCONNU, { code: 'scenario_not_found' });
+  const j = await deps.individuels.jugerCible(tenant, corpsIndividuel({ type: 'envoi_scenario', code: ref }, personne, d.valeurs, d.declarePar));
+  if (!j.ok) return refusDeLEnvoi(j.reponse);
+  const ligne = j.workflowId === null ? null : await deps.individuels.scenarios.lireParApi(tenant, j.workflowId);
+  if (!ligne?.code) return refus(404, SCENARIO_INCONNU, { code: 'scenario_not_found' });
+  return {
+    ok: true,
+    valeur: { type: 'envoi_scenario', nom: `le scénario « ${ligne.name} »`, scenario: ligne.id, code: ligne.code, categorie: j.categorie, ...commun },
+  };
+}
+
 /** Le bouton nomme l'effet (décision du 24 novembre) : ce qui part, et à combien. */
 export function libelleEnvoi(g: EnvoiGarde): string {
   if (g.type === 'suppression') return `Supprimer ${pluriel(g.contacts.length, 'contact')}`;
+  if (g.type === 'modele') return 'Envoyer à 1 contact';
+  if (g.type === 'envoi_scenario') return 'Lancer le scénario pour 1 contact';
   const n = pluriel(g.etat.recipientCount, 'contact');
   if (g.reprise) return `Reprendre l’envoi à ${n}`;
   return g.etat.prevueLe === null ? `Envoyer à ${n}` : `Programmer l’envoi à ${n}`;
@@ -116,6 +265,22 @@ export function libelleEnvoi(g: EnvoiGarde): string {
 
 /** Ce que la page montre au-dessus du bouton, écrit ici (le CSM ne choisit pas les mots de ce qui vaut accord). */
 export function recapitulatifEnvoi(g: EnvoiGarde): string[] {
+  if (g.type === 'modele' || g.type === 'envoi_scenario') {
+    const avec = g.valeurs.length > 0 ? `, avec : ${g.valeurs.map((v) => `« ${v} »`).join(', ')}` : '';
+    // Le clic confirme l'accord que la personne qui a préparé a déclaré dans Claude (la fiche le trace à son nom) : l'admin
+    // qui clique le lit ici.
+    const accord = 'Ce clic confirme l’accord de cette personne pour recevoir vos messages, déclaré dans Claude par celle ou '
+      + 'celui qui a préparé cet envoi, sous la responsabilité de l’espace : sa fiche passe en « accepte » (marketing '
+      + 'compris). Une personne qui a répondu STOP ne reçoit rien.';
+    if (g.type === 'modele') {
+      return [`Le modèle « ${g.modele} » (${g.langue}, ${g.categorie}) part vers le ${g.destinataire}${avec}, dès votre clic. Un message parti ne se rattrape pas.`, accord];
+    }
+    return [
+      `Le ${g.nom.replace(/^le /, '')} démarre pour le ${g.destinataire}${avec}, dès votre clic : son premier message part (${g.categorie}), et les réponses suivent le scénario.`,
+      'Il reprend la conversation à l’équipe ou à l’agent IA qui la tenait, et remplace un scénario en cours.',
+      accord,
+    ];
+  }
   if (g.type === 'suppression') {
     return [
       `${pluriel(g.contacts.length, 'contact')} ${g.contacts.length > 1 ? 'sont effacés' : 'est effacé'} pour de bon, avec `
@@ -144,8 +309,9 @@ export function recapitulatifEnvoi(g: EnvoiGarde): string[] {
  * clic. Une suppression ne retrouve que les fiches qui restent.
  */
 export async function executerEnvoi(
-  deps: DepsEnvoisAuOui, tenant: string, g: EnvoiGarde, auteur: { auth: { userId: string } }, audit: AuditSink,
+  deps: DepsEnvoisAuOui, tenant: string, g: EnvoiGarde, auteur: { auth: { userId: string } }, audit: AuditSink, ctx: ContexteExecution,
 ): Promise<ResultatAction> {
+  if (g.type === 'modele' || g.type === 'envoi_scenario') return executerIndividuel(deps, tenant, g, ctx);
   if (g.type === 'campagne') {
     const destinataires = g.etat.recipientCount;
     const etat = await deps.campagnes.repo.etatPourConfirmation(tenant, g.campagne);
@@ -194,4 +360,43 @@ export async function executerEnvoi(
   // Le retrait chez l'agent de Meta part en fond, suivi (`effacerContacts`) : il ne retient pas le clic.
   e.retirerChezMeta();
   return { ok: true, etat: 'supprimes', contacts: e.bilan.purges, conversations: e.bilan.conversations, messages: e.bilan.messages };
+}
+
+/**
+ * Envoie à une personne, par le cycle de `POST /v1/sends`, sous la clé du oui (`ctx.cle`). 🔴 Rejouable sans double envoi :
+ * une exécution coupée après l'envoi retrouve, sous la même clé, le rapport de l'envoi fait (pendant 24 heures, d'où le
+ * délai de reprise).
+ */
+async function executerIndividuel(deps: DepsEnvoisAuOui, tenant: string, g: EnvoiIndividuelGarde, ctx: ContexteExecution): Promise<ResultatAction> {
+  if (ctx.maintenant - Date.parse(ctx.accepteeLe) > DELAI_DE_REPRISE_INDIVIDUELLE_MS) {
+    // Où chercher : l'envoi, s'il est parti, porte le nom que lui donne le cycle de l'API (`PREFIXE_ENVOI_API`).
+    const ligne = g.type === 'modele' ? `« ${PREFIXE_ENVOI_API}${g.modele} »` : `de ${g.nom}`;
+    return {
+      ok: false, code: 'trop_tard',
+      message: `ce clic, du ${dateDeParis(ctx.accepteeLe)}, date de plus de 23 heures : l’envoi ne repart plus d’ici, pour ne `
+        + `jamais partir deux fois. Regardez d’abord dans Campagnes si l’envoi ${ligne} de ce jour-là est parti, avant de `
+        + 'demander à Claude un nouveau bouton.',
+    };
+  }
+  // Une ligne effacée ne porte plus de quoi envoyer : rien ne part.
+  if (!Array.isArray(g.valeurs) || !('telephone' in g || 'contact' in g)) return { ok: false, code: 'efface', message: RECAPITULATIF_EFFACE };
+  const cible: CibleIndividuelle = g.type === 'modele' ? { type: 'modele', modele: g.modele, langue: g.langue } : { type: 'envoi_scenario', code: g.code };
+  const r = await deps.individuels.envoyer(tenant, corpsIndividuel(cible, personneDe(g), g.valeurs, g.declarePar, ctx.cle));
+  // L'envoi du oui ne compte rien : un refus du compteur serait une erreur de câblage, pas un refus à montrer.
+  if (compteurEnvoiRefuse(r)) throw new Error('compteur inattendu sur un envoi du oui');
+  if (r.statut >= 400) {
+    const c = r.corps as { error?: unknown; code?: unknown } | null;
+    // 🔴 Une clé encore « en cours » (posée par l'exécution coupée, il y a moins de cinq minutes) n'est pas un refus : c'est
+    // une panne, qui se reprend au prochain clic ; la clé rend alors l'envoi fait, ou s'est libérée.
+    if (c?.code === 'idempotency_in_progress') throw new Error('un envoi est en cours sous la clé de ce oui : à reprendre');
+    return { ok: false, code: typeof c?.code === 'string' ? c.code : `refus_${r.statut}`, message: typeof c?.error === 'string' ? c.error : `refus ${r.statut}` };
+  }
+  // 201 : l'envoi fait, ou celui qu'une exécution coupée avait fait sous la même clé (le même rapport).
+  const rapport = r.corps as RapportEnvoi;
+  if (rapport.recipientCount === 0) {
+    const motif = rapport.skipped[0]?.reason;
+    return { ok: false, code: motif ?? 'ecarte', message: `rien n’est parti : la personne est écartée (${motif ?? 'motif inconnu'})` };
+  }
+  journaliser('info', 'mise_en_ligne_envoi_individuel', { tenantId: tenant, type: g.type, sendId: rapport.sendId });
+  return { ok: true, etat: 'envoye', envoi: rapport.sendId };
 }

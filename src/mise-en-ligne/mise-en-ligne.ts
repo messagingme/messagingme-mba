@@ -18,8 +18,8 @@ import type { WorkflowRow } from '../workflow/store.pg';
 import type { VersionScenario, VersionScenarioLue } from '../workflow/versions.pg';
 import type { LigneMiseEnLigne, PgMisesEnLigne } from './store.pg';
 import {
-  estDemandeEnvoi, estEnvoiGarde, executerEnvoi, libelleEnvoi, recapitulatifEnvoi, releverEnvoi,
-  type DemandeEnvoi, type DepsEnvoisAuOui, type EnvoiGarde,
+  estDemandeEnvoi, estEnvoiGarde, executerEnvoi, libelleEnvoi, personneDe, recapitulatifEnvoi, releverEnvoi,
+  type ContexteExecution, type DemandeEnvoi, type DepsEnvoisAuOui, type EnvoiGarde,
 } from './envois';
 
 /**
@@ -68,7 +68,7 @@ export type ActionGardee =
   | EnvoiGarde;
 
 export interface DepsMisesEnLigne {
-  store: Pick<PgMisesEnLigne, 'inserer' | 'lire' | 'accepter' | 'reclamer' | 'noterResultat' | 'terminer' | 'relacher'>;
+  store: Pick<PgMisesEnLigne, 'inserer' | 'lire' | 'accepter' | 'reclamer' | 'noterResultat' | 'terminer' | 'relacher' | 'trouverProposee'>;
   /** Les scénarios de l'espace, système exclu (`PgWorkflowStore`, passé entier : ses méthodes lisent `this`). */
   scenarios: ScenariosAPublier & { getById(id: string, tenantId: string): Promise<WorkflowRow | null> };
   /** Les versions publiées (`PgVersionsScenario`, passé entier : ses méthodes lisent `this`). */
@@ -187,6 +187,8 @@ const demandeDe = (g: ActionGardee): DemandeAction => {
     case 'repondeur': return { type: 'repondeur', scenario: g.scenario, delaiHeures: g.delaiS / 3600 };
     case 'campagne': return { type: 'campagne', campagne: g.campagne };
     case 'suppression': return { type: 'suppression', contacts: g.contacts };
+    case 'modele': return { type: 'modele', modele: g.modele, langue: g.langue, valeurs: g.valeurs, declarePar: g.declarePar, ...personneDe(g) };
+    case 'envoi_scenario': return { type: 'envoi_scenario', scenario: g.scenario, valeurs: g.valeurs, declarePar: g.declarePar, ...personneDe(g) };
   }
 };
 
@@ -241,6 +243,8 @@ async function recapitulatifDe(deps: DepsMisesEnLigne, tenant: string, gardees: 
         break;
       case 'campagne':
       case 'suppression':
+      case 'modele':
+      case 'envoi_scenario':
         lignes.push(...recapitulatifEnvoi(g));
         break;
     }
@@ -281,13 +285,21 @@ export async function proposer(
   const r = await relever(deps, tenant, demandes);
   if (!r.ok) return r;
   const { gardees } = r.valeur;
+  const empreinte = empreinteDe(r.valeur);
+  // 🔴 Un envoi à une personne préparé deux fois (un appel rejoué) rend le MÊME bouton : deux boutons, ce seraient deux
+  // clics possibles, donc deux envois. Le même, c'est la même personne qui prépare, sur la même empreinte, pas encore cliqué.
+  const seule = gardees.length === 1 ? gardees[0] : undefined;
+  if (seule?.type === 'modele' || seule?.type === 'envoi_scenario') {
+    const deja = await deps.store.trouverProposee(tenant, personne.userId, empreinte);
+    if (deja !== null) return lireVue(deps, tenant, deja);
+  }
   const { id } = await deps.store.inserer(tenant, {
     proposeePar: personne.userId,
     autorisationId: personne.autorisationId,
     libelle: libelleDe(gardees),
     recapitulatif: await recapitulatifDe(deps, tenant, gardees),
     actions: gardees,
-    empreinte: empreinteDe(r.valeur),
+    empreinte,
     expireLe: new Date(deps.maintenant() + DUREE_MISE_EN_LIGNE_MS),
   });
   return lireVue(deps, tenant, id);
@@ -384,9 +396,11 @@ async function executer(deps: DepsMisesEnLigne, tenant: string, id: string): Pro
     let r: ResultatAction;
     const fonction = fonctionDe(prise.actions[i]!);
     try {
+      // La clé d'un envoi à une personne : la même à chaque reprise de CETTE action, jamais celle d'une autre.
+      const ctx: ContexteExecution = { cle: `oui:${id}:${i + 1}`, accepteeLe: prise.accepteeLe, maintenant: deps.maintenant() };
       r = fonction !== null && !fonctions.has(fonction)
         ? { ok: false, code: 'plan_feature_unavailable', message: corpsRefusFonction(fonction).error }
-        : await executerAction(deps, tenant, prise.actions[i]!, auteur);
+        : await executerAction(deps, tenant, prise.actions[i]!, auteur, ctx);
     } catch (err) {
       // Une panne n'est pas un refus : le bail se rend, la mise en ligne reste acceptée, un admin la reprend.
       journaliser('error', 'mise_en_ligne_interrompue', { tenantId: tenant, id, action: i + 1, erreur: err instanceof Error ? err.message : String(err) });
@@ -404,21 +418,30 @@ async function executer(deps: DepsMisesEnLigne, tenant: string, id: string): Pro
   }
 }
 
-/** La fonction de l'offre qu'exige une action : les scénarios pour une publication, la console pour une campagne. */
+/**
+ * La fonction de l'offre qu'exige une action : les scénarios pour une publication et un scénario envoyé à une personne,
+ * la console pour une campagne ; une suppression et un modèle envoyé, aucune (toutes les offres).
+ */
 function fonctionDe(a: ActionGardee): Fonction | null {
-  if (a.type === 'suppression') return null;
+  if (a.type === 'suppression' || a.type === 'modele') return null;
   return a.type === 'campagne' ? 'console' : 'scenarios';
 }
 
 async function executerAction(
-  deps: DepsMisesEnLigne, tenant: string, a: ActionGardee, auteur: { auth: { userId: string } },
+  deps: DepsMisesEnLigne, tenant: string, a: ActionGardee, auteur: { auth: { userId: string } }, ctx: ContexteExecution,
 ): Promise<ResultatAction> {
-  if (estEnvoiGarde(a)) return executerEnvoi(deps.envois, tenant, a, auteur, deps.audit);
+  if (estEnvoiGarde(a)) return executerEnvoi(deps.envois, tenant, a, auteur, deps.audit, ctx);
   if (a.type === 'repondeur') {
     const r = await choisirRepondeur(deps.repondeur, tenant, { mode: 'scenario', workflowId: a.scenario, delaiS: a.delaiS },
       { userId: auteur.auth.userId, origine: 'mcp' });
     if (!r.ok) return { ok: false, code: typeof r.details?.code === 'string' ? r.details.code : `refus_${r.statut}`, message: r.erreur };
     return { ok: true, etat: 'branche' };
+  }
+  // 🔴 Une action que cette version ne sait pas exécuter (écrite par une image plus récente, relue après un retour arrière)
+  // échoue fermée : prise pour une publication, elle publierait le brouillon de son scénario sans aucun contrôle.
+  const type: string = a.type;
+  if (type !== 'publier' && type !== 'restaurer') {
+    return { ok: false, code: 'action_inconnue', message: 'cette action n’est pas connue de cette version du serveur : rien n’a été fait.' };
   }
   const avant = await deps.scenarios.getById(a.scenario, tenant);
   if (!avant || avant.rayon !== 'general') return { ok: false, code: 'not_found', message: `le scénario « ${a.nom} » n’existe plus` };

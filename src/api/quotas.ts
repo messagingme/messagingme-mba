@@ -9,8 +9,8 @@ import type { OperationApi } from './usage-guard';
  * Le plafond d'appels (par minute et par heure, selon l'offre) protège l'infrastructure, pas les destinataires : sous lui, une
  * boucle chez un intégrateur pouvait viser 50 000 destinataires par heure (1 000 appels de 50), de quoi abîmer la note
  * de qualité d'un numéro chez Meta. Le quota compte le TRAVAIL d'un jour, trois familles (spec offres v2) :
- * - **les modèles** : les destinataires d'un envoi (`/v1/sends`), et l'envoi d'un modèle par le MCP
- *   (`send_template_to_contact`) ;
+ * - **les modèles** : les destinataires d'un envoi (`/v1/sends`) ; un modèle préparé par le MCP part sur le clic d'un
+ *   admin, un envoi de la console, hors de ce quota (B8) ;
  * - **les réponses** : chaque message libre (WhatsApp ou RCS), qui ne part que dans la fenêtre de 24 h ;
  * - **les fiches** : chaque fiche écrite (`/v1/contacts`, une par fiche d'un lot).
  * 🔴 Les modèles et les réponses sont deux familles pour qu'un envoi de modèles qui épuise la sienne ne bloque JAMAIS une

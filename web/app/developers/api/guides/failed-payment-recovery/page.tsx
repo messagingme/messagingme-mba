@@ -86,7 +86,7 @@ function Recette() {
       <Section id="essayer" titre={t('Essayer', 'Trying it')}>
         <Liste>
           <li>{t('Avec la CLI de Stripe, déclenchez invoice.payment_failed pour un client relié à votre propre numéro : le message arrive, et son bouton ouvre votre page de facturation.', 'With the Stripe CLI, trigger invoice.payment_failed for a customer tied to your own number: the message arrives, and its button opens your billing page.')}</li>
-          <li>{t('Ou envoyez le modèle par ', 'Or send the template with ')}<C>send_template_to_contact</C>{t(' à votre numéro, avant de brancher Stripe.', ' to your number, before wiring Stripe.')}</li>
+          <li>{t('Ou faites préparer le modèle par ', 'Or have the template prepared with ')}<C>send_template_to_contact</C>{t(' pour votre numéro, puis cliquez son bouton, avant de brancher Stripe.', ' for your number, then click its button, before wiring Stripe.')}</li>
         </Liste>
       </Section>
     </>

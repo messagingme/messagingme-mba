@@ -46,7 +46,6 @@ import { OUTILS_CHAMPS, type DepsChampsMcp } from './outils-champs';
 import { OUTILS_SUPPRESSION, type DepsSuppressionMcp } from './outils-suppression';
 import { OUTILS_SHOPIFY } from './outils-shopify';
 import type { DepsGestionShopify } from '../shopify/gestion';
-import type { ResultatEnvoiPublic } from '../api/envoi-public';
 import type { VueOffre } from '../offres/vue';
 import type { SourceOffres } from '../offres/offre.pg';
 import { DROITS, type Fonction } from '../offres/offres';
@@ -67,9 +66,10 @@ export { MESSAGE_SUPPORT_MAX, SUJET_SUPPORT_MAX } from './outils-prerequis';
  * (`reply_in_open_window` passe par `repondreDansLaFenetre`, les outils des widgets par `src/widgets/gestion.ts`).
  * Une seconde implémentation dériverait, et sur une surface d'écriture ce serait un agent qui écrit avec d'autres
  * garde-fous (fenêtre de 24 h, prise du fil, journal, phrase d'un widget).
- * Lecture d'abord, écriture étroite. Un modèle part vers UNE personne à la fois (`send_template_to_contact`), et une
- * campagne, mégaphone facturé sur un numéro dont Meta note la qualité, ne part que préparée en brouillon puis lancée
- * avec le code de son récapitulatif (`prepare_campaign`, `launch_campaign`), par une personne connectée.
+ * Lecture d'abord, écriture étroite. Rien ne part vers de vrais contacts hors d'une conversation ouverte sans le clic
+ * d'un admin dans la console (le oui, B8) : un modèle ou un scénario vers UNE personne (`send_template_to_contact`,
+ * `send_scenario_to_contact`), et une campagne, mégaphone facturé sur un numéro dont Meta note la qualité, préparée en
+ * brouillon (`prepare_campaign`), par une personne connectée.
  * 🔴 Aucun outil n'émet d'événement d'automation : un agent qui boucle sur 500 conversations déclencherait 500
  * automations facturées. Un tag posé ici ne réveille rien (la pose est appelée SANS publier), et la description le
  * dit.
@@ -181,17 +181,6 @@ export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp, 
    */
   suppression: DepsSuppressionMcp;
   /**
-   * L'envoi d'un modèle (lot 13, domaine 3, livraison B) : le même cycle d'envoi public que `POST /v1/sends`, lié
-   * à ses dépendances par le câblage. `compter` est appelé où la route compte ; il rend `true` ou lève.
-   */
-  envoyerModele(tenantId: string, corps: unknown, compter: (unites: number) => Promise<boolean>): Promise<ResultatEnvoiPublic>;
-  /**
-   * Le quota QUOTIDIEN d'envois de l'espace (`src/api/quotas.ts`), le même que `POST /v1/sends` (opération
-   * `sends.create`) : sans lui, Claude enverrait jusqu'à dix modèles par minute toute la journée. Posé par la route
-   * `/mcp` à chaque requête, parce qu'il compte sous la clé ou le jeton de l'appel ; jamais par le câblage.
-   */
-  quotaEnvois(tenantId: string, unites: number): Promise<{ accepte: boolean; raison?: string }>;
-  /**
    * 🔴 Le plafond des opérations coûteuses de la console, la MÊME instance que celle des routes, comptée par espace
    * sous la même clé : sans lui, le serveur MCP serait la porte qui contourne les dix opérations lourdes par minute
    * (un import de site, un essai facturé, un paiement). Posé par `buildServer` au montage, jamais par le câblage
@@ -201,10 +190,11 @@ export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp, 
 }
 
 /**
- * Ce que le câblage fournit : tout, sauf le plafond coûteux, que `buildServer` ajoute (voir `couteux`), et le quota
- * d'envois, que la route `/mcp` pose à chaque requête (voir `quotaEnvois`).
+ * Ce que le câblage fournit : tout, sauf le plafond coûteux, que `buildServer` ajoute (voir `couteux`). Le quota d'envois
+ * du jour de l'API n'y est plus : depuis B8 (lot 1 du CSM virtuel), un modèle part sur le clic d'un admin, un envoi de la
+ * console.
  */
-export type CablageMcp = Omit<DepsMcp, 'couteux' | 'quotaEnvois'>;
+export type CablageMcp = Omit<DepsMcp, 'couteux'>;
 
 /**
  * Une propriété d'un schéma d'entrée. 🔴 Toute borne que l'outil applique s'y annonce (longueur, motif, énumération,

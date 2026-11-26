@@ -3489,14 +3489,16 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   `create_template` (réservé à une personne connectée, jamais à une clé d'API), `get_template_status` et
   `list_templates`, dans toutes les offres. Hors de cette route :
   carrousel, authentification, Flow, variables nommées. L'événement de validation vient avec la livraison C.
-- ✅ **Claude envoie un modèle à une personne** (lot 13, domaine 3, livraison B, 2026-10-09) : `send_template_to_contact`,
-  réservé à une personne connectée, envoie un modèle approuvé à UN contact (par son numéro ou sa fiche), même hors de
-  la fenêtre de 24 h, avec une valeur par variable et une clé d'idempotence. Il passe par le même chemin que
-  `POST /v1/sends` : STOP, numéro délié ou suspendu, modèles du mois de l'offre ; un refus revient avec sa raison.
-  Envoyer par Claude déclare l'accord de la personne au nom du client, sous sa responsabilité : sa fiche devient
-  consentante et dit qui l'a déclaré, sans que Claude pose la question (décision de Julien du 2026-10-25) ; une
-  personne qui a dit STOP n'est jamais écrite. Une campagne, elle, se prépare puis part sur le clic d'un administrateur
-  (entrée suivante).
+- ✅ **Claude envoie un modèle à une personne, sur votre clic** (lot 13, domaine 3, livraison B, 2026-10-09 ; au oui
+  depuis le 2026-11-26) : `send_template_to_contact`, réservé à une personne connectée, prépare l'envoi d'un modèle
+  approuvé à UN contact (par son numéro ou sa fiche), même hors de la fenêtre de 24 h, avec une valeur par variable :
+  Claude montre le récapitulatif et le lien d'une page de la console, et le message ne part que sur le clic d'un
+  administrateur (« Envoyer à 1 contact »), une seule fois. Un modèle non approuvé, une variable qui manque ou une
+  personne qui a dit STOP sont refusés dès la préparation ; au clic, l'envoi passe par le même chemin que
+  `POST /v1/sends` (numéro délié ou suspendu, modèles du mois de l'offre) et un refus se lit sur la page. Ce clic
+  déclare l'accord de la personne au nom du client, sous sa responsabilité : sa fiche devient consentante et dit qui
+  l'a déclaré, sans que Claude pose la question (décision de Julien du 2026-10-25). Une campagne se prépare et part de
+  même (entrée suivante).
 - ✅ **Claude prépare une campagne, et ne la lance qu'après votre oui** (2026-10-20, offre Pro) : « prépare une
   campagne pour les clients qui se sont plaints d'un retard de livraison, envoi demain 10 h ». Claude trouve les contacts
   (`find_contacts` : étiquettes, consentement, commandes Shopify, activité, pays, et en Entreprise la dernière analyse :
@@ -3608,10 +3610,11 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   (nom affiché, qualité, palier d'envoi, vérification d'entreprise, Marketing Messages), fait envoyer le code de
   vérification du numéro et l'active, au nom d'une personne, et écrit au Support avec le contexte de l'espace joint par
   le serveur.
-  ✅ **Claude fait partir un scénario vers une personne** (2026-11-03, plan
-  `docs/superpowers/plans/2026-11-03-outil-envoyer-scenario.md`) : `send_scenario_to_contact`, le même envoi que
-  `send_template_to_contact` (consentement déclaré par le client, STOP, quota), cible un scénario publié qui ouvre
-  par un template approuvé. Claude donne les valeurs de ses variables, lues sur la fiche du contact.
+  ✅ **Claude fait partir un scénario vers une personne, sur votre clic** (2026-11-03, plan
+  `docs/superpowers/plans/2026-11-03-outil-envoyer-scenario.md` ; au oui depuis le 2026-11-26) :
+  `send_scenario_to_contact`, le même envoi que `send_template_to_contact` (consentement déclaré par le client, STOP,
+  part sur le clic d'un administrateur, « Lancer le scénario pour 1 contact »), cible un scénario publié qui ouvre par
+  un template approuvé. Claude donne les valeurs de ses variables, lues sur la fiche du contact.
 - ✅ **Des erreurs qu'un programme peut traiter** : un refus de l'API rend `{ error, code }`, une phrase en
   français et un code stable en anglais, refus de la clé compris (clé absente, droit manquant, espace suspendu,
   débit), et un même refus porte le même code partout, qu'il arrive en erreur ou en motif d'écart d'un envoi.
@@ -3633,13 +3636,14 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   la moitié par défaut) ; Pro et Entreprise gardent le reste. Le refus est le même 429 `rate_limited`, avec
   `Retry-After` et un message qui dit que la plateforme est saturée : le geste de l'intégrateur ne change pas.
 - ✅ **Quotas quotidiens de l'API publique, par espace** (2026-10-05, trois familles depuis la spec offres v2) : les
-  modèles (destinataires d'un envoi, et l'envoi d'un modèle par le serveur MCP : 500 par jour en Free, 2 000 en Pro),
+  modèles (destinataires d'un envoi : 500 par jour en Free, 2 000 en Pro ; un modèle préparé par Claude part sur le clic
+  d'un administrateur, hors de ce quota),
   les réponses (messages libres WhatsApp ou RCS dans la fenêtre de 24 h : 2 000 par jour, jamais moins) et 20 000
   fiches écrites par jour ; l'Entreprise suit la configuration, relevée sur devis. Les familles se comptent à part :
   un envoi de modèles qui épuise la sienne ne bloque JAMAIS une réponse à un client. Remise à zéro à minuit (heure de
   Paris). Une requête qui dépasserait est refusée en entier : 429 `quota_exceeded`, avec `Retry-After` jusqu'à
-  minuit et un message qui le dit ; un lot plus petit peut encore passer. Les lectures, les catalogues, le reste du
-  serveur MCP et les campagnes lancées depuis la console n'ont pas de quota. L'exploitation peut relever le quota
+  minuit et un message qui le dit ; un lot plus petit peut encore passer. Les lectures, les catalogues, le serveur MCP
+  et les campagnes lancées depuis la console n'ont pas de quota. L'exploitation peut relever le quota
   d'un espace précis, famille par famille. La doc publique ne chiffre que les fiches.
 - ✅ **Les fonctions HubSpot disparaissent quand aucun portail n'est relié** (2026-09-23) : la source
   « HubSpot » d'une campagne et le déclencheur « un deal HubSpot atteint une étape » d'une automation ne
@@ -6218,12 +6222,13 @@ mais elle donne ce pouvoir à QUICONQUE la détient : elle peut changer ce que l
 depuis un assistant : elle reste un geste de la console.
 
 **Ce qu'il ne fait PAS, et c'est délibéré.**
-- **Une campagne ne part qu'après votre oui.** Ouvrir l'envoi de masse à un modèle, c'est lui donner un mégaphone
-  facturé sur un numéro dont Meta note la qualité : Claude la prépare (`prepare_campaign`), et elle ne part que sur le
-  clic d'un administrateur dans la console, sur la page dont Claude donne le lien, valable 24 heures pour la campagne
-  telle qu'elle a été montrée (voir « Claude prépare une campagne, et ne la lance qu'après votre oui »). Ces outils exigent une
-  personne connectée, jamais une clé d'API. Hors campagne, un assistant envoie un modèle approuvé à UNE personne à la
-  fois (`send_template_to_contact`, compté dans les envois du jour).
+- **Rien ne part qu'après votre oui.** Ouvrir l'envoi de masse à un modèle, c'est lui donner un mégaphone facturé sur
+  un numéro dont Meta note la qualité : Claude prépare la campagne (`prepare_campaign`), et elle ne part que sur le clic
+  d'un administrateur dans la console, sur la page dont Claude donne le lien, valable 24 heures pour la campagne telle
+  qu'elle a été montrée (voir « Claude prépare une campagne, et ne la lance qu'après votre oui »). Un modèle ou un
+  scénario pour UNE personne part de même sur ce clic (`send_template_to_contact`, `send_scenario_to_contact`). Ces
+  outils exigent une personne connectée, jamais une clé d'API. Seule une réponse dans la fenêtre de 24 h part tout de
+  suite (`reply_in_open_window`), pour que l'Inbox reste utilisable depuis Claude.
 - **Hors de la fenêtre de 24 h, seul un modèle approuvé part.** Un message libre est refusé, avec la raison.
 - **Les automations ne se déclenchent pas.** Un tag posé par un assistant classe le contact, il ne réveille
   pas les automations qui écoutent ce tag : un agent qui boucle sur 500 fils déclencherait 500 envois. Comme
@@ -6568,9 +6573,12 @@ d'elles, toujours par ce clic. La console ne montre pas encore les versions.
 fait dans la console, ou en restaure une version.
 
 **Les envois au oui** (2026-11-26, lot 1 du CSM virtuel, B8). Le même clic lance, programme ou reprend une campagne
-que Claude a préparée, et efface les contacts qu'il a sélectionnés : le code de confirmation que Claude recopiait a
-disparu. Le bouton dit ce qui part et à combien (« Envoyer à 120 contacts », « Supprimer 40 contacts ») ; un clic
-coupé par une panne se reprend sans rien renvoyer. La page s'ouvre aussi en Free, pour la suppression de contacts.
+que Claude a préparée, efface les contacts qu'il a sélectionnés, et envoie le modèle ou le scénario qu'il a préparé pour
+une personne : le code de confirmation que Claude recopiait a disparu. Le bouton dit ce qui part et à combien
+(« Envoyer à 120 contacts », « Supprimer 40 contacts », « Envoyer à 1 contact ») ; un clic coupé par une panne se
+reprend sans rien renvoyer. Le numéro et les valeurs d'un envoi à une personne ne sont gardés que le temps du clic :
+effacés une fois l'envoi fait ou refusé, et quand le bouton expire. La page s'ouvre aussi en Free, pour la suppression
+de contacts et l'envoi d'un modèle.
 
 ## Plafonds d'usage (visible seulement si on force)
 

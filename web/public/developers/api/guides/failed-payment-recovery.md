@@ -129,4 +129,4 @@ export async function POST(req: Request) {
 ## Essayer
 
 - Avec la CLI de Stripe, déclenchez invoice.payment_failed pour un client relié à votre propre numéro : le message arrive, et son bouton ouvre votre page de facturation.
-- Ou envoyez le modèle par `send_template_to_contact` à votre numéro, avant de brancher Stripe.
+- Ou faites préparer le modèle par `send_template_to_contact` pour votre numéro, puis cliquez son bouton, avant de brancher Stripe.

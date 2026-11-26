@@ -303,8 +303,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Envoie-lui le modèle de suivi de commande.', en: 'Send her the order follow-up template.' },
         outils: ['list_templates', 'send_template_to_contact'],
         reponse: {
-          fr: 'Claude choisit le modèle approuvé, remplit ses variables avec la fiche de Léa et l’envoie.',
-          en: 'Claude picks the approved template, fills in its variables from Léa’s record and sends it.',
+          fr: 'Claude choisit le modèle approuvé, remplit ses variables avec la fiche de Léa et vous donne le bouton : le modèle part sur votre clic dans la console.',
+          en: 'Claude picks the approved template, fills in its variables from Léa’s record and gives you the button: the template goes out on your click in the console.',
         },
       },
     ],

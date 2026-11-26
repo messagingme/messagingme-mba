@@ -296,7 +296,7 @@ import { listerModeles as listerModelesRehabilites, type DepsGestionModeles } fr
 import { executerChezMeta } from './ops/duplication/meta-execution';
 import { statutsDuModele, type DepsCreationModele } from './api/creer-modele';
 import { placesDeTelechargement, telechargerEnteteProduction } from './api/entete-par-url';
-import { lancerEnvoiPublic, type DepsEnvoiPublic } from './api/envoi-public';
+import { jugerCible, lancerEnvoiPublic, type DepsEnvoiPublic } from './api/envoi-public';
 import { tenter } from './lib/tenter';
 import { messageDe, texteDe } from './lib/erreur';
 import { PgStripeStore } from './stripe/store.pg';
@@ -1677,8 +1677,9 @@ async function main(): Promise<void> {
   };
 
   /**
-   * Les dépendances du cycle d'envoi public, partagées par `POST /v1/sends` et `send_template_to_contact`
-   * (lot 13, domaine 3, livraison B) : un modèle envoyé par Claude passe par les MÊMES gardes que l'API.
+   * Les dépendances du cycle d'envoi public, partagées par `POST /v1/sends` et le clic d'un envoi au oui
+   * (`send_template_to_contact`, `send_scenario_to_contact`, B8) : un modèle envoyé par Claude passe par les MÊMES gardes
+   * que l'API.
    */
   const depsEnvois: DepsEnvoiPublic = {
     resolveScenario: (tenant, ref, rayon) => resolveScenario(tenant, ref, workflowStore, rayon),
@@ -2151,8 +2152,9 @@ async function main(): Promise<void> {
    * Le oui de mise en ligne (lot 1 du CSM virtuel, B2) et les versions de scénario (B3), pour leurs DEUX portes : la page
    * de la console (le clic d'un admin) et les outils MCP (la proposition, sa lecture, les versions). La publication y
    * passe par les MÊMES dépendances que « Publier » de la console, le répondeur par le MÊME réglage que l'Accueil, et les
-   * envois au oui (B8) par le MÊME câblage que les campagnes et la suppression de la console. Les magasins ENTIERS :
-   * leurs méthodes lisent `this`.
+   * envois au oui (B8) par le MÊME câblage que les campagnes et la suppression de la console, et pour un envoi à une
+   * personne par le MÊME cycle que `POST /v1/sends`, sans compteur : un envoi parti sur le clic est un envoi de la
+   * console, hors du quota du jour de l'API. Les magasins ENTIERS : leurs méthodes lisent `this`.
    */
   const misesEnLigne: DepsMisesEnLigne = {
     store: new PgMisesEnLigne(pool),
@@ -2160,7 +2162,16 @@ async function main(): Promise<void> {
     versions: new PgVersionsScenario(pool),
     publication: publicationDesScenarios,
     repondeur: repondeurDeLaConsole,
-    envois: { campagnes: depsCampagnes, suppression: depsSuppression },
+    envois: {
+      campagnes: depsCampagnes,
+      suppression: depsSuppression,
+      individuels: {
+        jugerCible: (tenant, corps) => jugerCible(depsEnvois, tenant, corps),
+        envoyer: (tenant, corps) => lancerEnvoiPublic(depsEnvois, tenant, corps, undefined, async () => true),
+        contacts: contactStore,
+        scenarios: workflowStore,
+      },
+    },
     audit: auditSink,
     maintenant: () => Date.now(),
   };
@@ -4242,8 +4253,6 @@ async function main(): Promise<void> {
         modeles: { ...creationModeles, lister: listerModeles, oublier: oublierModeles, grilleMeta: () => reglagesCreditWhatsapp.grilleEnVigueur() },
         // Le connecteur Shopify (2026-10-21) : la MÊME gestion que la carte de la console.
         shopify: gestionShopify,
-        // L'envoi d'un modèle à un contact (livraison B) : le MÊME cœur que `POST /v1/sends`, sans clé d'en-tête.
-        envoyerModele: (tenant, corps, compter) => lancerEnvoiPublic(depsEnvois, tenant, corps, undefined, compter),
         // Le statut d'un message (lot 13) : la MÊME lecture que `GET /v1/messages/{id}`.
         messagesApi: conversationsV1,
         // L'envoi au format de Meta (lot 13, domaine 2) : le MÊME que `POST /v1/messages`.

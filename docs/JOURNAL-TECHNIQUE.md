@@ -5,6 +5,46 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : CSM virtuel, lot H (B8, livraison 2) : un modèle ou un scénario pour une personne part sur le clic d'un admin
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-h-envois-au-oui.md`, section « Livraison 2 ». La livraison 1 (les
+campagnes et la suppression de contacts au oui) est en production depuis le déploiement de `1ce125267`.
+
+**Les deux derniers envois de Claude à de vrais contacts passent au oui.** `send_template_to_contact` et
+`send_scenario_to_contact` préparent un bouton (« Envoyer à 1 contact », « Lancer le scénario pour 1 contact ») au lieu
+d'envoyer. La préparation juge la cible par les pièces du cycle de `POST /v1/sends`, sans rien écrire (`jugerCible`,
+`src/api/envoi-public.ts` : le modèle approuvé chez Meta et ses variables, le scénario qui peut partir, la catégorie de
+Meta, qui entre dans l'empreinte) et refuse une fiche qui a dit STOP ou qui est bloquée ; un scénario se garde par son
+identifiant et son code. Le clic envoie par ce cycle, sans compteur (un envoi de la console, hors du quota du jour de
+l'API ; le plafond coûteux se compte à la préparation), sous la clé d'idempotence `oui:<id>:<rang>` : une reprise retrouve
+l'envoi fait, une clé encore en cours est une panne que le prochain clic reprend, et rien ne se reprend plus de 23 heures
+après le clic (la clé vit 24 heures). Le numéro, les valeurs des variables et le numéro masqué montré ne vivent dans le oui
+que le temps du clic : `terminer` les efface dans la requête qui ferme le oui, et un balayage horaire du worker
+(`mises-en-ligne-expurgees`) quand le bouton expire ou que le clic est trop ancien pour reprendre. Garder le numéro plutôt
+que créer la fiche à la préparation : un bouton jamais cliqué ne crée rien et n'entame pas la limite de contacts.
+`get_go_live` s'ouvre à toutes les offres (un modèle part dans toutes, et c'est là que Claude lit le `send_id`) ;
+`quotaEnvois` et `envoyerModele` quittent les dépendances du MCP, qu'aucun outil n'utilise plus. Le renvoi à un
+destinataire en échec passe à B10 : aucun outil ne liste encore ces destinataires. La page Shopify de la vitrine disait
+encore « avec son code » pour la suppression de contacts : corrigée. Aucune migration.
+
+**La relecture indépendante : un rouge, corrigé avant de pousser.** Le résultat neuf d'un envoi (`envoye`) n'était pas
+traité par la page du oui : la console ne compilait plus, et chaque déploiement de la console aurait échoué chez Vercel,
+ceux des pairs compris. Corrigés aussi avant de pousser : une action que la version en service ne connaît pas échoue
+désormais fermée (une image d'avant ce lot prendrait un envoi de scénario repris pour une publication, et publierait le
+brouillon sans contrôle : la marche à suivre avant un tel retour arrière est dans `DEPLOY.md`) ; un envoi préparé deux
+fois rend le même bouton ; le numéro est ramené au format de la fiche avant la recherche du STOP ; un espace sans numéro
+le sait dès la préparation ; la preuve en base de l'effacement porte sur les clés, plus seulement sur le récapitulatif ;
+le récapitulatif dit qui déclare l'accord ; le refus tardif dit où chercher l'envoi ; et les textes qui décrivaient encore
+un envoi direct (la référence de l'API, `features.md`, les démos de la page Développeurs, la page MCP, le nombre d'outils
+de la Free sur la page des tarifs). Le reste est au `todo.md` (une lecture « illisible » de Meta prise pour un refus
+définitif, retrouver un envoi parti avant un `trop_tard`, deux préparations simultanées, le coût du balayage).
+
+Preuves : 29 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint (racine et console),
+l'auto-attaque (2 259 sondes, aucune trouvaille), la suite racine et celle de la console, l'intégration du magasin sur
+le banc PGlite ; sur l'arbre fusionné avec les pairs : les tests ciblés (6 573 dans 274 fichiers au premier passage) et la
+console (1 407). L'essai réel de la livraison 1 est fait (292 : refus sans clic, le clic, le message livré et lu) ; celui
+de la livraison 2 suit son déploiement.
+
 ## 2026-11-26 : segments Shopify, lot 7b : la dernière commande face à la dernière analyse (Entreprise)
 
 Plan : `docs/superpowers/plans/2026-11-26-segments-shopify-lot-7b-analyse-et-commandes.md` (spec, chantier 7, lot 7b ;

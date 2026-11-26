@@ -19,9 +19,6 @@ import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-eti
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
 import type { GrilleMeta } from '../src/credit-whatsapp/grille';
-import { lireCible, schemaCorps, schemaDestinataire, type ResultatEnvoiPublic } from '../src/api/envoi-public';
-import { validateParamMapping } from '../src/crm/template';
-import { cleIdempotence } from '../src/api/idempotence';
 import { modelesInertes, aucuneCampagneActive } from './routes-inertes';
 import { filiereApiSeule, aucunPremierMessage } from './gardes';
 import { porteEnMemoire } from './aide/porte-premier';
@@ -30,6 +27,7 @@ import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { refusDesClesInconnues, rendreRefus } from '../src/mcp/serveur';
 import { adresseEcran } from '../src/mcp/ecran';
 import { FiltreContactInvalide } from '../src/crm/contact-filters';
+import { monterOuiIndividuel } from './aide/oui-individuel';
 
 /**
  * Le serveur MCP : `POST /mcp`, du JSON-RPC 2.0 sans état, autorisé par une clé d'API.
@@ -948,13 +946,13 @@ describe('serveur MCP : cohérence du catalogue', () => {
       create_scenario: [true, false, false],
       update_scenario: [true, true, false],
       delete_scenario: [true, true, false],
-      // Un scénario part chez une personne ; la même clé d'idempotence ne renvoie rien ; comme l'envoi d'un modèle.
-      send_scenario_to_contact: [true, true, true],
+      // Au oui depuis B8 (2026-11-26) : chaque appel prépare un bouton de plus, et rien ne part avant le clic d'un admin.
+      send_scenario_to_contact: [true, false, false],
       // Le oui de mise en ligne (CSM, B2) : chaque appel prépare une mise en ligne de plus ; rien ne part chez un tiers
       // (rien n'est publié avant le clic d'un admin).
       propose_go_live: [true, false, false],
-      // Livraison B : un message part chez une personne ; la même clé d'idempotence ne renvoie rien ; le fil n'est pas pris.
-      send_template_to_contact: [true, true, true],
+      // Livraison B, au oui depuis B8 : chaque appel prépare un bouton de plus, et rien ne part avant le clic d'un admin.
+      send_template_to_contact: [true, false, false],
       // Les campagnes depuis l'assistant (2026-10-20) : reposer les mêmes étiquettes ne change rien.
       tag_contacts: [true, true, false],
       // Un brouillon de plus à chaque appel, et rien ne part.
@@ -1172,8 +1170,9 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   // Les scénarios par leur recette (2026-11-02) : la fonction qui garde les scénarios de la console.
   get_scenario: 'scenarios', create_scenario: 'scenarios', update_scenario: 'scenarios', delete_scenario: 'scenarios',
   send_scenario_to_contact: 'scenarios',
-  // Les versions et le oui de mise en ligne (CSM, B2 et B3) : la fonction qui garde les scénarios de la console.
-  list_scenario_versions: 'scenarios', propose_go_live: 'scenarios', get_go_live: 'scenarios',
+  // Les versions et le oui de mise en ligne (CSM, B2 et B3) : la fonction qui garde les scénarios de la console. Lire un
+  // oui (get_go_live) est ouvert à toutes les offres depuis B8 : un modèle envoyé à une personne s'y lit.
+  list_scenario_versions: 'scenarios', propose_go_live: 'scenarios',
   // La simulation d'un parcours (CSM, B6) : une lecture, sous la même fonction que les scénarios qu'elle joue.
   simulate_scenario: 'scenarios',
   // Le lien de test et le déroulé (CSM, B6b) : des scénarios ; les deux journaux d'erreurs, ouverts comme dans la console.
@@ -1384,93 +1383,71 @@ describe('serveur MCP : les modèles (lot 13, domaine 3)', () => {
   });
 });
 
-describe('serveur MCP : envoyer un modèle à un contact (lot 13, domaine 3, livraison B)', () => {
+/**
+ * Envoyer un modèle à une personne (lot 13, domaine 3, livraison B), AU OUI depuis B8 (CSM, livraison 2) : l'outil prépare
+ * le bouton, et le clic d'un admin envoie par le cycle de `POST /v1/sends` (`tests/mise-en-ligne-envois-individuels.test.ts`
+ * prouve le corps, la clé et la reprise).
+ */
+describe('serveur MCP : envoyer un modèle à un contact, au oui (lot 13, domaine 3, livraison B ; CSM, B8)', () => {
   const outil = OUTILS.find((o) => o.nom === 'send_template_to_contact')!;
-  const RAPPORT = { sendId: 'send-1', opening: 'whatsapp_template', recipientCount: 1, created: 0, matched: 1, skipped: [], skippedTotal: 0 };
-
-  function monterEnvoi(reponse: ResultatEnvoiPublic, couteuxAccepte = true, quotaAccepte = true) {
-    const corps: unknown[] = [];
-    const comptes: number[] = [];
-    const deps = {
-      couteux: { consommer: async () => ({ accepte: couteuxAccepte, attenteMs: 4000 }) },
-      quotaEnvois: async () => (quotaAccepte ? { accepte: true } : { accepte: false, raison: '2000 envois par jour, remise à zéro à minuit' }),
-      envoyerModele: async (_t: string, c: unknown, compter: (n: number) => Promise<boolean>) => {
-        corps.push(c);
-        comptes.push(Number(await compter(1)));
-        return reponse;
-      },
-    } as unknown as DepsMcp;
-    return { deps, corps, comptes };
-  }
-  const ARGS = { name: 'commande_prete', language: 'fr', phone: '+33612345678', values: ['Claire', '8412'], idempotency_key: 'claude-8412' };
+  const ARGS = { name: 'commande_prete', language: 'fr', phone: '+33612345678', values: ['Claire', '8412'] };
+  const MOI = { userId: 'u1', autorisationId: 'aut-1' };
 
   it('🔴 réservé à une PERSONNE : une clé d’API, même mcp:write, ne le voit pas', () => {
     expect(outilsPour({ scopes: ['mcp:read', 'mcp:write'], personne: null }).map((o) => o.nom)).not.toContain('send_template_to_contact');
   });
 
-  it('🔴 le corps construit est un corps de POST /v1/sends que ses propres règles acceptent, pour UNE personne', async () => {
-    const { deps, corps, comptes } = monterEnvoi({ statut: 201, corps: RAPPORT });
-    expect(await outil.executer(deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).toEqual({ send_id: 'send-1', contact_created: false });
-    expect(comptes).toEqual([1]);
-    const lu = schemaCorps.safeParse(corps[0]);
-    expect(lu.success).toBe(true);
-    if (!lu.success) return;
-    expect(cleIdempotence(undefined, lu.data)).toEqual({ ok: true, cle: 'claude-8412' });
-    const params = validateParamMapping(lu.data.params ?? [], { accepterVariables: true });
-    expect(params).toEqual([{ position: 1, source: { type: 'literal', value: 'Claire' } }, { position: 2, source: { type: 'literal', value: '8412' } }]);
-    expect(lireCible(lu.data, params!)).toEqual({ kind: 'template', name: 'commande_prete', language: 'fr' });
-    // L'accord de la personne, déclaré par le client et signé de la personne connectée (test suivant).
-    expect(lu.data.recipients).toEqual([{ phone: '+33612345678', consent: 'opted_in', consentSource: 'déclaré dans Claude par u1' }]);
-    expect(schemaDestinataire.safeParse(lu.data.recipients[0]).success).toBe(true);
+  it('🔴 il prépare le bouton au lieu d’envoyer : le oui garde le modèle, la personne, les valeurs et qui déclare l’accord', async () => {
+    const { m, deps, jugements } = monterOuiIndividuel();
+    const r = await outil.executer(deps, 't1', ARGS, MOI) as { go_live: { go_live_id: string; bouton: string }; recapitulatif: string[] };
+    expect(r.go_live.bouton).toBe('Envoyer à 1 contact');
+    expect(r.recapitulatif.join(' ')).toContain('Ce clic confirme l’accord de cette personne');
+    const l = await m.store.lire('t1', r.go_live.go_live_id);
+    expect(l).toMatchObject({
+      etat: 'proposee', proposeePar: 'u1',
+      actions: [{ type: 'modele', modele: 'commande_prete', langue: 'fr', valeurs: ['Claire', '8412'], declarePar: 'u1', telephone: '+33612345678' }],
+    });
+    // Jugé sans rien réserver ; l'envoi du faux LÈVE : rien n'est parti.
+    expect(jugements).toHaveLength(1);
+    expect(jugements[0]).not.toHaveProperty('idempotencyKey');
   });
 
-  it('🔴 envoyer par Claude, c’est le client qui déclare l’accord de la personne : opted_in, signé, par numéro comme par fiche', async () => {
+  it('🔴 l’accord de la personne reste déclaré par le client, et la description dit que rien ne part avant le clic', () => {
     // Décision de Julien du 2026-10-25 : « si je demande d'envoyer à tel numéro, c'est le choix du client », sa
-    // responsabilité. Le chemin partagé de `POST /v1/sends` l'écrit sur la fiche, refuse d'y lever un STOP
-    // (`appliquerConsentement`) et écarte la personne désabonnée. Aucun paramètre : Claude ne pose jamais la question.
-    expect(outil.description).toMatch(/consent is not a parameter, the send records it on the user's behalf/);
-    const parFiche = monterEnvoi({ statut: 201, corps: RAPPORT });
-    const { phone: _p, ...sansNumero } = ARGS;
-    await outil.executer(parFiche.deps, 't1', { ...sansNumero, contact_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' }, { userId: 'u2', autorisationId: 'aut-1' });
-    expect((parFiche.corps[0] as { recipients: unknown[] }).recipients)
-      .toEqual([{ contactId: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01', consent: 'opted_in', consentSource: 'déclaré dans Claude par u2' }]);
-    // Une personne désabonnée : écartée par le chemin partagé, et Claude le dit.
-    const stop = monterEnvoi({ statut: 201, corps: { ...RAPPORT, recipientCount: 0, skipped: [{ index: 0, reason: 'opted_out' }], skippedTotal: 1 } });
-    await expect(outil.executer(stop.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/rien n’est parti.*opted_out/);
+    // responsabilité. Aucun paramètre : Claude ne pose jamais la question ; le récapitulatif le dit à l'admin qui clique.
+    expect(outil.description).toMatch(/consent is not a parameter/);
+    expect(outil.description).toMatch(/NOTHING IS SENT BEFORE THAT CLICK/);
+    expect(outil.entree.properties).not.toHaveProperty('idempotency_key');
   });
 
-  it('🔴 un refus de l’envoi revient à Claude avec sa phrase et son code ; une personne écartée aussi', async () => {
-    const refus = monterEnvoi({ statut: 402, corps: { error: 'limite de 1000 envois de modèles par mois atteinte', code: 'plan_limit_reached' } });
-    await expect(outil.executer(refus.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/1000 envois de modèles.*plan_limit_reached/);
-    const ecarte = monterEnvoi({ statut: 201, corps: { ...RAPPORT, recipientCount: 0, created: 1, skipped: [{ index: 0, reason: 'no_consent' }], skippedTotal: 1 } });
-    await expect(outil.executer(ecarte.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' }))
-      .rejects.toThrow(/rien n’est parti.*no_consent.*fiche a été créée.*NOUVELLE idempotency_key/);
+  it('🔴 le numéro est ramené au format de la fiche avant d’être gardé ; illisible, il est refusé', async () => {
+    const { m, deps, jugements } = monterOuiIndividuel();
+    const r = await outil.executer(deps, 't1', { ...ARGS, phone: '+33 6 12 34 56 78' }, MOI) as { go_live: { go_live_id: string } };
+    expect((await m.store.lire('t1', r.go_live.go_live_id))!.actions).toMatchObject([{ telephone: '+33612345678' }]);
+    await expect(outil.executer(deps, 't1', { ...ARGS, phone: 'pas un numéro' }, MOI)).rejects.toThrow(/numéro illisible/);
+    expect(jugements).toHaveLength(1);
   });
 
-  it('phone OU contact_id, une valeur non vide par variable : sinon rien n’est appelé ; le plafond coûteux refuse aussi', async () => {
-    const { deps, corps } = monterEnvoi({ statut: 201, corps: RAPPORT });
-    await expect(outil.executer(deps, 't1', { ...ARGS, contact_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' }, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/phone OU par contact_id/);
+  it('phone OU contact_id, une valeur non vide par variable : sinon rien n’est préparé ; le plafond coûteux refuse aussi', async () => {
+    const { deps, jugements } = monterOuiIndividuel();
+    await expect(outil.executer(deps, 't1', { ...ARGS, contact_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' }, MOI)).rejects.toThrow(/phone OU par contact_id/);
     const { phone: _p, ...sansPersonne } = ARGS;
-    await expect(outil.executer(deps, 't1', sansPersonne, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/phone OU par contact_id/);
-    await expect(outil.executer(deps, 't1', { ...ARGS, values: ['Claire', ''] }, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/values/);
-    expect(corps).toHaveLength(0);
-    const plein = monterEnvoi({ statut: 201, corps: RAPPORT }, false);
-    await expect(outil.executer(plein.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/réessayer dans 4 s/);
-  });
-
-  it('🔴 le quota d’envois du jour refuse aussi, avec sa phrase', async () => {
-    const quota = monterEnvoi({ statut: 201, corps: RAPPORT }, true, false);
-    await expect(outil.executer(quota.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/2000 envois par jour/);
+    await expect(outil.executer(deps, 't1', sansPersonne, MOI)).rejects.toThrow(/phone OU par contact_id/);
+    await expect(outil.executer(deps, 't1', { ...ARGS, values: ['Claire', ''] }, MOI)).rejects.toThrow(/values/);
+    expect(jugements).toHaveLength(0);
+    const plein = monterOuiIndividuel({ couteuxAccepte: false });
+    await expect(outil.executer(plein.deps, 't1', ARGS, MOI)).rejects.toThrow(/réessayer dans 4 s/);
+    expect(plein.jugements).toHaveLength(0);
   });
 
   it('🔴 une valeur que Meta refuserait à l’envoi (retour à la ligne, tabulation, cinq espaces) est refusée avant', async () => {
-    const { deps, corps } = monterEnvoi({ statut: 201, corps: RAPPORT });
+    const { deps, jugements } = monterOuiIndividuel();
     for (const v of ['Claire\nDupont', 'Claire\tDupont', 'Claire     Dupont']) {
-      await expect(outil.executer(deps, 't1', { ...ARGS, values: [v] }, { userId: 'u1', autorisationId: 'aut-1' }), v).rejects.toThrow(/retour à la ligne/);
+      await expect(outil.executer(deps, 't1', { ...ARGS, values: [v] }, MOI), v).rejects.toThrow(/retour à la ligne/);
     }
-    expect(corps).toHaveLength(0);
+    expect(jugements).toHaveLength(0);
     // Quatre espaces passent ; le schéma annoncé dit la même règle.
-    expect(await outil.executer(deps, 't1', { ...ARGS, values: ['Claire    Dupont'] }, { userId: 'u1', autorisationId: 'aut-1' })).toMatchObject({ send_id: 'send-1' });
+    expect(await outil.executer(deps, 't1', { ...ARGS, values: ['Claire    Dupont'] }, MOI)).toMatchObject({ go_live: { bouton: 'Envoyer à 1 contact' } });
     const motif = new RegExp((outil.entree.properties.values as { items: { pattern: string } }).items.pattern);
     expect(['Claire\nDupont', 'Claire     Dupont'].map((v) => motif.test(v))).toEqual([false, false]);
     expect(motif.test('Claire    Dupont')).toBe(true);

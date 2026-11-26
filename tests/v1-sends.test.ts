@@ -12,6 +12,7 @@ import type { PoolClient } from 'pg';
 import type { V1SendsRouteDeps } from '../src/http/v1-sends';
 import {
   COMPTEUR_ENVOI_REFUSE,
+  jugerCible,
   lancerEnvoiPublic,
   type CreationEnvoiPublic,
   type DepsEnvoiPublic,
@@ -1204,8 +1205,8 @@ describe('POST /v1/sends : idempotence', () => {
   });
 
   /**
-   * 🔴 LE QUOTA SE COMPTE APRÈS LA CLÉ. `lancerEnvoiPublic` est le seul endroit où l'ordre se décide (la route et l'outil
-   * `send_template_to_contact` y passent) : un compteur espion dit ce qui a été compté.
+   * 🔴 LE QUOTA SE COMPTE APRÈS LA CLÉ. `lancerEnvoiPublic` est le seul endroit où l'ordre se décide (la route et le clic
+   * d'un envoi au oui y passent) : un compteur espion dit ce qui a été compté.
    */
   it('🔴 un rejeu, un envoi en cours ou une clé déjà servie ne comptent rien du quota', async () => {
     const { sends, idem, cap } = app();
@@ -2034,5 +2035,46 @@ describe('l’option interne « parcoursEvenement » de l’envoi public (lot 4)
     const issue = await lancerEnvoiPublic(sends, 't1', corps({ parcoursEvenement: PONT }), 'i-pont-2', compter);
     expect(issue).toEqual({ statut: 400, corps: { error: 'corps : champ inconnu (parcoursEvenement)', code: 'invalid_body' } });
     expect(cap.sends).toEqual([]);
+  });
+});
+
+/**
+ * 🔴 LA CIBLE JUGÉE SANS RIEN ÉCRIRE (lot 1 du CSM virtuel, B8, livraison 2) : le oui d'un envoi à une personne la relit à la
+ * préparation et au clic (`src/mise-en-ligne/envois.ts`). Les MÊMES pièces que l'envoi, et aucune écriture : ni clé
+ * réservée, ni fiche créée ni consentement écrit, ni campagne.
+ */
+describe('jugerCible : la cible d’un envoi, jugée sans rien écrire (CSM, B8)', () => {
+  const corps = (cible: object, params: object[] = []) => ({
+    ...cible, ...(params.length > 0 ? { params } : {}),
+    recipients: [{ phone: '+33612345678', consent: 'opted_in', consentSource: 'déclaré dans Claude par u1' }],
+  });
+  const CLAIRE = [{ position: 1, source: { type: 'literal', value: 'Claire' } }];
+
+  it('🔴 un modèle : sa catégorie LUE CHEZ META ; absent, ou un compte de variables qui diffère : le refus de l’envoi ; rien n’est écrit', async () => {
+    const { sends, cap, idem } = app({}, { modele: { statut: 'approuve', categorie: 'marketing', variables: 1 } });
+    expect(await jugerCible(sends, 't1', corps(TPL, CLAIRE))).toEqual({ ok: true, categorie: 'marketing', label: 'confirmation', workflowId: null });
+    expect(await jugerCible(sends, 't1', corps(TPL))).toMatchObject({ ok: false, reponse: { statut: 422, corps: { code: 'unsendable_target' } } });
+    const absent = app({}, { modele: { statut: 'absent' } });
+    expect(await jugerCible(absent.sends, 't1', corps(TPL))).toMatchObject({ ok: false, reponse: { statut: 404, corps: { code: 'template_not_found' } } });
+    expect([idem.size, cap.resolutions.length, cap.consentements.length, cap.sends.length]).toEqual([0, 0, 0, 0]);
+  });
+
+  it('🔴 un scénario : son identifiant ; un scénario qui ouvre par un message de session, ou hors de l’offre : refusé', async () => {
+    const { sends } = app();
+    expect(await jugerCible(sends, 't1', corps(SCN('scn_template')))).toMatchObject({ ok: true, label: 'scn_template', workflowId: 'wf-scn_template' });
+    expect(await jugerCible(sends, 't1', corps(SCN('scn_session')))).toMatchObject({ ok: false, reponse: { statut: 422, corps: { code: 'unsendable_target' } } });
+    const base = { offreDe: async () => ({ offre: 'base' as const, droits: DROITS.base, retourEnBaseLe: null }) };
+    expect(await jugerCible(app({ offres: base }).sends, 't1', corps(SCN('scn_template'))))
+      .toMatchObject({ ok: false, reponse: { statut: 402, corps: { code: 'plan_feature_unavailable' } } });
+  });
+
+  it('un espace sans numéro WhatsApp : le refus de l’envoi dès la préparation', async () => {
+    const { sends } = app({ repo: { getTenantPhoneNumberId: async () => null } });
+    expect(await jugerCible(sends, 't1', corps(TPL))).toMatchObject({ ok: false, reponse: { statut: 409, corps: { code: 'no_whatsapp_number' } } });
+  });
+
+  it('un corps mal formé : le 400 de l’envoi', async () => {
+    const { sends } = app();
+    expect(await jugerCible(sends, 't1', { ...TPL, recipients: [] })).toMatchObject({ ok: false, reponse: { statut: 400, corps: { code: 'invalid_body' } } });
   });
 });

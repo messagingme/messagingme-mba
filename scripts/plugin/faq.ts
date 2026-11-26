@@ -167,8 +167,8 @@ export const FAQ: readonly EntreeFaq[] = [
     id: 'fenetre-24-heures',
     question: { fr: 'Mon message n’est pas parti.', en: 'My message was not sent.' },
     reponse: {
-      fr: 'Passé 24 heures sans message de la personne, seul un modèle approuvé par Meta peut partir (send_template_to_contact). Dans les 24 heures qui suivent son dernier message, une réponse libre part (reply_in_open_window). get_conversation dit si la fenêtre est ouverte.',
-      en: 'After 24 hours without a message from the person, only a template approved by Meta can be sent (send_template_to_contact). Within 24 hours of their last message, a free-form reply goes out (reply_in_open_window). get_conversation tells whether the window is open.',
+      fr: 'Passé 24 heures sans message de la personne, seul un modèle approuvé par Meta peut partir : Claude le prépare (send_template_to_contact), et il part sur le clic d’un administrateur, sur la page dont Claude donne le lien. Dans les 24 heures qui suivent son dernier message, une réponse libre part tout de suite (reply_in_open_window). get_conversation dit si la fenêtre est ouverte.',
+      en: 'After 24 hours without a message from the person, only a template approved by Meta can be sent: Claude prepares it (send_template_to_contact), and it goes out on an administrator’s click, on the page Claude links to. Within 24 hours of their last message, a free-form reply goes out right away (reply_in_open_window). get_conversation tells whether the window is open.',
     },
     source: 'docs/aide/fiches/la-fenetre-de-24-heures.md',
   },

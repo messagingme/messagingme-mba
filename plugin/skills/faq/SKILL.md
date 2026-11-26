@@ -107,11 +107,11 @@ Meta relit chaque nouveau nom (dix changements au plus par période de 30 jours)
 
 ## My message was not sent.
 
-After 24 hours without a message from the person, only a template approved by Meta can be sent (`send_template_to_contact`). Within 24 hours of their last message, a free-form reply goes out (`reply_in_open_window`). `get_conversation` tells whether the window is open.
+After 24 hours without a message from the person, only a template approved by Meta can be sent: Claude prepares it (`send_template_to_contact`), and it goes out on an administrator’s click, on the page Claude links to. Within 24 hours of their last message, a free-form reply goes out right away (`reply_in_open_window`). `get_conversation` tells whether the window is open.
 
 **FR · Mon message n’est pas parti.**
 
-Passé 24 heures sans message de la personne, seul un modèle approuvé par Meta peut partir (`send_template_to_contact`). Dans les 24 heures qui suivent son dernier message, une réponse libre part (`reply_in_open_window`). `get_conversation` dit si la fenêtre est ouverte.
+Passé 24 heures sans message de la personne, seul un modèle approuvé par Meta peut partir : Claude le prépare (`send_template_to_contact`), et il part sur le clic d’un administrateur, sur la page dont Claude donne le lien. Dans les 24 heures qui suivent son dernier message, une réponse libre part tout de suite (`reply_in_open_window`). `get_conversation` dit si la fenêtre est ouverte.
 
 ## Why does Meta ask for a card, and what does it charge?
 

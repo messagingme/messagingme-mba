@@ -91,6 +91,8 @@ function MiseEnLigneInner({ session }: { session: Session }) {
       case 'reprise': return t(`reprise : ${r.destinataires} contact(s) en attente la reçoivent`, `resumed: ${r.destinataires} waiting contact(s) receive it`);
       case 'deja_partie': return t('déjà partie : rien n’a été renvoyé', 'had already left: nothing was sent again');
       case 'supprimes': return t(`${r.contacts} contact(s) supprimé(s)`, `${r.contacts} contact(s) deleted`);
+      // Un modèle ou un scénario envoyé à une personne (B8, livraison 2).
+      case 'envoye': return t('envoyé', 'sent');
     }
   };
 

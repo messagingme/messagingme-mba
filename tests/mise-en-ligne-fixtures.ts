@@ -16,7 +16,7 @@ import {
 } from '../src/mise-en-ligne/mise-en-ligne';
 import type { IssueAcceptation, LigneMiseEnLigne, Reclamation } from '../src/mise-en-ligne/store.pg';
 import { envoisAuOuiInertes, modelesDeBlocInertes } from './routes-inertes';
-import type { DepsEnvoisAuOui } from '../src/mise-en-ligne/envois';
+import { RECAPITULATIF_EFFACE, type DepsEnvoisAuOui } from '../src/mise-en-ligne/envois';
 
 export const T = 't1';
 export const AUTRE = 't2';
@@ -82,6 +82,13 @@ export class FauxMisesEnLigne {
     return l ? this.vue(l) : null;
   }
 
+  /** La règle de `PgMisesEnLigne.trouverProposee` : proposée, pas échue, même personne, même empreinte, la plus récente. */
+  async trouverProposee(tenant: string, par: string, empreinte: string): Promise<string | null> {
+    const vivantes = [...this.lignes.values()].filter((l) => l.tenant === tenant && l.proposeePar === par && l.empreinte === empreinte
+      && l.etat === 'proposee' && l.expireLe > this.horloge.now);
+    return vivantes.at(-1)?.id ?? null;
+  }
+
   async accepter(tenant: string, id: string, par: string, empreinte: string): Promise<IssueAcceptation> {
     const l = this.a(tenant, id);
     if (l && l.etat === 'proposee' && l.expireLe > this.horloge.now && l.empreinte === empreinte) {
@@ -98,7 +105,7 @@ export class FauxMisesEnLigne {
     if (!l || l.etat !== 'acceptee' || (l.bail !== null && l.bail > this.horloge.now)) return null;
     Object.assign(l, { jeton, bail: this.horloge.now + bailS * 1000 });
     return {
-      actions: structuredClone(l.actions), resultat: [...l.resultat], accepteePar: l.accepteePar!,
+      actions: structuredClone(l.actions), resultat: [...l.resultat], accepteePar: l.accepteePar!, accepteeLe: new Date(l.accepteeLe!).toISOString(),
       clicValide: this.admins.has(l.accepteePar!),
       accesValide: this.admins.has(l.proposeePar) && (l.autorisationId === null || !this.revoquees.has(l.autorisationId)),
     };
@@ -121,6 +128,14 @@ export class FauxMisesEnLigne {
     const l = this.a(tenant, id);
     if (!l || l.etat !== 'acceptee' || l.jeton !== jeton) return false;
     Object.assign(l, { etat, termineeLe: this.horloge.now, jeton: null, bail: null });
+    // La règle de `PgMisesEnLigne.terminer` : un envoi à une personne perd ce qu'il gardait de son destinataire.
+    if (l.empreinte !== 'expurgee' && l.actions.some((a) => a.type === 'modele' || a.type === 'envoi_scenario')) {
+      l.actions = l.actions.map((a) => {
+        const { telephone: _t, valeurs: _v, destinataire: _d, ...reste } = a as ActionGardee & { telephone?: string; valeurs?: string[]; destinataire?: string };
+        return reste as ActionGardee;
+      });
+      Object.assign(l, { recapitulatif: [RECAPITULATIF_EFFACE], empreinte: 'expurgee' });
+    }
     return true;
   }
 }

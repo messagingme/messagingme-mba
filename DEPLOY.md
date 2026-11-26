@@ -394,6 +394,21 @@ retour arrière. Avant de revenir en arrière, vider les programmations (command
 workers) : `update workflows set programmed_graph = null, programmed_at = null, programmed_by = null where programmed_graph
 is not null`. La table `modeles_de_bloc` et les colonnes restent : l'ancien code ne les lit pas.
 
+## ⚠️ Retour arrière d'une image d'avant les envois à une personne au oui (CSM, lot H, B8 livraison 2, 2026-11-26)
+
+Une image d'avant ce lot ne connaît pas les actions `modele` et `envoi_scenario` du oui de mise en ligne : un tel oui
+accepté puis coupé, repris par un clic, y serait pris pour une PUBLICATION, et le brouillon de son scénario partirait en
+ligne sans aucun contrôle ; elle n'efface plus non plus le numéro ni les valeurs d'un oui fermé (ni balayage). Avant d'y
+revenir, clore ces oui et les effacer (commande pour Julien, depuis la machine des workers) :
+`update mises_en_ligne set etat = 'echouee', terminee_le = now(), execution_jeton = null, execution_bail = null where etat =
+'acceptee' and (actions @> '[{"type": "modele"}]' or actions @> '[{"type": "envoi_scenario"}]')`, puis `update mises_en_ligne
+set expire_le = now() where etat = 'proposee' and (actions @> '[{"type": "modele"}]' or actions @> '[{"type":
+"envoi_scenario"}]')`, puis `update mises_en_ligne set actions = (select jsonb_agg(a - 'telephone' - 'valeurs' -
+'destinataire' order by n) from jsonb_array_elements(actions) with ordinality as t(a, n)), recapitulatif =
+jsonb_build_array('Le détail de cet envoi (son destinataire, ses valeurs) a été effacé.'), empreinte = 'expurgee' where
+(actions @> '[{"type": "modele"}]' or actions @> '[{"type": "envoi_scenario"}]') and empreinte <> 'expurgee'`. Depuis ce
+lot, une action inconnue échoue fermée (`action_inconnue`) : un retour arrière ultérieur vers une image qui l'a est sûr.
+
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 
 Les routes de `mba.` et d'`api.` nomment `mba-api` par une variable, que nginx relit seul (résolveur de Docker,

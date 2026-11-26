@@ -129,4 +129,4 @@ export async function POST(req: Request) {
 ## Trying it
 
 - With the Stripe CLI, trigger invoice.payment_failed for a customer tied to your own number: the message arrives, and its button opens your billing page.
-- Or send the template with `send_template_to_contact` to your number, before wiring Stripe.
+- Or have the template prepared with `send_template_to_contact` for your number, then click its button, before wiring Stripe.

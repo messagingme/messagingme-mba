@@ -7,11 +7,12 @@
 /** Ce que `propose_go_live` demande : publier, restaurer, brancher le répondeur. */
 export const TYPES_ACTION = ['publier', 'restaurer', 'repondeur'] as const;
 /**
- * Les envois au oui (lot 1 du CSM virtuel, B8) : lancer, programmer ou reprendre une campagne, effacer des contacts. Ils
- * sont préparés par LEURS outils (`prepare_campaign`, `control_campaign`, `prepare_contacts_deletion`), jamais par
+ * Les envois au oui (lot 1 du CSM virtuel, B8) : lancer, programmer ou reprendre une campagne, effacer des contacts,
+ * envoyer un modèle ou faire partir un scénario vers UNE personne. Ils sont préparés par LEURS outils (`prepare_campaign`,
+ * `control_campaign`, `prepare_contacts_deletion`, `send_template_to_contact`, `send_scenario_to_contact`), jamais par
  * `propose_go_live`, et chacun est SEUL dans sa mise en ligne.
  */
-export const TYPES_ENVOI = ['campagne', 'suppression'] as const;
+export const TYPES_ENVOI = ['campagne', 'suppression', 'modele', 'envoi_scenario'] as const;
 export type TypeAction = (typeof TYPES_ACTION)[number] | (typeof TYPES_ENVOI)[number];
 
 /** Le résultat d'une action, une fois exécutée : `programme` = la publication attend la validation d'un template par Meta. */
@@ -25,6 +26,11 @@ export type ResultatAction =
   | { ok: true; etat: 'envoyee' | 'programmee' | 'reprise' | 'deja_partie'; destinataires: number }
   /** Une suppression : ce que CETTE exécution a effacé (une reprise après une coupure ne recompte pas le déjà fait). */
   | { ok: true; etat: 'supprimes'; contacts: number; conversations: number; messages: number }
+  /**
+   * Un envoi à UNE personne (un modèle, un scénario) : `envoi`, son identifiant (`send_id`, sa ligne dans Campagnes). Une
+   * reprise après une coupure rend le même, sans rien renvoyer.
+   */
+  | { ok: true; etat: 'envoye'; envoi: string }
   | { ok: false; code: string; message: string };
 
 /**
@@ -43,6 +49,9 @@ export interface VueMiseEnLigne {
   expireLe: string;
   accepteeLe: string | null;
   termineeLe: string | null;
-  /** `scenario` pour une publication ou le répondeur, `campagne` pour une campagne ; une suppression n'a que son nom. */
+  /**
+   * `scenario` pour une publication, le répondeur ou un scénario envoyé à une personne, `campagne` pour une campagne ; une
+   * suppression et un modèle envoyé n'ont que leur nom.
+   */
   actions: Array<{ type: TypeAction; nom: string; scenario?: string; campagne?: string; version?: number; resultat: ResultatAction | null }>;
 }

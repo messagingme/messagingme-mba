@@ -389,7 +389,7 @@ export const compteurEnvoiRefuse = (resultat: ResultatEnvoiPublic): resultat is 
 
 /**
  * Ce qu'un adaptateur peut régler sans toucher aux gardes (connecteur Shopify, 2026-10-21). Absentes, le comportement de
- * `POST /v1/sends` et de `send_template_to_contact` est inchangé.
+ * `POST /v1/sends` et du clic d'un envoi au oui est inchangé.
  */
 export interface OptionsEnvoiPublic {
   /** Le nom de la ligne dans Campagnes, à la place de `[API] <cible>` (coupé à 120 caractères). */
@@ -435,6 +435,39 @@ export interface OptionsEnvoiPublic {
 
 /** La même enveloppe que `refuser` (`{ error, code }`), rendue au lieu d'être envoyée. */
 const repondre = (statut: number, code: CodeApi, message: string): ReponseEnvoi => ({ statut, corps: { error: message, code } });
+
+/** Ce que vise un envoi, jugé sans rien écrire (`jugerCible`), ou le refus que l'envoi rendrait. */
+export type CibleJugee =
+  | { ok: true; categorie: CampaignCategory; label: string; workflowId: string | null }
+  | { ok: false; reponse: ReponseEnvoi };
+
+/**
+ * La cible d'un envoi, jugée SANS rien écrire ni compter : le oui d'un envoi à une personne (lot 1 du CSM virtuel, B8,
+ * `src/mise-en-ligne/envois.ts`) la relit à la préparation et au clic, et la catégorie lue chez Meta entre dans ce qui a
+ * été montré. Les MÊMES pièces que `lancerEnvoiPublic`, dans son ordre (la forme du corps, les paramètres, la cible,
+ * l'offre d'un scénario, puis `resoudreCible`, qui lit le modèle chez Meta), dans le rayon du Builder : un refus ici est
+ * celui que l'envoi rendrait. Le numéro, le Crédit WhatsApp, les modèles du mois et les destinataires, qui peuvent
+ * changer d'ici au clic, restent jugés par l'envoi lui-même, qui reste la seule garde.
+ */
+export async function jugerCible(deps: DepsEnvoiPublic, tenantId: string, brut: unknown): Promise<CibleJugee> {
+  const lu = schemaCorps.safeParse(brut);
+  if (!lu.success) return { ok: false, reponse: repondre(400, 'invalid_body', messageDeForme(lu.error, PRECISIONS)) };
+  const params = validateParamMapping(lu.data.params ?? [], { accepterVariables: true });
+  if (params === null) return { ok: false, reponse: repondre(400, 'invalid_body', 'params : positions 1..N contiguës et sources valides attendues') };
+  const demandee = lireCible(lu.data, params);
+  if ('message' in demandee) return { ok: false, reponse: repondre(400, 'invalid_body', demandee.message) };
+  if ((demandee.kind === 'scenario' || demandee.kind === 'node') && !(await deps.offres.offreDe(tenantId)).droits.fonctions.has('scenarios')) {
+    return { ok: false, reponse: { statut: STATUT_REFUS_OFFRE, corps: corpsRefusFonction('scenarios') } };
+  }
+  // Le numéro d'envoi, lu sans rien écrire : un espace sans numéro le sait dès la préparation, pas au clic.
+  if (demandee.kind !== 'rcsMessage') {
+    const numero = await numeroDEnvoi(deps, tenantId, lu.data.phoneNumberId);
+    if ('refus' in numero) return { ok: false, reponse: repondre(numero.refus.statut, numero.refus.code, numero.refus.message) };
+  }
+  const cible = await resoudreCible(deps, tenantId, demandee, params, 'general');
+  if ('refus' in cible) return { ok: false, reponse: repondre(cible.refus.statut, cible.refus.code, cible.refus.message) };
+  return { ok: true, categorie: cible.category, label: cible.label, workflowId: cible.workflowId ?? null };
+}
 
 /**
  * Le cycle complet d'un envoi public, partagé par ses quatre adaptateurs (`POST /v1/sends`, l'outil MCP, Shopify et

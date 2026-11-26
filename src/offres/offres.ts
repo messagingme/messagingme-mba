@@ -76,8 +76,8 @@ export interface Limites {
   appelsMinute: number | null;
   appelsHeure: number | null;
   /**
-   * Les quotas quotidiens de l'API, par famille (`src/api/quotas.ts`), mêmes règles : les modèles envoyés (`/v1/sends`,
-   * `send_template_to_contact`) et les messages libres dans la fenêtre de 24 h. 🔴 Les réponses ne descendent jamais sous
+   * Les quotas quotidiens de l'API, par famille (`src/api/quotas.ts`), mêmes règles : les modèles envoyés (`/v1/sends`)
+   * et les messages libres dans la fenêtre de 24 h. 🔴 Les réponses ne descendent jamais sous
    * 2 000 : ne jamais bloquer les clients du client.
    */
   modelesJour: number | null;

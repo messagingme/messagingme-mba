@@ -891,9 +891,10 @@ Spec `docs/superpowers/specs/2026-10-14-medias-message-rapide-design.md`, plan d
 
 Un seul service, `src/workflow/scenarios-api.ts`, que `/v1/scenarios` (`src/http/v1-scenarios.ts`) et les outils
 `create_scenario`, `get_scenario`, `update_scenario`, `delete_scenario` (`src/mcp/outils-scenarios.ts`) appellent sans
-logique à eux. `send_scenario_to_contact` (même fichier) fait partir un scénario vers UNE personne par
-`envoyerAUnePersonne` (`src/mcp/outils-modeles.ts`), l'envoi de `send_template_to_contact` avec la cible `scenario` et
-`category: utility`, que le chemin public durcit en la catégorie du template d'ouverture lue chez Meta.
+logique à eux. `send_scenario_to_contact` (même fichier) prépare au oui le départ d'un scénario vers UNE personne par
+`preparerEnvoiIndividuel` (`src/mcp/outils-modeles.ts`), comme `send_template_to_contact` ; le clic l'envoie avec la
+cible `scenario` et `category: utility`, que le chemin public durcit en la catégorie du template d'ouverture lue chez
+Meta (`src/mise-en-ligne/envois.ts`).
 
 🔴 **Le graphe brut n'entre jamais de l'extérieur.** L'appelant envoie une RECETTE (`src/workflow/recette.ts`, lue par
 `lireRecette` : Zod `safeParse`, schéma fermé, bornes de `web/lib/partage/message-rapide.ts`, les mêmes que l'éditeur et
@@ -1012,14 +1013,33 @@ des trois routes sortent en constantes nommées de `src/index.ts` (`depsEmbedded
 la console et le MCP reçoivent les mêmes objets, jamais une recopie (`tests/mcp-outils-prerequis.test.ts` lit le
 câblage). L'étape `activer_numero` de `get_setup_state` propose ces outils.
 
-🔴 **Les envois au oui (lot 1 du CSM virtuel, B8)** : un lancement, une programmation ou une reprise de campagne, et une
-suppression de contacts, partent sur le clic d'un admin, par le oui de mise en ligne (`mises_en_ligne`) :
+🔴 **Les envois au oui (lot 1 du CSM virtuel, B8)** : un lancement, une programmation ou une reprise de campagne, une
+suppression de contacts, et l'envoi d'un modèle ou d'un scénario à UNE personne (`send_template_to_contact`,
+`send_scenario_to_contact`), partent sur le clic d'un admin, par le oui de mise en ligne (`mises_en_ligne`) :
 `src/mise-en-ligne/envois.ts` porte leur relevé (ce qui est gardé, montré, et relu au clic), leur bouton, leur
 récapitulatif et leur exécution, rejouable sans double effet. Un envoi est SEUL dans sa mise en ligne. `reprendre`, que
 `launch_campaign` et `delete_contacts` appellent, reprend une exécution acceptée et coupée, et n'accepte JAMAIS : seule
 la route de la console accepte. Le câblage passe au oui les MÊMES objets que la console (`depsCampagnes`,
-`depsSuppression`, `src/index.ts`). Les réponses dans une conversation ouverte (`reply_in_open_window`,
-`send_message`) partent directement, hors du oui (décision de Julien du 2026-11-26).
+`depsSuppression`, `depsEnvois`, `src/index.ts`). Les réponses dans une conversation ouverte (`reply_in_open_window`,
+`send_message`) partent directement, hors du oui (décision de Julien du 2026-11-26). Un envoi à une personne :
+- la préparation juge la cible par les pièces du cycle de `POST /v1/sends`, sans rien écrire (`jugerCible`,
+  `src/api/envoi-public.ts` : le modèle approuvé chez Meta et ses variables, le scénario qui peut partir, la catégorie
+  de Meta, qui entre dans l'empreinte), et refuse une fiche qui a dit STOP ou bloquée ; le numéro est ramené au format
+  de la fiche (`e164DepuisSaisie`) ; un scénario se garde par son identifiant et son code `scn_`, que l'envoi vise (renommé
+  avant le clic, son nom change l'empreinte et le clic est refusé). Préparé deux fois, le même envoi rend le même bouton
+  (`trouverProposee` : même personne, même empreinte, pas encore cliqué) ;
+- le clic envoie par ce cycle, sans compteur (un envoi de la console : hors du quota du jour de l'API, qui se compte par
+  clé ; le plafond coûteux s'est compté à la préparation), sous la clé d'idempotence `oui:<id>:<rang>` : une reprise
+  retrouve le rapport de l'envoi fait, et une clé encore « en cours » est une panne (le oui reste à reprendre), pas un
+  refus. 🔴 La clé vit 24 heures : au-delà de `DELAI_DE_REPRISE_INDIVIDUELLE_MS` (23 heures) après le clic, une
+  reprise est refusée (`trop_tard`), elle pourrait envoyer une seconde fois ;
+- 🔴 le numéro, les valeurs et le numéro masqué montré ne vivent dans le oui que le temps du clic : `terminer` les
+  efface (avec le récapitulatif et l'empreinte) dans la requête qui ferme le oui, et le balayage horaire du worker
+  (`expurgerEchues`, tâche `mises-en-ligne-expurgees`) quand le bouton a expiré ou que le clic est trop ancien pour
+  reprendre. Une campagne et une suppression ne gardent que des identifiants.
+- 🔴 une action que la version en service ne connaît pas (écrite par une image plus récente, relue après un retour
+  arrière) échoue fermée (`action_inconnue`) : prise pour une publication, elle publierait un brouillon sans contrôle
+  (le retour arrière vers une image d'avant ce lot : `DEPLOY.md`).
 
 🔴 **Le fichier d'un message se lit à chaque envoi** et se vérifie une fois à l'écriture par le MÊME chemin que l'envoi
 (`lireFichierDuBloc`, `src/meta/template-media.ts` : fiche de la médiathèque de l'espace, sinon téléchargement gardé),
@@ -3666,8 +3686,9 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   passent par `importContacts`, le chemin de l'import HubSpot : depuis la console SANS consentement (`optIn: false`),
   depuis Claude consentantes (`declarePar`, la personne connectée : `optIn: true` et une source qui la nomme, décision de
   Julien du 2026-10-25), autorité `import` (un STOP reste un STOP), étiquette `Shopify`, aucun événement d'automation.
-  `send_template_to_contact` déclare de même l'accord de la personne (`consent: opted_in` dans le corps de
-  `POST /v1/sends`, signé), que `appliquerConsentement` refuse sur une fiche désabonnée. L'aperçu compte les
+  L'envoi au oui de `send_template_to_contact` déclare de même l'accord de la personne (`consent: opted_in` dans le
+  corps de `POST /v1/sends`, signé de la personne qui a préparé), que `appliquerConsentement` refuse sur une fiche
+  désabonnée. L'aperçu compte les
   places par `placesContacts`, sur les MÊMES prédicats que `verifierPlaceContacts` (`FICHE_ACTIVE`,
   toutes origines) : l'annonce et le refus comptent pareil. Un nombre au-delà des places libres est refusé avant d'écrire. Le jeton
   `client_credentials` se redemande à chaque appel (`demanderJeton`), avec le secret que `acces` déchiffre pour
@@ -5424,7 +5445,8 @@ l'activer, et d'ouvrir une recharge du crédit.
     à chaque action) : deux exécutions ne courent jamais ensemble, chaque résultat s'écrit sous le jeton, une action
     refusée arrête la suite (`echouee`). Une panne rend le bail et laisse la mise en ligne acceptée : la page dit
     « interrompue », un clic la reprend après le dernier résultat écrit (chaque action est rejouable sans double effet).
-    ⚠️ Rien ne la reprend sans un clic : le worker ne connaît pas les mises en ligne.
+    ⚠️ Rien ne la reprend sans un clic (ou l'outil d'un envoi, `reprendre`) : le worker ne fait qu'effacer ce qu'un envoi
+    à une personne gardait de son destinataire (`expurgerEchues`).
   - 🔴 **Les accès se relisent à la prise du bail**, dans la même requête : l'admin qui a cliqué l'est encore, la personne
     qui a préparé aussi, et son autorisation OAuth n'est pas révoquée. Sinon : `echouee`, code `acces_revoque`.
   - **Le journal** : `mise_en_ligne.acceptee` (qui a cliqué), `mise_en_ligne.faite` ou `.echouee`, et chaque action garde
@@ -5668,7 +5690,8 @@ n'est forgeable que par qui détient ce jeton. Si cette garde tombait, le filet 
   `PlafondEspace`).
 - **Les quotas QUOTIDIENS par espace** (`src/api/quotas.ts`, migrations 0208 et 0241, décision du 2026-10-04, trois
   familles depuis la spec offres v2) : le plafond compte des appels, le quota le TRAVAIL d'un jour civil de Paris, en
-  trois familles, les modèles (`sends.create` en destinataires, dont `send_template_to_contact` du MCP), les réponses
+  trois familles, les modèles (`sends.create` en destinataires ; un envoi parti sur le clic d'un oui n'y entre pas, c'est
+  un envoi de la console), les réponses
   (`messages.send`) et les fiches (`contacts.batch` en fiches, `contacts.upsert`). 🔴 Les modèles et les réponses sont
   deux familles pour qu'un envoi de modèles qui épuise la sienne ne bloque jamais une réponse. Valeur : le réglage
   d'espace (`tenant_settings.api_quota_modeles_jour`, `_reponses_jour`, `_fiches_jour`, `null` = défaut, CHECK > 0),
@@ -7657,9 +7680,9 @@ Ajouté par le lot 4 de l'API publique :
    passagère (429 avec `Retry-After`), contenu refusé (422 `meta_rejected`). La création compte `templates.create` à
    l'usage, hors quota du jour, et ne prend PAS la place lourde (une par copie), qu'un téléchargement de 20 s prendrait
    aux envois. `create_template` et `send_template_to_contact` exigent une personne (jeton OAuth) : une clé d'API ne les
-   voit pas. Par Claude, l'accord de la personne est déclaré par le client (décision de Julien du 2026-10-25) :
-   `send_template_to_contact` envoie `consent: opted_in` signé de la personne connectée, que `appliquerConsentement`
-   refuse sur une fiche désabonnée.
+   voit pas. Par Claude, l'accord de la personne est déclaré par le client (décision de Julien du 2026-10-25) : le clic
+   du oui de `send_template_to_contact` envoie `consent: opted_in` signé de la personne qui a préparé, que
+   `appliquerConsentement` refuse sur une fiche désabonnée.
    🔴 **Le prix que Claude dit vient de la grille de Meta, jamais d'une skill** (plan 2026-11-06) : `list_templates` rend
    `prix_meta` (le tarif de BASE de Meta par message livré en France, par catégorie, sans commission ni palier, et la
    date de la grille), `create_template` celui de SA catégorie, tous deux par `prixMetaFrance` (`src/mcp/prix-meta.ts`)
@@ -7667,14 +7690,15 @@ Ajouté par le lot 4 de l'API publique :
    autre marché sous le nom de la France. Une grille absente ou illisible rend `null` sans faire échouer l'outil. Les
    skills ne chiffrent aucun prix (`tests/plugin.test.ts`) : elles renvoient à `prix_meta`. Les règles des catégories
    que Claude applique avant de soumettre sont dans la skill `regles-whatsapp`, reprises des pages de Meta.
-47. **Le cœur de `POST /v1/sends` est une fonction, `lancerEnvoi` (`src/http/v1-sends.ts`)**, que la route et l'outil
-   `send_template_to_contact` appellent sur les MÊMES dépendances (`depsEnvois`, `src/index.ts`) : validation,
+47. **Le cœur de `POST /v1/sends` est une fonction, `lancerEnvoiPublic` (`src/api/envoi-public.ts`)**, que la route et
+   le clic d'un envoi au oui (`src/mise-en-ligne/envois.ts`, pour `send_template_to_contact` et
+   `send_scenario_to_contact`) appellent sur les MÊMES dépendances (`depsEnvois`, `src/index.ts`) : validation,
    idempotence, cible, gardes du numéro, modèles du mois, destinataires, consentement, campagne scellée avec sa clé,
    enfilement. Elle rend `{ statut, corps }` au lieu d'écrire la réponse ; le compteur est celui de l'appelant (le garde
-   d'usage pour la route ; pour Claude, le plafond coûteux PUIS le quota d'envois du jour, `quotaEnvois`, que la route
-   `/mcp` pose à chaque requête sous la clé ou le jeton de l'appel), appelé au même endroit. L'outil construit le corps
-   de l'API pour une personne, ses valeurs en sources `literal`, et refuse celles que Meta refuserait à l'envoi
-   (retour à la ligne, tabulation, cinq espaces de suite).
+   d'usage pour la route ; aucun pour le clic, un envoi de la console), appelé au même endroit. Le oui juge d'abord la
+   cible par ses pièces, sans rien écrire (`jugerCible`). L'outil refuse les valeurs que Meta refuserait à l'envoi
+   (retour à la ligne, tabulation, cinq espaces de suite), et le oui construit le corps de l'API pour une personne, ses
+   valeurs en sources `literal`.
 56. **Une campagne depuis l'assistant passe par la console, et ne part que sur le clic d'un admin (le oui, B8)**
    (`src/mcp/outils-campagnes.ts`, spec `docs/superpowers/specs/2026-10-20-campagnes-depuis-claude-design.md`). Les
    quatre outils sont gardés par la fonction `console` (celle des campagnes de l'écran) ; les filtres d'analyse, par

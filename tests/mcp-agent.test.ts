@@ -175,7 +175,7 @@ interface Options {
   mentionIa?: string;
 }
 
-function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?: GardeUsageMemoire } = {}) {
+function monter(o: Options & { usage?: GardeUsageMemoire } = {}) {
   let agent: AgentComplet = {
     id: AG, label: 'Conseiller', status: o.statut ?? 'draft',
     mentionIa: o.mentionIa ?? 'Vous échangez avec un assistant automatique.', modele: 'modele-config',
@@ -412,7 +412,6 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
     ...mcpEvenementsInertes,
     ...mcpChiffresInertes,
     ...mcpMessagesInertes,
-    ...(o.envoyerModele ? { envoyerModele: o.envoyerModele } : {}),
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
@@ -1269,19 +1268,3 @@ describe('🔴 les bornes de la console sont annoncées dans les schémas des ou
   });
 });
 
-describe('le quota d’envois du jour, posé par la route /mcp (lot 13, domaine 3, livraison B)', () => {
-  it('🔴 un modèle envoyé par Claude compte dans les envois du jour de l’espace, sous le jeton de l’appel', async () => {
-    const usage = new GardeUsageMemoire();
-    const { server } = monter({
-      usage,
-      envoyerModele: async (_t, _c, compter) => {
-        await compter(1);
-        return { statut: 201, corps: { sendId: 'send-1', opening: 'whatsapp_template', recipientCount: 1, created: 0, matched: 1, skipped: [], skippedTotal: 0 } };
-      },
-    });
-    const r = await appeler(server, JETON.brut, 'send_template_to_contact', { name: 'commande_prete', language: 'fr', phone: '+33612345678', idempotency_key: 'k-1' });
-    expect(r.isError, r.texte).toBe(false);
-    expect((await usage.compteurs()).find((c) => c.operation === 'sends.create')).toMatchObject({ appels: 1, unites: 1 });
-    await server.close();
-  });
-});

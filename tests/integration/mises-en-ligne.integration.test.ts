@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import { pgSsl } from '../../src/db/ssl';
 import { PgMisesEnLigne } from '../../src/mise-en-ligne/store.pg';
 import type { ActionGardee } from '../../src/mise-en-ligne/mise-en-ligne';
+import { DELAI_DE_REPRISE_INDIVIDUELLE_MS, RECAPITULATIF_EFFACE } from '../../src/mise-en-ligne/envois';
 
 const url = process.env.DATABASE_URL ?? '';
 
@@ -32,6 +33,31 @@ describe.skipIf(!url)('les mises en ligne (Postgres)', () => {
     expect(await store().accepter(tenantId, id, admin, 'e1')).toBe('ok');
     return id;
   };
+  /** Un envoi à une personne (B8, livraison 2) : son numéro, ses valeurs et le numéro masqué montré, le temps du clic. */
+  const RESTE = { type: 'modele', nom: 'le modèle « commande_prete » (fr)', modele: 'commande_prete', langue: 'fr', categorie: 'utility', declarePar: 'u-1' };
+  const ENVOI = [{ ...RESTE, valeurs: ['Claire'], destinataire: '+33 •• •• •• 78', telephone: '+33612345678' }] as unknown as ActionGardee[];
+  const proposerEnvoi = (expireLe = new Date(Date.now() + 3_600_000)) => store().inserer(tenantId, {
+    proposeePar: csm, autorisationId: autorisation, libelle: 'Envoyer à 1 contact',
+    recapitulatif: ['Le modèle « commande_prete » part vers le +33 •• •• •• 78, avec : « Claire »'], actions: ENVOI, empreinte: 'e1', expireLe,
+  });
+  /** Ce qui reste d'un envoi effacé : rien de son destinataire. */
+  const efface = { actions: [RESTE], recapitulatif: [RECAPITULATIF_EFFACE], empreinte: 'expurgee' };
+  /** Aucune trace du destinataire dans la ligne relue : ni ses clés, ni son numéro, ni ses valeurs. */
+  const sansContact = (l: unknown): boolean => {
+    const a = (l as { actions: Array<Record<string, unknown>> }).actions[0]!;
+    const texte = JSON.stringify(l);
+    return !('telephone' in a) && !('valeurs' in a) && !('destinataire' in a) && !texte.includes('612345678') && !texte.includes('Claire');
+  };
+
+  it('un envoi préparé deux fois retrouve le bouton vivant de la même personne, sur la même empreinte, dans son espace', async () => {
+    const { id } = await proposerEnvoi();
+    expect(await store().trouverProposee(tenantId, csm, 'e1')).toBe(id);
+    expect(await store().trouverProposee(tenantId, admin, 'e1')).not.toBe(id);
+    expect(await store().trouverProposee(autreTenant, csm, 'e1')).toBeNull();
+    expect(await store().trouverProposee(tenantId, csm, 'autre')).toBeNull();
+    await pool.query(`update mises_en_ligne set expire_le = now() - interval '1 second' where id = $1`, [id]);
+    expect(await store().trouverProposee(tenantId, csm, 'e1')).not.toBe(id);
+  });
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl(), max: 4 });
@@ -87,6 +113,53 @@ describe.skipIf(!url)('les mises en ligne (Postgres)', () => {
     expect(await store().terminer(tenantId, id, j2, 'faite')).toBe(true);
     expect(await store().lire(tenantId, id)).toMatchObject({ etat: 'faite', enCours: false });
     expect(await store().reclamer(tenantId, id, randomUUID(), 120)).toBeNull();
+  });
+
+  it('🔴 un envoi à une personne perd son numéro, ses valeurs et ce qui les montrait en se fermant ; une publication garde les siens', async () => {
+    const { id } = await proposerEnvoi();
+    expect(await store().accepter(tenantId, id, admin, 'e1')).toBe('ok');
+    const j = randomUUID();
+    const prise = await store().reclamer(tenantId, id, j, 120);
+    // L'heure du clic, d'où l'exécution juge si un envoi peut encore se reprendre.
+    expect(Math.abs(Date.parse(prise!.accepteeLe) - Date.now())).toBeLessThan(60_000);
+    expect(prise!.actions).toEqual(ENVOI);
+    expect(await store().terminer(tenantId, id, j, 'echouee')).toBe(true);
+    expect(await store().lire(tenantId, id)).toMatchObject({ etat: 'echouee', ...efface });
+    // 🔴 Les CLÉS sont parties, pas seulement le récapitulatif : `toMatchObject` tolère les clés en trop.
+    expect(sansContact(await store().lire(tenantId, id))).toBe(true);
+    const pub = await acceptee();
+    const jp = randomUUID();
+    await store().reclamer(tenantId, pub, jp, 120);
+    expect(await store().terminer(tenantId, pub, jp, 'faite')).toBe(true);
+    expect(await store().lire(tenantId, pub)).toMatchObject({ etat: 'faite', actions: ACTIONS, recapitulatif: ['Le scénario « Qualification » répond.'], empreinte: 'e1' });
+  });
+
+  it('🔴 le balayage efface un bouton expiré et un clic trop ancien pour reprendre ; jamais un bouton vivant, un clic récent, ni une exécution en cours', async () => {
+    const expire = await proposerEnvoi(new Date(Date.now() - 1000));
+    const vivant = await proposerEnvoi();
+    const recent = await proposerEnvoi();
+    const ancien = await proposerEnvoi();
+    const enCours = await proposerEnvoi();
+    for (const { id } of [recent, ancien, enCours]) expect(await store().accepter(tenantId, id, admin, 'e1')).toBe('ok');
+    const vieux = `${Math.ceil(DELAI_DE_REPRISE_INDIVIDUELLE_MS / 1000) + 60} seconds`;
+    await pool.query(`update mises_en_ligne set acceptee_le = now() - $2::interval where id = any($1::uuid[])`, [[ancien.id, enCours.id], vieux]);
+    // Une exécution vit encore sur le clic ancien : son bail court.
+    await store().reclamer(tenantId, enCours.id, randomUUID(), 120);
+    expect(await store().expurgerEchues()).toBeGreaterThanOrEqual(2);
+    expect(await store().lire(tenantId, expire.id)).toMatchObject({ etat: 'proposee', ...efface });
+    expect(await store().lire(tenantId, ancien.id)).toMatchObject({ etat: 'acceptee', ...efface });
+    expect([sansContact(await store().lire(tenantId, expire.id)), sansContact(await store().lire(tenantId, ancien.id))]).toEqual([true, true]);
+    for (const { id } of [vivant, recent, enCours]) expect(await store().lire(tenantId, id), id).toMatchObject({ actions: ENVOI, empreinte: 'e1' });
+    // Un oui fermé que `terminer` aurait manqué (fermé par une autre voie) : le balayage l'efface aussi.
+    const ferme = await proposerEnvoi();
+    expect(await store().accepter(tenantId, ferme.id, admin, 'e1')).toBe('ok');
+    await pool.query(`update mises_en_ligne set etat = 'faite', terminee_le = now() where id = $1`, [ferme.id]);
+    await store().expurgerEchues();
+    expect(sansContact(await store().lire(tenantId, ferme.id))).toBe(true);
+    // Une publication expirée n'a rien d'un destinataire : le balayage ne la touche pas.
+    const pub = await proposer(new Date(Date.now() - 1000));
+    await store().expurgerEchues();
+    expect(await store().lire(tenantId, pub.id)).toMatchObject({ actions: ACTIONS, empreinte: 'e1' });
   });
 
   it('relâcher rend le bail tout de suite, sous son seul jeton', async () => {

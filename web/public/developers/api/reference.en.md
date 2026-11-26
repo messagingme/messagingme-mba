@@ -73,7 +73,7 @@ On top of the rate limit, DAILY quotas per workspace count the work REQUESTED (a
 - Reset at midnight, Paris time.
 - A request that would exceed the quota is refused entirely: 429 `quota_exceeded`, with retry-after until midnight. A smaller request may still go through.
 - A new call with the same idempotency key does not count, whether it replays a finished send or hits one in progress (409). A send refused by the quota frees its key.
-- Reads, catalogs and campaigns launched from the console have no quota. Neither does the MCP server, except sending a template, which counts as a template.
+- Reads, catalogs, campaigns launched from the console and the MCP server have no quota: a template prepared by Claude goes out on an administrator’s click, like a send from the console.
 - Higher quota for a workspace: on request.
 
 > **Note**

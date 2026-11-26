@@ -296,6 +296,18 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot H (B8, livraison 2, un modèle ou un scénario pour une personne) : ce qui reste de la relecture (2026-11-26, un rouge corrigé avant de pousser)
+
+- Une lecture « illisible » du modèle chez Meta pendant l'exécution (422 `template_category_unknown`, « réessayez dans un
+  instant ») ferme le oui en échec, alors que c'est une panne : la distinguer par un code à elle de la catégorie non
+  admise (définitive), qui partage aujourd'hui le même code, puis la traiter comme une panne (le oui reste à reprendre).
+- `trop_tard` (plus de 23 heures après le clic) ne retrouve pas un envoi réellement parti avant la coupure : son nom dans
+  Campagnes est celui de tout envoi de l'API (`[API] <modèle>`). Donner à l'envoi du oui un nom qui garde le préfixe et
+  porte l'identifiant du oui, puis le chercher avant de rendre `trop_tard`.
+- Deux préparations SIMULTANÉES du même envoi peuvent encore créer deux boutons (`trouverProposee` lit avant d'insérer).
+- Le balayage horaire (`expurgerEchues`) lit toute la table, graphes compris : un préfiltre sur l'état et la date, ou un
+  index partiel, le bornera quand elle grandira.
+
 ## 🟡 CSM virtuel, lot H (B8, livraison 1, les envois au oui) : ce qui reste de la relecture (2026-11-26, un rouge corrigé avant de pousser)
 
 - Un brouillon lancé dont le run n'a pas encore démarré, rejoué après une coupure : un second run est enfilé (le claim
@@ -398,8 +410,9 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 
 ## 🟡 CSM virtuel, lot C (le oui de mise en ligne, les versions) : ce qui reste après l'écriture (2026-11-24)
 
-- Une mise en ligne interrompue ne se reprend que par un clic : la reprise par le worker part avec B8 (les envois au oui
-  attendent Meta de toute façon), avec le câblage du répondeur dans le worker.
+- Une mise en ligne interrompue ne se reprend que par un clic, ou par l'outil d'un envoi (`launch_campaign`,
+  `delete_contacts`, B8) : le worker ne la reprend pas (il n'efface que ce qu'un envoi gardait de son destinataire). À
+  décider avec le câblage du répondeur dans le worker.
 - Le récapitulatif écrit par le serveur est en français seulement : la console anglaise le montre tel quel.
 - Les mises en ligne gardent les graphes montrés (`actions`) sans durée de rétention : une purge (90 jours ?) à décider.
 - Les versions d'un scénario ne se voient pas dans la console (le cadrage les y veut) : un écran et sa route, avec B10.

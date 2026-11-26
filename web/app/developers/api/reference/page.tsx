@@ -115,7 +115,7 @@ function Reference() {
           <li>{t('Remise à zéro à minuit, heure de Paris.', 'Reset at midnight, Paris time.')}</li>
           <li>{t('Une requête qui dépasserait le quota est refusée en entier :', 'A request that would exceed the quota is refused entirely:')}{' '}<Refus c="quota_exceeded" />{t(', avec retry-after jusqu’à minuit. Un lot plus petit peut encore passer.', ', with retry-after until midnight. A smaller request may still go through.')}</li>
           <li>{t('Un nouvel appel avec la même clé d’idempotence ne compte pas, qu’il rejoue un envoi fini ou tombe sur un envoi en cours (409). Un envoi refusé par le quota libère sa clé.', 'A new call with the same idempotency key does not count, whether it replays a finished send or hits one in progress (409). A send refused by the quota frees its key.')}</li>
-          <li>{t('Les lectures, les catalogues et les campagnes lancées depuis la console n’ont pas de quota. Le serveur MCP non plus, sauf l’envoi d’un modèle, qui compte dans les modèles.', 'Reads, catalogs and campaigns launched from the console have no quota. Neither does the MCP server, except sending a template, which counts as a template.')}</li>
+          <li>{t('Les lectures, les catalogues, les campagnes lancées depuis la console et le serveur MCP n’ont pas de quota : un modèle préparé par Claude part sur le clic d’un administrateur, comme un envoi de la console.', 'Reads, catalogs, campaigns launched from the console and the MCP server have no quota: a template prepared by Claude goes out on an administrator’s click, like a send from the console.')}</li>
           <li>{t('Quota relevé pour un espace : sur demande.', 'Higher quota for a workspace: on request.')}</li>
         </Liste>
         <Encadre sorte="note">

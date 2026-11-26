@@ -428,7 +428,9 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /rcs-agents': lot7('le RCS'),
   'POST /campaigns': outil('prepare_campaign'),
   'POST /campaigns/:campaignId/run': outil('launch_campaign'),
-  'POST /campaigns/:campaignId/recipients/:recipientId/retry': aFaire('B8', 'campagnes : renvoyer à un destinataire en échec, au clic'),
+  // Avec la liste des destinataires en échec (GET /campaigns/:campaignId, en partie) : sans elle, un outil de renvoi n'a
+  // rien à viser (B8, livraison 2, 2026-11-26). Au clic d'un admin, comme tout envoi.
+  'POST /campaigns/:campaignId/recipients/:recipientId/retry': aFaire('B10', 'campagnes : renvoyer à un destinataire en échec, au clic'),
   'POST /campaigns/:campaignId/pause': outil('control_campaign'),
   'POST /campaigns/:campaignId/cancel-schedule': outil('control_campaign'),
   'POST /campaigns/:campaignId/stop': aFaire('B10', 'campagnes : arrêter définitivement'),

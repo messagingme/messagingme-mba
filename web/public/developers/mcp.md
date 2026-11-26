@@ -90,8 +90,8 @@ Pour un client qui ne sait pas faire OAuth, ou un script.
 
 ## Ce qu’il ne fait pas
 
-- **Pas de campagne sans votre oui.** En formule Pro, il prépare une campagne et vous en montre le récapitulatif ; elle ne part que sur le clic d’un administrateur dans la console, sur la page dont il donne le lien. Hors de la formule Pro, il envoie un modèle à une personne à la fois.
-- **Hors de la fenêtre de 24 h, seul un modèle approuvé part.** Un message libre est refusé, avec la raison ; un modèle approuvé part par send_template_to_contact.
+- **Pas d’envoi sans votre oui.** Il prépare une campagne ou un scénario pour une personne (en formule Pro), ou un modèle pour une personne (toutes les offres), et vous en montre le récapitulatif ; rien ne part que sur le clic d’un administrateur dans la console, sur la page dont il donne le lien.
+- **Hors de la fenêtre de 24 h, seul un modèle approuvé part.** Un message libre est refusé, avec la raison ; un modèle approuvé se prépare par send_template_to_contact.
 - **Numéro WhatsApp délié, rien ne part.** L’outil refuse, avec la raison, jusqu’à ce qu’un administrateur relie le numéro depuis l’Accueil.
 - **Les automations ne se déclenchent pas.** Un tag posé par l’assistant classe le contact, sans réveiller les automations qui écoutent ce tag.
 - **Activer un agent IA ne le fait pas répondre.** Créé et activé par l’assistant, il parle aux clients dans un scénario publié qui le contient, ou une fois choisi pour répondre au client (set_default_responder, mode « agent ») : il répond alors à tout message que personne ne tient, et l’agent de Meta, s’il est allumé, reste en veille.
@@ -192,7 +192,7 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | create_template | mcp:write connexion OAuth requise | Créer un modèle au format de Meta et le soumettre à sa validation ; une image d’en-tête se donne par son adresse. |
 | update_template | mcp:write connexion OAuth requise | Corriger une langue d’un modèle, au format de Meta, qui repart en validation ; un en-tête média ne se corrige pas. |
 | delete_template | mcp:write connexion OAuth requise | Supprimer un modèle, toutes ses langues ; refusé tant qu’une campagne active l’utilise. |
-| send_template_to_contact | mcp:write connexion OAuth requise | Envoyer un modèle approuvé à une personne, même hors de la fenêtre de 24 h, avec les règles des envois (STOP, modèles du mois) ; l’accord de la personne est déclaré par le client. |
+| send_template_to_contact | mcp:write connexion OAuth requise | Préparer l’envoi d’un modèle approuvé à une personne, même hors de la fenêtre de 24 h : il part sur le clic d’un administrateur dans la console, une fois, avec les règles des envois (STOP, modèles du mois) ; l’accord de la personne est déclaré par le client. |
 | get_message_status | mcp:read | Le statut de livraison d’un message envoyé : envoyé, distribué, lu ou en échec, avec le motif de Meta. |
 
 ### Contacts et campagnes
@@ -222,10 +222,10 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | create_scenario | mcp:write connexion OAuth requise | Créer un scénario par sa recette (template et boutons, messages à réponses rapides et fichier, questions et actions, agent IA, équipe), publié aussitôt, ou en brouillon qu’un administrateur met en ligne d’un clic. |
 | update_scenario | mcp:write connexion OAuth requise | Remplacer un scénario, publié aussitôt s’il vient de l’API ou de Claude, ou en brouillon, console comprise, si personne ne l’a changé entre-temps. |
 | delete_scenario | mcp:write connexion OAuth requise | Supprimer un scénario créé par l’API ou par Claude, si plus rien ne l’utilise. |
-| send_scenario_to_contact | mcp:write connexion OAuth requise | Faire partir un scénario publié vers une personne, même hors de la fenêtre de 24 h, par son template d’ouverture, avec les règles des envois (STOP, modèles du mois) ; l’accord de la personne est déclaré par le client. |
+| send_scenario_to_contact | mcp:write connexion OAuth requise | Préparer le départ d’un scénario publié vers une personne, même hors de la fenêtre de 24 h, par son template d’ouverture : il part sur le clic d’un administrateur dans la console, une fois, avec les règles des envois (STOP, modèles du mois) ; l’accord de la personne est déclaré par le client. |
 | list_scenario_versions | mcp:read | Les versions publiées d’un scénario, la plus récente d’abord, et celle qui est en ligne. |
 | propose_go_live | mcp:write connexion OAuth requise | Préparer une mise en ligne (publier un brouillon, restaurer une version, brancher le répondeur) : rend le lien de la page où un administrateur l’accepte d’un clic ; rien n’est fait avant ce clic. |
-| get_go_live | mcp:read | Où en est une mise en ligne : en attente du clic, faite ou arrêtée, et le résultat de chaque action. |
+| get_go_live | mcp:read | Où en est une mise en ligne, ou le bouton d’un envoi préparé : en attente du clic, faite ou arrêtée, et le résultat de chaque action (l’identifiant d’un envoi parti). |
 
 ### Bulle WhatsApp
 

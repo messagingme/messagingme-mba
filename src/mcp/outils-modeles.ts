@@ -1,8 +1,6 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
-import { RefusOutil, entierBorne, familleDuRefus, refusDuCoeur, refusDuPlafond } from './saisie';
-import { compteurEnvoiRefuse, type RapportEnvoi, type ReponseEnvoi } from '../api/envoi-public';
-import { CLE_IDEMPOTENCE_MAX } from '../api/idempotence';
+import { RefusOutil, entierBorne, familleDuRefus, refusDuCoeur, refusDuPlafond, valeurOuRefus } from './saisie';
 import { journaliser } from '../lib/journal';
 import { messageDeForme } from '../api/forme';
 import { BORNES_MODELE, schemaModeleMeta, versModeleConsole } from '../api/modele-meta';
@@ -11,7 +9,11 @@ import { modifierUnModele, supprimerUnModele, type RefusGestionModele } from '..
 import { codeDuLienTrace } from '../links/rewrite';
 import type { TemplateSummary } from '../meta/templates';
 import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
-import { LOURDE, plafondCouteux, signataire } from './outils-agent';
+import { LOURDE, ecriture, personneRequise, plafondCouteux, signataire } from './outils-agent';
+import { proposer, type DemandeAction } from '../mise-en-ligne/mise-en-ligne';
+import type { PersonneDEnvoi } from '../mise-en-ligne/envois';
+import { boutonDuOui } from './outils-mise-en-ligne';
+import { e164DepuisSaisie } from '../crm/phone';
 import type { GrilleMeta } from '../credit-whatsapp/grille';
 import { categorieDePrix, prixMetaFrance, type PrixMeta } from './prix-meta';
 import { LISTES } from './ecran';
@@ -91,76 +93,45 @@ async function ceQueCeFormatPerdrait(
 }
 
 /**
- * UN envoi à UNE personne par Claude (`send_template_to_contact`, `send_scenario_to_contact`), par le cœur de
- * `POST /v1/sends` : `cible` porte la cible (et la catégorie d'un scénario), le reste est commun. La personne par `phone`
- * OU `contact_id`, et `values` en sources littérales, positions 1..N.
+ * UN envoi à UNE personne par Claude (`send_template_to_contact`, `send_scenario_to_contact`), AU OUI depuis B8 (lot 1 du
+ * CSM virtuel, décisions de Julien du 2026-11-26) : l'outil prépare et rend le bouton, un admin clique dans la console, et
+ * le clic envoie par le cycle de `POST /v1/sends`, sous une clé tirée du oui (`src/mise-en-ligne/envois.ts`). La personne
+ * par `phone` OU `contact_id`, et `values` en sources littérales, positions 1..N.
  * 🔴 L'ACCORD DE LA PERSONNE EST DÉCLARÉ PAR LE CLIENT (décision de Julien du 2026-10-25 : « si je demande d'envoyer à
- * tel numéro, c'est le choix du client », sa responsabilité, pas la nôtre). Il s'écrit sur la fiche par le chemin partagé
- * de `POST /v1/sends`, signé de la personne connectée ; ce chemin refuse d'y lever un STOP (`appliquerConsentement`), et
- * la personne désabonnée reste écartée.
+ * tel numéro, c'est le choix du client », sa responsabilité, pas la nôtre), au nom de la personne qui prépare, et le
+ * récapitulatif du bouton le dit à l'admin qui clique. Le chemin partagé de `POST /v1/sends` l'écrit sur la fiche au clic
+ * et refuse d'y lever un STOP (`appliquerConsentement`) ; une personne qui a dit STOP est refusée dès la préparation.
+ * Le plafond des opérations coûteuses se compte ici, à la préparation ; le clic ne compte ni lui ni le quota du jour de
+ * l'API : c'est un envoi de la console.
  */
-export async function envoyerAUnePersonne(
+export async function preparerEnvoiIndividuel(
   deps: DepsMcp, tenantId: string, args: Record<string, unknown>, personne: PersonneMcp | null,
-  cible: Record<string, unknown>, evenement: string,
-): Promise<{ send_id: string; contact_created: boolean }> {
-  const phone = typeof args.phone === 'string' ? args.phone : undefined;
+  cible: { type: 'modele'; modele: string; langue: string } | { type: 'envoi_scenario'; scenario: string },
+): Promise<Record<string, unknown>> {
+  const qui = personneRequise(personne);
+  const saisi = typeof args.phone === 'string' ? args.phone : undefined;
   const contactId = typeof args.contact_id === 'string' ? args.contact_id : undefined;
-  if ((phone === undefined) === (contactId === undefined)) throw new RefusOutil('désignez la personne par phone OU par contact_id, pas les deux', 'invalid_args');
+  if ((saisi === undefined) === (contactId === undefined)) throw new RefusOutil('désignez la personne par phone OU par contact_id, pas les deux', 'invalid_args');
+  // Ramené au format de la fiche, comme `get_contact` : la recherche de la fiche (STOP, bloquée) se fait sur le numéro exact.
+  const phone = saisi === undefined ? undefined : e164DepuisSaisie(saisi);
+  if (phone === null) throw new RefusOutil('numéro illisible : donnez-le au format international (+33612345678)', 'invalid_args');
   const values = Array.isArray(args.values) ? args.values : [];
   if (values.some((v) => typeof v !== 'string' || v === '')) throw new RefusOutil('values : une chaîne non vide par variable', 'invalid_args');
   if (values.some((v) => !VALEUR_ACCEPTEE.test(v as string))) {
     throw new RefusOutil('values : ni retour à la ligne, ni tabulation, ni plus de quatre espaces de suite (Meta refuserait le message)', 'invalid_args');
   }
-  const corps = {
-    idempotencyKey: args.idempotency_key,
-    ...cible,
-    ...(values.length > 0 ? { params: values.map((v, i) => ({ position: i + 1, source: { type: 'literal', value: v } })) } : {}),
-    recipients: [{
-      ...(phone !== undefined ? { phone } : { contactId }),
-      consent: 'opted_in', consentSource: `déclaré dans Claude par ${signataire(personne)}`,
-    }],
+  await plafondCouteux(deps, tenantId);
+  const destinataire: PersonneDEnvoi = phone !== undefined ? { telephone: phone } : { contact: contactId as string };
+  const commun = { valeurs: values as string[], declarePar: qui.userId, ...destinataire };
+  const demande: DemandeAction = cible.type === 'modele' ? { ...cible, ...commun } : { ...cible, ...commun };
+  const oui = valeurOuRefus(await proposer(deps.misesEnLigne, tenantId, qui, [demande]));
+  return {
+    recapitulatif: oui.recapitulatif,
+    go_live: boutonDuOui(oui),
+    a_savoir: 'Rien n’est parti. Montre le récapitulatif à la personne, puis le lien : un administrateur clique « '
+      + `${oui.libelle} » dans la console, et le message part à ce clic, une seule fois. Après le clic, get_go_live avec `
+      + 'go_live_id rend send_id (resultat.envoi de l’action).',
   };
-  // Compté où le cycle public compte (juste après la clé d'idempotence, qu'il libère si ce compteur lève) : le plafond
-  // coûteux, PUIS le quota d'envois du jour.
-  const r = await deps.envoyerModele(tenantId, corps, async (unites) => {
-    const c = await deps.couteux.consommer(tenantId);
-    if (!c.accepte) throw refusDuPlafond(c.attenteMs);
-    const q = await deps.quotaEnvois(tenantId, unites);
-    if (!q.accepte) throw new RefusOutil(q.raison ?? 'quota quotidien d’envois de l’espace atteint', 'quota_exceeded');
-    return true;
-  });
-  if (compteurEnvoiRefuse(r)) throw new RefusOutil('envoi refusé par le compteur', 'rate_limited');
-  if (r.statut >= 400) throw refusDEnvoi(r);
-  // 201 : le rapport de l'envoi, ou celui d'un envoi déjà fait avec cette clé (rejeu), qui a la même forme.
-  const rapport = r.corps as RapportEnvoi;
-  if (rapport.recipientCount === 0) {
-    // La clé est consommée : l'envoi vide est scellé, et le même appel rejouerait ce refus.
-    throw new RefusOutil(`rien n’est parti : la personne est écartée (${rapport.skipped[0]?.reason ?? 'motif inconnu'})`
-      + `${rapport.created > 0 ? ' ; sa fiche a été créée' : ''} ; une fois la cause levée, réessayer avec une NOUVELLE idempotency_key`,
-    // Le motif de l'écart est un code de l'API (`opted_out`, `window_closed`, `plan_limit_reached`...) : il donne la famille.
-    familleDuRefus(409, rapport.skipped[0]?.reason), rapport.skipped[0]?.reason ? { cause: rapport.skipped[0].reason } : {});
-  }
-  // La trace de la personne qui a envoyé : la campagne, elle, porte le préfixe des envois de l'API.
-  journaliser('info', evenement, { tenantId, userId: personne?.userId ?? null, sendId: rapport.sendId });
-  return { send_id: rapport.sendId, contact_created: rapport.created > 0 };
-}
-
-/** Une erreur de l'envoi (`{ error, code }`), lue pour la rendre à Claude telle que l'API la rend. */
-function phraseDeRefus(r: ReponseEnvoi): string {
-  const c = r.corps as { error?: unknown; code?: unknown } | null;
-  const phrase = typeof c?.error === 'string' ? c.error : `refus ${r.statut}`;
-  return typeof c?.code === 'string' ? `${phrase} (${c.code})` : phrase;
-}
-
-/** Le refus d'un envoi : sa phrase (`phraseDeRefus`), sa famille, sa cause et l'adresse de l'offre, lues dans la réponse de l'API. */
-function refusDEnvoi(r: ReponseEnvoi): RefusOutil {
-  const c = r.corps as { code?: unknown; upgradeUrl?: unknown } | null;
-  return refusDuCoeur({
-    statut: r.statut,
-    message: phraseDeRefus(r),
-    ...(typeof c?.code === 'string' ? { code: c.code } : {}),
-    ...(typeof c?.upgradeUrl === 'string' ? { upgradeUrl: c.upgradeUrl } : {}),
-  });
 }
 
 const NOM = { type: 'string' as const, minLength: 1, maxLength: BORNES_MODELE.nom, pattern: '^[a-z0-9_]+$', description: 'The template name (lowercase letters, digits and _).' };
@@ -294,19 +265,21 @@ export const OUTILS_MODELES: OutilMcp[] = [
     ...ficheOutilMcp('send_template_to_contact'),
     fonction: null,
     description:
-      'Sends an APPROVED WhatsApp template to ONE person, even outside the 24-hour window, through the same path as '
-      + 'POST /v1/sends: STOP, number unlinked or suspended, the plan\'s monthly templates. Sending through Claude '
-      + 'declares, on the user\'s behalf and under their responsibility, that the person agreed to receive their '
-      + 'messages: the record becomes opted in (marketing included), with who declared it; consent is not a '
-      + 'parameter, the send records it on the user\'s behalf. A person who sent STOP is never written to. The person is designated by phone (with the country code: '
-      + '+33612345678) or contact_id; an unknown number creates its contact record. values: one value per variable '
-      + '{{1}}, {{2}}... of the body, in order. idempotency_key: a key chosen for THIS send (a call replayed with the '
-      + 'same key sends nothing again, for 24 hours). The send goes out within the minute: returns send_id. It does not '
-      + 'take a conversation escalated to the team out of "To handle": once the person has answered, '
-      + 'control_conversation (hand_back) does. Counts toward the workspace\'s heavy operations.',
-    // Monde ouvert : un message part chez une personne. Idempotent : la même clé ne renvoie rien. Un modèle ne prend
-    // pas le fil, mais l'outil est destructeur pour la règle du répertoire de Claude (voir `AnnotationsMcp`).
-    annotations: { title: 'Send a template to a contact', readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+      'Prepares sending an APPROVED WhatsApp template to ONE person, even outside the 24-hour window, and returns its '
+      + 'summary (recapitulatif) and go_live, the button of its yes: the link of the console page where an administrator '
+      + 'of the workspace clicks its send button. NOTHING IS SENT BEFORE THAT CLICK, which Claude cannot give: show '
+      + 'the summary, then give the link. The click sends once, through the same path as POST /v1/sends: STOP, number '
+      + 'unlinked or suspended, the plan\'s monthly templates. A template that is not approved, or a missing variable, is '
+      + 'refused here, before the button. The click declares, on the user\'s behalf and under their responsibility, that '
+      + 'the person agreed to receive their messages: the record becomes opted in (marketing included), with who declared '
+      + 'it; consent is not a parameter. A person who sent STOP is refused. The person is designated by phone (with the '
+      + 'country code: +33612345678) or contact_id; an unknown number creates its contact record at the click. values: one '
+      + 'value per variable {{1}}, {{2}}... of the body, in order. After the click, get_go_live with go_live_id returns '
+      + 'send_id. It does not take a conversation escalated to the team out of "To handle": once the person has answered, '
+      + `control_conversation (hand_back) does. ${LOURDE}`,
+    // Rien ne part avant le clic d'un admin ; chaque appel prépare un nouveau oui : pas idempotente, rien chez un tiers.
+    // Destructrice pour la règle du répertoire de Claude (une écriture du scope `mcp:write`, voir `AnnotationsMcp`).
+    annotations: ecriture('Send a template to a contact', false, false),
     entree: {
       type: 'object',
       properties: {
@@ -320,14 +293,16 @@ export const OUTILS_MODELES: OutilMcp[] = [
           description: 'One value per body variable, in order ({{1}} then {{2}}...), without line breaks, tabs or more '
             + 'than four spaces in a row (Meta refuses them). Empty if the body has none.',
         },
-        idempotency_key: { type: 'string', minLength: 1, maxLength: CLE_IDEMPOTENCE_MAX, description: 'A key specific to this send (a UUID for example).' },
       },
-      required: ['name', 'language', 'idempotency_key'],
+      required: ['name', 'language'],
       additionalProperties: false,
     },
     ecran: () => LISTES.inbox,
     async executer(deps: DepsMcp, tenantId, args, personne) {
-      return envoyerAUnePersonne(deps, tenantId, args, personne, { target: { template: { name: args.name, language: args.language } } }, 'mcp_modele_envoye');
+      const modele = typeof args.name === 'string' ? args.name : '';
+      const langue = typeof args.language === 'string' ? args.language : '';
+      if (!estNomDeModele(modele) || langue.length < 2 || langue.length > 20) throw new RefusOutil('name et language : le nom et la langue d’un modèle (list_templates)', 'invalid_args');
+      return preparerEnvoiIndividuel(deps, tenantId, args, personne, { type: 'modele', modele, langue });
     },
   },
   /*

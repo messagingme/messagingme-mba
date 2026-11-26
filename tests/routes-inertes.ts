@@ -643,6 +643,12 @@ export const envoisAuOuiInertes: DepsEnvoisAuOui = {
       pauseDe: neDevraitPasEtreAppelee('envois.campagnes.pauseDe'),
     },
   } as unknown as DepsEnvoisAuOui['campagnes'],
+  individuels: {
+    jugerCible: neDevraitPasEtreAppelee('envois.individuels.jugerCible'),
+    envoyer: neDevraitPasEtreAppelee('envois.individuels.envoyer'),
+    contacts: { getById: neDevraitPasEtreAppelee('envois.individuels.getById'), findByPhone: neDevraitPasEtreAppelee('envois.individuels.findByPhone') },
+    scenarios: { lireParApi: neDevraitPasEtreAppelee('envois.individuels.lireParApi') },
+  },
   suppression: {
     selection: neDevraitPasEtreAppelee('envois.suppression.selection'),
     effacement: { contacts: {}, suppressionsDuJour: {}, listeDeLAgent: {}, enVol: {} } as unknown as DepsEnvoisAuOui['suppression']['effacement'],
@@ -659,6 +665,7 @@ export const mcpMisesEnLigneInertes: Pick<DepsMcp, 'misesEnLigne'> = {
       inserer: neDevraitPasEtreAppelee('misesEnLigne.inserer'), lire: async () => null, accepter: neDevraitPasEtreAppelee('misesEnLigne.accepter'),
       reclamer: neDevraitPasEtreAppelee('misesEnLigne.reclamer'), noterResultat: neDevraitPasEtreAppelee('misesEnLigne.noterResultat'),
       terminer: neDevraitPasEtreAppelee('misesEnLigne.terminer'), relacher: neDevraitPasEtreAppelee('misesEnLigne.relacher'),
+      trouverProposee: neDevraitPasEtreAppelee('misesEnLigne.trouverProposee'),
     },
     scenarios: { getById: async () => null, list: async () => [], publish: neDevraitPasEtreAppelee('misesEnLigne.publish'), programmer: neDevraitPasEtreAppelee('misesEnLigne.programmer') },
     versions: { lire: async () => null, lister: async () => [] },
@@ -954,10 +961,9 @@ export const stripePacksBusinessInerte: StripeWebhookRouteDeps['packsBusiness'] 
  * aucun message connu, aucun modèle, un espace sans compte WhatsApp, et chaque geste qui écrit LÈVE (un test qui envoie
  * ou crée le dit en passant les siens).
  */
-export const mcpMessagesInertes: Pick<DepsMcp, 'messagesApi' | 'envoyerMessage' | 'modeles' | 'envoyerModele'> = {
+export const mcpMessagesInertes: Pick<DepsMcp, 'messagesApi' | 'envoyerMessage' | 'modeles'> = {
   messagesApi: { message: async () => null },
   envoyerMessage: neDevraitPasEtreAppelee('envoyerMessage'),
-  envoyerModele: neDevraitPasEtreAppelee('envoyerModele'),
   modeles: {
     lister: async () => [],
     oublier: async () => {},

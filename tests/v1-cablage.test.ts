@@ -79,9 +79,10 @@ describe('câblage de /v1/templates', () => {
     expect(source).toMatch(/const oublierModeles = async \(tenant: string\): Promise<void> => \{\s*const waba = await repo\.getTenantWabaId\(tenant\);\s*if \(waba\) catalogueTemplatesCache\.invalider\(`\$\{tenant\}:\$\{waba\}`\);\s*\};/);
     // 🔴 Le téléchargement de l'en-tête est la voie GARDÉE (inventoriée par `tests/lib-adresse-privee.test.ts`) : un
     // `fetch` nu injecté ici échapperait à l'inventaire, `DepsCreationModele` acceptant n'importe quel téléchargeur.
-    // Livraison B : Claude envoie par le MÊME cœur que `POST /v1/sends`, sur les MÊMES dépendances.
+    // Livraison B, au oui depuis B8 : le clic d'un envoi à une personne part par le MÊME cœur que `POST /v1/sends`, sur les
+    // MÊMES dépendances, sans compteur (un envoi de la console), et la préparation juge sa cible par les mêmes pièces.
     expect(source).toMatch(/sends: depsEnvois,/);
-    expect(source).toMatch(/envoyerModele: \(tenant, corps, compter\) => lancerEnvoiPublic\(depsEnvois, tenant, corps, undefined, compter\),/);
+    expect(source).toMatch(/jugerCible: \(tenant, corps\) => jugerCible\(depsEnvois, tenant, corps\),\s*envoyer: \(tenant, corps\) => lancerEnvoiPublic\(depsEnvois, tenant, corps, undefined, async \(\) => true\),/);
     expect(sansCommentaires('../src/mcp/outils.ts')).not.toMatch(/http\/v1-sends/);
     expect(source).toMatch(/telechargerEntete: telechargerEnteteProduction,\s*deposerEntete: enteteDeModele,\s*placesEntete: placesDeTelechargement,/);
   });

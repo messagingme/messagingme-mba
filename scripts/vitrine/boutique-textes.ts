@@ -453,12 +453,12 @@ export const PHRASES_OUTILS: Readonly<Partial<Record<NomOutilMcp, Readonly<Recor
     en: 'Create a custom field: its key comes from the label.',
   },
   delete_contacts: {
-    fr: 'Supprimer pour de bon les contacts d’une sélection préparée, avec son code&nbsp;: fiches, conversations et messages effacés.',
-    en: 'Delete for good the contacts of a prepared selection, with its code: records, conversations and messages erased.',
+    fr: 'Supprimer pour de bon les contacts d’une sélection préparée, sur le clic d’un administrateur&nbsp;: fiches, conversations et messages effacés.',
+    en: 'Delete for good the contacts of a prepared selection, on an administrator’s click: records, conversations and messages erased.',
   },
   send_template_to_contact: {
-    fr: 'Envoyer un modèle approuvé à un client, même hors de la fenêtre de 24&nbsp;h, dans les règles des envois (STOP, modèles du mois).',
-    en: 'Send an approved template to one customer, even outside the 24-hour window, within the sending rules (STOP, monthly templates).',
+    fr: 'Envoyer un modèle approuvé à un client, même hors de la fenêtre de 24&nbsp;h, sur le clic d’un administrateur, dans les règles des envois (STOP, modèles du mois).',
+    en: 'Send an approved template to one customer, even outside the 24-hour window, on an administrator’s click, within the sending rules (STOP, monthly templates).',
   },
   connect_shopify: {
     fr: 'Brancher votre boutique Shopify avec l’app que Claude a créée dans votre organisation Shopify.',

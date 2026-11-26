@@ -175,15 +175,19 @@ export const OUTILS_MISE_EN_LIGNE: OutilMcp[] = [
   },
   {
     ...ficheOutilMcp('get_go_live'),
-    fonction: 'scenarios',
-    description: 'Where a go-live prepared by propose_go_live stands. etat: "proposee" (waiting for the click), "expiree" '
-      + '(the button expired: prepare it again), "en_cours", "interrompue" (an outage stopped it: an administrator resumes '
-      + 'it by clicking again on the same page), "faite", "echouee" (an action was refused: its resultat says why, and the '
-      + 'following actions did not run). Each action has its resultat once run.',
+    // Ouvert à toutes les offres (B8, livraison 2) : un modèle envoyé à une personne, ouvert à toutes, s'y lit, comme la
+    // page du oui, ouverte à la Free. Une lecture de ce que l'espace a préparé, sans rien de plus.
+    fonction: null,
+    description: 'Where a go-live stands: one prepared by propose_go_live, or the button of a send prepared by '
+      + 'send_template_to_contact or send_scenario_to_contact (its go_live_id). etat: "proposee" (waiting for the click), '
+      + '"expiree" (the button expired: prepare it again), "en_cours", "interrompue" (an outage stopped it: an '
+      + 'administrator resumes it by clicking again on the same page), "faite", "echouee" (an action was refused: its '
+      + 'resultat says why, and the following actions did not run). Each action has its resultat once run; a send to a '
+      + 'person carries its send_id (envoi).',
     annotations: lecture('Read a go-live'),
     entree: {
       type: 'object',
-      properties: { id: { type: 'string', format: 'uuid', minLength: 1, maxLength: 100, description: 'The id returned by propose_go_live.' } },
+      properties: { id: { type: 'string', format: 'uuid', minLength: 1, maxLength: 100, description: 'The id returned by propose_go_live, or the go_live_id of a prepared send.' } },
       required: ['id'],
       additionalProperties: false,
     },

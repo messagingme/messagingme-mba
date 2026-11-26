@@ -213,12 +213,12 @@ function McpInner({ session }: { session: Session | null }) {
       <Section id="limites" titre={t('Ce qu’il ne fait pas', 'What it does not do')}>
         <Liste>
           <li>
-            <strong className="text-ink-900">{t('Pas de campagne sans votre oui.', 'No campaign without your yes.')}</strong>{' '}
-            {t('En formule Pro, il prépare une campagne et vous en montre le récapitulatif ; elle ne part que sur le clic d’un administrateur dans la console, sur la page dont il donne le lien. Hors de la formule Pro, il envoie un modèle à une personne à la fois.', 'On Pro, it prepares a campaign and shows you its summary; it only leaves on an administrator’s click in the console, on the page it links to. Outside Pro, it sends a template to one person at a time.')}
+            <strong className="text-ink-900">{t('Pas d’envoi sans votre oui.', 'No send without your yes.')}</strong>{' '}
+            {t('Il prépare une campagne ou un scénario pour une personne (en formule Pro), ou un modèle pour une personne (toutes les offres), et vous en montre le récapitulatif ; rien ne part que sur le clic d’un administrateur dans la console, sur la page dont il donne le lien.', 'It prepares a campaign or a scenario for one person (on Pro), or a template for one person (every plan), and shows you its summary; nothing leaves except on an administrator’s click in the console, on the page it links to.')}
           </li>
           <li>
             <strong className="text-ink-900">{t('Hors de la fenêtre de 24 h, seul un modèle approuvé part.', 'Outside the 24 h window, only an approved template goes out.')}</strong>{' '}
-            {t('Un message libre est refusé, avec la raison ; un modèle approuvé part par send_template_to_contact.', 'A free-form message is refused, with the reason; an approved template goes out through send_template_to_contact.')}
+            {t('Un message libre est refusé, avec la raison ; un modèle approuvé se prépare par send_template_to_contact.', 'A free-form message is refused, with the reason; an approved template is prepared with send_template_to_contact.')}
           </li>
           <li>
             <strong className="text-ink-900">{t('Numéro WhatsApp délié, rien ne part.', 'WhatsApp number unlinked, nothing is sent.')}</strong>{' '}
