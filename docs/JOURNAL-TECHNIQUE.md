@@ -44,6 +44,12 @@ balayage) ; l'état de l'agent le montre quand Meta cache le bloc. Le `DEFAULT` 
 texte standard par-dessus un choix caché. `handoffMessage` seul est refusé (il changerait Meta et pas la base). Banc
 PGlite (toutes les migrations) pour la colonne ; sept mutations vues tomber.
 
+**Déployé** le même jour (`dc1dec294`, run 45803951971, `migration=avant`, « -> 0328_mba_handoff_message.sql ... ok » à
+11:49). Relu en base par la machine des workers : `mba_handoff_message` en `jsonb`, nullable, sans défaut. Chez MUTAC,
+« Rédigé par l'agent » refait dans la console après le déploiement : la base porte `{"message_selection": "AGENT"}` et
+Meta `enabled: true, AGENT`. Reste à voir le bloc caché après 18:00 (l'état de l'agent doit montrer AGENT) et `enabled:
+true, AGENT` le lendemain après 08:30.
+
 ## 2026-11-26 : CSM virtuel, B9 : le pilote passe de bout en bout
 
 Sur la SANDBOX, sans code neuf, avec les outils des lots C à F en production. La demande « Qualifie mes leads WhatsApp
