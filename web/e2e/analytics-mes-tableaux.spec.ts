@@ -45,7 +45,7 @@ async function monter(page: import('@playwright/test').Page) {
     }
     if (url.includes('/stats/workflow/')) return json({ counts: COUNTS });
     if (/\/workflows\/wf-1(\?|$)/.test(url)) return json({ workflow: { id: 'wf-1', name: 'Parcours promo', graph: GRAPH } });
-    if (url.endsWith('/workflows')) return json({ workflows: [{ id: 'wf-1', name: 'Parcours promo', graph: GRAPH }] });
+    if (url.split('?')[0]!.endsWith('/workflows')) return json({ workflows: [{ id: 'wf-1', name: 'Parcours promo', graph: GRAPH }, { id: 'wf-hs', name: 'Devis HubSpot', rayon: 'hubspot', graph: GRAPH }] });
     if (url.endsWith('/settings')) return json({ mbaEnabled: false, hubspotListsEnabled: false, campaignsPaused: false, autoRetryEnabled: false, controlHandbackSeconds: null, timezone: 'Europe/Paris', businessHours: {} });
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     return json({});
@@ -56,6 +56,13 @@ async function monter(page: import('@playwright/test').Page) {
 }
 
 test.describe('Analytics : Mes tableaux', () => {
+  test('un scénario HubSpot se choisit aussi, sous son groupe (Julien, 2026-11-26)', async ({ page }) => {
+    await monter(page);
+    const select = page.getByTestId('tableaux-scenario');
+    await expect(select.locator('optgroup[label="Builder"] option', { hasText: 'Parcours promo' })).toHaveCount(1);
+    await expect(select.locator('optgroup[label="HubSpot"] option', { hasText: 'Devis HubSpot' })).toHaveCount(1);
+  });
+
   test('🔴 le SCENARIO s’affiche tel qu’il est dessine, et les non-messages sont grises', async ({ page }) => {
     // Le canevas rend les blocs a leurs positions d'origine, avec leurs fleches : l'operateur retrouve son
     // scenario au lieu d'en lire une transcription. L'ORDRE du parcours, lui, n'est plus une propriete du DOM :

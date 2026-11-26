@@ -255,6 +255,15 @@ export function essayerFonctionJs(tenantId: string, code: string, valeur: string
 export function listWorkflows(tenantId: string, rayons?: 'tous'): Promise<{ workflows: WorkflowSummary[] }> {
   return request<{ workflows: WorkflowSummary[] }>(`/tenants/${tenantId}/workflows${rayons ? '?rayons=tous' : ''}`);
 }
+/**
+ * Une liste `tous` rangée par rayon, dans l'ordre du menu, groupes vides retirés : un `<optgroup>` par entrée
+ * (l'Inbox, Mes tableaux). Sans `rayon` (une API d'avant), le scénario est du Builder.
+ */
+export function parRayon(workflows: WorkflowSummary[]): Array<{ rayon: string; nom: string; scenarios: WorkflowSummary[] }> {
+  return ([['general', 'Builder'], ['shopify', 'Shopify'], ['hubspot', 'HubSpot']] as const)
+    .map(([rayon, nom]) => ({ rayon, nom, scenarios: workflows.filter((w) => (w.rayon ?? 'general') === rayon) }))
+    .filter((g) => g.scenarios.length > 0);
+}
 export function createWorkflow(tenantId: string, name: string, graph?: WorkflowGraph): Promise<{ id: string; name: string; graph: WorkflowGraph }> {
   return request(`/tenants/${tenantId}/workflows`, { method: 'POST', body: JSON.stringify({ name, ...(graph ? { graph } : {}) }) });
 }

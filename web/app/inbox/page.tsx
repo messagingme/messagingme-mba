@@ -58,7 +58,7 @@ import {
   sendTemplateToConversation,
   resolveTemplateParamsForConversation,
   markConversationRead,
-  listWorkflows, estEnLigne,
+  listWorkflows, estEnLigne, parRayon,
   startWorkflowInConversation,
   type Conversation,
   type InboxMessage,
@@ -2179,16 +2179,13 @@ function ScenarioSendPanel({
             {/* « non publié » : fenêtre ouverte, la liste n'est pas filtrée et un scénario jamais mis en
                 ligne y figure. Le lancer ne ferait rien du tout, autant le dire avant le clic. */}
             {/* Un groupe par rayon, vide = absent. Une API d'avant ne donne pas le rayon : tout tombe dans le Builder. */}
-            {([['general', 'Builder'], ['shopify', 'Shopify'], ['hubspot', 'HubSpot']] as const).map(([rayon, nom]) => {
-              const duRayon = workflows.filter((w) => (w.rayon ?? 'general') === rayon);
-              return duRayon.length === 0 ? null : (
-                <optgroup key={rayon} label={nom}>
-                  {duRayon.map((w) => (
-                    <option key={w.id} value={w.id}>{estEnLigne(w) ? w.name : `${w.name} (${t('non publié', 'not published')})`}</option>
-                  ))}
-                </optgroup>
-              );
-            })}
+            {parRayon(workflows).map((g) => (
+              <optgroup key={g.rayon} label={g.nom}>
+                {g.scenarios.map((w) => (
+                  <option key={w.id} value={w.id}>{estEnLigne(w) ? w.name : `${w.name} (${t('non publié', 'not published')})`}</option>
+                ))}
+              </optgroup>
+            ))}
           </select>
         )}
         {sel?.rayon === 'shopify' && (

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { RangeBar } from '@/components/RangeBar';
 import {
-  listWorkflows, getWorkflow, getWorkflowNodeCounts, listWorkflowReports, saveWorkflowReport, deleteWorkflowReport,
+  listWorkflows, parRayon, getWorkflow, getWorkflowNodeCounts, listWorkflowReports, saveWorkflowReport, deleteWorkflowReport,
   type StatsRange, type WorkflowSummary, type TableauEnregistre,
 } from '@/lib/api';
 import type { Session } from '@/lib/session';
@@ -71,7 +71,8 @@ function TableauxInner({ session }: { session: Session }) {
   const aAppliquer = useRef<MesureDispo[] | null>(null);
 
   useEffect(() => {
-    listWorkflows(session.tenantId).then((r) => setScenarios(r.workflows)).catch(() => setScenarios([]));
+    // Les trois rayons (Julien, 2026-11-26) : un scénario d'automation Shopify ou HubSpot se mesure comme un autre.
+    listWorkflows(session.tenantId, 'tous').then((r) => setScenarios(Array.isArray(r.workflows) ? r.workflows : [])).catch(() => setScenarios([]));
     listWorkflowReports(session.tenantId).then((r) => setTableaux(r.reports)).catch(() => setTableaux([]));
   }, [session.tenantId]);
 
@@ -203,7 +204,11 @@ function TableauxInner({ session }: { session: Session }) {
           className={`${inputClsAuto} w-full bg-white sm:w-96`}
         >
           <option value="">{t('Choisir un scénario…', 'Choose a scenario…')}</option>
-          {scenarios.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          {parRayon(scenarios).map((g) => (
+            <optgroup key={g.rayon} label={g.nom}>
+              {g.scenarios.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </optgroup>
+          ))}
         </select>
       </section>
 

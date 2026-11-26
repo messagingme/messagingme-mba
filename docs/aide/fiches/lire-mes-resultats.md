@@ -1,7 +1,7 @@
 ---
 ecran: perf-synthese
 source_section: Analytics (menu Analytics)
-source_empreinte: 50e0d8
+source_empreinte: 2ac142
 ---
 # Lire mes résultats dans le Performance Lab
 
@@ -87,7 +87,8 @@ la liste s'exporte en CSV comme en PDF. L'écran annonce la durée pendant laque
 conversations : au-delà, une conversation n'est plus consultable, donc une liste plus courte que la période
 demandée n'est pas une anomalie.
 
-**Mes tableaux** sert à construire vos propres mesures sur un scénario : il s'affiche tel que vous l'avez
+**Mes tableaux** sert à construire vos propres mesures sur un scénario, du Builder ou d'une automation Shopify
+ou HubSpot : il s'affiche tel que vous l'avez
 dessiné, et un clic sur un bloc de message choisit ce que vous voulez compter (envoyés, lus, chaque choix
 cliqué, le clic sur un lien, « a répondu sans cliquer », et « a envoyé un fichier » sur une question qui attend
 un fichier). Le tableau se nomme, s'enregistre et se rouvre,

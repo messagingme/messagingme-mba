@@ -2508,7 +2508,8 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
   tableaux. Il ouvre la boîte d'impression du navigateur avec **cette carte seule**, où « Enregistrer au format
   PDF » existe sur tous les systèmes.
 - ✅ **Mes tableaux** (2026-08-19) : construire ses propres tableaux de mesure sur un scénario. On choisit un
-  scénario, il s'affiche **tel qu'il est dessiné** dans l'onglet Scénario (mêmes blocs, mêmes flèches), les
+  scénario (ceux du Builder, et depuis le 2026-11-26 ceux des automations **Shopify** et **HubSpot**, groupés
+  sous leur nom), il s'affiche **tel qu'il est dessiné** dans l'onglet Scénario (mêmes blocs, mêmes flèches), les
   blocs qui n'envoient rien sont **grisés et inertes**, et un clic sur un bloc de message ouvre le choix de ce
   qu'on veut compter : envoyés, échecs et délivrés (sur le 1er bloc seulement, après quoi ils ne disent plus
   rien), lus, chaque **choix cliqué**, **le clic sur un lien**, « a répondu sans cliquer », et sur un bloc
