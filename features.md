@@ -733,9 +733,12 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     texte libre). La section n'apparaît que si le serveur sait appliquer ces filtres. Depuis le 2026-11-26 (segments
     Shopify enrichis, lot 7b ; offre Entreprise, boutique Shopify branchée), elle filtre aussi la **dernière commande**
     au regard de la dernière conversation analysée, datée de son dernier message (jamais de l'heure où l'analyse a
-    tourné, une demi-heure plus tard) : **aucune après l'analyse** (jamais commandé, ou seulement avant), **au moins une
-    après l'analyse**, ou **la dernière avant l'analyse** ; une fiche jamais analysée n'est dans aucune. Seule la
-    dernière analyse compte, la fiche n'en garde qu'une. Claude Code a le même critère (`order_vs_analysis`).
+    tourné, une demi-heure plus tard). Le menu **Commande et dernière conversation** propose : **pas de commande depuis la
+    conversation** (jamais commandé, ou seulement avant : à relancer), **une commande depuis la conversation** (il a
+    écrit, puis acheté), **conversation après sa dernière commande** (il avait acheté, puis écrit : SAV, réclamation) ;
+    une fiche jamais analysée n'est dans aucun. Libellés revus le même jour, les premiers parlant d'« analyse » étaient
+    illisibles. Seule la dernière analyse compte, la fiche n'en garde qu'une. Claude Code a le même critère
+    (`order_vs_analysis`).
   - **Dans les filtres de la liste des contacts**, donc aussi pour **cibler une campagne** (2026-11-03, segments) :
     une partie **Achats et activité** filtre les contacts **actifs** (qui ont écrit ou cliqué un lien suivi) dans les
     N derniers jours, ou **inactifs** depuis N jours, ceux qui n'ont jamais rien fait compris. Elle marche dans tous

@@ -264,7 +264,7 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
           )}
           {offrirRapport && (
             <label className="flex flex-wrap items-center gap-2 text-sm text-ink-700">
-              {t('Dernière commande', 'Latest order')}
+              {t('Commande et dernière conversation', 'Order and latest conversation')}
               <select
                 value={typeof rapportPose === 'string' ? rapportPose : ''}
                 onChange={(e) => choisirRapport(e.target.value)}
@@ -272,9 +272,9 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
                 data-testid="filtre-commande-analyse"
               >
                 <option value="">{t('peu importe', 'any')}</option>
-                <option value="aucune_apres">{t('aucune après l’analyse', 'none after the analysis')}</option>
-                <option value="commande_apres">{t('au moins une après l’analyse', 'at least one after the analysis')}</option>
-                <option value="analyse_apres_commande">{t('la dernière avant l’analyse', 'the latest before the analysis')}</option>
+                <option value="aucune_apres">{t('pas de commande depuis la conversation', 'no order since the conversation')}</option>
+                <option value="commande_apres">{t('une commande depuis la conversation', 'an order since the conversation')}</option>
+                <option value="analyse_apres_commande">{t('conversation après sa dernière commande', 'conversation after the latest order')}</option>
               </select>
             </label>
           )}

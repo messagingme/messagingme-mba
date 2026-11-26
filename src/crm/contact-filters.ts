@@ -94,7 +94,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
   [CLES_SEGMENT.segmentShopify]: 'segment Shopify',
   [CLES_SEGMENT.ecritSansCommande]: 'a écrit sans commander', [CLES_SEGMENT.clicSansCommande]: 'a cliqué sans commander',
   [CLES_SEGMENT.actif]: 'actif', [CLES_SEGMENT.inactif]: 'inactif', [CLES_SEGMENT.pays]: 'pays',
-  [CLES_SEGMENT.commandeVsAnalyse]: 'commande et dernière analyse',
+  [CLES_SEGMENT.commandeVsAnalyse]: 'commande et dernière conversation',
 };
 
 /**

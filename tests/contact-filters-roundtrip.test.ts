@@ -380,7 +380,7 @@ describe('le rapport à la dernière analyse (lot 7b) : trois valeurs, rien d’
       expect(lireSegment(S.commandeVsAnalyse, JSON.stringify(v))).toBe(v);
     }
     for (const v of ['"apres"', '"AUCUNE_APRES"', 'true', '{}', '["commande_apres"]', 'null']) {
-      expect(() => lireSegment(S.commandeVsAnalyse, v), v).toThrow('filtre « commande et dernière analyse » : aucune_apres, commande_apres, analyse_apres_commande');
+      expect(() => lireSegment(S.commandeVsAnalyse, v), v).toThrow('filtre « commande et dernière conversation » : aucune_apres, commande_apres, analyse_apres_commande');
     }
   });
 });

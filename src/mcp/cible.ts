@@ -207,10 +207,11 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
   },
   order_vs_analysis: {
     type: 'string', enum: [...RAPPORTS_ANALYSE_COMMANDE],
-    description: 'Enterprise plan only. The latest paid order against the LATEST analyzed conversation of the contact, '
-      + 'dated by its last message (not by when the analysis ran; a contact keeps only its latest analysis): aucune_apres = '
-      + 'analyzed, and no paid order after that conversation (never ordered, or only before); commande_apres = at least one '
-      + 'paid order after it; analyse_apres_commande = at least one order, the latest one before it (or at the same time). A contact never analyzed is in none. Combine it with '
+    description: 'Enterprise plan only. Paid orders against the contact\'s LATEST conversation analyzed by the AI, dated by '
+      + 'its last message (a contact keeps only its latest analysis). aucune_apres = no order since that conversation (never '
+      + 'ordered, or only before it); commande_apres = an order since that conversation (they wrote, then bought); '
+      + 'analyse_apres_commande = the conversation came after their latest order (they had bought, then wrote: after-sales, '
+      + 'a complaint). A contact never analyzed is in none. In the console: "Order and latest conversation". Combine it with '
       + 'analysis and the order criteria: "a VIP unhappy about their purchase" is spent min, analysis sentiment negatif and '
       + 'analyse_apres_commande; "asked about delivery without ordering" has no intent of its own: the closest is analysis '
       + 'intent information or achat with aucune_apres. Needs the Shopify store.',
