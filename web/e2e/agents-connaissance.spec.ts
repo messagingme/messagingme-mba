@@ -76,6 +76,16 @@ async function mock(page: import('@playwright/test').Page, appels: Appel[], fich
         pages: [{ url: 'https://exemple.fr/residence', fiches: 3, caracteres: 1200 }],
       });
     }
+    // Les outils de l'agent : aucun au départ ; poser puis activer « Chercher dans la base » est enregistré.
+    if (/\/tools$/.test(url)) {
+      if (method === 'GET') return json({ outils: [], catalogue: [] });
+      appels.push({ method, url, body: req.postDataJSON() });
+      return json({ outil: { id: 'outil-recherche', origin: 'mba', binding: { handler: 'chercher_connaissance' }, actif: false } }, 201);
+    }
+    if (/\/tools\/[^/]+\/activation$/.test(url)) {
+      appels.push({ method, url, body: req.postDataJSON() });
+      return json({ outil: { id: 'outil-recherche', actif: true } });
+    }
     if (/\/knowledge\/import$/.test(url)) {
       appels.push({ method, url, body: req.postDataJSON() });
       const r = importe ?? { status: 200, body: { url: 'https://exemple.fr/residence', retirees: 2, ecrites: 3, plafond: 40 } };
@@ -271,6 +281,32 @@ test.describe('Agents IA : la base de connaissance', () => {
     await page.getByTestId('kb-importer').click();
     await page.getByTestId('kb-confirmer').click();
     await expect(page.getByTestId('kb-bilan')).toContainText('plafond de 40 fiches par page est atteint');
+  });
+
+  test('🔴 un import réussi ACTIVE l’outil qui lit la base, et l’aperçu reste affiché tant qu’il travaille', async ({ page }) => {
+    // Julien, 2026-11-26 (MUTAC) : l'aperçu s'effaçait au clic pendant plus d'une minute d'import, et « Activer » était
+    // ensuite refusé parce que « Chercher dans la base de connaissance » n'était pas actif.
+    const appels: Appel[] = [];
+    await mock(page, appels, []);
+    let finir: () => void = () => {};
+    const attente = new Promise<void>((r) => { finir = r; });
+    await page.route('**/knowledge/import', async (route) => {
+      await attente;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: 'https://exemple.fr/residence', retirees: 0, ecrites: 3, plafond: 40 }) });
+    });
+    await page.goto(`/agents?id=${AG}&tab=connaissance`);
+    await page.getByTestId('kb-url').fill('https://exemple.fr/residence');
+    await page.getByTestId('kb-importer').click();
+    await page.getByTestId('kb-confirmer').click();
+    await expect(page.getByTestId('kb-import-en-cours')).toBeVisible();
+    await expect(page.getByTestId('kb-apercu')).toBeVisible();
+    finir();
+    await expect(page.getByTestId('kb-bilan')).toContainText('« Chercher dans la base de connaissance » est activé');
+    await expect(page.getByTestId('kb-apercu')).toHaveCount(0);
+    expect(appels.filter((a) => /\/tools/.test(a.url)).map((a) => [a.method, a.body])).toEqual([
+      ['POST', { handler: 'chercher_connaissance' }],
+      ['PUT', { valeur: true }],
+    ]);
   });
 
   test('une erreur d APERÇU est ANNONCÉE, pas avalée', async ({ page }) => {

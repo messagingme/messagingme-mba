@@ -293,8 +293,9 @@ function Ecran({ tenantId }: { tenantId: string }) {
   }
 
   /** Enregistre un patch et rafraîchit la liste : le libellé et le statut y sont visibles. */
-  async function enregistrer(patch: PatchAgent) {
-    if (!ouvert || busy) return;
+  /** Rend `true` si l'écriture a été acceptée (une activation refusée en 422 rend `false`). */
+  async function enregistrer(patch: PatchAgent): Promise<boolean> {
+    if (!ouvert || busy) return false;
     setBusy(true);
     setErreur(null);
     // ⚠️ `null` PENDANT L'ÉCRITURE, pas `[]` : ce geste peut être une activation, dont le refus 422 rapporte
@@ -314,6 +315,7 @@ function Ecran({ tenantId }: { tenantId: string }) {
       // `onChange`. Un avertissement qui survit au geste qui le règle devient du bruit qu'on apprend à
       // ignorer, et c'est ce qui est arrivé le 2026-09-11.
       void rafraichirManques(ouvert.id);
+      return true;
     } catch (err) {
       // 422 sur une activation : l'agent est incomplet. On montre la LISTE, pas « agent incomplet », qui
       // serait un refus sans mode d'emploi.
@@ -332,6 +334,7 @@ function Ecran({ tenantId }: { tenantId: string }) {
         // partir en croyant l'agent actif (relecture du 2026-11-24).
         if (liste.length > 0 || patch.status === 'active') void rafraichirManques(ouvert.id);
       }
+      return false;
     } finally {
       setBusy(false);
     }
@@ -342,8 +345,8 @@ function Ecran({ tenantId }: { tenantId: string }) {
    * rôle (le serveur, `oublierRepondeur`) : plus aucun agent IA ne répond alors aux messages que personne ne tient. On
    * le fait confirmer, comme la suppression ; tout autre changement de statut part sans question, comme avant.
    */
-  async function changerStatut(status: AgentComplet['status']) {
-    if (!ouvert || busy) return;
+  async function changerStatut(status: AgentComplet['status']): Promise<boolean> {
+    if (!ouvert || busy) return false;
     if (status !== 'active' && ouvert.id === repondeurAgentId && !(await confirmer({
       titre: t('Désactiver l’agent', 'Deactivate the agent'),
       message: t(
@@ -351,8 +354,8 @@ function Ecran({ tenantId }: { tenantId: string }) {
         `“${ouvert.label}” answers the customer: deactivating it removes it from that role, and the messages nobody handles will go to the team.`,
       ),
       confirmer: t('Désactiver', 'Deactivate'),
-    }))) return;
-    await enregistrer({ status });
+    }))) return false;
+    return enregistrer({ status });
   }
 
   if (ouvert) {
@@ -500,7 +503,7 @@ function Ecran({ tenantId }: { tenantId: string }) {
                 tenantId={tenantId} agentId={ouvert.id} onChange={() => rafraichirManques(ouvert.id)}
                 reglesArret={{
                   sorties: ouvert.contenu.sorties,
-                  enregistrer: (sorties) => enregistrer({ contenu: { ...ouvert.contenu, sorties } }),
+                  enregistrer: async (sorties) => { await enregistrer({ contenu: { ...ouvert.contenu, sorties } }); },
                 }}
               />
             )}

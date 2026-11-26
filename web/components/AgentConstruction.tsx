@@ -44,7 +44,8 @@ interface ProprietesConstruction {
    * Active l'agent, par le MÊME geste que le bouton de l'en-tête (refusé en 422 avec la liste de ce qui manque, que
    * l'écran parent pose dans `manques`). Attendu par « Enregistrer et activer », qui l'enchaîne après l'enregistrement.
    */
-  onActiver: () => void | Promise<void>;
+  /** Rend `true` si l'agent est désormais actif. */
+  onActiver: () => Promise<boolean>;
   onOnglet: (cle: ManqueFiche['onglet'] | 'tester') => void;
 }
 
@@ -308,7 +309,17 @@ function AgentConstructionOuverte({ tenantId, agentId, onApplique, actif, manque
       setTours((t0) => [...t0, { role: 'assistant', content: t('C’est enregistré.', 'Saved.') }]);
       setAuteurs((a0) => [...a0, null]);
       setEnregistre(true);
-      if (activer) await onActiver();
+      /**
+       * 🔴 UNE ACTIVATION REFUSÉE SE DIT DANS LE FIL (Julien, 2026-11-26 : « j'ai appuyé sur Activer, ça ne l'a pas
+       * activé ») : la liste de ce qui manque s'affiche plus bas, dans « Suite », et personne ne la voyait.
+       */
+      if (activer && !(await onActiver())) {
+        setTours((t0) => [...t0, { role: 'assistant', content: t(
+          'C’est enregistré, mais l’agent n’est pas encore activé : ce qui l’en empêche s’affiche juste en dessous, ou en haut de la page. Réglez-le, puis cliquez sur « Activer ».',
+          'Saved, but the agent is not active yet: what stops it shows just below, or at the top of the page. Fix it, then click “Activate”.',
+        ) }]);
+        setAuteurs((a0) => [...a0, null]);
+      }
     } catch (err) {
       setErreur(err instanceof Error ? err.message : t('Enregistrement impossible', 'Unable to save'));
     } finally {
@@ -523,7 +534,7 @@ function Suite({ actif, manques, busy, onActiver, onOnglet }: {
   actif: boolean;
   manques: ManqueFiche[] | null;
   busy: boolean;
-  onActiver: () => void;
+  onActiver: () => unknown;
   onOnglet: (cle: ManqueFiche['onglet'] | 'tester') => void;
 }) {
   const t = useT();

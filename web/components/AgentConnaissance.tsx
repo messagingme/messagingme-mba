@@ -11,6 +11,7 @@ import {
   supprimerFiches,
   type ApercuImport, type FicheConnaissance,
 } from '@/lib/api-agent-knowledge';
+import { activerOutil, ajouterOutil, listOutils } from '@/lib/api-agent-tools';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { Squelette } from '@/components/Squelette';
@@ -62,8 +63,32 @@ export function AgentConnaissance({ tenantId, agentId, onChange, urlSuggeree }: 
   useEffect(() => { void charger(); }, [charger]);
 
   /** Enveloppe commune : un seul geste à la fois, l'erreur est ANNONCÉE, la liste est relue après coup. */
-  async function agir(travail: () => Promise<string | null>) {
-    if (busy) return;
+  /**
+   * 🔴 UNE BASE QUI REÇOIT DES FICHES BRANCHE L'OUTIL QUI LA LIT (Julien, 2026-11-26, MUTAC) : sans « Chercher dans la
+   * base de connaissance » actif, l'agent ne lit rien de ce qu'on vient d'importer, et « Activer » était refusé en
+   * silence sur ce seul manque. Même geste que « Activer » de l'onglet Outils : poser l'outil s'il manque, puis
+   * l'activer au nom de qui importe. Au mieux : un échec ici laisse le manque affiché, sans faire échouer l'import.
+   */
+  async function brancherLaRecherche(): Promise<string | null> {
+    try {
+      const { outils } = await listOutils(tenantId, agentId);
+      const outil = outils.find((o) => o.origin === 'mba' && String(o.binding.handler ?? '') === 'chercher_connaissance');
+      // Activé puis désactivé par le client (`activeLe` posé) : c'est son choix, on ne le défait pas.
+      if (outil?.actif || (outil && outil.activeLe !== null)) return null;
+      const cible = outil ?? await ajouterOutil(tenantId, agentId, 'chercher_connaissance');
+      await activerOutil(tenantId, agentId, cible.id, true);
+      return t('L’outil « Chercher dans la base de connaissance » est activé : l’agent peut lire ces fiches.', 'The “Search the knowledge base” tool is on: the agent can read these entries.');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Rend `true` si le geste a abouti, `false` s'il a échoué ou n'a pas eu lieu. `ecrit` : le geste ajoute des fiches,
+   * donc l'outil qui les lit doit être actif (`brancherLaRecherche`).
+   */
+  async function agir(travail: () => Promise<string | null>, ecrit = false): Promise<boolean> {
+    if (busy) return false;
     setBusy(true);
     setErreur(null);
     setBilan(null);
@@ -71,12 +96,16 @@ export function AgentConnaissance({ tenantId, agentId, onChange, urlSuggeree }: 
     // naturel juste après, et les perdre obligerait à refaire l'aperçu puis l'import d'un site lent. Seul un nouvel
     // import les remplace.
     try {
-      setBilan(await travail());
+      const bilanDuGeste = await travail();
+      const branche = ecrit ? await brancherLaRecherche() : null;
+      setBilan([bilanDuGeste, branche].filter((x) => x !== null).join(' ') || null);
       await charger();
       // Le bandeau de la page se calcule sur CE nombre de fiches : sans ce rappel, il annonce l'état d'avant.
       onChange?.();
+      return true;
     } catch (err) {
       setErreur(err instanceof Error ? err.message : t('Opération impossible', 'Operation failed'));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -114,7 +143,7 @@ export function AgentConnaissance({ tenantId, agentId, onChange, urlSuggeree }: 
         `The site responds slowly: ${reste.length} page(s) not read in time, to import with another click.`,
       )}`
       : message;
-  });
+  }, true);
 
   return (
     <div className="flex flex-col gap-4">
@@ -158,12 +187,12 @@ export function AgentConnaissance({ tenantId, agentId, onChange, urlSuggeree }: 
             `The cap of ${r.plafond} entries per document was reached: the rest of the document was not read. Split it, or fill in by hand.`,
           )}`
           : ecrites;
-      })} />
+      }, true)} />
 
       <AjoutManuel busy={busy} onAdd={(titre, corps) => agir(async () => {
         await createFiche(tenantId, agentId, { titre, corps });
         return null;
-      })} />
+      }, true)} />
 
       <div className="flex flex-col gap-3">
         {fiches === null && <Squelette forme="lignes" />}
@@ -246,9 +275,22 @@ export function AgentConnaissance({ tenantId, agentId, onChange, urlSuggeree }: 
 }
 
 /** Lecture d'une page du site du client. Le prix de la relecture est DIT avant le clic, pas après. */
+/** Les secondes écoulées depuis que `actif` est vrai, remises à 0 quand il retombe : un geste long qui compte se voit vivant. */
+function useSecondes(actif: boolean): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    setN(0);
+    if (!actif) return;
+    const id = setInterval(() => setN((x) => x + 1), 1000);
+    return () => clearInterval(id);
+  }, [actif]);
+  return n;
+}
+
 function ImportSource({ tenantId, agentId, busy, onImport, onErreur, urlSuggeree }: {
   tenantId: string; agentId: string; busy: boolean;
-  onImport: (url: string, pages: string[]) => void;
+  /** Rend la main quand l'import est fini, réussi ou non (l'erreur est annoncée par l'appelant). */
+  onImport: (url: string, pages: string[]) => Promise<boolean>;
   onErreur: (message: string) => void;
   /** L'adresse que le client a donnée à l'assistant de construction, ou `null`. */
   urlSuggeree?: string | null;
@@ -278,7 +320,23 @@ function ImportSource({ tenantId, agentId, busy, onImport, onErreur, urlSuggeree
   }, [urlSuggeree]);
   const [apercu, setApercu] = useState<ApercuImport | null>(null);
   const [occupe, setOccupe] = useState(false);
+  /**
+   * 🔴 L'APERÇU RESTE À L'ÉCRAN PENDANT L'IMPORT (Julien, 2026-11-26, MUTAC) : il s'effaçait au clic, l'import d'un site
+   * prenait plus d'une minute sans rien montrer, et l'on croyait que rien ne s'était passé. Il ne part qu'une fois
+   * l'import réussi ; en échec, il reste, et le client relance sans refaire la lecture.
+   */
+  const [importe, setImporte] = useState(false);
+  const secondes = useSecondes(occupe || importe);
   const propre = url.trim();
+
+  async function importer(a: ApercuImport): Promise<void> {
+    setImporte(true);
+    try {
+      if (await onImport(a.url, a.pages.map((p) => p.url))) { setApercu(null); setUrl(''); }
+    } finally {
+      setImporte(false);
+    }
+  }
 
   async function voir(): Promise<void> {
     if (propre === '') return;
@@ -316,7 +374,7 @@ function ImportSource({ tenantId, agentId, busy, onImport, onErreur, urlSuggeree
           data-testid="kb-url"
           className={`${inputCls} max-w-md`}
           value={url}
-          disabled={busy || occupe}
+          disabled={busy || occupe || importe}
           onFocus={() => { touche.current = true; }}
           onChange={(e) => { setUrl(e.target.value); setApercu(null); }}
           onKeyDown={(e) => { if (e.key === 'Enter' && propre !== '') void voir(); }}
@@ -324,12 +382,17 @@ function ImportSource({ tenantId, agentId, busy, onImport, onErreur, urlSuggeree
         />
         <Bouton enCours={occupe}
           data-testid="kb-importer"
-          disabled={busy || occupe || propre === ''}
+          disabled={busy || occupe || importe || propre === ''}
           onClick={() => void voir()}
         >
-          {occupe ? t('Lecture…', 'Reading…') : t('Voir ce qui sera importé', 'See what will be imported')}
+          {occupe ? t(`Lecture… ${secondes} s`, `Reading… ${secondes} s`) : t('Voir ce qui sera importé', 'See what will be imported')}
         </Bouton>
       </div>
+      {occupe && (
+        <p className="text-xs text-ink-500" data-testid="kb-lecture-en-cours">
+          {t('Lecture des pages du site : jusqu’à une minute pour un grand site. Rien n’est écrit à cette étape.', 'Reading the site’s pages: up to a minute for a large site. Nothing is written at this step.')}
+        </p>
+      )}
 
       {/* 🔴 L'APERÇU N'ÉCRIT RIEN, et c'est tout son intérêt. Cinquante pages écrites d'un coup, ce sont
           cinquante jeux de fiches à relire ou supprimer une par une si la portée était mauvaise. */}
@@ -377,12 +440,25 @@ function ImportSource({ tenantId, agentId, busy, onImport, onErreur, urlSuggeree
           )}
           <Bouton
             data-testid="kb-confirmer"
-            disabled={busy || apercu.pages.length === 0}
-            onClick={() => { onImport(apercu.url, apercu.pages.map((p) => p.url)); setApercu(null); setUrl(''); }}
+            enCours={importe}
+            disabled={busy || importe || apercu.pages.length === 0}
+            onClick={() => {
+              void importer(apercu);
+            }}
             className="mt-3"
           >
-            {t(`Importer ces ${apercu.pages.length} page(s)`, `Import these ${apercu.pages.length} page(s)`)}
+            {importe
+              ? t(`Import en cours… ${secondes} s`, `Importing… ${secondes} s`)
+              : t(`Importer ces ${apercu.pages.length} page(s)`, `Import these ${apercu.pages.length} page(s)`)}
           </Bouton>
+          {importe && (
+            <p className="mt-2 text-xs text-ink-500" data-testid="kb-import-en-cours">
+              {t(
+                `Chaque page est lue puis découpée en fiches : comptez quelques secondes par page, soit jusqu’à deux minutes pour ${apercu.pages.length} page(s). Restez sur cet écran, le bilan s’affichera ici.`,
+                `Each page is read then split into entries: allow a few seconds per page, up to two minutes for ${apercu.pages.length} page(s). Stay on this screen, the summary will show here.`,
+              )}
+            </p>
+          )}
         </div>
       )}
       <p className="text-xs leading-relaxed text-alerte-800">
