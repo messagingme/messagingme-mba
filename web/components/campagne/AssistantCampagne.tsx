@@ -671,10 +671,12 @@ export function AssistantCampagne({
 
   return (
     // ⚠️ UNE SEULE COLONNE, BORNÉE. L'écran de référence est un 13 pouces (1280 x 800) moins la barre
-    // latérale de 240 px et les marges de la coquille, soit environ 990 px utiles. Une colonne bornée à
-    // 768 px y tient sans jamais dépendre de la largeur réelle de la fenêtre, et les blocs s'empilent :
-    // rien ne peut se retrouver côte à côte sous un seuil, donc rien ne peut se chevaucher.
-    <div className="mx-auto w-full max-w-formulaire" data-testid="assistant-campagne">
+    // latérale de 240 px et les marges de la coquille, soit environ 990 px utiles. Les étapes qui se lisent de
+    // haut en bas (nom, canal, contenu, récapitulatif) gardent la largeur « formulaire » (768 px), et les blocs
+    // s'empilent. L'AUDIENCE prend la largeur « liste » (Julien, 2026-11-26 : « là c'est sur une mini colonne ») :
+    // ses filtres alignent des colonnes, ses listes de produits et de contacts aussi, et sur un 13 pouces elle
+    // occupe toute la place utile ; `campagne-assistant-audience.spec.ts` vérifie qu'elle n'y déborde pas.
+    <div className={`mx-auto w-full ${etape === 'audience' ? 'max-w-liste' : 'max-w-formulaire'}`} data-testid="assistant-campagne">
       <ol className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500" data-testid="assistant-etapes">
         {ORDRE.map((e, i) => (
           <li key={e} className={i === rang ? 'font-semibold text-brand-600' : ''}>

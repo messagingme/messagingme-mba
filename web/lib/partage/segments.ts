@@ -71,7 +71,11 @@ export const CLES_COMMANDES: readonly CleSegment[] = [
  * Les critères du volet Shopify des filtres : ceux des commandes, les étiquettes Shopify (lot 6b) et les segments Shopify
  * (lot 6c), qui ne lisent pas les commandes mais demandent aussi une boutique. Un critère posé ouvre le volet.
  */
-export const CLES_SHOPIFY: readonly CleSegment[] = [...CLES_COMMANDES, CLES_SEGMENT.etiquetteShopify, CLES_SEGMENT.segmentShopify];
+export const CLES_SHOPIFY: readonly CleSegment[] = [
+  ...CLES_COMMANDES, CLES_SEGMENT.etiquetteShopify, CLES_SEGMENT.segmentShopify,
+  // La commande face à la dernière conversation (lot 7b) : rangée dans le volet Shopify, elle ne marche qu'avec une boutique.
+  CLES_SEGMENT.commandeVsAnalyse,
+];
 export const CLES_ACTIVITE: readonly CleSegment[] = [CLES_SEGMENT.actif, CLES_SEGMENT.inactif];
 
 /**

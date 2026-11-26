@@ -3457,7 +3457,9 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   corrélation avec la requête principale (son alias change d'un lecteur à l'autre) ; une fiche sans analyse n'est dans
   aucune valeur, une commande au même instant que le dernier message est « avant » (les trois valeurs font une partition).
   L'outil (`order_vs_analysis`, énumération annoncée) le refuse sans boutique et sans la fonction `analyse` ; la console
-  ne l'offre que si `GET .../contacts/segments` l'annonce (`analyseCommandes` : une boutique ET la fonction `analyse`),
+  l'offre dans le volet Shopify des filtres (pas dans la section « Dernière analyse » : il ne marche qu'avec une
+  boutique, décision de Julien du 2026-11-26 ; `CLES_SHOPIFY`, donc posé il ouvre le volet), et seulement si
+  `GET .../contacts/segments` l'annonce (`analyseCommandes` : une boutique ET la fonction `analyse`),
   ce qui le ferme aussi à une API plus ancienne, qui refuserait la clé en 400. ⚠️ Le serveur HTTP ne refuse pas le critère
   sans boutique, comme les boutons « sans commander » : posé à la main, `aucune_apres` y vise toutes les fiches analysées ;
 - 🔴 **le rattrapage des commandes passées** (segments Shopify enrichis, lot 5, migration 0313,

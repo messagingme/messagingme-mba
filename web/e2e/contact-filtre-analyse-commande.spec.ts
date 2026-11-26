@@ -1,8 +1,8 @@
 import { test, expect, type Page } from './aide/test';
 
 /**
- * LA DERNIÈRE COMMANDE FACE À LA DERNIÈRE ANALYSE (segments Shopify enrichis, lot 7b), dans la section « Dernière
- * analyse » des filtres de contacts : un critère de segment (`segment_commande_vs_analyse`), offert quand l'API
+ * LA COMMANDE FACE À LA DERNIÈRE CONVERSATION (segments Shopify enrichis, lot 7b), dans le volet Shopify des filtres
+ * de contacts (Julien, 2026-11-26 : elle ne marche qu'avec une boutique) : un critère de segment (`segment_commande_vs_analyse`), offert quand l'API
  * l'annonce (`analyseCommandes` : la fonction `analyse` ET une boutique).
  *
  * 🔴 CE QUE CES CAS PROTÈGENT. Le choix PART au serveur sous sa clé réservée (un choix affiché qui ne partirait pas
@@ -51,13 +51,22 @@ async function ouvrir(page: Page): Promise<void> {
   await page.getByTestId('contacts-toggle-filters').click();
 }
 
+/** Déplie le volet Shopify, replié par défaut dans le mini-CRM. */
+async function deplierShopify(page: Page): Promise<void> {
+  await page.getByTestId('filtres-shopify-titre').click();
+  await expect(page.getByTestId('filtres-shopify')).toHaveAttribute('open', '');
+}
+
 test.describe('Contacts : la dernière commande face à la dernière analyse (lot 7b)', () => {
   test('🔴 le choix part au serveur sous sa clé, et « peu importe » le retire', async ({ page }) => {
     const requetes: string[] = [];
     await mock(page, { segments: AVEC_BOUTIQUE, requetes });
     await ouvrir(page);
-    const choix = page.getByTestId('filtres-analyse').getByTestId('filtre-commande-analyse');
+    await deplierShopify(page);
+    const choix = page.getByTestId('filtres-shopify').getByTestId('filtre-commande-analyse');
     await expect(choix).toBeVisible();
+    // Plus dans la section « Dernière analyse » : un seul endroit pour les critères Shopify.
+    await expect(page.getByTestId('filtres-analyse').getByTestId('filtre-commande-analyse')).toHaveCount(0);
     await choix.selectOption('analyse_apres_commande');
     await expect.poll(() => requetes.some((u) => rapportDe(u) === '"analyse_apres_commande"')).toBe(true);
     await choix.selectOption('aucune_apres');
@@ -66,10 +75,11 @@ test.describe('Contacts : la dernière commande face à la dernière analyse (lo
     await expect.poll(() => rapportDe(requetes[requetes.length - 1]!)).toBeUndefined();
   });
 
-  test('🔴 sans boutique, il n’est pas offert ; les filtres d’analyse restent', async ({ page }) => {
+  test('🔴 sans boutique, ni le volet Shopify ni ce choix ; les filtres d’analyse restent', async ({ page }) => {
     await mock(page, { segments: SANS_BOUTIQUE });
     await ouvrir(page);
     await expect(page.getByTestId('ajouter-filtre-analyse')).toBeVisible();
+    await expect(page.getByTestId('filtres-shopify')).toHaveCount(0);
     await expect(page.getByTestId('filtre-commande-analyse')).toHaveCount(0);
   });
 
@@ -77,6 +87,7 @@ test.describe('Contacts : la dernière commande face à la dernière analyse (lo
     const { analyseCommandes: _absente, ...sansAnnonce } = AVEC_BOUTIQUE;
     await mock(page, { segments: sansAnnonce });
     await ouvrir(page);
+    await deplierShopify(page);
     await expect(page.getByTestId('ajouter-filtre-analyse')).toBeVisible();
     await expect(page.getByTestId('filtre-commande-analyse')).toHaveCount(0);
   });

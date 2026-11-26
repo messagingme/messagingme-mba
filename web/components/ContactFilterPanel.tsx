@@ -13,7 +13,7 @@ import { useChampsFiltrables } from '@/lib/use-champs-filtrables';
 import { useSegments } from '@/lib/use-segments';
 import { FiltresAchatsActivite } from '@/components/FiltresAchatsActivite';
 import { FiltresShopify } from '@/components/FiltresShopify';
-import { CLES_SEGMENT, estCleSegment, estRapportAnalyseCommande, filtreSegment, valeurSegment } from '@/lib/partage/segments';
+import { estCleSegment } from '@/lib/partage/segments';
 
 /**
  * Panneau de filtres de contacts, CONTRÔLÉ (édite un ContactFilters via onChange). Partagé par le mini-CRM
@@ -86,14 +86,6 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
   const addAnalyse = () => { const c = champsAnalyse[0]; if (c) ecrireFiltres(fieldRows, [...analyseRows, filtreAnalyseParDefaut(c)], emailRow); };
   const updAnalyse = (i: number, f: FiltreAnalyseValide) => ecrireFiltres(fieldRows, analyseRows.map((r, j) => (j === i ? f : r)), emailRow);
   const rmAnalyse = (i: number) => ecrireFiltres(fieldRows, analyseRows.filter((_, j) => j !== i), emailRow);
-  // La dernière commande face à la dernière analyse (segments Shopify enrichis, lot 7b) : un critère de segment, offert
-  // quand l'API l'annonce (`analyseCommandes` : la fonction `analyse` et une boutique) ; posé, il reste visible.
-  const rapportPose = valeurSegment(segmentRows, CLES_SEGMENT.commandeVsAnalyse);
-  const offrirRapport = (suivi?.analyseCommandes === true && Boolean(suivi?.boutique)) || rapportPose !== undefined;
-  const choisirRapport = (v: string) => ecrireFiltres(fieldRows, analyseRows, emailRow, [
-    ...segmentRows.filter((s) => s.key !== CLES_SEGMENT.commandeVsAnalyse),
-    ...(estRapportAnalyseCommande(v) ? [filtreSegment(CLES_SEGMENT.commandeVsAnalyse, v)] : []),
-  ]);
   // MIROIR EXACT de la liste d'options du <select> (qui exclut 'email', géré par le contrôle Email dédié) : sinon
   // une ligne par défaut key='email' serait filtrée hors des lignes génériques ET écraserait le filtre Email.
   const fieldKeys = userFields.filter((d) => d.key !== 'email');
@@ -250,7 +242,7 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
       </div>
 
       {/* La dernière analyse : offerte si l'API décrit ses champs ; un filtre déjà posé reste visible pour être retiré. */}
-      {(champsAnalyse.length > 0 || analyseRows.length > 0 || offrirRapport) && (
+      {(champsAnalyse.length > 0 || analyseRows.length > 0) && (
         <div className="flex flex-col gap-1.5" data-testid="filtres-analyse">
           <span className="text-xs text-ink-500">{t('Dernière analyse', 'Latest analysis')}</span>
           {analyseRows.map((r, i) => (
@@ -261,22 +253,6 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
           ))}
           {analyseRows.length < 5 && champsAnalyse.length > 0 && (
             <button type="button" onClick={addAnalyse} className="inline-flex items-center gap-1 self-start text-sm font-medium text-brand-600 hover:text-brand-700" data-testid="ajouter-filtre-analyse"><Icone nom="ajouter" />{t('Filtre d’analyse', 'Analysis filter')}</button>
-          )}
-          {offrirRapport && (
-            <label className="flex flex-wrap items-center gap-2 text-sm text-ink-700">
-              {t('Commande et dernière conversation', 'Order and latest conversation')}
-              <select
-                value={typeof rapportPose === 'string' ? rapportPose : ''}
-                onChange={(e) => choisirRapport(e.target.value)}
-                className={`${inputClsAuto} bg-white`}
-                data-testid="filtre-commande-analyse"
-              >
-                <option value="">{t('peu importe', 'any')}</option>
-                <option value="aucune_apres">{t('pas de commande depuis la conversation', 'no order since the conversation')}</option>
-                <option value="commande_apres">{t('une commande depuis la conversation', 'an order since the conversation')}</option>
-                <option value="analyse_apres_commande">{t('conversation après sa dernière commande', 'conversation after the latest order')}</option>
-              </select>
-            </label>
           )}
         </div>
       )}

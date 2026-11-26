@@ -730,15 +730,7 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     **résolue** (oui / non) et **analysée depuis moins de N jours** ; chaque champ peut aussi se filtrer
     « sans valeur » (jamais analysée) ou « renseigné ». Ces filtres se cumulent avec les autres. Une fiche jamais
     analysée n'est dans aucune valeur, et « non résolue » ne la retient pas. Le sujet ne se filtre pas (c'est un
-    texte libre). La section n'apparaît que si le serveur sait appliquer ces filtres. Depuis le 2026-11-26 (segments
-    Shopify enrichis, lot 7b ; offre Entreprise, boutique Shopify branchée), elle filtre aussi la **dernière commande**
-    au regard de la dernière conversation analysée, datée de son dernier message (jamais de l'heure où l'analyse a
-    tourné, une demi-heure plus tard). Le menu **Commande et dernière conversation** propose : **pas de commande depuis la
-    conversation** (jamais commandé, ou seulement avant : à relancer), **une commande depuis la conversation** (il a
-    écrit, puis acheté), **conversation après sa dernière commande** (il avait acheté, puis écrit : SAV, réclamation) ;
-    une fiche jamais analysée n'est dans aucun. Libellés revus le même jour, les premiers parlant d'« analyse » étaient
-    illisibles. Seule la dernière analyse compte, la fiche n'en garde qu'une. Claude Code a le même critère
-    (`order_vs_analysis`).
+    texte libre). La section n'apparaît que si le serveur sait appliquer ces filtres.
   - **Dans les filtres de la liste des contacts**, donc aussi pour **cibler une campagne** (2026-11-03, segments) :
     une partie **Achats et activité** filtre les contacts **actifs** (qui ont écrit ou cliqué un lien suivi) dans les
     N derniers jours, ou **inactifs** depuis N jours, ceux qui n'ont jamais rien fait compris. Elle marche dans tous
@@ -781,7 +773,14 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     deux, aucune commande enregistrée pour le contact. Un clic pose le bouton, un second le retire, les deux se
     cumulent ; le nombre sur chaque bouton compte ses contacts à lui seul, et un bouton qui ne trouve personne ne
     s'affiche pas (sauf déjà posé, pour être retiré). Claude Code a les mêmes (`wrote_without_order`,
-    `clicked_without_order`). Chaque commande payée d'un contact connu compte, message de confirmation
+    `clicked_without_order`). Depuis le lot 7b (2026-11-26, formule Entreprise), le menu **Commande et dernière
+    conversation** compare la dernière conversation analysée, datée de son dernier message (jamais de l'heure où
+    l'analyse a tourné, une demi-heure plus tard), aux commandes : **pas de commande depuis la conversation** (jamais
+    commandé, ou seulement avant : à relancer), **une commande depuis la conversation** (il a écrit, puis acheté),
+    **conversation après sa dernière commande** (il avait acheté, puis écrit : SAV, réclamation) ; une fiche jamais
+    analysée n'est dans aucun, seule la dernière analyse compte. Il est dans ce volet, pas avec les filtres d'analyse,
+    parce qu'il ne marche qu'avec une boutique (Julien, le même jour). Claude Code a le même critère
+    (`order_vs_analysis`). Chaque commande payée d'un contact connu compte, message de confirmation
     branché ou non, commandes de test comprises, remboursements non déduits ; le volet dit depuis quand elles sont
     suivies, depuis quand un rattrapage les a relues (lot 5 : les 60 jours qui le précèdent, 24 mois en Pro avec le droit
     `read_all_orders` depuis le lot 7a), et la date de coupure

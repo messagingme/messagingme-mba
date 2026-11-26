@@ -6,7 +6,7 @@ import type { ContactFieldFilter } from '@/lib/api';
 import { inputClsAuto } from '@/lib/ui';
 import { formatDate } from '@/lib/day';
 import {
-  BORNES_SEGMENTS, CLES_SEGMENT, CLES_SHOPIFY, filtreSegment, valeurSegment,
+  BORNES_SEGMENTS, CLES_SEGMENT, CLES_SHOPIFY, estRapportAnalyseCommande, filtreSegment, valeurSegment,
   type BoutonsSansCommandeVue, type CleSegment, type PlageSurJours, type SuiviSegmentsVue,
 } from '@/lib/partage/segments';
 import { lirePlageSaisie, saisieDePlage, type SaisiePlage } from '@/lib/segments';
@@ -98,6 +98,7 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
         {/* Les segments Shopify (lot 6c), ceux que le marchand a construits dans Shopify : annoncés par l'API, ou déjà posés. */}
         {(suivi?.segmentsShopify === true || segmentPose) && <FiltresSegmentsShopify tenantId={tenantId} segments={segments} onChange={onChange} />}
         <BoutonsSansCommande segments={segments} onChange={onChange} comptes={suivi?.boutons ?? null} />
+        <CommandeEtConversation segments={segments} onChange={onChange} annonce={suivi?.analyseCommandes === true} />
         {boutique && (
           <p className="text-xs text-ink-500" data-testid="filtres-achats-suivi">
             {t(
@@ -161,6 +162,43 @@ function BoutonsSansCommande({ segments, onChange, comptes }: {
         )}
       </p>
     </div>
+  );
+}
+
+/**
+ * LA COMMANDE FACE À LA DERNIÈRE CONVERSATION (segments Shopify enrichis, lot 7b, formule Entreprise) : la dernière
+ * conversation analysée de la fiche, datée de son dernier message, face à ses commandes payées. Offerte quand l'API
+ * l'annonce (`analyseCommandes` : une boutique ET la fonction `analyse`) ; posée, elle reste visible pour être retirée.
+ * Dans le volet Shopify (Julien, 2026-11-26 : elle ne marche qu'avec une boutique), à côté des boutons « sans
+ * commander », de la même famille.
+ */
+function CommandeEtConversation({ segments, onChange, annonce }: {
+  segments: ContactFieldFilter[];
+  onChange: (segments: ContactFieldFilter[]) => void;
+  annonce: boolean;
+}) {
+  const t = useT();
+  const pose = valeurSegment(segments, CLES_SEGMENT.commandeVsAnalyse);
+  if (!annonce && pose === undefined) return null;
+  const choisir = (v: string) => onChange([
+    ...segments.filter((s) => s.key !== CLES_SEGMENT.commandeVsAnalyse),
+    ...(estRapportAnalyseCommande(v) ? [filtreSegment(CLES_SEGMENT.commandeVsAnalyse, v)] : []),
+  ]);
+  return (
+    <label className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-2 text-sm text-ink-700" data-testid="filtres-commande-conversation">
+      {t('Commande et dernière conversation', 'Order and latest conversation')}
+      <select
+        value={typeof pose === 'string' ? pose : ''}
+        onChange={(e) => choisir(e.target.value)}
+        className={`${inputClsAuto} bg-white`}
+        data-testid="filtre-commande-analyse"
+      >
+        <option value="">{t('peu importe', 'any')}</option>
+        <option value="aucune_apres">{t('pas de commande depuis la conversation', 'no order since the conversation')}</option>
+        <option value="commande_apres">{t('une commande depuis la conversation', 'an order since the conversation')}</option>
+        <option value="analyse_apres_commande">{t('conversation après sa dernière commande', 'conversation after the latest order')}</option>
+      </select>
+    </label>
   );
 }
 

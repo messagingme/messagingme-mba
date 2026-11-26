@@ -216,6 +216,8 @@ test('l etape tient dans un 13 pouces, filtres et liste compris', async ({ page 
   await expect(page.getByTestId('destinataires-liste')).toBeVisible();
   await pasDeDebordement(page);
   await pasDeChevauchement(page, ['audience-sources', 'destinataires-liste', 'audience-compte']);
+  // L'audience prend la place utile (la largeur « liste »), plus la colonne de 768 px des autres étapes (2026-11-26).
+  expect((await page.getByTestId('assistant-campagne').boundingBox())!.width).toBeGreaterThan(900);
 });
 
 /**
