@@ -29,7 +29,12 @@ describe.skipIf(!url)('le plus ancien laisse sa place', () => {
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl() });
-    t = (await pool.query<{ id: string }>(`insert into tenants (name, offre_business) values ('itest-remplacement', true) returning id`)).rows[0]!.id;
+    // La limite du Business est aussi posée EN BASE (`business_contacts`) : la porte de l'espace plein relit celle d'un
+    // Business dans sa propre requête, avec ses packs (2026-11-26), comme la production où les deux lectures viennent
+    // de la même colonne. Sans elle, la porte lirait les 5 000 de la grille.
+    t = (await pool.query<{ id: string }>(
+      `insert into tenants (name, offre_business, business_contacts) values ('itest-remplacement', true, $1) returning id`, [LIMITE],
+    )).rows[0]!.id;
   });
   beforeEach(async () => {
     traces.length = 0;
