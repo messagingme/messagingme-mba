@@ -16,7 +16,7 @@ import { RcsPhoneFrame } from '@/components/RcsPhoneFrame';
 import { assignationProposable, devenirParDefaut, type CanalEtage, type EtageAssistant } from '@/lib/campagne-chaine';
 import { choixIndisponible, choixParDefaut, lireChoixRepondeur, optionsDuRepondeur, repondeurPossible } from '@/lib/campagne-repondeur';
 import { champEmailEffectif } from '@/lib/campagne-repartition';
-import { scenariosPourEtage } from '@/lib/campagne-scenario';
+import { groupeDuModele, groupeDuScenario, scenariosPourEtage } from '@/lib/campagne-scenario';
 import { CreationScenarioEnLigne } from '@/components/campagne/CreationScenarioEnLigne';
 import { modeleDeLEtage } from '@/lib/campagne-creation';
 import type { WorkflowSummary } from '@/lib/api';
@@ -563,6 +563,9 @@ function CadreWhatsApp({
     const mien = (tour.current += 1);
     // `duBloc` : les champs choisis dans le bloc d'ouverture du scénario, qui priment sur ceux du modèle et
     // restent modifiables ici, pour cette campagne seulement.
+    // 🔴 UNE SOURCE « DONNÉE DE LA COMMANDE » (scénario Shopify ou HubSpot, admis le 2026-11-26) RESTE POSÉE, VISIBLE
+    // sous « Données Shopify » : une campagne n'a pas de commande, `problemeDAssociation` la nomme et bloque jusqu'à ce
+    // qu'un champ de la fiche la remplace. La remplacer par le défaut (le nom) enverrait « Votre commande Julie ».
     const avecLeBloc = (lignes: VarRow[]): VarRow[] => appliquerIndices(lignes, duBloc, references.userFields);
     // ⚠️ UN SEUL PATCH POUR LE CHOIX ET SES VARIABLES : deux appels de suite partiraient du même état de
     // rendu et le second effacerait le premier. La coquille fusionne, elle ne devine pas.
@@ -650,7 +653,10 @@ function CadreWhatsApp({
           testId={`modele-${rang}`}
           valeur={contenu.templateName ?? ''}
           onChange={choisirModele}
-          options={references.templates.map((t) => ({ valeur: t.name, libelle: `${t.name} (${t.language})` }))}
+          options={references.templates.map((t) => ({
+            valeur: t.name, libelle: `${t.name} (${t.language})`, groupe: groupeDuModele(t.name, references.origineDesModeles ?? {}),
+          }))}
+          ordreDesGroupes={['Automations Shopify', 'Automations HubSpot', 'Autres modèles']}
           vide="Aucun modèle approuvé sur cet espace."
         />
       )}
@@ -1260,7 +1266,8 @@ function SelecteurScenario({
       {...(testId ? { testId } : {})}
       valeur={contenu.workflowId ?? ''}
       onChange={onChange}
-      options={scenariosPourEtage(references.workflows, canal).map((w) => ({ valeur: w.id, libelle: w.name }))}
+      options={scenariosPourEtage(references.workflows, canal).map((w) => ({ valeur: w.id, libelle: w.name, groupe: groupeDuScenario(w.rayon) }))}
+      ordreDesGroupes={['Scénarios', 'Automations Shopify', 'Automations HubSpot']}
       vide="Aucun scénario ne peut ouvrir cet étage."
     />
     {/*
@@ -1392,6 +1399,12 @@ function BlocAssignation({
   );
 }
 
+/** Le rang d'un groupe : sa place dans l'ordre voulu, sinon après tous (le tri est stable, l'apparition départage). */
+function rang(ordre: readonly string[] | undefined, groupe: string): number {
+  const i = ordre?.indexOf(groupe) ?? -1;
+  return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+}
+
 /** Un `select` étiqueté, borné à la largeur de son parent (`w-full`), avec son cas vide. */
 function Selecteur({
   libelle,
@@ -1400,12 +1413,16 @@ function Selecteur({
   options,
   vide,
   testId,
+  ordreDesGroupes,
 }: {
   libelle: string;
   valeur: string;
   onChange: (v: string) => void;
-  options: Array<{ valeur: string; libelle: string; desactive?: boolean }>;
+  /** `groupe` : la catégorie de l'option (un `<optgroup>`), affichée seulement s'il y en a plus d'une. */
+  options: Array<{ valeur: string; libelle: string; desactive?: boolean; groupe?: string }>;
   vide: string;
+  /** L'ordre des groupes ; un groupe absent de la liste vient après, dans l'ordre d'apparition. */
+  ordreDesGroupes?: readonly string[];
   /**
    * ⚠️ UNE CLÉ DE TEST PLUTÔT QU'UNE DÉSIGNATION PAR LIBELLÉ, et ce n'est pas un confort : « Modèle »
    * désigne aussi les deux boutons radio « Modèle seul » et « Modèle et scénario » du même cadre, donc
@@ -1427,9 +1444,18 @@ function Selecteur({
           className="mt-1 w-full rounded-controle border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
         >
           <option value="">Choisir…</option>
-          {options.map((o) => (
-            <option key={o.valeur} value={o.valeur} disabled={o.desactive === true}>{o.libelle}</option>
-          ))}
+          {(() => {
+            const option = (o: (typeof options)[number]) => (
+              <option key={o.valeur} value={o.valeur} disabled={o.desactive === true}>{o.libelle}</option>
+            );
+            const groupes = [...new Set(options.map((o) => o.groupe ?? ''))]
+              .sort((a, b) => rang(ordreDesGroupes, a) - rang(ordreDesGroupes, b));
+            // Un seul groupe : la liste à plat, sans étiquette qui ne distinguerait rien.
+            if (groupes.length <= 1) return options.map(option);
+            return groupes.map((g) => (
+              <optgroup key={g} label={g}>{options.filter((o) => (o.groupe ?? '') === g).map(option)}</optgroup>
+            ));
+          })()}
         </select>
       )}
     </label>

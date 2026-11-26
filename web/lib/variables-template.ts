@@ -142,5 +142,8 @@ export function problemeDAssociation(vars: readonly VarRow[], nbVariables: numbe
   }
   const vide = vars.findIndex((v) => v.sel === 'literal' && v.value.trim() === '');
   if (vide >= 0) return `la variable {{${vide + 1}}} est un texte fixe laissé vide`;
+  // Une donnée de l'événement (scénario Shopify ou HubSpot) n'existe pas dans une campagne : la création la refuse.
+  const duParcours = vars.findIndex((v) => v.sel.startsWith('var:'));
+  if (duParcours >= 0) return `la variable {{${duParcours + 1}}} lit une donnée de la commande, absente d’une campagne : associez-la à un champ de la fiche`;
   return null;
 }

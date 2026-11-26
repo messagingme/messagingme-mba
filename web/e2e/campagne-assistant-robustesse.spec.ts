@@ -194,6 +194,43 @@ test.describe('Assistant : les scénarios lançables en campagne', () => {
     await expect(select.locator('option', { hasText: 'Relance promo' })).toHaveCount(1);
     await expect(select.locator('option', { hasText: 'Formulaire seul' })).toHaveCount(0);
   });
+
+  /**
+   * 🔴 LES SCÉNARIOS ET LES MODÈLES DES AUTOMATIONS SHOPIFY ET HUBSPOT, RANGÉS À PART (Julien, 2026-11-26). La liste
+   * se demande avec `?rayons=tous` ; un scénario Shopify qui ouvre par un modèle est proposé, sous son groupe, et les
+   * modèles qu'il envoie se rangent sous « Automations Shopify ».
+   */
+  test('🔴 un scénario et un modèle Shopify sont proposés, chacun dans son groupe', async ({ page }) => {
+    const shopify = { id: 'wf-shop', name: 'Commande expédiée', rayon: 'shopify', campaignEligible: true, canalOuverture: 'whatsapp', modeles: ['commande_expediee'] };
+    const faux = await poserFaux(page, {
+      workflows: [{ ...WF_OK, rayon: 'general', modeles: ['promo'] }, shopify],
+      templates: [
+        { id: 't1', name: 'promo', status: 'APPROVED', category: 'MARKETING', language: 'fr', body: 'Bonjour', isCarousel: false },
+        { id: 't2', name: 'commande_expediee', status: 'APPROVED', category: 'UTILITY', language: 'fr', body: 'Votre commande {{1}}', isCarousel: false },
+      ],
+    });
+    await jusquAuContenu(page);
+    await page.getByTestId('etage-1').click();
+    // La liste demandée est celle des trois rayons.
+    expect(faux.appels.some((a) => a.method === 'GET' && /\/workflows\?rayons=tous$/.test(a.url))).toBe(true);
+    const modeles = page.getByTestId('modele-1');
+    await expect(modeles.locator('optgroup[label="Automations Shopify"] option', { hasText: 'commande_expediee' })).toHaveCount(1, { timeout: 15_000 });
+    await expect(modeles.locator('optgroup[label="Autres modèles"] option', { hasText: 'promo' })).toHaveCount(1);
+    await page.getByRole('radio', { name: 'Modèle et scénario' }).check();
+    const scenarios = page.getByTestId('scenario-1');
+    await expect(scenarios.locator('optgroup[label="Automations Shopify"] option', { hasText: 'Commande expédiée' })).toHaveCount(1);
+    await expect(scenarios.locator('optgroup[label="Scénarios"] option', { hasText: 'Relance promo' })).toHaveCount(1);
+  });
+
+  test('un seul groupe : la liste reste à plat, sans étiquette', async ({ page }) => {
+    await poserFaux(page, { workflows: [WF_OK] });
+    await jusquAuContenu(page);
+    await page.getByTestId('etage-1').click();
+    await page.getByRole('radio', { name: 'Modèle et scénario' }).check();
+    const select = page.getByTestId('scenario-1');
+    await expect(select.locator('option', { hasText: 'Relance promo' })).toHaveCount(1, { timeout: 15_000 });
+    await expect(select.locator('optgroup')).toHaveCount(0);
+  });
 });
 
 /**

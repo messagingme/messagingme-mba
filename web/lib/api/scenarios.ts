@@ -173,6 +173,8 @@ export interface WorkflowSummary {
   code?: string | null;
   /** Le rayon (menu « Scénario ») : `general` au Builder, `shopify` pour une automation. Rendu par `getWorkflow`. */
   rayon?: string;
+  /** Les noms des modèles que ses blocs envoient (version en ligne). Rendu par la LISTE ; absent d'une API d'avant. */
+  modeles?: string[];
   /**
    * Le graphe EN LIGNE : celui que les contacts parcourent. Ne change que sur « Publier ».
    *

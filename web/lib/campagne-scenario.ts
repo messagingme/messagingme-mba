@@ -46,3 +46,42 @@ export function scenariosPourEtage<T extends ScenarioChoisissable>(
     return s.canalOuverture === canal;
   });
 }
+
+/**
+ * LE RANGEMENT DES LISTES DE L'ÉTAPE CONTENU (Julien, 2026-11-26) : les scénarios et les modèles des automations
+ * Shopify et HubSpot, chacun dans son groupe, à côté des autres. Un seul groupe présent : aucun groupe affiché.
+ *
+ * ⚠️ RAYON ABSENT = LE BUILDER : une API d'avant ne rend pas le champ, et tout y est du Builder.
+ */
+export type OrigineAutomation = 'shopify' | 'hubspot';
+
+/** Le groupe d'un scénario dans la liste d'un étage. */
+export function groupeDuScenario(rayon: string | undefined): string {
+  if (rayon === 'shopify') return 'Automations Shopify';
+  if (rayon === 'hubspot') return 'Automations HubSpot';
+  return 'Scénarios';
+}
+
+/**
+ * L'origine de chaque modèle : celui qu'envoie un scénario Shopify ou HubSpot. Lue sur TOUTE la liste des scénarios
+ * (`?rayons=tous`), pas sur celle d'un étage : un scénario d'automation qui ne peut pas ouvrir de campagne n'en reste pas
+ * moins l'origine de ses modèles. Un modèle des deux rayons reste Shopify (premier trouvé, ordre fixe).
+ */
+export function origineDesModeles(
+  scenarios: ReadonlyArray<{ rayon?: string; modeles?: string[] }>,
+): Record<string, OrigineAutomation> {
+  const origines: Record<string, OrigineAutomation> = {};
+  for (const rayon of ['shopify', 'hubspot'] as const) {
+    for (const s of scenarios) {
+      if (s.rayon !== rayon) continue;
+      for (const nom of s.modeles ?? []) if (!Object.hasOwn(origines, nom)) origines[nom] = rayon;
+    }
+  }
+  return origines;
+}
+
+/** Le groupe d'un modèle dans la liste d'un étage. */
+export function groupeDuModele(nom: string, origines: Readonly<Record<string, OrigineAutomation>>): string {
+  const o = Object.hasOwn(origines, nom) ? origines[nom] : undefined;
+  return o === 'shopify' ? 'Automations Shopify' : o === 'hubspot' ? 'Automations HubSpot' : 'Autres modèles';
+}

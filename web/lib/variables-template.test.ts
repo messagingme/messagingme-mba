@@ -124,6 +124,13 @@ describe('versParamMapping', () => {
 });
 
 describe('problemeDAssociation', () => {
+  // 🔴 Un scénario Shopify ou HubSpot lancé par une campagne n'a pas de commande derrière lui : la création refuse une
+  // source « variable du parcours ». Le récapitulatif le dit avant, la ligne nommée.
+  it('une donnée de la commande (var:) est nommée, pas envoyée', () => {
+    const lignes = [{ sel: 'sys:name', value: '' }, { sel: 'var:numero_commande', value: '' }];
+    expect(problemeDAssociation(lignes, 2)).toMatch(/\{\{2\}\}.*commande/);
+  });
+
   it('le compte exact ne retient rien', () => {
     expect(problemeDAssociation(lignesParDefaut(2), 2)).toBeNull();
   });

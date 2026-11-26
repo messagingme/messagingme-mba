@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { listAgents, lireQuiRepond } from '@/lib/api-agent';
 import { isCampaignEligible } from '@/lib/campaign-eligibility';
+import { origineDesModeles } from '@/lib/campagne-scenario';
 import { repondeurAutomatique, type EtatRepondeur } from '@/lib/repondeur';
 import { useOffre } from '@/lib/use-offre';
 import {
@@ -92,10 +93,10 @@ function AssistantInner({ session }: { session: Session }) {
    * création l'aurait refusé, ou l'inverse.
    */
   const rechargerScenarios = useCallback(async (): Promise<WorkflowSummary[]> => {
-    const r = await listWorkflows(session.tenantId);
-    const tous = (Array.isArray(r?.workflows) ? r.workflows : [])
-      .filter((w) => w.campaignEligible ?? (w.graph ? isCampaignEligible(w.graph) : false));
-    setReferences((ref) => ({ ...ref, workflows: tous }));
+    const r = await listWorkflows(session.tenantId, 'tous');
+    const liste = Array.isArray(r?.workflows) ? r.workflows : [];
+    const tous = liste.filter((w) => w.campaignEligible ?? (w.graph ? isCampaignEligible(w.graph) : false));
+    setReferences((ref) => ({ ...ref, workflows: tous, origineDesModeles: origineDesModeles(liste) }));
     return tous;
   }, [session.tenantId]);
 
@@ -182,13 +183,18 @@ function AssistantInner({ session }: { session: Session }) {
     void listTemplates(session.tenantId)
       .then((r) => poser({ templates: (Array.isArray(r?.templates) ? r.templates : []).filter((t) => t.status === 'APPROVED') }))
       .catch(() => {});
-    void listWorkflows(session.tenantId)
+    // Les trois rayons (Julien, 2026-11-26) : une campagne lance aussi un scénario Shopify ou HubSpot, rangé à part.
+    void listWorkflows(session.tenantId, 'tous')
       // Le sélecteur ne propose QUE les scénarios lançables en campagne (ceux qui OUVRENT par un template
       // configuré), même règle que l'ancien formulaire. L'éligibilité vient du SERVEUR quand il la donne.
-      .then((r) => poser({
-        workflows: (Array.isArray(r?.workflows) ? r.workflows : [])
-          .filter((w) => w.campaignEligible ?? (w.graph ? isCampaignEligible(w.graph) : false)),
-      }))
+      // L'origine des modèles se lit, elle, sur TOUTE la liste.
+      .then((r) => {
+        const liste = Array.isArray(r?.workflows) ? r.workflows : [];
+        poser({
+          workflows: liste.filter((w) => w.campaignEligible ?? (w.graph ? isCampaignEligible(w.graph) : false)),
+          origineDesModeles: origineDesModeles(liste),
+        });
+      })
       .catch(() => {});
     void listEmailTemplates(session.tenantId)
       .then((r) => poser({ emailTemplates: (Array.isArray(r?.templates) ? r.templates : []).map((t) => ({ id: t.id, name: t.name })) }))

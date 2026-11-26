@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scenariosPourEtage, type ScenarioChoisissable } from './campagne-scenario';
+import { groupeDuModele, groupeDuScenario, origineDesModeles, scenariosPourEtage, type ScenarioChoisissable } from './campagne-scenario';
 
 /**
  * LE FILTRAGE DES SCÉNARIOS PAR CANAL D'ÉTAGE.
@@ -61,5 +61,35 @@ describe('scenariosPourEtage', () => {
   it('l’ordre d’origine est conservé : c’est celui de la liste du serveur', () => {
     const tous = [s('z', 'whatsapp'), s('a', 'whatsapp'), s('m', 'whatsapp')];
     expect(scenariosPourEtage(tous, 'whatsapp').map((x) => x.id)).toEqual(['z', 'a', 'm']);
+  });
+});
+
+describe('le rangement des listes de l’étape Contenu (automations Shopify et HubSpot)', () => {
+  it('un scénario se range par son rayon ; sans rayon (API d’avant), c’est le Builder', () => {
+    expect(groupeDuScenario('shopify')).toBe('Automations Shopify');
+    expect(groupeDuScenario('hubspot')).toBe('Automations HubSpot');
+    expect(groupeDuScenario('general')).toBe('Scénarios');
+    expect(groupeDuScenario(undefined)).toBe('Scénarios');
+  });
+
+  it('un modèle prend l’origine du scénario d’automation qui l’envoie ; les autres sont « Autres modèles »', () => {
+    const origines = origineDesModeles([
+      { rayon: 'general', modeles: ['promo'] },
+      { rayon: 'hubspot', modeles: ['relance_deal', 'commande_payee'] },
+      { rayon: 'shopify', modeles: ['commande_payee', 'panier'] },
+      { modeles: ['ancien'] },
+    ]);
+    expect(groupeDuModele('panier', origines)).toBe('Automations Shopify');
+    // Des deux rayons : Shopify, quel que soit l'ordre de la liste.
+    expect(groupeDuModele('commande_payee', origines)).toBe('Automations Shopify');
+    expect(groupeDuModele('relance_deal', origines)).toBe('Automations HubSpot');
+    expect(groupeDuModele('promo', origines)).toBe('Autres modèles');
+    expect(groupeDuModele('ancien', origines)).toBe('Autres modèles');
+    // Un nom hérité de l'objet (`constructor`) n'est pas une origine.
+    expect(groupeDuModele('constructor', origines)).toBe('Autres modèles');
+  });
+
+  it('une API d’avant (ni rayon ni modeles) : aucune origine, donc un seul groupe', () => {
+    expect(origineDesModeles([{}, { modeles: ['x'] }])).toEqual({});
   });
 });

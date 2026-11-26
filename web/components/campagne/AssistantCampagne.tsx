@@ -25,6 +25,7 @@ import type { RestaurationSelection } from '@/components/campagne/ListeDestinata
 import type { VarRow } from '@/lib/variables-template';
 import type { CarrouselRcs } from '@/lib/rcs-carrousel';
 import type { ChoixRepondeur, SourcesRepondeur } from '@/lib/campagne-repondeur';
+import type { OrigineAutomation } from '@/lib/campagne-scenario';
 import type { CampaignCategory, PhoneNumber, RcsAgent, RcsMessage, RcsSuggestion, TagCount, TemplateSummary, UserFieldDef, WorkflowSummary } from '@/lib/api';
 import { Bouton } from '@/components/Bouton';
 import { TitrePage } from '@/components/TitrePage';
@@ -323,6 +324,11 @@ export interface ReferencesContenu {
    * partie, et c'est déjà la règle de l'écran en service.
    */
   messagesRcs: RcsMessage[];
+  /**
+   * L'origine des modèles envoyés par un scénario Shopify ou HubSpot (`origineDesModeles`), pour ranger la liste des
+   * modèles. Absente ou vide : un seul groupe.
+   */
+  origineDesModeles?: Record<string, OrigineAutomation>;
 }
 
 export const REFERENCES_VIDES: ReferencesContenu = {
