@@ -9,6 +9,7 @@ import type { UserFieldType } from '../crm/types';
 import { porteUnFichier } from '../agent/requete-http';
 import type { FichierAEnvoyer, LecteurFichier } from '../agent/corps-formulaire';
 import { lireOctetsBornes } from '../lib/corps-borne';
+import { estUneImage, sansImages } from '../lib/sans-images';
 
 /**
  * Le bloc « Appel HTTP » d'un scénario : jouer un appel déjà mis au point dans Tools > Connecteurs API, et
@@ -95,7 +96,9 @@ export function valeurPourChampJson(contenu: unknown): string | null {
   const reponse = contenu !== null && typeof contenu === 'object' && !Array.isArray(contenu)
     ? (contenu as { reponse?: unknown }).reponse ?? null
     : null;
-  return jsonDeChamp(JSON.stringify(reponse));
+  // 🔴 Les images (photo, signature d'une pièce) ne se rangent jamais dans une fiche : `src/lib/sans-images.ts`.
+  const nettoyee = estUneImage(reponse) ? null : sansImages(reponse);
+  return jsonDeChamp(JSON.stringify(nettoyee));
 }
 
 /** Ce que le câblage doit fournir en plus des dépendances du connecteur. */

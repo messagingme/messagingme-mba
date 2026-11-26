@@ -89,6 +89,8 @@ function schemaVariable(v: VariableDeclaree): z.ZodType<unknown> {
     const base = v.type === 'integer' ? z.number().int() : z.number();
     return permises ? base.refine((n) => permises.some((p) => Number(p) === n)) : base;
   }
+  // `json` n'est jamais une donnée du modèle (route) : si une ligne en portait une, l'agent de Meta ne peut rien y mettre.
+  if (v.type === 'json') return z.never();
   return z.boolean();
 }
 

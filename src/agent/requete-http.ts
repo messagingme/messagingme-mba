@@ -18,7 +18,31 @@ const VARIABLE = new RegExp(MOTIF_PASTILLE, 'g');
 /** Une chaîne qui n'est que `{{ville}}`, sans rien autour : c'est elle qui prend la valeur typée. */
 const VARIABLE_SEULE = new RegExp(`^${MOTIF_PASTILLE}$`);
 
-export type ValeurVariable = string | number | boolean | null;
+/**
+ * Une valeur de variable. Un objet ou une liste ne vient que d'une donnée de type `json` (un champ JSON du contact, plan
+ * 2026-11-26) : seule dans un corps JSON, elle s'y insère telle quelle ; dans un texte, elle s'écrit en JSON.
+ */
+export type ValeurVariable = string | number | boolean | null | { [cle: string]: unknown } | unknown[];
+
+/**
+ * La valeur d'une donnée de type `json` : le texte d'un champ JSON du contact, relu en JSON. Vide ou illisible : `null`,
+ * jamais le texte brut (il partirait en chaîne là où l'API attend un objet, et répondrait par une erreur obscure).
+ */
+export function lireValeurJson(v: unknown): ValeurVariable {
+  if (typeof v !== 'string' || v.trim() === '') return null;
+  try {
+    const x = JSON.parse(v) as unknown;
+    return x === undefined ? null : (x as ValeurVariable);
+  } catch {
+    return null;
+  }
+}
+
+/** Une valeur dans un texte (paramètre, en-tête, chaîne du corps) : un objet s'écrit en JSON, jamais « [object Object] ». */
+function enTexte(v: ValeurVariable | undefined): string {
+  if (v === null || v === undefined) return '';
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
+}
 
 /**
  * Un corps `multipart/form-data`, valeurs substituées, avant la lecture des fichiers. Une ligne `fichier` porte la
@@ -45,27 +69,41 @@ export interface CorpsRefuse {
  * la valeur avec son type (`{"n": 42}` et non `"42"`, la différence entre une API qui répond et un 400).
  * Une variable parmi du texte est interpolée ; absente, elle y devient vide plutôt que le littéral.
  */
-function substituer(noeud: unknown, valeurs: Readonly<Record<string, ValeurVariable>>, manquantes: Set<string>): unknown {
+function substituer(
+  noeud: unknown, valeurs: Readonly<Record<string, ValeurVariable>>, manquantes: Set<string>, retirables: ReadonlySet<string>,
+): unknown {
   if (typeof noeud === 'string') {
     const seule = VARIABLE_SEULE.exec(noeud);
     if (seule) {
       const nom = seule[1]!;
       if (!(nom in valeurs)) { manquantes.add(nom); return null; }
+      // Un objet (donnée `json`) part tel quel, à la place de ce nœud seulement : aucune clé du gabarit ne change. Il
+      // vient d'un champ du contact (`json` est réservé à l'origine `champ`, jamais au modèle). ⚠️ La route ne vérifie
+      // pas encore que ce champ est de TYPE json (todo.md) : un champ texte déclaré json se relit aussi en objet.
       return valeurs[nom] ?? null;
     }
     VARIABLE.lastIndex = 0;
     return noeud.replace(VARIABLE, (_m, nom: string) => {
       if (!(nom in valeurs)) { manquantes.add(nom); return ''; }
-      const v = valeurs[nom];
-      return v === null || v === undefined ? '' : String(v);
+      return enTexte(valeurs[nom]);
     });
   }
-  if (Array.isArray(noeud)) return noeud.map((n) => substituer(n, valeurs, manquantes));
+  if (Array.isArray(noeud)) {
+    // Une donnée `json` vide, seule dans une liste, en DISPARAÎT : `[{{recto}}, {{verso}}]` sans verso donne `[recto]`,
+    // jamais `[recto, null]` qu'une API refuserait. Les autres variables gardent leur `null`, comme avant.
+    const gardes = noeud.filter((n) => {
+      if (typeof n !== 'string') return true;
+      const seule = VARIABLE_SEULE.exec(n);
+      // `nom in valeurs` : une donnée NON fournie reste, pour être signalée manquante, jamais retirée en silence.
+      return !(seule && retirables.has(seule[1]!) && seule[1]! in valeurs && (valeurs[seule[1]!] ?? null) === null);
+    });
+    return gardes.map((n) => substituer(n, valeurs, manquantes, retirables));
+  }
   if (noeud !== null && typeof noeud === 'object') {
     const out: Record<string, unknown> = {};
     // Les clés ne sont pas substituées : une clé variable ferait dépendre la forme du corps d'un texte que
     // le contact influence.
-    for (const [cle, v] of Object.entries(noeud as Record<string, unknown>)) out[cle] = substituer(v, valeurs, manquantes);
+    for (const [cle, v] of Object.entries(noeud as Record<string, unknown>)) out[cle] = substituer(v, valeurs, manquantes, retirables);
     return out;
   }
   return noeud;
@@ -109,6 +147,8 @@ export function porteUnFichier(corps: GabaritCorps): boolean {
 export function construireCorps(
   gabarit: GabaritCorps,
   valeurs: Readonly<Record<string, ValeurVariable>>,
+  /** Les données de type `json` : vides, elles disparaissent d'une liste au lieu d'y laisser `null`. */
+  variablesJson: ReadonlySet<string> = new Set(),
 ): CorpsConstruit | CorpsRefuse {
   let arbre: unknown;
 
@@ -124,8 +164,7 @@ export function construireCorps(
       VARIABLE.lastIndex = 0;
       const valeur = c.valeur.replace(VARIABLE, (_m, nom: string) => {
         if (!(nom in valeurs)) { manquantes.add(nom); return ''; }
-        const v = valeurs[nom];
-        return v === null || v === undefined ? '' : String(v);
+        return enTexte(valeurs[nom]);
       });
       return { cle: c.cle.trim(), valeur, fichier: c.fichier };
     });
@@ -153,7 +192,7 @@ export function construireCorps(
   }
 
   const manquantes = new Set<string>();
-  const rempli = substituer(arbre, valeurs, manquantes);
+  const rempli = substituer(arbre, valeurs, manquantes, variablesJson);
   if (manquantes.size > 0) {
     // Toutes les manquantes d'un coup, pour ne pas faire corriger le connecteur une variable à la fois.
     return { ok: false, raison: `variable(s) sans valeur dans le corps : ${[...manquantes].sort().join(', ')}` };
@@ -207,8 +246,7 @@ export function construireParametres(
     VARIABLE.lastIndex = 0;
     const valeur = p.valeur.replace(VARIABLE, (_m, nom: string) => {
       if (!(nom in valeurs)) { manquantes.add(nom); return ''; }
-      const v = valeurs[nom];
-      return v === null || v === undefined ? '' : String(v);
+      return enTexte(valeurs[nom]);
     });
     if (valeur !== '') sp.set(cle, valeur);
   }
@@ -234,6 +272,8 @@ export function assemblerAppel(input: {
   entetes?: readonly EnTete[] | null;
   corps: GabaritCorps;
   valeurs: Readonly<Record<string, ValeurVariable>>;
+  /** Les données de type `json` (voir `construireCorps`). */
+  variablesJson?: ReadonlySet<string>;
   /** Injectée pour tester la garde d'adresse sans dupliquer ses cas ici. */
   construireCible: (i: { baseUrl: string; binding: { methode: string; chemin: string }; args: Record<string, unknown> })
   => { ok: true; url: string; methode: string } | { ok: false; raison: string };
@@ -252,7 +292,7 @@ export function assemblerAppel(input: {
   const url = q.query === '' ? cible.url : `${cible.url}${cible.url.includes('?') ? '&' : '?'}${q.query}`;
 
   // 3. Le corps.
-  const c = construireCorps(input.corps, input.valeurs);
+  const c = construireCorps(input.corps, input.valeurs, input.variablesJson);
   if (!c.ok) return c;
 
   // 4. Les en-têtes. Un en-tête réservé est ignoré (la route le refuse déjà : deux gardes sur un chemin qui
@@ -266,8 +306,7 @@ export function assemblerAppel(input: {
     VARIABLE.lastIndex = 0;
     const valeur = e.valeur.replace(VARIABLE, (_m, v: string) => {
       if (!(v in input.valeurs)) { manquantes.add(v); return ''; }
-      const x = input.valeurs[v];
-      return x === null || x === undefined ? '' : String(x);
+      return enTexte(input.valeurs[v]);
     });
     if (/[\r\n]/.test(valeur)) return { ok: false, raison: `l’en-tête « ${e.nom.trim()} » contiendrait un retour à la ligne : il n’est pas envoyé` };
     // Et tout ce qu'un en-tête ne peut pas porter (au-delà de 0xFF, ou de contrôle) : `fetch` lèverait à

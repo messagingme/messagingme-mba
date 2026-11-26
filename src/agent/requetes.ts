@@ -11,8 +11,12 @@ import type { GabaritCorps, EnTete, ParametreUrl } from './requete-http';
 import type { ParamOutil } from './llm/tool-schema';
 import { libelleOrigine, normaliserOrigine, type OrigineVariable } from './variables';
 
-/** Le type annoncé d'une variable. Il décide de ce qui part dans le corps : un « nombre » part en nombre. */
-export type TypeVariable = 'string' | 'number' | 'integer' | 'boolean';
+/**
+ * Le type annoncé d'une variable. Il décide de ce qui part dans le corps : un « nombre » part en nombre. `json` (plan
+ * 2026-11-26) : la valeur d'un champ JSON du contact, insérée TELLE QUELLE (objet, liste) dans un corps JSON ; réservé à
+ * l'origine `champ`, jamais montré au modèle (`paramsDuConnecteur`).
+ */
+export type TypeVariable = 'string' | 'number' | 'integer' | 'boolean' | 'json';
 
 export interface VariableDeclaree {
   /** Le nom tel qu'il s'écrit dans les gabarits : `{{ville}}`. */
@@ -105,7 +109,9 @@ export function lireVariables(v: unknown): VariableDeclaree[] {
  */
 export function paramsDuConnecteur(variables: readonly VariableDeclaree[]): ParamOutil[] {
   return variables
-    .filter((v) => v.origine.type === 'modele')
+    // `json` n'est jamais une donnée du modèle (la route le refuse) : filtré ici aussi, pour qu'une ligne ancienne ou
+    // écrite à la main ne fasse pas annoncer au modèle un type qu'il ne sait pas remplir.
+    .filter((v): v is VariableDeclaree & { type: Exclude<TypeVariable, 'json'> } => v.origine.type === 'modele' && v.type !== 'json')
     .map((v) => ({
       name: v.nom, type: v.type, source: 'modele' as const,
       ...(v.description ? { description: v.description } : {}),

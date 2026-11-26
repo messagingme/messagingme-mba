@@ -4,7 +4,7 @@ import type { SourceStore } from '../sources';
 import type { RequeteStore } from '../requetes';
 import { construireCible } from '../http-cible';
 import { jetonsOAuth, type FournisseurJetons } from '../jeton-oauth';
-import { assemblerAppel, porteUnFichier } from '../requete-http';
+import { assemblerAppel, lireValeurJson, porteUnFichier, type ValeurVariable } from '../requete-http';
 import { materialiserFormulaire, type LecteurFichier } from '../corps-formulaire';
 import { resoudreVariable, type ValeurResolue } from '../variables';
 import type { CleFicheFixe } from '../../crm/champs-fiche';
@@ -227,12 +227,15 @@ export function creerAppelConnecteur(deps: DepsResolveurHttp): (p: AppelConnecte
       waId: ctx.waId, champs, derniereSaisie, fiche,
       maintenant: deps.now ? deps.now() : new Date(), fuseau,
     };
-    const valeurs: Record<string, ValeurResolue> = {};
+    const valeurs: Record<string, ValeurVariable> = {};
     for (const v of requete.variables) {
-      valeurs[v.nom] = v.origine.type === 'modele'
+      const brute = v.origine.type === 'modele'
         ? ((args[v.nom] ?? null) as ValeurResolue)
         : resoudreVariable(v.origine, contexte);
+      // Une donnée `json` (un champ JSON du contact) se relit en objet ; jamais pour le modèle (route, `paramsDuConnecteur`).
+      valeurs[v.nom] = v.type === 'json' && v.origine.type !== 'modele' ? lireValeurJson(brute) : brute;
     }
+    const variablesJson = new Set(requete.variables.filter((v) => v.type === 'json').map((v) => v.nom));
 
     // 4bis. Les variables obligatoires. Sans l'identifiant, « les commandes de ce contact » interroge la
     // mauvaise ressource, ou toutes. C'est `requis` qui tranche, réglé par le client requête par requête.
@@ -252,7 +255,7 @@ export function creerAppelConnecteur(deps: DepsResolveurHttp): (p: AppelConnecte
     const appel = assemblerAppel({
       baseUrl: source.baseUrl, methode: requete.methode, chemin: requete.chemin,
       parametres: requete.parametres, entetes: requete.entetes, corps: requete.corps,
-      valeurs, construireCible,
+      valeurs, variablesJson, construireCible,
     });
     if (!appel.ok) return { ok: false, contenu: { erreur: 'ce connecteur est mal configuré' }, erreur: appel.raison };
 

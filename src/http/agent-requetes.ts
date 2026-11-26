@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Guard } from '../auth/middleware';
 import { LabelRequeteDejaPris, SourceIntrouvable, type CreationRequete, type RequeteConnecteur, type RequeteListee } from '../agent/requetes';
 import { construireCible, risqueSelonMethode } from '../agent/http-cible';
-import { assemblerAppel, cheminsDeLaReponse, estEnTeteReserve, variablesUtilisees, EN_TETES_RESERVES, type ValeurVariable } from '../agent/requete-http';
+import { assemblerAppel, cheminsDeLaReponse, estEnTeteReserve, lireValeurJson, variablesUtilisees, EN_TETES_RESERVES, type ValeurVariable } from '../agent/requete-http';
 import { CLES_SYSTEME, normaliserOrigine } from '../agent/variables';
 import { CHAMPS_FICHE_FIXES, CLES_FICHE_SORTIE, type CleFicheFixe } from '../crm/champs-fiche';
 import { espaceVerifie, estUuid } from './scope';
@@ -76,7 +76,7 @@ const origineSchema = z.preprocess((o) => normaliserOrigine(o) ?? o, z.discrimin
 
 const variableSchema = z.object({
   nom: NOM_VARIABLE,
-  type: z.enum(['string', 'number', 'integer', 'boolean']),
+  type: z.enum(['string', 'number', 'integer', 'boolean', 'json']),
   origine: origineSchema,
   description: z.string().trim().max(500).optional(),
   requis: z.boolean().optional(),
@@ -162,7 +162,7 @@ function sansCeuxDeLaSource(
  */
 type RequetePourTest = Pick<
   RequeteConnecteur,
-  'sourceId' | 'methode' | 'chemin' | 'parametres' | 'entetes' | 'corps' | 'valeursTest'
+  'sourceId' | 'methode' | 'chemin' | 'parametres' | 'entetes' | 'corps' | 'valeursTest' | 'variables'
 >;
 
 /** Réponse de test tronquée. Le client doit voir assez pour choisir ses champs, pas de quoi remplir un écran. */
@@ -213,6 +213,21 @@ function verifier(r: ARegler, clesDeChamps: readonly string[]): string | null {
   const utilisees = variablesUtilisees(r.corps, r.parametres, r.chemin, r.entetes);
   const inconnues = utilisees.filter((n) => !noms.has(n));
   if (inconnues.length > 0) return `variable(s) utilisée(s) mais non déclarée(s) : ${inconnues.join(', ')}`;
+
+  // 4ter. Une donnée de type JSON (plan 2026-11-26) : seulement depuis un champ du contact, et seulement dans un corps
+  // JSON brut. Décidée par l'agent, elle ferait insérer de la structure par le modèle ; ailleurs (chemin, paramètre,
+  // en-tête, liste de champs, formulaire), elle partirait en texte JSON, ce qui n'est jamais ce qu'on veut.
+  const json = r.variables.filter((v) => v.type === 'json');
+  for (const v of json) {
+    if (v.origine.type !== 'champ') return `la donnée « ${v.nom} » est de type JSON : elle doit venir d’un champ du contact`;
+  }
+  if (json.length > 0) {
+    const horsCorpsJson = new Set(variablesUtilisees(
+      r.corps.mode === 'json' ? { mode: 'aucun' } : r.corps, r.parametres, r.chemin, r.entetes,
+    ));
+    const fautive = json.find((v) => horsCorpsJson.has(v.nom));
+    if (fautive) return `la donnée « ${fautive.nom} » est de type JSON : elle ne s’insère que dans un corps en JSON brut`;
+  }
 
   // 5. Le corps doit être du JSON valide dès la saisie. On le vérifie en le construisant avec des valeurs
   // factices : c'est le même code que l'exécution, donc ce qui passe ici passera là-bas.
@@ -347,10 +362,13 @@ export function registerAgentRequetes(app: FastifyInstance, deps: AgentRequetesR
     if (source.erreurAuth !== undefined) return { code: 200, body: { ok: false, erreur: source.erreurAuth } };
 
     const valeurs: Record<string, ValeurVariable> = { ...r.valeursTest, ...(valeursSup ?? {}) };
+    // Une donnée JSON s'essaie avec un texte JSON (« Valeur d'essai »), relu comme à l'exécution.
+    const variablesJson = new Set(r.variables.filter((v) => v.type === 'json').map((v) => v.nom));
+    for (const nom of variablesJson) if (nom in valeurs) valeurs[nom] = lireValeurJson(valeurs[nom]);
     const appel = assemblerAppel({
       baseUrl: source.baseUrl, methode: r.methode, chemin: r.chemin,
       parametres: r.parametres, entetes: r.entetes, corps: r.corps,
-      valeurs, construireCible,
+      valeurs, variablesJson, construireCible,
     });
     // Un refus d'assemblage est une information pour le client, pas une panne : 200 avec `ok: false`.
     if (!appel.ok) return { code: 200, body: { ok: false, erreur: appel.raison } };
