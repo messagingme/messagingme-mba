@@ -292,7 +292,8 @@ Then call `get_setup_state` again. The console's Home does the same ("Activer le
    Then the team's hours, which decide what the agent promises when it hands over: at set hours,
    `set_business_hours` (the seven days, closed or one range each) then `set_transfer_mode` with `business_hours`
    (outside those hours the agent says when the team is back); at any time, `set_transfer_mode` with `always`; never,
-   `set_transfer_mode` with `never`.
+   `set_transfer_mode` with `never`. Always pass this agent's `agent_id` to `set_transfer_mode`: without it, every
+   agent of the workspace takes the value and loses its own choice.
 5. `set_agent_tools` with `chercher_connaissance` (the knowledge is only used if this tool is on), and `lire_contact`
    if the user agreed that the agent reads the Shopify or HubSpot data of the contact.
 6. `test_agent` on two or three realistic customer messages (each try is charged to the credit). Show the answers;

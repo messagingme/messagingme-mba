@@ -33,7 +33,7 @@ export const LISTES = {
   offre: '/offre',
   parametres: '/parametres',
   scenarios: '/workflows',
-  /** Sécurité > IA, où vit la promesse de transfert à l'équipe (`set_transfer_mode`). */
+  /** Sécurité > IA (l'annonce d'IA) ; la promesse de transfert se règle par agent depuis 0330 (outil « Passer la main »). */
   securiteIa: '/securite/ia',
   webhooks: '/developers/evenements',
   widgets: '/widgets',
