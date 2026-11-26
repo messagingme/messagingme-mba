@@ -94,6 +94,20 @@ describe('mesure des RÉPONSES, rattachée au bloc qui attendait', () => {
     expect(mesures[0]).not.toHaveProperty('handle');
   });
 
+  it('🔴 un STOP écrit -> `reply_text` sous la poignée `stop`, plus parmi « A répondu (sans cliquer) »', async () => {
+    // La règle même qui désabonne (`estDemandeArret`), sur le texte du message seulement.
+    const { ex, mesures } = executeur(graphe());
+    await ex.advance('t1', '33600000001', 'msg1', null, 'whatsapp', { reaction: false, type: 'text', texte: 'Stop merci' });
+    expect(mesures[0]).toMatchObject({ nodeId: 'n1', kind: 'reply_text', handle: 'stop' });
+  });
+
+  it('une réponse écrite qui n’est pas un STOP reste sans poignée', async () => {
+    const { ex, mesures } = executeur(graphe());
+    await ex.advance('t1', '33600000001', 'msg1', null, 'whatsapp', { reaction: false, type: 'text', texte: 'c’est du non-stop' });
+    expect(mesures[0]).toMatchObject({ nodeId: 'n1', kind: 'reply_text' });
+    expect(mesures[0]).not.toHaveProperty('handle');
+  });
+
   it('🔴 un clic sur un bouton NON CÂBLÉ se compte quand même', async () => {
     // Ce que le contact a fait ne depend pas de ce que le graphe en fait ensuite. Ne compter que les clics
     // routes masquerait exactement les boutons qu'on a oublie de brancher.

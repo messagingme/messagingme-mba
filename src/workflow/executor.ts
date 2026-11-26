@@ -34,6 +34,8 @@ import { genreParAdresse } from '../medias/fichier';
 import { classerPiece, mentionDePiece, reglagesQuestion } from './question-piece';
 import type { PgPiecesQuestion } from './pieces-question.pg';
 import { SORTIE_FICHIER, type GenrePiece } from '../../web/lib/partage/question-piece';
+import { MESURE_STOP } from '../../web/lib/partage/mesure-stop';
+import { estDemandeArret } from '../crm/consentement';
 import { sousActions } from '../../web/lib/partage/actions-bloc';
 import { extraireDuJson } from '../../web/lib/partage/extraire-json';
 import type { UserFieldType } from '../crm/types';
@@ -2654,13 +2656,16 @@ export class WorkflowExecutor {
     // payload est le JSON de la réponse, jusqu'à 2 000 caractères, qui s'affichait comme un « choix » illisible.
     // La pièce attendue par un bloc Question (spec du 2026-11-02), reconnue par son type réel : acceptée, elle prend
     // la sortie « Fichier reçu », se mesure sous elle, et ne retombe JAMAIS sur la branche prévue pour le texte.
+    // Un STOP écrit (la règle même qui désabonne, `estDemandeArret`, sur un message texte seulement) se mesure sous
+    // `MESURE_STOP` : compté dans « A répondu (sans cliquer) », un refus passait pour un engagement (Julien, 2026-11-26).
     const pieceAcceptee = courant?.type === 'question' && !sortieAgent ? pieceAttendue(courant, entrant) : null;
     if (run.currentNode && courant?.type !== 'rcs_message' && !sortieAgent && !entrant.livraison) {
       const aClique = typeof buttonPayload === 'string' && buttonPayload !== '';
       await this.mesurer(
         tenantId, run.workflowId, run.currentNode, waId,
         aClique ? 'reply_button' : 'reply_text',
-        entrant.formulaire === true ? SORTIE_FORMULAIRE_REMPLI : aClique ? buttonPayload : pieceAcceptee !== null ? SORTIE_FICHIER : undefined,
+        entrant.formulaire === true ? SORTIE_FORMULAIRE_REMPLI : aClique ? buttonPayload : pieceAcceptee !== null ? SORTIE_FICHIER
+          : estDemandeArret(entrant.texte ?? null) ? MESURE_STOP : undefined,
       );
     }
     // La réponse rangée dans le champ du bloc, AVANT le routage : le bloc suivant (Appel API, Condition) la lit.

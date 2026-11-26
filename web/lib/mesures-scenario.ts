@@ -14,6 +14,7 @@ import { NODE_META } from './nodeMeta';
 import { sortiesDeCondition } from './condition-familles';
 import { SORTIE_FORMULAIRE_REMPLI } from './partage/sorties-formulaire';
 import { SORTIE_FICHIER } from './partage/question-piece';
+import { MESURE_STOP } from './partage/mesure-stop';
 import { SORTIE_ENSUITE } from './partage/sortie-ensuite';
 import { SORTIE_NON_LIVRE } from './partage/sortie-non-livre';
 import type { WorkflowNodeType } from './api';
@@ -381,8 +382,15 @@ export function mesuresDisponibles(bloc: BlocMesurable, locale: Locale, estPremi
     ? [{ cle: `${bloc.id}|reply_text|${SORTIE_FICHIER}`, label: libelleFichier(locale), kind: 'reply_text', handle: SORTIE_FICHIER }]
     : [];
   // « A répondu sans cliquer » est proposé partout, et pas seulement sur les blocs à boutons : sur un bloc qui
-  // n'offre aucun choix, c'est LA mesure de l'engagement.
-  return [...base, ...choix, ...liens, ...fichier, nature('reply_text')];
+  // n'offre aucun choix, c'est LA mesure de l'engagement. « A répondu STOP » aussi : un refus peut suivre n'importe quel
+  // message, et il ne se compte plus parmi les réponses (`MESURE_STOP`).
+  const stop: MesureDispo = { cle: `${bloc.id}|reply_text|${MESURE_STOP}`, label: libelleStop(locale), kind: 'reply_text', handle: MESURE_STOP };
+  return [...base, ...choix, ...liens, ...fichier, nature('reply_text'), stop];
+}
+
+/** Le libellé du STOP, pour `mesuresDisponibles` comme pour le repli `libelleDeCle`. */
+function libelleStop(locale: Locale): string {
+  return locale === 'en' ? 'Replied STOP' : 'A répondu STOP';
 }
 
 /** Le libellé de la pièce reçue par une Question, pour `mesuresDisponibles` comme pour le repli `libelleDeCle`. */
@@ -456,8 +464,11 @@ const NUANCES_CLIC = ['#0E7490', '#14B8A6', '#5EEAD4', '#A5F3FC'];
 // Les clics sur un LIEN prennent une famille de teintes à part : dans un même bloc, « a cliqué « Oui » » et
 // « a cliqué sur le lien » sont deux gestes différents, et les nuancer dans la même teinte les confondrait.
 const NUANCES_LIEN = ['#C026D3', '#E879F9'];
+// Le STOP : un gris ardoise, ni l'orange des réponses dont il est sorti, ni le rouge des échecs d'envoi.
+const COULEUR_STOP = '#475569';
 
-export function couleurDe(kind: string, indexChoix = 0): string {
+export function couleurDe(kind: string, indexChoix = 0, handle: string | null = null): string {
+  if (kind === 'reply_text' && handle === MESURE_STOP) return COULEUR_STOP;
   if (kind === 'reply_button') return NUANCES_CLIC[indexChoix % NUANCES_CLIC.length]!;
   if (kind === 'url_click') return NUANCES_LIEN[indexChoix % NUANCES_LIEN.length]!;
   return COULEUR_PAR_NATURE[kind] ?? '#94A3B8';
@@ -482,6 +493,7 @@ export interface BarreTableau {
 function libelleDeCle(cle: string, locale: Locale): string {
   const [, kind = '', handle = ''] = cle.split('|');
   if (kind === 'reply_text' && handle === SORTIE_FICHIER) return libelleFichier(locale);
+  if (kind === 'reply_text' && handle === MESURE_STOP) return libelleStop(locale);
   if (LIBELLES_NATURE[kind]) return libelleNature(kind, locale);
   // Sans les compteurs de la période, on n'a plus le TEXTE du bouton : son numéro reste juste et lisible.
   return libelleAvecBouton(kind, libelleHandle(handle, [], locale), locale, handle) ?? cle;
@@ -529,7 +541,7 @@ export function groupesDuTableau(
         // console en anglais, même une fois tout le reste traduit. `label` reste dans le JSON stocké, il
         // cesse simplement de faire autorité à l'affichage.
         const frais = mesuresDisponibles(b, locale, true).find((x) => x.cle === m.cle)?.label ?? libelleDeCle(m.cle, locale);
-        return { cle: m.cle, label: frais, ...valeurDe(counts, b.id, m.kind, m.handle), couleur: couleurDe(m.kind, iChoix) };
+        return { cle: m.cle, label: frais, ...valeurDe(counts, b.id, m.kind, m.handle), couleur: couleurDe(m.kind, iChoix, m.handle) };
       }),
     }));
 }

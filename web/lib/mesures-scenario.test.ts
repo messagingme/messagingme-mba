@@ -146,6 +146,20 @@ describe('les mesures proposées sur un bloc', () => {
     expect(mesuresDisponibles(sansAttente, 'fr').some((m) => m.handle === 'fichier')).toBe(false);
   });
 
+  it('🔴 « A répondu STOP » est proposé sur chaque bloc, à part de « A répondu (sans cliquer) »', () => {
+    // Le moteur range un STOP sous `reply_text|stop` (`executor.advance`) : la réponse ordinaire (poignée nulle) ne le
+    // compte plus, et sa barre prend sa propre couleur (Julien, 2026-11-26).
+    const stop = mesuresDisponibles(bloc, 'fr').find((m) => m.handle === 'stop');
+    expect(stop).toEqual({ cle: 'a|reply_text|stop', label: 'A répondu STOP', kind: 'reply_text', handle: 'stop' });
+    expect(mesuresDisponibles(bloc, 'en').find((m) => m.handle === 'stop')?.label).toBe('Replied STOP');
+    const counts = [{ nodeId: 'a', kind: 'reply_text', handle: 'stop', count: 4, contacts: 4 }, { nodeId: 'a', kind: 'reply_text', handle: null, count: 7, contacts: 6 }];
+    expect(valeurDe(counts, 'a', 'reply_text', 'stop')).toEqual({ count: 4, contacts: 4 });
+    expect(valeurDe(counts, 'a', 'reply_text', null)).toEqual({ count: 7, contacts: 6 });
+    const [groupe] = groupesDuTableau([stop!], counts, [bloc], 'en');
+    expect(groupe!.barres[0]!.label).toBe('Replied STOP');
+    expect(groupe!.barres[0]!.couleur).not.toBe(couleurDe('reply_text'));
+  });
+
   it('🔴 « Puis, sans attendre » n’est pas un clic : la suite part sans que le contact ait rien choisi', () => {
     // Proposée comme un choix, sa case resterait à zéro pour toujours (2026-11-10).
     const message = blocsDuScenario({

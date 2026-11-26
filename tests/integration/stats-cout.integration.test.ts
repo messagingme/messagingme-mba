@@ -415,7 +415,8 @@ describe.skipIf(!url)('Cout : les deux lectures comptent la MEME population (Pos
       await pool.query(
         `insert into workflow_node_events (tenant_id, workflow_id, node_id, wa_id, kind, handle, at)
          values ($1, $2, $3, '33600000041', 'reply_button', 'btn:0', timestamptz '2026-09-05 09:00:00+00'),
-                ($1, $2, $3, '33600000041', 'reply_button', 'btn:1', timestamptz '2026-09-05 09:05:00+00')`,
+                ($1, $2, $3, '33600000041', 'reply_button', 'btn:1', timestamptz '2026-09-05 09:05:00+00'),
+                ($1, $2, $3, '33600000041', 'reply_text', 'stop', timestamptz '2026-09-05 09:10:00+00')`,
         [tenantId, wf, noeud],
       );
     });
@@ -428,6 +429,13 @@ describe.skipIf(!url)('Cout : les deux lectures comptent la MEME population (Pos
       expect(boutons[0]!.count).toBe(2);
       expect(boutons[0]!.contacts).toBe(1);
       expect(boutons[0]!.handle).toBeNull();
+    });
+
+    it('🔴 un STOP ne remonte ni en reponse ni en interaction', async () => {
+      // Range sous `reply_text` avec la poignee `stop` : sans le filtre, il entrerait dans la ligne des reponses,
+      // puisque le regroupement ignore la poignee.
+      const mesures = await store.mesuresScenarioParCampagne(tenantId, campagneScenario);
+      expect(mesures.filter((m) => m.nodeId === noeud && m.kind === 'reply_text')).toEqual([]);
     });
 
     it('les evenements d une AUTRE campagne ne remontent pas ici', async () => {

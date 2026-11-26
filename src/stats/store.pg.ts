@@ -17,6 +17,7 @@ import type { CanalEtage } from '../campaign/etages';
 import { TYPES_OUVERTURE } from './performance';
 import type { CoutIa } from './cout-ia';
 import { natureDuMouvement, ventilationVide } from '../agent/natures-credit';
+import { MESURE_STOP } from '../../web/lib/partage/mesure-stop';
 
 export interface DailyPoint {
   date: string; // 'YYYY-MM-DD' (Europe/Paris)
@@ -913,6 +914,9 @@ export class PgStatsStore {
    * Groupé par (bloc, nature) et non par handle : sinon `count(distinct wa_id)` compterait les personnes par
    * bouton, et l'appelant qui les additionne compterait deux fois qui tape deux boutons. Les clics sont
    * fusionnés à la lecture par `compteursDeClics`.
+   *
+   * Un STOP (`reply_text` de poignée `MESURE_STOP`) sort du compte : ce n'est ni une réponse ni une interaction, et il
+   * ferait baisser le coût d'un engagement qui n'en est pas un (Julien, 2026-11-26).
    */
   async mesuresScenarioParCampagne(tenantId: string, campaignId: string): Promise<NodeEventCount[]> {
     const res = await this.pool.query<{ node_id: string; kind: string; n: string; c: string }>(
@@ -920,6 +924,7 @@ export class PgStatsStore {
          from workflow_node_events e
          join campaigns c on c.id = $2 and c.tenant_id = $1
         where e.tenant_id = $1 and c.workflow_id is not null and e.workflow_id = c.workflow_id
+          and not (e.kind = 'reply_text' and e.handle is not distinct from '${MESURE_STOP}')
           and e.wa_id in (
             select regexp_replace(r.to_e164, '[^0-9]', '', 'g')
               from campaign_recipients r where r.campaign_id = c.id and r.sent_at is not null

@@ -17,7 +17,8 @@ export interface NodeEvent {
   kind: NodeEventKind;
   /** Identifiant Meta du message envoyé (`sent`) : c'est lui qui rattachera plus tard un accusé de lecture. */
   metaMessageId?: string;
-  /** `reply_button` : le handle du bouton choisi (`btn:<i>`, ou carte/bouton d'un carousel). */
+  /** `reply_button` : le handle du bouton choisi (`btn:<i>`, ou carte/bouton d'un carousel). `reply_text` : `fichier` (pièce
+   *  reçue par une Question) ou `stop` (`MESURE_STOP`, le contact a répondu STOP), nul pour une réponse écrite ordinaire. */
   handle?: string;
 }
 
