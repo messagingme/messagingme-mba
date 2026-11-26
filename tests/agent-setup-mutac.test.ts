@@ -84,7 +84,9 @@ describe('🔴 une condition sur les heures d’ouverture dit où les régler (d
   it('l’étape « Horaires » nomme les deux réglages, et seulement quand la condition existe', () => {
     const avec = etapesDeFin({ ...base, horaires: true }).join('\n');
     expect(avec).toContain('« Fuseau & heures d’ouverture »');
-    expect(avec).toContain('« Seulement pendant mes heures d’ouverture »');
+    expect(avec).toContain('« Sécurité » > « IA »');
+    expect(avec).toContain('« Seulement aux heures d’ouverture »');
+    expect(avec).not.toContain('MBA');
     expect(etapesDeFin(base).join('\n')).not.toContain('Horaires');
   });
 });

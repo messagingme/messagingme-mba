@@ -84,9 +84,11 @@ export function etapesDeFin(e: EntreeFin): string[] {
     }
   }
   if (e.horaires) {
+    // Le réglage des agents IA (`agent_transfert_mode`), dans « Sécurité » > « IA », jamais celui de l'agent de Meta.
     out.push('Horaires : vous liez le passage de main aux heures d’ouverture. Réglez-les dans « Paramètres » > « Général » '
-      + '(« Fuseau & heures d’ouverture »), puis dans « AI Agent » > « MBA » > « Activation », choisissez « Seulement '
-      + 'pendant mes heures d’ouverture » : sans ces deux réglages, l’agent tient votre équipe pour toujours joignable.');
+      + '(« Fuseau & heures d’ouverture »), puis dans « Sécurité » > « IA », sous « Quand votre équipe est joignable », '
+      + 'choisissez « Seulement aux heures d’ouverture » : sans ces deux réglages, l’agent tient votre équipe pour '
+      + 'toujours joignable.');
   }
   out.push(e.modele
     ? `Modèle : l’agent utilise ${e.modele}. Changez-le dans l’onglet « Modèle » si besoin.`
