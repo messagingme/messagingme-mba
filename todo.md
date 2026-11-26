@@ -184,6 +184,14 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, B9 (le pilote) : ce qu'il a appris (2026-11-26)
+
+- Après un essai par le lien de test qui finit à l'équipe, la conversation reste tenue par un humain : le répondeur ne
+  reprend le même numéro qu'une fois la conversation rendue (`control_conversation`, `hand_back`). La compétence du CSM
+  le dit, ou la mise en ligne rend elle-même les conversations de test.
+- Les plafonds n'ont pas à bouger pour un CSM : une mise en service complète fait 16 appels MCP en 5 minutes, 4
+  écritures, aucune opération coûteuse (300 par minute et par personne, 10 coûteuses par minute et par espace).
+
 ## 🟡 CSM virtuel, lot F (B6b, le lien de test, le déroulé, les journaux) : ce qui reste de la relecture (2026-11-25, aucun rouge)
 
 - L'index du déroulé : `workflow_node_events (tenant_id, wa_id, at)` (ou `workflow_id` en tête), posé `CONCURRENTLY`,

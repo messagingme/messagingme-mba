@@ -47,7 +47,11 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   (`list_delivery_errors`, `list_system_errors`) (`d0e95ba24`, run 45676216975, plugin 0.3.70). Relu sans rouge à B6b,
   un rouge corrigé avant de pousser à B6a, les jaunes au `todo.md`. Essai réel fait sur la SANDBOX (289,
   `docs/prive/ESSAIS-REELS.md`).
-- Ensuite : B9, le pilote.
+- B9, le pilote : réussi le 2026-11-26 sur la SANDBOX (290, `docs/prive/ESSAIS-REELS.md`). Une demande en une phrase
+  devient, par Claude seul, un parcours de qualification écrit en brouillon, simulé, joué au téléphone par le lien de
+  test, mis en ligne d'un clic (publié et répondeur), suivi sur sa première vraie conversation ; 16 appels MCP, 4
+  écritures, aucune opération coûteuse, 5 minutes. Le chemin du pilote (B2 à B6, B9) est fini.
+- Ensuite : B7, B8 et B10, en parallèle (la table de parité, ses `aFaire`).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 

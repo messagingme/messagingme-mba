@@ -5,6 +5,18 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : CSM virtuel, B9 : le pilote passe de bout en bout
+
+Sur la SANDBOX, sans code neuf, avec les outils des lots C à F en production. La demande « Qualifie mes leads WhatsApp
+par besoin et budget, les gros budgets passent à l'équipe » devient, par Claude seul, un parcours écrit en brouillon
+(deux Questions, le budget rangé depuis un menu, une Action par branche, une relance à 2 heures, l'équipe), simulé pour
+trois contacts, joué par Julien depuis son téléphone par le lien de test du brouillon, mis en ligne d'un seul clic
+(publié en version 1 et répondeur de l'espace, fait en 8 secondes), puis suivi sur sa première vraie conversation
+jusqu'à l'équipe ; l'agent de Meta est ensuite remis en répondeur. Relevé, côté serveur : 4 écritures tracées
+`mcp.ecriture`, le clic tracé `mise_en_ligne.acceptee` puis `faite`, 16 appels MCP en tout, aucune opération coûteuse,
+5 minutes du brouillon à la mise en ligne : les plafonds actuels n'ont pas à bouger. Un constat : une conversation que
+l'essai a passée à l'équipe doit être rendue au répondeur avant que le même numéro relance le parcours (`todo.md`).
+
 ## 2026-11-25 : la relance de panier avec agent IA sans bloc vide
 
 Julien, sur le scénario créé par l'automation « Panier abandonné avec agent IA » : pourquoi relier « Transfert à un
