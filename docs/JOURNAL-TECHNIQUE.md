@@ -5,6 +5,15 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : CSM virtuel, lot H (B8, livraison 2) en production, son essai réel fait
+
+Déployée avec le correctif de l'assertion de bout en bout de la page MCP (`265eb2e09`, run 45872171348), plugin 0.3.74.
+Le titre « Pas de campagne sans votre oui. » de `/developers/mcp`, renommé « Pas d'envoi sans votre oui. », cassait un
+test Playwright (`web/e2e/developers-mcp.spec.ts`) que la vérification locale ne joue pas : la CI front de `182dbbdeb` a
+été rouge le temps du correctif. Règle : un texte de page changé se cherche dans `web/e2e` avant de pousser. Essai réel 293
+sur la SANDBOX : l'envoi de hello_world préparé, le même bouton rendu au second appel, le clic, le message livré et lu,
+le récapitulatif du oui effacé. B8 est fini ; B10 commence.
+
 ## 2026-11-26 : essai Everial, une vraie CNI recto puis verso, consolidée par un scénario
 
 Scénario « Essai Wizidee : recto, verso, consolidation » de la SANDBOX, construit dans la console : Question (fichier

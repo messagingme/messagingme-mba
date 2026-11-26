@@ -51,14 +51,15 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   devient, par Claude seul, un parcours de qualification écrit en brouillon, simulé, joué au téléphone par le lien de
   test, mis en ligne d'un clic (publié et répondeur), suivi sur sa première vraie conversation ; 16 appels MCP, 4
   écritures, aucune opération coûteuse, 5 minutes. Le chemin du pilote (B2 à B6, B9) est fini.
-- Lot H (plan `2026-11-26-csm-lot1-h-envois-au-oui.md`) : B8, les envois au oui. Livraison 1 (campagnes et suppression
-  de contacts, le code disparaît) en production le 2026-11-26 (`76ca86cee`, déployée avec `1ce125267`, plugin 0.3.73),
-  son essai réel à faire ; livraison 2 (modèle et scénario à une personne) écrite, en relecture. Le renvoi à un
-  destinataire en échec passe à B10, avec la liste des destinataires en échec.
+- Lot H (plan `2026-11-26-csm-lot1-h-envois-au-oui.md`) : B8, les envois au oui, FINI le 2026-11-26. Livraison 1
+  (campagnes et suppression de contacts, le code disparaît) en production (`76ca86cee`, avec `1ce125267`, plugin 0.3.73),
+  essai réel 292 ; livraison 2 (modèle et scénario à une personne) en production (`182dbbdeb` et le correctif e2e
+  `265eb2e09`, run 45872171348, plugin 0.3.74), essai réel 293. Le renvoi à un destinataire en échec passe à B10.
+- Lot I (plan `2026-11-26-csm-lot1-i-reste-du-lot.md`) : B10, le reste du lot, les 158 routes `aFaire('B10')` de la table
+  de parité, en sept livraisons ; la première (contacts, champs et étiquettes) commence.
 - Lot G (plan `2026-11-26-csm-lot1-g-prerequis.md`) : B7, les prérequis (`get_account_status`, `request_number_code`,
   `activate_number`, `contact_support`), en production le 2026-11-26 (`6fa36d7a3`, run 45819186413, plugin 0.3.71),
   essai réel fait (291, `docs/prive/ESSAIS-REELS.md`).
-- Ensuite : B10 (la table de parité, ses `aFaire`).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 
