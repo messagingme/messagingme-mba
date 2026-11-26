@@ -248,8 +248,12 @@ export function essayerFonctionJs(tenantId: string, code: string, valeur: string
   });
 }
 
-export function listWorkflows(tenantId: string): Promise<{ workflows: WorkflowSummary[] }> {
-  return request<{ workflows: WorkflowSummary[] }>(`/tenants/${tenantId}/workflows`);
+/**
+ * Les scénarios du Builder. `tous` : aussi ceux de Shopify et de HubSpot, chacun avec son `rayon`, pour le seul choix
+ * qui les lance (l'Inbox). ⚠️ Une API d'avant ignore le paramètre et rend le Builder, sans `rayon` : lire alors `general`.
+ */
+export function listWorkflows(tenantId: string, rayons?: 'tous'): Promise<{ workflows: WorkflowSummary[] }> {
+  return request<{ workflows: WorkflowSummary[] }>(`/tenants/${tenantId}/workflows${rayons ? '?rayons=tous' : ''}`);
 }
 export function createWorkflow(tenantId: string, name: string, graph?: WorkflowGraph): Promise<{ id: string; name: string; graph: WorkflowGraph }> {
   return request(`/tenants/${tenantId}/workflows`, { method: 'POST', body: JSON.stringify({ name, ...(graph ? { graph } : {}) }) });

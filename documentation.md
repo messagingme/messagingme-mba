@@ -2342,8 +2342,9 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   que son rayon, et un scénario d'un autre rayon s'y refuse EXACTEMENT comme un inconnu (son existence ne fuit pas).
   Où c'est tenu : les listes du magasin prennent le rayon en paramètre REQUIS (le compilateur énumère les appelants) ;
   les méthodes `...ParApi` (API publique, Claude Code, MCP) ne voient que `general`, en dur ; le nom est unique PAR
-  rayon ; `lancer` refuse un rayon que la politique du type n'admet pas (`POLITIQUE_DE_LANCEMENT[type].rayons`, le lien
-  de test seul les admet tous) ; un « Aller à » résout sa cible dans le rayon du scénario d'origine (`resoudreBloc`,
+  rayon ; `lancer` refuse un rayon que la politique du type n'admet pas (`POLITIQUE_DE_LANCEMENT[type].rayons` : le lien
+  de test et l'Inbox les admettent tous, l'Inbox depuis le 2026-11-26, sa liste lue par `GET /workflows?rayons=tous`, la
+  seule liste qui traverse les rayons ; un template qui lit une variable du parcours y est refusé au clic, variable nommée) ; un « Aller à » résout sa cible dans le rayon du scénario d'origine (`resoudreBloc`,
   `resolveNode(…, rayon)`) ; une automation et son scénario sont du même rayon (`scenarioDuRayon`). ⚠️ `getById`
   ignore le rayon, délibérément : il relit le graphe d'un parcours en cours, quel que soit son rayon. Toute lecture par
   identifiant qui VALIDE un choix compare donc `.rayon` elle-même, et `tests/inventaire-rayon-scenarios.test.ts` le

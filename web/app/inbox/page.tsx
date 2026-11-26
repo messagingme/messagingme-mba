@@ -2096,6 +2096,9 @@ function Thread({ session, conversation, dossier, peutPrendre, onSent, onRange }
  * `isCampaignEligible` répond exactement à cette question et sert déjà au sélecteur de campagne : même règle,
  * même code, aucune seconde version à maintenir. Le serveur re-tranche de toute façon sur l'état réel.
  *
+ * Les scénarios de Shopify et de HubSpot y sont aussi, groupés sous leur nom (Julien, 2026-11-26) : c'est le seul
+ * choix qui traverse les rayons (`inbox` dans `POLITIQUE_DE_LANCEMENT`).
+ *
  * ⚠️ Déclaré au niveau MODULE, comme TemplateSendPanel : dans le corps de Thread, la fonction était recréée à
  * chaque rendu, donc React démontait puis remontait la modale ouverte au moindre re-render (le fil recharge
  * toutes les 4 s), effaçant la sélection en cours.
@@ -2124,7 +2127,7 @@ function ScenarioSendPanel({
     let alive = true;
     (async () => {
       try {
-        const res = await listWorkflows(session.tenantId);
+        const res = await listWorkflows(session.tenantId, 'tous');
         if (!alive) return;
         setTotal(res.workflows.length);
         // L'éligibilité vient désormais du SERVEUR (même règle que la garde de création). Repli sur le calcul
@@ -2175,10 +2178,23 @@ function ScenarioSendPanel({
             <option value="" disabled>{t('Choisir…', 'Choose…')}</option>
             {/* « non publié » : fenêtre ouverte, la liste n'est pas filtrée et un scénario jamais mis en
                 ligne y figure. Le lancer ne ferait rien du tout, autant le dire avant le clic. */}
-            {workflows.map((w) => (
-              <option key={w.id} value={w.id}>{estEnLigne(w) ? w.name : `${w.name} (${t('non publié', 'not published')})`}</option>
-            ))}
+            {/* Un groupe par rayon, vide = absent. Une API d'avant ne donne pas le rayon : tout tombe dans le Builder. */}
+            {([['general', 'Builder'], ['shopify', 'Shopify'], ['hubspot', 'HubSpot']] as const).map(([rayon, nom]) => {
+              const duRayon = workflows.filter((w) => (w.rayon ?? 'general') === rayon);
+              return duRayon.length === 0 ? null : (
+                <optgroup key={rayon} label={nom}>
+                  {duRayon.map((w) => (
+                    <option key={w.id} value={w.id}>{estEnLigne(w) ? w.name : `${w.name} (${t('non publié', 'not published')})`}</option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
+        )}
+        {sel?.rayon === 'shopify' && (
+          <p className="mt-2 text-xs text-ink-500" data-testid="scenario-shopify-sans-commande">
+            {t('Lancé d’ici, ce scénario n’a pas de commande derrière lui : s’il affiche un numéro de commande, un montant ou un lien de panier, il ne part pas.', 'Started from here, this scenario has no order behind it: if it shows an order number, an amount or a cart link, it will not be sent.')}
+          </p>
         )}
       </div>
 

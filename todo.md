@@ -1,5 +1,20 @@
 # todo.md : backlog
 
+## 🟡 L'Inbox lance les scénarios Shopify et HubSpot : la relecture (2026-11-26, aucun rouge)
+
+- 🟡 **Un refus au clic laisse le fil repris par l'app** : `runFrom` reprend le fil (`reprise: 'oui'`) AVANT le premier
+  envoi ; un template Shopify qui lit une variable du parcours (numéro de commande, lien du panier) est refusé (422,
+  variable nommée), rien ne part, aucun parcours, mais le fil reste en `app_workflow` et sort de la main de l'opérateur.
+  Défaut d'avant (tout refus sans envoi depuis l'Inbox), rendu déterministe par ce lot. Parade : ne pas proposer dans la
+  liste un scénario dont l'OUVERTURE lit une variable du parcours (calcul serveur dans `listResume`), ou rendre le fil à
+  l'opérateur sur un refus sans envoi lancé de l'Inbox.
+- Un bloc SUIVANT qui lit une variable du parcours : le premier message part, le suivant est refusé au réveil, le
+  parcours se clôt et remonte à l'équipe (`escalateToHuman`). Dégradé mais traité ; l'avertissement de la modale ne le dit pas.
+- Un lancement depuis l'Inbox clôt le parcours d'événement vivant du contact (`devantUnEvenement: 'remplace'`, une relance
+  de panier en attente par exemple) : comportement d'avant de l'Inbox, désormais atteignable en pleine séquence Shopify.
+- Aucun test n'exerce `inbox` sur un scénario Shopify à variable de parcours (refus propre prouvé par lecture seulement) :
+  un cas dans `tests/workflow-lancements.test.ts`.
+
 ## 🟡 La sortie « Transfert à un humain » sans bloc vide : la relecture (2026-11-25, aucun rouge)
 
 - 🟡 **Défaut d'avant, toujours vivant là où `humain` est RELIÉE vers une fin vide** (le répondeur, les recettes de

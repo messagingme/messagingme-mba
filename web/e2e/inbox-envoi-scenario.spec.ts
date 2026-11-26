@@ -29,6 +29,14 @@ const WF_SESSION = {
   },
 };
 
+/** Un scénario d'automation Shopify (Julien, 2026-11-26) : l'Inbox le propose aussi, sous son groupe. */
+const WF_SHOPIFY = {
+  id: 'wf-shop', name: 'Commande expédiée', rayon: 'shopify', graph: {
+    nodes: [{ id: 'n1', type: 'template', position: { x: 0, y: 0 }, data: { templateName: 'expedition', language: 'fr' } }],
+    edges: [],
+  },
+};
+
 async function mock(page: import('@playwright/test').Page, windowOpen: boolean, lances: string[], refus?: string) {
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
@@ -48,7 +56,7 @@ async function mock(page: import('@playwright/test').Page, windowOpen: boolean, 
         messages: [{ id: 'm1', direction: 'in', type: 'text', body: 'coucou', buttonPayload: null, createdAt: '2026-08-15T11:00:00Z' }],
       });
     }
-    if (url.endsWith('/workflows')) return json({ workflows: [WF_TEMPLATE, WF_SESSION] });
+    if (url.split('?')[0]!.endsWith('/workflows')) return json({ workflows: [WF_TEMPLATE, WF_SESSION, WF_SHOPIFY] });
     if (url.includes('/templates')) return json({ templates: [] });
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     return json({});
@@ -118,6 +126,20 @@ test.describe('Inbox : lancer un scénario', () => {
     await expect(select.locator('option', { hasText: 'Questionnaire à chaud' })).toHaveCount(0);
   });
 
+  test('un scénario Shopify est proposé sous son groupe, fenêtre fermée, avec l’avertissement de la commande absente', async ({ page }) => {
+    const lances: string[] = [];
+    await mock(page, false, lances);
+    await ouvrirPanneau(page);
+    const select = page.getByTestId('scenario-select');
+    await expect(select.locator('optgroup[label="Shopify"] option', { hasText: 'Commande expédiée' })).toHaveCount(1);
+    await expect(select.locator('optgroup[label="Builder"] option', { hasText: 'Relance promo' })).toHaveCount(1);
+    await expect(page.getByTestId('scenario-shopify-sans-commande')).toHaveCount(0);
+    await choisirScenario(page, 'wf-shop');
+    await expect(page.getByTestId('scenario-shopify-sans-commande')).toBeVisible();
+    await page.getByTestId('scenario-send').click();
+    await expect.poll(() => lances).toEqual(['wf-shop']);
+  });
+
   test('lancer envoie bien l’identifiant du scénario choisi', async ({ page }) => {
     const lances: string[] = [];
     await mock(page, true, lances);
@@ -149,7 +171,7 @@ test.describe('Inbox : lancer un scénario', () => {
         }));
         return json({ waId: '33600000001', windowOpen: true, lastInboundAt: '2026-08-15T11:00:00Z', controlOwner: 'app_human', messages });
       }
-      if (url.endsWith('/workflows')) return json({ workflows: [WF_TEMPLATE, WF_SESSION] });
+      if (url.split('?')[0]!.endsWith('/workflows')) return json({ workflows: [WF_TEMPLATE, WF_SESSION, WF_SHOPIFY] });
       if (url.includes('/templates')) return json({ templates: [] });
       if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
       return json({});

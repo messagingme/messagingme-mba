@@ -615,6 +615,22 @@ describe('GET /workflows : le RÉSUMÉ, jamais les graphes', () => {
     expect(w).not.toHaveProperty('draftGraph');
     await server.close();
   });
+
+  it('🔴 le Builder seul par défaut ; `?rayons=tous` (le choix de l’Inbox) voit les trois rayons, chacun nommé', async () => {
+    const demandes: string[] = [];
+    const { server } = app({ scenarios: { listResume: async (_t, rayon) => { demandes.push(rayon); return [{ ...resumeW1, id: `w-${rayon}` }]; } } });
+    const defaut = await server.inject({ method: 'GET', url: '/tenants/t1/workflows', ...h(adminTok) });
+    expect(defaut.json<{ workflows: Array<{ id: string }> }>().workflows.map((w) => w.id)).toEqual(['w-general']);
+    expect(demandes).toEqual(['general']);
+    // Une autre valeur ne change rien : seul « tous » ouvre les autres rayons.
+    const autre = await server.inject({ method: 'GET', url: '/tenants/t1/workflows?rayons=shopify', ...h(adminTok) });
+    expect(autre.json<{ workflows: Array<{ id: string }> }>().workflows.map((w) => w.id)).toEqual(['w-general']);
+    const tous = await server.inject({ method: 'GET', url: '/tenants/t1/workflows?rayons=tous', ...h(adminTok) });
+    expect(tous.json<{ workflows: Array<{ id: string; rayon: string }> }>().workflows.map((w) => [w.id, w.rayon])).toEqual([
+      ['w-general', 'general'], ['w-shopify', 'shopify'], ['w-hubspot', 'hubspot'],
+    ]);
+    await server.close();
+  });
 });
 
 describe('🔴 GET /workflows/:id rend les départs du scénario (menu « Scénario », lot 2 : prévenir, jamais refuser)', () => {

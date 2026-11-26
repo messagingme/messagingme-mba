@@ -209,9 +209,10 @@ export interface PolitiqueDeLancement {
    * 🔴 Les rayons de scénario que ce type peut lancer (menu « Scénario », décision 1 : cloisonnés dans les deux sens).
    * Un scénario d'un autre rayon y est un INCONNU, son existence ne fuit pas : `lancer` rend `null` comme pour un
    * scénario supprimé, et `REFUS_SCENARIO_INCONNU` pour `agent_meta_bloc`, qui reçoit son graphe mais relit la ligne pour
-   * son rayon. Le lien de test teste un scénario de n'importe quel rayon depuis son builder ; un type d'événement ne lance
-   * que le sien (Shopify, HubSpot) ; tout le reste ne lance que le Builder (le workflow HubSpot passera au rayon HubSpot au
-   * lot 6b). `'sans_objet'` : le type ne lit aucune ligne de scénario (`repondeur`, graphe fourni ; le saut, dont la cible
+   * son rayon. Le lien de test teste un scénario de n'importe quel rayon depuis son builder ; l'Inbox lance aussi les trois
+   * (Julien, 2026-11-26 : un opérateur choisit le scénario pour UN contact, celui qu'il a sous les yeux) ; un type
+   * d'événement ne lance que le sien (Shopify, HubSpot) ; le workflow HubSpot ne lance que le rayon HubSpot ; tout le reste
+   * ne lance que le Builder. `'sans_objet'` : le type ne lit aucune ligne de scénario (`repondeur`, graphe fourni ; le saut, dont la cible
    * se résout dans le rayon d'origine), et `rayonAdmis` refuse s'il est consulté quand même.
    */
   rayons: readonly Rayon[] | 'sans_objet';
@@ -262,7 +263,13 @@ export const MOTIF_SCENARIO_LANCE = 'scenario_lance';
  * exécuteur. Changer une valeur change le comportement de chaque scénario lancé par ce chemin en production.
  */
 export const POLITIQUE_DE_LANCEMENT = {
-  inbox: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre', rayons: ['general'], devantUnEvenement: 'remplace' },
+  /**
+   * Les trois rayons (Julien, 2026-11-26, exception à la décision 1 du menu « Scénario ») : l'opérateur relance un client
+   * par un scénario Shopify ou HubSpot, fenêtre fermée surtout. Lancé d'ici, ce scénario n'a pas d'événement derrière lui :
+   * un template qui lit une variable du parcours (numéro de commande, lien du panier) est REFUSÉ au clic, la variable
+   * nommée (`envois-bloc.ts`), et rien ne part ; les données d'un deal HubSpot se lisent sur la fiche, elles suivent.
+   */
+  inbox: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre', rayons: RAYONS, devantUnEvenement: 'remplace' },
   agent_meta_scenario: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre', rayons: ['general'], devantUnEvenement: 'coexiste' },
   /**
    * L'outil « Lancer un scénario » d'un agent IA (RC4) : calqué sur celui de l'agent de Meta (un contact ici et

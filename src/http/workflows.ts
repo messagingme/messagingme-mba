@@ -17,7 +17,7 @@ import {
   creerModeleDuBloc, modelesDuGraphe, type DepsCreationDeBloc, type DepsPublication,
 } from '../workflow/modeles-de-bloc';
 import { tagsInGraph } from '../workflow/tags-du-graphe';
-import type { Rayon } from '../workflow/rayon';
+import { RAYONS, type Rayon } from '../workflow/rayon';
 import { departsDuScenario, type Lanceur } from '../../web/lib/partage/fenetre-scenario';
 import { blocVerrouille, refusSelonLeVerrou } from '../shopify/premier-bloc';
 
@@ -187,6 +187,12 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     const tenant = espaceVerifie(req);
     // Le résumé, pas les graphes : les écrans de liste n'affichent qu'un nom, et le graphe complet reste sur
     // `GET /workflows/:id`.
+    // `?rayons=tous` : le seul choix qui voit les trois rayons, le lancement depuis l'Inbox (`inbox` dans
+    // `POLITIQUE_DE_LANCEMENT`, Julien, 2026-11-26). Chaque scénario dit alors son rayon. Sans lui, le Builder seul.
+    if ((req.query as { rayons?: unknown } | undefined)?.rayons === 'tous') {
+      const parRayon = await Promise.all(RAYONS.map(async (rayon) => (await deps.scenarios.listResume(tenant, rayon)).map((w) => ({ ...w, rayon }))));
+      return reply.code(200).send({ workflows: parRayon.flat() });
+    }
     return reply.code(200).send({ workflows: await deps.scenarios.listResume(tenant, 'general') });
   });
 

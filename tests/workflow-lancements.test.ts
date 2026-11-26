@@ -507,7 +507,8 @@ describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
       const r = POLITIQUE_DE_LANCEMENT[type].rayons;
       if (sansObjet.has(type)) expect(r, type).toBe('sans_objet');
       else {
-        const attendus = type === 'lien_de_test' ? [...RAYONS].sort()
+        // L'Inbox aussi : un opérateur relance UN contact par un scénario Shopify ou HubSpot (Julien, 2026-11-26).
+        const attendus = type === 'lien_de_test' || type === 'inbox' ? [...RAYONS].sort()
           : type === 'evenement_shopify' ? ['shopify'] : type === 'evenement_hubspot' || type === 'workflow_hubspot' ? ['hubspot'] : ['general'];
         expect([...r].sort(), type).toEqual(attendus);
       }

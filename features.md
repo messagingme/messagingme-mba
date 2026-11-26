@@ -2240,7 +2240,10 @@ scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le 
   scénarios peuvent partir ; sinon, seuls ceux qui ouvrent par un **template** ou par un
   **message RCS**. Le bouton reste donc offert même fenêtre fermée, avec la liste réduite en
   conséquence. Un second lancement à la main sur une conversation qui a déjà un parcours en
-  attente ne crée pas de doublon.
+  attente ne crée pas de doublon. La liste propose aussi les scénarios des automations **Shopify** et
+  **HubSpot**, groupés sous leur nom (2026-11-26) : c'est le seul endroit où ils se lancent à la main. Un
+  scénario Shopify lancé d'ici n'a pas de commande derrière lui : s'il affiche un numéro de commande, un
+  montant ou un lien de panier, il ne part pas, et l'écran dit quelle donnée manque.
 - ✅ **Rafraîchissement automatique** : la liste (~15 s) et le fil ouvert (~4 s) se mettent à jour tout seuls,
   en pause quand l'onglet est masqué (reprise au retour). **Le fil ne « saute » pas** pendant qu'on lit
   l'historique (le scroll ne redescend que sur un vrai nouveau message).
