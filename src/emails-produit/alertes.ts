@@ -270,6 +270,15 @@ export interface DepsLimites {
   franchir(tenantId: string, seuil: string, atteint: boolean): Promise<number | null>;
   emettre: Emettre;
   pageOffre: string;
+  /** La page Support de la console : les e-mails de l'Entreprise y renvoient (« contactez-nous »). */
+  pageSupport: string;
+  /** L'option « le plus ancien laisse sa place » de l'espace : lue pour l'Entreprise seule, à 100 %. */
+  remplacerAnciens(tenantId: string): Promise<boolean>;
+  /**
+   * Nous prévenir sur Telegram (décision de Julien du 2026-11-26) : une Entreprise est sous contrat, on l'appelle avant
+   * qu'elle refuse des clients ou efface des contacts. Ne lève jamais (`sendTelegram`).
+   */
+  alerterEquipe(texte: string): Promise<void>;
   /** Le mois civil de Paris (`AAAA-MM`) : l'occasion des modèles, dont le compteur repart chaque mois. */
   moisDeParis(): string;
 }
@@ -278,22 +287,22 @@ export interface DepsLimites {
 export interface LimitesAlertables {
   modelesMois: number | null;
   contacts: number | null;
-  offre: 'free' | 'pro' | 'business' | null;
+  offre: 'free' | 'pro' | 'business' | 'entreprise' | null;
 }
 
 /**
  * Les limites que surveille le balayage, selon l'offre (spec offres v2, livraison 5) : celles de la Free, dont les textes
  * disent « Passez en Pro », les contacts du Pro, dont les textes renvoient au Business (le Pro n'a pas de limite de
  * modèles), et depuis le 2026-11-13 ceux du Business, qui compte lui aussi ceux qui lui écrivent : ses textes renvoient à
- * l'Entreprise. L'Entreprise, dont la limite de contacts se règle sur devis par /ops, n'en reçoit aucune : un texte la
- * dirait dans une offre qui n'est pas la sienne. `null` = rien à surveiller.
+ * l'Entreprise. Depuis le 2026-11-26, l'Entreprise dont /ops a posé une limite de contacts : ses textes disent
+ * « contactez-nous » (sans pack ni offre supérieure, décision de Julien : « il nous contacte et on s'arrange »), et nous
+ * sommes prévenus. Sans limite (`null`), rien à surveiller.
  */
 export function limitesAlertables(
   offre: Offre, l: { envoisModelesMois: number | null; contacts: number | null },
 ): LimitesAlertables {
   if (offre === 'base') return { modelesMois: l.envoisModelesMois, contacts: l.contacts, offre: 'free' };
-  if (offre === 'pro' || offre === 'business') return { modelesMois: null, contacts: l.contacts, offre };
-  return { modelesMois: null, contacts: null, offre: null };
+  return { modelesMois: null, contacts: l.contacts, offre: offre === 'pro' || offre === 'business' ? offre : 'entreprise' };
 }
 
 /** Le seuil atteint : `usage` vaut au moins `pct` % de `limite`, arrondi au supérieur (80 % de 100, c'est 80). */
@@ -320,10 +329,17 @@ function seuilContactsAtteint(fiches: number, limite: number, s: SeuilContacts):
 }
 
 /** L'e-mail du seuil le plus haut franchi, avec les textes de l'offre : la Free renvoie au Pro, le Pro au Business, le
- *  Business à l'Entreprise. */
+ *  Business à l'Entreprise, l'Entreprise au Support. */
 function emissionContacts(tenantId: string, offre: LimitesAlertables['offre'], seuil: SeuilContacts, generation: number,
-  fiches: number, limite: number, pageOffre: string): Parameters<Emettre>[0] {
+  fiches: number, limite: number, pages: { offre: string; support: string }, remplacer: boolean): Parameters<Emettre>[0] {
   const occasion = `franchissement:${generation}`;
+  const pageOffre = pages.offre;
+  // À 100 %, l'option dit ce qui arrive au contact suivant : il entre, et le plus ancien sort (lot 2 du 2026-11-24).
+  if (offre === 'entreprise') {
+    const cle = seuil !== 100 ? 'limite_contacts_entreprise_80'
+      : remplacer ? 'limite_contacts_entreprise_remplacement' : 'limite_contacts_entreprise_100';
+    return { cle, tenantId, occasion, a: 'admins', valeurs: { limite: String(limite), lien_support: pages.support } };
+  }
   if (offre === 'business') {
     return {
       cle: seuil === 100 ? 'limite_contacts_business_100' : 'limite_contacts_business_80', tenantId, occasion, a: 'admins',
@@ -378,7 +394,8 @@ export async function balayerLimites(d: DepsLimites): Promise<number> {
       // son « Passer en Pro ». Un relâchement n'écrit rien quand le seuil l'est déjà.
       // 🔴 Tous les seuils de l'autre famille, « dépassée » compris : une Free à 3 000 contacts passée en Pro puis revenue
       // doit recevoir de nouveau son « dépassée ».
-      const famille = l.offre === 'pro' || l.offre === 'business' ? 'contacts_pro' : 'contacts';
+      // L'Entreprise a les seuils du Pro et du Business (80 et 100 %, sans « dépassée », qui est un texte de la Free).
+      const famille = l.offre === 'pro' || l.offre === 'business' || l.offre === 'entreprise' ? 'contacts_pro' : 'contacts';
       const autre = famille === 'contacts' ? 'contacts_pro' : 'contacts';
       for (const s of SEUILS_CONTACTS[autre]) await d.franchir(tenantId, `${autre}_${s}`, false);
       if (l.contacts === null) {
@@ -396,14 +413,28 @@ export async function balayerLimites(d: DepsLimites): Promise<number> {
         }
         const plusHaut = franchis[0];
         if (plusHaut) {
+          const entreprise = l.offre === 'entreprise';
+          let remplacer = false;
           try {
-            await d.emettre(emissionContacts(tenantId, l.offre, plusHaut.seuil, plusHaut.generation, crees, l.contacts, d.pageOffre));
+            remplacer = entreprise && plusHaut.seuil === 100 && await d.remplacerAnciens(tenantId);
+            await d.emettre(emissionContacts(tenantId, l.offre, plusHaut.seuil, plusHaut.generation, crees, l.contacts,
+              { offre: d.pageOffre, support: d.pageSupport }, remplacer));
           } catch (err) {
             // 🔴 Le seuil est posé AVANT la réservation : sans ce relâchement, une émission ratée (base, pool) perdrait
             // l'alerte jusqu'à un retour sous le seuil, qui à 100 % peut ne jamais venir. Relâchés, les seuils franchis
             // le seront de nouveau au tour suivant, avec une génération neuve.
             for (const f of franchis) await d.franchir(tenantId, `${famille}_${f.seuil}`, false);
             throw err;
+          }
+          // Après l'e-mail, une fois par franchissement (la génération ne se gagne qu'une fois) : un Telegram en échec
+          // ne relâche rien, l'e-mail est parti.
+          if (entreprise) {
+            const suite = plusHaut.seuil !== 100 ? ''
+              : remplacer ? ' : chaque nouveau contact efface désormais le plus ancien' : ' : les nouveaux contacts sont refusés';
+            await d.alerterEquipe(`Contacts : l'Entreprise ${tenantId} est à ${plusHaut.seuil} % de sa limite (${crees} sur `
+              + `${l.contacts})${suite}. À appeler pour relever sa limite dans /ops.`).catch((err: unknown) => {
+              journaliser('error', 'alerte_equipe_contacts_impossible', { err, tenantId });
+            });
           }
           n += 1;
         }
@@ -430,14 +461,39 @@ export function creerAlerteEspacePlein(d: {
   emettre: Emettre;
   /** Le fuseau IANA de l'espace (`tenant_settings.timezone`, défaut du serveur). */
   fuseau(tenantId: string): Promise<string>;
+  /** L'offre de l'espace : une Entreprise reçoit son texte « contactez-nous », et nous sommes prévenus (2026-11-26). */
+  offre(tenantId: string): Promise<Offre>;
   pageOffre: string;
+  pageSupport: string;
+  /** Nous prévenir sur Telegram, pour une Entreprise, une fois par jour comme l'e-mail. Ne lève jamais (`sendTelegram`). */
+  alerterEquipe(texte: string): Promise<void>;
   now?: () => Date;
 }): (tenantId: string, limite: number) => Promise<void> {
   return async (tenantId, limite) => {
     try {
       const jour = jourDans(await d.fuseau(tenantId), d.now ? d.now() : new Date());
+      const occasion = `plein:${jour}`;
+      // Une offre illisible garde l'e-mail d'avant ce lot : sa lecture ne doit pas faire tomber l'alerte des autres offres.
+      const offre = await d.offre(tenantId).catch((err: unknown) => {
+        journaliser('error', 'alerte_espace_plein_offre_illisible', { err, tenantId });
+        return null;
+      });
+      if (offre === 'entreprise') {
+        const issue = await d.emettre({
+          cle: 'espace_plein_entrant_entreprise', tenantId, occasion, a: 'admins',
+          valeurs: { limite: String(limite), lien_support: d.pageSupport },
+        });
+        // L'occasion du jour ne se réserve qu'une fois : le Telegram suit la réservation, jamais chaque inconnu refusé
+        // (sinon un espace plein très sollicité ferait un message par entrant). L'alerte à 100 % du balayage, elle, part
+        // même sans administrateur connecté.
+        if (issue.reserves > 0) {
+          await d.alerterEquipe(`Contacts : l'Entreprise ${tenantId} est pleine (${limite} contacts) et vient de refuser `
+            + 'un nouveau client qui lui écrivait. À appeler pour relever sa limite dans /ops.');
+        }
+        return;
+      }
       await d.emettre({
-        cle: 'espace_plein_entrant', tenantId, occasion: `plein:${jour}`, a: 'admins',
+        cle: 'espace_plein_entrant', tenantId, occasion, a: 'admins',
         valeurs: { limite: String(limite), lien_offre: d.pageOffre },
       });
     } catch (err) {

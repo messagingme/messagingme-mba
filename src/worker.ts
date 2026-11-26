@@ -645,7 +645,10 @@ export async function demarrerWorker(): Promise<void> {
     prevenir: creerAlerteEspacePlein({
       emettre: (e) => emetteurEmails.emettre(e),
       fuseau: async (t) => (await settingsStore.horairesEffectifs(t)).timezone,
+      offre: async (t) => (await offres.offreDe(t)).offre,
       pageOffre: `${config.APP_URL.trim().replace(/\/+$/, '')}/offre`,
+      pageSupport: `${config.APP_URL.trim().replace(/\/+$/, '')}/support`,
+      alerterEquipe: async (texte) => { alert(`contacts-entreprise:${texte}`, texte); },
     }),
   };
 
@@ -1256,7 +1259,7 @@ export async function demarrerWorker(): Promise<void> {
     return n;
   }, { immediat: true, enEchec: echecDeBalayage('conversions-meta-reprise', 'sweeper:conversions-meta-reprise') });
   /**
-   * Les limites de la Free et du Pro (lot 7, livraison B ; le Pro depuis la spec offres v2) : à 80 % puis à 100 % des
+   * Les limites de la Free, du Pro, du Business et de l'Entreprise limitée (lot 7, livraison B ; spec offres v2 ; 2026-11-26) : à 80 % puis à 100 % des
    * modèles du mois (une fois par mois, la Free seule) et des contacts (une fois par franchissement, migration 0235), un
    * e-mail aux admins, avec les textes de l'offre (`limitesAlertables`).
    * Les offres sans limite sont passées sans rien lire de plus.
@@ -1276,6 +1279,9 @@ export async function demarrerWorker(): Promise<void> {
     franchir: (t, seuil, atteint) => emailsProduit.franchir(t, seuil, atteint),
     emettre: (e) => emetteurEmails.emettre(e),
     pageOffre: `${config.APP_URL.trim().replace(/\/+$/, '')}/offre`,
+    pageSupport: `${config.APP_URL.trim().replace(/\/+$/, '')}/support`,
+    remplacerAnciens: (t) => settingsStore.contactsRemplacerAnciens(t),
+    alerterEquipe: async (texte) => { alert(`contacts-entreprise:${texte}`, texte); },
     moisDeParis: () => moisDeParis(Date.now()),
   }), { enEchec: echecDeBalayage('emails-produit-limites', 'sweeper:emails-produit-limites') });
   /**

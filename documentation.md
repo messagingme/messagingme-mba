@@ -3840,7 +3840,9 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
     `limitesAlertables` choisit les textes de l'offre : la Free (`limite_*`, « Passez en Pro », qui citent la limite de
     contacts du Pro lue dans `DROITS`), le Pro (ses contacts seuls, `limite_contacts_pro_*`, qui renvoient au Business)
     et le Business (`limite_contacts_business_*`, qui renvoient à l'Entreprise ; ses seuils sont ceux de la famille
-    `contacts_pro`) ; l'Entreprise, dont la limite se règle sur devis, n'en reçoit aucune. Les contacts s'y comptent par
+    `contacts_pro`) ; l'Entreprise dont /ops a posé une limite (`limite_contacts_entreprise_*`, qui renvoient au Support,
+    `_remplacement` à 100 % quand l'option « le plus ancien laisse sa place » est active, mêmes seuils), et pour elle
+    seule un Telegram par franchissement (`alerterEquipe`) ; sans limite, rien. Les contacts s'y comptent par
     `PgOffresStore.usage`, donc comme la limite (toutes les fiches actives, `ficheActive`). Au-dessus de 100 %, la Free a un seuil de
     plus, `depassee` (strictement plus de fiches que la limite, `SEUILS_CONTACTS`) : un espace revenu en Free avec
     3 000 contacts franchit les trois d'un coup et ne reçoit que `limite_contacts_depassee`, qui cite le nombre de

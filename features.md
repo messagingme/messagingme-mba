@@ -4287,9 +4287,13 @@ boîte par sous-menu.
     l'espace dépasse ;
   - un espace Free, Pro ou Business plein, un nouveau client qui a écrit et n'est pas entré (une fois par jour au plus,
     quel que soit le nombre de clients écartés) : passer à l'offre supérieure, ou supprimer des contacts en le demandant
-    à Claude ;
+    à Claude ; un espace Entreprise plein, la même alerte, qui renvoie au Support pour relever la limite ;
   - en offre Pro, 80 % puis 100 % des contacts, ceux qui ont écrit les premiers compris, à chaque franchissement ; ces
-    alertes renvoient au Business ; en offre Business, les mêmes, qui renvoient à l'Entreprise ;
+    alertes renvoient au Business ; en offre Business, les mêmes, qui renvoient à l'Entreprise ; en offre Entreprise
+    dont le contrat fixe une limite de contacts, les mêmes, qui renvoient au Support (pas de pack ni d'offre
+    supérieure : la limite se relève sur demande), et dont celle de 100 % dit, quand l'option « le plus ancien laisse
+    sa place » est active, que chaque nouveau contact efface désormais le plus ancien. Notre équipe est prévenue en
+    même temps, pour appeler le client ;
   - l'option Ligne de crédit arrêtée (une résiliation, un impayé) alors que la formule permet de la reprendre (jamais une
     formule en retard de paiement, ni une formule Pro dont la fin programmée est passée), une fois par option, dans les
     trois jours qui suivent sa fin, et seulement quand toutes les lignes de l'espace sont arrêtées : les envois par la

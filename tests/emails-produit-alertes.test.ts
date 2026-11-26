@@ -95,14 +95,37 @@ describe('🔴 l’espace Free plein qui écarte un nouveau client', () => {
       },
     };
   }
-  function alerte(j: ReturnType<typeof journal>, maintenant = '2026-10-25T10:00:00.000Z', fuseau = 'Europe/Paris') {
+  function alerte(j: ReturnType<typeof journal>, maintenant = '2026-10-25T10:00:00.000Z', fuseau = 'Europe/Paris',
+    offre: 'base' | 'pro' | 'business' | 'entreprise' = 'pro', telegrams: string[] = []) {
     const emetteur = creerEmetteurEmails({
       adminsConnectes: async () => ['id-admin'], reserver: j.reserver, fuseau: async () => fuseau, enfiler: async (job) => { j.jobs.push(job); },
     });
     return creerAlerteEspacePlein({
-      emettre: (e) => emetteur.emettre(e), fuseau: async () => fuseau, pageOffre: 'https://c/offre', now: () => new Date(maintenant),
+      emettre: (e) => emetteur.emettre(e), fuseau: async () => fuseau, offre: async () => offre, pageOffre: 'https://c/offre',
+      pageSupport: 'https://c/support', alerterEquipe: async (t) => { telegrams.push(t); }, now: () => new Date(maintenant),
     });
   }
+
+  it('🔴 une Entreprise pleine (2026-11-26) : son texte renvoie au Support, et nous sommes prévenus une fois par jour', async () => {
+    const j = journal();
+    const telegrams: string[] = [];
+    await alerte(j, undefined, undefined, 'entreprise', telegrams)('t1', 10000);
+    await alerte(j, undefined, undefined, 'entreprise', telegrams)('t1', 10000);
+    expect([...j.lignes]).toEqual(['t1/espace_plein_entrant_entreprise/id-admin/plein:2026-10-25']);
+    expect(j.valeurs[0]).toEqual({ limite: '10000', lien_support: 'https://c/support', _fuseau: 'Europe/Paris' });
+    expect(telegrams).toHaveLength(1);
+    expect(telegrams[0]).toMatch(/Entreprise t1 est pleine \(10000 contacts\)/);
+    // Une autre offre garde son e-mail, et ne nous prévient pas.
+    await alerte(j, undefined, undefined, 'business', telegrams)('t2', 5000);
+    expect([...j.lignes]).toContain('t2/espace_plein_entrant/id-admin/plein:2026-10-25');
+    expect(telegrams).toHaveLength(1);
+    const m = modeleDe('espace_plein_entrant_entreprise')!;
+    for (const l of ['fr', 'en'] as const) {
+      const texte = rendre(m, m.textes[l], { limite: '10000', espace: 'A', lien_support: 'https://c/support' }, l);
+      expect(texte.text, l).toMatch(/Support/);
+      expect(texte.text, l).not.toMatch(/offre supérieure|next plan|Business|Pro\b|pack/i);
+    }
+  });
 
   it('une fois par jour et par espace, pas deux : le jour de l’espace pour occasion ; le lendemain, de nouveau', async () => {
     const j = journal();
@@ -124,8 +147,22 @@ describe('🔴 l’espace Free plein qui écarte un nouveau client', () => {
 
   it('une panne ne lève jamais : la réception ne tombe pas avec son alerte', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const a = creerAlerteEspacePlein({ emettre: async () => { throw new Error('base'); }, fuseau: async () => 'Europe/Paris', pageOffre: 'x' });
+    const a = creerAlerteEspacePlein({
+      emettre: async () => { throw new Error('base'); }, fuseau: async () => 'Europe/Paris', offre: async () => 'entreprise',
+      pageOffre: 'x', pageSupport: 'y', alerterEquipe: async () => {},
+    });
     await expect(a('t1', 100)).resolves.toBeUndefined();
+  });
+
+  it('une offre illisible garde l’e-mail habituel : sa lecture ne fait pas tomber l’alerte (relecture du lot A)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const emissions: string[] = [];
+    const a = creerAlerteEspacePlein({
+      emettre: async (e) => { emissions.push(e.cle); return { destinataires: 1, reserves: 1 }; }, fuseau: async () => 'Europe/Paris',
+      offre: async () => { throw new Error('base'); }, pageOffre: 'x', pageSupport: 'y', alerterEquipe: async () => {},
+    });
+    await a('t1', 100);
+    expect(emissions).toEqual(['espace_plein_entrant']);
   });
 
   it('le texte dit que le message n’est pas entré, la limite, et les deux issues : l’offre supérieure, ou supprimer des contacts', () => {
@@ -296,15 +333,51 @@ describe('le paiement refusé', () => {
 });
 
 describe('les limites de la Free et du Pro', () => {
-  it('🔴 la Free et le Pro reçoivent les alertes de LEUR offre ; l’Entreprise, réglée sur devis, aucune (spec offres v2, livraison 5)', () => {
-    // Une Entreprise peut avoir une limite de contacts posée par /ops : un e-mail qui la dirait en Free ou en Pro serait faux.
+  it('🔴 chaque offre reçoit les alertes de LA SIENNE ; l’Entreprise, celles de la limite posée par /ops (2026-11-26)', () => {
+    // L'Entreprise a ses propres textes (« contactez-nous ») : un e-mail qui la dirait en Free ou en Pro serait faux.
     const limites = { envoisModelesMois: 1000, contacts: 20000 };
     expect(limitesAlertables('base', limites)).toEqual({ modelesMois: 1000, contacts: 20000, offre: 'free' });
     // Le Pro n'a pas de limite de modèles : ses alertes ne portent que sur les contacts.
     expect(limitesAlertables('pro', limites)).toEqual({ modelesMois: null, contacts: 20000, offre: 'pro' });
     // Le Business compte ceux qui lui écrivent depuis le 2026-11-13 : ses contacts sont surveillés, avec ses textes.
     expect(limitesAlertables('business', limites)).toEqual({ modelesMois: null, contacts: 20000, offre: 'business' });
-    expect(limitesAlertables('entreprise', limites)).toEqual({ modelesMois: null, contacts: null, offre: null });
+    expect(limitesAlertables('entreprise', limites)).toEqual({ modelesMois: null, contacts: 20000, offre: 'entreprise' });
+    // Sans limite posée par /ops, rien à surveiller.
+    expect(limitesAlertables('entreprise', { envoisModelesMois: null, contacts: null })).toEqual({ modelesMois: null, contacts: null, offre: 'entreprise' });
+  });
+
+  it('🔴 une Entreprise limitée : 80 %, puis 100 % (ou « les plus anciens laissent leur place » avec l’option), le Support, et un Telegram par franchissement', async () => {
+    const { d, e, espaces, telegrams, remplacer } = banc({ ent: { modelesMois: null, contacts: 10, crees: 8, offre: 'entreprise' } });
+    await balayerLimites(d);
+    await balayerLimites(d);
+    espaces.ent!.crees = 10;
+    await balayerLimites(d);
+    expect(e.emissions.map((x) => [x.cle, x.valeurs.limite, x.valeurs.lien_support])).toEqual([
+      ['limite_contacts_entreprise_80', '10', 'https://c/support'],
+      ['limite_contacts_entreprise_100', '10', 'https://c/support'],
+    ]);
+    expect(telegrams).toHaveLength(2);
+    expect(telegrams[1]).toMatch(/Entreprise ent est à 100 % de sa limite \(10 sur 10\) : les nouveaux contacts sont refusés/);
+    // Revenu sous le seuil puis de nouveau plein, l'option cochée : le texte qui dit que le plus ancien sort.
+    espaces.ent!.crees = 5;
+    await balayerLimites(d);
+    remplacer.add('ent');
+    espaces.ent!.crees = 10;
+    await balayerLimites(d);
+    expect(e.emissions.at(-1)!.cle).toBe('limite_contacts_entreprise_remplacement');
+    expect(telegrams.at(-1)).toMatch(/chaque nouveau contact efface désormais le plus ancien/);
+    // Sans limite posée par /ops, rien, quel que soit le nombre de contacts.
+    const sans = banc({ ent: { modelesMois: null, contacts: null, crees: 50000, offre: 'entreprise' } });
+    await balayerLimites(sans.d);
+    expect([sans.e.emissions, sans.telegrams]).toEqual([[], []]);
+    for (const cle of ['limite_contacts_entreprise_80', 'limite_contacts_entreprise_100', 'limite_contacts_entreprise_remplacement']) {
+      const m = modeleDe(cle)!;
+      for (const l of ['fr', 'en'] as const) {
+        const texte = rendre(m, m.textes[l], { limite: '10000', espace: 'A', lien_support: 'https://c/support' }, l);
+        expect(texte.text, cle + l).toMatch(/Support/);
+        expect(texte.text, cle + l).not.toMatch(/offre supérieure|next plan|Business|Pro\b|pack|Voir les offres|See plans/i);
+      }
+    }
   });
 
   it('🔴 un Pro reçoit l’alerte du Pro, qui renvoie au Business (spec Business) ; la Free cite la limite du Pro, lue dans la grille', async () => {
@@ -369,9 +442,11 @@ describe('les limites de la Free et du Pro', () => {
   });
 
   /** Un banc : des espaces, leurs usages, et l'état des seuils comme en base (migration 0235). */
-  function banc(espaces: Record<string, { modelesMois: number | null; contacts: number | null; modeles?: number | null; crees?: number; offre?: 'free' | 'pro' | 'business' }>) {
+  function banc(espaces: Record<string, { modelesMois: number | null; contacts: number | null; modeles?: number | null; crees?: number; offre?: 'free' | 'pro' | 'business' | 'entreprise' }>) {
     const e = emetteur();
     const seuils = new Map<string, { atteint: boolean; generation: number }>();
+    const telegrams: string[] = [];
+    const remplacer = new Set<string>();
     const d: DepsLimites = {
       espaces: async () => Object.keys(espaces),
       limites: async (t) => ({ modelesMois: espaces[t]!.modelesMois, contacts: espaces[t]!.contacts, offre: espaces[t]!.offre ?? 'free' }),
@@ -387,9 +462,12 @@ describe('les limites de la Free et du Pro', () => {
       },
       emettre: e.emettre,
       pageOffre: 'https://c/offre',
+      pageSupport: 'https://c/support',
+      remplacerAnciens: async (t) => remplacer.has(t),
+      alerterEquipe: async (t) => { telegrams.push(t); },
       moisDeParis: () => '2026-10',
     };
-    return { d, e, espaces };
+    return { d, e, espaces, telegrams, remplacer };
   }
 
   it('🔴 les modèles : rien sous 80 %, l’alerte de 80 %, puis celle de 100 % seule, avec le mois pour occasion ; un Pro, rien', async () => {

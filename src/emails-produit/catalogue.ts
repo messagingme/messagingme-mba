@@ -882,6 +882,114 @@ export const CATALOGUE = [
       },
     },
   },
+  // L'Entreprise dont /ops a posé une limite de contacts (décision de Julien du 2026-11-26) : ni pack ni offre supérieure,
+  // « il nous contacte et on s'arrange ». Ses seuils sont ceux du Pro et du Business (`emissionContacts`), ses textes
+  // renvoient au Support, et nous sommes prévenus sur Telegram en même temps.
+  {
+    cle: 'limite_contacts_entreprise_80',
+    categorie: 'service',
+    aide: LIGNES_AIDE.offre,
+    nom: 'Offre Entreprise : 80 % des contacts',
+    quand: 'Un espace Entreprise atteint 80 % de la limite de contacts de son contrat. Une fois à chaque franchissement.',
+    variables: { limite: LIMITE, lien_support: LIEN_SUPPORT },
+    textes: {
+      fr: {
+        sujet: 'Vous approchez de la limite de contacts de votre contrat',
+        corps: 'Bonjour,\n\nL’espace {{espace}} compte 80 % des {{limite}} contacts que prévoit votre contrat Entreprise, ceux '
+          + 'qui vous ont écrit les premiers compris.\n\nPour relever cette limite, contactez-nous depuis le Support de la '
+          + 'console : nous l’ajustons à vos besoins.',
+        bouton: { libelle: 'Écrire au Support', lien: '{{lien_support}}' },
+      },
+      en: {
+        sujet: 'You are close to the contact limit of your contract',
+        corps: 'Hello,\n\nThe {{espace}} workspace has 80% of the {{limite}} contacts your Enterprise contract provides for, '
+          + 'including those who wrote to you first.\n\nTo raise this limit, contact us from the console Support: we adjust '
+          + 'it to your needs.',
+        bouton: { libelle: 'Write to Support', lien: '{{lien_support}}' },
+      },
+    },
+  },
+  {
+    cle: 'limite_contacts_entreprise_100',
+    categorie: 'service',
+    aide: LIGNES_AIDE.offre,
+    nom: 'Offre Entreprise : limite de contacts atteinte',
+    quand: 'Un espace Entreprise atteint la limite de contacts de son contrat, sans l’option « le plus ancien laisse sa place ». Une fois à chaque franchissement.',
+    variables: { limite: LIMITE, lien_support: LIEN_SUPPORT },
+    textes: {
+      fr: {
+        sujet: 'Limite atteinte : votre espace Entreprise est plein',
+        corps: 'Bonjour,\n\nL’espace {{espace}} a atteint les {{limite}} contacts que prévoit votre contrat Entreprise, ceux '
+          + 'qui vous ont écrit les premiers compris : créer ou importer un contact est refusé, et un nouveau client qui vous '
+          + 'écrit n’entre plus dans Messaging Me (son message n’y est pas enregistré, et vos agents IA ne lui répondent pas).'
+          + '\n\nContactez-nous depuis le Support de la console : nous relevons votre limite.',
+        bouton: { libelle: 'Écrire au Support', lien: '{{lien_support}}' },
+      },
+      en: {
+        sujet: 'Limit reached: your Enterprise workspace is full',
+        corps: 'Hello,\n\nThe {{espace}} workspace has reached the {{limite}} contacts your Enterprise contract provides for, '
+          + 'including those who wrote to you first: creating or importing a contact is refused, and a new customer who '
+          + 'writes to you no longer gets into Messaging Me (their message is not recorded there, and your AI agents do not '
+          + 'reply to them).\n\nContact us from the console Support: we raise your limit.',
+        bouton: { libelle: 'Write to Support', lien: '{{lien_support}}' },
+      },
+    },
+  },
+  {
+    cle: 'limite_contacts_entreprise_remplacement',
+    categorie: 'service',
+    aide: LIGNES_AIDE.offre,
+    nom: 'Offre Entreprise : limite atteinte, les plus anciens laissent leur place',
+    quand: 'Un espace Entreprise atteint la limite de contacts de son contrat avec l’option « le plus ancien laisse sa place » cochée. Une fois à chaque franchissement.',
+    variables: { limite: LIMITE, lien_support: LIEN_SUPPORT },
+    textes: {
+      fr: {
+        sujet: 'Limite atteinte : vos plus anciens contacts vont laisser leur place',
+        corps: 'Bonjour,\n\nL’espace {{espace}} a atteint les {{limite}} contacts que prévoit votre contrat Entreprise, ceux '
+          + 'qui vous ont écrit les premiers compris. L’option « le plus ancien laisse sa place » est active : à partir de '
+          + 'maintenant, chaque nouveau contact efface le plus ancien, avec sa conversation, ses messages et son analyse. '
+          + 'C’est irréversible.\n\nPour garder tous vos contacts, contactez-nous depuis le Support de la console : nous '
+          + 'relevons votre limite.',
+        bouton: { libelle: 'Écrire au Support', lien: '{{lien_support}}' },
+      },
+      en: {
+        sujet: 'Limit reached: your oldest contacts will make room',
+        corps: 'Hello,\n\nThe {{espace}} workspace has reached the {{limite}} contacts your Enterprise contract provides for, '
+          + 'including those who wrote to you first. The “oldest makes room” option is on: from now on, each new contact '
+          + 'erases the oldest one, with its conversation, messages and analysis. This cannot be undone.\n\nTo keep all your '
+          + 'contacts, contact us from the console Support: we raise your limit.',
+        bouton: { libelle: 'Write to Support', lien: '{{lien_support}}' },
+      },
+    },
+  },
+  {
+    // La porte d'un espace plein, pour l'Entreprise (2026-11-26) : le même événement que `espace_plein_entrant`, une
+    // occasion par jour, et un texte qui renvoie au Support au lieu d'une offre supérieure.
+    cle: 'espace_plein_entrant_entreprise',
+    categorie: 'service',
+    aide: LIGNES_AIDE.offre,
+    nom: 'Espace Entreprise plein : un nouveau client n’est pas entré',
+    quand: 'Un inconnu écrit à un espace Entreprise qui a déjà tous les contacts de son contrat : son message n’entre pas dans Messaging Me. Une fois par jour au plus.',
+    variables: { limite: LIMITE, lien_support: LIEN_SUPPORT },
+    textes: {
+      fr: {
+        sujet: 'Votre espace est plein : un nouveau client n’est pas entré',
+        corps: 'Bonjour,\n\nUn nouveau client vous a écrit sur WhatsApp, mais l’espace {{espace}} a déjà les {{limite}} '
+          + 'contacts que prévoit votre contrat Entreprise : son message n’est pas entré dans Messaging Me. Il n’a ni fiche ni '
+          + 'conversation, et vos agents IA ne lui ont pas répondu.\n\nContactez-nous depuis le Support de la console : nous '
+          + 'relevons votre limite.\n\nCette alerte part une fois par jour au plus.',
+        bouton: { libelle: 'Écrire au Support', lien: '{{lien_support}}' },
+      },
+      en: {
+        sujet: 'Your workspace is full: a new customer did not get in',
+        corps: 'Hello,\n\nA new customer wrote to you on WhatsApp, but the {{espace}} workspace already has the {{limite}} '
+          + 'contacts your Enterprise contract provides for: their message did not get into Messaging Me. They have no record '
+          + 'and no conversation, and your AI agents did not reply to them.\n\nContact us from the console Support: we raise '
+          + 'your limit.\n\nThis alert is sent at most once a day.',
+        bouton: { libelle: 'Write to Support', lien: '{{lien_support}}' },
+      },
+    },
+  },
   {
     cle: 'transfert_equipe',
     categorie: 'transfert',

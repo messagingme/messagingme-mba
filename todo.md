@@ -81,16 +81,26 @@ test qui passe par le vrai `fetch` d'undici ; la pause de 60 s après un mot de 
 - « Jamais sans avoir demandé son nom, puis transférer » se lit comme « jamais » et ne pose rien.
 - `NOMS_DES_CHAMPS` (historique, `gestion.ts`) garde « règles de transfert » pour un champ désormais ignoré.
 
+## 🟡 Les alertes de contacts de l'Entreprise (lot A du plan `2026-11-26-contacts-packs-business-et-alertes-entreprise`) : la relecture (2026-11-26, aucun rouge)
+
+1. **Le Telegram d'une Entreprise pleine sans administrateur connecté ne part pas** (`creerAlerteEspacePlein`) : il suit
+   la réservation de l'e-mail, et sans admin rien ne se réserve. Le balayage à 100 % prévient quand même ; pour le
+   refus du jour, une occasion indépendante des admins.
+2. **Un seuil qui oscille** (purge de rétention, suppressions) refait un e-mail et, pour l'Entreprise, un Telegram à
+   chaque nouveau franchissement, toutes les 30 minutes au plus : pas d'hystérésis.
+3. **Au premier balayage après le déploiement**, toute Entreprise limitée déjà à 80 % ou plus reçoit son e-mail et
+   un Telegram (aucun état de seuil avant) : voulu, à ne pas prendre pour un incident.
+4. **Un Business devenu Entreprise avec la même limite** ne reçoit rien : la famille de seuils est partagée et le
+   seuil est déjà franchi, il a lu le texte du Business.
+5. **L'offre lue par l'alerte d'espace plein passe par le cache des offres** (`offres.offreDe`, `src/worker.ts`) : un
+   espace qui vient de changer d'offre peut lire, quelques secondes, le texte de l'ancienne.
+
 ## 🟡 Un contact est un contact, et la limite du Business dans /ops (lot 3 du plan `2026-11-24-contacts-packs-et-remplacement`) : la relecture (2026-11-25, aucun rouge)
 
-🔴 **Avant de poser une limite de contacts sur un vrai client Entreprise**, les points 1 et 2 (aujourd'hui seule MUTAC en a
-une : 10 000 pour 9 contacts).
+Les points 1 et 2 sont faits pour l'Entreprise (alertes à 80 et 100 % et e-mail d'espace plein qui renvoient au Support,
+plan `2026-11-26-contacts-packs-business-et-alertes-entreprise`, lot A) ; l'e-mail d'espace plein du Business passe au
+pack avec le lot B du même plan.
 
-1. **L'e-mail `espace_plein_entrant` parle d'offre supérieure** (`src/emails-produit/catalogue.ts`, son `quand` et le
-   commentaire au-dessus) : une Entreprise limitée, ou un Business à limite relevée, pleine, lit « Passez à l'offre
-   supérieure ». Une variante qui dit « demandez au Support de relever la limite », sans nommer d'offre.
-2. **Aucune alerte à 80 % ni à 100 % pour une Entreprise limitée** (`limitesAlertables`, `src/emails-produit/alertes.ts`,
-   rend `contacts: null` en Entreprise) : elle refuse l'entrant, case décochée, et le seul signal est l'e-mail du point 1.
 3. **`src/http/contacts.ts` lève `LimiteOffreError` sans l'offre** : la phrase retombe sur la grille, un Business réglé à
    1 000 lirait « Passez en Business ». Propager l'offre (`placesContacts` la connaît) et la passer.
 4. **`business_contacts` survit au retrait du Business**, comme `business_utilisateurs` : un Business reposé plus tard
