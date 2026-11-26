@@ -82,6 +82,14 @@ même instant que le dernier message est « avant » (une vraie partition) ; la 
 16 mutations scriptées, toutes rouges, dont une survivante au premier passage (une commande d'un autre espace qui
 pointe une fiche d'ici) qui a montré un trou de test, comblé.
 
+En production le 2026-11-26 : run 45868754190 (`4265eabdf`, aucune migration), l'aide rechargée par le workflow
+(374 lignes, 0 retirée). Vérifié par le vrai code déployé, en lecture seule, sur « Messaging Me demo » (Entreprise) :
+« aucune après l'analyse » retient les 4 fiches analysées, « au moins une après » aucune, « la dernière avant
+l'analyse » la fiche de Julien seule, et le plan de la requête la plus lourde part d'un parcours de `shopify_commandes`
+de l'espace joint aux fiches par la clé primaire. Mesuré au passage : sur la démo, l'analyse a tourné 26 à 30 minutes
+après le dernier message, ce que le rouge de la relecture annonçait. Essai réel fait par Julien le même jour : « la
+dernière avant l'analyse » ne retient que sa fiche.
+
 ## 2026-11-26 : une réponse se range sans ses images, et un champ JSON s'insère tel quel dans un appel
 
 Suite de l'essai Everial. Mesuré sur une vraie CNI ce jour : chaque face s'analyse seule (`/analyze`) et signale l'autre
