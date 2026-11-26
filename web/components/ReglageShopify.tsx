@@ -16,7 +16,7 @@ import { ShopifySegments } from '@/components/ShopifySegments';
 
 /**
  * TOOLS > INTÉGRATIONS > SHOPIFY : brancher la boutique, la débrancher, importer ses clients abonnés, rattraper ses
- * commandes des 60 derniers jours (segments Shopify enrichis, lot 5), synchroniser les étiquettes de ses clients (lot 6b)
+ * commandes passées (segments Shopify enrichis, lot 5 ; 24 mois en Pro, lot 7a), synchroniser les étiquettes de ses clients (lot 6b)
  * et suivre ses segments (lot 6c). Sans boutique, le mode opératoire chez Shopify puis les clés (`ShopifyBrancher`). Ses
  * messages sont des automations, réglées sur leur page (Scénario > Automation > Shopify). Claude Code fait la même chose
  * par la skill `shopify` du plugin : les deux passent par la même gestion côté serveur.
@@ -180,7 +180,7 @@ export function ReglageShopify({ tenantId, siAbsente = null }: { tenantId: strin
               )}
             />
           )}
-          {/* Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5). */}
+          {/* Le rattrapage des commandes passées (segments Shopify enrichis, lot 5 ; 24 mois en Pro, lot 7a). */}
           {branche && <ShopifyRattrapage tenantId={tenantId} onLance={(texte) => setMessage({ genre: 'ok', texte })} />}
           {/* Les étiquettes des clients (lot 6b) et les segments (lot 6c), une même synchronisation. */}
           {branche && <ShopifyEtiquettes tenantId={tenantId} onMessage={setMessage} relire={synchroLancee} onSynchro={synchroPartie} />}

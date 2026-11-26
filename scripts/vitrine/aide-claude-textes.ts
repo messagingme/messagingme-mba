@@ -220,12 +220,12 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         },
       },
       {
-        titre: { fr: 'Rattraper les 60 derniers jours de commandes', en: 'Catch up the last 60 days of orders' },
-        dire: { fr: 'Rattrape mes commandes Shopify des 60 derniers jours.', en: 'Catch up my Shopify orders of the last 60 days.' },
+        titre: { fr: 'Rattraper les commandes passées', en: 'Catch up past orders' },
+        dire: { fr: 'Rattrape mes commandes Shopify passées.', en: 'Catch up my past Shopify orders.' },
         outils: ['preview_shopify_order_history', 'import_shopify_order_history', 'get_shopify_order_history'],
         reponse: {
-          fr: 'Claude vérifie que votre app Shopify a le droit read_products, et l’y ajoute s’il manque (une nouvelle version, puis le lien pour l’accepter) ; si vous ne l’avez pas encore fait, il vous demande d’attester que vos clients ont accepté vos messages WhatsApp, offres comprises. Il compte ensuite, sans rien écrire, les commandes payées des 60 derniers jours : déjà connues, à rattacher à une fiche, fiches d’acheteurs à créer et places de votre offre, sans fiche ou sans numéro. Avec votre accord, il lance le rattrapage, quelques minutes pour la plupart des boutiques : chaque commande rejoint la fiche de son numéro, avec ses produits, et l’acheteur qui a un mobile sans fiche reçoit la sienne, consentante sur la foi de votre attestation ; un contact que vous avez supprimé ne revient pas. Aucun message ne part.',
-          en: 'Claude checks that your Shopify app has the read_products scope, and adds it if missing (a new version, then the link to accept it); if you have not done it yet, it asks you to confirm that your customers agreed to your WhatsApp messages, offers included. It then counts, writing nothing, the paid orders of the last 60 days: already known, to attach to a record, buyer records to create and your plan’s places, without a record or without a phone. With your go-ahead, it starts the catch-up, a few minutes for most stores: each order joins the record of its phone, with its products, and a buyer with a mobile and no record gets one, opted in on the strength of your attestation; a contact you deleted does not come back. No message goes out.',
+          fr: 'Claude vérifie que votre app Shopify a le droit read_products, et l’y ajoute s’il manque (une nouvelle version, puis le lien pour l’accepter) ; si vous ne l’avez pas encore fait, il vous demande d’attester que vos clients ont accepté vos messages WhatsApp, offres comprises. Il compte ensuite, sans rien écrire, les commandes payées des 60 derniers jours (24 mois en offre Pro, avec le droit read_all_orders) : déjà connues, à rattacher à une fiche, fiches d’acheteurs à créer et places de votre offre, sans fiche ou sans numéro. Avec votre accord, il lance le rattrapage, quelques minutes pour la plupart des boutiques : chaque commande rejoint la fiche de son numéro, avec ses produits, et l’acheteur qui a un mobile sans fiche reçoit la sienne, consentante sur la foi de votre attestation ; un contact que vous avez supprimé ne revient pas. Aucun message ne part.',
+          en: 'Claude checks that your Shopify app has the read_products scope, and adds it if missing (a new version, then the link to accept it); if you have not done it yet, it asks you to confirm that your customers agreed to your WhatsApp messages, offers included. It then counts, writing nothing, the paid orders of the last 60 days (24 months on the Pro plan, with the read_all_orders scope): already known, to attach to a record, buyer records to create and your plan’s places, without a record or without a phone. With your go-ahead, it starts the catch-up, a few minutes for most stores: each order joins the record of its phone, with its products, and a buyer with a mobile and no record gets one, opted in on the strength of your attestation; a contact you deleted does not come back. No message goes out.',
         },
       },
       {
@@ -233,8 +233,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Mes clients qui ont commandé au moins 2 fois en 90 jours, en France.', en: 'My customers who ordered at least twice in 90 days, in France.' },
         outils: [],
         reponse: {
-          fr: 'Avec l’offre Pro, Claude retrouve les contacts par leurs commandes payées : combien, combien dépensé, depuis quand rien. Les commandes comptent depuis le branchement de la boutique, et les 60 jours d’avant un rattrapage, remboursements non déduits.',
-          en: 'On the Pro plan, Claude finds the contacts by their paid orders: how many, how much spent, how long since the last one. Orders count from when the store was connected, and the 60 days before a catch-up, refunds not deducted.',
+          fr: 'Avec l’offre Pro, Claude retrouve les contacts par leurs commandes payées : combien, combien dépensé, depuis quand rien. Les commandes comptent depuis le branchement de la boutique, et les 60 jours (24 mois en formule Pro) d’avant un rattrapage, remboursements non déduits.',
+          en: 'On the Pro plan, Claude finds the contacts by their paid orders: how many, how much spent, how long since the last one. Orders count from when the store was connected, and the 60 days (24 months on Pro) before a catch-up, refunds not deducted.',
         },
       },
       {

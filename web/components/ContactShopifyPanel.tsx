@@ -55,7 +55,7 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
   const testAttribuees = commandes.some((c) => c.test && c.attribution !== null);
   /**
    * Une commande d'AVANT le début du suivi courant vient d'un branchement précédent (une boutique rebranchée garde ses
-   * commandes) ou du rattrapage des 60 derniers jours : « suivies depuis le » se complète alors, pour ne pas mentir.
+   * commandes) ou du rattrapage des commandes passées : « suivies depuis le » se complète alors, pour ne pas mentir.
    */
   const plusAnciennes = commandes.some((c) => Date.parse(c.payeeLe) < Date.parse(boutique.commandesDepuis));
 

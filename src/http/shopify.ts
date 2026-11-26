@@ -51,7 +51,7 @@ const corpsPause = z.object({ pause: z.boolean() }).strict();
 const corpsLigne = z.object({ actif: z.boolean(), delaiMinutes: z.number().int().optional(), agentId: z.string().uuid().optional() }).strict();
 // La langue choisit la phrase attestée côté serveur (`TEXTE_ATTESTATION_SHOPIFY`) : jamais un texte reçu.
 const corpsAttestation = z.object({ coche: z.boolean(), langue: z.enum(['fr', 'en']).optional() }).strict();
-// Le rattrapage des commandes (lot 5) : aucun réglage, la fenêtre est celle de Shopify (60 jours).
+// Le rattrapage des commandes (lot 5) : aucun réglage, la fenêtre se décide côté serveur (60 jours, 24 mois en Pro, lot 7a).
 export const corpsRattrapage = z.object({}).strict();
 // Les étiquettes des clients (segments Shopify enrichis, lot 6b) : le réglage du marchand ; « maintenant » ne prend rien.
 export const corpsEtiquettes = z.object({ allumee: z.boolean() }).strict();

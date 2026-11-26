@@ -23,7 +23,7 @@ import { TEXTE_ATTESTATION_SHOPIFY } from '@/lib/partage/shopify-messages';
 /**
  * Les droits de l'app, ceux de `shopify.app.toml` (la skill du plugin) : la même app, créée sans la CLI. `read_products`
  * depuis le 2026-11-24 : le rattrapage des commandes en a besoin (le produit d'une ligne, par l'API), et la lecture des
- * collections. `read_all_orders` depuis le lot 6a des segments : la reprise au-delà de 60 jours (lot 7) s'en servira ; sans
+ * collections. `read_all_orders` depuis le lot 6a des segments : le rattrapage sur 24 mois en Pro s'en sert (lot 7a) ; sans
  * approbation de Shopify pour une app de l'organisation du marchand, et à retirer si Shopify refuse la version.
  */
 export const DROITS_SHOPIFY = 'read_customers,read_orders,read_checkouts,read_fulfillments,read_products,read_all_orders';

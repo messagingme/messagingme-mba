@@ -54,7 +54,7 @@ export interface DepsGestionShopify {
   chiffreVentes(tenantId: string, range: DateRange): Promise<ChiffreVentes>;
   /** Les lignes et leurs scénarios (menu « Scénario », lot 5) : `./lignes-gestion.ts`. */
   lignes: DepsLignesShopify;
-  /** Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5) : `cablerReprise`, `./reprise.ts`. */
+  /** Le rattrapage des commandes passées (segments Shopify enrichis, lot 5 ; 24 mois en Pro, lot 7a) : `cablerReprise`, `./reprise.ts`. */
   reprise: DepsReprise;
   /**
    * La lecture des collections des produits achetés (segments Shopify enrichis, lot 6a) : `cablerCollections`,

@@ -24,7 +24,7 @@ function useNombre() {
 }
 
 /**
- * LE RATTRAPAGE DES COMMANDES DES 60 DERNIERS JOURS (segments Shopify enrichis, lots 5 et 5b), dans la carte Shopify :
+ * LE RATTRAPAGE DES COMMANDES (segments Shopify enrichis, lots 5, 5b et 7a), dans la carte Shopify :
  * l'état de la dernière reprise, puis un aperçu qui compte sans rien écrire, et le lancement. Les mêmes fonctions que
  * `preview_shopify_order_history` et `import_shopify_order_history` (`src/shopify/reprise.ts`) : depuis le lot 5b, la
  * fiche de l'acheteur au mobile utilisable qui n'en a pas est créée, consentante sur la foi de l'attestation, dans les
@@ -73,10 +73,10 @@ export function ShopifyRattrapage({ tenantId, onLance }: { tenantId: string; onL
       <LigneShopify
         libelle={r === null
           ? t(
-            'Les commandes payées avant le branchement n’entrent pas dans vos segments : rattrapez celles des 60 derniers jours.',
-            'Orders paid before the connection are not in your segments: catch up those of the last 60 days.',
+            'Les commandes payées avant le branchement n’entrent pas dans vos segments : rattrapez-les.',
+            'Orders paid before the connection are not in your segments: catch them up.',
           )
-          : t('Le rattrapage des commandes des 60 derniers jours', 'The catch-up of the orders of the last 60 days')}
+          : t('Le rattrapage des commandes passées', 'The catch-up of past orders')}
         bouton={(
           <Bouton type="button" taille="petite" variante="secondaire" className="w-full" disabled={vivante} onClick={() => setOuvert(true)} data-testid="integration-shopify-rattraper">
             {r === null ? t('Rattraper', 'Catch up') : t('Relancer', 'Run again')}
@@ -151,7 +151,7 @@ function ApercuRattrapage({ tenantId, onClose, onLance }: {
   const places = apercu?.placesLibres ?? null;
   return (
     <Modale
-      titre={t('Rattraper les commandes des 60 derniers jours', 'Catch up the orders of the last 60 days')}
+      titre={t('Rattraper les commandes passées', 'Catch up past orders')}
       taille="moyenne"
       testId="shopify-rattrapage"
       onClose={onClose}
@@ -188,7 +188,9 @@ function ApercuRattrapage({ tenantId, onClose, onLance }: {
               {apercu.remplitLesPlaces === true && (
                 <li className="text-danger" data-testid="shopify-rattrapage-places">
                   {t(
-                    'Ces fiches prendraient les dernières places de votre offre : ensuite, un nouveau client qui vous écrirait le premier n’entrerait plus.',
+                    apercu.complet
+                      ? 'Ces fiches prendraient les dernières places de votre offre : ensuite, un nouveau client qui vous écrirait le premier n’entrerait plus.'
+                      : 'Le rattrapage pourrait prendre les dernières places de votre offre : ensuite, un nouveau client qui vous écrirait le premier n’entrerait plus.',
                     'These records would take the last places of your plan: after that, a new customer writing to you first could no longer get in.',
                   )}
                 </li>
@@ -225,7 +227,27 @@ function ApercuRattrapage({ tenantId, onClose, onLance }: {
                 {t('La boutique a beaucoup de commandes : l’aperçu n’a pas tout lu. Le rattrapage, lui, lira tout.', 'The store has many orders: the preview did not read them all. The catch-up will read everything.')}
               </p>
             )}
-            {rienALire && <p className="text-ink-900">{t('Aucune commande payée sur ces 60 jours.', 'No paid order over these 60 days.')}</p>}
+            {rienALire && (
+              <p className="text-ink-900">
+                {t(`Aucune commande payée depuis le ${formatDate(apercu.fenetreDebut, locale)}.`, `No paid order since ${formatDate(apercu.fenetreDebut, locale)}.`)}
+              </p>
+            )}
+            {apercu.fenetre?.limite === 'free' && (
+              <p className="text-ink-500" data-testid="shopify-rattrapage-fenetre">
+                {t(
+                  'Avec l’offre Pro, et le droit read_all_orders sur l’app de la boutique, le rattrapage remonte jusqu’à 24 mois.',
+                  'With the Pro plan, and the read_all_orders scope on the store app, the catch-up goes back up to 24 months.',
+                )}
+              </p>
+            )}
+            {apercu.fenetre?.limite === 'sans_droit' && (
+              <p className="text-ink-500" data-testid="shopify-rattrapage-fenetre">
+                {t(
+                  'Pour remonter jusqu’à 24 mois, ajoutez le droit read_all_orders à l’app Messaging Me de la boutique, publiez sa nouvelle version, puis réinstallez-la.',
+                  'To go back up to 24 months, add the read_all_orders scope to the Messaging Me app of the store, release its new version, then reinstall it.',
+                )}
+              </p>
+            )}
             <p className="text-ink-500" data-testid="shopify-rattrapage-regle">
               {fichesACreer === undefined
                 ? t(

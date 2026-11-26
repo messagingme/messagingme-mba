@@ -24,10 +24,18 @@ export interface ComptesRepriseVue {
   horsPlafond?: number;
 }
 
+/**
+ * La fenêtre du rattrapage (lot 7a) : 24 mois (`longue`) hors Free quand l'app de la boutique a `read_all_orders`,
+ * sinon 60 jours, et pourquoi pas plus : `free` (l'offre Pro l'ouvre), `sans_droit` (l'app n'a pas `read_all_orders`).
+ */
+export interface FenetreRattrapageVue { longue: boolean; limite: 'free' | 'sans_droit' | null }
+
 /** L'aperçu, avant tout lancement : ce que le rattrapage ferait, sans rien écrire. */
 export interface ApercuRepriseVue {
-  /** Le début de la fenêtre lue : les commandes CRÉÉES depuis (Shopify limite à 60 jours). */
+  /** Le début de la fenêtre lue : les commandes CRÉÉES depuis (60 jours, ou 24 mois, cf. `fenetre`). */
   fenetreDebut: string;
+  /** La fenêtre et sa raison. Absente d'une API d'avant le lot 7a (60 jours, sans raison dite). */
+  fenetre?: FenetreRattrapageVue;
   /** Les commandes payées lues (payées, remboursées en tout ou partie). */
   lues: number;
   /** Déjà connues (reçues au fil de l'eau) : elles gardent leur fiche et reçoivent leurs lignes de produits. */

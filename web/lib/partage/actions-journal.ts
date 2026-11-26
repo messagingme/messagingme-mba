@@ -53,7 +53,7 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'shopify.reprise': ['Boutique Shopify reprise', 'Shopify store resumed'],
   'shopify.ligne': ['Automation Shopify réglée', 'Shopify automation changed'],
   'shopify.attestation': ['Consentement des clients Shopify attesté ou retiré', 'Shopify customers consent confirmed or withdrawn'],
-  // Segments Shopify enrichis, lot 5 : le rattrapage des commandes des 60 derniers jours (le détail : la reprise, sa date de début).
+  // Segments Shopify enrichis, lot 5 : le rattrapage des commandes (le détail : la reprise, sa date de début ; 24 mois en Pro, lot 7a).
   'shopify.rattrapage': ['Rattrapage des commandes Shopify lancé', 'Shopify order history catch-up started'],
   // Segments Shopify enrichis, lot 6b : la synchronisation des étiquettes des clients, allumée ou éteinte, et lancée.
   'shopify.etiquettes': ['Synchronisation des étiquettes Shopify allumée ou éteinte', 'Shopify tags sync turned on or off'],

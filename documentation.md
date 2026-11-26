@@ -2219,8 +2219,11 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   la même transaction que la liste de refus, garde pour TOUTE fiche qui avait un numéro, STOP ou non, l'empreinte de ce
   numéro (le même HMAC, `empreinteRefus`) et la date de la dernière purge (`efface_le`). Personne ne renaît en STOP par
   elle et aucune création ne la consomme : seul le rattrapage des commandes Shopify la lit (`effacementsDesNumeros`).
-  Rétention : 90 jours depuis la dernière purge (`RETENTION_NUMEROS_EFFACES_JOURS`, qui reste au-dessus de
-  `FENETRE_REPRISE_JOURS`, `tests/numeros-effaces.test.ts`), étape `numeros-effaces` du balayage de rétention, sur sa
+  Rétention : 760 jours depuis la dernière purge (`RETENTION_NUMEROS_EFFACES_JOURS`, qui reste au-dessus de la fenêtre
+  LONGUE du rattrapage, 24 mois, `FENETRE_LONGUE_MOIS`, `tests/numeros-effaces.test.ts` ; 90 jours avant le lot 7a, donc
+  une trace effacée avant n'est pas revenue). 🔴 Elle n'existe que depuis le soir du 2026-11-24 : dans un espace qui a
+  purgé un contact AVANT (`anonymized_at` antérieure à `TRACE_DES_EFFACEMENTS_DEPUIS`), une commande payée avant cette
+  date ne fonde aucune fiche au rattrapage, elle se rattache seulement (`purgesAvantTrace`, lot 7a), étape `numeros-effaces` du balayage de rétention, sur sa
   seule date toujours renseignée. 🔴 Sans la table, toute purge échoue en 42P01 : la migration part SEULE, avant le code.
 - 🔴 **Un consentement posé par l'API passe par `ecrireConsentementParId`**, qui n'écrit RIEN quand la valeur
   ne change pas : un outil qui renvoie `opted_out` à chaque appel ne repousse pas la date du désabonnement et
@@ -3416,8 +3419,12 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   panne les omet sans faire tomber cette réponse, qui est la garde de TOUS les critères de segment. La console masque un
   bouton à zéro ou sans compte, sauf déjà posé. Le MCP les annonce `enum: [true]` (`wrote_without_order`,
   `clicked_without_order`) : la borne appliquée est annoncée ;
-- 🔴 **le rattrapage des commandes des 60 derniers jours** (segments Shopify enrichis, lot 5, migration 0313,
-  `src/shopify/reprise.ts`) : les commandes payées CRÉÉES depuis minuit (UTC) il y a 60 jours, lues par l'API Admin
+- 🔴 **le rattrapage des commandes passées** (segments Shopify enrichis, lot 5, migration 0313,
+  `src/shopify/reprise.ts`) : les commandes payées CRÉÉES depuis minuit (UTC) il y a 60 jours, ou 24 mois au même jour
+  du mois (lot 7a, `fenetreDuRattrapage` : hors Free, quand l'app a `read_all_orders`, lu avec les autres droits ; la
+  fenêtre s'écrit sur la reprise au lancement et une offre changée en route n'y touche pas). 🔴 Une reprise LONGUE (sa
+  fenêtre commence plus de 90 jours avant, `repriseLongue`) exige `read_all_orders` à chaque passage du job : sans lui,
+  `refuse` (`READ_ALL_ORDERS_RETIRE`), Shopify ne rendant sinon que 60 jours en silence. Les commandes sont lues par l'API Admin
   GraphQL (`lirePageCommandes`, `src/shopify/commandes-lues.ts`, par `fetchPublic`), reformées en corps du webhook
   `orders/paid` puis validées par `schemaCommande` : le même numéro (`telephoneDeCommande`), le même montant et les
   mêmes lignes (`detailsDeCommande`) qu'une commande reçue. Seules les payées comptent (`PAID`, `PARTIALLY_REFUNDED`,
@@ -3506,8 +3513,7 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   refus de l'outil au MCP (`src/mcp/serveur.ts`). La console ne le propose que sur `collections: true` de
   `GET .../contacts/segments` ; `find_contacts` rend `collections_read_at` (`suiviSegments`, au mieux). L'effacement du
   branchement emporte les trois tables (migration BLOQUANTE pour cette raison) ; le simple Couper les garde, sans relecture.
-  `read_all_orders` entre dans la liste des droits (console, skill) sans que rien ne le lise encore : la reprise au-delà
-  de 60 jours (lot 7) s'en servira ;
+  `read_all_orders` entre dans la liste des droits (console, skill) ; le rattrapage le lit depuis le lot 7a ;
 - 🔴 **les étiquettes des clients Shopify** (segments Shopify enrichis, lot 6b, migration 0319 ; lot 6b bis, migration 0326 ;
   `src/shopify/etiquettes.ts`) :
   les étiquettes que le marchand pose sur ses clients DANS SHOPIFY, dans une table à part, JAMAIS dans `contacts.tags`

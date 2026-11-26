@@ -96,7 +96,7 @@ describe.skipIf(!url)('les fiches d’acheteurs du rattrapage (Postgres)', () =>
     await shopify.connecter(ici, {
       domaine: DOMAINE, clientId: 'cid', secretClair: 'shpss_itest', nom: null, pays: 'FR', devise: 'EUR', par: null, origine: 'claude_code',
     });
-    deps = cablerReprise({ pool, reprises: new PgReprisesStore(pool), boutiques: shopify, contacts, enfiler: async () => undefined });
+    deps = cablerReprise({ pool, reprises: new PgReprisesStore(pool), boutiques: shopify, contacts, enfiler: async () => undefined, offre: async () => 'pro' });
   });
 
   afterAll(async () => {
@@ -209,6 +209,34 @@ describe.skipIf(!url)('les fiches d’acheteurs du rattrapage (Postgres)', () =>
     expect(await rattacher(deps, ici, [commandeLue(nouvelle, { telephone: tel, payeeLe: apres })], BOUTIQUE, { source: SOURCE }))
       .toEqual({ ...zero, lues: 1, rattachees: 1, fichesCreees: 1 });
     expect(await fiches(ici, tel)).toHaveLength(1);
+  });
+
+  it('🔴 lot 7a : un espace qui a purgé un contact AVANT la trace (2026-11-24) ne refait aucune fiche d’une commande payée avant elle ; payée après, si ; les autres espaces n’en sont pas touchés', async () => {
+    const ancien = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-acheteurs-ancien') returning id`)).rows[0]!.id;
+    try {
+      const purgee = (await pool.query<{ id: string }>(`insert into contacts (tenant_id, phone_e164) values ($1, $2) returning id`, [ancien, telephone()])).rows[0]!.id;
+      expect(await deps.purgesAvantTrace(ancien)).toBe(false);
+      await contacts.purgeMany(ancien, [purgee]);
+      // Une purge d'aujourd'hui laisse sa trace : elle ne compte pas. Seule une écriture la vieillit, pour figurer une purge
+      // faite avant que la trace n'existe.
+      expect(await deps.purgesAvantTrace(ancien)).toBe(false);
+      await pool.query(`update contacts set anonymized_at = '2026-11-10T12:00:00Z', deleted_at = '2026-11-10T12:00:00Z' where id = $1`, [purgee]);
+      expect(await deps.purgesAvantTrace(ancien)).toBe(true);
+      expect(await deps.purgesAvantTrace(ailleurs)).toBe(false);
+      const [avant, apres] = [telephone(), telephone()];
+      expect(await rattacher(deps, ancien, [commandeLue(idCommande(), { telephone: avant, payeeLe: '2026-11-20T10:00:00Z' })], BOUTIQUE, { source: SOURCE }))
+        .toEqual({ ...zero, lues: 1, sansFiche: 1 });
+      expect(await fiches(ancien, avant)).toEqual([]);
+      expect(await rattacher(deps, ancien, [commandeLue(idCommande(), { telephone: apres, payeeLe: hier() })], BOUTIQUE, { source: SOURCE }))
+        .toEqual({ ...zero, lues: 1, rattachees: 1, fichesCreees: 1 });
+      expect(await fiches(ancien, apres)).toHaveLength(1);
+    } finally {
+      await pool.query('delete from shopify_commandes where tenant_id = $1', [ancien]);
+      await pool.query('delete from numeros_effaces where tenant_id = $1', [ancien]);
+      await pool.query('delete from refus_effaces where tenant_id = $1', [ancien]);
+      await pool.query('delete from contacts where tenant_id = $1', [ancien]);
+      await pool.query('delete from tenants where id = $1', [ancien]);
+    }
   });
 
   it('🔴 scénario B de la relecture : supprimée au 131026 d’une CAMPAGNE (aucun message de sa commande n’a échoué), la fiche ne renaît pas', async () => {

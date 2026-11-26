@@ -592,7 +592,7 @@ export async function demarrerWorker(): Promise<void> {
   await queue.work(FILE_SANS_WHATSAPP, async (data) => { await traiterSansWhatsapp(depsSansWhatsapp, data); });
 
   /**
-   * Le rattrapage des commandes Shopify des 60 derniers jours (segments Shopify enrichis, lot 5) : le MÊME câblage que
+   * Le rattrapage des commandes Shopify passées (segments Shopify enrichis, lot 5 ; 24 mois en Pro, lot 7a) : le MÊME câblage que
    * l'API (`cablerReprise`). Le job tient la reprise par un bail et se réenfile à son curseur après deux minutes. Le pool
    * tient la transaction d'une page : les fiches des acheteurs créées, puis leurs commandes rattachées (lot 5b).
    */
@@ -602,6 +602,8 @@ export async function demarrerWorker(): Promise<void> {
     boutiques: new PgShopifyStore(pool, config.ENCRYPTION_KEY),
     contacts: contactStore,
     enfiler: async (job, quand) => { await queue.enqueue(FILE_REPRISE, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
+    // La fenêtre de 24 mois (lot 7a) : le job relit celle de la reprise, l'offre ne sert qu'à l'aperçu et au lancement.
+    offre: async (t) => (await offres.offreDe(t)).offre,
   });
   await queue.work(FILE_REPRISE, async (data) => { await traiterReprise(depsReprise, data); });
 

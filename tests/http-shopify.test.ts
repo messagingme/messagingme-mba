@@ -241,7 +241,7 @@ describe('le rattrapage des commandes', () => {
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({
       fenetreDebut: '2026-09-24T00:00:00.000Z', lues: 3, deja: 0, rattachables: 2, fichesACreer: 1, horsPlafond: 0, placesLibres: 99,
-      remplitLesPlaces: false, sansFiche: 0, sansNumero: 1, ecartees: 2, complet: true,
+      remplitLesPlaces: false, sansFiche: 0, sansNumero: 1, ecartees: 2, complet: true, fenetre: { longue: false, limite: 'sans_droit' },
     });
     expect(reprise.trace.liees).toEqual([]);
     expect(reprise.trace.ecrites).toEqual([]);

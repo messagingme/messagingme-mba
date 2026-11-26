@@ -105,8 +105,8 @@ export function FiltresShopify({ tenantId, segments, onChange, suivi, ouvert: fo
               `Paid orders recorded since ${formatDate(boutique.commandesDepuis, locale)}, test orders included, refunds not deducted.`,
             )}
             {boutique.rattrapeesDepuis && ` ${t(
-              `Rattrapées aussi depuis le ${formatDate(boutique.rattrapeesDepuis, locale)}, pour les fiches qui existaient alors.`,
-              `Also caught up since ${formatDate(boutique.rattrapeesDepuis, locale)}, for the records that existed then.`,
+              `Rattrapées aussi depuis le ${formatDate(boutique.rattrapeesDepuis, locale)}.`,
+              `Also caught up since ${formatDate(boutique.rattrapeesDepuis, locale)}.`,
             )}`}
             {boutique.coupeeLe && ` ${t(`Boutique débranchée le ${formatDate(boutique.coupeeLe, locale)}.`, `Store disconnected on ${formatDate(boutique.coupeeLe, locale)}.`)}`}
           </p>

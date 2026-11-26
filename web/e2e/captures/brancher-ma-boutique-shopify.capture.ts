@@ -76,7 +76,7 @@ const ROI = {
 /** Le suivi des commandes (étape 10) : la boutique branchée le 3 octobre. */
 const SEGMENTS = { boutique: { devise: 'EUR', commandesDepuis: '2026-10-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: '2026-10-03' };
 const APERCU = { abonnes: 412, sansTelephone: 57, dejaDansLEspace: 38, nouveaux: 317, placesLibres: 4812, importables: 317, complet: true };
-/** Le rattrapage des commandes des 60 derniers jours (étape 11) : ce que l'aperçu compte, sans rien écrire. */
+/** Le rattrapage des commandes passées (étape 11) : ce que l'aperçu compte, sans rien écrire. */
 const APERCU_COMMANDES = {
   fenetreDebut: '2026-09-16T00:00:00.000Z', lues: 1260, deja: 214, rattachables: 731, sansFiche: 268, sansNumero: 47, ecartees: 35, complet: true,
 };
@@ -200,7 +200,7 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await expect(page.getByTestId('filtres-achats-suivi')).toBeVisible();
       await capturer(page, CLE, 10, locale, volet, 'haut', page.getByTestId('filtre-commandes-min'));
 
-      // 11. Le rattrapage des commandes des 60 derniers jours : l'aperçu compte, puis « Lancer le rattrapage ». Rien ne part.
+      // 11. Le rattrapage des commandes passées : l'aperçu compte, puis « Lancer le rattrapage ». Rien ne part.
       await page.goto('/integrations#integration-shopify');
       await page.getByTestId('integration-shopify-rattraper').click();
       await expect(page.getByTestId('shopify-rattrapage-apercu')).toBeVisible();

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { Pool } from 'pg';
 import {
-  apercuReprise, cablerReprise, debutDeFenetre, etatReprise, FENETRE_REPRISE_JOURS, lancerReprise, PAR_PAGE_REPRISE,
+  apercuReprise, cablerReprise, debutDeFenetre, etatReprise, FENETRE_LONGUE_MOIS, FENETRE_REPRISE_JOURS, lancerReprise, PAR_PAGE_REPRISE,
+  READ_ALL_ORDERS_RETIRE, repriseLongue,
   PHRASE_ATTESTATION_RATTRAPAGE, PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE, PHRASE_ATTESTATION_RETIREE, rattacher,
   SANS_READ_PRODUCTS, sourceDuConsentement, traiterReprise, vueReprise, type JobReprise, type Simulation,
 } from '../src/shopify/reprise';
@@ -12,7 +13,7 @@ import type { LotContacts } from '../src/crm/import';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import { MESSAGE_OPERATIONS_LOURDES } from '../src/auth/plafond-partage';
 import {
-  ATTESTATION_REPRISE, BOUTIQUE_REPRISE, commandeLue, connue, MIDI_REPRISE, monterReprise, page, SOURCE_REPRISE,
+  ATTESTATION_REPRISE, BOUTIQUE_REPRISE, commandeLue, connue, DROITS_A_JOUR, MIDI_REPRISE, monterReprise, page, SOURCE_REPRISE,
 } from './reprise-faux';
 
 /**
@@ -28,6 +29,9 @@ import {
 
 const T = '11111111-1111-4111-8111-111111111111';
 const FENETRE = '2026-09-24T00:00:00.000Z';
+/** La fenêtre de 24 mois (lot 7a), au même jour du mois. */
+const FENETRE_LONGUE = '2024-11-23T00:00:00.000Z';
+const LONGER_SANS_DROIT = 'add the read_all_orders scope to the store app (the shopify skill does), then the catch-up reads 24 months';
 const NUMERO_A = '+33612345678';
 const NUMERO_B = '+33698765432';
 const NUMERO_C = '+33611112222';
@@ -39,7 +43,7 @@ const simulation = (libres = Infinity): Simulation => ({ libres, creees: new Set
 describe('la fenêtre lue', () => {
   it('commence à minuit (UTC) il y a 60 jours : la limite de read_orders', () => {
     expect(FENETRE_REPRISE_JOURS).toBe(60);
-    expect(debutDeFenetre(MIDI_REPRISE).toISOString()).toBe(FENETRE);
+    expect(debutDeFenetre(MIDI_REPRISE, false).toISOString()).toBe(FENETRE);
   });
 });
 
@@ -259,7 +263,7 @@ describe('l’aperçu', () => {
     const r = await apercuReprise(deps, T);
     expect(r).toEqual({ ok: true, valeur: {
       fenetreDebut: FENETRE, lues: 4, deja: 1, rattachables: 2, fichesACreer: 1, horsPlafond: 0, placesLibres: 59,
-      remplitLesPlaces: false, sansFiche: 0, sansNumero: 1, ecartees: 4, complet: true,
+      remplitLesPlaces: false, sansFiche: 0, sansNumero: 1, ecartees: 4, complet: true, fenetre: { longue: false, limite: 'sans_droit' },
     } });
     expect(trace.lectures.map((l) => [l.apres, l.parPage, l.depuis])).toEqual([[null, PAR_PAGE_REPRISE, FENETRE], ['c1', PAR_PAGE_REPRISE, FENETRE]]);
     expect(trace.ecrites).toEqual([]);
@@ -685,6 +689,7 @@ describe('le câblage commun de l’API et du worker', () => {
     const jobs: Array<Date | undefined> = [];
     const pool = { query: async () => ({ rows: [{ commande_id: '9' }] }), connect: async () => ({ query: async () => ({ rows: [] }), release: () => undefined }) } as unknown as Pool;
     const deps = cablerReprise({
+      offre: async () => 'pro',
       pool,
       reprises: {} as PgReprisesStore,
       boutiques: new Boutiques() as unknown as Pick<PgShopifyStore, 'acces' | 'lire' | 'commandesConnues' | 'lierCommandeDans' | 'attestation'>,
@@ -716,6 +721,7 @@ describe('le câblage commun de l’API et du worker', () => {
     const lots: Array<{ lot: LotContacts; q: unknown }> = [];
     const liees: Array<{ q: unknown; commandeId: string; contactId: string }> = [];
     const deps = cablerReprise({
+      offre: async () => 'pro',
       pool,
       reprises: {} as PgReprisesStore,
       boutiques: {
@@ -752,6 +758,7 @@ describe('le câblage commun de l’API et du worker', () => {
     const client = { query: async (sql: string) => { requetes.push(sql); return { rows: [] }; }, release: () => undefined };
     const pool = { connect: async () => client, query: async () => ({ rows: [] }) } as unknown as Pool;
     const deps = cablerReprise({
+      offre: async () => 'pro',
       pool,
       reprises: {} as PgReprisesStore,
       boutiques: { lierCommandeDans: async () => { throw new Error('commande refusée'); } } as unknown as Pick<PgShopifyStore, 'acces' | 'lire' | 'commandesConnues' | 'lierCommandeDans' | 'attestation'>,
@@ -795,8 +802,9 @@ describe('les outils MCP du rattrapage', () => {
     });
     expect(await outil('get_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE)).toMatchObject({ started: false });
     expect(await outil('preview_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE)).toEqual({
-      window_start: FENETRE, paid_orders_read: 4, already_known: 1, attachable: 2, records_to_create: 1, over_plan_limit: 0,
-      free_places: 49, fills_free_places: false, without_record: 0, without_usable_phone: 1, never_paid: 2, complete: true,
+      window_start: FENETRE, window: '60 days', longer_window: LONGER_SANS_DROIT, paid_orders_read: 4, already_known: 1, attachable: 2,
+      records_to_create: 1, over_plan_limit: 0, free_places: 49, fills_free_places: false, without_record: 0, without_usable_phone: 1,
+      never_paid: 2, complete: true,
     });
     const lance = await outil('import_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE);
     expect(lance).toMatchObject({
@@ -866,5 +874,123 @@ describe('le suivi des segments dit le dernier rattrapage terminé, au mieux', (
     expect((await suivi([])).boutique).not.toHaveProperty('rattrapage');
     const sansTable = await suivi('absente');
     expect(sansTable.boutique).toEqual({ devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null });
+  });
+});
+
+/**
+ * LA FENÊTRE DE 24 MOIS (segments Shopify enrichis, lot 7a) : hors Free, quand l'app a `read_all_orders` ; sinon 60
+ * jours, et la raison dite. Une reprise longue dont l'app perd le droit s'arrête au lieu de se dire finie sur 60 jours.
+ */
+describe('la fenêtre de 24 mois (lot 7a)', () => {
+  const TOUT = [...DROITS_A_JOUR, 'read_all_orders'];
+
+  it('🔴 24 mois au même jour du mois ; une reprise est longue au-delà de 90 jours avant son lancement', () => {
+    expect(FENETRE_LONGUE_MOIS).toBe(24);
+    expect(debutDeFenetre(MIDI_REPRISE, true).toISOString()).toBe(FENETRE_LONGUE);
+    expect(repriseLongue(new Date(FENETRE_LONGUE), MIDI_REPRISE)).toBe(true);
+    expect(repriseLongue(new Date(FENETRE), MIDI_REPRISE)).toBe(false);
+    expect(repriseLongue(new Date(FENETRE), MIDI_REPRISE + 40 * 86_400_000)).toBe(true);
+  });
+
+  it('🔴 l’aperçu lit 24 mois hors Free avec read_all_orders ; sans le droit, ou en Free, 60 jours et la raison', async () => {
+    for (const [offre, droits, debut, fenetre] of [
+      ['pro', TOUT, FENETRE_LONGUE, { longue: true, limite: null }],
+      ['entreprise', TOUT, FENETRE_LONGUE, { longue: true, limite: null }],
+      ['business', DROITS_A_JOUR, FENETRE, { longue: false, limite: 'sans_droit' }],
+      ['base', TOUT, FENETRE, { longue: false, limite: 'free' }],
+    ] as const) {
+      const { deps, trace } = monterReprise({ offre, droits: [...droits], pages: { '': page([commandeLue(1)], null) } });
+      const a = await apercuReprise(deps, T);
+      expect(a, offre).toMatchObject({ ok: true, valeur: { fenetreDebut: debut, fenetre, lues: 1, complet: true } });
+      expect(trace.lectures.map((l) => l.depuis), offre).toEqual([debut]);
+    }
+  });
+
+  it('🔴 le lancement écrit la longue fenêtre sur la reprise, et le job lit depuis elle', async () => {
+    const { deps, trace, lignes } = monterReprise({ droits: [...TOUT], pages: { '': page([commandeLue(1)], null) } });
+    const r = await lancerReprise(deps, T, 'u1');
+    expect(r).toMatchObject({ ok: true, valeur: { fenetreDebut: FENETRE_LONGUE } });
+    await traiterReprise(deps, trace.jobs[0]!.job);
+    expect(trace.lectures.map((l) => l.depuis)).toEqual([FENETRE_LONGUE]);
+    expect(lignes[0]!.r).toMatchObject({ statut: 'termine', erreur: null });
+  });
+
+  it('🔴 une reprise longue dont l’app a perdu read_all_orders s’arrête en « refuse » avec sa phrase, sans rien lire', async () => {
+    const droits = [...TOUT];
+    const { deps, trace, lignes } = monterReprise({ droits, pages: { '': page([commandeLue(1)], null) } });
+    const r = await lancerReprise(deps, T, null);
+    expect(r.ok).toBe(true);
+    droits.pop();
+    await traiterReprise(deps, trace.jobs[0]!.job);
+    expect(trace.lectures).toEqual([]);
+    expect(lignes[0]!.r).toMatchObject({ statut: 'refuse', erreur: READ_ALL_ORDERS_RETIRE });
+  });
+
+  it('🔴 une reprise courte poursuit sans le droit, même reprise des semaines plus tard : longue se juge au lancement', async () => {
+    const { deps, trace, lignes, horloge } = monterReprise({ pages: { '': page([commandeLue(1)], null) } });
+    const r = await lancerReprise(deps, T, null);
+    expect(r).toMatchObject({ ok: true, valeur: { fenetreDebut: FENETRE } });
+    horloge.t += 45 * 86_400_000;
+    await traiterReprise(deps, trace.jobs[0]!.job);
+    expect(trace.lectures.map((l) => l.depuis)).toEqual([FENETRE]);
+    expect(lignes[0]!.r).toMatchObject({ statut: 'termine' });
+  });
+
+  it('🔴 l’outil dit la fenêtre et ce qui l’allongerait : 24 mois, ou l’offre Pro, ou le droit', async () => {
+    const PERSONNE = { userId: 'u1', autorisationId: 'aut-1' } as never;
+    const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
+    const mcp = (reprise: ReturnType<typeof monterReprise>['deps']) => ({
+      shopify: { reprise }, couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) },
+    }) as unknown as DepsMcp;
+    const attendu: Array<[Parameters<typeof monterReprise>[0], Record<string, unknown>]> = [
+      [{ droits: [...TOUT] }, { window_start: FENETRE_LONGUE, window: '24 months', longer_window: null }],
+      [{}, { window_start: FENETRE, window: '60 days', longer_window: LONGER_SANS_DROIT }],
+      [{ offre: 'base', droits: [...TOUT] }, { window_start: FENETRE, window: '60 days', longer_window: 'a paid plan (Pro and above), with the read_all_orders scope on the store app: the catch-up then reads 24 months' }],
+    ];
+    for (const [o, sortie] of attendu) {
+      const { deps } = monterReprise(o);
+      expect(await outil('preview_shopify_order_history').executer(mcp(deps), T, {}, PERSONNE), JSON.stringify(o)).toMatchObject(sortie);
+    }
+  });
+});
+
+/**
+ * 🔴 UN CONTACT PURGÉ AVANT LA TRACE NE RENAÎT PAS (lot 7a, relecture) : la trace des numéros effacés date du 2026-11-24 ;
+ * dans un espace qui a purgé un contact avant, une commande payée avant elle ne fonde aucune fiche. Elle se rattache
+ * encore à une fiche déjà là. Le SQL de la question est éprouvé sur PGlite (`shopify-fiches-acheteurs`).
+ */
+describe('les purges d’avant la trace des numéros effacés (lot 7a)', () => {
+  it('🔴 un espace qui a purgé avant la trace : la commande payée avant elle ne crée aucune fiche, celle d’après si', async () => {
+    const { deps, trace } = monterReprise({ purgesAvantTrace: true });
+    const c = await rattacher(deps, T, [
+      commandeLue(1, { telephone: NUMERO_A, payeeLe: '2026-11-20T10:00:00Z' }),
+      commandeLue(2, { telephone: NUMERO_B, payeeLe: '2026-11-25T10:00:00Z' }),
+    ], BOUTIQUE_REPRISE, { source: SOURCE_REPRISE });
+    expect(c).toMatchObject({ sansFiche: 1, rattachees: 1, fichesCreees: 1 });
+    expect(trace.creees.map((x) => x.numero)).toEqual([NUMERO_B]);
+    expect(trace.purgesAvantTrace).toBe(1);
+  });
+
+  it('🔴 une date de paiement illisible vaut un paiement d’avant ; un espace sans purge d’avant crée comme avant', async () => {
+    const purge = monterReprise({ purgesAvantTrace: true });
+    expect(await rattacher(purge.deps, T, [commandeLue(1, { telephone: NUMERO_A, payeeLe: null })], BOUTIQUE_REPRISE, { source: SOURCE_REPRISE }))
+      .toMatchObject({ sansFiche: 1, fichesCreees: 0 });
+    const propre = monterReprise({});
+    expect(await rattacher(propre.deps, T, [commandeLue(1, { telephone: NUMERO_A, payeeLe: '2026-11-20T10:00:00Z' })], BOUTIQUE_REPRISE, { source: SOURCE_REPRISE }))
+      .toMatchObject({ sansFiche: 0, fichesCreees: 1 });
+  });
+
+  it('une fiche déjà là reçoit sa commande d’avant ; sans commande à juger d’avant la trace, l’espace n’est pas lu', async () => {
+    const { deps, trace } = monterReprise({ purgesAvantTrace: true, fiches: { [NUMERO_A]: 'fa' } });
+    expect(await rattacher(deps, T, [commandeLue(1, { telephone: NUMERO_A, payeeLe: '2026-11-20T10:00:00Z' })], BOUTIQUE_REPRISE, { source: SOURCE_REPRISE }))
+      .toMatchObject({ rattachees: 1, sansFiche: 0 });
+    await rattacher(deps, T, [commandeLue(2, { telephone: NUMERO_B, payeeLe: '2026-11-26T10:00:00Z' })], BOUTIQUE_REPRISE, { source: SOURCE_REPRISE });
+    expect(trace.purgesAvantTrace).toBe(0);
+  });
+
+  it('🔴 un aperçu partiel prévient que les places peuvent se remplir : la suite de la fenêtre n’est pas lue', async () => {
+    const { deps } = monterReprise({ limite: 50, msParPage: 30_000, pages: { '': page([commandeLue(1, { telephone: NUMERO_A })], 'c1'), c1: page([commandeLue(2, { telephone: NUMERO_B })], null) } });
+    const a = await apercuReprise(deps, T);
+    expect(a).toMatchObject({ ok: true, valeur: { complet: false, remplitLesPlaces: true } });
   });
 });

@@ -11,15 +11,17 @@ import { PgJoignabiliteStore } from './joignabilite.pg';
 import { attestationEnVigueur } from './lignes-gestion';
 import { ETIQUETTE_SHOPIFY, type Refus } from './gestion';
 import type { PgContactStore } from '../crm/contact-store.pg';
-import type { ApercuRepriseVue, RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
+import type { Offre } from '../offres/offres';
+import type { ApercuRepriseVue, FenetreRattrapageVue, RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
 import { enTransaction } from '../db/transaction';
 import { journaliser } from '../lib/journal';
 import { messageDe } from '../lib/erreur';
 
 /**
  * LE RATTRAPAGE DES COMMANDES SHOPIFY (segments Shopify enrichis, lot 5 ; spec, chantier 2) : relire les commandes PAYÉES
- * créées dans les 60 derniers jours (la fenêtre que `read_orders` ouvre) et les rattacher aux fiches, lignes de produits
- * comprises, comme le webhook `orders/paid` l'aurait fait.
+ * créées dans les 60 derniers jours (la fenêtre que `read_orders` ouvre), ou dans les 24 derniers mois hors Free quand
+ * l'app a `read_all_orders` (lot 7a), et les rattacher aux fiches, lignes de produits comprises, comme le webhook
+ * `orders/paid` l'aurait fait.
  *
  * 🔴 CE QU'IL FAIT (décisions de Julien du 2026-11-24, lot 5b, qui remplacent « une commande sans fiche est comptée,
  * jamais gardée » du 2026-11-23). Une commande DÉJÀ connue garde sa fiche ; elle ne reçoit ses lignes que si elle n'en a
@@ -46,6 +48,25 @@ import { messageDe } from '../lib/erreur';
 export const FILE_REPRISE = 'shopify-reprise';
 /** La fenêtre lue : les commandes créées depuis 60 jours, la limite de `read_orders`. */
 export const FENETRE_REPRISE_JOURS = 60;
+/**
+ * LA FENÊTRE LONGUE (lot 7a, décision de Julien du 2026-11-23) : 24 mois, hors Free, quand l'app de la boutique a
+ * `read_all_orders` (Shopify ouvrirait tout l'historique ; on borne le job et on le dit).
+ */
+export const FENETRE_LONGUE_MOIS = 24;
+/**
+ * Une reprise dont la fenêtre commence plus tôt que ce nombre de jours est LONGUE : son job exige `read_all_orders` à
+ * chaque passage. Bien au-delà des 60 jours, pour qu'une reprise courte qui dure ne soit jamais prise pour une longue.
+ */
+const SEUIL_FENETRE_LONGUE_JOURS = 90;
+/**
+ * 🔴 LA TRACE DES NUMÉROS EFFACÉS N'EXISTE QUE DEPUIS LE SOIR DU 2026-11-24 (migration 0317 appliquée à 18 h 25 UTC, le
+ * code qui l'écrit en service à 19 h 06 ; arrondi au lendemain, par prudence). Un contact purgé avant n'a laissé aucune
+ * empreinte : dans un espace qui en a purgé un, une commande payée avant cette date ne fonde AUCUNE fiche, elle se
+ * rattache seulement, sans quoi le rattrapage pourrait le recréer (décision de Julien du 2026-11-24 : « un contact
+ * supprimé n'est JAMAIS recréé par le rattrapage » ; la fenêtre de 24 mois du lot 7a ouvre tout l'historique d'avant).
+ * Mesuré le 2026-11-26 : 11 contacts purgés avant elle, dans trois espaces, aucun avec une boutique.
+ */
+export const TRACE_DES_EFFACEMENTS_DEPUIS = new Date('2026-11-25T00:00:00.000Z');
 /** Un passage du job ; au-delà, la reprise se réenfile à son curseur. */
 export const PASSAGE_REPRISE_MS = 120_000;
 
@@ -119,6 +140,10 @@ export interface DepsReprise {
    * Pleine, elle refuse un inconnu qui écrit le premier, dans toutes les offres (2026-11-25).
    */
   places(tenantId: string): Promise<{ limite: number | null; comptees: number }>;
+  /** L'offre effective de l'espace (lot 7a) : la Free lit 60 jours, les autres jusqu'à 24 mois avec `read_all_orders`. */
+  offre(tenantId: string): Promise<Offre>;
+  /** L'espace a-t-il purgé un contact avant `TRACE_DES_EFFACEMENTS_DEPUIS`, quand la trace n'existait pas encore ? */
+  purgesAvantTrace(tenantId: string): Promise<boolean>;
   /** UNE transaction : les fiches de la page (le chemin de l'import des abonnés), puis chaque commande et ses lignes. */
   ecrirePage(tenantId: string, p: PageAEcrire): Promise<{ creees: number }>;
   enfiler(job: JobReprise, dansSecondes: number): Promise<void>;
@@ -137,6 +162,8 @@ export function cablerReprise(o: {
   contacts: Pick<PgContactStore, 'fichesParNumeros' | 'numerosEnRefus' | 'effacementsDesNumeros' | 'placesContacts' | 'upsertManyByPhone'>;
   /** `queue.enqueue` de la file `FILE_REPRISE`, différé à `quand` s'il est donné. */
   enfiler: (job: JobReprise, quand: Date | undefined) => Promise<void>;
+  /** L'offre effective de l'espace (le cache des offres). */
+  offre: (tenantId: string) => Promise<Offre>;
 }): DepsReprise {
   const joignabilite = new PgJoignabiliteStore(o.pool);
   return {
@@ -160,6 +187,11 @@ export function cablerReprise(o: {
       const p = await o.contacts.placesContacts(tenantId, []);
       return { limite: p.limite, comptees: p.comptees };
     },
+    offre: (tenantId) => o.offre(tenantId),
+    // Une seule ligne suffit (`exists`) ; une fiche purgée porte `anonymized_at`, la date de sa purge.
+    purgesAvantTrace: async (tenantId) => (await o.pool.query<{ oui: boolean }>(
+      'select exists (select 1 from contacts where tenant_id = $1 and anonymized_at < $2) as oui', [tenantId, TRACE_DES_EFFACEMENTS_DEPUIS],
+    )).rows[0]?.oui === true,
     ecrirePage: (tenantId, p) => enTransaction(o.pool, async (client) => {
       let creees = 0;
       let crees = new Map<string, string>();
@@ -202,6 +234,12 @@ export const SANS_READ_PRODUCTS = 'Pour rattraper les commandes avec leurs produ
   + 'read_products : ajoutez-le à ses portées, publiez sa nouvelle version, puis réinstallez-la sur la boutique pour l’accepter '
   + '(depuis Claude Code, la skill shopify le fait). Rien n’a été lu.';
 /**
+ * L'arrêt d'une reprise LONGUE dont l'app a perdu `read_all_orders` en route (lot 7a) : Shopify ne rendrait plus que
+ * 60 jours, en silence, et la reprise se dirait terminée sur 24 mois. Lu par la console ET Claude Code.
+ */
+export const READ_ALL_ORDERS_RETIRE = 'L’app Messaging Me de la boutique n’a plus le droit read_all_orders : le rattrapage sur 24 mois '
+  + 's’est arrêté, Shopify ne rendant plus que les 60 derniers jours. Rendez-lui ce droit, ou relancez-le sur 60 jours.';
+/**
  * Le refus sans l'attestation du consentement des clients (Julien, 2026-11-24 : elle vaut consentement pour les fiches que
  * le rattrapage crée), en DEUX voix, jamais un nom d'outil devant l'utilisateur de la console : celle-ci dit où cocher ;
  * Claude Code reçoit `PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE` (la cause `attestation_absente`), qui lui dit de poser la
@@ -224,10 +262,34 @@ export const PHRASE_ATTESTATION_RETIREE = 'L’attestation du consentement des c
 const refus = (statut: 409 | 503, message: string) => ({ ok: false as const, statut, message });
 const zero = (): ComptesReprise => ({ lues: 0, rattachees: 0, deja: 0, sansFiche: 0, sansNumero: 0, fichesCreees: 0, horsPlafond: 0 });
 
-/** Le début de la fenêtre, à la date du jour : Shopify ne rend pas une commande créée plus tôt sans `read_all_orders`. */
-export function debutDeFenetre(maintenant: number): Date {
+/**
+ * Le début de la fenêtre, à la date du jour : 60 jours (Shopify ne rend pas une commande créée plus tôt sans
+ * `read_all_orders`), ou 24 mois (`longue`, lot 7a), au même jour du mois.
+ */
+export function debutDeFenetre(maintenant: number, longue: boolean): Date {
+  if (longue) {
+    const j = new Date(maintenant);
+    return new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth() - FENETRE_LONGUE_MOIS, j.getUTCDate()));
+  }
   const d = new Date(maintenant - FENETRE_REPRISE_JOURS * 86_400_000);
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/**
+ * LA FENÊTRE D'UN ESPACE (lot 7a) : 24 mois hors Free quand l'app a `read_all_orders`, sinon 60 jours, et pourquoi pas
+ * plus. L'offre se lit en premier : une Free n'a jamais besoin du droit.
+ */
+export async function fenetreDuRattrapage(deps: Pick<DepsReprise, 'offre'>, tenantId: string, toutHistorique: boolean): Promise<FenetreRattrapageVue> {
+  if ((await deps.offre(tenantId)) === 'base') return { longue: false, limite: 'free' };
+  return toutHistorique ? { longue: true, limite: null } : { longue: false, limite: 'sans_droit' };
+}
+
+/**
+ * Une reprise LONGUE : sa fenêtre commence bien avant les 60 jours que `read_orders` ouvre, à la date de son LANCEMENT
+ * (`commenceLe`, qui ne bouge pas : une reprise courte qui dure ne devient jamais longue).
+ */
+export function repriseLongue(fenetreDebut: Date, lanceeLe: number): boolean {
+  return lanceeLe - fenetreDebut.getTime() > SEUIL_FENETRE_LONGUE_JOURS * 86_400_000;
 }
 
 /**
@@ -263,7 +325,7 @@ const numerosDe = (x: Numeros): string[] => [...new Set([x.numero, x.acheteur])]
  * lectures sont groupées par page, jamais une par commande.
  */
 export async function rattacher(
-  deps: Pick<DepsReprise, 'commandesConnues' | 'fichesParNumeros' | 'numerosEnRefus' | 'effacements' | 'commandesSansWhatsapp' | 'places' | 'ecrirePage' | 'maintenant'>,
+  deps: Pick<DepsReprise, 'commandesConnues' | 'fichesParNumeros' | 'numerosEnRefus' | 'effacements' | 'commandesSansWhatsapp' | 'purgesAvantTrace' | 'places' | 'ecrirePage' | 'maintenant'>,
   tenantId: string, commandes: readonly CommandeLue[], boutique: { pays: string | null; devise: string | null },
   mode: { source: string } | { simulation: Simulation },
 ): Promise<ComptesReprise> {
@@ -286,6 +348,16 @@ export async function rattacher(
   const enRefus = sansFiche.length > 0 ? await deps.numerosEnRefus(tenantId, sansFiche) : new Set<string>();
   const effaces = sansFiche.length > 0 ? await deps.effacements(tenantId, sansFiche) : new Map<string, Date>();
   const morts = aJuger.length > 0 ? await deps.commandesSansWhatsapp(tenantId, aJuger.map(([id]) => id)) : new Set<string>();
+  // 🔴 Une commande payée avant la trace (ou à une date illisible) ne se juge pas sur elle : l'espace se lit une fois par
+  // page, et seulement s'il y en a une à juger.
+  const payeeAvantTrace = (c: CommandeLue): boolean => {
+    const p = Date.parse(c.corps.processed_at ?? '');
+    return Number.isNaN(p) || p < TRACE_DES_EFFACEMENTS_DEPUIS.getTime();
+  };
+  const idsAJuger = new Set(aJuger.map(([id]) => id));
+  const purgesAvantTrace = commandes.some((c) => idsAJuger.has(String(c.corps.id)) && payeeAvantTrace(c))
+    ? await deps.purgesAvantTrace(tenantId)
+    : false;
   // Une commande dont WhatsApp a refusé le numéro (celui de son message, `numero`) le dit pour toute commande qui le porte.
   const numerosMorts = new Set(aJuger.filter(([id]) => morts.has(id)).map(([, x]) => x.numero).filter((n): n is string => n !== null));
   let libres = sim !== null ? sim.libres : 0;
@@ -303,6 +375,7 @@ export async function rattacher(
   const bloquee = (c: CommandeLue, x: Numeros): boolean => {
     const siens = numerosDe(x);
     if (siens.some((n) => enRefus.has(n) || numerosMorts.has(n))) return true;
+    if (purgesAvantTrace && payeeAvantTrace(c)) return true;
     const effaceLe = siens.map((n) => effaces.get(n)?.getTime()).filter((t): t is number => t !== undefined);
     if (effaceLe.length === 0) return false;
     const payeLe = Date.parse(c.corps.processed_at ?? '');
@@ -373,7 +446,7 @@ export async function rattacher(
  * L'attestation se lit AVANT tout appel à Shopify : sans elle, rien n'est lu.
  */
 async function ouvrir(deps: Pick<DepsReprise, 'boutique' | 'jeton' | 'droits' | 'attestation'>, tenantId: string): Promise<
-  | { ok: true; boutique: { domaine: string; pays: string | null; devise: string | null }; jeton: string }
+  | { ok: true; boutique: { domaine: string; pays: string | null; devise: string | null }; jeton: string; toutHistorique: boolean }
   | (RefusRattrapage & { statut: 409 | 503; nature: 'boutique' | 'refus' | 'passager' })
 > {
   const b = await deps.boutique(tenantId);
@@ -387,7 +460,7 @@ async function ouvrir(deps: Pick<DepsReprise, 'boutique' | 'jeton' | 'droits' | 
   const d = await deps.droits({ domaine: b.domaine, jeton: j.jeton });
   if (!d.ok) return d.code === 'passager' ? { ...refus(503, d.message), nature: 'passager' } : { ...refus(409, d.message), nature: 'refus' };
   if (!d.droits.includes('read_products')) return { ...refus(409, SANS_READ_PRODUCTS), nature: 'refus' };
-  return { ok: true, boutique: { domaine: b.domaine, pays: b.pays, devise: b.devise }, jeton: j.jeton };
+  return { ok: true, boutique: { domaine: b.domaine, pays: b.pays, devise: b.devise }, jeton: j.jeton, toutHistorique: d.droits.includes('read_all_orders') };
 }
 
 /** Le refus d'une ouverture, rendu sans sa nature (qui ne sert qu'au job), sa cause gardée. */
@@ -404,12 +477,13 @@ export async function apercuReprise(deps: DepsReprise, tenantId: string): Promis
   if (!o.ok) return refusDOuverture(o);
   const maintenant = deps.maintenant ?? Date.now;
   const debut = maintenant();
-  const fenetre = debutDeFenetre(debut);
+  const laFenetre = await fenetreDuRattrapage(deps, tenantId, o.toutHistorique);
+  const fenetre = debutDeFenetre(debut, laFenetre.longue);
   const p = await deps.places(tenantId);
   const placesLibres = p.limite === null ? null : Math.max(0, p.limite - p.comptees);
   const simulation: Simulation = { libres: placesLibres ?? Infinity, creees: new Set(), refusees: new Set() };
   const total = { ...zero(), ecartees: 0 };
-  const vue = (complet: boolean) => vueApercu(fenetre, total, complet, placesLibres);
+  const vue = (complet: boolean) => ({ ...vueApercu(fenetre, total, complet, placesLibres), fenetre: laFenetre });
   let apres: string | null = null;
   let parPage = PAR_PAGE_REPRISE;
   let pages = 0;
@@ -440,7 +514,8 @@ function vueApercu(
     fenetreDebut: fenetre.toISOString(), lues: t.lues, deja: t.deja, rattachables: t.rattachees, fichesACreer: t.fichesCreees,
     horsPlafond: t.horsPlafond, placesLibres,
     // 🔴 Les DERNIÈRES places de l'offre : ensuite, un inconnu qui écrit le premier n'entre plus.
-    remplitLesPlaces: placesLibres !== null && t.fichesCreees > 0 && t.fichesCreees >= placesLibres,
+    // Partiel, il ne sait pas : la suite de la fenêtre peut les prendre (24 mois se lisent rarement en 25 secondes).
+    remplitLesPlaces: placesLibres !== null && placesLibres > 0 && ((t.fichesCreees > 0 && t.fichesCreees >= placesLibres) || !complet),
     sansFiche: t.sansFiche, sansNumero: t.sansNumero, ecartees: t.ecartees, complet,
   };
 }
@@ -455,7 +530,8 @@ export async function lancerReprise(deps: DepsReprise, tenantId: string, par: st
   const o = await ouvrir(deps, tenantId);
   if (!o.ok) return refusDOuverture(o);
   const maintenant = deps.maintenant ?? Date.now;
-  const l = await deps.reprises.lancer(tenantId, debutDeFenetre(maintenant()), o.boutique.domaine, par);
+  const laFenetre = await fenetreDuRattrapage(deps, tenantId, o.toutHistorique);
+  const l = await deps.reprises.lancer(tenantId, debutDeFenetre(maintenant(), laFenetre.longue), o.boutique.domaine, par);
   if (!l.ok) {
     return refus(409, `Un rattrapage est déjà en cours dans cet espace (lancé le ${l.vivante.commenceLe.toISOString().slice(0, 10)}) : attendez sa fin.`);
   }
@@ -526,6 +602,8 @@ async function passage(deps: DepsReprise, job: JobReprise, jeton: string, repris
   }
   if (o.boutique.domaine !== reprise.domaine) { await finir('erreur', BOUTIQUE_CHANGEE); return; }
   const maintenant = deps.maintenant ?? Date.now;
+  // 🔴 Une reprise LONGUE sans `read_all_orders` : Shopify ne rendrait que 60 jours, en silence, et elle se dirait finie.
+  if (repriseLongue(reprise.fenetreDebut, reprise.commenceLe.getTime()) && !o.toutHistorique) { await finir('refuse', READ_ALL_ORDERS_RETIRE); return; }
   const debut = maintenant();
   let apres = reprise.curseur;
   let parPage = PAR_PAGE_REPRISE;

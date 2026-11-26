@@ -14,7 +14,7 @@ import type { MessageBranche } from '../shopify/store.pg';
 import { apercuReprise, etatReprise, lancerReprise, PHRASE_ATTESTATION_RATTRAPAGE_CLAUDE, type IssueRattrapage } from '../shopify/reprise';
 import { lireCollections } from '../shopify/collections';
 import { lireEtiquettes, lireSegments, reglerEtiquettes, suivreSegmentsShopify } from '../shopify/etiquettes';
-import type { RepriseShopifyVue } from '../../web/lib/partage/reprise-shopify';
+import type { RepriseShopifyVue, FenetreRattrapageVue } from '../../web/lib/partage/reprise-shopify';
 import { BORNES_SEGMENTS, MOTIF_ID_COLLECTION, type SegmentShopifyVue, type SynchroEtiquettesVue } from '../../web/lib/partage/segments';
 import { messageDe } from '../lib/erreur';
 import { LISTES } from './ecran';
@@ -121,6 +121,20 @@ function valeurDuRattrapage<T>(r: IssueRattrapage<T>): T {
 }
 
 const evenements = EVENEMENTS_DISPONIBLES.map((e) => `${e} (${DONNEES_PAR_EVENEMENT[e].join(', ')})`).join('; ');
+
+/**
+ * La fenêtre d'un aperçu (lot 7a), en mots pour Claude : 24 mois ou 60 jours, et ce qui l'allongerait (`null` : rien,
+ * elle est déjà de 24 mois).
+ */
+function fenetreDite(f: FenetreRattrapageVue | undefined): { window: '24 months' | '60 days'; longer_window: string | null } {
+  if (f?.longue) return { window: '24 months', longer_window: null };
+  return {
+    window: '60 days',
+    longer_window: f?.limite === 'free'
+      ? 'a paid plan (Pro and above), with the read_all_orders scope on the store app: the catch-up then reads 24 months'
+      : 'add the read_all_orders scope to the store app (the shopify skill does), then the catch-up reads 24 months',
+  };
+}
 
 /** Une reprise des commandes (segments Shopify enrichis, lots 5 et 5b), telle que le lancement et l'état la rendent. */
 const versRattrapage = (v: RepriseShopifyVue) => ({
@@ -535,8 +549,10 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     ...ficheOutilMcp('preview_shopify_order_history'),
     fonction: null,
     description:
-      'Counts, before any catch-up, the paid orders (paid, partially or fully refunded) created in the last 60 days in the '
-      + 'connected Shopify store, the window Shopify opens to the app: how many are already known (received live: a catch-up '
+      'Counts, before any catch-up, the paid orders (paid, partially or fully refunded) created in the window of the '
+      + 'connected Shopify store: the last 24 months on a paid plan (Pro and above) when the store app has the read_all_orders '
+      + 'scope, the last 60 days otherwise (window, window_start; longer_window says what would open 24 months: a paid plan, '
+      + 'or the scope, which the shopify skill adds). It says how many are already known (received live: a catch-up '
       + 'adds their products), how many would join a record (attachable: the record of their phone, the same phone choice as '
       + 'a live order, or of their buyer, or the buyer record the catch-up creates), how many buyer records it would create '
       + '(records_to_create, one per buyer phone, within the free places of the plan: free_places, null when unlimited; '
@@ -558,7 +574,7 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       if (!c.accepte) throw refusDuPlafond(c.attenteMs);
       const a = valeurDuRattrapage(await apercuReprise(deps.shopify.reprise, tenantId));
       return {
-        window_start: a.fenetreDebut, paid_orders_read: a.lues, already_known: a.deja, attachable: a.rattachables,
+        window_start: a.fenetreDebut, ...fenetreDite(a.fenetre), paid_orders_read: a.lues, already_known: a.deja, attachable: a.rattachables,
         records_to_create: a.fichesACreer ?? 0, over_plan_limit: a.horsPlafond ?? 0, free_places: a.placesLibres ?? null,
         fills_free_places: a.remplitLesPlaces ?? false,
         without_record: a.sansFiche, without_usable_phone: a.sansNumero, never_paid: a.ecartees, complete: a.complet,
@@ -569,7 +585,8 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
     ...ficheOutilMcp('import_shopify_order_history'),
     fonction: null,
     description:
-      'Starts the catch-up of the paid orders created in the last 60 days in the connected Shopify store, after '
+      'Starts the catch-up of the paid orders created in the window of the connected Shopify store (24 months on a paid '
+      + 'plan when the store app has read_all_orders, 60 days otherwise: the same window as the preview), after '
       + 'preview_shopify_order_history and the user\'s yes. An order already known keeps its record and gets its products; '
       + 'an unknown order joins the active record of its usable phone, with its amount and products, as a live order would '
       + 'have (a landline is skipped for the next phone of the order), or else the record of its buyer. When neither has a '

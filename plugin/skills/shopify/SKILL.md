@@ -1,6 +1,6 @@
 ---
 name: shopify
-description: Connects the user's Shopify store to Messaging Me so that customers receive WhatsApp messages when an order is paid or shipped, and a reminder when they abandon a checkout, imports the store's customers who subscribed to marketing, catches up the paid orders of the last 60 days for the segments, with the records of their buyers, and syncs the tags put on its customers in Shopify to target them - creates the store app with the Shopify CLI in the merchant's own organization, installs it with one click, keeps its secret and sets the messages. Use when the user wants to connect Shopify, send order confirmations, shipping updates or abandoned checkout reminders on WhatsApp, import their Shopify customers, bring their past orders into their segments, target their Shopify customer tags, know how much revenue their WhatsApp messages brought in, or check or cut the Shopify connection.
+description: Connects the user's Shopify store to Messaging Me so that customers receive WhatsApp messages when an order is paid or shipped, and a reminder when they abandon a checkout, imports the store's customers who subscribed to marketing, catches up the paid orders of the last 60 days (24 months on a paid plan with read_all_orders) for the segments, with the records of their buyers, and syncs the tags put on its customers in Shopify to target them - creates the store app with the Shopify CLI in the merchant's own organization, installs it with one click, keeps its secret and sets the messages. Use when the user wants to connect Shopify, send order confirmations, shipping updates or abandoned checkout reminders on WhatsApp, import their Shopify customers, bring their past orders into their segments, target their Shopify customer tags, know how much revenue their WhatsApp messages brought in, or check or cut the Shopify connection.
 allowed-tools: mcp__plugin_messagingme_messagingme__get_shopify_state, mcp__plugin_messagingme_messagingme__get_revenue_stats, mcp__plugin_messagingme_messagingme__preview_shopify_customers, mcp__plugin_messagingme_messagingme__preview_shopify_order_history, mcp__plugin_messagingme_messagingme__get_shopify_order_history, mcp__plugin_messagingme_messagingme__list_templates, mcp__plugin_messagingme_messagingme__get_template_status, mcp__plugin_messagingme_messagingme__get_setup_state
 ---
 
@@ -69,8 +69,8 @@ any Shopify review.
    French for a French-speaking user, otherwise use https://app.messagingme.fr/en/shopify/installed/ instead.
 5. Publish: `npx @shopify/cli@latest app deploy --no-input --allow-updates`. If Shopify refuses the version because of
    read_all_orders (an app_access error on the scopes: the app sits in a partner organization, where Shopify must
-   approve that scope first), remove read_all_orders from the list and publish again. Only reading orders older than
-   60 days needs it; everything else works without it.
+   approve that scope first), remove read_all_orders from the list and publish again. Only the catch-up beyond 60 days
+   (24 months on a paid plan) needs it; everything else works without it.
 
 ```toml
 client_id = "<kept from app init>"
@@ -223,8 +223,8 @@ record counts toward the plan's contact limit, and managing that limit is the us
 An app created before November 24, 2026 lacks read_products, which the catch-up of past orders and the collections of
 the segments need (without it, Shopify gives neither the product of an order line nor its collections):
 `preview_shopify_order_history` refuses and says so, and `get_shopify_state` gives `collections.refused` with the
-reason sans_droit. The list of the block above also asks for read_all_orders, which will open orders older than 60
-days. To add them:
+reason sans_droit. The list of the block above also asks for read_all_orders, which lets the catch-up read 24 months
+on a paid plan (`longer_window` of `preview_shopify_order_history` names it when missing). To add them:
 
 1. In the folder where the app was created (for example `messagingme-shopify`), set `scopes` in `shopify.app.toml` to
    the list of the block above. If that folder is gone, ask the user for the app's client ID (Shopify developer
@@ -233,14 +233,15 @@ days. To add them:
    `shopify.app.toml` again, whose scopes you then set.
 2. Publish: `npx @shopify/cli@latest app deploy --no-input --allow-updates`. If Shopify refuses the version because of
    read_all_orders (an app_access error on the scopes, an app in a partner organization), remove read_all_orders
-   from the list and publish again: nothing else needs it today.
+   from the list and publish again: only the catch-up beyond 60 days needs it.
 3. Give the install link again (Install it and connect it, step 1): the user approves the new access there. Nothing
    else changes: the keys stay the same, there is no need to call `connect_shopify` again.
 
-## Catch up the last 60 days of orders
+## Catch up past orders
 
 Orders paid before the store was connected are not in the segments (`find_contacts`: orders, products, amount spent).
-The catch-up reads the paid orders created in the last 60 days, the window Shopify opens to the app, and attaches each
+The catch-up reads the paid orders created in its window: the last 24 months on a paid plan (Pro and above) when the
+store app has the read_all_orders scope, the last 60 days otherwise (the window Shopify opens without it). It attaches each
 one to the record of its phone, amount and products included, as a live order would have been (a landline is skipped
 for the next phone of the order), or else to the record of its buyer. When neither has a record, it creates the
 BUYER's record (the customer's phone, then the billing one; never the shipping one, so a gift recipient never gets
@@ -264,7 +265,9 @@ sends no message and attributes no revenue. It is open to every plan.
    (`free_places`, null when unlimited), how many orders the plan's limit would leave out (`over_plan_limit`), and how
    many have no record kept or no usable phone (counted, never kept). When `fills_free_places` is true, say it before
    they choose: these records would take the last places, and a new customer who writes first could then no longer get
-   in. When `complete` is false, the counts are partial: the catch-up itself reads everything.
+   in. When `complete` is false, the counts are partial: the catch-up itself reads everything. Say the window
+   (`window`, from `window_start`); when `longer_window` names the read_all_orders scope, offer to add it first (Add a
+   scope to an app already installed, above) and count again; when it names a paid plan, say that Pro reads 24 months.
 3. Once the user agrees, call `import_shopify_order_history`. It runs in the background, a few minutes for most
    stores and over an hour for the largest, and is refused while another one runs.
 4. `get_shopify_order_history` follows it: its status and its counts (`records_created` among them). `interrupted`

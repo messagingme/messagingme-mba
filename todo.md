@@ -468,6 +468,18 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 7a (le rattrapage sur 24 mois) : la relecture (2026-11-26, un rouge corrigé)
+
+Le rouge (un contact purgé avant la trace des numéros effacés recréé par un rattrapage de 24 mois) est corrigé et tenu
+par des tests, sur PGlite compris. Restent :
+- **La trace des numéros effacés dure 760 jours pour tous les espaces**, Free et sans boutique compris, quand seul un
+  rattrapage de 24 mois en a besoin. À confirmer par Julien au titre de la minimisation (l'empreinte est un HMAC, le
+  numéro n'est jamais gardé), ou à borner aux espaces qui ont une boutique.
+- **La règle des purges d'avant la trace bloque toute création d'avant le 2026-11-25** dans un espace concerné, même
+  pour un numéro jamais supprimé : trois espaces de test aujourd'hui.
+- **Aucune commande de plus de 60 jours n'a été lue en vrai** : la boutique de démonstration est trop jeune ; l'essai
+  prouve la détection du droit et la fenêtre annoncée.
+
 ## 🟡 Segments Shopify, lot 6d (les étiquettes en direct) : la relecture (2026-11-26, aucun rouge)
 
 Les jaunes peu coûteux sont corrigés dans le lot (casse en SQL, Free sans abonnement, un abonnement par synchronisation,
@@ -549,9 +561,8 @@ pannes). Restent :
   (décision de Julien à prendre)
 - Le numéro `phone` de la commande compte comme numéro de l'acheteur (avec celui du client et de la facturation) : à
   confirmer à l'essai réel.
-- Lot 7 (24 mois) : la trace des numéros effacés devra durer plus de 731 jours, à arbitrer pour la minimisation.
-- `commandesSansWhatsapp` ne garde plus seul que les suppressions d'avant la 0317 : le retirer 90 jours après le
-  déploiement de la 0317.
+- `commandesSansWhatsapp` garde, avec la règle des purges d'avant la trace (lot 7a), les suppressions d'avant la 0317 :
+  le garder tant que le rattrapage lit des commandes d'avant elle, soit jusqu'en novembre 2028 avec 24 mois.
 - `PHRASE_ATTESTATION_REQUISE` (automations) montre encore des noms d'outils dans la console.
 - `tests/integration/sans-whatsapp.integration.test.ts` (lot 2a) simule encore une suppression par `update deleted_at`.
 - Les données client protégées de Shopify (prénom, nom) : à vérifier à l'essai réel ; un ACCESS_DENIED y ferait

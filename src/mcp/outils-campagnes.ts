@@ -195,7 +195,7 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       + 'with two orders in 90 days" is orders {"min":2,"within_days":90}; "Belgian customers inactive for 3 months" is '
       + 'countries ["BE"] and inactive_for_days 90. Orders are the paid orders recorded since orders_recorded_since (in '
       + 'the answer) and, after a catch-up of the order history (import_shopify_order_history), those created since '
-      + 'orders_backfilled_since for the records that existed then; activity is complete since activity_complete_since. Orders exist only for a workspace with a '
+      + 'orders_backfilled_since; activity is complete since activity_complete_since. Orders exist only for a workspace with a '
       + 'connected Shopify store (get_shopify_state): we know an order only because Shopify sends it. Without a store, '
       + 'the orders criteria are refused: target by countries, activity or tags instead, and say so to the person. '
       + `Returns the total and up to ${MAX_CONTACTS_TROUVES} contacts with their country, and their `

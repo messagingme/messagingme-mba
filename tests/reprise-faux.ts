@@ -5,6 +5,7 @@ import type { AttestationShopify, DetailsCommande } from '../src/shopify/store.p
 import type { IssueJeton } from '../src/shopify/connexion';
 import { schemaCommande } from '../src/shopify/donnees';
 import { LimiteOffreError } from '../src/offres/refus';
+import type { Offre } from '../src/offres/offres';
 
 /**
  * UN FAUX DU RATTRAPAGE DES COMMANDES SHOPIFY (segments Shopify enrichis, lots 5 et 5b) : les reprises en mémoire, avec
@@ -93,6 +94,10 @@ export function monterReprise(o: {
   autresFiches?: number;
   /** Le temps que prend chaque page lue, sur l'horloge du faux. */
   msParPage?: number;
+  /** Lot 7a : l'offre de l'espace (`pro` par défaut). */
+  offre?: Offre;
+  /** Lot 7a : l'espace a purgé un contact avant la trace des numéros effacés. */
+  purgesAvantTrace?: boolean;
 } = {}) {
   const horloge = { t: MIDI_REPRISE };
   const lignes: LigneFaux[] = [];
@@ -115,6 +120,7 @@ export function monterReprise(o: {
     places: 0,
     jetons: 0,
     droits: 0,
+    purgesAvantTrace: 0,
   };
   const tenue = (l: LigneFaux) => l.bail !== null && l.bail > horloge.t;
   const vue = (l: LigneFaux): Reprise => ({ ...l.r, comptes: { ...l.r.comptes }, tenue: tenue(l) });
@@ -232,6 +238,8 @@ export function monterReprise(o: {
       return new Set(ids.filter((id) => o.sansWhatsapp?.includes(id)));
     },
     places: async () => { trace.places += 1; return { limite: o.limite ?? null, comptees: comptees() }; },
+    offre: async () => o.offre ?? 'pro',
+    purgesAvantTrace: async () => { trace.purgesAvantTrace += 1; return o.purgesAvantTrace ?? false; },
     ecrirePage: async (tenantId, p) => {
       trace.ecrites.push(p);
       // Le filet de `upsertManyByPhone` : la limite revérifiée sur les numéros sans fiche active.

@@ -1095,6 +1095,8 @@ export const repriseInerte: DepsReprise = {
   effacements: neDevraitPasEtreAppelee('shopify.reprise.effacements'),
   commandesSansWhatsapp: neDevraitPasEtreAppelee('shopify.reprise.commandesSansWhatsapp'),
   places: neDevraitPasEtreAppelee('shopify.reprise.places'),
+  offre: neDevraitPasEtreAppelee('shopify.reprise.offre'),
+  purgesAvantTrace: neDevraitPasEtreAppelee('shopify.reprise.purgesAvantTrace'),
   ecrirePage: neDevraitPasEtreAppelee('shopify.reprise.ecrirePage'),
   enfiler: neDevraitPasEtreAppelee('shopify.reprise.enfiler'),
 };

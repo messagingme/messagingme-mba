@@ -46,8 +46,9 @@ export const SOURCE_LISTE_DE_REFUS = 'liste_de_refus';
  * différence de la liste de refus, elle ne fait renaître personne en STOP et aucune création ne la consomme : seul le
  * rattrapage des commandes la lit, pour ne jamais recréer la fiche d'une commande payée avant l'effacement.
  *
- * Sa durée : la fenêtre du rattrapage (60 jours, `FENETRE_REPRISE_JOURS`) plus une marge. Une commande que le rattrapage
- * peut lire a été créée dans cette fenêtre : une trace plus vieille ne protège plus rien. 🔴 Les deux constantes restent
- * ordonnées (`tests/numeros-effaces.test.ts`) : la fenêtre qui s'allonge (24 mois au lot 7) allonge celle-ci.
+ * Sa durée : la fenêtre la plus longue du rattrapage (24 mois depuis le lot 7a, `FENETRE_LONGUE_MOIS`) plus une marge.
+ * Une commande que le rattrapage peut lire a été créée dans cette fenêtre : une trace plus vieille ne protège plus rien.
+ * 🔴 Les deux constantes restent ordonnées (`tests/numeros-effaces.test.ts`) : une fenêtre qui s'allonge allonge
+ * celle-ci. ⚠️ Une fiche supprimée avant la migration 0317 (2026-11-24) n'a pas de trace : le rattrapage peut la recréer.
  */
-export const RETENTION_NUMEROS_EFFACES_JOURS = 90;
+export const RETENTION_NUMEROS_EFFACES_JOURS = 760;

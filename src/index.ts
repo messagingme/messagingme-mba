@@ -1832,7 +1832,7 @@ async function main(): Promise<void> {
       // La relance avec agent IA (2026-11-20) : l'agent choisi, lu dans la liste de l'espace (le magasin ENTIER).
       agents: agentStore,
     },
-    // Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5) : l'aperçu et le lancement ici,
+    // Le rattrapage des commandes passées (segments Shopify enrichis, lot 5 ; 24 mois en Pro, lot 7a) : l'aperçu et le lancement ici,
     // le job dans le worker, par le MÊME câblage (`cablerReprise`) ; les magasins ENTIERS, leurs méthodes lisent `this`. Le
     // pool tient la transaction d'une page, qui crée les fiches des acheteurs puis y rattache leurs commandes (lot 5b).
     reprise: cablerReprise({
@@ -1841,6 +1841,8 @@ async function main(): Promise<void> {
       boutiques: shopifyStore,
       contacts: contactStore,
       enfiler: async (job, quand) => { await queue.enqueue(FILE_REPRISE, job, { groupId: job.tenantId, ...(quand ? { startAfter: quand } : {}) }); },
+      // La fenêtre de 24 mois (lot 7a) : hors Free seulement.
+      offre: async (t) => (await offres.offreDe(t)).offre,
     }),
     // La lecture des collections des produits achetés (segments Shopify enrichis, lot 6a) : la liste ici (volet Shopify des
     // filtres, `get_shopify_state`), qui enfile la lecture ; le job dans le worker, par le MÊME câblage (`cablerCollections`).

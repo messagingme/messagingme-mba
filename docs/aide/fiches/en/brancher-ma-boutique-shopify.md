@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice, abandoned checkout reminders, and their follow-up.
 slug: connect-my-shopify-store
-traduit_de: 88cb1b
+traduit_de: 50c71b
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
@@ -176,10 +176,12 @@ without ordering” (at least one tracked link click), for contacts with no orde
 second removes it; the number on each button says how many contacts it finds, and a button that finds nobody is not
 shown.
 
-**11. Catch up the orders of the last 60 days.** On the Shopify card, “Catch up” first counts, writing nothing, the paid
-orders of the last 60 days: already known, to attach to a record, the buyer records to create and the places your plan
-leaves, without a record or without a phone. “Start the catch-up” reads them all again in the background, and the card
-tells where it stands.
+**11. Catch up past orders.** On the Shopify card, “Catch up” first counts, writing nothing, the paid orders: already
+known, to attach to a record, the buyer records to create and the places your plan leaves, without a record or without
+a phone. “Start the catch-up” reads them all again in the background, and the card tells where it stands.
+
+The catch-up goes back 60 days, or 24 months on the Pro plan and above when the store app has the read_all_orders scope:
+the preview gives the start date, and what is missing to go further back.
 
 Each order joins the record of its phone, with its amount and products. A buyer with a mobile phone and no record yet
 gets one, on the customer’s or the billing phone, never the shipping one (a gift recipient does not get in): opted in
@@ -201,7 +203,7 @@ version, then install it again on your store to accept it. As long as it is miss
 so, and nothing is read.
 
 **Good to know.** Orders count from the moment the store was connected; a catch-up adds those of the 60 days before
-it, as Shopify lets no one read further back. Without a catch-up, right after connecting, “at least 2 orders”
+it, or of the 24 months on the Pro plan with the read_all_orders scope. Without a catch-up, right after connecting, “at least 2 orders”
 therefore finds nobody; the section gives the date tracking started, and the date of the catch-up. As they come, only
 orders from a number already in your contacts count, or one their confirmation message brings in, test orders
 included; the catch-up, for its part, creates the buyer’s record. Products are known for orders paid since November 23,

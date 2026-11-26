@@ -775,7 +775,8 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     s'affiche pas (sauf déjà posé, pour être retiré). Claude Code a les mêmes (`wrote_without_order`,
     `clicked_without_order`). Chaque commande payée d'un contact connu compte, message de confirmation
     branché ou non, commandes de test comprises, remboursements non déduits ; le volet dit depuis quand elles sont
-    suivies, depuis quand un rattrapage les a relues (lot 5 : les 60 jours qui le précèdent), et la date de coupure
+    suivies, depuis quand un rattrapage les a relues (lot 5 : les 60 jours qui le précèdent, 24 mois en Pro avec le droit
+    `read_all_orders` depuis le lot 7a), et la date de coupure
     d'une boutique coupée, dont l'historique reste filtrable. Une saisie impossible (un
     minimum au-dessus du maximum, « au moins 0 commande ») est signalée, et le dernier critère valide reste appliqué :
     une faute de frappe n'élargit jamais l'audience. Replier le volet ne retire aucun critère.
@@ -3237,7 +3238,7 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   - **avec une boutique** (refaite le 2026-11-26, « cet écran est illisible ») : le nom de la boutique en grand et, en
     face, « **Débrancher** » (plus aucun message ne part ; contacts, commandes et étiquettes restent) ou, débranchée,
     « **Rebrancher** », qui ouvre ses clés. Puis une ligne par geste, son bouton aligné dans une même colonne :
-    l'import des clients abonnés, le rattrapage des 60 derniers jours (dessous, la date du dernier), la synchronisation
+    l'import des clients abonnés, le rattrapage des commandes passées (dessous, la date du dernier), la synchronisation
     des étiquettes (« Synchroniser maintenant », dessous la date de la dernière) et les segments à suivre. La **pause**
     ne se pose plus : une boutique mise en pause avant ce jour garde sa ligne, avec « Reprendre ». Les chiffres des 30
     jours et des paniers et le lien vers la page des apps ont quitté la carte. Les messages se règlent dans Scénario >
@@ -3324,11 +3325,13 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
 - **Cibler les clients par leurs commandes** (2026-11-04, offre Pro) : une fois la boutique branchée, la liste des
   contacts, le choix des destinataires d'une campagne et Claude Code (`find_contacts`) ciblent par nombre de commandes
   payées, montant dépensé et jours depuis la dernière commande, depuis le branchement de la boutique, et les 60 jours
-  d'avant un rattrapage. Sans boutique, ces critères n'existent pas (détail dans « Contacts & CRM »).
-- **Le rattrapage des commandes des 60 derniers jours** (2026-11-23, segments Shopify enrichis, lot 5 ; les fiches
+  (24 mois en Pro) d'avant un rattrapage. Sans boutique, ces critères n'existent pas (détail dans « Contacts & CRM »).
+- **Le rattrapage des commandes passées** (2026-11-23, segments Shopify enrichis, lot 5 ; les fiches
   d'acheteurs depuis le lot 5b, décision de Julien du 2026-11-24 ; toutes les offres : par Claude Code partout, et en Pro
   sur la carte Shopify de la console) : les commandes payées CRÉÉES dans les 60 jours qui précèdent (la limite que
-  Shopify ouvre à l'app) rejoignent les fiches, avec leur montant et leurs produits, comme si elles avaient été reçues au
+  Shopify ouvre à l'app), ou dans les 24 mois en offre Pro et au-delà quand l'app de la boutique a le droit
+  `read_all_orders` (lot 7a, 2026-11-26 ; l'aperçu dit la fenêtre et ce qui l'allongerait : l'offre Pro, ou le droit),
+  rejoignent les fiches, avec leur montant et leurs produits, comme si elles avaient été reçues au
   fil de l'eau. Une commande déjà connue garde sa fiche et reçoit ses produits s'il lui en manque ; une commande inconnue
   rejoint la fiche de son numéro, le même que celui de son message de confirmation (un fixe est sauté au profit du
   mobile suivant de la commande), sinon celle de son acheteur. **Sans fiche, celle de l'ACHETEUR est créée** (le
@@ -3362,9 +3365,9 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   ou que Claude Code lit `get_shopify_state`, et au plus une fois par jour et par produit. Elles exigent le droit
   `read_products`. Une boutique coupée garde ses collections lues, qui ne se relisent plus ; l'effacement de la
   boutique (app de la console désinstallée, demande d'effacement de Shopify) les emporte. **Un droit de plus dans la liste, le
-  2026-11-24 : `read_all_orders`**, qui ouvrira les commandes de plus de 60 jours ; une app créée dans l'organisation du
-  marchand l'obtient sans validation de Shopify, et si Shopify refuse la version (une app d'organisation partenaire), on
-  le retire : rien d'autre n'en a besoin aujourd'hui.
+  2026-11-24 : `read_all_orders`**, qui ouvre le rattrapage sur 24 mois en Pro (lot 7a) ; une app créée dans
+  l'organisation du marchand l'obtient sans validation de Shopify, et si Shopify refuse la version (une app
+  d'organisation partenaire), on le retire : seul le rattrapage au-delà de 60 jours en a besoin.
 - **Les étiquettes des clients Shopify** (2026-11-24, segments Shopify enrichis, lot 6b) : pour cibler par étiquette
   Shopify (détail dans « Contacts & CRM »), « **Synchroniser maintenant** » sur la carte, **éteinte par défaut** : seul
   le marchand la lance, jamais le branchement. Son premier geste l'allume : une première lecture part aussitôt, en

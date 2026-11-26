@@ -5,6 +5,25 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : segments Shopify, lot 7a : le rattrapage remonte à 24 mois en Pro
+
+Plan : `docs/superpowers/plans/2026-11-26-segments-shopify-lot-7a-historique-24-mois.md` (spec, chantier 2, lot 2b ;
+feuille de route, lot 7, « d'abord le Pro »). Le rattrapage des commandes lit 24 mois au lieu de 60 jours quand l'offre
+n'est pas la Free ET que l'app de la boutique a `read_all_orders` (lu avec les autres droits, aucun appel de plus) ;
+sinon 60 jours, et l'aperçu, la carte et `preview_shopify_order_history` disent pourquoi (l'offre Pro, ou le droit). La
+fenêtre s'écrit sur la reprise au lancement ; une reprise longue dont l'app perd le droit s'arrête en `refuse` au lieu de
+se dire finie sur les 60 jours que Shopify rendrait en silence. Aucune migration. Mesuré avant d'écrire, en lecture
+seule : l'app de « Messaging Me demo » n'a pas `read_all_orders`, et sa plus ancienne commande date du 2026-10-21.
+
+La relecture indépendante a trouvé un rouge : sur 24 mois, le rattrapage pouvait recréer un contact supprimé avant la
+trace des numéros effacés (migration 0317, le soir du 2026-11-24), contre la décision de Julien « JAMAIS recréé ». Mesuré
+en production : 11 contacts purgés avant elle, dans trois espaces, aucun avec une boutique. Correctif : la trace dure
+760 jours au lieu de 90 (au-dessus de 24 mois), et dans un espace qui a purgé un contact avant elle, une commande payée
+avant cette date ne crée aucune fiche, elle se rattache seulement ; la fenêtre de suppression de la console dit
+l'empreinte gardée deux ans. Jaunes pris dans le lot : l'aperçu partiel prévient que les places peuvent se remplir, une
+reprise est longue au regard de son lancement (une courte qui dure ne l'est jamais), la Free dit les deux conditions,
+les textes publics et les commentaires restés à 60 jours. 19 mutations scriptées, toutes rouges.
+
 ## 2026-11-26 : CSM virtuel, lot H (B8, livraison 1) : une campagne et une suppression de contacts partent sur le clic d'un admin
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-h-envois-au-oui.md`. Décisions de Julien du même jour : le code de

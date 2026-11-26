@@ -144,7 +144,7 @@ export const CATALOGUE_MCP = {
   /** L'import des clients abonnés (lot 3, 2026-10-22) : compter, puis importer ce que le marchand a choisi. */
   preview_shopify_customers: { scope: 'mcp:read', exigePersonne: true },
   import_shopify_customers: { scope: 'mcp:write', exigePersonne: true },
-  /** Le rattrapage des commandes des 60 derniers jours (segments Shopify enrichis, lot 5) : compter, lancer, suivre. */
+  /** Le rattrapage des commandes (segments Shopify enrichis, lot 5 ; 24 mois en Pro, lot 7a) : compter, lancer, suivre. */
   preview_shopify_order_history: { scope: 'mcp:read', exigePersonne: true },
   import_shopify_order_history: { scope: 'mcp:write', exigePersonne: true },
   get_shopify_order_history: { scope: 'mcp:read', exigePersonne: true },

@@ -360,7 +360,7 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await expect(carte.getByTestId('integration-shopify-rattrapage-etat')).toHaveCount(0);
     await carte.getByTestId('integration-shopify-rattraper').click();
     // 🔴 Le titre de la fenêtre se voit : le volet des intégrations masque le titre de la CARTE, jamais celui d'une fenêtre.
-    await expect(page.getByTestId('shopify-rattrapage').getByRole('heading', { name: 'Rattraper les commandes des 60 derniers jours' })).toBeVisible();
+    await expect(page.getByTestId('shopify-rattrapage').getByRole('heading', { name: 'Rattraper les commandes passées' })).toBeVisible();
     await expect(carte.getByRole('heading', { name: 'Shopify', exact: true })).toBeHidden();
     const apercu = page.getByTestId('shopify-rattrapage-apercu');
     await expect(apercu).toContainText('42 commandes payées créées depuis le');
@@ -376,6 +376,8 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await expect(apercu).toContainText('3 écartées : jamais payées ou illisibles');
     await expect(page.getByTestId('shopify-rattrapage-regle')).toContainText('Aucun message ne part. Une fiche créée par le rattrapage est supprimée si WhatsApp ne trouve pas son numéro au premier envoi');
     await expect(page.getByTestId('shopify-rattrapage')).not.toContainText('Aucune fiche n’est créée');
+    // Une API d'avant le lot 7a ne dit pas pourquoi la fenêtre est de 60 jours : l'écran n'en dit rien non plus.
+    await expect(page.getByTestId('shopify-rattrapage-fenetre')).toHaveCount(0);
     expect(trace.rattrapages).toBe(0);
     await page.getByTestId('shopify-rattrapage-lancer').click();
     await expect(page.getByTestId('shopify-rattrapage')).toHaveCount(0);
@@ -407,6 +409,27 @@ test.describe('Tools > Intégrations > Shopify : la carte de la console', () => 
     await expect(page.getByTestId('shopify-rattrapage-places')).toHaveText(
       'Ces fiches prendraient les dernières places de votre offre : ensuite, un nouveau client qui vous écrirait le premier n’entrerait plus.',
     );
+  });
+
+  test('🔴 la fenêtre de 60 jours dit ce qui l’allongerait : le droit read_all_orders (lot 7a)', async ({ page }) => {
+    await monter(page, { rattrapage: { apercu: { ...APERCU_RATTRAPAGE, fenetre: { longue: false, limite: 'sans_droit' } } } });
+    await page.getByTestId('integration-shopify-rattraper').click();
+    await expect(page.getByTestId('shopify-rattrapage-fenetre')).toHaveText(
+      'Pour remonter jusqu’à 24 mois, ajoutez le droit read_all_orders à l’app Messaging Me de la boutique, publiez sa nouvelle version, puis réinstallez-la.',
+    );
+  });
+
+  test('🔴 la fenêtre de 60 jours en Free dit l’offre Pro (lot 7a)', async ({ page }) => {
+    await monter(page, { rattrapage: { apercu: { ...APERCU_RATTRAPAGE, fenetre: { longue: false, limite: 'free' } } } });
+    await page.getByTestId('integration-shopify-rattraper').click();
+    await expect(page.getByTestId('shopify-rattrapage-fenetre')).toHaveText('Avec l’offre Pro, et le droit read_all_orders sur l’app de la boutique, le rattrapage remonte jusqu’à 24 mois.');
+  });
+
+  test('la fenêtre de 24 mois ne dit que sa date (lot 7a)', async ({ page }) => {
+    await monter(page, { rattrapage: { apercu: { ...APERCU_RATTRAPAGE, fenetreDebut: '2024-11-23T00:00:00.000Z', fenetre: { longue: true, limite: null } } } });
+    await page.getByTestId('integration-shopify-rattraper').click();
+    await expect(page.getByTestId('shopify-rattrapage-apercu')).toContainText('42 commandes payées créées depuis le 23/11/2024');
+    await expect(page.getByTestId('shopify-rattrapage-fenetre')).toHaveCount(0);
   });
 
   test('🔴 sans l’attestation du consentement des clients, l’aperçu le dit, et rien ne se lance', async ({ page }) => {
