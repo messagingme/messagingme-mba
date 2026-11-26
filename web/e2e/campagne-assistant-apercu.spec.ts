@@ -46,8 +46,8 @@ test.describe('Assistant : l’aperçu du modèle', () => {
     await page.getByTestId('etage-1').click();
     await page.getByTestId('modele-1').selectOption('promo_visuel');
     await expect(page.getByTestId('apercu-1')).toBeVisible({ timeout: 15_000 });
-    // Le corps réel, avec la variable remplacée par son exemple lisible (le défaut est « Nom »).
-    await expect(page.getByTestId('apercu-1')).toContainText('Bonjour');
+    // Le corps réel, la variable gardée en `{{1}}` : c'est la ligne du sélecteur de variables qui la désigne.
+    await expect(page.getByTestId('apercu-1')).toContainText('Bonjour {{1}}');
     // Le BOUTON du modèle : ce que le contact verra sous la bulle.
     await expect(page.getByTestId('apercu-1')).toContainText('Voir l’offre');
   });

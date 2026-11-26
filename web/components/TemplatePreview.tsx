@@ -15,6 +15,7 @@ import type { TemplateSummary } from '@/lib/api';
 export function TemplatePreview({
   template,
   examples,
+  varLabels,
   senderName,
 }: {
   /**
@@ -30,6 +31,8 @@ export function TemplatePreview({
     & Partial<Pick<TemplateSummary, 'headerFormat' | 'headerText' | 'headerMediaUrl' | 'footer'>>;
   /** Valeurs des variables `{{n}}` du corps (le corps d'un carousel est son message d'introduction). */
   examples: string[];
+  /** Pastille par position ({{1}} -> varLabels[0]) à la place de l'exemple (modèle classique seulement). */
+  varLabels?: string[];
   /**
    * Nom vérifié du numéro ÉMETTEUR, quand l'écran sait lequel c'est. Absent, `PhoneFrame` le résout seul.
    * N'a d'intérêt que sur un espace multi-numéros : y montrer le nom d'un AUTRE numéro que celui qui va
@@ -70,6 +73,7 @@ export function TemplatePreview({
     <WhatsAppPreview
       body={template.body ?? ''}
       examples={examples}
+      {...(varLabels ? { varLabels } : {})}
       buttons={template.buttons ?? []}
       header={header}
       {...(template.footer ? { footer: template.footer } : {})}

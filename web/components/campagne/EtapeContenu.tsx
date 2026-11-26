@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { getTemplateHints, getWorkflow, type RcsMessage, type RcsSuggestion, type UserFieldDef } from '@/lib/api';
 import { RcsButtonsEditor } from '@/components/RcsButtonsEditor';
 import { TemplatePreview } from '@/components/TemplatePreview';
@@ -23,7 +23,7 @@ import type { WorkflowSummary } from '@/lib/api';
 import { varCountOf } from '@/lib/fields';
 import { fmtNum } from '@/lib/format';
 import { firstTemplateOf } from '@/lib/campaign-eligibility';
-import { appliquerIndices, exemplesDApercu, lignesParDefaut, type VarRow } from '@/lib/variables-template';
+import { appliquerIndices, lignesParDefaut, type VarRow } from '@/lib/variables-template';
 import { lireSourcesDuBloc, type SourceDuBloc } from '@/lib/variables-bloc-template';
 import type { TemplateSummary } from '@/lib/api';
 import type { CapacitesEspace, ContenuEtage, Devenir, EtatCampagne, ReferencesContenu } from '@/components/campagne/AssistantCampagne';
@@ -629,6 +629,7 @@ function CadreWhatsApp({
         groupe="formule-whatsapp"
         seul="Modèle seul"
         avecScenario="Modèle et scénario"
+        aides={{ seul: <AideModeleSeul />, avecScenario: <AideModeleEtScenario /> }}
         contenu={contenu}
         onChange={onChange}
       />
@@ -745,7 +746,13 @@ function ApercuModele({
       <div className="w-full max-w-xs">
         <TemplatePreview
           template={tpl}
-          examples={exemplesDApercu(contenu.variables ?? [])}
+          /*
+            🔴 LES VARIABLES RESTENT `{{n}}` DANS L'APERÇU (Julien, 2026-11-26) : remplacées par l'exemple de
+            leur source (« Julie » trois fois), on ne voyait plus où tombait chaque variable que le sélecteur
+            juste en dessous demande de choisir. La pastille porte le même `{{n}}` que la ligne du sélecteur.
+          */
+          examples={[]}
+          varLabels={Array.from({ length: varCountOf(tpl.body) }, (_, i) => `{{${i + 1}}}`)}
           {...(references.numeros[0]?.verifiedName ? { senderName: references.numeros[0]!.verifiedName! } : {})}
         />
       </div>
@@ -1078,12 +1085,15 @@ function Formule({
   groupe,
   seul,
   avecScenario,
+  aides,
   contenu,
   onChange,
 }: {
   groupe: string;
   seul: string;
   avecScenario: string;
+  /** L'infobulle de chaque formule, au survol (WhatsApp seulement pour l'instant). */
+  aides?: { seul: ReactNode; avecScenario: ReactNode };
   contenu: ContenuEtage;
   onChange: (patch: Partial<ContenuEtage>) => void;
 }) {
@@ -1099,19 +1109,115 @@ function Formule({
         ⚠️ `choisirScenario` et `choisirModele` les reposent aussitôt après le choix suivant. Le seul
         moment où l'écran reste sans variables est celui où il n'a effectivement plus de modèle.
       */}
-      <Radio
-        groupe={groupe}
-        libelle={seul}
-        coche={contenu.formule === 'seul'}
-        onCheck={() => onChange({ formule: 'seul', variables: [] })}
-      />
-      <Radio
-        groupe={groupe}
-        libelle={avecScenario}
-        coche={contenu.formule === 'avec_scenario'}
-        onCheck={() => onChange({ formule: 'avec_scenario', variables: [] })}
-      />
+      <AvecInfobulle id={`${groupe}-aide-seul`} aide={aides?.seul}>
+        {(decritPar) => (
+          <Radio
+            groupe={groupe}
+            libelle={seul}
+            coche={contenu.formule === 'seul'}
+            {...(decritPar ? { decritPar } : {})}
+            onCheck={() => onChange({ formule: 'seul', variables: [] })}
+          />
+        )}
+      </AvecInfobulle>
+      <AvecInfobulle id={`${groupe}-aide-scenario`} aide={aides?.avecScenario}>
+        {(decritPar) => (
+          <Radio
+            groupe={groupe}
+            libelle={avecScenario}
+            coche={contenu.formule === 'avec_scenario'}
+            {...(decritPar ? { decritPar } : {})}
+            onCheck={() => onChange({ formule: 'avec_scenario', variables: [] })}
+          />
+        )}
+      </AvecInfobulle>
     </div>
+  );
+}
+
+/**
+ * L'infobulle d'une formule, en CSS seul comme `BulleDuMessage` (Shopify) : le parent porte `group`, elle s'ouvre au
+ * survol ET au focus (au téléphone, toucher le bouton radio le focalise), et ne prend pas la souris pour ne pas couvrir
+ * la ligne suivante. ⚠️ Hors du `<label>` : le nom accessible du bouton radio reste son seul libellé, l'infobulle le
+ * DÉCRIT (`aria-describedby`).
+ */
+function AvecInfobulle({ id, aide, children }: {
+  id: string;
+  aide: ReactNode | undefined;
+  children: (decritPar: string | undefined) => ReactNode;
+}) {
+  if (aide === undefined) return <>{children(undefined)}</>;
+  return (
+    <div className="group relative w-fit max-w-full">
+      {children(id)}
+      <span
+        id={id} role="tooltip" data-testid={id}
+        className="pointer-events-none invisible absolute left-0 top-full z-20 mt-1 w-[min(22rem,calc(100vw-5rem))] rounded-carte border border-ink-200 bg-white p-3 text-xs leading-snug text-ink-700 opacity-0 shadow-mm-md transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+      >
+        {aide}
+      </span>
+    </div>
+  );
+}
+
+/** Le bouton d'un modèle WhatsApp, tel qu'il s'affiche sous la bulle. */
+function BoutonDeBulle({ children }: { children: ReactNode }) {
+  return (
+    <span className="block border-t border-ink-100 py-1.5 text-center text-[12px] font-medium text-[#027eb5]">{children}</span>
+  );
+}
+
+function AideModeleSeul() {
+  return (
+    <>
+      <span className="block">
+        <span className="font-medium text-ink-900">Un modèle, sans suite prévue.</span> Le contact peut quand même
+        cliquer sur ses boutons ou répondre directement.
+      </span>
+      <span className="mt-2 block rounded-controle bg-[#efeae2] p-2.5">
+        <span className="block w-56 max-w-full overflow-hidden rounded-controle rounded-tl-none bg-white shadow-sm">
+          <span className="block px-2.5 py-1.5 text-[13px] text-ink-900">
+            Bonjour Camille, nos soldes commencent demain : -30 % sur toute la boutique.
+          </span>
+          <BoutonDeBulle><Icone nom="lien" taille="mini" className="mr-1 inline align-[-1px]" />Voir les offres</BoutonDeBulle>
+        </span>
+      </span>
+    </>
+  );
+}
+
+/** Un bloc du constructeur de scénario, en miniature. */
+function BlocMiniature({ type, children }: { type: string; children: ReactNode }) {
+  return (
+    <span className="block w-36 min-w-0 shrink overflow-hidden rounded-controle border border-ink-200 bg-white shadow-sm">
+      <span className="block border-b border-ink-100 bg-ink-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-brand-600">{type}</span>
+      {children}
+    </span>
+  );
+}
+
+function AideModeleEtScenario() {
+  return (
+    <>
+      <span className="block">
+        <span className="font-medium text-ink-900">Un modèle qui ouvre un scénario.</span> Les étapes suivantes sont
+        prévues : appuyer sur un bouton peut envoyer un autre message, poser une question, passer à un agent IA…
+      </span>
+      <span className="mt-2 flex items-center gap-1 rounded-controle bg-ink-50 p-2.5">
+        <BlocMiniature type="Modèle">
+          <span className="block px-2 py-1.5 text-[11px] text-ink-900">Votre rendez-vous de jeudi 10 h tient toujours ?</span>
+          <span className="block border-t border-ink-100 px-2 py-1 text-[11px] font-medium text-[#027eb5]">Je confirme</span>
+          <span className="block border-t border-ink-100 px-2 py-1 text-[11px] font-medium text-[#027eb5]">Changer</span>
+        </BlocMiniature>
+        <span className="flex shrink-0 items-center text-brand-500">
+          <span className="block w-3 border-t-2 border-brand-500" />
+          <Icone nom="suivant" taille="petite" className="-ml-1" />
+        </span>
+        <BlocMiniature type="Message rapide">
+          <span className="block px-2 py-1.5 text-[11px] text-ink-900">Merci, à jeudi 10 h !</span>
+        </BlocMiniature>
+      </span>
+    </>
   );
 }
 
@@ -1341,12 +1447,15 @@ function Radio({
   libelle,
   coche,
   desactive,
+  decritPar,
   onCheck,
 }: {
   groupe: string;
   libelle: string;
   coche: boolean;
   desactive?: boolean;
+  /** L'id d'une infobulle qui décrit ce choix (`aria-describedby`), sans toucher au nom accessible. */
+  decritPar?: string;
   onCheck: () => void;
 }) {
   return (
@@ -1356,6 +1465,7 @@ function Radio({
         name={groupe}
         checked={coche}
         disabled={desactive === true}
+        {...(decritPar ? { 'aria-describedby': decritPar } : {})}
         onChange={onCheck}
         className="h-4 w-4 shrink-0 accent-brand-500"
       />

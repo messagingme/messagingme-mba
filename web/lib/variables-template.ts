@@ -1,5 +1,5 @@
 import type { ParamSource, TemplateParam, UserFieldDef } from './api';
-import { SYSTEM_FIELDS, isSystemFieldKey, systemFieldExample } from './fields';
+import { SYSTEM_FIELDS, isSystemFieldKey } from './fields';
 
 /**
  * L'ASSOCIATION DES VARIABLES D'UN TEMPLATE, en fonctions PURES.
@@ -119,34 +119,6 @@ export function appliquerIndices(
 /** Les lignes du sélecteur -> le `paramMapping` du serveur, positions 1..N dans l'ordre. */
 export function versParamMapping(vars: readonly VarRow[]): TemplateParam[] {
   return vars.map((v, i) => ({ position: i + 1, source: selToSource(v.sel, v.value) }));
-}
-
-/**
- * CE QUE L'APERÇU MET À LA PLACE DE CHAQUE `{{n}}`.
- *
- * 🔴 ELLE VIENT DE L'ANCIEN FORMULAIRE, OÙ ELLE ÉTAIT UN `map` ANONYME, et elle est montée ici pour la
- * même raison que les fonctions au-dessus : l'assistant devait montrer EXACTEMENT le même aperçu que
- * l'écran alors en service, sans quoi le retrait de celui-ci aurait changé ce que l'opérateur voit avant
- * de valider un envoi de masse. Deux règles pour rendre la même bulle finissent par diverger sur un cas
- * (un champ système ajouté, un texte fixe vide), et la divergence se lit dans l'aperçu qu'on croit fidèle.
- *
- * ⚠️ TROIS SORTIES, ET LA TROISIÈME EST UN LIBELLÉ, PAS UNE VALEUR. Un texte fixe s'affiche tel quel
- * (« … » s'il est vide) ; un champ de BASE s'affiche avec son exemple lisible (`systemFieldExample`) ;
- * tout le reste s'affiche entre crochets, parce qu'une valeur de champ perso n'est connue que par
- * contact et qu'en inventer une ferait croire à un aperçu réel.
- *
- * ⚠️ `now` (« Date du jour ») TOMBE DANS LA TROISIÈME BRANCHE ET REND `[champ]`, ce qui était le
- * comportement de l'écran en service depuis toujours : `'now'.slice('field:'.length)` rend la chaîne
- * vide, donc le repli `'champ'` s'applique. C'est CONSTATÉ, pas voulu ; le corriger aurait changé un
- * aperçu de production dans un lot dont ce n'était pas le sujet, et sans qu'aucun test ne le montre.
- */
-export function exemplesDApercu(vars: readonly VarRow[]): string[] {
-  return vars.map((v) =>
-    v.sel === 'literal' ? (v.value.trim() || '…')
-      : v.sel.startsWith('sys:') ? systemFieldExample(v.sel.slice('sys:'.length))
-      : v.sel.startsWith('var:') ? `[${v.sel.slice('var:'.length)}]`
-      : `[${v.sel.slice('field:'.length) || 'champ'}]`,
-  );
 }
 
 /**
