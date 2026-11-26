@@ -5,6 +5,40 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : CSM virtuel, lot G (B7) : Claude lève les prérequis d'une mise en service
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-g-prerequis.md`. Suit le pilote (B9), réussi le même jour.
+
+**Quatre outils, au nom d'une personne.** `get_account_status` rend la lecture de l'Accueil : son calcul sort de la
+route `GET /account-status` en une fonction (`lireEtatDuCompte`, `src/http/account.ts`) que la route et l'outil
+appellent, appel à Meta et enregistrement du statut compris ; la console la réserve aux admins, l'outil exige une
+personne. `request_number_code` et `activate_number` appellent les services d'« Activer le numéro » sur les dépendances
+mêmes de leurs routes : le quota de Meta (dix codes par 72 heures, une minute entre deux), la lecture d'état avant
+d'agir, la trace `numero.active`. `contact_support` écrit au Support par le service du formulaire, à ses bornes,
+l'adresse de réponse lue en base et le contexte de l'espace (la lecture de `get_setup_state`) joint par le serveur. Pour
+que le MCP reçoive les MÊMES objets que la console, les dépendances des trois routes sortent de l'appel à `buildServer`
+en constantes nommées (`src/index.ts`), sans autre changement ; les deux tests qui lisaient ce câblage le lisent
+désormais sous sa nouvelle forme. L'étape `activer_numero` de `get_setup_state`, les textes de la connexion du numéro et
+la compétence de mise en service proposent ces outils au lieu de renvoyer à la console. Aucune migration ; le plugin
+monte d'une version.
+
+**La relecture indépendante, sur l'arbre construit : aucun rouge.** Réglés avant de pousser : la borne du message du
+Support, que la transformation des tests réécrit en `5e3` (le test des bornes ne la lisait plus : la CI aurait été
+rouge, mesuré par le relecteur dans les deux sens) ; les textes qui disaient encore « aucun outil, finir dans la
+console » (Claude n'aurait jamais proposé les outils neufs) ; la lecture de l'état, ouverte à une clé d'API alors que la
+console la réserve aux admins ; un numéro relié par 360dialog, qui devenait une panne de l'outil au lieu du refus
+lisible de la console ; l'échec d'envoi au Support, désormais journalisé comme par la route ; le délai d'un 429 rendu en
+chiffre, et la description du code, qui dit de n'en redemander un qu'après un code non reçu ; les bornes du Support,
+lues dans la route au lieu d'être recopiées ; deux commentaires déplacés. Les tests prouvent désormais que la limite des
+opérations lourdes refuse avant tout appel à Meta, et lisent le câblage réel. Le reste est au `todo.md` (le plafond du
+Support propre à l'outil, la place du contexte joint, un 422 passager rangé avec les arguments faux).
+
+Preuves : 8 tests neufs et 19 mutations nommées, toutes rouges. Dans une copie d'origin portant tout le
+lot : typecheck et lint (racine et console), l'auto-attaque (2 259 sondes, aucune trouvaille), la suite racine (19 424 tests sur la
+tête d'origin précédente : un rouge du lot, un mot de la suite de la connexion que le test « jamais fini » refuse,
+corrigé, et un délai sous charge ; puis, sur la tête d'origin du jour, les 3 324 tests des 162 fichiers que le lot ou
+les commits des pairs touchent), la suite de la console (1 406 tests).
+
 ## 2026-11-26 : les contacts de l'Entreprise et du Business, et la fiche d'offre de /ops
 
 **La fiche d'offre de /ops (f17eb3ea2, 5614265db, déployée le 2026-11-25).** Demande de Julien après avoir réglé MUTAC

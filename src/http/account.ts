@@ -108,11 +108,116 @@ export interface AccountStatusResponse {
   status: ReturnType<typeof computeAccountStatus>;
 }
 
+/** Ce que lit la lecture de l'Accueil : une partie des dépendances de sa route, les mêmes objets. */
+export type DepsEtatDuCompte = Pick<AccountRouteDeps, 'numeros' | 'photoNumero' | 'pullStatus' | 'hubspotPortal'>;
+
 /**
  * Statut du compte WhatsApp (page Accueil) : numéro + pastille vert/ambre/rouge/gris + champs Meta enrichis
  * + drapeau HubSpot. Pull Graph live à chaque appel, persiste le résultat (rafraîchit en base), puis compose.
- * Un échec de pull ne fait jamais échouer la route (statut gris/rouge). Route admin-only (garde de groupe).
+ * Un échec de pull ne fait jamais échouer la lecture (statut gris/rouge). Partagée par la route `GET /account-status`
+ * et l'outil MCP `get_account_status` (lot 1 du CSM virtuel, B7) : une seule source, la console et Claude lisent le
+ * même état.
  */
+export async function lireEtatDuCompte(deps: DepsEtatDuCompte, tenant: string): Promise<AccountStatusResponse> {
+
+  // Portail HubSpot du tenant, lu par le connecteur. Au mieux : un échec (connecteur injoignable) ne fait jamais
+  // échouer la route -> on retombe sur « non connecté », comme le pull. Ce n'est qu'un affichage. Lu EN MÊME TEMPS
+  // que le numéro : l'attente du connecteur ne s'ajoute pas à celle de la base.
+  const [hubspotPortal, pn] = await Promise.all([
+    deps.hubspotPortal(tenant).catch((err: unknown): HubspotPortalLink =>
+      err instanceof ConnecteurEnReveil ? { connected: false, reveil: true } : { connected: false }),
+    deps.numeros.getPhoneNumber(tenant),
+  ]);
+  if (!pn) {
+    const body: AccountStatusResponse = {
+      hasNumber: false,
+      phoneNumberId: null,
+      number: null,
+      tier: null,
+      quality: 'UNKNOWN',
+      numberStatus: null,
+      nameStatus: null,
+      codeVerificationStatus: null,
+      throughputLevel: null,
+      verifiedName: null,
+      wabaHealthStatus: null,
+      paiementMetaBloque: null,
+      accountReviewStatus: null,
+      businessVerificationStatus: null,
+      marketingMessagesLiteApiStatus: null,
+      ownerBusinessName: null,
+      photoProfilUrl: null,
+      hubspotConnected: false,
+      hubspotPausedAt: null,
+      hubspotPortal,
+      delieLe: null,
+      fournisseur: null,
+      status: { dot: 'grey', label: 'Aucun numéro', reason: "Aucun numéro WhatsApp n'est rattaché à ce compte." },
+    };
+    return body;
+  }
+
+  const fournisseur = pn.fournisseur ?? 'meta';
+  // La pastille, en même temps que le pull (deux appels Meta indépendants, on ne les met pas en file).
+  // `catch(() => null)` : voir la dépendance, une photo manquante ne vaut pas un Accueil en erreur.
+  // Un compte 360dialog n'interroge pas Meta (sa clé n'y part jamais) : ni pull ni photo.
+  const [pull, photo] = fournisseur === '360dialog'
+    ? [null, null]
+    : await Promise.all([
+      deps.pullStatus(pn.id, tenant),
+      deps.photoNumero(tenant, pn.id).catch(() => null),
+    ]);
+  // Le pull frais est enregistré (en coalesce), sauf le numéro d'affichage, qui ne se réécrit pas d'ici.
+  const frais = pull && pull.ok ? pull : undefined;
+  if (frais) {
+    const { ok: _ok, displayPhoneNumber: _affiche, ...patch } = frais;
+    await deps.numeros.saveStatus(pn.id, patch);
+  }
+  // Valeurs affichées : le pull frais prime, sinon on retombe sur le dernier connu (persisté).
+  const quality = normalizeQuality(frais?.qualityRating ?? pn.qualityRating);
+  const numberStatus = frais?.status ?? pn.status ?? undefined;
+  let signals: AccountSignals;
+  if (frais) {
+    signals = { reachable: true, quality, numberStatus };
+  } else if (pull && !pull.ok) {
+    signals = { reachable: false, authError: pull.authError, quality, numberStatus };
+  } else {
+    // pull === null : pas de tentative live (token absent) -> statut sur le dernier connu, marqué indisponible.
+    signals = { reachable: false, quality, numberStatus };
+  }
+
+  const body: AccountStatusResponse = {
+    hasNumber: true,
+    phoneNumberId: pn.id,
+    number: frais?.displayPhoneNumber ?? pn.displayPhoneNumber ?? null,
+    tier: frais?.messagingLimitTier ?? pn.messagingLimitTier ?? null,
+    quality,
+    numberStatus: numberStatus ?? null,
+    nameStatus: frais?.nameStatus ?? pn.nameStatus ?? null,
+    codeVerificationStatus: frais?.codeVerificationStatus ?? pn.codeVerificationStatus ?? null,
+    throughputLevel: frais?.throughputLevel ?? pn.throughputLevel ?? null,
+    verifiedName: frais?.verifiedName ?? pn.verifiedName ?? null,
+    wabaHealthStatus: frais?.wabaHealthStatus ?? pn.wabaHealthStatus ?? null,
+    paiementMetaBloque: frais?.wabaPaiementBloque ?? pn.wabaPaiementBloque ?? null,
+    accountReviewStatus: frais?.accountReviewStatus ?? pn.accountReviewStatus ?? null,
+    businessVerificationStatus: frais?.businessVerificationStatus ?? pn.businessVerificationStatus ?? null,
+    marketingMessagesLiteApiStatus: frais?.marketingMessagesLiteApiStatus ?? pn.marketingMessagesLiteApiStatus ?? null,
+    ownerBusinessName: frais?.ownerBusinessName ?? pn.ownerBusinessName ?? null,
+    photoProfilUrl: photo,
+    hubspotConnected: pn.hubspotConnected,
+    hubspotPausedAt: pn.hubspotPausedAt,
+    hubspotPortal,
+    delieLe: pn.delieLe,
+    fournisseur,
+    // Délié, la pastille le dit, au lieu d'un « opérationnel » vrai chez Meta et faux chez nous : cet espace
+    // n'envoie ni ne reçoit plus rien par ce numéro.
+    status: pn.delieLe
+      ? { dot: 'grey', label: 'Numéro délié', reason: 'Numéro délié de cet espace : aucun message WhatsApp ne part, et les messages reçus ne sont pas enregistrés.' }
+      : fournisseur === '360dialog' ? statut360dialog(pn.identifiantRefuse === true) : computeAccountStatus(signals),
+  };
+  return body;
+}
+
 export function registerAccount(app: FastifyInstance, deps: AccountRouteDeps, garde: Guard): void {
   const opts = { preHandler: garde };
 
@@ -150,105 +255,10 @@ export function registerAccount(app: FastifyInstance, deps: AccountRouteDeps, ga
     return reply.code(200).send({ hubspotConnected: false, disconnected: r.disconnected });
   });
 
+  // Le statut du compte WhatsApp (page Accueil). Route admin-only (garde de groupe) ; l'outil MCP qui la partage exige
+  // une personne, un admin relu à chaque appel.
   app.get('/tenants/:tenantId/account-status', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-
-    // Portail HubSpot du tenant, lu par le connecteur. Au mieux : un échec (connecteur injoignable) ne fait jamais
-    // échouer la route -> on retombe sur « non connecté », comme le pull. Ce n'est qu'un affichage. Lu EN MÊME TEMPS
-    // que le numéro : l'attente du connecteur ne s'ajoute pas à celle de la base.
-    const [hubspotPortal, pn] = await Promise.all([
-      deps.hubspotPortal(tenant).catch((err: unknown): HubspotPortalLink =>
-        err instanceof ConnecteurEnReveil ? { connected: false, reveil: true } : { connected: false }),
-      deps.numeros.getPhoneNumber(tenant),
-    ]);
-    if (!pn) {
-      const body: AccountStatusResponse = {
-        hasNumber: false,
-        phoneNumberId: null,
-        number: null,
-        tier: null,
-        quality: 'UNKNOWN',
-        numberStatus: null,
-        nameStatus: null,
-        codeVerificationStatus: null,
-        throughputLevel: null,
-        verifiedName: null,
-        wabaHealthStatus: null,
-        paiementMetaBloque: null,
-        accountReviewStatus: null,
-        businessVerificationStatus: null,
-        marketingMessagesLiteApiStatus: null,
-        ownerBusinessName: null,
-        photoProfilUrl: null,
-        hubspotConnected: false,
-        hubspotPausedAt: null,
-        hubspotPortal,
-        delieLe: null,
-        fournisseur: null,
-        status: { dot: 'grey', label: 'Aucun numéro', reason: "Aucun numéro WhatsApp n'est rattaché à ce compte." },
-      };
-      return reply.code(200).send(body);
-    }
-
-    const fournisseur = pn.fournisseur ?? 'meta';
-    // La pastille, en même temps que le pull (deux appels Meta indépendants, on ne les met pas en file).
-    // `catch(() => null)` : voir la dépendance, une photo manquante ne vaut pas un Accueil en erreur.
-    // Un compte 360dialog n'interroge pas Meta (sa clé n'y part jamais) : ni pull ni photo.
-    const [pull, photo] = fournisseur === '360dialog'
-      ? [null, null]
-      : await Promise.all([
-        deps.pullStatus(pn.id, tenant),
-        deps.photoNumero(tenant, pn.id).catch(() => null),
-      ]);
-    // Le pull frais est enregistré (en coalesce), sauf le numéro d'affichage, qui ne se réécrit pas d'ici.
-    const frais = pull && pull.ok ? pull : undefined;
-    if (frais) {
-      const { ok: _ok, displayPhoneNumber: _affiche, ...patch } = frais;
-      await deps.numeros.saveStatus(pn.id, patch);
-    }
-    // Valeurs affichées : le pull frais prime, sinon on retombe sur le dernier connu (persisté).
-    const quality = normalizeQuality(frais?.qualityRating ?? pn.qualityRating);
-    const numberStatus = frais?.status ?? pn.status ?? undefined;
-    let signals: AccountSignals;
-    if (frais) {
-      signals = { reachable: true, quality, numberStatus };
-    } else if (pull && !pull.ok) {
-      signals = { reachable: false, authError: pull.authError, quality, numberStatus };
-    } else {
-      // pull === null : pas de tentative live (token absent) -> statut sur le dernier connu, marqué indisponible.
-      signals = { reachable: false, quality, numberStatus };
-    }
-
-    const body: AccountStatusResponse = {
-      hasNumber: true,
-      phoneNumberId: pn.id,
-      number: frais?.displayPhoneNumber ?? pn.displayPhoneNumber ?? null,
-      tier: frais?.messagingLimitTier ?? pn.messagingLimitTier ?? null,
-      quality,
-      numberStatus: numberStatus ?? null,
-      nameStatus: frais?.nameStatus ?? pn.nameStatus ?? null,
-      codeVerificationStatus: frais?.codeVerificationStatus ?? pn.codeVerificationStatus ?? null,
-      throughputLevel: frais?.throughputLevel ?? pn.throughputLevel ?? null,
-      verifiedName: frais?.verifiedName ?? pn.verifiedName ?? null,
-      wabaHealthStatus: frais?.wabaHealthStatus ?? pn.wabaHealthStatus ?? null,
-      paiementMetaBloque: frais?.wabaPaiementBloque ?? pn.wabaPaiementBloque ?? null,
-      accountReviewStatus: frais?.accountReviewStatus ?? pn.accountReviewStatus ?? null,
-      businessVerificationStatus: frais?.businessVerificationStatus ?? pn.businessVerificationStatus ?? null,
-      marketingMessagesLiteApiStatus: frais?.marketingMessagesLiteApiStatus ?? pn.marketingMessagesLiteApiStatus ?? null,
-      ownerBusinessName: frais?.ownerBusinessName ?? pn.ownerBusinessName ?? null,
-      photoProfilUrl: photo,
-      hubspotConnected: pn.hubspotConnected,
-      hubspotPausedAt: pn.hubspotPausedAt,
-      hubspotPortal,
-      delieLe: pn.delieLe,
-      fournisseur,
-      // Délié, la pastille le dit, au lieu d'un « opérationnel » vrai chez Meta et faux chez nous : cet espace
-      // n'envoie ni ne reçoit plus rien par ce numéro.
-      status: pn.delieLe
-        ? { dot: 'grey', label: 'Numéro délié', reason: 'Numéro délié de cet espace : aucun message WhatsApp ne part, et les messages reçus ne sont pas enregistrés.' }
-        : fournisseur === '360dialog' ? statut360dialog(pn.identifiantRefuse === true) : computeAccountStatus(signals),
-    };
-    return reply.code(200).send(body);
+    return reply.code(200).send(await lireEtatDuCompte(deps, espaceVerifie(req)));
   });
 
   // Toggle HubSpot par numéro (admin) : coupe ou active vraiment la synchro (le worker gate le push d'analyse

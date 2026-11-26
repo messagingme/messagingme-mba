@@ -31,8 +31,8 @@ import { lireEtatLigne, tousGardentLApplication, type EtatLigne, type SourcesEta
 /** Les étapes, dans l'ordre du parcours, et les outils qui les font. Un nom d'outil inconnu ne compile pas. */
 export const OUTILS_DE_L_ETAPE = {
   connecter_numero: ['start_whatsapp_connection', 'watch_whatsapp_connection'],
-  // Relié, mais Meta ne l'a pas encore activé : la vérification se finit dans l'Accueil de la console, aucun outil.
-  activer_numero: [],
+  // Relié, mais Meta ne l'a pas encore activé : l'état du compte, le code, puis l'activation (lot 1 du CSM virtuel, B7).
+  activer_numero: ['get_account_status', 'request_number_code', 'activate_number'],
   creer_agent: ['create_agent'],
   completer_agent: [
     'get_agent', 'update_agent', 'preview_site', 'import_site', 'add_knowledge', 'import_document_text', 'set_agent_tools',

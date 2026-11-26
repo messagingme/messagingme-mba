@@ -51,7 +51,9 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   devient, par Claude seul, un parcours de qualification écrit en brouillon, simulé, joué au téléphone par le lien de
   test, mis en ligne d'un clic (publié et répondeur), suivi sur sa première vraie conversation ; 16 appels MCP, 4
   écritures, aucune opération coûteuse, 5 minutes. Le chemin du pilote (B2 à B6, B9) est fini.
-- Ensuite : B7, B8 et B10, en parallèle (la table de parité, ses `aFaire`).
+- Lot G (plan `2026-11-26-csm-lot1-g-prerequis.md`) : B7, les prérequis (`get_account_status`, `request_number_code`,
+  `activate_number`, `contact_support`), en cours.
+- Ensuite : B8 et B10, en parallèle (la table de parité, ses `aFaire`).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 

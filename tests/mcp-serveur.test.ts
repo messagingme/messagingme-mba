@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -138,6 +138,7 @@ function app(
     ...mcpAgentInerte,
     ...mcpNumeroInerte,
     ...mcpDerouleInerte,
+    ...mcpPrerequisInerte,
     ...mcpEvenementsInertes,
     ...mcpChiffresInertes,
     ...mcpMessagesInertes,
@@ -986,12 +987,18 @@ describe('serveur MCP : cohérence du catalogue', () => {
       subscribe_pro: [true, false, true],
       // La ligne de crédit (plan 2026-11-13) : une session chez Stripe à chaque appel, comme le Pro.
       take_credit_line: [true, false, true],
+      // Les prérequis (CSM, B7) : chaque demande fait partir un code de plus chez Meta, sur un quota de 10 par 72 heures ;
+      // chaque activation est un essai de code chez Meta, sans relance automatique ; chaque demande au Support part chez
+      // l’équipe par e-mail.
+      request_number_code: [true, false, true],
+      activate_number: [true, false, true],
+      contact_support: [true, false, true],
     });
-    // Une lecture ne touche personne hors de l'espace, à TROIS exceptions nommées : `preview_site` va lire un site tiers,
+    // Une lecture ne touche personne hors de l'espace, à QUATRE exceptions nommées : `preview_site` va lire un site tiers,
     // `preview_shopify_customers` les clients de la boutique chez Shopify (lot 3), `preview_shopify_order_history` ses
-    // commandes (segments Shopify, lot 5).
+    // commandes (segments Shopify, lot 5), `get_account_status` relit le compte WhatsApp chez Meta (CSM, B7).
     const lecturesEnMondeOuvert = OUTILS.filter((x) => x.annotations.readOnlyHint && x.annotations.openWorldHint).map((o) => o.nom);
-    expect(lecturesEnMondeOuvert.sort()).toEqual(['preview_shopify_customers', 'preview_shopify_order_history', 'preview_site']);
+    expect(lecturesEnMondeOuvert.sort()).toEqual(['get_account_status', 'preview_shopify_customers', 'preview_shopify_order_history', 'preview_site']);
   });
 
   it('🔴 readOnlyHint vaut exactement « le scope est mcp:read », et chaque écriture déclare destructiveHint et idempotentHint', () => {

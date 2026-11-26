@@ -992,6 +992,19 @@ lisent le magasin des deux journaux de la console (`PgErreursLivraisonStore`), a
 le scénario dans la fenêtre pour un contact qui a peu de passages (mesuré : 160 000 lignes lues pour une campagne de
 50 000 contacts). Sans gel aux volumes d'aujourd'hui ; l'index `(tenant_id, wa_id, at)` est au `todo.md`.
 
+🔴 **Les prérequis d'une mise en service (lot 1 du CSM virtuel, B7)**, quatre outils au nom d'une personne :
+`get_account_status` rend la lecture de l'Accueil, que la console réserve aux admins (`lireEtatDuCompte`,
+`src/http/account.ts`, la même pour la route `GET /account-status` et pour l'outil, appel à Meta et enregistrement
+compris) ; `request_number_code` et `activate_number` appellent `demanderCodeNumero` et `activerNumero` sur les
+dépendances mêmes de leurs routes (le quota de Meta, la lecture d'état avant d'agir, la trace `numero.active` au nom de
+la personne, le refus lisible d'un numéro relié par 360dialog) et comptent dans la limite des opérations lourdes, qui
+refuse avant tout appel à Meta ; `contact_support` envoie par le `sendSupport` de la console, aux bornes de son
+formulaire, l'adresse de réponse lue en base, le contexte de l'espace (la lecture de `get_setup_state`) joint par le
+serveur, cinq demandes par minute et par personne, et journalise un envoi en panne avant de le masquer. Les dépendances
+des trois routes sortent en constantes nommées de `src/index.ts` (`depsEmbeddedSignup`, `depsAccount`, `depsSupport`) :
+la console et le MCP reçoivent les mêmes objets, jamais une recopie (`tests/mcp-outils-prerequis.test.ts` lit le
+câblage). L'étape `activer_numero` de `get_setup_state` propose ces outils.
+
 🔴 **Le fichier d'un message se lit à chaque envoi** et se vérifie une fois à l'écriture par le MÊME chemin que l'envoi
 (`lireFichierDuBloc`, `src/meta/template-media.ts` : fiche de la médiathèque de l'espace, sinon téléchargement gardé),
 sans être stocké. **Ce qui utilise un scénario** (`utilisationsDuScenario` : automation, campagne qui peut encore

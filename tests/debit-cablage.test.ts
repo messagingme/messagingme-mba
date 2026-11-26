@@ -32,7 +32,9 @@ describe('le compteur de débit partagé, de la base aux plafonds', () => {
 
   it('🔴 la minute entre deux codes d’un numéro est tenue par les verrous partagés', () => {
     const api = lire('../src/index.ts');
-    expect(api).toMatch(/embeddedSignup: \(\(\) => \{[\s\S]*?verrous: verrousCourts,\s*\};\s*\}\)\(\)/);
+    expect(api).toMatch(/const depsEmbeddedSignup: NonNullable<DepsServeur\['embeddedSignup'\]> = \(\(\) => \{[\s\S]*?verrous: verrousCourts,\s*\};\s*\}\)\(\);/);
+    // La constante est celle que la console reçoit (CSM, B7), et le MCP la même.
+    expect(api).toContain('embeddedSignup: depsEmbeddedSignup,');
   });
 
   it('🔴 le worker efface les fenêtres échues, sur sa propre cadence', () => {

@@ -97,7 +97,9 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     // qui ne le rendrait pas éteindrait l'attente en silence, `attendLigne` étant facultatif dans le type.
     expect(bloc('const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {', '\n    },'))
       .toMatch(/numeros: \(t\) => lignesCreditWhatsapp\.numerosDeLEspace\(t\),/);
-    const connexion = bloc('embeddedSignup: (() => {', 'meta: esClient,');
+    // La connexion est une constante nommée depuis le CSM (B7) : la console et le MCP reçoivent le même objet.
+    expect(sansCommentaires).toContain('embeddedSignup: depsEmbeddedSignup,');
+    const connexion = bloc("const depsEmbeddedSignup: NonNullable<DepsServeur['embeddedSignup']> = (() => {", 'meta: esClient,');
     expect(connexion).toMatch(/solutionDuPartenaire: \(tenant: string\) => solutionDuPartenaire\(fenetreDuPartenaire, tenant\),/);
     expect(connexion).toMatch(/connexionParLaLigne\(fenetreDuPartenaire, tenant, n\)/);
     // La coexistence voyage avec le numéro, typée : un littéral reconstruit sans elle ne compilerait pas (relecture du lot V5, jaune 6).

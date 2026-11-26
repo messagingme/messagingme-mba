@@ -3578,6 +3578,11 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   brouillon, à essayer depuis son téléphone avant la mise en ligne ; le déroulé d'un contact dans un scénario (où il
   en est, les blocs passés et leurs dates, les erreurs de son numéro) ; les journaux d'erreurs de livraison et du
   système de la console, lus comme elle les montre.
+  ✅ **Claude lève les prérequis d'une mise en service** (2026-11-26, lot 1 du CSM virtuel, plan
+  `docs/superpowers/plans/2026-11-26-csm-lot1-g-prerequis.md`) : il lit l'état du compte WhatsApp comme l'Accueil
+  (nom affiché, qualité, palier d'envoi, vérification d'entreprise, Marketing Messages), fait envoyer le code de
+  vérification du numéro et l'active, au nom d'une personne, et écrit au Support avec le contexte de l'espace joint par
+  le serveur.
   ✅ **Claude fait partir un scénario vers une personne** (2026-11-03, plan
   `docs/superpowers/plans/2026-11-03-outil-envoyer-scenario.md`) : `send_scenario_to_contact`, le même envoi que
   `send_template_to_contact` (consentement déclaré par le client, STOP, quota), cible un scénario publié qui ouvre

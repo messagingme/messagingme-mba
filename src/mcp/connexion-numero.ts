@@ -492,7 +492,9 @@ function suiteDe(e: EtatConnexion, filiere: FiliereNumero, mode?: string, paieme
   }
   if (e.connecte?.aActiver) {
     return 'Le numéro est relié, mais Meta ne l’a pas encore activé : la vérification n’est pas allée au bout. Dis-le à la '
-      + 'personne : elle peut la terminer dans l’Accueil de la console (« Activer le numéro »).';
+      + 'personne, puis termine la vérification avec elle : request_number_code (Meta envoie un code au numéro, par appel ou '
+      + 'par SMS), puis activate_number avec le code qu’elle te donne. Elle peut aussi la terminer dans l’Accueil de la '
+      + 'console (« Activer le numéro »).';
   }
   if (e.connecte) {
     if (paiement !== 'carte') return SUITES_CONNECTE[paiement];
@@ -585,7 +587,7 @@ export function creerAccompagnementConnexionNumeroMcp(
       const relie = mode === 'coexistence' && etat.application !== undefined ? null : etat.connecte;
       if (relie?.aActiver) {
         throw new RefusOutil('Un numéro est déjà relié à cet espace, mais Meta ne l’a pas encore activé : il reste à finir sa '
-          + 'vérification, dans l’Accueil de la console (« Activer le numéro »).', 'conflict');
+          + 'vérification : request_number_code puis activate_number, ou l’Accueil de la console (« Activer le numéro »).', 'conflict');
       }
       if (relie) throw new RefusOutil('Cet espace a déjà un numéro WhatsApp connecté : il n’y a rien à brancher.', 'conflict');
       if (filiere === 'api' && mode === 'fourni' && modeDeReprise(etat) === 'coexistence') {

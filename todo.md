@@ -251,6 +251,17 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot G (B7, les prérequis) : ce qui reste de la relecture (2026-11-26, aucun rouge)
+
+- Le plafond de `contact_support` (cinq par minute et par personne) est distinct de celui de la route : une personne a
+  cinq demandes par la console plus cinq par Claude, par minute et par copie. Le partager voudrait le même limiteur des
+  deux côtés, passé par le câblage.
+- Le contexte de l'espace suit le message écrit par Claude, qui pourrait imiter la mention « joint par le serveur » : le
+  placer avant le message, ou dans un champ à part de l'e-mail.
+- Un 422 passager (« état du numéro illisible chez Meta ») devient `invalid_args` pour l'agent, comme un code refusé :
+  une cause fine dans l'issue du service le rangerait en `unavailable`.
+- Deux `activate_number` simultanés peuvent enregistrer deux PIN différents : déjà vrai du double clic de la console.
+
 ## 🟡 CSM virtuel, B9 (le pilote) : ce qu'il a appris (2026-11-26)
 
 - Après un essai par le lien de test qui finit à l'équipe, la conversation reste tenue par un humain : le répondeur ne

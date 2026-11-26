@@ -315,6 +315,8 @@ import { commissionPour } from './offres/commission';
 import { inclutLeNumero, surFinDeLOffreManuelle, surFinDuPro, surNumeroPayePendantLEssai, surPassageEnPro, type DepsNumeroInclus } from './offres/numero-inclus';
 import { contratOpenapi } from './api/openapi';
 import { creerAccompagnementConnexionNumeroMcp } from './mcp/connexion-numero';
+import { lireEtatDuCompte } from './http/account';
+import { activerNumero, demanderCodeNumero } from './account/connexion-numero';
 
 /**
  * Le nom de cette copie de l'API dans `/ops` et dans ses alertes : `api` seule, `api-<copie>` à plusieurs, et
@@ -2175,6 +2177,226 @@ async function main(): Promise<void> {
     creditWhatsapp: creditWhatsappDeLaConsole,
   });
 
+  // Les dépendances de trois routes, sorties de l'appel à `buildServer` pour que le MCP reçoive les MÊMES objets
+  // (lot 1 du CSM virtuel, B7) : jamais une recopie.
+  type DepsServeur = Parameters<typeof buildServer>[0];
+  const depsEmbeddedSignup: NonNullable<DepsServeur['embeddedSignup']> = (() => {
+    const esClient = new MetaEmbeddedSignupClient(
+      config.META_APP_ID, config.META_APP_SECRET, config.META_GRAPH_VERSION, config.META_STOCKAGE_LOCAL,
+    );
+    return {
+      audit: auditSink,
+      configId: config.META_ES_CONFIG_ID,
+      appId: config.META_APP_ID,
+      graphVersion: config.META_GRAPH_VERSION,
+      // La fenêtre du partenaire (lot E du Crédit WhatsApp) : l'identifiant de la solution, seulement à l'espace que sa
+      // règle désigne, la connexion faite par elle signalée à Julien, et refusée chez nous aussi (relecture, jaune 1).
+      solutionDuPartenaire: (tenant: string) => solutionDuPartenaire(fenetreDuPartenaire, tenant),
+      connexionParLaLigne: (tenant: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null; coexistence: boolean }) =>
+        connexionParLaLigne(fenetreDuPartenaire, tenant, n),
+      fenetreRefusee: (tenant: string, i: { statut: number; wabaId: string | null; phoneNumberId: string | null }) =>
+        fenetreRefuseeParLaLigne(fenetreDuPartenaire, tenant, i),
+      meta: esClient,
+      inscriptions: {
+        linkTenant: (input) => esCredentialsStore.linkTenant(input),
+        lierCompteSansNumero: (input) => esCredentialsStore.lierCompteSansNumero(input),
+      },
+      /**
+       * Le crédit de bienvenue, que le protocole n'appelle que pour un numéro que Meta dit vérifié. 🔴 Un espace qui a
+       * déjà une clé de modèle voit son plafond remonter, comme après une recharge (sinon Vercel le couperait avant
+       * qu'il ait consommé ce crédit), EN ARRIÈRE-PLAN et suivi par l'arrêt propre : Vercel peut prendre 30 s, que
+       * l'inscription n'a pas à attendre (`creerOffreDeBienvenue`).
+       */
+      offrirCredit: puisSignaler(creerOffreDeBienvenue({
+        offrir: (tenant: string, phoneNumberId: string) => esCredentialsStore.offrirCredit(tenant, phoneNumberId),
+        remonterPlafond: provisionCle ? (tenant: string) => remonterPlafondApresRecharge(provisionCle, tenant) : null,
+        travaux: travauxEnVol,
+        journal: (msg, err, tenant) => { journaliser('error', msg, { err, tenantId: tenant, pour: 'credit_offert' }); },
+      }), (tenant: string) => signalerNumero(tenant)),
+      // 🔴 Chiffrement au repos ici (la route ne voit jamais le stockage) : AES-GCM avec ENCRYPTION_KEY,
+      // pour le token et le PIN 2FA du numéro (un secret Meta).
+      saveCredentials: (waba: string, tenant: string, token: string, pin: string | null) =>
+        esCredentialsStore.saveCredentials(waba, tenant, encryptSecret(token, config.ENCRYPTION_KEY), pin === null ? null : encryptSecret(pin, config.ENCRYPTION_KEY)),
+      fournisseurDeLEspace: (tenant: string) => esCredentialsStore.fournisseurDeLEspace(tenant),
+      // Le passage en coexistence d'un espace relié par QR code (plan 2026-10-24) : son appareil lié se retire par le
+      // client du service de connexions, celui de la page du lien (`connexionApplication`).
+      retirerCompteApplication: (tenant: string) => retirerLeCompteApplication(connexionApplication, tenant),
+
+      // ----- « Activer le numéro » -----
+      // 🔴 Le jeton ne sort pas d'ici : ces fonctions ne prennent qu'un `tenantId`, la route ne voit jamais
+      // un secret.
+      numeroDuTenant: async (tenant: string) => (await phoneStatusStore.getPhoneNumber(tenant))?.id ?? null,
+      // Un numéro relié en coexistence (migration 0253) n'a rien à activer : les deux gestes le refusent avant Meta.
+      enCoexistence: async (tenant: string) => (await phoneStatusStore.getPhoneNumber(tenant))?.coexistence === true,
+      // Relu chez Meta à chaque geste, jamais dans notre base : notre copie date du dernier pull, et c'est
+      // Meta qui décide si un code est encore nécessaire.
+      etatNumero: async (tenant: string, phoneNumberId: string) => {
+        const client = await metaFactory.phoneClientForTenant(tenant);
+        const info = await client.get(phoneNumberId);
+        return { status: info.status ?? null, codeVerificationStatus: info.codeVerificationStatus ?? null };
+      },
+      demanderCode: async (tenant: string, phoneNumberId: string, methode: 'VOICE' | 'SMS') => {
+        const client = await metaFactory.phoneRegisterClientForTenant(tenant);
+        await client.requestCode(phoneNumberId, { methode });
+      },
+      verifierCode: async (tenant: string, phoneNumberId: string, code: string) => {
+        const client = await metaFactory.phoneRegisterClientForTenant(tenant);
+        await client.verifyCode(phoneNumberId, code);
+      },
+      // Le register reste celui de l'inscription : `MetaPhoneRegisterClient` dit pourquoi il ne le porte pas
+      // (deux copies du même appel Graph divergeraient), d'où le jeton résolu à la main ici. Pas
+      // d'interception d'erreur d'auth : ce client lève des `Error` ordinaires, que `isMetaAuthError` ne
+      // reconnaît pas.
+      enregistrerNumero: async (tenant: string, phoneNumberId: string, pin: string) => {
+        const { token } = await metaCredentials.resolveForTenant(tenant);
+        await esClient.register(phoneNumberId, token, pin);
+      },
+      sauverPin: async (tenant: string, pin: string) => {
+        const waba = await wabaDeLEspace(tenant);
+        if (waba === null) {
+          // Numéro branché à la main, hors Embedded Signup : aucune ligne où conserver le PIN. L'activation
+          // a réussi, on le dit plutôt que de laisser croire que le PIN est gardé quelque part.
+          // eslint-disable-next-line no-console
+          console.warn(`numero/activer: PIN non conservé (espace ${tenant} sans compte WhatsApp rattaché)`);
+          return;
+        }
+        await esCredentialsStore.enregistrerPin(waba, tenant, encryptSecret(pin, config.ENCRYPTION_KEY));
+      },
+
+      // ----- « Délier » et « Relier » : aucun appel à Meta -----
+      // La garde de CETTE copie est vidée après chaque geste. Les autres copies de l'API et le worker gardent au
+      // plus `NUMERO_DELIE_TTL_MS` de retard (fenêtre acceptée, `src/meta/numero-delie.ts`).
+      delierNumero: async (tenant: string) => {
+        const r = await numeroDelieStore.delier(tenant);
+        gardeNumeroDelie.invaliderTout();
+        return r;
+      },
+      relierNumero: async (tenant: string) => {
+        const r = await numeroDelieStore.relier(tenant);
+        gardeNumeroDelie.invaliderTout();
+        return r;
+      },
+      // ----- « Déconnecter le numéro » -----
+      // Les gestes chez Meta et la sortie du numéro fourni sont ceux de la suppression d'un espace (/ops) : une seule
+      // façon d'éteindre l'agent, de vider sa liste, de désabonner le compte et de rendre un numéro.
+      bilanDeconnexion: async (tenant: string) => {
+        const b = await deconnexionNumero.bilan(tenant);
+        if (b === null) return null;
+        // Un jeton illisible (déchiffrement, base) ne doit pas interdire de déconnecter : les étapes chez Meta sont
+        // sautées, comme pour un jeton refusé, au lieu d'un 500 que Cloudflare remplacerait par sa page.
+        const jeton = await jetonMetaDeLEspace(tenant).then((j) => j.jeton).catch((err: unknown) => {
+          journaliser('error', 'deconnexion_jeton_illisible', { tenantId: tenant, err: texteDe(err) });
+          return 'invalide' as const;
+        });
+        return { ...b, jeton };
+      },
+      deconnecterNumero: async (tenant: string, b) => {
+        const r = await deconnecterNumero(tenant, b, {
+          purgerConversations: (t) => deconnexionNumero.purgerConversations(t),
+          eteindreMba: suppressionEspace.gestes.eteindreMba,
+          viderListeMba: suppressionEspace.gestes.viderListeMba,
+          desabonnerWaba: suppressionEspace.gestes.desabonnerWaba,
+          sortirNumeroFourni: async (t) => {
+            const s = await suppressionEspace.gestes.sortirNumeroFourni(t);
+            // Le client ne lit pas /ops : Julien est prévenu d'un numéro sorti sans être résilié.
+            if (s.fait === 'bloque') {
+              await sendTelegram(`[mba-${NOM_API}] Numéro fourni déconnecté par le client, NON résilié chez DIDWW : +${s.numero} (espace ${t}, ${s.cause}). À résilier à la main.`);
+            }
+            return s;
+          },
+          programmerFinDuNumero: (t) => programmerLaFinDuNumero({
+            abonnements: abonnementsNumero,
+            programmerFin: (id) => programmerFinDuNumero(abonnementDuNumero, id),
+            finNonProgrammee: async (id, tt) => {
+              await sendTelegram(`[mba-${NOM_API}] Numéro déconnecté sans résiliation chez Stripe : abonnement ${id} (espace ${tt}). À résilier à la main en fin de période.`);
+            },
+          }, t),
+          detacher: (t) => deconnexionNumero.detacher(t),
+        });
+        // La garde de CETTE copie : les autres copies et le worker ont au plus `NUMERO_DELIE_TTL_MS` de retard.
+        gardeNumeroDelie.invaliderTout();
+        gardeNumeroSuspendu.invaliderTout();
+        // 🔴 Un échec chez Meta laisse l'agent de Meta répondre, ou nos webhooks arriver, pour un numéro que la
+        // console ne montre plus : plus aucun écran pour le rattraper, donc Julien est prévenu.
+        const ratees = r.etapes.filter((e) => e.etat === 'echec' && ['mba_eteint', 'mba_liste', 'waba_desabonne'].includes(e.etape));
+        if (ratees.length > 0) {
+          await sendTelegram(`[mba-${NOM_API}] Numéro ${b.phoneNumberId} déconnecté (espace ${tenant}, compte ${b.wabaId ?? '?'}) avec des étapes chez Meta en échec : ${ratees.map((e) => `${e.etape} (${e.detail ?? ''})`).join(' ; ')}. À finir à la main chez Meta.`);
+        }
+        return r;
+      },
+
+      // La minute entre deux demandes de code d'un numéro, commune à toutes les copies (le quota de Meta).
+      verrous: verrousCourts,
+    };
+  })();
+
+  const depsAccount: NonNullable<DepsServeur['account']> = {
+    numeros: phoneStatusStore,
+    hubspotPortal: lirePortailHubspot,
+    /**
+     * La pastille du numéro, relue et jamais stockée : l'URL que Meta rend est signée et expire. Derrière
+     * un micro-cache de dix minutes, très en deçà de sa durée de vie : l'Accueil est la page la plus
+     * ouverte de la console.
+     */
+    photoNumero: (tenant, phoneNumberId) => photoNumeroCache.lire(`${tenant}:${phoneNumberId}`, async () => {
+      if (!config.META_ACCESS_TOKEN) return null;
+      const client = await metaFactory.phoneClientForTenant(tenant);
+      return client.photoDeProfil(phoneNumberId);
+    }),
+    pullStatus: async (phoneNumberId, tenant) => {
+      if (!config.META_ACCESS_TOKEN) return null; // pas de token global -> pas de pull live (statut sur le dernier connu)
+      try {
+        const phoneClientT = await metaFactory.phoneClientForTenant(tenant); // token par tenant, repli global
+        const info = await phoneClientT.get(phoneNumberId);
+        // Santé WABA : 2e appel Graph, best-effort. Un échec (droits/état) ne casse pas le pull du numéro :
+        // on retombe sur le statut du numéro seul (les champs WABA restent sur leur dernier connu via coalesce).
+        const wabaId = await repo.getTenantWabaId(tenant);
+        const waba = wabaId ? await phoneClientT.getWabaHealth(wabaId).catch(() => undefined) : undefined;
+        return pullFromInfo(info, waba);
+      } catch (err) {
+        return pullFromError(err);
+      }
+    },
+    // Rattrapage HubSpot : enfile un seul job hubspot-catchup (le worker liste les marques et re-pousse).
+    // No-op si le pipeline analyse/push est inerte (mêmes conditions que le worker qui consomme la file).
+    enqueueHubspotCatchup: async (tenant) => {
+      if (!(config.CONVERSATION_ANALYSIS_ENABLED === 'true' && config.CONNECTOR_PUSH_URL !== '')) return;
+      await queue.enqueue('hubspot-catchup', { tenantId: tenant });
+    },
+    // Déconnexion complète : appel service signé vers mm-hubspot (unlink + révocation du token). Monté
+    // seulement si le canal service est configuré (sinon la route répond 503).
+    ...(config.HUBSPOT_SERVICE_URL
+      ? { disconnectHubspot: (tenant: string) => disconnectHubspot({ baseUrl: config.HUBSPOT_SERVICE_URL, secret: config.HUBSPOT_SERVICE_SECRET, transport }, tenant) }
+      : {}),
+  };
+
+  const depsSupport: NonNullable<DepsServeur['support']> = {
+    enabled: envoisResend !== null && !!config.SUPPORT_TO,
+    getUserEmail: async (userId) => (await userStore.getById(userId))?.email ?? null,
+    // Le support d'un Business est prioritaire (spec Business) : l'offre en cache suffit, le sujet le dit à l'équipe.
+    prioritaire: async (tenant) => (await offres.offreDe(tenant)).offre === 'business',
+    sendSupport: async ({ tenantId, userId, email, subject, message }) => {
+      const text = [
+        'Nouveau message de support (console MBA)',
+        '',
+        `Tenant : ${tenantId}`,
+        `User : ${userId ?? 'inconnu'}`,
+        `Email : ${email ?? 'non fourni'}`,
+        '',
+        `Sujet : ${subject}`,
+        '',
+        message,
+      ].join('\n');
+      if (envoisResend === null) throw new Error('Resend non configuré');
+      await envoisResend.support({
+        to: config.SUPPORT_TO,
+        subject: `[Support MBA] ${subject}`,
+        text,
+        ...(email ? { replyTo: email } : {}),
+      });
+    },
+  };
+
   const app = buildServer({
     /**
      * 🔴 Le compteur des plafonds de débit, PARTAGÉ par toutes les copies de l'API (migration 0186). Oublié,
@@ -3290,155 +3512,7 @@ async function main(): Promise<void> {
       // Ce retrait part après la réponse : l'arrêt de cette copie l'attend avant de fermer le pool.
       enVol: travauxEnVol,
     },
-    embeddedSignup: (() => {
-      const esClient = new MetaEmbeddedSignupClient(
-        config.META_APP_ID, config.META_APP_SECRET, config.META_GRAPH_VERSION, config.META_STOCKAGE_LOCAL,
-      );
-      return {
-        audit: auditSink,
-        configId: config.META_ES_CONFIG_ID,
-        appId: config.META_APP_ID,
-        graphVersion: config.META_GRAPH_VERSION,
-        // La fenêtre du partenaire (lot E du Crédit WhatsApp) : l'identifiant de la solution, seulement à l'espace que sa
-        // règle désigne, la connexion faite par elle signalée à Julien, et refusée chez nous aussi (relecture, jaune 1).
-        solutionDuPartenaire: (tenant: string) => solutionDuPartenaire(fenetreDuPartenaire, tenant),
-        connexionParLaLigne: (tenant: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null; coexistence: boolean }) =>
-          connexionParLaLigne(fenetreDuPartenaire, tenant, n),
-        fenetreRefusee: (tenant: string, i: { statut: number; wabaId: string | null; phoneNumberId: string | null }) =>
-          fenetreRefuseeParLaLigne(fenetreDuPartenaire, tenant, i),
-        meta: esClient,
-        inscriptions: {
-          linkTenant: (input) => esCredentialsStore.linkTenant(input),
-          lierCompteSansNumero: (input) => esCredentialsStore.lierCompteSansNumero(input),
-        },
-        /**
-         * Le crédit de bienvenue, que le protocole n'appelle que pour un numéro que Meta dit vérifié. 🔴 Un espace qui a
-         * déjà une clé de modèle voit son plafond remonter, comme après une recharge (sinon Vercel le couperait avant
-         * qu'il ait consommé ce crédit), EN ARRIÈRE-PLAN et suivi par l'arrêt propre : Vercel peut prendre 30 s, que
-         * l'inscription n'a pas à attendre (`creerOffreDeBienvenue`).
-         */
-        offrirCredit: puisSignaler(creerOffreDeBienvenue({
-          offrir: (tenant: string, phoneNumberId: string) => esCredentialsStore.offrirCredit(tenant, phoneNumberId),
-          remonterPlafond: provisionCle ? (tenant: string) => remonterPlafondApresRecharge(provisionCle, tenant) : null,
-          travaux: travauxEnVol,
-          journal: (msg, err, tenant) => { journaliser('error', msg, { err, tenantId: tenant, pour: 'credit_offert' }); },
-        }), (tenant: string) => signalerNumero(tenant)),
-        // 🔴 Chiffrement au repos ici (la route ne voit jamais le stockage) : AES-GCM avec ENCRYPTION_KEY,
-        // pour le token et le PIN 2FA du numéro (un secret Meta).
-        saveCredentials: (waba: string, tenant: string, token: string, pin: string | null) =>
-          esCredentialsStore.saveCredentials(waba, tenant, encryptSecret(token, config.ENCRYPTION_KEY), pin === null ? null : encryptSecret(pin, config.ENCRYPTION_KEY)),
-        fournisseurDeLEspace: (tenant: string) => esCredentialsStore.fournisseurDeLEspace(tenant),
-        // Le passage en coexistence d'un espace relié par QR code (plan 2026-10-24) : son appareil lié se retire par le
-        // client du service de connexions, celui de la page du lien (`connexionApplication`).
-        retirerCompteApplication: (tenant: string) => retirerLeCompteApplication(connexionApplication, tenant),
-
-        // ----- « Activer le numéro » -----
-        // 🔴 Le jeton ne sort pas d'ici : ces fonctions ne prennent qu'un `tenantId`, la route ne voit jamais
-        // un secret.
-        numeroDuTenant: async (tenant: string) => (await phoneStatusStore.getPhoneNumber(tenant))?.id ?? null,
-        // Un numéro relié en coexistence (migration 0253) n'a rien à activer : les deux gestes le refusent avant Meta.
-        enCoexistence: async (tenant: string) => (await phoneStatusStore.getPhoneNumber(tenant))?.coexistence === true,
-        // Relu chez Meta à chaque geste, jamais dans notre base : notre copie date du dernier pull, et c'est
-        // Meta qui décide si un code est encore nécessaire.
-        etatNumero: async (tenant: string, phoneNumberId: string) => {
-          const client = await metaFactory.phoneClientForTenant(tenant);
-          const info = await client.get(phoneNumberId);
-          return { status: info.status ?? null, codeVerificationStatus: info.codeVerificationStatus ?? null };
-        },
-        demanderCode: async (tenant: string, phoneNumberId: string, methode: 'VOICE' | 'SMS') => {
-          const client = await metaFactory.phoneRegisterClientForTenant(tenant);
-          await client.requestCode(phoneNumberId, { methode });
-        },
-        verifierCode: async (tenant: string, phoneNumberId: string, code: string) => {
-          const client = await metaFactory.phoneRegisterClientForTenant(tenant);
-          await client.verifyCode(phoneNumberId, code);
-        },
-        // Le register reste celui de l'inscription : `MetaPhoneRegisterClient` dit pourquoi il ne le porte pas
-        // (deux copies du même appel Graph divergeraient), d'où le jeton résolu à la main ici. Pas
-        // d'interception d'erreur d'auth : ce client lève des `Error` ordinaires, que `isMetaAuthError` ne
-        // reconnaît pas.
-        enregistrerNumero: async (tenant: string, phoneNumberId: string, pin: string) => {
-          const { token } = await metaCredentials.resolveForTenant(tenant);
-          await esClient.register(phoneNumberId, token, pin);
-        },
-        sauverPin: async (tenant: string, pin: string) => {
-          const waba = await wabaDeLEspace(tenant);
-          if (waba === null) {
-            // Numéro branché à la main, hors Embedded Signup : aucune ligne où conserver le PIN. L'activation
-            // a réussi, on le dit plutôt que de laisser croire que le PIN est gardé quelque part.
-            // eslint-disable-next-line no-console
-            console.warn(`numero/activer: PIN non conservé (espace ${tenant} sans compte WhatsApp rattaché)`);
-            return;
-          }
-          await esCredentialsStore.enregistrerPin(waba, tenant, encryptSecret(pin, config.ENCRYPTION_KEY));
-        },
-
-        // ----- « Délier » et « Relier » : aucun appel à Meta -----
-        // La garde de CETTE copie est vidée après chaque geste. Les autres copies de l'API et le worker gardent au
-        // plus `NUMERO_DELIE_TTL_MS` de retard (fenêtre acceptée, `src/meta/numero-delie.ts`).
-        delierNumero: async (tenant: string) => {
-          const r = await numeroDelieStore.delier(tenant);
-          gardeNumeroDelie.invaliderTout();
-          return r;
-        },
-        relierNumero: async (tenant: string) => {
-          const r = await numeroDelieStore.relier(tenant);
-          gardeNumeroDelie.invaliderTout();
-          return r;
-        },
-        // ----- « Déconnecter le numéro » -----
-        // Les gestes chez Meta et la sortie du numéro fourni sont ceux de la suppression d'un espace (/ops) : une seule
-        // façon d'éteindre l'agent, de vider sa liste, de désabonner le compte et de rendre un numéro.
-        bilanDeconnexion: async (tenant: string) => {
-          const b = await deconnexionNumero.bilan(tenant);
-          if (b === null) return null;
-          // Un jeton illisible (déchiffrement, base) ne doit pas interdire de déconnecter : les étapes chez Meta sont
-          // sautées, comme pour un jeton refusé, au lieu d'un 500 que Cloudflare remplacerait par sa page.
-          const jeton = await jetonMetaDeLEspace(tenant).then((j) => j.jeton).catch((err: unknown) => {
-            journaliser('error', 'deconnexion_jeton_illisible', { tenantId: tenant, err: texteDe(err) });
-            return 'invalide' as const;
-          });
-          return { ...b, jeton };
-        },
-        deconnecterNumero: async (tenant: string, b) => {
-          const r = await deconnecterNumero(tenant, b, {
-            purgerConversations: (t) => deconnexionNumero.purgerConversations(t),
-            eteindreMba: suppressionEspace.gestes.eteindreMba,
-            viderListeMba: suppressionEspace.gestes.viderListeMba,
-            desabonnerWaba: suppressionEspace.gestes.desabonnerWaba,
-            sortirNumeroFourni: async (t) => {
-              const s = await suppressionEspace.gestes.sortirNumeroFourni(t);
-              // Le client ne lit pas /ops : Julien est prévenu d'un numéro sorti sans être résilié.
-              if (s.fait === 'bloque') {
-                await sendTelegram(`[mba-${NOM_API}] Numéro fourni déconnecté par le client, NON résilié chez DIDWW : +${s.numero} (espace ${t}, ${s.cause}). À résilier à la main.`);
-              }
-              return s;
-            },
-            programmerFinDuNumero: (t) => programmerLaFinDuNumero({
-              abonnements: abonnementsNumero,
-              programmerFin: (id) => programmerFinDuNumero(abonnementDuNumero, id),
-              finNonProgrammee: async (id, tt) => {
-                await sendTelegram(`[mba-${NOM_API}] Numéro déconnecté sans résiliation chez Stripe : abonnement ${id} (espace ${tt}). À résilier à la main en fin de période.`);
-              },
-            }, t),
-            detacher: (t) => deconnexionNumero.detacher(t),
-          });
-          // La garde de CETTE copie : les autres copies et le worker ont au plus `NUMERO_DELIE_TTL_MS` de retard.
-          gardeNumeroDelie.invaliderTout();
-          gardeNumeroSuspendu.invaliderTout();
-          // 🔴 Un échec chez Meta laisse l'agent de Meta répondre, ou nos webhooks arriver, pour un numéro que la
-          // console ne montre plus : plus aucun écran pour le rattraper, donc Julien est prévenu.
-          const ratees = r.etapes.filter((e) => e.etat === 'echec' && ['mba_eteint', 'mba_liste', 'waba_desabonne'].includes(e.etape));
-          if (ratees.length > 0) {
-            await sendTelegram(`[mba-${NOM_API}] Numéro ${b.phoneNumberId} déconnecté (espace ${tenant}, compte ${b.wabaId ?? '?'}) avec des étapes chez Meta en échec : ${ratees.map((e) => `${e.etape} (${e.detail ?? ''})`).join(' ; ')}. À finir à la main chez Meta.`);
-          }
-          return r;
-        },
-
-        // La minute entre deux demandes de code d'un numéro, commune à toutes les copies (le quota de Meta).
-        verrous: verrousCourts,
-      };
-    })(),
+    embeddedSignup: depsEmbeddedSignup,
     /**
      * Les publicités Click-to-WhatsApp.
      * 🔴 Le jeton est chiffré et déchiffré dans `src/pubs/connexion.ts`. La racine ne reçoit qu'une capacité
@@ -3466,45 +3540,7 @@ async function main(): Promise<void> {
       // Ces cas d'usage et l'accès au compte Meta sont possédés par `src/pubs/acces-publicitaire.ts`.
       ...accesPublicitaire,
     },
-    account: {
-      numeros: phoneStatusStore,
-      hubspotPortal: lirePortailHubspot,
-      /**
-       * La pastille du numéro, relue et jamais stockée : l'URL que Meta rend est signée et expire. Derrière
-       * un micro-cache de dix minutes, très en deçà de sa durée de vie : l'Accueil est la page la plus
-       * ouverte de la console.
-       */
-      photoNumero: (tenant, phoneNumberId) => photoNumeroCache.lire(`${tenant}:${phoneNumberId}`, async () => {
-        if (!config.META_ACCESS_TOKEN) return null;
-        const client = await metaFactory.phoneClientForTenant(tenant);
-        return client.photoDeProfil(phoneNumberId);
-      }),
-      pullStatus: async (phoneNumberId, tenant) => {
-        if (!config.META_ACCESS_TOKEN) return null; // pas de token global -> pas de pull live (statut sur le dernier connu)
-        try {
-          const phoneClientT = await metaFactory.phoneClientForTenant(tenant); // token par tenant, repli global
-          const info = await phoneClientT.get(phoneNumberId);
-          // Santé WABA : 2e appel Graph, best-effort. Un échec (droits/état) ne casse pas le pull du numéro :
-          // on retombe sur le statut du numéro seul (les champs WABA restent sur leur dernier connu via coalesce).
-          const wabaId = await repo.getTenantWabaId(tenant);
-          const waba = wabaId ? await phoneClientT.getWabaHealth(wabaId).catch(() => undefined) : undefined;
-          return pullFromInfo(info, waba);
-        } catch (err) {
-          return pullFromError(err);
-        }
-      },
-      // Rattrapage HubSpot : enfile un seul job hubspot-catchup (le worker liste les marques et re-pousse).
-      // No-op si le pipeline analyse/push est inerte (mêmes conditions que le worker qui consomme la file).
-      enqueueHubspotCatchup: async (tenant) => {
-        if (!(config.CONVERSATION_ANALYSIS_ENABLED === 'true' && config.CONNECTOR_PUSH_URL !== '')) return;
-        await queue.enqueue('hubspot-catchup', { tenantId: tenant });
-      },
-      // Déconnexion complète : appel service signé vers mm-hubspot (unlink + révocation du token). Monté
-      // seulement si le canal service est configuré (sinon la route répond 503).
-      ...(config.HUBSPOT_SERVICE_URL
-        ? { disconnectHubspot: (tenant: string) => disconnectHubspot({ baseUrl: config.HUBSPOT_SERVICE_URL, secret: config.HUBSPOT_SERVICE_SECRET, transport }, tenant) }
-        : {}),
-    },
+    account: depsAccount,
     demarrage: { etat: (tenant) => demarrageStore.etat(tenant) },
     me: {
       getById: (userId) => userStore.getById(userId),
@@ -3927,32 +3963,7 @@ async function main(): Promise<void> {
         ? { client: creerClientDidww({ cle: config.DIDWW_API_KEY, url: config.DIDWW_API_URL }), trunkId: config.DIDWW_TRUNK_OTP_ID }
         : null,
     },
-    support: {
-      enabled: envoisResend !== null && !!config.SUPPORT_TO,
-      getUserEmail: async (userId) => (await userStore.getById(userId))?.email ?? null,
-      // Le support d'un Business est prioritaire (spec Business) : l'offre en cache suffit, le sujet le dit à l'équipe.
-      prioritaire: async (tenant) => (await offres.offreDe(tenant)).offre === 'business',
-      sendSupport: async ({ tenantId, userId, email, subject, message }) => {
-        const text = [
-          'Nouveau message de support (console MBA)',
-          '',
-          `Tenant : ${tenantId}`,
-          `User : ${userId ?? 'inconnu'}`,
-          `Email : ${email ?? 'non fourni'}`,
-          '',
-          `Sujet : ${subject}`,
-          '',
-          message,
-        ].join('\n');
-        if (envoisResend === null) throw new Error('Resend non configuré');
-        await envoisResend.support({
-          to: config.SUPPORT_TO,
-          subject: `[Support MBA] ${subject}`,
-          text,
-          ...(email ? { replyTo: email } : {}),
-        });
-      },
-    },
+    support: depsSupport,
     // Le contrat OpenAPI (lot 16) : il ne dépend que du code, `GET /openapi.json` le sert tel quel.
     openapi: { contrat: contratOpenapi },
     // Le texte du courriel se construit dans la route (testée).
@@ -4248,6 +4259,13 @@ async function main(): Promise<void> {
         liensDeTest: workflowStore,
         // Le numéro de Meta, comme le lien de test de la console (jamais celui de la seule application).
         numeroAffiche: async (tenant) => (await phoneStatusStore.getPhoneNumber(tenant))?.displayPhoneNumber ?? null,
+        // Les prérequis d'une mise en service (lot 1 du CSM virtuel, B7) : les services et les dépendances de la console.
+        prerequis: {
+          etatDuCompte: (tenant) => lireEtatDuCompte(depsAccount, tenant),
+          demanderCode: (tenant, methode) => demanderCodeNumero(depsEmbeddedSignup, { tenantId: tenant, methode }),
+          activer: (tenant, code, tracer) => activerNumero(depsEmbeddedSignup, { tenantId: tenant, ...(code === undefined ? {} : { code }) }, tracer),
+          support: depsSupport,
+        },
         // Le oui de mise en ligne et les versions (CSM, B2 et B3) : le MÊME objet que la page de la console.
         misesEnLigne,
         // Les widgets de l'écran, le MÊME objet : un outil MCP n'est qu'un second appelant de leur gestion.

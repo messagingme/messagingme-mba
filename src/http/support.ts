@@ -21,8 +21,9 @@ export interface SupportRouteDeps {
   prioritaire(tenantId: string): Promise<boolean>;
 }
 
-const SUBJECT_MAX = 200;
-const MESSAGE_MAX = 5000;
+/** Les bornes du formulaire, les mêmes pour l'outil MCP `contact_support` (lot 1 du CSM virtuel, B7). */
+export const SUBJECT_MAX = 200;
+export const MESSAGE_MAX = 5000;
 
 /** Formulaire de support : POST le sujet + message, envoyé par email (Resend) à l'équipe. Auth requise ;
  *  le tenant + l'user (authentifiés) sont inclus, l'email du compte sert de reply-to. */

@@ -698,6 +698,22 @@ export const mcpDerouleInerte: Pick<DepsMcp, 'deroule' | 'erreurs' | 'liensDeTes
   numeroAffiche: async () => null,
 };
 
+/**
+ * Les prérequis d'une mise en service (lot 1 du CSM virtuel, B7) : inertes. Leurs outils ont leurs tests dans
+ * `tests/mcp-outils-prerequis.test.ts`.
+ */
+export const mcpPrerequisInerte: Pick<DepsMcp, 'prerequis'> = {
+  prerequis: {
+    etatDuCompte: neDevraitPasEtreAppelee('prerequis.etatDuCompte'),
+    demanderCode: neDevraitPasEtreAppelee('prerequis.demanderCode'),
+    activer: neDevraitPasEtreAppelee('prerequis.activer'),
+    support: {
+      enabled: false, sendSupport: neDevraitPasEtreAppelee('prerequis.support.sendSupport'),
+      getUserEmail: async () => null, prioritaire: async () => false,
+    },
+  },
+};
+
 export const mcpNumeroInerte: Pick<DepsMcp, 'numero'> = {
   numero: {
     connexion: {

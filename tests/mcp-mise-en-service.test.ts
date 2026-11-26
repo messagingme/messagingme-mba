@@ -57,10 +57,10 @@ describe('l’étape suivante', () => {
     expect(etatMiseEnService({ ...PRET, numero: SANS_NUMERO, agents: [] }).etape_suivante).toBe('connecter_numero');
   });
 
-  it('un numéro relié que Meta n’a pas encore activé : activer_numero, sans outil (start_whatsapp_connection le refuserait)', () => {
+  it('un numéro relié que Meta n’a pas encore activé : activer_numero, par l’état du compte, le code et l’activation (start_whatsapp_connection le refuserait)', () => {
     const e = etatMiseEnService({ ...PRET, numero: { ...NUMERO_CONNECTE, connecte: { chiffres: '336', aActiver: true } } });
     expect(e.etape_suivante).toBe('activer_numero');
-    expect(e.outils_suggeres).toEqual([]);
+    expect(e.outils_suggeres).toEqual(['get_account_status', 'request_number_code', 'activate_number']);
     expect(e.avertissements).toContain('numero_a_activer');
   });
 

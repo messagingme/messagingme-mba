@@ -116,8 +116,8 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   // La connexion du numéro (embeddedSignup)
   'GET /embedded-signup/config': ICI_PAR_LE_LIEN,
   'POST /embedded-signup/complete': humain('connexion à Meta : la personne passe la fenêtre de Meta, sur la page du lien de start_whatsapp_connection'),
-  'POST /numero/code': aFaire('B7', 'numéro : demander le code de vérification (appel ou SMS, 10 par 72 heures chez Meta)'),
-  'POST /numero/activer': aFaire('B7', 'numéro : activer un numéro relié avec son code'),
+  'POST /numero/code': outil('request_number_code'),
+  'POST /numero/activer': outil('activate_number'),
   'POST /numero/delier': aFaire('B10', 'numéro : délier'),
   'POST /numero/relier': aFaire('B10', 'numéro : relier de nouveau'),
   'GET /numero/deconnexion': aFaire('B10', 'numéro : ce que la déconnexion coupera'),
@@ -224,7 +224,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'DELETE /flows/:flowId': aFaire('B10', 'formulaires WhatsApp : supprimer'),
 
   // Le Support (support)
-  'POST /support': aFaire('B7', 'support : écrire au Support avec le contexte de l’espace'),
+  'POST /support': outil('contact_support'),
 
   // Le rangement en dossiers (dossiers)
   'GET /dossiers': ecran('le rangement des scénarios et des modèles en dossiers'),
@@ -381,7 +381,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /evenements/adresses/:adresseId/rejeu-echecs': aFaire('B10', 'webhooks sortants : rejouer d’un coup tous les échecs'),
 
   // L'état du compte WhatsApp (account)
-  'GET /account-status': aFaire('B7', 'numéro : lire l’état du compte (nom, qualité, palier, vérification d’entreprise, Marketing Messages)'),
+  'GET /account-status': outil('get_account_status'),
 
   // Les appels des connecteurs API (agentRequetes)
   'GET /agent-requetes': aFaire('B10', 'agent IA, connecteurs API : lister les appels'),

@@ -5428,6 +5428,7 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | buy_credit | mcp:write OAuth connection required | Open a top-up payment, amount before tax; the person pays on the Stripe page themselves. |
 | create_api_key | mcp:write OAuth connection required | Create your application’s API key, shown only once: it passes through the conversation, to put at once in the .env file. |
 | list_members | mcp:read | Workspace members, to assign threads to them. |
+| contact_support | mcp:write OAuth connection required | Write to Messaging Me Support, with the workspace context joined by the server. |
 
 ### WhatsApp number
 
@@ -5435,6 +5436,9 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | --- | --- | --- |
 | start_whatsapp_connection | mcp:write OAuth connection required | Give the link that opens the WhatsApp number connection, without the console, valid for one hour: provided or own number, or the WhatsApp Business app number, keeping the app (messages sent through Messaging Me are billed by Meta). A provided number can also go into the WhatsApp Business app, kept the same way. Without a Meta Business account, Meta’s window creates it along the way. |
 | watch_whatsapp_connection | mcp:write OAuth connection required | Follow the number connection to the end: number assigned, verification code to read out, number connected, or linked while keeping the WhatsApp Business app. |
+| get_account_status | mcp:read OAuth connection required | The WhatsApp account status, read again at Meta: display name, quality, messaging tier, business verification, Marketing Messages. |
+| request_number_code | mcp:write OAuth connection required | Have Meta send the number verification code, by call or by SMS. |
+| activate_number | mcp:write OAuth connection required | Activate the connected number with its verification code. |
 | get_number_subscription | mcp:read | The provided number’s subscription: its status, the end of the paid period and the number. |
 | manage_number_subscription | mcp:write OAuth connection required | Open the Stripe portal for the number subscription: card, invoices, cancellation. |
 | resubscribe_number | mcp:write OAuth connection required | Renew the number subscription when it is overdue or ended: the Stripe portal, or a new payment that restores the same number. |

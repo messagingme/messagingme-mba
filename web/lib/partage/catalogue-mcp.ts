@@ -95,6 +95,15 @@ export const CATALOGUE_MCP = {
   resubscribe_number: { scope: 'mcp:write', exigePersonne: true },
   start_whatsapp_connection: { scope: 'mcp:write', exigePersonne: true },
   watch_whatsapp_connection: { scope: 'mcp:write', exigePersonne: true },
+  /**
+   * Les prérequis d'une mise en service (lot 1 du CSM virtuel, B7), tous au nom d'une personne : l'état du compte est
+   * une lecture que la console réserve aux admins ; le code, l'activation et le Support appellent Meta ou écrivent à
+   * l'équipe.
+   */
+  get_account_status: { scope: 'mcp:read', exigePersonne: true },
+  request_number_code: { scope: 'mcp:write', exigePersonne: true },
+  activate_number: { scope: 'mcp:write', exigePersonne: true },
+  contact_support: { scope: 'mcp:write', exigePersonne: true },
   create_webhook_endpoint: { scope: 'mcp:write', exigePersonne: true },
   send_test_event: { scope: 'mcp:write', exigePersonne: true },
   list_webhook_endpoints: { scope: 'mcp:read', exigePersonne: true },

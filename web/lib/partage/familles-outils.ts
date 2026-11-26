@@ -9,10 +9,10 @@
 import type { NomOutilMcp } from './catalogue-mcp';
 
 export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly titreFr: string; readonly outils: readonly NomOutilMcp[] }> = [
-  { titre: 'Setup and plan', titreFr: 'Mise en service et offre', outils: ['get_setup_state', 'get_plan', 'subscribe_pro', 'take_credit_line', 'get_credit', 'buy_credit', 'create_api_key', 'list_members'] },
+  { titre: 'Setup and plan', titreFr: 'Mise en service et offre', outils: ['get_setup_state', 'get_plan', 'subscribe_pro', 'take_credit_line', 'get_credit', 'buy_credit', 'create_api_key', 'list_members', 'contact_support'] },
   {
     titre: 'WhatsApp number', titreFr: 'Numéro WhatsApp',
-    outils: ['start_whatsapp_connection', 'watch_whatsapp_connection', 'get_number_subscription', 'manage_number_subscription', 'resubscribe_number', 'return_number_at_plan_end'],
+    outils: ['start_whatsapp_connection', 'watch_whatsapp_connection', 'get_account_status', 'request_number_code', 'activate_number', 'get_number_subscription', 'manage_number_subscription', 'resubscribe_number', 'return_number_at_plan_end'],
   },
   {
     titre: 'AI agent', titreFr: 'Agent IA',

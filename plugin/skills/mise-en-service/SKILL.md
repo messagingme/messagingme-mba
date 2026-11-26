@@ -263,9 +263,11 @@ their own number one used in no WhatsApp app): relay it once, before the link.
 
 ## activer_numero: a number Meta has not activated yet
 
-The number is linked but Meta has not finished its verification: no tool does this step. Ask the user to open the
-console's Home and click "Activer le numéro" (it sends a verification code by call or SMS), then call
-`get_setup_state` again.
+The number is linked but Meta has not finished its verification. Call `get_account_status`: when
+`codeVerificationStatus` is `VERIFIED`, call `activate_number` without a code. Otherwise call `request_number_code` (a
+voice call to the number by default, or `SMS`), ask the user for the code they receive, and call `activate_number` with
+it. Meta allows 10 codes per 72 hours: request another one only after the user says the previous one did not arrive.
+Then call `get_setup_state` again. The console's Home does the same ("Activer le numéro").
 
 ## creer_agent, completer_agent, activer_agent: the AI agent
 

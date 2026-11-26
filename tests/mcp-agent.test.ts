@@ -44,12 +44,13 @@ import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { bornesDesChamps, bornesZod, champsDe, muettes, type Borne } from './aide/bornes-zod';
 import { jamaisDesabonne } from './consentement';
-import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { SANS_MCP } from './outils-mcp';
 import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
 import { OUTILS_SCENARIOS } from '../src/mcp/outils-scenarios';
 import { OUTILS_MISE_EN_LIGNE } from '../src/mcp/outils-mise-en-ligne';
+import { OUTILS_PREREQUIS } from '../src/mcp/outils-prerequis';
 
 /**
  * LES OUTILS MCP DE L'AGENT IA ET DU CRÉDIT (lot 8a, livraison B), montés par `buildServer` derrière la vraie garde
@@ -407,6 +408,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
   const mcp: CablageMcp = {
     ...mcpNumeroInerte,
     ...mcpDerouleInerte,
+    ...mcpPrerequisInerte,
     ...mcpEvenementsInertes,
     ...mcpChiffresInertes,
     ...mcpMessagesInertes,
@@ -495,12 +497,13 @@ async function lister(server: Serveur, bearer: string): Promise<string[]> {
  * la suppression de contacts en masse (2026-10-26) exigent aussi une personne : ils ont leur fichier,
  * `tests/mcp-numero.test.ts`, `tests/mcp-evenements.test.ts`, `tests/mcp-serveur.test.ts` (les modèles),
  * `tests/mcp-offre.test.ts`, `tests/mcp-tag-contacts.test.ts` (et ses voisins), `tests/mcp-block-contact.test.ts`,
- * `tests/mcp-suppression.test.ts` et `tests/mcp-mise-en-ligne.test.ts` (le oui de mise en ligne).
+ * `tests/mcp-suppression.test.ts`, `tests/mcp-mise-en-ligne.test.ts` (le oui de mise en ligne) et
+ * `tests/mcp-outils-prerequis.test.ts` (les prérequis d’une mise en service, CSM B7).
  */
 const OUTILS_DU_NUMERO = new Set([
   ...[
     ...OUTILS_NUMERO, ...OUTILS_EVENEMENTS, ...OUTILS_MODELES, ...OUTILS_OFFRE, ...OUTILS_CAMPAGNES, ...OUTILS_CHAMPS, ...OUTILS_SHOPIFY,
-    ...OUTILS_SUPPRESSION, ...OUTILS_SCENARIOS, ...OUTILS_MISE_EN_LIGNE,
+    ...OUTILS_SUPPRESSION, ...OUTILS_SCENARIOS, ...OUTILS_MISE_EN_LIGNE, ...OUTILS_PREREQUIS,
   ].map((o) => o.nom),
   'block_contact',
 ]);

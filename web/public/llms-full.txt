@@ -5429,6 +5429,7 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | buy_credit | mcp:write connexion OAuth requise | Ouvrir le paiement d’une recharge, montant hors taxe ; la personne paie elle-même sur la page de Stripe. |
 | create_api_key | mcp:write connexion OAuth requise | Créer la clé d’API de votre application, montrée une seule fois : elle passe par la conversation, à ranger aussitôt dans le fichier .env. |
 | list_members | mcp:read | Les membres de l’espace, pour pouvoir leur confier un fil. |
+| contact_support | mcp:write connexion OAuth requise | Écrire au Support de Messaging Me, avec le contexte de l’espace joint par le serveur. |
 
 ### Numéro WhatsApp
 
@@ -5436,6 +5437,9 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | --- | --- | --- |
 | start_whatsapp_connection | mcp:write connexion OAuth requise | Donner le lien qui ouvre la connexion du numéro WhatsApp, sans passer par la console, valable une heure : numéro fourni ou apporté, ou celui de l’application WhatsApp Business, en gardant l’application (les messages qui partent par Messaging Me sont facturés par Meta). Un numéro fourni peut aussi aller dans l’application WhatsApp Business, gardée de la même façon. Sans compte Meta Business, la fenêtre de Meta le crée en chemin. |
 | watch_whatsapp_connection | mcp:write connexion OAuth requise | Suivre la connexion du numéro jusqu’au bout : numéro attribué, code de vérification à lire à la personne, numéro connecté, ou relié en gardant l’application WhatsApp Business. |
+| get_account_status | mcp:read connexion OAuth requise | L’état du compte WhatsApp, relu chez Meta : le nom affiché, la qualité, le palier d’envoi, la vérification d’entreprise, Marketing Messages. |
+| request_number_code | mcp:write connexion OAuth requise | Faire envoyer par Meta le code de vérification du numéro, par appel ou par SMS. |
+| activate_number | mcp:write connexion OAuth requise | Activer le numéro relié, avec son code de vérification. |
 | get_number_subscription | mcp:read | L’abonnement du numéro fourni : son statut, la fin de la période payée et le numéro. |
 | manage_number_subscription | mcp:write connexion OAuth requise | Ouvrir le portail de Stripe pour l’abonnement du numéro : carte, factures, résiliation. |
 | resubscribe_number | mcp:write connexion OAuth requise | Renouveler l’abonnement du numéro quand il est impayé ou terminé : le portail de Stripe, ou un nouveau paiement qui rend le même numéro. |
