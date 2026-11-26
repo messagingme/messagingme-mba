@@ -5,6 +5,29 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : l'Inbox et Mes tableaux voient les scénarios Shopify et HubSpot
+
+**La demande.** Julien voulait relancer un client depuis l'Inbox par un scénario d'automation (« Lancer un scénario »,
+fenêtre de 24 h fermée surtout), puis le mesurer dans Performance Lab > Mes tableaux. Les deux listes ne montraient que
+le Builder : la décision 1 du menu « Scénario » (2026-11-18) cloisonnait les rayons dans les deux sens. Exception voulue
+par Julien, limitée à ces deux écrans : campagnes, webhooks, API et Claude Code restent au Builder.
+
+**Ce qui a changé.** `POLITIQUE_DE_LANCEMENT.inbox` admet les trois rayons (comme le lien de test) ; `GET
+/workflows?rayons=tous` rend les trois, chaque scénario avec son rayon ; les deux écrans les groupent par `parRayon`
+(`web/lib/api/scenarios.ts`). Le serveur mesurait déjà un scénario de tout rayon : Mes tableaux n'a demandé que la console.
+Lancé d'ici, un scénario Shopify n'a pas d'événement derrière lui : un template qui lit une variable du parcours est
+refusé au clic (422, la variable nommée), rien ne part, aucun parcours. Relecture : aucun rouge ; le jaune principal, le
+fil repris par l'app sur ce refus, est au backlog.
+
+**Livré.** 654870623 (Inbox) puis 9af316c7d (Mes tableaux, console seule). Vérifié en production sur l'espace de Julien :
+la modale de Delahays et Mes tableaux montrent le groupe HubSpot (« devis_avec_pdf », « devis »), « devis » s'affiche
+avec ses six blocs mesurables.
+
+**Incident sans effet.** Deux déploiements de l'API sont partis à la même seconde : le script de surveillance arrêté par
+TaskStop pour être repointé sur la tête (accord de la session voisine) a lancé le sien, épinglé sur 654870623. Julien a
+approuvé celui-là (le lot Inbox seul), puis le second (23b8e4dab, les alertes de contacts) : deux clics au lieu d'un.
+Récidive de la leçon du 2026-11-10, promue ce jour dans `~/CLAUDE.md`.
+
 ## 2026-11-26 : le message de passage à un humain gardé en base (MUTAC, migration 0328)
 
 **Mesuré chez MUTAC.** Le correctif de la veille (`DEFAULT` posé sous tout bloc `handoff`) supposait que Meta relit un
