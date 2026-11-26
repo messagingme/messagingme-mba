@@ -5,6 +5,20 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : essai Everial, une vraie CNI recto puis verso, consolidée par un scénario
+
+Scénario « Essai Wizidee : recto, verso, consolidation » de la SANDBOX, construit dans la console : Question (fichier
+attendu) → Appel API `/analyze` rangé en champ JSON → Extraire du JSON (`validation`, `status`) → Condition (`ko` :
+document non reconnu ; règle `CheckPageExistsRequiredError` : demander le verso, l'analyser, extraire sa validation ;
+sinon : consolider tout de suite) → Appel API `/consolidate` (`{"validations": ["{{recto}}", "{{verso}}"]}`, deux
+données de type JSON) → Condition (réponse vide : échec ; règle encore présente : face manquante ; sinon : complet).
+
+Joué par Julien depuis son téléphone avec une vieille CNI : analyse du recto en 3,6 s (règle de page manquante),
+analyse du verso en 3,1 s, consolidation en 0,4 s, toutes en 200. Le dossier consolidé (`status` ok) ne porte plus
+aucune erreur, un seul document « CNI », et le parcours a fini sur « Dossier complet ». Les champs rangés ne portent
+aucune image : environ 3 000 caractères pour la validation du recto, 1 700 pour le verso, 3 600 pour le dossier.
+Les quatre autres sorties (non reconnu, face toujours manquante, échec, pièce à une face) restent à jouer.
+
 ## 2026-11-26 : CSM virtuel, lot H (B8, livraison 2) : un modèle ou un scénario pour une personne part sur le clic d'un admin
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-h-envois-au-oui.md`, section « Livraison 2 ». La livraison 1 (les
