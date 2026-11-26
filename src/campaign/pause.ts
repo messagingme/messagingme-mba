@@ -17,6 +17,12 @@ export type MotifDePause =
   | RaisonDePause | 'hors_horaires' | 'numero_delie' | 'numero_suspendu' | 'credit_whatsapp_epuise' | 'ligne_credit_inactive';
 
 /**
+ * Une pause que seul un autre geste lève : reprendre la remettrait aussitôt en pause (`messageDePause` dit lequel). Lue par
+ * `control_campaign` (`prepare_resume`) et par le oui d'une reprise (lot 1 du CSM virtuel, B8), au relevé comme au clic.
+ */
+export const PAUSES_SANS_REPRISE: ReadonlySet<MotifDePause> = new Set(['numero_delie', 'numero_suspendu', 'credit_whatsapp_epuise', 'ligne_credit_inactive']);
+
+/**
  * Tous les motifs, tenus par le compilateur. Le CHECK `campaigns_pause_reason_check` doit les porter tous
  * (un test le vérifie) : un motif refusé par la base ferait échouer la mise en pause en pleine campagne.
  */

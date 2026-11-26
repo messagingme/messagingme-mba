@@ -19,7 +19,9 @@ import type { Session } from '@/lib/session';
  * 🔴 Le bouton ne part qu'une demi-seconde après chaque retour sur la page (`useArme`), comme ceux qui accordent un accès.
  */
 export default function MiseEnLignePage() {
-  return <AppShell active="workflows">{(session) => <MiseEnLigneInner session={session} />}</AppShell>;
+  // L'accueil, ouvert à toutes les offres : la Free y vient dire oui à une suppression de contacts (B8). Le serveur juge
+  // chaque action (une publication exige les scénarios).
+  return <AppShell active="accueil">{(session) => <MiseEnLigneInner session={session} />}</AppShell>;
 }
 
 function MiseEnLigneInner({ session }: { session: Session }) {
@@ -79,8 +81,17 @@ function MiseEnLigneInner({ session }: { session: Session }) {
   const etatAction = (r: ResultatAction | null): string => {
     if (r === null) return t('pas encore fait', 'not done yet');
     if (!r.ok) return `${t('refusé', 'refused')} : ${r.message}`;
-    if (r.etat === 'programme') return t('programmé : il part dès que Meta valide son template', 'scheduled: it goes live as soon as Meta approves its template');
-    return r.etat === 'branche' ? t('branché', 'switched on') : t('publié', 'published');
+    switch (r.etat) {
+      case 'programme': return t('programmé : il part dès que Meta valide son template', 'scheduled: it goes live as soon as Meta approves its template');
+      case 'branche': return t('branché', 'switched on');
+      case 'publie': return t('publié', 'published');
+      // Les envois au oui (B8) : une campagne, une suppression de contacts.
+      case 'envoyee': return t(`part à ${r.destinataires} contact(s)`, `sending to ${r.destinataires} contact(s)`);
+      case 'programmee': return t('programmée à sa date', 'scheduled for its date');
+      case 'reprise': return t(`reprise : ${r.destinataires} contact(s) en attente la reçoivent`, `resumed: ${r.destinataires} waiting contact(s) receive it`);
+      case 'deja_partie': return t('déjà partie : rien n’a été renvoyé', 'had already left: nothing was sent again');
+      case 'supprimes': return t(`${r.contacts} contact(s) supprimé(s)`, `${r.contacts} contact(s) deleted`);
+    }
   };
 
   if (id === undefined) return <Squelette />;
@@ -88,7 +99,7 @@ function MiseEnLigneInner({ session }: { session: Session }) {
   return (
     <div className="max-w-formulaire space-y-6">
       <div>
-        <TitrePage>{t('Mise en ligne préparée par Claude', 'Go-live prepared by Claude')}</TitrePage>
+        <TitrePage>{t('Préparé par Claude, à votre clic', 'Prepared by Claude, awaiting your click')}</TitrePage>
         <IntroPage>{t('Voici ce que le bouton va faire. Rien n’est fait avant votre clic.', 'Here is what the button will do. Nothing happens before your click.')}</IntroPage>
       </div>
 
@@ -111,7 +122,7 @@ function MiseEnLigneInner({ session }: { session: Session }) {
           {vue.etat === 'proposee' && (
             <div className="space-y-2">
               <Bouton enCours={enCours} disabled={enCours || !arme} onClick={() => { void cliquer(); }} data-testid="mise-en-ligne-bouton">
-                {enCours ? t('Mise en ligne…', 'Going live…') : vue.libelle}
+                {enCours ? t('En cours…', 'Working…') : vue.libelle}
               </Bouton>
               <p className="text-xs text-ink-500">
                 {t('Ce bouton sert une fois, jusqu’au', 'This button works once, until')} {date(vue.expireLe)}.
@@ -120,17 +131,17 @@ function MiseEnLigneInner({ session }: { session: Session }) {
           )}
 
           {vue.etat === 'expiree' && (
-            <p className="text-sm text-ink-700">{t('Ce bouton a expiré : demandez à Claude de préparer à nouveau la mise en ligne.', 'This button has expired: ask Claude to prepare the go-live again.')}</p>
+            <p className="text-sm text-ink-700">{t('Ce bouton a expiré : demandez à Claude de le préparer à nouveau.', 'This button has expired: ask Claude to prepare it again.')}</p>
           )}
 
           {vue.etat === 'en_cours' && (
-            <p className="text-sm text-ink-700">{t('La mise en ligne est en cours. Rechargez la page dans un instant.', 'The go-live is running. Reload the page in a moment.')}</p>
+            <p className="text-sm text-ink-700">{t('C’est en cours. Rechargez la page dans un instant.', 'It is running. Reload the page in a moment.')}</p>
           )}
 
           {vue.etat === 'interrompue' && (
             <div className="space-y-2">
               <p className="text-sm text-ink-700">
-                {t('Une panne a interrompu la mise en ligne. Reprenez-la : elle repart après la dernière action faite.', 'An outage interrupted the go-live. Resume it: it starts again after the last action done.')}
+                {t('Une panne l’a interrompu. Reprenez : il repart après la dernière action faite, sans rien refaire ni renvoyer.', 'An outage interrupted it. Resume: it starts again after the last action done, without redoing or resending anything.')}
               </p>
               <Bouton enCours={enCours} disabled={enCours || !arme} onClick={() => { void cliquer(); }} data-testid="mise-en-ligne-reprendre">
                 {t('Reprendre', 'Resume')}
@@ -140,20 +151,20 @@ function MiseEnLigneInner({ session }: { session: Session }) {
 
           {vue.etat === 'faite' && (
             <p className="rounded-carte border border-succes-200 bg-succes-50 px-4 py-3 text-sm text-succes-700" data-testid="mise-en-ligne-faite">
-              {t('C’est fait. Claude peut maintenant vérifier que tout est actif.', 'Done. Claude can now check that everything is live.')}
+              {t('C’est fait. Claude peut maintenant vérifier le résultat.', 'Done. Claude can now check the result.')}
             </p>
           )}
 
           {vue.etat === 'echouee' && (
             <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">
-              {t('La mise en ligne s’est arrêtée sur un refus : ce qui suit n’a pas été fait. Demandez à Claude de corriger, puis de vous redonner un bouton.', 'The go-live stopped on a refusal: what follows was not done. Ask Claude to fix it, then to give you a new button.')}
+              {t('Il s’est arrêté sur un refus : ce qui suit n’a pas été fait. Demandez à Claude de corriger, puis de vous redonner un bouton.', 'It stopped on a refusal: what follows was not done. Ask Claude to fix it, then to give you a new button.')}
             </p>
           )}
 
           {vue.etat !== 'proposee' && vue.etat !== 'expiree' && (
             <ul className="space-y-1 text-sm text-ink-700" data-testid="mise-en-ligne-actions">
               {vue.actions.map((a, i) => (
-                <li key={`${a.type}-${a.scenario}-${i}`}>
+                <li key={`${a.type}-${a.scenario ?? a.campagne ?? ''}-${i}`}>
                   <span className="font-medium">{a.nom}</span> : {etatAction(a.resultat)}
                 </li>
               ))}

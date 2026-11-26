@@ -15,7 +15,8 @@ import {
   proposer, type ActionGardee, type DemandeAction, type DepsMisesEnLigne, type ResultatAction,
 } from '../src/mise-en-ligne/mise-en-ligne';
 import type { IssueAcceptation, LigneMiseEnLigne, Reclamation } from '../src/mise-en-ligne/store.pg';
-import { modelesDeBlocInertes } from './routes-inertes';
+import { envoisAuOuiInertes, modelesDeBlocInertes } from './routes-inertes';
+import type { DepsEnvoisAuOui } from '../src/mise-en-ligne/envois';
 
 export const T = 't1';
 export const AUTRE = 't2';
@@ -126,7 +127,7 @@ export class FauxMisesEnLigne {
 
 const sansPositions = (g: WorkflowGraph): string => JSON.stringify(g.nodes.map(({ position: _p, ...n }) => n)) + JSON.stringify(g.edges);
 
-export function monter(o: { offre?: Offre; publication?: Partial<DepsPublication> } = {}) {
+export function monter(o: { offre?: Offre; publication?: Partial<DepsPublication>; envois?: DepsEnvoisAuOui } = {}) {
   const horloge = { now: Date.parse('2026-11-24T10:00:00.000Z') };
   /** L'offre de l'espace, modifiable en cours de test (un espace qui redescend entre la préparation et le clic). */
   const offre: { valeur: Offre } = { valeur: o.offre ?? 'pro' };
@@ -194,6 +195,7 @@ export function monter(o: { offre?: Offre; publication?: Partial<DepsPublication
     },
     publication: { ...modelesDeBlocInertes.publication, ...o.publication },
     repondeur,
+    envois: o.envois ?? envoisAuOuiInertes,
     audit: async (_t, actor, action, _cible, detail) => { audit.push({ action, userId: actor.userId, ...(detail ? { detail } : {}) }); },
     maintenant: () => horloge.now,
   };

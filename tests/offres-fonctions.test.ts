@@ -160,6 +160,8 @@ describe('les fonctions gardées par l’offre', () => {
 const OUVERTS_AU_FREE = [
   'offre', 'offrePaiement', 'creditPaiement', 'embeddedSignup', 'numeroFourni', 'abonnementNumero',
   'apiKeys', 'oauthConsentement', 'account', 'admin', 'me', 'emailsMoi', 'support',
+  // La page du oui (B8) : la suppression de contacts par Claude, seul chemin d'une Free au-delà de sa limite.
+  'misesEnLigne',
 ];
 const modulesDEspace = (): ModuleMonte[] => modulesDeRoutes(toutBouchonne, usage).filter((m) => m.acces === 'tenant');
 const route = (r: { methode: string; chemin: string }) => ({ methodes: [r.methode], chemin: r.chemin });

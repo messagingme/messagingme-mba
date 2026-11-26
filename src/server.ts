@@ -667,6 +667,9 @@ export const MODULES_OUVERTS_AU_FREE: Readonly<Record<string, (route: RouteDeMod
   offre: toutLeModule, offrePaiement: toutLeModule, creditPaiement: toutLeModule, embeddedSignup: toutLeModule,
   numeroFourni: toutLeModule, abonnementNumero: toutLeModule, apiKeys: toutLeModule,
   oauthConsentement: toutLeModule, me: toutLeModule, emailsMoi: toutLeModule, support: toutLeModule,
+  // La page du oui (lot 1 du CSM virtuel, B8) : la suppression de contacts par Claude, seul chemin d'une Free au-delà de
+  // sa limite, part sur ce clic. Chaque action garde sa fonction au relevé comme au clic (une publication : `scenarios`).
+  misesEnLigne: toutLeModule,
   account: (r) => r.chemin === '/tenants/:tenantId/account-status',
   admin: (r) => r.chemin === '/tenants/:tenantId/nom' && r.methodes.every((m) => m === 'GET' || m === 'HEAD'),
 };

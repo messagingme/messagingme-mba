@@ -1005,6 +1005,15 @@ des trois routes sortent en constantes nommées de `src/index.ts` (`depsEmbedded
 la console et le MCP reçoivent les mêmes objets, jamais une recopie (`tests/mcp-outils-prerequis.test.ts` lit le
 câblage). L'étape `activer_numero` de `get_setup_state` propose ces outils.
 
+🔴 **Les envois au oui (lot 1 du CSM virtuel, B8)** : un lancement, une programmation ou une reprise de campagne, et une
+suppression de contacts, partent sur le clic d'un admin, par le oui de mise en ligne (`mises_en_ligne`) :
+`src/mise-en-ligne/envois.ts` porte leur relevé (ce qui est gardé, montré, et relu au clic), leur bouton, leur
+récapitulatif et leur exécution, rejouable sans double effet. Un envoi est SEUL dans sa mise en ligne. `reprendre`, que
+`launch_campaign` et `delete_contacts` appellent, reprend une exécution acceptée et coupée, et n'accepte JAMAIS : seule
+la route de la console accepte. Le câblage passe au oui les MÊMES objets que la console (`depsCampagnes`,
+`depsSuppression`, `src/index.ts`). Les réponses dans une conversation ouverte (`reply_in_open_window`,
+`send_message`) partent directement, hors du oui (décision de Julien du 2026-11-26).
+
 🔴 **Le fichier d'un message se lit à chaque envoi** et se vérifie une fois à l'écriture par le MÊME chemin que l'envoi
 (`lireFichierDuBloc`, `src/meta/template-media.ts` : fiche de la médiathèque de l'espace, sinon téléchargement gardé),
 sans être stocké. **Ce qui utilise un scénario** (`utilisationsDuScenario` : automation, campagne qui peut encore
@@ -5437,11 +5446,12 @@ l'activer, et d'ouvrir une recharge du crédit.
   à l'équipe jusqu'au prochain `set_default_responder`), `update_template` et `delete_template`
   (`modifierUnModele`, `supprimerUnModele`, comptés dans les opérations coûteuses, une erreur de Meta rendue lisible par
   `refusDeMeta`), `block_contact` (`setBlocked`) et, au Pro, `control_campaign` (`pauseCampaign`, `cancelSchedule`).
-  🔴 **La reprise d'une campagne en pause** pose un code sur l'état en pause (`campagne_confirmations`, le même upsert que
-  `prepare_campaign`), et c'est `launch_campaign` qui la lance : tout de suite, sa date prévue passée étant ignorée, et
-  avec des refus qui ne renvoient JAMAIS vers `prepare_campaign`, qui créerait une campagne neuve vers tous les
-  destinataires : le refus d'un code se choisit sur le statut RELU (`refusDuCode`), et seul un brouillon s'entend dire
-  « préparez à nouveau » (une campagne reprise par le balayage pendant que la personne lisait n'est plus en pause).
+  🔴 **La reprise d'une campagne en pause** prépare un oui sur l'état en pause, motif de la pause compris (B8,
+  `src/mise-en-ligne/envois.ts`), et c'est le clic d'un admin qui la lance : tout de suite, sa date prévue passée étant
+  ignorée. Aucun refus ne renvoie vers `prepare_campaign`, qui créerait une campagne neuve vers tous les destinataires :
+  tout refus de `launch_campaign` sur une campagne en pause porte la consigne de reprise (`CONSIGNE_DE_REPRISE`).
+  Rejouée après une coupure, l'exécution ne lance rien sur un état qui n'est plus celui du clic (statut, destinataires
+  en attente, motif de la pause) : une pause posée depuis par l'admin n'est jamais levée sans un nouveau clic.
   `get_messages` rend l'identifiant public de chaque message (`idPublic` : la requête des messages de
   l'Inbox lit `meta_message_id`), celui que lit `get_message_status`.
   🔴 **Les gardes que la console laisse à un geste humain, l'outil les pose** (lot 2, les jaunes de la relecture) :
@@ -7638,7 +7648,7 @@ Ajouté par le lot 4 de l'API publique :
    `/mcp` pose à chaque requête sous la clé ou le jeton de l'appel), appelé au même endroit. L'outil construit le corps
    de l'API pour une personne, ses valeurs en sources `literal`, et refuse celles que Meta refuserait à l'envoi
    (retour à la ligne, tabulation, cinq espaces de suite).
-56. **Une campagne depuis l'assistant passe par la console, et ne part qu'avec le code de son récapitulatif**
+56. **Une campagne depuis l'assistant passe par la console, et ne part que sur le clic d'un admin (le oui, B8)**
    (`src/mcp/outils-campagnes.ts`, spec `docs/superpowers/specs/2026-10-20-campagnes-depuis-claude-design.md`). Les
    quatre outils sont gardés par la fonction `console` (celle des campagnes de l'écran) ; les filtres d'analyse, par
    `analyse`. La cible (`src/mcp/cible.ts`) passe par `parseBulkTarget` et REFUSE ce que la console accepte : une cible
@@ -7647,12 +7657,15 @@ Ajouté par le lot 4 de l'API publique :
    modèle chez Meta comme `POST /v1/sends` (`modeleEnvoyable`, `src/api/modele-envoi.ts` ; la catégorie est celle de
    Meta, jamais choisie par l'assistant), puis appelle `preparerCampagne` et `createCampaignWithRecipients` sur le MÊME
    objet que la route (`depsCampagnes`, `src/index.ts`) ; la date choisie se range sur le brouillon (`prevue_le`)
-   sans le programmer. Le code (`src/campaign/confirmation.ts`, table `campagne_confirmations`) est haché, à usage
-   unique, valable 30 minutes, et lié à l'empreinte de l'état RELU en base (`etatPourConfirmation` : modèle, catégorie,
-   date, variables, destinataires en attente, statut) ; une ligne présente dit aussi que le brouillon vient de
-   l'assistant, seul cas où `replaces` le supprime (après la création du nouveau). `launch_campaign` réclame le code
-   en une requête atomique, puis appelle `lancerCampagne` (`src/campaign/lancement.ts`), la fonction du bouton
-   « Lancer » : un brouillon daté est PROGRAMMÉ à sa date, et un lancement refusé rend le code. La console montre la
+   sans le programmer. Aucun code n'est plus délivré (B8, lot 1 du CSM virtuel) : `prepare_campaign` prépare un oui
+   (`mises_en_ligne`, action `campagne`, `src/mise-en-ligne/envois.ts`) qui garde l'état RELU en base
+   (`etatPourConfirmation` : modèle, catégorie, date, variables, destinataires en attente, statut) ; le clic d'un admin
+   le relit, refuse ce qui a changé, puis appelle `lancerCampagne` (`src/campaign/lancement.ts`), la fonction du bouton
+   « Lancer » : un brouillon daté est PROGRAMMÉ à sa date, une campagne en pause reprend tout de suite. `launch_campaign`
+   prend l'identifiant du oui, rend ce que le clic a fait et reprend une exécution coupée : une campagne qui n'est plus
+   en brouillon ni en pause est « déjà partie », jamais relancée. La table `campagne_confirmations`
+   (`src/campaign/confirmation.ts`) reste la MARQUE d'un brouillon de l'assistant, seul cas où `replaces` le supprime
+   (après la création du nouveau). La console montre la
    date d'un tel brouillon et son bouton devient « Programmer pour le … » (`lancementDuBrouillon`). Le quota du jour des
    modèles de l'API ne s'applique pas : une campagne de l'assistant est une campagne de la console. Une liste de
    `contact_ids` se résout DANS l'espace (`contactIdsForTarget`) et une liste qui n'y désigne personne est refusée ;
@@ -7679,17 +7692,16 @@ Ajouté par le lot 4 de l'API publique :
    dernier message gardée sur la fiche (`todo.md`). La sélection se résout par `PgContactStore.selectionAEffacer` : le
    sélecteur de l'action en masse (espace, fiches vivantes) et un ordre TOTAL (`created_at`, puis `id`), sans quoi
    l'aperçu et l'effacement désigneraient d'autres fiches à date égale. Les deux outils comptent dans le plafond des
-   opérations coûteuses, comme `prepare_campaign` et la purge de la console. Le code
-   (`src/crm/code-suppression.ts`) n'est gardé nulle part, donc sans migration : un HMAC, par une clé dérivée
-   d'`AUTH_SECRET`, de l'espace, de l'échéance (30 minutes) et de l'empreinte des identifiants. `delete_contacts`
-   re-résout la sélection et vérifie le code sur CES fiches : une fiche entrée dans la sélection ou sortie d'elle depuis
-   l'aperçu (créée, étiquetée, effacée) le rend invalide, et c'est aussi ce qui le rend à usage unique (une fiche
-   effacée n'est plus jamais rendue). ⚠️ Deux
-   appels simultanés avec le même code passent tous les deux, le second n'efface rien de plus. L'effacement est
+   opérations coûteuses, comme `prepare_campaign` et la purge de la console. Aucun code
+   depuis B8 : `prepare_contacts_deletion` prépare un oui (action `suppression`) qui garde les SEULS identifiants des
+   fiches montrées, jamais leur nom ni leur numéro ; le clic d'un admin les relit, refuse si l'une a été effacée depuis
+   (empreinte), puis efface ces fiches-là et elles seules (une fiche entrée dans la sélection depuis l'aperçu n'est pas
+   touchée). `delete_contacts` prend l'identifiant du oui, rend le bilan du clic et reprend un effacement coupé avec les
+   fiches qui restent ; la page du oui est ouverte à la Free (`MODULES_OUVERTS_AU_FREE`). L'effacement est
    `effacerContacts` sur les MÊMES objets que la console (limite du jour, purge, retrait chez l'agent de Meta), et chaque
-   fiche laisse sa ligne `contact.purged` (`{ lot, via: 'mcp' }`), signée de la personne. Le plafond par appel est de
-   mille fiches : la purge est une transaction et l'audit écrit une ligne par fiche, des durées non mesurées derrière le
-   proxy. Le code est demandé avec la sélection plutôt que seul : il aurait dû porter jusqu'à 500 identifiants.
+   fiche laisse sa ligne `contact.purged` (`{ lot, via: 'mise_en_ligne' }`), signée de l'admin qui a cliqué. Le plafond
+   par appel est de mille fiches : la purge est une transaction et l'audit écrit une ligne par fiche, des durées non
+   mesurées derrière le proxy.
 48. **Les webhooks sortants gérés par une clé (`/v1/webhooks`, lot 13, domaine 4) n'ont aucune logique propre** :
    `src/http/v1-webhooks.ts` appelle les fonctions de `src/evenements/gestion.ts` (celles de la console et des outils
    MCP du lot 12), traduit les noms en anglais (`WebhookV1`, `DeliveryV1`, partagées avec les outils
@@ -8069,7 +8081,7 @@ avec elle) garde son test de parité.
 | `src/stripe/traitement-recharge.ts` -> `creerTraitementRecharge` | la recharge du crédit IA par Stripe : la session Checkout lue, reconnue comme une de nos recharges, payée, au montant HT de son offre et pour cet espace, puis créditée une fois (idempotence par session) ; l'argent encaissé sans crédit (offre inconnue, espace supprimé) alerte. `src/http/credit-stripe.ts` garde la signature, l'enveloppe, le mode et l'aiguillage, et traduit l'issue (422 seulement pour une session illisible) |
 | `src/http/preparation-campagne.ts` -> `preparerCampagne` | toutes les validations et lectures de la création d'une campagne, sans aucune écriture ; `src/campaign/create.ts` écrit (§ 4.2) |
 | `src/campaign/lancement.ts` -> `lancerCampagne` | le lancement d'une campagne (programmer à une date, ou lever la pause puis enfiler le run dans le groupe de l'espace) : le bouton « Lancer » de la console et `launch_campaign` de l'assistant |
-| `src/campaign/confirmation.ts`, `confirmation.pg.ts` | le code de confirmation d'une campagne préparée par l'assistant : empreinte de l'état, code haché, réclamation atomique |
+| `src/campaign/confirmation.ts`, `confirmation.pg.ts` | la marque d'un brouillon préparé par l'assistant (`campagne_confirmations`, que seul `replaces` remplace) et l'empreinte de l'état ; le code n'est plus délivré depuis B8 (le oui, `src/mise-en-ligne/envois.ts`) |
 | `src/mcp/cible.ts` -> `lireCibleMcp` | la cible d'un outil de campagne de l'assistant, devant `parseBulkTarget` : jamais sans critère, jamais tronquée, l'analyse réservée à l'Entreprise, un critère de commande refusé sans boutique |
 | `web/lib/partage/segments.ts`, `src/crm/segments.ts` -> `clauseSegment` | 🔴 les critères de segment (commandes, dépense, dernière commande, activité, pays) : clés réservées `segment_*` et opérateur `segment` dans `fieldFilters`, bornes communes à la console, au serveur et au schéma MCP, la clause SQL de chacun ; leur validation est `lireSegment` (`src/crm/contact-filters.ts`) |
 | `src/api/modele-envoi.ts` -> `modeleEnvoyable`, `numeroDEnvoi` | un modèle jugé envoyable chez Meta (et sa catégorie), et le numéro d'envoi de l'espace : `POST /v1/sends` et `prepare_campaign` |

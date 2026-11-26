@@ -3487,7 +3487,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   `POST /v1/sends` : STOP, numéro délié ou suspendu, modèles du mois de l'offre ; un refus revient avec sa raison.
   Envoyer par Claude déclare l'accord de la personne au nom du client, sous sa responsabilité : sa fiche devient
   consentante et dit qui l'a déclaré, sans que Claude pose la question (décision de Julien du 2026-10-25) ; une
-  personne qui a dit STOP n'est jamais écrite. Une campagne, elle, se prépare puis se lance avec un code (entrée suivante).
+  personne qui a dit STOP n'est jamais écrite. Une campagne, elle, se prépare puis part sur le clic d'un administrateur
+  (entrée suivante).
 - ✅ **Claude prépare une campagne, et ne la lance qu'après votre oui** (2026-10-20, offre Pro) : « prépare une
   campagne pour les clients qui se sont plaints d'un retard de livraison, envoi demain 10 h ». Claude trouve les contacts
   (`find_contacts` : étiquettes, consentement, commandes Shopify, activité, pays, et en Entreprise la dernière analyse :
@@ -3495,9 +3496,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   fait un segment, qui est une étiquette (`tag_contacts`, comme l'action en masse de la liste des contacts, sans
   déclencher d'automation), et prépare la campagne (`prepare_campaign`) : un brouillon visible dans Campagnes, rien ne
   part. Il montre le récapitulatif (contacts visés, combien partiront, combien sont écartés et pourquoi, cinq noms, le
-  nombre de messages facturables par Meta, jamais un montant) avec un code de confirmation valable 30 minutes, et ne
-  lance (`launch_campaign`) qu'après votre oui. Le code ne lance que la campagne telle qu'elle a été montrée ; pour changer
-  la cible, le modèle ou la date, Claude la prépare à nouveau et l'ancien brouillon disparaît. Le modèle doit être
+  nombre de messages facturables par Meta, jamais un montant) et le lien d'une page de la console : rien ne part avant
+  qu'un administrateur y clique « Envoyer à N contacts » (ou « Programmer l'envoi »), dans les 24 heures, et Claude lit
+  ensuite ce que le clic a fait (`launch_campaign`). Le clic ne lance que la campagne telle qu'elle a été montrée ; pour
+  changer la cible, le modèle ou la date, Claude la prépare à nouveau et l'ancien brouillon disparaît. Le modèle doit être
   approuvé, et c'est sa catégorie chez Meta qui décide : un modèle marketing ne part qu'aux contacts qui ont consenti.
   Un brouillon préparé pour une date se programme à cette date, depuis Claude ou depuis la console, où son bouton devient
   « Programmer pour le … ». Pour retrouver les contacts d'un sujet, Claude lit les conversations d'une période
@@ -5500,9 +5502,10 @@ du 2026-10-27.
   pour laisser entrer de nouveaux clients : les plus anciens, une étiquette, un consentement ou une liste. Pas encore
   « ceux qui n'ont plus écrit depuis tant de jours » : les conversations, seules à dater un dernier message, partent
   avec leur durée de conservation et la déconnexion du numéro. Claude montre d'abord leur nombre, dix fiches (nom,
-  numéro masqué, date de création) et un code valable 30 minutes, puis supprime sur l'accord de la personne, avec la
-  même sélection et ce code, 1 000 contacts au plus à la fois ; si la sélection ne désigne plus les mêmes contacts,
-  rien n'est supprimé. Tant que l'espace dépasse sa limite, ses
+  numéro masqué, date de création) et le lien d'une page de la console : rien n'est supprimé avant qu'un
+  administrateur y clique « Supprimer N contacts », dans les 24 heures, 1 000 contacts au plus à la fois, et ce sont
+  les fiches montrées, elles seules ; si l'une d'elles a été effacée depuis, rien n'est supprimé. La Free garde cette
+  page. Tant que l'espace dépasse sa limite, ses
   suppressions ne sont pas limitées par jour, sur tous les chemins (Claude, l'API, la console) ; revenu à la limite,
   la limite du jour reprend. Dès qu'une place se libère sous la limite, un nouveau client qui écrit entre de nouveau.
 - ✅ **Par l'API et Claude** : un refus rend le statut **402** avec un code, `plan_feature_unavailable` (fonction
@@ -6195,9 +6198,9 @@ depuis un assistant : elle reste un geste de la console.
 
 **Ce qu'il ne fait PAS, et c'est délibéré.**
 - **Une campagne ne part qu'après votre oui.** Ouvrir l'envoi de masse à un modèle, c'est lui donner un mégaphone
-  facturé sur un numéro dont Meta note la qualité : Claude la prépare (`prepare_campaign`) et ne la lance
-  (`launch_campaign`) qu'avec le code de confirmation qu'il vous montre, valable 30 minutes pour la campagne telle
-  qu'elle a été montrée (voir « Claude prépare une campagne, et ne la lance qu'après votre oui »). Ces outils exigent une
+  facturé sur un numéro dont Meta note la qualité : Claude la prépare (`prepare_campaign`), et elle ne part que sur le
+  clic d'un administrateur dans la console, sur la page dont Claude donne le lien, valable 24 heures pour la campagne
+  telle qu'elle a été montrée (voir « Claude prépare une campagne, et ne la lance qu'après votre oui »). Ces outils exigent une
   personne connectée, jamais une clé d'API. Hors campagne, un assistant envoie un modèle approuvé à UNE personne à la
   fois (`send_template_to_contact`, compté dans les envois du jour).
 - **Hors de la fenêtre de 24 h, seul un modèle approuvé part.** Un message libre est refusé, avec la raison.
@@ -6491,15 +6494,16 @@ chemin pour elle. Chacun devient un outil, qui appelle la fonction du bouton de 
   que Claude le retrouve pour le débloquer.
 - **La suppression de contacts en masse** (`prepare_contacts_deletion`, `delete_contacts`, 2026-10-26, toutes les
   offres) : une Free n'avait que la suppression par l'API, une fiche à la fois et dix par jour. Une sélection (étiquettes,
-  consentement, une liste de contacts, les plus anciens), un aperçu qui n'efface rien (le nombre, dix fiches, un code de
-  30 minutes), puis l'effacement de la console, avec la même sélection et ce code : fiches, conversations, messages et
-  analyses, journalisé au nom de la personne. Une sélection sans critère, ou de plus de 1 000 contacts, est refusée,
-  comme un critère que l'outil ne connaît pas (l'inactivité, par exemple, voir « Offres ») ; si elle ne désigne plus
-  les mêmes contacts qu'à l'aperçu, rien n'est supprimé. L'aperçu et l'effacement comptent dans les opérations lourdes ;
+  consentement, une liste de contacts, les plus anciens), un aperçu qui n'efface rien (le nombre, dix fiches, le lien
+  du oui), puis, sur le clic d'un administrateur dans la console, l'effacement de la console : fiches, conversations,
+  messages et analyses, journalisé au nom de l'administrateur qui a cliqué. Une sélection sans critère, ou de plus de 1 000 contacts, est refusée,
+  comme un critère que l'outil ne connaît pas (l'inactivité, par exemple, voir « Offres ») ; si l'une des fiches montrées
+  a été effacée depuis l'aperçu, rien n'est supprimé, et une fiche entrée dans la sélection depuis n'est pas touchée. L'aperçu et l'effacement comptent dans les opérations lourdes ;
   l'effacement, dans la limite du jour de la Free, levée tant que l'espace dépasse sa limite de contacts (voir « Offres »).
 - **Les freins d'une campagne** (`control_campaign`, offre Pro) : mettre en pause une campagne qui envoie, déprogrammer
   une campagne programmée, ou préparer la reprise d'une campagne en pause : un récapitulatif des destinataires
-  restants et un code, puis `launch_campaign` avec ce code, comme pour un lancement. La reprise part tout de suite, et
+  restants, son motif, et le lien du bouton qui la reprend, sur le clic d'un administrateur comme un lancement ;
+  `launch_campaign` en rend le résultat. La reprise part tout de suite, et
   aucun refus ne renvoie vers une nouvelle préparation, qui écrirait à tout le monde, pas même quand la campagne a
   repris entre-temps (par le balayage ou dans la console). Le récapitulatif de reprise dit pourquoi la campagne s'est
   arrêtée (une pause pour la qualité du numéro demande de la vérifier d'abord) ; une pause qu'un autre geste lève
@@ -6540,7 +6544,12 @@ comprises ; déplacer un bloc n'en est pas une. Claude les liste (`list_scenario
 d'elles, toujours par ce clic. La console ne montre pas encore les versions.
 
 **Ce qui n'est pas encore là.** Claude ne prépare pas encore lui-même le brouillon d'un scénario : il publie un brouillon
-fait dans la console, ou en restaure une version. Les campagnes gardent leur code de confirmation.
+fait dans la console, ou en restaure une version.
+
+**Les envois au oui** (2026-11-26, lot 1 du CSM virtuel, B8). Le même clic lance, programme ou reprend une campagne
+que Claude a préparée, et efface les contacts qu'il a sélectionnés : le code de confirmation que Claude recopiait a
+disparu. Le bouton dit ce qui part et à combien (« Envoyer à 120 contacts », « Supprimer 40 contacts ») ; un clic
+coupé par une panne se reprend sans rien renvoyer. La page s'ouvre aussi en Free, pour la suppression de contacts.
 
 ## Plafonds d'usage (visible seulement si on force)
 

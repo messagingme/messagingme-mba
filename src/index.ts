@@ -189,6 +189,7 @@ import type { DepsReglageRepondeur } from './repondeur/reglage';
 import { PgVersionsScenario } from './workflow/versions.pg';
 import { PgDeroule } from './workflow/deroule.pg';
 import { PgMisesEnLigne } from './mise-en-ligne/store.pg';
+import type { DepsEnvoisAuOui } from './mise-en-ligne/envois';
 import type { DepsMisesEnLigne } from './mise-en-ligne/mise-en-ligne';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { fetchUrlBorne } from './lib/page-distante';
@@ -1963,21 +1964,6 @@ async function main(): Promise<void> {
     publication: publicationDesScenarios,
   };
 
-  /**
-   * Le oui de mise en ligne (lot 1 du CSM virtuel, B2) et les versions de scénario (B3), pour leurs DEUX portes : la page
-   * de la console (le clic d'un admin) et les outils MCP (la proposition, sa lecture, les versions). La publication y
-   * passe par les MÊMES dépendances que « Publier » de la console, le répondeur par le MÊME réglage que l'Accueil. Les
-   * magasins ENTIERS : leurs méthodes lisent `this`.
-   */
-  const misesEnLigne: DepsMisesEnLigne = {
-    store: new PgMisesEnLigne(pool),
-    scenarios: workflowStore,
-    versions: new PgVersionsScenario(pool),
-    publication: publicationDesScenarios,
-    repondeur: repondeurDeLaConsole,
-    audit: auditSink,
-    maintenant: () => Date.now(),
-  };
   let filetModelesDeBlocEnCours = false;
 
   /**
@@ -2147,6 +2133,34 @@ async function main(): Promise<void> {
         replyTo: repondreA,
       });
     },
+  };
+
+  /**
+   * La suppression de contacts en masse depuis Claude (2026-10-26) et son oui (lot 1 du CSM virtuel, B8) : la sélection du
+   * magasin, et l'effacement de la purge de la console (la MÊME limite du jour, levée au-delà de la limite de contacts, le
+   * MÊME retrait chez l'agent de Meta). Le MCP prépare par la sélection ; le clic du oui efface par l'effacement.
+   */
+  const depsSuppression: DepsEnvoisAuOui['suppression'] = {
+    selection: (tenant, cible, limite) => contactStore.selectionAEffacer(tenant, cible, limite),
+    effacement: { contacts: contactStore, suppressionsDuJour: quotaSuppressions, listeDeLAgent, enVol: travauxEnVol },
+  };
+
+  /**
+   * Le oui de mise en ligne (lot 1 du CSM virtuel, B2) et les versions de scénario (B3), pour leurs DEUX portes : la page
+   * de la console (le clic d'un admin) et les outils MCP (la proposition, sa lecture, les versions). La publication y
+   * passe par les MÊMES dépendances que « Publier » de la console, le répondeur par le MÊME réglage que l'Accueil, et les
+   * envois au oui (B8) par le MÊME câblage que les campagnes et la suppression de la console. Les magasins ENTIERS :
+   * leurs méthodes lisent `this`.
+   */
+  const misesEnLigne: DepsMisesEnLigne = {
+    store: new PgMisesEnLigne(pool),
+    scenarios: workflowStore,
+    versions: new PgVersionsScenario(pool),
+    publication: publicationDesScenarios,
+    repondeur: repondeurDeLaConsole,
+    envois: { campagnes: depsCampagnes, suppression: depsSuppression },
+    audit: auditSink,
+    maintenant: () => Date.now(),
   };
 
   // Cockpit (lot 2) : UN lecteur, partagé par l'écran et la veille de Santé (lot 4), donc un seul cache. Sans jeton,
@@ -4235,15 +4249,9 @@ async function main(): Promise<void> {
         // Les campagnes depuis l'assistant (2026-10-20) : le câblage de la route des campagnes, la lecture des modèles de
         // `POST /v1/sends` (catégorie lue chez Meta, numéro de l'espace) et les codes de confirmation (migration 0245).
         campagnes: { route: depsCampagnes, modeles: depsEnvois, confirmations: new PgConfirmations(pool) },
-        // La suppression de contacts en masse depuis l'assistant (2026-10-26) : la sélection du magasin, l'effacement de la
-        // purge de la console (la MÊME limite du jour, levée au-delà de la limite de contacts, le MÊME retrait chez l'agent
-        // de Meta), son audit, et le secret des sessions, qui signe les codes de confirmation sous une clé dérivée.
-        suppression: {
-          selection: (tenant, cible, limite) => contactStore.selectionAEffacer(tenant, cible, limite),
-          effacement: { contacts: contactStore, suppressionsDuJour: quotaSuppressions, listeDeLAgent, enVol: travauxEnVol },
-          audit: auditSink,
-          secret: config.AUTH_SECRET,
-        },
+        // La suppression de contacts en masse depuis l'assistant (2026-10-26) : la sélection, que le clic du oui relit et
+        // efface (B8, `misesEnLigne`). Le MÊME objet que le oui.
+        suppression: depsSuppression,
         // Les champs depuis l'assistant (2026-10-20) : le MÊME référentiel que l'écran et `/v1/fields`, et le champ de base
         // créé à la volée comme l'action en masse de la console.
         champs: fieldStore,

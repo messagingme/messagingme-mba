@@ -5,7 +5,6 @@
 //
 // 🔴 Chaque étape dit ce qu'on dit à Claude, les outils qu'il appelle (leurs vrais noms, `web/lib/partage/catalogue-mcp.ts`)
 // et ce qu'il répond, relus dans `src/mcp/` et dans les skills du plugin. Les commandes viennent de `web/lib/demarrer.ts`.
-import { DUREE_CODE_MS } from '../../src/campaign/confirmation';
 import { AUTORISATION_CODEX, COMMANDE_DEMARRAGE, COMMANDES_CODEX, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../../web/lib/demarrer';
 import { TEXTES_TUNNEL } from './tunnel-textes';
 
@@ -48,7 +47,6 @@ export interface PageClaude {
   readonly faq?: readonly string[];
 }
 
-const MINUTES_CODE = Math.round(DUREE_CODE_MS / 60_000);
 /** « Dans un terminal » et la note de la page d'autorisation de Codex : les mots de la fin du tunnel, jamais recopiés. */
 const CODEX = { fr: TEXTES_TUNNEL.fr.appels.etapesFree, en: TEXTES_TUNNEL.en.appels.etapesFree };
 const majuscule = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
@@ -316,8 +314,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
     adresse: { fr: '/developpeurs/preparer-une-campagne/', en: '/en/developers/prepare-a-campaign/' },
     titre: { fr: 'Préparer et lancer une campagne depuis Claude', en: 'Prepare and launch a campaign from Claude' },
     chapeau: {
-      fr: 'Dites à qui écrire et quoi envoyer : Claude prépare un brouillon, vous montre le récapitulatif, et ne lance qu’avec votre oui et son code.',
-      en: 'Say who to write to and what to send: Claude prepares a draft, shows you the summary, and only launches with your yes and its code.',
+      fr: 'Dites à qui écrire et quoi envoyer : Claude prépare un brouillon et vous montre le récapitulatif ; rien ne part avant votre clic dans la console.',
+      en: 'Say who to write to and what to send: Claude prepares a draft and shows you the summary; nothing leaves before your click in the console.',
     },
     film: 'claude-campagne',
     offrePro: true,
@@ -336,17 +334,17 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Prépare une campagne avec le modèle de la collection d’automne pour eux, envoi demain à 10 h.', en: 'Prepare a campaign with the autumn collection template for them, sending tomorrow at 10 am.' },
         outils: ['prepare_campaign'],
         reponse: {
-          fr: 'Claude crée un brouillon, visible dans la console, sans rien envoyer, et vous montre le récapitulatif : combien partent, qui est écarté et pourquoi, cinq noms, la date en heure de Paris, et un code de confirmation.',
-          en: 'Claude creates a draft, visible in the console, without sending anything, and shows you the summary: how many go out, who is left out and why, five names, the date in Paris time, and a confirmation code.',
+          fr: 'Claude crée un brouillon, visible dans la console, sans rien envoyer, et vous montre le récapitulatif : combien partent, qui est écarté et pourquoi, cinq noms, la date en heure de Paris, et le lien de la page où vous direz oui.',
+          en: 'Claude creates a draft, visible in the console, without sending anything, and shows you the summary: how many go out, who is left out and why, five names, the date in Paris time, and the link of the page where you say yes.',
         },
       },
       {
-        titre: { fr: 'Dire oui', en: 'Say yes' },
-        dire: { fr: 'Oui, lance-la.', en: 'Yes, launch it.' },
+        titre: { fr: 'Dire oui, d’un clic', en: 'Say yes, with one click' },
+        dire: { fr: 'C’est cliqué.', en: 'Done, I clicked.' },
         outils: ['launch_campaign'],
         reponse: {
-          fr: 'Claude lance avec le code du récapitulatif : la campagne est programmée pour la date choisie, ou part tout de suite si aucune date n’a été donnée.',
-          en: 'Claude launches with the summary’s code: the campaign is scheduled for the chosen date, or starts right away if no date was given.',
+          fr: 'Sur la page du lien, un administrateur clique « Envoyer à N contacts » : la campagne est programmée pour la date choisie, ou part tout de suite si aucune date n’a été donnée. Claude lit ce que le clic a fait.',
+          en: 'On the page of the link, an administrator clicks “Envoyer à N contacts” (send to N contacts): the campaign is scheduled for the chosen date, or starts right away if no date was given. Claude reads what the click did.',
         },
       },
       {
@@ -360,8 +358,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
       },
     ],
     bonASavoir: {
-      fr: `Le code de confirmation sert une fois, pendant ${MINUTES_CODE} minutes, et pour la campagne exactement telle que résumée : si quelque chose change, Claude la prépare à nouveau. Un modèle marketing ne part qu’aux contacts qui ont donné leur consentement, et ceux qui ont répondu STOP sont écartés.`,
-      en: `The confirmation code works once, for ${MINUTES_CODE} minutes, and only for the campaign exactly as summarized: if anything changes, Claude prepares it again. A marketing template only reaches contacts who gave their consent, and those who replied STOP are left out.`,
+      fr: 'Le bouton sert une fois, pendant 24 heures, et pour la campagne exactement telle que résumée : si quelque chose change, le clic est refusé et Claude la prépare à nouveau. Un modèle marketing ne part qu’aux contacts qui ont donné leur consentement, et ceux qui ont répondu STOP sont écartés.',
+      en: 'The button works once, for 24 hours, and only for the campaign exactly as summarized: if anything changes, the click is refused and Claude prepares it again. A marketing template only reaches contacts who gave their consent, and those who replied STOP are left out.',
     },
   },
 ];

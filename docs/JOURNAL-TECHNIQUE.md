@@ -5,6 +5,41 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-26 : CSM virtuel, lot H (B8, livraison 1) : une campagne et une suppression de contacts partent sur le clic d'un admin
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-h-envois-au-oui.md`. Décisions de Julien du même jour : le code de
+confirmation disparaît sans préavis (mesuré en production, en lecture seule : en 90 jours, seul l'espace SANDBOX s'en
+était servi, deux codes le 20 octobre ; aucune écriture d'envoi par Claude depuis les traces de B0c) ; les réponses dans
+une conversation ouverte (`reply_in_open_window`, `send_message`) restent hors du oui.
+
+**Le oui de B2 envoie.** Deux actions s'ajoutent à la mise en ligne, chacune seule dans la sienne
+(`src/mise-en-ligne/envois.ts`) : `campagne` lance, programme à sa date ou reprend une campagne par `lancerCampagne`, le
+chemin du bouton « Lancer » ; `suppression` efface les fiches montrées par `effacerContacts`, la purge de la console. Le
+bouton nomme l'effet (« Envoyer à 120 contacts », « Reprendre l'envoi à 4 contacts », « Supprimer 40 contacts ») ; le
+clic relit l'état gardé et refuse ce qui a changé. `prepare_campaign`, `control_campaign` (`prepare_resume`) et
+`prepare_contacts_deletion` rendent le bouton au lieu d'un code ; `launch_campaign` et `delete_contacts` prennent
+l'identifiant du oui, en rendent le résultat et reprennent une exécution coupée (`reprendre`, qui n'accepte jamais). Le oui
+d'une suppression ne garde que des identifiants, jamais le nom ni le numéro d'un contact. La page du oui s'ouvre à la
+Free, dont la suppression de contacts est le seul chemin au-delà de sa limite. Le code de suppression
+(`src/crm/code-suppression.ts`) et la réclamation du code de campagne disparaissent ; `campagne_confirmations` reste la
+marque d'un brouillon de l'assistant. Aucune migration.
+
+**La relecture indépendante, sur l'arbre construit : un rouge, corrigé avant de pousser.** Une exécution coupée APRÈS le
+lancement, avant d'avoir noté son résultat, se rejouait : si l'admin avait mis la campagne en pause entre-temps (ou Meta,
+pour la qualité du numéro), la reprise la relançait sans nouveau clic. L'exécution ne lance plus rien sur un état qui
+n'est plus celui du clic (statut, destinataires en attente, motif de la pause, désormais gardé et montré) ; deux tests la
+prouvent, chacun rouge sans le correctif. Réglés aussi avant de pousser : la nature du oui vérifiée AVANT toute reprise
+(`delete_contacts` aurait pu relancer une campagne coupée), l'offre relue à chaque exécution (un espace redescendu en Free
+ne finit pas une publication de son époque Pro), la consigne de reprise sur tout refus d'une campagne en pause, la
+lecture d'un résultat qui n'entame plus le plafond lourd, la cause du Crédit WhatsApp dans le vocabulaire de l'API, et le
+code de confirmation encore cité par les textes des outils, la page développeurs et la FAQ du plugin. Le reste est au
+`todo.md` (un second run pour un brouillon rejoué avant son démarrage, le bail pendant une longue purge, le bilan d'une
+reprise de suppression, le lien de l'offre perdu sur un refus noté, les libellés de la page, `dateDeParis` en double).
+
+Preuves : 19 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint (racine et console),
+l'auto-attaque (2 259 sondes, aucune trouvaille), la suite racine et celle de la console ; sur l'arbre fusionné avec les
+pairs : les tests ciblés (4 148 dans 218 fichiers au premier passage) et la console (1 407).
+
 ## 2026-11-26 : une loupe dans l'Inbox, et la liste rangée par jour
 
 Demande de Julien : retrouver une conversation par une recherche (une croix dans le champ rend toute la liste), et voir

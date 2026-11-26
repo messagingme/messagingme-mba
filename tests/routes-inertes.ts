@@ -1,4 +1,5 @@
 import type { AuditSink } from '../src/audit/journal';
+import type { DepsEnvoisAuOui } from '../src/mise-en-ligne/envois';
 import { SEUILS_DEFAUT } from '../src/ops/seuils';
 import { ventilationVide } from '../src/agent/natures-credit';
 import type { AccountRouteDeps } from '../src/http/account';
@@ -632,6 +633,23 @@ export const mcpEtiquettesInertes: Pick<DepsMcp, 'etiquettes'> = {
 export const mcpJournalMuet: Pick<DepsMcp, 'journal'> = { journal: journalMuet };
 
 /**
+ * Les envois au oui (CSM, B8), pour les montages qui n'en parlent pas : toute lecture et toute écriture lèvent. Leurs
+ * tests montent leurs propres faux (`tests/mise-en-ligne-envois.test.ts`).
+ */
+export const envoisAuOuiInertes: DepsEnvoisAuOui = {
+  campagnes: {
+    repo: {
+      etatPourConfirmation: neDevraitPasEtreAppelee('envois.campagnes.etatPourConfirmation'),
+      pauseDe: neDevraitPasEtreAppelee('envois.campagnes.pauseDe'),
+    },
+  } as unknown as DepsEnvoisAuOui['campagnes'],
+  suppression: {
+    selection: neDevraitPasEtreAppelee('envois.suppression.selection'),
+    effacement: { contacts: {}, suppressionsDuJour: {}, listeDeLAgent: {}, enVol: {} } as unknown as DepsEnvoisAuOui['suppression']['effacement'],
+  },
+};
+
+/**
  * Le oui de mise en ligne et les versions (CSM, B2 et B3), pour les montages qui n'en parlent pas : les LECTURES rendent
  * le vide, les ÉCRITURES lèvent. Leurs outils ont leur propre fichier, `tests/mcp-mise-en-ligne.test.ts`.
  */
@@ -646,6 +664,7 @@ export const mcpMisesEnLigneInertes: Pick<DepsMcp, 'misesEnLigne'> = {
     versions: { lire: async () => null, lister: async () => [] },
     publication: modelesDeBlocInertes.publication,
     repondeur: repondeurInerte,
+    envois: envoisAuOuiInertes,
     audit: journalMuet,
     maintenant: () => 0,
   },
@@ -1052,8 +1071,6 @@ export const mcpCampagnesInertes: Pick<DepsMcp, 'campagnes'> = {
     },
     confirmations: {
       poser: neDevraitPasEtreAppelee('campagnes.confirmations.poser'),
-      reclamer: neDevraitPasEtreAppelee('campagnes.confirmations.reclamer'),
-      rendre: neDevraitPasEtreAppelee('campagnes.confirmations.rendre'),
       existe: async () => false,
     },
   },
@@ -1205,20 +1222,11 @@ export const mcpChampsInertes: Pick<DepsMcp, 'champs' | 'ensureSocleField'> = {
 
 /**
  * La suppression de contacts en masse (2026-10-26), pour les montages qui n'en parlent pas : la sélection ne désigne
- * personne, et l'effacement lève. Ses outils ont leur fichier, `tests/mcp-suppression.test.ts`.
+ * personne. L'effacement, lui, passe par le clic du oui (B8, `envoisAuOuiInertes`). Ses outils ont leur fichier,
+ * `tests/mcp-suppression.test.ts`.
  */
 export const mcpSuppressionInerte: Pick<DepsMcp, 'suppression'> = {
-  suppression: {
-    selection: async () => [],
-    effacement: {
-      contacts: { purgeMany: neDevraitPasEtreAppelee('suppression.purgeMany') },
-      suppressionsDuJour: { consommer: neDevraitPasEtreAppelee('suppression.suppressionsDuJour') },
-      listeDeLAgent: { oublierChezMeta: neDevraitPasEtreAppelee('suppression.oublierChezMeta') },
-      enVol: creerTravauxEnVol(),
-    },
-    audit: neDevraitPasEtreAppelee('suppression.audit'),
-    secret: 'secret-inerte-des-suppressions',
-  },
+  suppression: { selection: async () => [] },
 };
 
 /**

@@ -177,8 +177,8 @@
 - [Connect your Shopify store from Claude](https://app.messagingme.fr/en/developers/connect-your-shopify-store/) : Confirmation, shipping, checkout reminder: Claude creates the app in your Shopify account and connects it all. You sign in and click “Install”. Free plan.
 - [Répondre à un client depuis Claude](https://app.messagingme.fr/developpeurs/repondre-a-une-conversation/) : Claude lit vos conversations, vous dit si la fenêtre de 24 heures est ouverte, et répond pour vous quand vous le lui demandez.
 - [Reply to a customer from Claude](https://app.messagingme.fr/en/developers/reply-to-a-conversation/) : Claude reads your conversations, tells you whether the 24-hour window is open, and replies for you when you ask.
-- [Préparer et lancer une campagne depuis Claude](https://app.messagingme.fr/developpeurs/preparer-une-campagne/) : Dites à qui écrire et quoi envoyer : Claude prépare un brouillon, vous montre le récapitulatif, et ne lance qu’avec votre oui et son code.
-- [Prepare and launch a campaign from Claude](https://app.messagingme.fr/en/developers/prepare-a-campaign/) : Say who to write to and what to send: Claude prepares a draft, shows you the summary, and only launches with your yes and its code.
+- [Préparer et lancer une campagne depuis Claude](https://app.messagingme.fr/developpeurs/preparer-une-campagne/) : Dites à qui écrire et quoi envoyer : Claude prépare un brouillon et vous montre le récapitulatif ; rien ne part avant votre clic dans la console.
+- [Prepare and launch a campaign from Claude](https://app.messagingme.fr/en/developers/prepare-a-campaign/) : Say who to write to and what to send: Claude prepares a draft and shows you the summary; nothing leaves before your click in the console.
 
 ## Intégrations
 

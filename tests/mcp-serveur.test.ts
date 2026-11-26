@@ -809,7 +809,7 @@ describe('🔴 serveur MCP : une clé d’argument inconnue est refusée avant l
 });
 
 describe('serveur MCP : cohérence du catalogue', () => {
-  it('🔴 les campagnes : lire, préparer sans rien envoyer, lancer avec le code ; rien d’autre, et le seul envoi direct vise UNE personne', () => {
+  it('🔴 les campagnes : lire, préparer sans rien envoyer, lancer sur le clic d’un admin ; rien d’autre, et le seul envoi direct vise UNE personne', () => {
     // Décision du lot MCP, et pas un oubli : ouvrir l'envoi de MASSE à un modèle, c'est lui donner un mégaphone facturé
     // sur un numéro dont Meta note la qualité. Les modèles sont entrés par une décision de Julien (spec du lot 13,
     // 2026-10-08) : les créer, suivre leur validation, les lister, et en envoyer un à UN contact, réservé à une personne
@@ -820,7 +820,9 @@ describe('serveur MCP : cohérence du catalogue', () => {
     // docs/superpowers/specs/2026-10-20-campagnes-depuis-claude-design.md) ; CORRIGER et SUPPRIMER un modèle, au nom d'une
     // personne (grill du 2026-10-22, plan docs/superpowers/plans/2026-10-22-mcp-marche-arriere.md) : rien n'en part chez un
     // contact ; FREINER une campagne (pause, déprogrammation) et en PRÉPARER la reprise (même grill) : `control_campaign`
-    // n'envoie rien, la reprise part par `launch_campaign`, avec un code.
+    // n'envoie rien, la reprise part par `launch_campaign`, avec un code. Depuis B8 (lot 1 du CSM virtuel, 2026-11-26), le
+    // code a disparu : le lancement et la reprise partent sur le clic d'un admin dans la console, et `launch_campaign` prend
+    // l'identifiant de ce oui.
     const lecture = OUTILS.find((o) => o.nom === 'get_campaign_stats')!;
     expect(lecture.annotations.readOnlyHint).toBe(true);
     expect(lecture.scope).toBe('mcp:read');
@@ -829,7 +831,7 @@ describe('serveur MCP : cohérence du catalogue', () => {
     expect(prepare.annotations.openWorldHint).toBe(false);
     const lance = OUTILS.find((o) => o.nom === 'launch_campaign')!;
     expect(lance.exigePersonne).toBe(true);
-    expect(lance.entree.required).toEqual(['campaign_id', 'confirmation_code']);
+    expect(lance.entree.required).toEqual(['campaign_id', 'go_live_id']);
     const campagnes = OUTILS.map((o) => o.nom).filter((n) => /campaign|campagne|broadcast/i.test(n)).sort();
     expect(campagnes).toEqual(['control_campaign', 'get_campaign_stats', 'launch_campaign', 'prepare_campaign']);
     const freins = OUTILS.find((o) => o.nom === 'control_campaign')!;
@@ -957,15 +959,16 @@ describe('serveur MCP : cohérence du catalogue', () => {
       tag_contacts: [true, true, false],
       // Un brouillon de plus à chaque appel, et rien ne part.
       prepare_campaign: [true, false, false],
-      // Les messages partent (ou partiront à la date) chez des personnes ; un second appel avec le même code est refusé.
-      launch_campaign: [true, false, true],
-      // Les freins et la reprise (2026-10-22) : rien ne part chez un tiers ; chaque reprise préparée tire un nouveau code.
+      // Depuis B8 (2026-11-26), le clic d'un admin envoie ; l'outil prend l'identifiant de ce oui et rend toujours le même
+      // résultat, une reprise coupée ne renvoie rien ; une reprise repart chez Meta.
+      launch_campaign: [true, true, true],
+      // Les freins et la reprise (2026-10-22) : rien ne part chez un tiers ; chaque reprise préparée fait un nouveau oui.
       control_campaign: [true, false, false],
-      // La suppression en masse (2026-10-26) : l'aperçu n'écrit rien et tire un nouveau code à chaque appel ; l'effacement
-      // est irréversible, un second appel avec le même code est refusé, et la purge retire les contacts de la liste de
-      // l'agent de Meta, chez Meta.
+      // La suppression en masse (2026-10-26) : l'aperçu n'efface rien et prépare un nouveau oui à chaque appel ; le clic
+      // efface (B8), l'outil rend toujours le même bilan et une reprise n'efface que ce qui reste ; la purge retire les
+      // contacts de la liste de l'agent de Meta, chez Meta.
       prepare_contacts_deletion: [true, false, false],
-      delete_contacts: [true, false, true],
+      delete_contacts: [true, true, true],
       // Les champs (2026-10-20) : un champ de plus à chaque appel ; poser la même valeur ne change rien.
       create_field: [true, false, false],
       set_contact_field: [true, true, false],

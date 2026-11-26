@@ -76,30 +76,4 @@ describe.skipIf(!url)('PgConfirmations (Postgres)', () => {
     expect(await confirmations.poser(autreTenant, campaignId, 'etat')).toBeNull();
     expect(await confirmations.existe(autreTenant, campaignId)).toBe(false);
   });
-
-  it('🔴 deux réclamations simultanées du même code : un seul « ok »', async () => {
-    const pose = (await confirmations.poser(tenantId, campaignId, 'etat-1'))!;
-    expect(pose.code).toMatch(/^[A-Z2-9]{6}$/);
-    expect(await confirmations.existe(tenantId, campaignId)).toBe(true);
-    const issues = await Promise.all([1, 2, 3].map(() => confirmations.reclamer(tenantId, campaignId, pose.code, 'etat-1')));
-    expect(issues.filter((i) => i === 'ok')).toHaveLength(1);
-    expect(issues.filter((i) => i === 'utilise')).toHaveLength(2);
-  });
-
-  it('rendu après un lancement refusé, le code resservira ; un autre espace ne le réclame pas', async () => {
-    const pose = (await confirmations.poser(tenantId, campaignId, 'etat-2'))!;
-    expect(await confirmations.reclamer(autreTenant, campaignId, pose.code, 'etat-2')).toBe('invalide');
-    expect(await confirmations.reclamer(tenantId, campaignId, pose.code, 'etat-2')).toBe('ok');
-    await confirmations.rendre(tenantId, campaignId);
-    expect(await confirmations.reclamer(tenantId, campaignId, pose.code, 'etat-2')).toBe('ok');
-  });
-
-  it('un code faux, un état changé, un code expiré : chacun son refus', async () => {
-    const pose = (await confirmations.poser(tenantId, campaignId, 'etat-3'))!;
-    const faux = pose.code === 'AAAAAA' ? 'BBBBBB' : 'AAAAAA';
-    expect(await confirmations.reclamer(tenantId, campaignId, faux, 'etat-3')).toBe('invalide');
-    expect(await confirmations.reclamer(tenantId, campaignId, pose.code, 'etat-autre')).toBe('modifie');
-    await pool.query(`update campagne_confirmations set expire_le = now() - interval '1 second' where campaign_id = $1`, [campaignId]);
-    expect(await confirmations.reclamer(tenantId, campaignId, pose.code, 'etat-3')).toBe('expire');
-  });
 });

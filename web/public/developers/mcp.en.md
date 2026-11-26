@@ -90,7 +90,7 @@ For a client that cannot do OAuth, or a script.
 
 ## What it does not do
 
-- **No campaign without your yes.** On Pro, it prepares a campaign and shows you its summary; it only launches it with the code of that summary, after your yes. Outside Pro, it sends a template to one person at a time.
+- **No campaign without your yes.** On Pro, it prepares a campaign and shows you its summary; it only leaves on an administrator’s click in the console, on the page it links to. Outside Pro, it sends a template to one person at a time.
 - **Outside the 24 h window, only an approved template goes out.** A free-form message is refused, with the reason; an approved template goes out through send_template_to_contact.
 - **WhatsApp number unlinked, nothing is sent.** The tool refuses, with the reason, until an admin relinks the number from the Home page.
 - **Automations are not triggered.** A tag set by the assistant classifies the contact, without waking the automations listening for that tag.
@@ -202,16 +202,16 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | search_contacts | mcp:read | Find a contact by name or number, with their latest analysis. |
 | get_contact | mcp:read | A contact record from its number, with their latest analysis and its summary. |
 | block_contact | mcp:write OAuth connection required | Block or unblock a contact: nothing is sent to them anymore, their messages are still recorded. |
-| prepare_contacts_deletion | mcp:write OAuth connection required | Prepare the deletion of a selection of contacts without erasing anything (tags, consent, a list, the N oldest, 1,000 at most): their count, 10 records at most and a confirmation code. |
-| delete_contacts | mcp:write OAuth connection required | Delete for good the contacts of a prepared selection, with the same selection and its code: records, conversations and messages erased, as in the console; refused if the selection no longer designates the same contacts. |
+| prepare_contacts_deletion | mcp:write OAuth connection required | Prepare the deletion of a selection of contacts without erasing anything (tags, consent, a list, the N oldest, 1,000 at most): their count, 10 records at most and the link of the button an administrator clicks to delete. |
+| delete_contacts | mcp:write OAuth connection required | What an administrator’s click deleted: records, conversations and messages erased, as in the console; nothing goes without that click. The click is refused if a record shown was deleted since. |
 | find_contacts | mcp:read | The contacts of a target, like the contact list filters: tags, consent, activity, country and, with a connected Shopify store, orders (count, amount spent, last order) and, on the Enterprise plan, the latest analysis. The total, and up to 100 contacts. |
 | tag_contacts | mcp:write OAuth connection required | Tag the contacts of a target (the criteria of find_contacts) or of a list of conversations: a segment is a tag. Through the console’s bulk action, without starting any automation. |
 | list_fields | mcp:read | The custom contact fields: key, label, type. A template variable can come from one of them. |
 | create_field | mcp:write OAuth connection required | Create a custom field, as in the console: its key comes from the label. |
 | set_contact_field | mcp:write OAuth connection required | Set a field on the contacts of a target (the criteria of find_contacts) or of a list of conversations, like the console’s bulk action, without starting any automation. |
-| prepare_campaign | mcp:write OAuth connection required | Prepare a template campaign without sending anything, for a target (the criteria of find_contacts): a draft visible in the console, a summary (targeted, sent, left out and why, five names, the billable volume) and a confirmation code. |
-| launch_campaign | mcp:write OAuth connection required | Launch, or schedule for its date, a prepared campaign, with the code of its summary, once the person said yes; through the same path as the console’s Launch button. Also resumes a paused campaign, with the code of control_campaign. |
-| control_campaign | mcp:write OAuth connection required | Pause a sending campaign, unschedule a scheduled one, or prepare to resume a paused one (a summary and a code). |
+| prepare_campaign | mcp:write OAuth connection required | Prepare a template campaign without sending anything, for a target (the criteria of find_contacts): a draft visible in the console, a summary (targeted, sent, left out and why, five names, the billable volume) and the link of the button an administrator clicks to send. |
+| launch_campaign | mcp:write OAuth connection required | What an administrator’s click did with a prepared campaign: sending, scheduled for its date or resumed; nothing leaves without that click in the console. Resumes a sending cut short without sending anything twice. |
+| control_campaign | mcp:write OAuth connection required | Pause a sending campaign, unschedule a scheduled one, or prepare to resume a paused one (a summary and the link of the button that resumes it). |
 | list_scenarios | mcp:read | Scenarios, and which are published: a widget only starts a published scenario. |
 | get_scenario | mcp:read | A scenario as a recipe, with the fingerprint that guards its replacement, and its draft if it has one. |
 | simulate_scenario | mcp:read | Play a scenario for a fictitious contact, sending and writing nothing: the blocks passed, the branch each answer takes, the planned effects and the end. |

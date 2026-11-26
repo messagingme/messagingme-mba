@@ -7,7 +7,8 @@ import { estUuid } from '../http/scope';
 import { refus, type Issue } from '../lib/issue';
 import { journaliser } from '../lib/journal';
 import { sha256Hex } from '../lib/signature';
-import { refusFonction } from '../offres/refus';
+import { corpsRefusFonction, refusFonction } from '../offres/refus';
+import type { Fonction } from '../offres/offres';
 import { choisirRepondeur, type DepsReglageRepondeur } from '../repondeur/reglage';
 import type { WorkflowGraph } from '../workflow/graph';
 import type { DepsPublication } from '../workflow/modeles-de-bloc';
@@ -16,6 +17,10 @@ import { publierScenario, type ScenariosAPublier } from '../workflow/publier';
 import type { WorkflowRow } from '../workflow/store.pg';
 import type { VersionScenario, VersionScenarioLue } from '../workflow/versions.pg';
 import type { LigneMiseEnLigne, PgMisesEnLigne } from './store.pg';
+import {
+  estDemandeEnvoi, estEnvoiGarde, executerEnvoi, libelleEnvoi, recapitulatifEnvoi, releverEnvoi,
+  type DemandeEnvoi, type DepsEnvoisAuOui, type EnvoiGarde,
+} from './envois';
 
 /**
  * LE OUI DE MISE EN LIGNE (lot 1 du CSM virtuel, B2, plan `docs/superpowers/plans/2026-11-24-csm-lot1-c-clic-et-versions.md`,
@@ -45,17 +50,22 @@ export const ACTIONS_MAX = 10;
 /** Le bail d'une exécution, renouvelé à chaque action : une exécution tuée se reprend deux minutes après au pire. */
 export const BAIL_EXECUTION_S = 120;
 
-/** Ce que le CSM demande. */
+/** Ce que le CSM demande : une publication (`propose_go_live`), ou un envoi (B8, par ses outils). */
 export type DemandeAction =
   | { type: 'publier'; scenario: string }
   | { type: 'restaurer'; scenario: string; version: number }
-  | { type: 'repondeur'; scenario: string; delaiHeures?: number };
+  | { type: 'repondeur'; scenario: string; delaiHeures?: number }
+  | DemandeEnvoi;
+
+/** Une publication, le répondeur compris : ce que `propose_go_live` demande. */
+type DemandePublication = Exclude<DemandeAction, DemandeEnvoi>;
 
 /** Ce qui est gardé de chaque action : ce qui a été montré, et qui partira tel quel. */
 export type ActionGardee =
   | { type: 'publier'; scenario: string; nom: string; graphe: WorkflowGraph }
   | { type: 'restaurer'; scenario: string; nom: string; version: number; publieeLe: string; graphe: WorkflowGraph }
-  | { type: 'repondeur'; scenario: string; nom: string; delaiS: number };
+  | { type: 'repondeur'; scenario: string; nom: string; delaiS: number }
+  | EnvoiGarde;
 
 export interface DepsMisesEnLigne {
   store: Pick<PgMisesEnLigne, 'inserer' | 'lire' | 'accepter' | 'reclamer' | 'noterResultat' | 'terminer' | 'relacher'>;
@@ -70,6 +80,8 @@ export interface DepsMisesEnLigne {
   publication: DepsPublication;
   /** « Qui répond au client » : le même réglage que la carte de l'Accueil et `set_default_responder`. */
   repondeur: DepsReglageRepondeur;
+  /** Les envois au oui (B8) : le câblage des campagnes et de la suppression de contacts, les MÊMES objets que la console. */
+  envois: DepsEnvoisAuOui;
   audit: AuditSink;
   maintenant(): number;
 }
@@ -97,10 +109,19 @@ interface Releve {
  */
 async function relever(deps: DepsMisesEnLigne, tenant: string, demandes: readonly DemandeAction[]): Promise<Issue<Releve>> {
   if (demandes.length === 0 || demandes.length > ACTIONS_MAX) return refus(400, `une mise en ligne porte de 1 à ${ACTIONS_MAX} actions`);
+  // Un envoi (B8) est SEUL dans sa mise en ligne : son bouton nomme un seul effet, et sa reprise ne mêle rien d'autre.
+  const envoi = demandes.find(estDemandeEnvoi);
+  if (envoi !== undefined) {
+    if (demandes.length !== 1) return refus(400, 'un envoi est seul dans sa mise en ligne');
+    const offre = await deps.repondeur.offres.offreDe(tenant);
+    const r = await releverEnvoi(deps.envois, tenant, offre.droits.fonctions, envoi, deps.maintenant());
+    return r.ok ? { ok: true, valeur: { gardees: [r.valeur], contexte: [] } } : r;
+  }
   // L'offre, pour TOUTE action (publier, restaurer, répondeur : la fonction des scénarios, comme « Publier » de la
   // console) ; relue au clic aussi : un espace redescendu en Base depuis la préparation est refusé.
   if (!(await deps.repondeur.offres.offreDe(tenant)).droits.fonctions.has('scenarios')) return refusFonction('scenarios');
-  const ordonnees = [...demandes.filter((d) => d.type !== 'repondeur'), ...demandes.filter((d) => d.type === 'repondeur')];
+  const publications = demandes.filter((d): d is DemandePublication => !estDemandeEnvoi(d));
+  const ordonnees = [...publications.filter((d) => d.type !== 'repondeur'), ...publications.filter((d) => d.type === 'repondeur')];
   const publiesIci = new Set<string>();
   const gardees: ActionGardee[] = [];
   const contexte: unknown[] = [];
@@ -155,7 +176,7 @@ async function relever(deps: DepsMisesEnLigne, tenant: string, demandes: readonl
 
 /** L'empreinte de ce qui est montré : les graphes sans leurs positions (déplacer un bloc ne change pas ce qui part). */
 const empreinteDe = (r: Releve): string => sha256Hex(canonique({
-  actions: r.gardees.map((g) => (g.type === 'repondeur' ? g : { ...g, graphe: sansPositions(g.graphe) })),
+  actions: r.gardees.map((g) => ('graphe' in g ? { ...g, graphe: sansPositions(g.graphe) } : g)),
   contexte: r.contexte,
 }));
 
@@ -164,11 +185,15 @@ const demandeDe = (g: ActionGardee): DemandeAction => {
     case 'publier': return { type: 'publier', scenario: g.scenario };
     case 'restaurer': return { type: 'restaurer', scenario: g.scenario, version: g.version };
     case 'repondeur': return { type: 'repondeur', scenario: g.scenario, delaiHeures: g.delaiS / 3600 };
+    case 'campagne': return { type: 'campagne', campagne: g.campagne };
+    case 'suppression': return { type: 'suppression', contacts: g.contacts };
   }
 };
 
 /** Le bouton nomme l'effet (décision du 24 novembre) : « Activer sur WhatsApp » dès que le parcours répondra. */
 export function libelleDe(gardees: readonly ActionGardee[]): string {
+  const envoi = gardees.length === 1 && estEnvoiGarde(gardees[0]!) ? gardees[0] : undefined;
+  if (envoi !== undefined && estEnvoiGarde(envoi)) return libelleEnvoi(envoi);
   if (gardees.some((g) => g.type === 'repondeur')) return 'Activer sur WhatsApp';
   const seule = gardees.length === 1 ? gardees[0] : undefined;
   if (seule?.type === 'restaurer') return `Restaurer la version ${seule.version}`;
@@ -214,6 +239,10 @@ async function recapitulatifDe(deps: DepsMisesEnLigne, tenant: string, gardees: 
         lignes.push(`Le scénario « ${g.nom} » répond à qui vous écrit sur WhatsApp sans être déjà pris en charge, au plus une `
           + `fois toutes les ${heures(g.delaiS)} par contact. Aujourd’hui, c’est ${await repondeurActuel(deps, tenant)} qui répond.`);
         break;
+      case 'campagne':
+      case 'suppression':
+        lignes.push(...recapitulatifEnvoi(g));
+        break;
     }
   }
   return lignes;
@@ -232,7 +261,12 @@ export function vueDe(l: LigneMiseEnLigne): VueMiseEnLigne {
     accepteeLe: l.accepteeLe,
     termineeLe: l.termineeLe,
     actions: l.actions.map((a, i) => ({
-      type: a.type, scenario: a.scenario, nom: a.nom, ...(a.type === 'restaurer' ? { version: a.version } : {}), resultat: l.resultat[i] ?? null,
+      type: a.type,
+      nom: a.nom,
+      ...('scenario' in a ? { scenario: a.scenario } : {}),
+      ...(a.type === 'campagne' ? { campagne: a.campagne } : {}),
+      ...(a.type === 'restaurer' ? { version: a.version } : {}),
+      resultat: l.resultat[i] ?? null,
     })),
   };
 }
@@ -297,6 +331,25 @@ export async function accepter(deps: DepsMisesEnLigne, tenant: string, id: strin
 }
 
 /**
+ * 🔴 LA REPRISE PAR L'IDENTIFIANT DU OUI (B8 : `launch_campaign`, `delete_contacts`). Elle n'accepte JAMAIS : une mise en
+ * ligne que personne n'a cliquée est refusée, et seul le clic de la console accepte (`accepter`). Acceptée et coupée,
+ * elle reprend l'exécution après le dernier résultat écrit, comme un nouveau clic ; faite ou échouée, elle rend le
+ * résultat sans rien refaire ; en cours, elle rend l'état.
+ */
+export async function reprendre(deps: DepsMisesEnLigne, tenant: string, id: string): Promise<Issue<VueMiseEnLigne>> {
+  if (!estUuid(id)) return refus(404, INCONNUE);
+  const l = await deps.store.lire(tenant, id);
+  if (!l) return refus(404, INCONNUE);
+  if (l.etat === 'proposee') {
+    return l.expiree
+      ? refus(409, EXPIREE, { code: 'expiree' })
+      : refus(409, 'pas encore accepté : un administrateur de l’espace doit cliquer sur le bouton de la page du oui', { code: 'en_attente_du_clic' });
+  }
+  await executer(deps, tenant, id);
+  return lireVue(deps, tenant, id);
+}
+
+/**
  * Exécute les actions qui restent, dans l'ordre, sous le bail. Une action refusée arrête tout (`echouee`) ; une panne
  * rend le bail et laisse la mise en ligne acceptée, à reprendre. Rien n'est fait sans le bail.
  */
@@ -324,10 +377,16 @@ async function executer(deps: DepsMisesEnLigne, tenant: string, id: string): Pro
     if (await deps.store.noterResultat(tenant, id, jeton, r, BAIL_EXECUTION_S)) await echouer(prise.resultat.length, r.code);
     return;
   }
+  // L'offre, relue à CHAQUE exécution, une reprise comprise : une action dont la fonction n'est plus ouverte (un espace
+  // redescendu en Free depuis le clic) est refusée, comme au relevé.
+  const fonctions = (await deps.repondeur.offres.offreDe(tenant)).droits.fonctions;
   for (let i = prise.resultat.length; i < prise.actions.length; i++) {
     let r: ResultatAction;
+    const fonction = fonctionDe(prise.actions[i]!);
     try {
-      r = await executerAction(deps, tenant, prise.actions[i]!, auteur);
+      r = fonction !== null && !fonctions.has(fonction)
+        ? { ok: false, code: 'plan_feature_unavailable', message: corpsRefusFonction(fonction).error }
+        : await executerAction(deps, tenant, prise.actions[i]!, auteur);
     } catch (err) {
       // Une panne n'est pas un refus : le bail se rend, la mise en ligne reste acceptée, un admin la reprend.
       journaliser('error', 'mise_en_ligne_interrompue', { tenantId: tenant, id, action: i + 1, erreur: err instanceof Error ? err.message : String(err) });
@@ -345,9 +404,16 @@ async function executer(deps: DepsMisesEnLigne, tenant: string, id: string): Pro
   }
 }
 
+/** La fonction de l'offre qu'exige une action : les scénarios pour une publication, la console pour une campagne. */
+function fonctionDe(a: ActionGardee): Fonction | null {
+  if (a.type === 'suppression') return null;
+  return a.type === 'campagne' ? 'console' : 'scenarios';
+}
+
 async function executerAction(
   deps: DepsMisesEnLigne, tenant: string, a: ActionGardee, auteur: { auth: { userId: string } },
 ): Promise<ResultatAction> {
+  if (estEnvoiGarde(a)) return executerEnvoi(deps.envois, tenant, a, auteur, deps.audit);
   if (a.type === 'repondeur') {
     const r = await choisirRepondeur(deps.repondeur, tenant, { mode: 'scenario', workflowId: a.scenario, delaiS: a.delaiS },
       { userId: auteur.auth.userId, origine: 'mcp' });

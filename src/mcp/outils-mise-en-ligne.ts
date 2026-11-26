@@ -53,7 +53,7 @@ function demandeDe(brute: unknown, rang: number): DemandeAction {
 }
 
 /** La vue, aux noms des outils (snake_case), sans graphe. */
-const vueOutil = (v: VueMiseEnLigne) => ({
+export const vueOutil = (v: VueMiseEnLigne) => ({
   id: v.id,
   etat: v.etat,
   libelle: v.libelle,
@@ -61,8 +61,32 @@ const vueOutil = (v: VueMiseEnLigne) => ({
   expire_le: v.expireLe,
   acceptee_le: v.accepteeLe,
   terminee_le: v.termineeLe,
-  actions: v.actions.map((a) => ({ type: a.type, scenario: a.scenario, nom: a.nom, ...(a.version === undefined ? {} : { version: a.version }), resultat: a.resultat })),
+  actions: v.actions.map((a) => ({
+    type: a.type,
+    nom: a.nom,
+    ...(a.scenario === undefined ? {} : { scenario: a.scenario }),
+    ...(a.campagne === undefined ? {} : { campagne: a.campagne }),
+    ...(a.version === undefined ? {} : { version: a.version }),
+    resultat: a.resultat,
+  })),
 });
+
+/**
+ * Le bouton d'un envoi au oui (B8), tel que l'outil qui le prépare le rend : l'identifiant, ce que dit le bouton, le
+ * lien de la page et son échéance, et la consigne. Rien ne part avant le clic d'un admin, que Claude ne peut pas donner.
+ */
+export function boutonDuOui(v: VueMiseEnLigne) {
+  const lien = adresseEcran(ECRANS.miseEnLigne(v.id));
+  return {
+    go_live_id: v.id,
+    bouton: v.libelle,
+    lien,
+    expire_le: v.expireLe,
+    consigne: `Écris ce lien EN ENTIER à la personne, seul sur sa ligne, en texte simple : ${lien} . Elle seule peut `
+      + `accepter : un administrateur de l’espace, connecté à la console, clique sur « ${v.libelle} » (24 heures pour le `
+      + 'faire). Rien ne part avant. Une fois cliqué, l’outil qui prend go_live_id rend le résultat.',
+  };
+}
 
 export const OUTILS_MISE_EN_LIGNE: OutilMcp[] = [
   {

@@ -51,9 +51,13 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   devient, par Claude seul, un parcours de qualification écrit en brouillon, simulé, joué au téléphone par le lien de
   test, mis en ligne d'un clic (publié et répondeur), suivi sur sa première vraie conversation ; 16 appels MCP, 4
   écritures, aucune opération coûteuse, 5 minutes. Le chemin du pilote (B2 à B6, B9) est fini.
+- Lot H (plan `2026-11-26-csm-lot1-h-envois-au-oui.md`) : B8, les envois au oui. Livraison 1 (campagnes et suppression
+  de contacts, le code disparaît) en cours ; livraison 2 (modèle et scénario à un contact, renvoi à un destinataire)
+  ensuite.
 - Lot G (plan `2026-11-26-csm-lot1-g-prerequis.md`) : B7, les prérequis (`get_account_status`, `request_number_code`,
-  `activate_number`, `contact_support`), en cours.
-- Ensuite : B8 et B10, en parallèle (la table de parité, ses `aFaire`).
+  `activate_number`, `contact_support`), en production le 2026-11-26 (`6fa36d7a3`, run 45819186413, plugin 0.3.71) ;
+  son essai réel attend la reconnexion du MCP de la session.
+- Ensuite : B10 (la table de parité, ses `aFaire`).
 - À relire par Julien : les exclusions proposées hors du plan (plomberie d'écran, HubSpot et l'agent de Meta restés
   ouverts au Pro, RCS, Shopify à part, traduction de l'Inbox), chacune écrite avec sa raison dans la table.
 

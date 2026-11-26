@@ -56,9 +56,8 @@ import { ECRANS, LISTES } from './ecran';
 
 export { RefusOutil } from './saisie';
 // Les bornes d'un fichier d'outils que `tests/mcp-serveur.test.ts` relit dans les schémas : exportées d'ici.
-export { MAX_CONTACTS_TROUVES, LONGUEUR_MAX_NOM_MODELE, LONGUEUR_MAX_LANGUE, LONGUEUR_MAX_NOM_CAMPAGNE, LONGUEUR_MAX_CODE } from './outils-campagnes';
+export { MAX_CONTACTS_TROUVES, LONGUEUR_MAX_NOM_MODELE, LONGUEUR_MAX_LANGUE, LONGUEUR_MAX_NOM_CAMPAGNE } from './outils-campagnes';
 export { LONGUEUR_MAX_LIBELLE_CHAMP, LONGUEUR_MAX_CLE_CHAMP, LONGUEUR_MAX_VALEUR_CHAMP } from './outils-champs';
-export { LONGUEUR_MAX_CODE_SUPPRESSION } from './outils-suppression';
 export { MESSAGE_SUPPORT_MAX, SUJET_SUPPORT_MAX } from './outils-prerequis';
 
 /**

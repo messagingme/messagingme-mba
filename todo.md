@@ -277,6 +277,19 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot H (B8, livraison 1, les envois au oui) : ce qui reste de la relecture (2026-11-26, un rouge corrigé avant de pousser)
+
+- Un brouillon lancé dont le run n'a pas encore démarré, rejoué après une coupure : un second run est enfilé (le claim
+  par destinataire évite le double message). Rendre `lancerCampagne` idempotent pour un lancement immédiat.
+- Le bail d'une exécution (120 s) n'est renouvelé qu'entre deux actions : une purge de 1 000 fiches suivie de ses 1 000
+  lignes d'audit pourrait le dépasser, et un « Reprendre » pendant qu'elle court consommerait deux fois la limite du
+  jour. Mesurer la durée, ou renouveler le bail pendant l'action.
+- Après une reprise, `delete_contacts` rend comme total ce que la seule reprise a effacé.
+- Un refus noté au clic perd le lien de l'offre (`plan_limit`, `credit_required`) : `ResultatAction` ne porte que le code
+  et le message.
+- La page du oui : aucun test de ses nouveaux libellés (campagne, suppression).
+- `dateDeParis` existe deux fois, sous deux formats (`src/mcp/outils-campagnes.ts`, `src/mise-en-ligne/envois.ts`).
+
 ## 🟡 CSM virtuel, lot G (B7, les prérequis) : ce qui reste de la relecture (2026-11-26, aucun rouge)
 
 - Le plafond de `contact_support` (cinq par minute et par personne) est distinct de celui de la route : une personne a

@@ -4,11 +4,11 @@ import type { CampaignCategory } from './types';
 import type { TemplateParam } from '../crm/template';
 
 /**
- * LA CONFIRMATION D'UNE CAMPAGNE PRÉPARÉE PAR L'ASSISTANT (spec « Campagnes depuis Claude ») : `prepare_campaign`
- * rend un récapitulatif et un code, `launch_campaign` exige ce code. Ce qui garantit le « oui » humain, c'est
- * l'annotation `destructiveHint` et la consigne de l'outil ; le code garantit l'autre moitié, que le lancement porte
- * sur EXACTEMENT ce qui a été montré : il est lié à l'empreinte de l'état de la campagne, et toute différence le rend
- * inutilisable. Six caractères, usage unique, 30 minutes.
+ * LA MARQUE D'UNE CAMPAGNE PRÉPARÉE PAR L'ASSISTANT (spec « Campagnes depuis Claude »). Le code que Claude recopiait a
+ * disparu (lot 1 du CSM virtuel, B8, décision de Julien du 2026-11-26) : le lancement part sur le clic d'un admin, par le
+ * oui de mise en ligne (`src/mise-en-ligne/envois.ts`), qui garde l'état montré (`EtatConfirme`) et le relit. Reste la
+ * ligne de `campagne_confirmations`, qui dit qu'un brouillon vient de l'assistant (seul cas où `replaces` le remplace),
+ * et l'empreinte de l'état. Le code posé n'est plus jamais rendu ni réclamé.
  */
 
 /** Sans 0, O, 1 ni I : un code relu à voix haute ou recopié ne se confond pas. */
@@ -54,8 +54,6 @@ export function empreinteCode(code: string): string {
   return sha256Hex(code.trim().toUpperCase());
 }
 
-export type IssueReclamation = 'ok' | 'invalide' | 'expire' | 'utilise' | 'modifie';
-
 /**
  * Les confirmations en base (`campagne_confirmations`, migration 0245). 🔴 Chaque requête filtre `tenant_id` : c'est
  * le seul contrôle d'isolation. Une ligne présente dit aussi que le brouillon vient de l'assistant.
@@ -63,10 +61,6 @@ export type IssueReclamation = 'ok' | 'invalide' | 'expire' | 'utilise' | 'modif
 export interface ConfirmationStore {
   /** Pose (ou renouvelle) le code d'une campagne de l'espace. `null` : la campagne n'est pas de cet espace. */
   poser(tenantId: string, campaignId: string, etat: string): Promise<{ code: string; expireLe: Date } | null>;
-  /** Consomme le code, atomiquement : deux appels simultanés, un seul `ok`. */
-  reclamer(tenantId: string, campaignId: string, code: string, etat: string): Promise<IssueReclamation>;
-  /** Rend un code consommé, quand le lancement a été refusé après la réclamation. */
-  rendre(tenantId: string, campaignId: string): Promise<void>;
   /** Le brouillon a-t-il été préparé depuis l'assistant ? */
   existe(tenantId: string, campaignId: string): Promise<boolean>;
 }

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { monter as monterOui } from './mise-en-ligne-fixtures';
+import type { DepsEnvoisAuOui } from '../src/mise-en-ligne/envois';
 import { OUTILS, outilsPour, type DepsMcp } from '../src/mcp/outils';
 import { RefusOutil } from '../src/mcp/saisie';
-import { empreinteEtat, type EtatConfirme } from '../src/campaign/confirmation';
+import type { EtatConfirme } from '../src/campaign/confirmation';
 import type { MotifDePause } from '../src/campaign/pause';
 
 /**
@@ -43,7 +45,10 @@ function deps(o: {
       },
     },
   } as unknown as DepsMcp;
-  return { d, trace, poses };
+  // Le oui (B8) : le MÊME câblage de la route des campagnes, que le clic d'un admin relira.
+  const oui = monterOui({ envois: { campagnes: (d as unknown as { campagnes: { route: unknown } }).campagnes.route, suppression: {} } as unknown as DepsEnvoisAuOui });
+  (d as unknown as { misesEnLigne: unknown }).misesEnLigne = oui.deps;
+  return { d, trace, poses, oui };
 }
 
 describe('control_campaign : les freins et la reprise (marche arrière, tâche 5)', () => {
@@ -73,11 +78,14 @@ describe('control_campaign : les freins et la reprise (marche arrière, tâche 5
     await expect(outil.executer(pasProgrammee.d, T, { campaign_id: ID, action: 'unschedule' }, PERSONNE)).rejects.toThrow(/programmée/);
   });
 
-  it('🔴 prepare_resume rend le récapitulatif des destinataires restants et un code lié à l’état en pause, sans rien envoyer', async () => {
-    const { d, trace, poses } = deps();
-    const r = await outil.executer(d, T, { campaign_id: ID, action: 'prepare_resume' }, PERSONNE) as Record<string, unknown>;
-    expect(r).toMatchObject({ campaign_id: ID, status: 'paused', recipients_waiting: 2, confirmation_code: 'R4P2XQ', pause_reason: 'debit' });
-    expect(poses).toEqual([empreinteEtat(EN_PAUSE)]);
+  it('🔴 prepare_resume rend le récapitulatif des destinataires restants et le bouton d’un oui lié à l’état en pause, sans rien envoyer', async () => {
+    const { d, trace, poses, oui } = deps();
+    const r = await outil.executer(d, T, { campaign_id: ID, action: 'prepare_resume' }, PERSONNE) as Record<string, unknown> & { go_live: { go_live_id: string } };
+    expect(r).toMatchObject({ campaign_id: ID, status: 'paused', recipients_waiting: 2, pause_reason: 'debit', go_live: { bouton: 'Reprendre l’envoi à 2 contacts' } });
+    expect(r).not.toHaveProperty('confirmation_code');
+    // Le oui garde l'état en pause relu en base (B8) ; plus aucun code n'est posé.
+    expect((await oui.deps.store.lire(T, r.go_live.go_live_id))!.actions).toEqual([{ type: 'campagne', campagne: ID, nom: expect.any(String), reprise: true, etat: EN_PAUSE, motif: 'debit' }]);
+    expect(poses).toEqual([]);
     expect(trace).toEqual([]);
   });
 

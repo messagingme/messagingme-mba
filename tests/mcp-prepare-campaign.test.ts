@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { monter as monterOui } from './mise-en-ligne-fixtures';
+import type { DepsEnvoisAuOui } from '../src/mise-en-ligne/envois';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import { RefusOutil } from '../src/mcp/saisie';
 import { DROITS } from '../src/offres/offres';
@@ -104,7 +106,10 @@ function deps(o: {
       },
     },
   } as unknown as DepsMcp;
-  return { d, trace, crees, supprimes, poses, etats };
+  // Le oui (B8) : le MÊME câblage de la route des campagnes, que le clic d'un admin relira.
+  const oui = monterOui({ envois: { campagnes: (d as unknown as { campagnes: { route: unknown } }).campagnes.route, suppression: {} } as unknown as DepsEnvoisAuOui });
+  (d as unknown as { misesEnLigne: unknown }).misesEnLigne = oui.deps;
+  return { d, trace, crees, supprimes, poses, etats, oui };
 }
 
 const VARIABLES = [{ position: 1, source: { type: 'attribute', key: 'name' } }];
@@ -117,15 +122,16 @@ describe('prepare_campaign', () => {
     expect(outil.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false });
   });
 
-  it('crée le brouillon par le chemin de la console et rend le récapitulatif avec son code', async () => {
+  it('crée le brouillon par le chemin de la console et rend le récapitulatif avec le bouton de son oui', async () => {
     const { d, crees, poses, etats, trace } = deps();
     const r = (await outil.executer(d, T, BASE, PERSONNE)) as Record<string, unknown>;
     expect(crees[0]).toMatchObject({ tenantId: T, phoneNumberId: 'pn-1', templateName: 'retard_livraison', templateLanguage: 'fr', category: 'utility', contactIds: [C1, C2], prevueLe: null });
     expect(r).toMatchObject({
       campaign_id: NEUF, template: 'retard_livraison (fr)', category: 'utility', scheduled_for: null,
       targeted: 2, will_send: 2, excluded: { not_opted_in: 0, missing_variable: 0, unsubscribed: 0 }, sample: ['Léa'],
-      billable_messages_up_to: 2, confirmation_code: 'K7M2QP', code_expires_at: '2027-10-30T08:30:00.000Z',
+      billable_messages_up_to: 2, go_live: { go_live_id: expect.any(String), bouton: expect.stringMatching(/^Envoyer à \d+ contacts?$/) },
     });
+    expect(r).not.toHaveProperty('confirmation_code');
     // Le code est lié à l'état RELU en base après la création.
     expect(poses).toEqual([{ campaignId: NEUF, etat: empreinteEtat(etats.get(NEUF)!) }]);
     expect(trace).toEqual(['plafond', 'creation', 'code']);

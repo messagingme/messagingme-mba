@@ -4,12 +4,27 @@
  * page l'importent d'ici, une dérive ne compile pas.
  */
 
+/** Ce que `propose_go_live` demande : publier, restaurer, brancher le répondeur. */
 export const TYPES_ACTION = ['publier', 'restaurer', 'repondeur'] as const;
-export type TypeAction = (typeof TYPES_ACTION)[number];
+/**
+ * Les envois au oui (lot 1 du CSM virtuel, B8) : lancer, programmer ou reprendre une campagne, effacer des contacts. Ils
+ * sont préparés par LEURS outils (`prepare_campaign`, `control_campaign`, `prepare_contacts_deletion`), jamais par
+ * `propose_go_live`, et chacun est SEUL dans sa mise en ligne.
+ */
+export const TYPES_ENVOI = ['campagne', 'suppression'] as const;
+export type TypeAction = (typeof TYPES_ACTION)[number] | (typeof TYPES_ENVOI)[number];
 
 /** Le résultat d'une action, une fois exécutée : `programme` = la publication attend la validation d'un template par Meta. */
 export type ResultatAction =
   | { ok: true; etat: 'publie' | 'programme' | 'branche' }
+  /**
+   * Une campagne : `envoyee` (elle part), `programmee` (à sa date), `reprise` (une pause levée), `deja_partie` (lancée
+   * avant cette exécution : par celle qu'une coupure a interrompue, ou depuis la console). `destinataires` : ceux en
+   * attente montrés au clic.
+   */
+  | { ok: true; etat: 'envoyee' | 'programmee' | 'reprise' | 'deja_partie'; destinataires: number }
+  /** Une suppression : ce que CETTE exécution a effacé (une reprise après une coupure ne recompte pas le déjà fait). */
+  | { ok: true; etat: 'supprimes'; contacts: number; conversations: number; messages: number }
   | { ok: false; code: string; message: string };
 
 /**
@@ -28,5 +43,6 @@ export interface VueMiseEnLigne {
   expireLe: string;
   accepteeLe: string | null;
   termineeLe: string | null;
-  actions: Array<{ type: TypeAction; scenario: string; nom: string; version?: number; resultat: ResultatAction | null }>;
+  /** `scenario` pour une publication ou le répondeur, `campagne` pour une campagne ; une suppression n'a que son nom. */
+  actions: Array<{ type: TypeAction; nom: string; scenario?: string; campagne?: string; version?: number; resultat: ResultatAction | null }>;
 }

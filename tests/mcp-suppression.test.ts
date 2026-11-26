@@ -1,29 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import { OUTILS, outilsPour, RefusOutil, type DepsMcp } from '../src/mcp/outils';
 import type { BulkTarget, ContactFilters, FicheASupprimer } from '../src/crm/contact-store.pg';
-import { codeBienForme, codeDeSuppression, empreinteDesFiches, verifierCodeDeSuppression } from '../src/crm/code-suppression';
-import { LONGUEUR_MAX_CODE_SUPPRESSION } from '../src/mcp/outils-suppression';
 import { FICHES_DE_L_APERCU, MAX_FICHES_PAR_SUPPRESSION } from '../web/lib/partage/catalogue-mcp';
 import { MAX_IDENTIFIANTS_CIBLE } from '../src/mcp/cible';
-import { DUREE_CODE_MS } from '../src/campaign/confirmation';
 import { MESSAGE_OPERATIONS_LOURDES } from '../src/auth/plafond-partage';
 import { creerTravauxEnVol } from '../src/lib/en-vol';
 import { QuotaSuppressions } from '../src/offres/compteurs';
 import { CompteurDebitMemoire } from '../src/db/debit.memoire';
 import { DROITS } from '../src/offres/offres';
+import { accepter, proposer } from '../src/mise-en-ligne/mise-en-ligne';
+import type { DepsEnvoisAuOui } from '../src/mise-en-ligne/envois';
+import { ADMIN, BROUILLON, CSM, V1, WF, ligne, monter as monterOui } from './mise-en-ligne-fixtures';
 
 /**
  * LA SUPPRESSION DE CONTACTS EN MASSE DEPUIS CLAUDE (plan `docs/superpowers/plans/2026-10-26-free-au-dela-de-100-contacts.md`).
  * Ce que les outils ajoutent à l'effacement partagé (`effacerContacts`, dont la limite du jour a ses tests dans
  * `tests/offres-compteurs.test.ts`) : lire la sélection et la refuser plutôt que l'élargir, montrer avant d'effacer, et
- * n'effacer que les fiches montrées. Ce que la REQUÊTE de la sélection fait vraiment (l'espace, les fiches supprimées,
+ * n'effacer que les fiches montrées, sur le clic d'un admin (B8 : le oui, plus de code). Ce que la REQUÊTE de la sélection fait vraiment (l'espace, les fiches supprimées,
  * l'ordre) : `tests/contact-selection-suppression.test.ts` pour sa forme, et
  * `tests/integration/contacts-suppression.integration.test.ts`, en CI, sur une vraie base.
  */
 const T = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const AUTRE = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
 const MOI = { userId: '99999999-9999-4999-8999-999999999999', autorisationId: 'aut-1' };
-const SECRET = 'secret-de-test-des-suppressions';
 const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
 const preparer = outil('prepare_contacts_deletion');
 const supprimer = outil('delete_contacts');
@@ -59,6 +58,32 @@ function monter(fiches: Fiche[], o: { quota?: { ok: true } | { ok: false; max: n
     audit: [] as Array<{ tenant: string; userId: string | null; action: string; cible: string; detail: unknown }>,
   };
   const versFiche = (f: Fiche): FicheASupprimer => ({ id: f.id, profileName: f.nom, phoneE164: f.tel, bsuid: null, createdAt: f.creeLe });
+  const selection = async (tenant: string, cible: BulkTarget, limite: number) => {
+    traces.lectures.push({ tenant, cible, limite });
+    const vivantes = fiches.filter((f) => f.tenant === tenant && !f.supprimee);
+    const visees = 'ids' in cible ? vivantes.filter((f) => cible.ids.includes(f.id)) : vivantes.filter((f) => correspond(f, cible.filters));
+    return [...visees].sort((a, b) => a.creeLe.localeCompare(b.creeLe) || a.id.localeCompare(b.id)).slice(0, limite).map(versFiche);
+  };
+  const effacement = {
+    contacts: {
+      purgeMany: async (tenant: string, ids: readonly string[]) => {
+        traces.purges.push({ tenant, ids: [...ids] });
+        let purges = 0;
+        for (const f of fiches) if (f.tenant === tenant && ids.includes(f.id) && !f.supprimee) { f.supprimee = true; purges += 1; }
+        return { purges, conversations: purges, messages: 2 * purges, analyses: 0, listeAgent: [] };
+      },
+    },
+    suppressionsDuJour: { consommer: async (tenant: string, n: number) => { traces.quota.push({ tenant, n }); return o.quota ?? { ok: true as const }; } } as unknown,
+    listeDeLAgent: { oublierChezMeta: async () => {} },
+    enVol: creerTravauxEnVol(),
+  };
+  // Le oui (B8) : le clic d'un admin efface par l'effacement partagé, sur les fiches que l'aperçu a gardées.
+  const m = monterOui({ envois: { campagnes: {}, suppression: { selection, effacement } } as unknown as DepsEnvoisAuOui });
+  // La personne du jeton OAuth est un admin de l'espace (la garde du MCP le relit) : son accès reste valide au clic.
+  m.store.admins.add(MOI.userId);
+  m.deps.audit = async (tenant, actor, action, cible, detail) => {
+    traces.audit.push({ tenant, userId: actor.userId, action, cible: cible.id, detail });
+  };
   const d = {
     couteux: { consommer: async () => { traces.plafond += 1; return { accepte: o.couteuxAccepte ?? true, attenteMs: 2000 }; } },
     inbox: { contactIdsDesConversations: async () => { throw new Error('les conversations ne sont pas un critère de suppression'); } },
@@ -66,39 +91,20 @@ function monter(fiches: Fiche[], o: { quota?: { ok: true } | { ok: false; max: n
       // Comme le vrai : DANS l'espace, fiches supprimées comprises (c'est la sélection qui les écarte).
       contactIdsForTarget: async (tenant: string, cible: BulkTarget) => ('ids' in cible ? fiches.filter((f) => f.tenant === tenant && cible.ids.includes(f.id)).map((f) => f.id) : []),
     },
-    suppression: {
-      selection: async (tenant: string, cible: BulkTarget, limite: number) => {
-        traces.lectures.push({ tenant, cible, limite });
-        const vivantes = fiches.filter((f) => f.tenant === tenant && !f.supprimee);
-        const visees = 'ids' in cible ? vivantes.filter((f) => cible.ids.includes(f.id)) : vivantes.filter((f) => correspond(f, cible.filters));
-        return [...visees].sort((a, b) => a.creeLe.localeCompare(b.creeLe) || a.id.localeCompare(b.id)).slice(0, limite).map(versFiche);
-      },
-      effacement: {
-        contacts: {
-          purgeMany: async (tenant: string, ids: readonly string[]) => {
-            traces.purges.push({ tenant, ids: [...ids] });
-            let purges = 0;
-            for (const f of fiches) if (f.tenant === tenant && ids.includes(f.id) && !f.supprimee) { f.supprimee = true; purges += 1; }
-            return { purges, conversations: purges, messages: 2 * purges, analyses: 0, listeAgent: [] };
-          },
-        },
-        suppressionsDuJour: { consommer: async (tenant: string, n: number) => { traces.quota.push({ tenant, n }); return o.quota ?? { ok: true as const }; } },
-        listeDeLAgent: { oublierChezMeta: async () => {} },
-        enVol: creerTravauxEnVol(),
-      },
-      audit: async (tenant: string, actor: { userId: string | null }, action: string, cible: { id: string }, detail?: unknown) => {
-        traces.audit.push({ tenant, userId: actor.userId, action, cible: cible.id, detail });
-      },
-      secret: SECRET,
-    },
+    suppression: { selection },
+    misesEnLigne: m.deps,
   } as unknown as DepsMcp;
-  return { d, traces };
+  return { d, traces, m, effacement };
 }
 
-/** Un aperçu, puis le code qu'il rend. */
+/** Le clic d'un admin sur le bouton de l'aperçu. */
+const clic = (m: ReturnType<typeof monter>['m'], goLiveId: string, tenant = T) => accepter(m.deps, tenant, goLiveId, ADMIN);
+
+/** Un aperçu, et le bouton du oui qu'il rend. */
 async function apercu(d: DepsMcp, args: Record<string, unknown>, tenant = T) {
   return await preparer.executer(d, tenant, args, MOI) as {
-    count: number; sample: Array<{ name: string | null; phone: string; created_at: string }>; confirmation_code: string; code_expires_at: string;
+    count: number; sample: Array<{ name: string | null; phone: string; created_at: string }>;
+    go_live: { go_live_id: string; bouton: string; lien: string; expire_le: string };
   };
 }
 
@@ -108,8 +114,11 @@ describe('les deux outils : qui, quelle offre, quels indices', () => {
       expect(o.fonction, o.nom).toBeNull();
       expect(o.scope, o.nom).toBe('mcp:write');
       expect(o.exigePersonne, o.nom).toBe(true);
-      expect(o.annotations, o.nom).toMatchObject({ readOnlyHint: false, destructiveHint: true, idempotentHint: false });
+      expect(o.annotations, o.nom).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     }
+    // Chaque aperçu prépare un nouveau oui ; l'identifiant du oui rend toujours le même résultat (B8).
+    expect(preparer.annotations).toMatchObject({ idempotentHint: false });
+    expect(supprimer.annotations).toMatchObject({ idempotentHint: true });
     // La purge retire aussi les contacts de la liste de l'agent de Meta, chez Meta : monde ouvert. L'aperçu, non.
     expect(supprimer.annotations.openWorldHint).toBe(true);
     expect(preparer.annotations.openWorldHint).toBe(false);
@@ -118,27 +127,25 @@ describe('les deux outils : qui, quelle offre, quels indices', () => {
     expect(parCle).not.toContain('delete_contacts');
   });
 
-  it('🔴 les bornes appliquées sont annoncées : schéma fermé, oldest, contact_ids et le code ; aucune inactivité', () => {
-    for (const o of [preparer, supprimer]) {
-      const p = o.entree.properties;
-      expect(o.entree.additionalProperties, o.nom).toBe(false);
-      expect(p.oldest, o.nom).toMatchObject({ type: 'integer', minimum: 1, maximum: MAX_FICHES_PAR_SUPPRESSION });
-      expect(p.contact_ids, o.nom).toMatchObject({ maxItems: MAX_IDENTIFIANTS_CIBLE });
-      // Ni l'analyse, ni les conversations, ni l'inactivité : la sélection ne les accepte pas, le schéma ne les annonce pas.
-      expect(Object.keys(p).sort(), o.nom).toEqual([...(o === supprimer ? ['confirmation_code'] : []), 'contact_ids', 'oldest', 'opt_in', 'tag_mode', 'tags'].sort());
-      expect(`${o.description}${JSON.stringify(p)}`, o.nom).not.toMatch(/inactive|inactivity/);
-    }
+  it('🔴 les bornes appliquées sont annoncées : schéma fermé, oldest, contact_ids ; l’effacement ne prend que l’identifiant du oui ; aucune inactivité', () => {
+    const p = preparer.entree.properties;
+    expect(preparer.entree.additionalProperties).toBe(false);
+    expect(p.oldest).toMatchObject({ type: 'integer', minimum: 1, maximum: MAX_FICHES_PAR_SUPPRESSION });
+    expect(p.contact_ids).toMatchObject({ maxItems: MAX_IDENTIFIANTS_CIBLE });
+    // Ni l'analyse, ni les conversations, ni l'inactivité : la sélection ne les accepte pas, le schéma ne les annonce pas.
+    expect(Object.keys(p).sort()).toEqual(['contact_ids', 'oldest', 'opt_in', 'tag_mode', 'tags']);
+    for (const o of [preparer, supprimer]) expect(`${o.description}${JSON.stringify(o.entree.properties)}`, o.nom).not.toMatch(/inactive|inactivity/);
     expect(MAX_FICHES_PAR_SUPPRESSION).toBe(1000);
-    expect(supprimer.entree.required).toEqual(['confirmation_code']);
-    expect(supprimer.entree.properties.confirmation_code).toMatchObject({ minLength: 1, maxLength: LONGUEUR_MAX_CODE_SUPPRESSION });
+    // Plus de code de confirmation (B8) : la sélection est celle que le bouton a montrée.
+    expect(supprimer.entree).toMatchObject({ additionalProperties: false, required: ['go_live_id'] });
+    expect(Object.keys(supprimer.entree.properties)).toEqual(['go_live_id']);
   });
 });
 
 describe('la sélection', () => {
-  it('par étiquettes : le compte, dix fiches au plus, les plus anciennes d’abord, numéro masqué, et un code de 30 minutes', async () => {
+  it('par étiquettes : le compte, dix fiches au plus, les plus anciennes d’abord, numéro masqué, et le bouton du oui (24 heures)', async () => {
     const fiches = Array.from({ length: 15 }, (_, i) => fiche(i + 1, { tags: ['ancien'] }));
-    const { d, traces } = monter(fiches);
-    const avant = Date.now();
+    const { d, traces, m } = monter(fiches);
     const r = await apercu(d, { tags: ['ancien'] });
     expect(r.count).toBe(15);
     expect(r.sample).toHaveLength(FICHES_DE_L_APERCU);
@@ -146,10 +153,8 @@ describe('la sélection', () => {
     expect(r.sample.map((s) => s.created_at)).toEqual(attendues.map((f) => f.creeLe));
     expect(r.sample[0]!.phone).toMatch(/^\+33 •• •• •• \d\d$/);
     expect(JSON.stringify(r.sample)).not.toMatch(/\+336123456\d\d/);
-    expect(codeBienForme(r.confirmation_code)).toBe(true);
-    const echeance = Date.parse(r.code_expires_at);
-    expect(echeance).toBeGreaterThan(avant + DUREE_CODE_MS - 2000);
-    expect(echeance).toBeLessThanOrEqual(Date.now() + DUREE_CODE_MS);
+    expect(r.go_live).toMatchObject({ bouton: 'Supprimer 15 contacts' });
+    expect(Date.parse(r.go_live.expire_le)).toBe(m.horloge.now + 24 * 3_600_000);
     // Rien n'est effacé, rien n'est compté dans la limite du jour ; le plafond des opérations lourdes, une fois.
     expect([traces.purges, traces.quota, traces.audit]).toEqual([[], [], []]);
     expect(traces.plafond).toBe(1);
@@ -179,15 +184,14 @@ describe('la sélection', () => {
       fiche(1, { tags: ['x'], creeLe: '2026-03-01T10:00:00.000Z' }), fiche(2, { tags: [], creeLe: '2026-01-01T10:00:00.000Z' }),
       fiche(3, { tags: ['x'], creeLe: '2026-01-02T10:00:00.000Z' }),
     ];
-    const { d, traces } = monter(fiches);
+    const { d, traces, m } = monter(fiches);
     const r = await apercu(d, { tags: ['x'], oldest: 3 });
     // La fiche 2, plus ancienne, n'a pas l'étiquette ; la 3 l'a et passe d'abord ; puis, à date égale, 7 puis 8.
     expect(r.count).toBe(3);
     expect(traces.lectures.at(-1)).toMatchObject({ limite: 3 });
     expect((await apercu(d, { contact_ids: [id(1), id(3), id(9)], oldest: 2 })).count).toBe(2);
-    // Le code de « tags x, les trois plus anciennes » est celui des fiches 3, 7 et 8, dans n'importe quel ordre.
-    expect(verifierCodeDeSuppression(SECRET, r.confirmation_code, T, empreinteDesFiches([id(8), id(3), id(7)]), Date.now())).toBe('ok');
-    expect(verifierCodeDeSuppression(SECRET, r.confirmation_code, T, empreinteDesFiches([id(9), id(3), id(7)]), Date.now())).toBe('invalide');
+    // Le oui de « tags x, les trois plus anciennes » garde les fiches 3, 7 et 8, et elles seules.
+    expect((await m.deps.store.lire(T, r.go_live.go_live_id))!.actions).toEqual([{ type: 'suppression', contacts: [id(3), id(7), id(8)], nom: '3 contacts' }]);
   });
 
   it('🔴 une fiche supprimée n’est jamais comptée ni rendue, même nommée par son identifiant', async () => {
@@ -231,8 +235,8 @@ describe('la sélection', () => {
     const { d, traces } = monter([fiche(1, { tags: ['a'] })]);
     for (const args of [{ inactive_days: 90 }, { tags: ['a'], inactive_days: 90 }, { oldest: 10, inactive_days: 90 }]) {
       await expect(apercu(d, args), JSON.stringify(args)).rejects.toThrow(/paramètre inconnu : inactive_days/);
-      await expect(supprimer.executer(d, T, { ...args, confirmation_code: `abcdefg.${'a'.repeat(22)}` }, MOI), JSON.stringify(args))
-        .rejects.toThrow(/paramètre inconnu : inactive_days/);
+      await expect(supprimer.executer(d, T, { ...args, go_live_id: id(1) }, MOI), JSON.stringify(args))
+        .rejects.toThrow(/paramètre inconnu : .*inactive_days/);
     }
     expect([traces.lectures, traces.purges, traces.plafond]).toEqual([[], [], 0]);
   });
@@ -260,147 +264,147 @@ describe('la sélection', () => {
   it('sans personne : refusé avant toute lecture', async () => {
     const { d, traces } = monter([fiche(1, { tags: ['a'] })]);
     await expect(preparer.executer(d, T, { tags: ['a'] }, null)).rejects.toThrow(/connexion OAuth requise/);
-    await expect(supprimer.executer(d, T, { tags: ['a'], confirmation_code: 'abc' }, null)).rejects.toThrow(/connexion OAuth requise/);
+    await expect(supprimer.executer(d, T, { go_live_id: id(1) }, null)).rejects.toThrow(/connexion OAuth requise/);
     expect([traces.lectures, traces.purges, traces.plafond]).toEqual([[], [], 0]);
   });
 });
 
-describe('la confirmation', () => {
-  it('🔴 avec le code de l’aperçu et la même sélection : efface ces fiches-là, par l’effacement partagé, audité au nom de la personne', async () => {
+describe('le oui (B8 : le clic d’un admin, plus de code)', () => {
+  it('🔴 rien n’est effacé avant le clic ; le clic efface CES fiches-là, par l’effacement partagé, audité au nom de l’admin ; l’outil rend le bilan', async () => {
     const fiches = [fiche(1, { tags: ['vieux'] }), fiche(2, { tags: ['vieux'] }), fiche(3, { tags: ['neuf'] })];
-    const { d, traces } = monter(fiches);
-    const { confirmation_code } = await apercu(d, { tags: ['vieux'] });
-    expect(await supprimer.executer(d, T, { tags: ['vieux'], confirmation_code }, MOI)).toEqual({ deleted: 2, conversations: 2, messages: 4 });
+    const { d, traces, m } = monter(fiches);
+    const { go_live } = await apercu(d, { tags: ['vieux'] });
+    await expect(supprimer.executer(d, T, { go_live_id: go_live.go_live_id }, MOI)).rejects.toMatchObject({ code: 'conflict' });
+    expect([traces.purges, traces.quota, traces.audit]).toEqual([[], [], []]);
+    await clic(m, go_live.go_live_id);
     expect(traces.purges).toEqual([{ tenant: T, ids: [id(1), id(2)] }]);
     expect(traces.quota).toEqual([{ tenant: T, n: 2 }]);
-    // Une opération lourde pour l'aperçu, une pour l'effacement.
-    expect(traces.plafond).toBe(2);
-    expect(traces.audit).toEqual([id(1), id(2)].map((c) => ({
-      tenant: T, userId: MOI.userId, action: 'contact.purged', cible: c, detail: { lot: 2, via: 'mcp' },
+    // La purge de la console, une ligne par fiche, signée de l'admin qui a cliqué (le oui laisse aussi les siennes).
+    expect(traces.audit.filter((a) => a.action === 'contact.purged')).toEqual([id(1), id(2)].map((c) => ({
+      tenant: T, userId: ADMIN.userId, action: 'contact.purged', cible: c, detail: { lot: 2, via: 'mise_en_ligne' },
     })));
+    expect(await supprimer.executer(d, T, { go_live_id: go_live.go_live_id }, MOI)).toEqual({ deleted: 2, conversations: 2, messages: 4 });
     expect(fiches.map((f) => f.supprimee)).toEqual([true, true, false]);
   });
 
-  it('🔴 déjà servi : le même code, rejoué, est refusé, et rien de plus n’est effacé', async () => {
+  it('🔴 rejoué : un second clic ou un second appel rend le même résultat, et rien de plus n’est effacé', async () => {
     const fiches = Array.from({ length: 6 }, (_, i) => fiche(i + 1));
-    const { d, traces } = monter(fiches);
-    const { confirmation_code } = await apercu(d, { oldest: 3 });
-    await supprimer.executer(d, T, { oldest: 3, confirmation_code }, MOI);
-    // Les trois plus anciennes suivantes ne sont pas celles que l'aperçu a montrées.
-    await expect(supprimer.executer(d, T, { oldest: 3, confirmation_code }, MOI)).rejects.toThrow(/ne correspond pas à cette sélection/);
+    const { d, traces, m } = monter(fiches);
+    const { go_live } = await apercu(d, { oldest: 3 });
+    await clic(m, go_live.go_live_id);
+    await clic(m, go_live.go_live_id);
+    for (let i = 0; i < 2; i += 1) expect(await supprimer.executer(d, T, { go_live_id: go_live.go_live_id }, MOI)).toMatchObject({ deleted: 3 });
     expect(traces.purges).toHaveLength(1);
     expect(fiches.filter((f) => f.supprimee)).toHaveLength(3);
   });
 
-  it('🔴 la sélection a changé depuis l’aperçu (une fiche de plus porte l’étiquette) : refusé, rien n’est effacé', async () => {
+  it('🔴 la sélection a bougé depuis l’aperçu (une fiche de plus porte l’étiquette) : le clic n’efface QUE les fiches montrées', async () => {
     const fiches = [fiche(1, { tags: ['vieux'] }), fiche(2)];
-    const { d, traces } = monter(fiches);
-    const { confirmation_code } = await apercu(d, { tags: ['vieux'] });
+    const { d, traces, m } = monter(fiches);
+    const { go_live } = await apercu(d, { tags: ['vieux'] });
     fiches[1]!.tags = ['vieux'];
-    await expect(supprimer.executer(d, T, { tags: ['vieux'], confirmation_code }, MOI)).rejects.toThrow(/ne correspond pas à cette sélection/);
+    await clic(m, go_live.go_live_id);
+    expect(traces.purges).toEqual([{ tenant: T, ids: [id(1)] }]);
+    expect(fiches.map((f) => f.supprimee)).toEqual([true, false]);
+  });
+
+  it('🔴 une fiche montrée a été effacée ailleurs depuis l’aperçu : le clic est refusé, rien n’est effacé', async () => {
+    const fiches = [fiche(1, { tags: ['a'] }), fiche(2, { tags: ['a'] })];
+    const { d, traces, m } = monter(fiches);
+    const { go_live } = await apercu(d, { tags: ['a'] });
+    fiches[0]!.supprimee = true;
+    expect(await clic(m, go_live.go_live_id)).toMatchObject({ ok: false, statut: 409 });
     expect([traces.purges, traces.quota, traces.audit]).toEqual([[], [], []]);
   });
 
-  it('🔴 une autre sélection que celle de l’aperçu : refusé ; une sélection qui désigne les mêmes fiches : accepté', async () => {
-    const fiches = [fiche(1, { tags: ['a'] }), fiche(2, { tags: ['a', 'b'] }), fiche(3, { tags: ['b'] })];
-    const { d, traces } = monter(fiches);
-    const { confirmation_code } = await apercu(d, { tags: ['a'] });
-    await expect(supprimer.executer(d, T, { tags: ['b'], confirmation_code }, MOI)).rejects.toThrow(/ne correspond pas/);
-    expect(traces.purges).toEqual([]);
-    // Ce qui compte est ce qui a été montré : les fiches 1 et 2, désignées autrement.
-    expect(await supprimer.executer(d, T, { contact_ids: [id(2), id(1)], confirmation_code }, MOI)).toMatchObject({ deleted: 2 });
-  });
-
-  it('🔴 un code d’un autre espace est refusé, même pour une sélection qui y désigne les mêmes identifiants', async () => {
-    const { d, traces } = monter([fiche(1, { tags: ['a'] }), fiche(2, { tenant: AUTRE, tags: ['a'] })]);
-    const { confirmation_code } = await apercu(d, { tags: ['a'] }, AUTRE);
-    await expect(supprimer.executer(d, T, { tags: ['a'], confirmation_code }, MOI)).rejects.toThrow(/ne correspond pas/);
-    expect(traces.purges).toEqual([]);
-    // Signé pour l'autre espace avec l'empreinte des fiches d'ICI : toujours refusé.
-    const forge = codeDeSuppression(SECRET, AUTRE, empreinteDesFiches([id(1)]), Date.now()).code;
-    await expect(supprimer.executer(d, T, { tags: ['a'], confirmation_code: forge }, MOI)).rejects.toThrow(/ne correspond pas/);
+  it('🔴 le oui d’un autre espace est introuvable, au clic comme par l’outil : rien n’est effacé', async () => {
+    const { d, traces, m } = monter([fiche(1, { tags: ['a'] }), fiche(2, { tenant: AUTRE, tags: ['a'] })]);
+    const { go_live } = await apercu(d, { tags: ['a'] }, AUTRE);
+    expect(await clic(m, go_live.go_live_id)).toMatchObject({ ok: false, statut: 404 });
+    await expect(supprimer.executer(d, T, { go_live_id: go_live.go_live_id }, MOI)).rejects.toMatchObject({ code: 'not_found' });
     expect(traces.purges).toEqual([]);
   });
 
-  it('🔴 un code périmé est refusé, et le dit ; rien n’est effacé', async () => {
+  it('🔴 un oui expiré (24 heures) est refusé, et le dit ; rien n’est effacé', async () => {
+    const { d, traces, m } = monter([fiche(1, { tags: ['a'] })]);
+    const { go_live } = await apercu(d, { tags: ['a'] });
+    m.horloge.now += 25 * 3_600_000;
+    expect(await clic(m, go_live.go_live_id)).toMatchObject({ ok: false, details: { code: 'expiree' } });
+    await expect(supprimer.executer(d, T, { go_live_id: go_live.go_live_id }, MOI)).rejects.toThrow(/expiré/);
+    expect(traces.purges).toEqual([]);
+  });
+
+  it('🔴 le oui d’autre chose, accepté et COUPÉ : refusé AVANT toute reprise, rien n’est exécuté', async () => {
+    const { d, traces, m } = monter([fiche(1, { tags: ['a'] })]);
+    m.rows.set(WF, ligne(WF, 'Qualification', V1, BROUILLON, { tenantId: T }));
+    const p = await proposer(m.deps, T, CSM, [{ type: 'publier', scenario: WF }]);
+    if (!p.ok) throw new Error(p.erreur);
+    // Acceptée, puis coupée avant toute action : la reprise l'exécuterait.
+    const accepteeSeule = m.store.reclamer.bind(m.store);
+    let coupe = true;
+    m.store.reclamer = (async (...a: Parameters<typeof accepteeSeule>) => (coupe ? ((coupe = false), null) : accepteeSeule(...a))) as typeof m.store.reclamer;
+    await clic(m, p.valeur.id);
+    await expect(supprimer.executer(d, T, { go_live_id: p.valeur.id }, MOI)).rejects.toMatchObject({ code: 'conflict' });
+    expect((await m.deps.store.lire(T, p.valeur.id))!.etat).toBe('acceptee');
+    expect(traces.purges).toEqual([]);
+  });
+
+  it('🔴 le oui d’autre chose (une publication cliquée) : refusé, rien n’est effacé', async () => {
+    const { d, traces, m } = monter([fiche(1, { tags: ['a'] })]);
+    m.rows.set(WF, ligne(WF, 'Qualification', V1, BROUILLON, { tenantId: T }));
+    const p = await proposer(m.deps, T, CSM, [{ type: 'publier', scenario: WF }]);
+    if (!p.ok) throw new Error(p.erreur);
+    await clic(m, p.valeur.id);
+    await expect(supprimer.executer(d, T, { go_live_id: p.valeur.id }, MOI)).rejects.toMatchObject({ code: 'conflict' });
+    expect(traces.purges).toEqual([]);
+  });
+
+  it('🔴 un identifiant mal formé, ou une clé de sélection, est refusé avant toute lecture, sans entamer le plafond', async () => {
     const { d, traces } = monter([fiche(1, { tags: ['a'] })]);
-    const perime = codeDeSuppression(SECRET, T, empreinteDesFiches([id(1)]), Date.now() - DUREE_CODE_MS - 60_000).code;
-    await expect(supprimer.executer(d, T, { tags: ['a'], confirmation_code: perime }, MOI)).rejects.toThrow(/expiré \(30 minutes\)/);
-    expect(traces.purges).toEqual([]);
-  });
-
-  it('🔴 sans code valide, rien n’est effacé : un code mal formé est refusé avant toute lecture, sans entamer le plafond', async () => {
-    const { d, traces } = monter([fiche(1, { tags: ['a'] })]);
-    for (const code of ['ABC123', 'n.importe.quoi', `${'x'.repeat(10)}.${'y'.repeat(21)}`]) {
-      await expect(supprimer.executer(d, T, { tags: ['a'], confirmation_code: code }, MOI), code).rejects.toThrow(/ne correspond pas/);
-    }
-    await expect(supprimer.executer(d, T, { tags: ['a'] }, MOI)).rejects.toThrow(/confirmation_code/);
+    await expect(supprimer.executer(d, T, { go_live_id: 'pas-un-uuid' }, MOI)).rejects.toThrow(RefusOutil);
+    await expect(supprimer.executer(d, T, { tags: ['a'], go_live_id: id(1) }, MOI)).rejects.toThrow(/paramètre inconnu : tags/);
+    await expect(supprimer.executer(d, T, {}, MOI)).rejects.toThrow(/go_live_id/);
     expect([traces.lectures, traces.purges, traces.plafond]).toEqual([[], [], 0]);
   });
 
   it('🔴 la limite du jour refuse (une Free sous sa limite de contacts) : refus de l’offre, rien n’est effacé ni audité', async () => {
-    const { d, traces } = monter([fiche(1, { tags: ['a'] }), fiche(2, { tags: ['a'] })], { quota: { ok: false, max: 10 } });
-    const { confirmation_code } = await apercu(d, { tags: ['a'] });
-    await expect(supprimer.executer(d, T, { tags: ['a'], confirmation_code }, MOI)).rejects.toThrow(/10/);
-    expect([traces.purges, traces.audit]).toEqual([[], []]);
+    const { d, traces, m } = monter([fiche(1, { tags: ['a'] }), fiche(2, { tags: ['a'] })], { quota: { ok: false, max: 10 } });
+    const { go_live } = await apercu(d, { tags: ['a'] });
+    await clic(m, go_live.go_live_id);
+    await expect(supprimer.executer(d, T, { go_live_id: go_live.go_live_id }, MOI)).rejects.toThrow(/10/);
+    expect([traces.purges, traces.audit.filter((a) => a.action === 'contact.purged')]).toEqual([[], []]);
   });
 
-  it('🔴 par l’outil et la VRAIE limite du jour : une Free au-delà de sa limite supprime 50 contacts d’un coup ; sous elle, 11 sont refusés', async () => {
+  it('🔴 par le clic et la VRAIE limite du jour : une Free au-delà de sa limite supprime 50 contacts d’un coup ; sous elle, 11 sont refusés', async () => {
     const fiches = [
       ...Array.from({ length: 50 }, (_, i) => fiche(i + 1, { tags: ['vieux'] })),
       ...Array.from({ length: 11 }, (_, i) => fiche(i + 100, { tags: ['autre'] })),
     ];
     const etat = { comptees: 3000, limite: 100 as number | null };
-    const { d, traces } = monter(fiches);
+    const { d, traces, m, effacement } = monter(fiches);
     // La limite du jour de la console et de l'API, sur un compteur en mémoire, et les fiches comptées que l'on fait varier.
-    d.suppression.effacement.suppressionsDuJour = new QuotaSuppressions({
+    effacement.suppressionsDuJour = new QuotaSuppressions({
       offres: { offreDe: async () => ({ offre: 'base', droits: DROITS.base, retourEnBaseLe: null }) },
       compteur: new CompteurDebitMemoire(), contacts: { placesContacts: async () => ({ ...etat }) },
     });
     const vieux = await apercu(d, { tags: ['vieux'] });
-    expect(await supprimer.executer(d, T, { tags: ['vieux'], confirmation_code: vieux.confirmation_code }, MOI)).toMatchObject({ deleted: 50 });
+    await clic(m, vieux.go_live.go_live_id);
+    expect(await supprimer.executer(d, T, { go_live_id: vieux.go_live.go_live_id }, MOI)).toMatchObject({ deleted: 50 });
     // Revenue sous sa limite : le plafond de dix par jour reprend, et une purge qui le dépasserait est refusée en entier.
     etat.comptees = 42;
     const autres = await apercu(d, { tags: ['autre'] });
-    await expect(supprimer.executer(d, T, { tags: ['autre'], confirmation_code: autres.confirmation_code }, MOI)).rejects.toThrow(/10/);
+    await clic(m, autres.go_live.go_live_id);
+    await expect(supprimer.executer(d, T, { go_live_id: autres.go_live.go_live_id }, MOI)).rejects.toThrow(/10/);
     expect(traces.purges).toHaveLength(1);
     expect(fiches.filter((f) => f.supprimee)).toHaveLength(50);
   });
 
-  it('une sélection qui ne désigne plus personne : refusée, et le refus dit pourquoi', async () => {
+  it('toutes les fiches montrées ont disparu : le clic est refusé, et le refus dit pourquoi', async () => {
     const fiches = [fiche(1, { tags: ['a'] })];
-    const { d } = monter(fiches);
-    const { confirmation_code } = await apercu(d, { tags: ['a'] });
+    const { d, m } = monter(fiches);
+    const { go_live } = await apercu(d, { tags: ['a'] });
     fiches[0]!.supprimee = true;
-    await expect(supprimer.executer(d, T, { tags: ['a'], confirmation_code }, MOI)).rejects.toThrow(/ne désigne plus aucun contact/);
-  });
-});
-
-describe('le code de confirmation', () => {
-  const E = empreinteDesFiches([id(1), id(2)]);
-  const MAINTENANT = Date.parse('2026-10-26T10:00:00Z');
-
-  it('🔴 lié à l’espace, aux fiches, au secret ; l’ordre des fiches n’y change rien', () => {
-    const { code, expireLe } = codeDeSuppression(SECRET, T, E, MAINTENANT);
-    expect(expireLe.getTime()).toBe(MAINTENANT + DUREE_CODE_MS);
-    expect(code.length).toBeLessThanOrEqual(LONGUEUR_MAX_CODE_SUPPRESSION);
-    expect(verifierCodeDeSuppression(SECRET, code, T, empreinteDesFiches([id(2), id(1)]), MAINTENANT)).toBe('ok');
-    expect(verifierCodeDeSuppression(SECRET, code, AUTRE, E, MAINTENANT)).toBe('invalide');
-    expect(verifierCodeDeSuppression(SECRET, code, T, empreinteDesFiches([id(1)]), MAINTENANT)).toBe('invalide');
-    expect(verifierCodeDeSuppression('autre-secret', code, T, E, MAINTENANT)).toBe('invalide');
-    expect(verifierCodeDeSuppression('', code, T, E, MAINTENANT)).toBe('invalide');
-  });
-
-  it('🔴 30 minutes, pas une de plus ; une échéance retouchée ne se vérifie plus', () => {
-    const { code } = codeDeSuppression(SECRET, T, E, MAINTENANT);
-    expect(verifierCodeDeSuppression(SECRET, code, T, E, MAINTENANT + DUREE_CODE_MS)).toBe('ok');
-    expect(verifierCodeDeSuppression(SECRET, code, T, E, MAINTENANT + DUREE_CODE_MS + 1000)).toBe('expire');
-    const [echeance, sig] = code.split('.') as [string, string];
-    const prolonge = `${(parseInt(echeance, 36) + 3600).toString(36)}.${sig}`;
-    expect(verifierCodeDeSuppression(SECRET, prolonge, T, E, MAINTENANT + DUREE_CODE_MS + 1000)).toBe('invalide');
-  });
-
-  it('un secret vide ne signe rien', () => {
-    expect(() => codeDeSuppression('', T, E, MAINTENANT)).toThrow();
+    const r = await clic(m, go_live.go_live_id);
+    expect(r.ok ? '' : r.erreur).toMatch(/n’existe plus/);
   });
 });

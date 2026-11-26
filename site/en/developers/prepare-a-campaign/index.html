@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Prepare and launch a campaign from Claude | Messaging Me Developers</title>
-<meta name="description" content="Say who to write to and what to send: Claude prepares a draft, shows you the summary, and only launches with your yes and its code.">
+<meta name="description" content="Say who to write to and what to send: Claude prepares a draft and shows you the summary; nothing leaves before your click in the console.">
 <link rel="canonical" href="https://app.messagingme.fr/en/developers/prepare-a-campaign/">
 <link rel="alternate" hreflang="fr" href="https://app.messagingme.fr/developpeurs/preparer-une-campagne/">
 <link rel="alternate" hreflang="en" href="https://app.messagingme.fr/en/developers/prepare-a-campaign/">
@@ -16,7 +16,7 @@
 <meta property="og:locale:alternate" content="fr_FR">
 <meta property="og:site_name" content="Messaging Me">
 <meta property="og:title" content="Prepare and launch a campaign from Claude | Messaging Me Developers">
-<meta property="og:description" content="Say who to write to and what to send: Claude prepares a draft, shows you the summary, and only launches with your yes and its code.">
+<meta property="og:description" content="Say who to write to and what to send: Claude prepares a draft and shows you the summary; nothing leaves before your click in the console.">
 <meta property="og:image" content="https://app.messagingme.fr/films/claude-campagne-en.webp?v=f37a951d">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -57,7 +57,7 @@
   {
    "@type": "HowTo",
    "name": "Prepare and launch a campaign from Claude",
-   "description": "Say who to write to and what to send: Claude prepares a draft, shows you the summary, and only launches with your yes and its code.",
+   "description": "Say who to write to and what to send: Claude prepares a draft and shows you the summary; nothing leaves before your click in the console.",
    "inLanguage": "en-US",
    "url": "https://app.messagingme.fr/en/developers/prepare-a-campaign/",
    "step": [
@@ -72,14 +72,14 @@
      "@type": "HowToStep",
      "position": 2,
      "name": "Prepare the campaign",
-     "text": "Claude creates a draft, visible in the console, without sending anything, and shows you the summary: how many go out, who is left out and why, five names, the date in Paris time, and a confirmation code.",
+     "text": "Claude creates a draft, visible in the console, without sending anything, and shows you the summary: how many go out, who is left out and why, five names, the date in Paris time, and the link of the page where you say yes.",
      "url": "https://app.messagingme.fr/en/developers/prepare-a-campaign/#etape-2"
     },
     {
      "@type": "HowToStep",
      "position": 3,
-     "name": "Say yes",
-     "text": "Claude launches with the summary’s code: the campaign is scheduled for the chosen date, or starts right away if no date was given.",
+     "name": "Say yes, with one click",
+     "text": "On the page of the link, an administrator clicks “Envoyer à N contacts” (send to N contacts): the campaign is scheduled for the chosen date, or starts right away if no date was given. Claude reads what the click did.",
      "url": "https://app.messagingme.fr/en/developers/prepare-a-campaign/#etape-3"
     },
     {
@@ -327,7 +327,7 @@
   <div>
     <p class="aide-fil"><a href="/en/developers/">With your AI</a> › Prepare and launch a campaign from Claude</p>
     <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>From Claude Code</span> Prepare and launch a campaign from Claude</h1>
-    <p class="chapeau">Say who to write to and what to send: Claude prepares a draft, shows you the summary, and only launches with your yes and its code.</p>
+    <p class="chapeau">Say who to write to and what to send: Claude prepares a draft and shows you the summary; nothing leaves before your click in the console.</p>
     <p class="aide-offre">With the Pro plan, or during the 14-day Pro trial.</p>
     <div class="appels">
       <a class="bouton bouton-plein" href="https://github.com/messagingme/messagingme-plugin">See the plugin on GitHub</a>
@@ -355,10 +355,10 @@
         <video class="f-video aide-film" src="/films/claude-campagne-en.mp4?v=eb69ff03" poster="/films/claude-campagne-en.webp?v=f37a951d" width="1280" height="720" controls muted playsinline preload="none" aria-label="Prepare and launch a campaign from Claude"></video>
       </figure>
       <div class="aide-etape sans-capture" id="etape-1"><div><h3>1. Find the recipients</h3><div class="aide-echange"><p class="aide-vous"><span>You</span> Who talked about the autumn collection this week?</p><p class="aide-outils"><span>Claude calls</span> <code data-outil="list_conversations">list_conversations</code>, <code data-outil="find_contacts">find_contacts</code></p><p class="aide-claude"><span>Claude</span> Claude finds the contacts concerned and how many there are. At least one criterion is needed: there is no “everyone” target.</p></div></div></div>
-      <div class="aide-etape sans-capture" id="etape-2"><div><h3>2. Prepare the campaign</h3><div class="aide-echange"><p class="aide-vous"><span>You</span> Prepare a campaign with the autumn collection template for them, sending tomorrow at 10 am.</p><p class="aide-outils"><span>Claude calls</span> <code data-outil="prepare_campaign">prepare_campaign</code></p><p class="aide-claude"><span>Claude</span> Claude creates a draft, visible in the console, without sending anything, and shows you the summary: how many go out, who is left out and why, five names, the date in Paris time, and a confirmation code.</p></div></div></div>
-      <div class="aide-etape sans-capture" id="etape-3"><div><h3>3. Say yes</h3><div class="aide-echange"><p class="aide-vous"><span>You</span> Yes, launch it.</p><p class="aide-outils"><span>Claude calls</span> <code data-outil="launch_campaign">launch_campaign</code></p><p class="aide-claude"><span>Claude</span> Claude launches with the summary’s code: the campaign is scheduled for the chosen date, or starts right away if no date was given.</p></div></div></div>
+      <div class="aide-etape sans-capture" id="etape-2"><div><h3>2. Prepare the campaign</h3><div class="aide-echange"><p class="aide-vous"><span>You</span> Prepare a campaign with the autumn collection template for them, sending tomorrow at 10 am.</p><p class="aide-outils"><span>Claude calls</span> <code data-outil="prepare_campaign">prepare_campaign</code></p><p class="aide-claude"><span>Claude</span> Claude creates a draft, visible in the console, without sending anything, and shows you the summary: how many go out, who is left out and why, five names, the date in Paris time, and the link of the page where you say yes.</p></div></div></div>
+      <div class="aide-etape sans-capture" id="etape-3"><div><h3>3. Say yes, with one click</h3><div class="aide-echange"><p class="aide-vous"><span>You</span> Done, I clicked.</p><p class="aide-outils"><span>Claude calls</span> <code data-outil="launch_campaign">launch_campaign</code></p><p class="aide-claude"><span>Claude</span> On the page of the link, an administrator clicks “Envoyer à N contacts” (send to N contacts): the campaign is scheduled for the chosen date, or starts right away if no date was given. Claude reads what the click did.</p></div></div></div>
       <div class="aide-etape sans-capture" id="etape-4"><div><h3>4. Follow the results</h3><div class="aide-echange"><p class="aide-vous"><span>You</span> How is the campaign doing?</p><p class="aide-outils"><span>Claude calls</span> <code data-outil="get_campaign_stats">get_campaign_stats</code></p><p class="aide-claude"><span>Claude</span> Claude reads the campaign’s sends, reads and replies.</p></div></div></div>
-      <div class="aide-encadre"><strong>Good to know</strong> The confirmation code works once, for 30 minutes, and only for the campaign exactly as summarized: if anything changes, Claude prepares it again. A marketing template only reaches contacts who gave their consent, and those who replied STOP are left out.</div>
+      <div class="aide-encadre"><strong>Good to know</strong> The button works once, for 24 hours, and only for the campaign exactly as summarized: if anything changes, the click is refused and Claude prepares it again. A marketing template only reaches contacts who gave their consent, and those who replied STOP are left out.</div>
       <div class="aide-pied-page">
         <a class="aide-precedente" href="/en/developers/reply-to-a-conversation/">Previous: Reply to a customer from Claude</a>
         <a class="aide-question" href="/en/contact/">A question this page does not answer? Write to us</a>
