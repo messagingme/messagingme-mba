@@ -110,7 +110,7 @@ export const OUTILS_INBOX: OutilMcp[] = [
   {
     ...ficheOutilMcp('transcribe_message'),
     fonction: 'inbox',
-    description: 'Transcribes the voice message of a message (get_messages gives its id), as the button of the conversation '
+    description: 'Transcribes the voice message of a message (its message_id from get_messages), as the button of the conversation '
       + 'screen does, and translates it into French or English if asked. Paid from the workspace AI credit, like in the '
       + 'console: the transcript once, asked again it is not paid twice; a translation into another language than the last '
       + 'one is paid again. ' + LOURDE,
@@ -119,7 +119,7 @@ export const OUTILS_INBOX: OutilMcp[] = [
       type: 'object',
       properties: {
         conversation_id: CONVERSATION,
-        message_id: { type: 'string', minLength: 1, maxLength: 36, description: 'The message id (get_messages).' },
+        message_id: { type: 'string', minLength: 1, maxLength: 200, description: 'The message id from get_messages: wamid... or msg_....' },
         translate_to: { type: 'string', enum: ['fr', 'en'], description: 'Translate the transcript into this language.' },
       },
       required: ['conversation_id', 'message_id'],
@@ -128,14 +128,19 @@ export const OUTILS_INBOX: OutilMcp[] = [
     ecran: (args) => ECRANS.conversation(args.conversation_id),
     async executer(deps, tenantId, args) {
       const id = texteObligatoire(args, 'conversation_id', 100);
-      const message = texteObligatoire(args, 'message_id', 36);
+      const message = texteObligatoire(args, 'message_id', 200);
       // `estUuid` avant la base : un identifiant de conversation mal formé ferait lever Postgres, donc un échec interne.
       if (!estUuid(id)) throw new RefusOutil(INCONNUE, 'not_found');
       // Le serveur ne valide pas les énumérations : une autre langue ferait payer sans rien traduire, sans le dire.
       const langue = args.translate_to;
       if (langue !== undefined && langue !== 'fr' && langue !== 'en') throw new RefusOutil('translate_to : fr ou en', 'invalid_args');
+      // L'identifiant que rend get_messages est PUBLIC (celui de Meta, ou msg_<uuid>) ; la transcription lit l'identifiant
+      // interne. Le même dépôt que get_message_status le traduit, dans l'espace, et le message doit être de CETTE
+      // conversation (comme la route, qui le relit dans la conversation de son adresse).
+      const lu = await deps.messagesApi.message(tenantId, message);
+      if (!lu || lu.conversationId !== id) throw new RefusOutil('message inconnu dans cette conversation (get_messages)', 'not_found');
       await plafondCouteux(deps, tenantId);
-      const r = await transcrireVocal(deps, tenantId, id, message, langue);
+      const r = await transcrireVocal(deps, tenantId, id, lu.idInterne, langue);
       if (!r.ok) throw new RefusOutil(typeof r.corps.error === 'string' ? r.corps.error : 'transcription refusée', r.famille);
       return r.valeur;
     },

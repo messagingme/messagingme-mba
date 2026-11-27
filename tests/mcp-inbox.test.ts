@@ -13,6 +13,10 @@ import { MediaExpire } from '../src/inbox/media-entrant';
 const T = 't1';
 const CONV = '00000000-0000-4000-8000-0000000000c1';
 const MSG = '00000000-0000-4000-8000-0000000000d1';
+/** Ce que get_messages rend d'un message : son identifiant PUBLIC (celui de Meta), traduit par le dépôt de l'API. */
+const WAMID = 'wamid.HBgLMzM2MzM5MjE1NzcVAgASGCBBQzczNDYyQjUzOEVBQURFODYzNEU2NkI1RTYxN0Q1RAA=';
+/** Un message de l'espace, mais d'une autre conversation. */
+const WAMID_AILLEURS = 'wamid.ailleurs';
 const MOI = { userId: 'u1', autorisationId: 'aut-1' };
 const outil = (nom: string) => {
   const o = OUTILS.find((x) => x.nom === nom);
@@ -51,6 +55,16 @@ function monter(o: { transcrire?: (id: string, cible: string | null) => Promise<
   const consommes: string[] = [];
   const deps = {
     couteux: { consommer: async (t: string) => { consommes.push(t); return { accepte: true }; } },
+    // Le dépôt de get_message_status : l'identifiant public vers l'interne, dans l'espace.
+    messagesApi: {
+      message: async (tenant: string, idPublic: string) => {
+        if (tenant !== T) return null;
+        if (idPublic === WAMID) return { id: WAMID, idInterne: MSG, conversationId: CONV };
+        if (idPublic === `msg_${MSG}`) return { id: idPublic, idInterne: MSG, conversationId: CONV };
+        if (idPublic === WAMID_AILLEURS) return { id: WAMID_AILLEURS, idInterne: '00000000-0000-4000-8000-0000000000d2', conversationId: '00000000-0000-4000-8000-0000000000c2' };
+        return null;
+      },
+    },
     marquesConversation: marques,
     reglagesInbox: reglages,
     ouvrirConversation: async (tenant: string, id: string) => {
@@ -118,14 +132,26 @@ describe('l’Inbox depuis Claude (CSM, B10, livraison 2a)', () => {
 
   it('transcribe_message : la transcription du bouton, traduite si demandé, le plafond consommé', async () => {
     const { deps, transcrits, consommes } = monter();
-    expect(await outil('transcribe_message').executer(deps, T, { conversation_id: CONV, message_id: MSG, translate_to: 'en' }, MOI))
+    expect(await outil('transcribe_message').executer(deps, T, { conversation_id: CONV, message_id: WAMID, translate_to: 'en' }, MOI))
       .toEqual({ texte: 'Bonjour, je rappelle demain.', deja: false });
-    await outil('transcribe_message').executer(deps, T, { conversation_id: CONV, message_id: MSG }, MOI);
+    // Un message sans identifiant de Meta : get_messages le rend sous la forme msg_<uuid>.
+    await outil('transcribe_message').executer(deps, T, { conversation_id: CONV, message_id: `msg_${MSG}` }, MOI);
     // Une autre langue est refusée avant le plafond : elle ferait payer sans rien traduire.
-    await expect(outil('transcribe_message').executer(deps, T, { conversation_id: CONV, message_id: MSG, translate_to: 'de' }, MOI))
+    await expect(outil('transcribe_message').executer(deps, T, { conversation_id: CONV, message_id: WAMID, translate_to: 'de' }, MOI))
       .rejects.toMatchObject({ code: 'invalid_args' });
+    // La transcription reçoit l'identifiant INTERNE, traduit par le dépôt.
     expect(transcrits).toEqual([{ id: MSG, cible: 'en' }, { id: MSG, cible: null }]);
     expect(consommes).toEqual([T, T]);
+  });
+
+  it('🔴 transcribe_message : le message d’une autre conversation, ou d’un autre espace, est introuvable, avant le plafond', async () => {
+    const { deps, transcrits, consommes } = monter();
+    for (const [tenant, message] of [[T, WAMID_AILLEURS], ['autre', WAMID], [T, 'wamid.inconnu']] as const) {
+      await expect(outil('transcribe_message').executer(deps, tenant, { conversation_id: CONV, message_id: message }, MOI), `${tenant} ${message}`)
+        .rejects.toMatchObject({ code: 'not_found' });
+    }
+    expect(transcrits).toEqual([]);
+    expect(consommes).toEqual([]);
   });
 
   it('🔴 transcribe_message : chaque refus dit sa cause dans le vocabulaire fermé', async () => {
@@ -135,15 +161,15 @@ describe('l’Inbox depuis Claude (CSM, B10, livraison 2a)', () => {
     ];
     for (const [erreur, code] of cas) {
       const { deps } = monter({ transcrire: async () => { throw erreur; } });
-      const e = await outil('transcribe_message').executer(deps, T, { conversation_id: CONV, message_id: MSG }, MOI).catch((x: unknown) => x);
+      const e = await outil('transcribe_message').executer(deps, T, { conversation_id: CONV, message_id: WAMID }, MOI).catch((x: unknown) => x);
       expect(e, code).toBeInstanceOf(RefusOutil);
       expect(e, code).toMatchObject({ code });
     }
     const sans = monter({ sansTranscription: true });
-    await expect(outil('transcribe_message').executer(sans.deps, T, { conversation_id: CONV, message_id: MSG }, MOI)).rejects.toMatchObject({ code: 'unavailable' });
+    await expect(outil('transcribe_message').executer(sans.deps, T, { conversation_id: CONV, message_id: WAMID }, MOI)).rejects.toMatchObject({ code: 'unavailable' });
     await expect(outil('transcribe_message').executer(sans.deps, T, { conversation_id: CONV, message_id: 'm-1' }, MOI)).rejects.toMatchObject({ code: 'not_found' });
     // Un identifiant de conversation mal formé : un refus, jamais une erreur de la base.
-    await expect(outil('transcribe_message').executer(sans.deps, T, { conversation_id: 'cv-1', message_id: MSG }, MOI)).rejects.toMatchObject({ code: 'not_found' });
+    await expect(outil('transcribe_message').executer(sans.deps, T, { conversation_id: 'cv-1', message_id: WAMID }, MOI)).rejects.toMatchObject({ code: 'not_found' });
   });
 
   it('get_inbox_settings et update_inbox_settings : les réglages de l’écran, seul ce qui est donné change, la reprise bornée', async () => {

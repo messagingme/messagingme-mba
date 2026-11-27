@@ -5,6 +5,19 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, correctif de 2a trouvé à l'essai réel) : `transcribe_message` prend l'identifiant que rend `get_messages`
+
+L'essai réel des outils de 2a sur la SANDBOX a refusé la transcription : `transcribe_message` attendait l'identifiant
+INTERNE d'un message (un uuid, borné à 36 caractères), alors que `get_messages` rend son identifiant PUBLIC (celui de Meta,
+`wamid.…`, ou `msg_<uuid>` pour un message sans identifiant de Meta), le seul que Claude puisse lire. Aucun appel ne
+pouvait réussir. Les tests unitaires passaient parce qu'ils donnaient à l'outil un uuid inventé, que personne ne lui
+fournirait. L'outil traduit désormais l'identifiant public par le MÊME dépôt que `get_message_status` (dans l'espace, un
+contact bloqué exclu), exige que le message soit de la conversation donnée, et refuse avant le plafond des opérations
+coûteuses. Les tests prennent l'identifiant sous sa forme publique ; quatre mutations, toutes rouges.
+
+**La règle** : l'identifiant qu'un outil prend se teste sous la forme exacte qu'un AUTRE outil rend, jamais sous celle du
+dépôt ; un faux qui accepte l'identifiant interne laisse passer un outil inutilisable, et seul un essai réel le voit.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, livraison 2b) : Claude prépare l'effacement des messages d'une conversation, au clic d'un admin
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 2 (l'Inbox), deuxième temps (2b) ; 2c (le
