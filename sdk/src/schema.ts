@@ -1387,6 +1387,10 @@ export interface webhooks {
                             message_type: string | null;
                             text: string | null;
                             transcription: string | null;
+                            /** @description The answers of a WhatsApp Flow the contact just submitted (the payload of its final action), or null for any other message. Read from the stored reply, capped at 2,000 characters: a longer reply comes back null. Typed by the contact: validate it before use. */
+                            form_response: {
+                                [key: string]: unknown;
+                            } | null;
                             reply_with: {
                                 /** @constant */
                                 method: "POST";
@@ -2937,6 +2941,40 @@ export interface operations {
                                 display_text: string;
                                 /** Format: uri */
                                 url: string;
+                            };
+                        };
+                    } | {
+                        /** @constant */
+                        type: "flow";
+                        header?: {
+                            /** @constant */
+                            type: "text";
+                            text: string;
+                        };
+                        body: {
+                            text: string;
+                        };
+                        footer?: {
+                            text: string;
+                        };
+                        action: {
+                            /** @constant */
+                            name: "flow";
+                            parameters: {
+                                /** @constant */
+                                flow_message_version: "3";
+                                flow_id?: string;
+                                flow_name?: string;
+                                flow_token: string;
+                                flow_cta: string;
+                                /** @constant */
+                                flow_action?: "navigate";
+                                flow_action_payload?: {
+                                    screen: string;
+                                    data?: {
+                                        [key: string]: unknown;
+                                    };
+                                };
                             };
                         };
                     };

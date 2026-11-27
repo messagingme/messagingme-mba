@@ -133,3 +133,50 @@ describe('ce qui part chez Meta, et ce que l’Inbox affiche', () => {
     expect(ap(EXEMPLES.interactive!)).toBe('On le livre quand ?\n[Demain] [Lundi]');
   });
 });
+
+describe('ouvrir un WhatsApp Flow publié (interactif flow)', () => {
+  const flow = (parameters: Record<string, unknown>, extra: Record<string, unknown> = {}) => corps({
+    type: 'interactive',
+    interactive: { type: 'flow', body: { text: 'Décrivez votre demande' }, action: { name: 'flow', parameters }, ...extra },
+  });
+  const base = { flow_message_version: '3', flow_cta: 'Ouvrir', flow_id: '1234567890', flow_token: 'sav-1' };
+
+  it('🔴 un Flow désigné par son identifiant passe, tel quel chez Meta, et l’Inbox montre son bouton', () => {
+    const b = flow({ ...base, flow_action: 'navigate', flow_action_payload: { screen: 'SAV' } }, { header: { type: 'text', text: 'SAV' } });
+    const lu = schemaMessageMeta.safeParse(b);
+    expect(lu.success).toBe(true);
+    if (!lu.success) return;
+    const { to: _to, messaging_product: _p, ...contenu } = lu.data;
+    expect(corpsPourMeta(contenu)).toEqual({ type: 'interactive', interactive: (b as Record<string, unknown>)['interactive'] });
+    expect(apercuDuMessage(contenu)).toBe('Décrivez votre demande\n[Ouvrir]');
+  });
+
+  it('un Flow désigné par son nom passe', () => {
+    const { flow_id: _id, ...sansId } = base;
+    expect(valide(flow({ ...sansId, flow_name: 'sav_hyundai' }))).toBe(true);
+  });
+
+  it('🔴 le Flow se désigne par UN identifiant : ni aucun, ni les deux', () => {
+    const { flow_id: _id, ...sansId } = base;
+    expect(valide(flow(sansId))).toBe(false);
+    expect(valide(flow({ ...base, flow_name: 'sav_hyundai' }))).toBe(false);
+  });
+
+  it('🔴 seule l’ouverture statique passe : un échange de données appellerait un serveur que nous n’avons pas', () => {
+    expect(valide(flow({ ...base, flow_action: 'data_exchange' }))).toBe(false);
+  });
+
+  it('les bornes : version 3, identifiant numérique, bouton court, aucun champ inconnu', () => {
+    expect(valide(flow({ ...base, flow_message_version: '2' }))).toBe(false);
+    expect(valide(flow({ ...base, flow_id: 'abc' }))).toBe(false);
+    expect(valide(flow({ ...base, flow_cta: 'x'.repeat(BORNES_META.libelleFlow + 1) }))).toBe(false);
+    expect(valide(flow({ ...base, mode: 'draft' }))).toBe(false);
+  });
+
+  it('🔴 Meta refuse un Flow sans jeton, et une action navigate sans écran : nous aussi, avec le champ fautif', () => {
+    const { flow_token: _t, ...sansJeton } = base;
+    expect(valide(flow(sansJeton))).toBe(false);
+    expect(valide(flow({ ...base, flow_action: 'navigate' }))).toBe(false);
+    expect(valide(flow({ ...base, flow_action: 'navigate', flow_action_payload: { screen: 'SAV' } }))).toBe(true);
+  });
+});

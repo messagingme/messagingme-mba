@@ -39,6 +39,12 @@ export const BORNES_META = {
   titreLigne: 24,
   descriptionLigne: 72,
   libelleLien: 20,
+  // Meta annonce 30 caractères pour le bouton d'un Flow selon les pages de sa documentation, 20 selon d'autres : la
+  // borne basse ne fait jamais refuser un envoi par Meta.
+  libelleFlow: 20,
+  idFlow: 200,
+  jetonFlow: 512,
+  ecranFlow: 200,
 } as const;
 
 const B = BORNES_META;
@@ -126,7 +132,45 @@ const lien = z.strictObject({
   }),
 });
 
-const interactif = z.discriminatedUnion('type', [boutons, liste, lien]);
+/**
+ * Un WhatsApp Flow publié, ouvert dans la fenêtre de 24 h (`interactive.type = "flow"` de Meta). Le formulaire se
+ * désigne par son `flow_id` OU son `flow_name`, jamais les deux. Seule l'ouverture statique est permise
+ * (`flow_action: "navigate"`, le premier écran ou celui de `flow_action_payload`) : un Flow à échange de données
+ * appellerait un serveur que nous n'avons pas. La réponse du contact revient en `nfm_reply`, et l'application qui
+ * répond la lit dans `conversation.needs_reply` (`form_response`).
+ */
+const formulaire = z.strictObject({
+  type: z.literal('flow'),
+  header: z.strictObject({ type: z.literal('text'), text: texte(B.enTete) }).optional(),
+  body: z.strictObject({ text: texte(B.corpsInteractif) }),
+  footer: pied.optional(),
+  action: z.strictObject({
+    name: z.literal('flow'),
+    parameters: z.strictObject({
+      flow_message_version: z.literal('3'),
+      flow_id: texte(B.idFlow).regex(/^\d+$/, { message: 'l’identifiant numérique du Flow chez Meta' }).optional(),
+      flow_name: texte(B.idFlow).optional(),
+      // Requis : Meta refuse un Flow sans jeton (#131009, relevé par `sendFlowMessage`, `src/meta/client.ts`).
+      flow_token: texte(B.jetonFlow),
+      flow_cta: texte(B.libelleFlow),
+      flow_action: z.literal('navigate').optional(),
+      flow_action_payload: z.strictObject({
+        screen: texte(B.ecranFlow),
+        data: z.record(z.string(), z.unknown()).optional(),
+      }).optional(),
+    }).superRefine((p, ctx) => {
+      if ((p.flow_id === undefined) === (p.flow_name === undefined)) {
+        ctx.addIssue({ code: 'custom', path: ['flow_id'], message: 'désignez le Flow par flow_id OU flow_name, un seul des deux' });
+      }
+      // Meta exige l'écran à ouvrir dès que l'action est nommée.
+      if (p.flow_action !== undefined && p.flow_action_payload === undefined) {
+        ctx.addIssue({ code: 'custom', path: ['flow_action_payload'], message: 'flow_action navigate demande flow_action_payload.screen' });
+      }
+    }),
+  }),
+});
+
+const interactif = z.discriminatedUnion('type', [boutons, liste, lien, formulaire]);
 
 /** Le contenu de chaque type, sous la clé qui porte son nom (le format de Meta). */
 const CONTENUS = {
@@ -228,6 +272,7 @@ export function apercuDuMessage(m: ContenuMeta): string {
       if (!i) return '';
       if (i.type === 'button') return `${i.body.text}\n${i.action.buttons.map((b) => `[${b.reply.title}]`).join(' ')}`;
       if (i.type === 'list') return `${i.body.text}\n[${i.action.button}]`;
+      if (i.type === 'flow') return `${i.body.text}\n[${i.action.parameters.flow_cta}]`;
       return `${i.body.text}\n[${i.action.parameters.display_text}]`;
     }
   }

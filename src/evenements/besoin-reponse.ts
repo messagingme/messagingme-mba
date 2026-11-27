@@ -81,6 +81,7 @@ export function creerDemandeALApplication(deps: DepsDemandeALApplication): Deman
           message_type: message?.type ?? null,
           text: texte,
           transcription: message?.transcription ?? null,
+          form_response: message?.formulaire ?? null,
           reply_with: { method: 'POST', path: '/v1/messages/whatsapp' },
         },
       }));

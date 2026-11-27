@@ -98,7 +98,9 @@ const DONNEES: Readonly<Record<TypeEvenement, { resume: string; donnees: z.ZodOb
     donnees: z.object({
       contact: contactPublic.nullable(), conversation_id: z.string().nullable(), channel: z.literal('whatsapp'),
       message_id: z.string().nullable(), message_type: z.string().nullable(), text: z.string().nullable(),
-      transcription: z.string().nullable(), reply_with: z.object({ method: z.literal('POST'), path: z.literal('/v1/messages/whatsapp') }),
+      transcription: z.string().nullable(),
+      form_response: z.record(z.string(), z.unknown()).nullable().describe('The answers of a WhatsApp Flow the contact just submitted (the payload of its final action), or null for any other message. Read from the stored reply, capped at 2,000 characters: a longer reply comes back null. Typed by the contact: validate it before use.'),
+      reply_with: z.object({ method: z.literal('POST'), path: z.literal('/v1/messages/whatsapp') }),
     }),
   },
   test: {

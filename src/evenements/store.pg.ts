@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import type { MessageRecu } from './types';
+import { reponseFormulaireStockee, type MessageRecu } from './types';
 import type { LigneEnvoi } from './distribution';
 import type { MajEnvoi } from './envoi';
 import { enTransaction } from '../db/transaction';
@@ -379,15 +379,20 @@ export class PgEnvoisEvenementsStore {
     return (res.rows[0]?.status ?? 'locked') === 'locked';
   }
 
-  /** Le message d'un contact, pour `message.received` : relu par l'espace, jamais par le seul identifiant de Meta. */
+  /**
+   * Le message d'un contact, pour `message.received` et `conversation.needs_reply` : relu par l'espace, jamais par le
+   * seul identifiant de Meta. Un formulaire renvoyé rend aussi ses réponses (`formulaire`).
+   */
   async messageRecu(tenantId: string, messageId: string): Promise<MessageRecu | null> {
-    const res = await this.pool.query<{ type: string | null; body: string | null; transcription: string | null }>(
-      `select m.type, m.body, m.transcription from conversation_messages m join conversations c on c.id = m.conversation_id
+    const res = await this.pool.query<{ type: string | null; body: string | null; transcription: string | null; button_payload: string | null }>(
+      `select m.type, m.body, m.transcription, m.button_payload from conversation_messages m join conversations c on c.id = m.conversation_id
         where c.tenant_id = $1 and m.meta_message_id = $2 and m.direction = 'in' limit 1`,
       [tenantId, messageId],
     );
     const r = res.rows[0];
-    return r ? { type: r.type, text: r.body, transcription: r.transcription } : null;
+    return r
+      ? { type: r.type, text: r.body, transcription: r.transcription, formulaire: reponseFormulaireStockee(r.type, r.button_payload) }
+      : null;
   }
 
   /**

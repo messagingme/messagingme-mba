@@ -102,7 +102,8 @@ function Messages() {
           )}
         </p>
         <Liste>
-          <li>{t('Types : text, image, video, audio, document, location, reaction, interactive (button, list, cta_url).', 'Types: text, image, video, audio, document, location, reaction, interactive (button, list, cta_url).')}</li>
+          <li>{t('Types : text, image, video, audio, document, location, reaction, interactive (button, list, cta_url, flow).', 'Types: text, image, video, audio, document, location, reaction, interactive (button, list, cta_url, flow).')}</li>
+          <li>{t('Un formulaire WhatsApp (flow) s’ouvre par son flow_id ou son flow_name, publié, avec flow_message_version "3" et l’action navigate : ses réponses reviennent dans conversation.needs_reply (form_response).', 'A WhatsApp form (flow) opens by its published flow_id or flow_name, with flow_message_version "3" and the navigate action: its answers come back in conversation.needs_reply (form_response).')}</li>
           <li>{t('Un média passe par une URL https publique (link) : Meta va chercher le fichier.', 'A media goes through a public https URL (link): Meta fetches the file.')}</li>
           <li>{t('Les bornes sont celles de Meta (3 boutons, titre de 20 caractères, 10 lignes de liste) ; un champ inconnu est refusé en invalid_body, avec le champ fautif.', 'The bounds are Meta’s (3 buttons, 20-character title, 10 list rows); an unknown field is refused as invalid_body, naming the field.')}</li>
           <li>{t('Le contact qui touche un bouton revient dans l’événement message.received, avec son id.', 'The contact who taps a button comes back in the message.received event, with its id.')}</li>

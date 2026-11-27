@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { NomEvenement, Signal, SignalComplet } from '../signaux/types';
+import { FLOW_REF_KEY } from '../meta/flow-json';
 
 /**
  * Le contrat des webhooks sortants (lot 12, spec `docs/superpowers/specs/2026-10-08-webhooks-sortants-design.md`) :
@@ -105,6 +106,26 @@ export interface MessageRecu {
   type: string | null;
   text: string | null;
   transcription: string | null;
+  /** Les réponses d'un WhatsApp Flow renvoyé (`nfm_reply`), relues par `reponseFormulaireStockee`. Absent sinon. */
+  formulaire?: Record<string, unknown> | null;
+}
+
+/**
+ * Les réponses d'un formulaire, relues depuis le message enregistré : un `nfm_reply` est rangé en type `interactive`,
+ * son `response_json` dans `button_payload` (tronqué à 2 000 caractères par l'entrée, `src/webhooks/inbound.ts`). Un
+ * bouton ou une ligne de liste y range son identifiant, qui n'est pas un objet JSON : `null`. Une réponse tronquée ne
+ * se relit plus : `null` aussi, jamais une réponse partielle. La clé interne `_ref` de nos formulaires ne sort pas.
+ */
+export function reponseFormulaireStockee(type: string | null, payload: string | null): Record<string, unknown> | null {
+  if (type !== 'interactive' || payload === null || !payload.startsWith('{')) return null;
+  try {
+    const v: unknown = JSON.parse(payload);
+    if (v === null || typeof v !== 'object' || Array.isArray(v)) return null;
+    const { [FLOW_REF_KEY]: _ref, ...reponse } = v as Record<string, unknown>;
+    return reponse;
+  } catch {
+    return null;
+  }
 }
 
 export interface Enveloppe {
@@ -192,7 +213,7 @@ export const CHAMPS_DU_TYPE: Readonly<Record<TypeEvenement, readonly string[]>> 
   'contact.risk_changed': ['contact', 'level', 'previous_level', 'score', 'reasons'],
   'template.status_changed': ['template', 'status', 'reason'],
   'agent.action': ['contact', 'conversation_id', 'agent', 'action', 'fields', 'channel'],
-  'conversation.needs_reply': ['contact', 'conversation_id', 'channel', 'message_id', 'message_type', 'text', 'transcription', 'reply_with'],
+  'conversation.needs_reply': ['contact', 'conversation_id', 'channel', 'message_id', 'message_type', 'text', 'transcription', 'form_response', 'reply_with'],
   test: ['message'],
 };
 
