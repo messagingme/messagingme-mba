@@ -63,7 +63,12 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   conversation, la transcription, les réglages de prise et de reprise : 4 outils, `566304ddb`, puis le correctif de la
   transcription trouvé à l'essai réel, `7cab408c2`), 2b (effacer les messages d'une conversation au oui : `e4f4f7bb6`)
   et 2c (la photo d'un message en bloc image : `4dfa2e9a0`). Les livraisons 1 et 2 sont en production le 2026-11-27
-  (plugin 0.3.81), essais réels 294, 295 et 296. Suite : la livraison 3, l'agent IA (15 routes).
+  (plugin 0.3.81), essais réels 294, 295 et 296. Livraison 3 (l'agent IA) : 3a (ses réglages, 8 outils : `737e062e8`,
+  plugin 0.3.82, essai 297) et 3b (supprimer un agent au oui, retirer l'autonomie d'un outil : `073072e09`, plugin 0.3.84,
+  essai 298), en production le 2026-11-27. Livraison 4 (les connecteurs) en trois temps : 4a (les systèmes connectés,
+  la clé jamais par Claude, migration 0331 : `d6f1c5f38`, run 46036736713, plugin 0.3.85, essai 299) en production le
+  2026-11-27 ; suite : 4b (les appels et leur branchement sur un agent ; depuis Claude, seul un appel qui lit s'essaie),
+  puis 4c (les serveurs MCP).
 - Lot G (plan `2026-11-26-csm-lot1-g-prerequis.md`) : B7, les prérequis (`get_account_status`, `request_number_code`,
   `activate_number`, `contact_support`), en production le 2026-11-26 (`6fa36d7a3`, run 45819186413, plugin 0.3.71),
   essai réel fait (291, `docs/prive/ESSAIS-REELS.md`).
