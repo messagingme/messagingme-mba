@@ -1425,44 +1425,72 @@ nomme une table lue par l'accusé, part en `avant`.
    **Tranchée le 2026-11-23 : 24 mois pour le Pro** (Julien, en lançant le lot 5) ; 60 jours pour toutes les offres.
 5. **Julien, remboursements.** On continue de ne pas les déduire, produits compris. Le rouvrir oblige un sujet de plus
    (`refunds/create` ou `orders/updated`) et un redéploiement chez chaque marchand. On le laisse fermé ?
+   **Tranchée (Julien, le 2026-11-27) : fermé.** Une commande remboursée ou annulée compte en entier ; on rouvre si un client le demande
+   (l'abonnement se ferait par l'API, sans redéploiement chez le marchand, mesuré au lot 6d).
 6. **Mesure, 60 jours.** Sur l'app de la boutique de développement, une commande créée il y a plus de 60 jours est-elle
    lisible avec `read_orders` seul ? La page des scopes dit non. Un employé Shopify, sur le forum, a dit oui pour une
    app d'organisation marchande. La mesure tranche avant d'ajouter `read_all_orders`.
+   **Close par la livraison (lot 7a)** : au-delà de 60 jours, le rattrapage exige `read_all_orders`, et l'aperçu dit la
+   raison quand le droit manque.
 7. **Mesure, `line_items`.** Confirmer sur un vrai `orders/paid` en `2026-10` que `product_id`, `variant_id` et `sku`
    sont dans le corps que nous recevons. La doc dit que le corps est la ressource REST entière. On ne l'a pas remesuré
    depuis le lot 0 du connecteur.
+   **Close par la livraison (lot 3)** : les lignes des vraies commandes payées portent produit, variante et SKU.
 8. **Collections.** « Telles qu'elles sont aujourd'hui » est la recommandation. Faut-il, plus tard, un instantané au
    moment où nous lisons le produit après le paiement, sachant que le rattrapage ne pourra jamais le reconstruire ?
+   **Tranchée (Julien, le 2026-11-27) : non**, les collections telles qu'elles sont aujourd'hui.
 9. **Cartes cadeaux.** Écartées des filtres produit, la commande restant comptée. On les inclut plutôt ?
+   **Tranchée (Julien, le 2026-11-23)** : écartées.
 10. **Plafond de lignes.** 250 par commande, avec un drapeau si le corps en avait plus. Autre plafond ?
+    **Close par la livraison (lot 3)** : 250.
 11. **Segments suivis.** 20 par espace. La liste lue peut en montrer jusqu'à 250. Autre maximum ?
+    **Close par la livraison (lot 6c)** : 20 (`BORNES_SEGMENTS.segmentsShopifyMax`).
 12. **Webhooks de segment.** On ne s'abonne pas à `customer.joined_segment` tant qu'on n'a pas mesuré le volume et
     trouvé un filtre par segment. On valide cette prudence ?
+    **Tranchée (Julien, le 2026-11-27) : oui**, la relecture quotidienne (et « Synchroniser maintenant ») suffit.
 13. **Intention « délai de livraison ».** On ne l'ajoute pas. Le critère Entreprise dit `information` ou `achat`, et
     aucune commande après l'analyse. Un code de plus est une migration de CHECK et un prompt. On le veut ?
+    **Tranchée (Julien, le 2026-11-27) : non**, le rapprochement (`information` ou `achat`, et `aucune_apres`), documenté dans l'outil.
 14. **`customers/data_request`.** L'e-mail aux admins doit-il, dans le lot 1a, lister les produits achetés, ou un lot
     RGPD à part s'en charge ? Aujourd'hui cet e-mail ne détaille pas les commandes.
+    **Tranchée (Julien, le 2026-11-23)** : un lot RGPD à part (`todo.md`).
 15. **Fusion de clients Shopify.** Sans `read_customer_merge`, une fusion casse le lien `client_id` jusqu'à la reprise
     par téléphone. On l'accepte pour ces lots ?
+    **Tranchée (Julien, le 2026-11-27) : on demande le droit `read_customer_merge`.** Un lot à part : chaque marchand réaccorde les droits
+    de son app, et la fusion se traite (`todo.md`).
 16. **API publique.** Ces critères restent ceux de la console et du MCP. On confirme qu'aucun filtre `/v1` ne part
     dans ces lots ?
+    **Tranchée (Julien, le 2026-11-27) : confirmé**, aucun critère de segment en `/v1` ; un intégrateur qui les veut se verra sur demande.
 17. **Business.** Même profondeur et mêmes actions que le Pro, avec 5 000 contacts, sans l'analyse. On confirme qu'on
     ne lui réserve pas une fenêtre d'historique plus longue ?
+    **Close par la livraison (lot 7a)** : la même fenêtre que le Pro, 24 mois avec le droit.
 18. **Julien, fiche qui avait déjà une conversation ou un accord.** La suppression au premier `131026` est décidée pour
     une fiche créée par l'envoi. On propose de garder une fiche qui avait déjà un message entrant, ou un consentement
     posé avant cet envoi (import, CSV). La supprimer effacerait l'historique. On la garde jusqu'à ta réponse, ou on
     supprime aussi ?
+    **Close par la livraison (lot 2a, décision de Julien du 2026-11-23)** : gardée. Seule une fiche née de l'envoi Shopify,
+    sans activité, sans message entrant ni message déjà livré ou lu, est supprimée.
 19. **Fixes.** `estUnFixe` est appliqué au chemin Shopify (aujourd'hui HubSpot seulement) : un fixe est sauté, le
     candidat suivant est essayé. On confirme ?
+    **Close par la livraison (lot 2a)** : confirmé.
 20. **Import des abonnés déjà en production.** Il crée une fiche sur un E.164 sans demander à Meta. Le même premier
     `131026` la supprime s'il n'y a pas l'exception de la question 18. On confirme que l'import entre dans cette règle
     dès qu'un message échoue, pas dans un lot à part ?
+    **Close par la livraison (lot 2a)** : non, l'import n'y entre pas. Seule une fiche marquée née de l'envoi Shopify est
+    visée ; une fiche importée, saisie ou née d'un entrant ne l'est jamais.
 21. **Ventes sans contact.** `ventes_attribuees` peut garder l'identifiant de commande et le montant, sans téléphone,
     quand la preuve UTM existe. On le laisse. On confirme qu'aucun carnet ne se reconstruit depuis cette table ?
+    **Tranchée (Julien, le 2026-11-27) : confirmé.**
 22. **Boutons « sans commander ».** La règle est fermée : pas de période, « aucune commande enregistrée », les deux
     boutons ne s'excluent pas. Faut-il plus tard une période en plus, à côté du bouton, ou le geste sans réglage suffit
     pour de bon ? La pastille est le compte du bouton seul. On confirme qu'elle ne doit pas devenir le total déjà
     filtré par le reste du panneau ?
+    **Tranchée (Julien, le 2026-11-23)** : une période réglable plus tard, à côté des boutons ; la pastille compte le
+    bouton seul. Depuis le lot 7c (2026-11-27), « a écrit » et « a cliqué » dans les N jours existent dans « Achats et
+    activité ».
+
+Hors des questions numérotées, tranché le même jour (Julien, le 2026-11-27) : pas d'historique des analyses (la fiche garde la dernière),
+pas de copie automatique des étiquettes Shopify en étiquettes Messaging Me (le bouton « Copier » suffit).
 
 ## Sources
 

@@ -575,11 +575,13 @@ Pris dans le lot : les dates rendues à Claude (chaque critère la sienne), le m
 
 La feuille de route de la spec (`docs/superpowers/specs/2026-11-21-segments-shopify-enrichis.md`, lots 1 à 7) est
 livrée. En la relisant contre la spec entière, ceci n'est entré dans aucun lot :
-- **Ce que la spec laisse « en attente »** : l'appartenance à une collection au jour du paiement, l'historique des
-  analyses (la fiche n'en garde qu'une), une intention « délai de livraison », la copie automatique des étiquettes Shopify
-  vers les étiquettes Messaging Me. (Les remboursements déduits sont déjà plus bas, § Shopify.)
-- **Les questions ouvertes 5 à 22 de la spec** (§ « Questions ouvertes ») n'ont pas de réponse écrite, sauf 1 à 4 :
-  à trancher par Julien, une par une, ou à déclarer closes par ce qui a été livré.
+- 🔵 **Les questions ouvertes de la spec sont toutes tranchées (Julien, le 2026-11-27, réponses écrites sous chacune)** :
+  ni instantané des collections, ni historique des analyses, ni intention « délai de livraison », ni copie automatique
+  des étiquettes Shopify, ni remboursements déduits dans les segments, ni segments Shopify en direct, ni critère en `/v1`.
+- **À FAIRE : demander le droit `read_customer_merge`** (question 15, tranchée le 2026-11-27) : quand le marchand fusionne
+  deux clients dans Shopify, le lien `client_id` vers la fiche se perd jusqu'à la relecture par téléphone. Le droit entre
+  dans la liste des droits de l'app (console, skill du plugin), chaque marchand le réaccorde (nouvelle version,
+  réinstallation), et la fusion se traite : mesurer d'abord sur la boutique de démo ce que Shopify envoie.
 
 ## 🟡 Segments Shopify, lot 7b (la commande face à la dernière analyse) : la relecture (2026-11-26, un rouge corrigé)
 
@@ -2546,8 +2548,8 @@ commandes, le pays et l'activité sont livrés le 2026-11-03 (spec `2026-10-31-s
 leurs suites :
 - le rattrapage de l'historique des commandes lu chez Shopify (aujourd'hui, le suivi complet commence au déploiement ou au
   branchement ; `read_orders` ne rend que 60 jours sans un accès étendu) ;
-- les remboursements et annulations déduits (abonnements `orders/cancelled` et `refunds/create`, à redéployer chez
-  chaque marchand) ;
+- les remboursements et annulations déduits dans les SEGMENTS : fermé par Julien le 2026-11-27 (question 5 de la spec
+  des segments Shopify), à rouvrir si un client le demande ;
 - l'inactivité dans `prepare_contacts_deletion` (la colonne existe ; un effacement est irréversible et ouvert à la Free,
   l'activité d'avant le 2026-11-03 n'est complète que par les messages alors conservés et les clics) ;
 - un sélecteur de pays dans la console (aujourd'hui « Téléphone commence par ») ;
