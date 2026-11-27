@@ -5,6 +5,29 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : segments Shopify, lot 7c : « a écrit », « a cliqué », « a cliqué sans jamais écrire »
+
+Plan : `docs/superpowers/plans/2026-11-27-segments-shopify-lot-7c-reponses-et-clics.md` (spec, chantier 7, « Pro, léger,
+coût IA nul »). Ces critères n'étaient entrés dans aucun lot de la feuille de route : relevé le 2026-11-26 en la relisant
+contre la spec entière, codés le lendemain sur le « oui » de Julien. Trois critères sans boutique dans « Achats et
+activité » (donc l'audience d'une campagne) et dans la cible MCP commune (`replied_within_days`, `clicked_within_days`,
+`clicked_without_reply_days`, bornes annoncées), qui lisent les deux dates du lot 4 (0312), sans migration. « Sans
+jamais écrire » exige AUCUN message connu, jamais « rien depuis N jours » ; et comme 0312 n'a lu que les messages encore
+conservés, la console dit sous le critère depuis quand chaque message est noté, l'outil par `reply_complete_since`
+(seulement pour les deux critères qui lisent la réponse : une relecture l'a demandé, la première version la rendait aussi
+pour « a cliqué » et rendait à tort la profondeur de `derniere_activite_le`). La console ne les propose que sur
+l'annonce de `GET .../contacts/segments`.
+
+Prouvé sur PGlite contre de vraies fiches (écrit hier, il y a 40 jours, cliqué sans écrire, cliqué après avoir écrit il y
+a un an, supprimée, un autre espace), 65 e2e sur la build de production, 15 mutations rouges (dont une de l'écran,
+reconstruit). Relecture indépendante : aucun rouge, quatre jaunes pris dans le lot, deux au `todo.md`. La parité des
+critères (`tests/parite/criteres.ts`, posée la veille) a exigé les trois arguments MCP dès que les clés ont existé côté
+console. Sonde avant, en lecture seule : aucun champ personnalisé ne portait les trois clés que le lot réserve.
+En production le 2026-11-27 : run 45967866091 (`1603e21c2`, aucune migration), CI verte job par job. Vérifié par le vrai
+code déployé, en lecture seule : le compte de la liste égale le SQL brut sur quatre espaces (ODALYS Checkin : 46 ont
+écrit en 30 jours, 106 ont cliqué, 85 ont cliqué sans jamais écrire sur un an). Essai réel fait par Julien le même
+jour : sur la SANDBOX, « A cliqué un lien dans les 30 derniers jours » montre 2 contacts.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, correctif de 2a trouvé à l'essai réel) : `transcribe_message` prend l'identifiant que rend `get_messages`
 
 L'essai réel des outils de 2a sur la SANDBOX a refusé la transcription : `transcribe_message` attendait l'identifiant
