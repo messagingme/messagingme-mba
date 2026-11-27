@@ -4297,6 +4297,11 @@ async function main(): Promise<void> {
         listesContacts: contactStore,
         historiqueContacts: contactHistoryStore,
         bilanContact: chiffrage,
+        // Les marques, la transcription et les réglages de prise et de reprise de l'Inbox (B10, livraison 2a) : les MÊMES
+        // objets que les routes de l'Inbox et des paramètres.
+        marquesConversation: inboxStore,
+        ouvrirConversation: ouvrirConversationInbox,
+        reglagesInbox: settingsStore,
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),

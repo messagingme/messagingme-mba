@@ -10,7 +10,7 @@ import { FakeQueue } from './fake-queue';
 import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { jamaisDesabonne } from './consentement';
-import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { filiereApiSeule, aucunPremierMessage } from './gardes';
 
 /**
@@ -99,7 +99,7 @@ function monter(o: { publicApiUrl?: string; apiParMinute?: number } = {}) {
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
-    ...mcpFichesInertes,
+    ...mcpFichesInertes, ...mcpInboxInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,

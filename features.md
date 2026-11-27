@@ -3563,6 +3563,12 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   au journal au nom de la personne. Il dit enfin quel appel de connecteur est prévenu à chaque désabonnement, et en
   choisit un autre ou n'en prévient plus aucun (`get_optout_push`, `set_optout_push`) : comme un envoi, ce choix passe
   par le bouton qu'un administrateur clique dans la console, parce que des données de contact partent chez ce tiers.
+  Dans l'Inbox (fonction de l'Inbox, comme ses boutons), il archive, signale, marque urgente, traitée ou lue une
+  conversation (`update_conversation`, seules les marques données changent), transcrit un vocal et le traduit au besoin
+  (`transcribe_message`, au nom d'une personne, payé sur le crédit IA de l'espace : la transcription une seule fois, une
+  traduction dans une autre langue que la dernière à nouveau), et lit ou règle qui peut prendre une
+  conversation du pot commun et le délai avant que l'automatique reprenne la main (`get_inbox_settings`,
+  `update_inbox_settings`, au nom d'une personne).
 - ✅ **Envoyer un message simple** : un texte, à une personne, tout de suite, visible dans l'Inbox. Deux routes,
   parce que leurs règles n'ont presque rien en commun : `POST /v1/messages/whatsapp` (dans la fenêtre de 24 h)
   et `POST /v1/messages/rcs` (sans fenêtre, mais seulement vers quelqu'un qui a consenti ou qui vous a déjà

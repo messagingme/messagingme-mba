@@ -5486,6 +5486,10 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | control_conversation | mcp:write | Prendre la main sur un fil, ou la rendre au répondeur automatique, qui répondra au message suivant. |
 | tag_conversation | mcp:write | Poser des tags sur le contact d’un fil. |
 | assign_conversation | mcp:write | Confier un fil à un membre, ou le libérer. |
+| update_conversation | mcp:write | Archiver, signaler, marquer urgente, traitée ou lue une conversation, comme ses boutons. |
+| transcribe_message | mcp:write connexion OAuth requise | Transcrire le vocal d’un message, et le traduire si besoin ; payé sur le crédit IA, une seule fois. |
+| get_inbox_settings | mcp:read | Qui peut prendre une conversation du pot commun, et le délai avant que l’automatique reprenne la main. |
+| update_inbox_settings | mcp:write connexion OAuth requise | Régler qui peut prendre une conversation et le délai de reprise ; seul ce qui est donné change. |
 | get_conversation_insights | mcp:read | Ce que l’analyse a compris des conversations : sentiment, intentions, résolution, sujets, et la satisfaction et l’urgence par maille. |
 
 ### Modèles

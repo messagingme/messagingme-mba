@@ -1256,6 +1256,22 @@ export const mcpFichesInertes: Pick<
   bilanContact: { getBilanContact: async () => null },
 };
 
+/** L'Inbox depuis Claude (B10, livraison 2a), pour les montages qui n'en parlent pas : les écritures lèvent. */
+export const mcpInboxInertes: Pick<DepsMcp, 'marquesConversation' | 'ouvrirConversation' | 'reglagesInbox'> = {
+  marquesConversation: {
+    archiverConversation: neDevraitPasEtreAppelee('inbox.archiverConversation'),
+    signalerConversation: neDevraitPasEtreAppelee('inbox.signalerConversation'),
+    marquerUrgente: neDevraitPasEtreAppelee('inbox.marquerUrgente'),
+    marquerTraitee: neDevraitPasEtreAppelee('inbox.marquerTraitee'),
+  },
+  ouvrirConversation: async () => null,
+  reglagesInbox: {
+    get: neDevraitPasEtreAppelee('reglagesInbox.get'),
+    setAgentsPeuventPrendre: neDevraitPasEtreAppelee('reglagesInbox.setAgentsPeuventPrendre'),
+    setControlHandbackSeconds: neDevraitPasEtreAppelee('reglagesInbox.setControlHandbackSeconds'),
+  },
+};
+
 /**
  * La suppression de contacts en masse (2026-10-26), pour les montages qui n'en parlent pas : la sélection ne désigne
  * personne. L'effacement, lui, passe par le clic du oui (B8, `envoisAuOuiInertes`). Ses outils ont leur fichier,

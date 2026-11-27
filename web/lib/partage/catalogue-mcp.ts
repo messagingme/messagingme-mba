@@ -28,6 +28,13 @@ export const CATALOGUE_MCP = {
   send_message: { scope: 'mcp:write' },
   tag_conversation: { scope: 'mcp:write' },
   assign_conversation: { scope: 'mcp:write' },
+  // L'Inbox depuis Claude (B10, livraison 2a) : les marques comme ses boutons, ouvertes aux opérateurs et à une clé ; la
+  // transcription dépense le crédit IA du client, donc une personne, comme les autres outils qui le dépensent (une clé
+  // branchée sur un agent qui lit des messages de clients s'exposerait à une injection) ; les réglages, une personne.
+  update_conversation: { scope: 'mcp:write' },
+  transcribe_message: { scope: 'mcp:write', exigePersonne: true },
+  get_inbox_settings: { scope: 'mcp:read' },
+  update_inbox_settings: { scope: 'mcp:write', exigePersonne: true },
   /** Prendre et rendre la main sur un fil (2026-10-22), sans personne exigée : `reply_in_open_window` prend déjà le fil. */
   control_conversation: { scope: 'mcp:write' },
   list_widgets: { scope: 'mcp:read' },

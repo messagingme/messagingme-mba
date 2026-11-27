@@ -59,7 +59,9 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   de parité, en sept livraisons. Livraison 1a (champs, étiquettes, création d'un contact : 7 outils) poussée
   (`57cbd2860`) ; 1b (l'import d'un CSV, les listes de conformité, l'historique, le bilan et l'export d'une fiche :
   8 outils) poussée (`e9eb3598e`) ; 1c (la poussée d'opt-out au oui : 2 outils, une action `poussee_optout` du oui)
-  écrite, en vérification. La livraison 1 sera alors complète.
+  poussée (`733872f97`) : la livraison 1 est complète. Livraison 2 (l'Inbox) en trois temps : 2a (les marques d'une
+  conversation, la transcription, les réglages de prise et de reprise : 4 outils, 13 routes) écrite, en vérification ;
+  2b (effacer les messages d'une conversation, au oui) et 2c (le média d'un message) ensuite.
 - Lot G (plan `2026-11-26-csm-lot1-g-prerequis.md`) : B7, les prérequis (`get_account_status`, `request_number_code`,
   `activate_number`, `contact_support`), en production le 2026-11-26 (`6fa36d7a3`, run 45819186413, plugin 0.3.71),
   essai réel fait (291, `docs/prive/ESSAIS-REELS.md`).

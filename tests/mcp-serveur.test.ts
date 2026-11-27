@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -144,7 +144,7 @@ function app(
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
-    ...mcpFichesInertes,
+    ...mcpFichesInertes, ...mcpInboxInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
@@ -972,6 +972,11 @@ describe('serveur MCP : cohérence du catalogue', () => {
       // La poussée des désabonnements (B10, livraison 1c) : chaque appel prépare un bouton de plus, rien ne change avant le
       // clic d'un admin ; le clic écrit un réglage de l'espace, et la poussée elle-même part plus tard, par le worker.
       set_optout_push: [true, false, false],
+      // L'Inbox (B10, livraison 2a) : reposer les mêmes marques ou les mêmes réglages ne change rien ; une transcription
+      // déjà faite rend la même sans repayer, mais elle part chez le fournisseur d'IA.
+      update_conversation: [true, true, false],
+      transcribe_message: [true, true, true],
+      update_inbox_settings: [true, true, false],
       // Depuis B8 (2026-11-26), le clic d'un admin envoie ; l'outil prend l'identifiant de ce oui et rend toujours le même
       // résultat, une reprise coupée ne renvoie rien ; une reprise repart chez Meta.
       launch_campaign: [true, true, true],
@@ -1174,6 +1179,8 @@ describe('🔴 get_contact cherche la fiche au format de la fiche (essai réel d
 // du 2026-10-08) : seuls étiqueter et affecter, gestes d'équipe, restent dans l'offre de l'Inbox.
 const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   tag_conversation: 'inbox', assign_conversation: 'inbox',
+  // L'Inbox depuis Claude (B10, livraison 2a) : la fonction de l'Inbox, comme ses boutons.
+  update_conversation: 'inbox', transcribe_message: 'inbox', get_inbox_settings: 'inbox', update_inbox_settings: 'inbox',
   // Les chiffres du Pro (2026-10-13) : la fonction statistiques ; get_message_stats reste ouvert (l'essentiel en Free).
   // Ce que l'analyse a compris suit la fonction analyse (spec offres v2).
   get_campaign_stats: 'statistiques', get_conversation_insights: 'analyse', get_ai_stats: 'statistiques',

@@ -181,6 +181,10 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | control_conversation | mcp:write | Take over a thread, or hand it back to the automatic responder, which answers the next message. |
 | tag_conversation | mcp:write | Add tags to a thread’s contact. |
 | assign_conversation | mcp:write | Assign a thread to a member, or release it. |
+| update_conversation | mcp:write | Archive, flag, mark urgent, done or read a conversation, as its buttons do. |
+| transcribe_message | mcp:write OAuth connection required | Transcribe the voice message of a message, and translate it if needed; paid from the AI credit, once. |
+| get_inbox_settings | mcp:read | Who can take a conversation from the shared pool, and the delay before the automation takes it back. |
+| update_inbox_settings | mcp:write OAuth connection required | Set who can take a conversation and the handback delay; only what is given changes. |
 | get_conversation_insights | mcp:read | What the analysis understood of conversations: sentiment, intents, resolution, topics, and satisfaction and urgency over time. |
 
 ### Templates

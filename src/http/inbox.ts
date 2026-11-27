@@ -225,6 +225,60 @@ export interface InboxRouteDeps extends DepsRepondre {
 }
 
 /**
+ * L'issue d'une transcription : le résultat, ou le statut et le corps que la route rend. `famille` : la cause dans le
+ * vocabulaire fermé des refus d'outil (`CODES_REFUS`), que l'outil lit et que la route n'envoie pas.
+ */
+export type IssueTranscription =
+  | { ok: true; valeur: unknown }
+  | {
+    ok: false; statut: 402 | 404 | 410 | 422 | 503; corps: Record<string, unknown>;
+    famille: 'not_found' | 'credit_required' | 'quota_exceeded' | 'unsupported' | 'too_large' | 'unavailable';
+  };
+
+/**
+ * Transcrit le vocal d'un message, à la demande : un bouton, pas un automatisme (un opérateur écoute le plus souvent, tout
+ * transcrire ferait payer un service non demandé). Idempotente : deux demandes ne paient pas deux fois, et la réponse dit
+ * `deja`. Partagée par `POST .../transcrire` et l'outil `transcribe_message` (lot 1 du CSM virtuel, B10, livraison 2a).
+ * `traduire` : une langue de la console, sinon on transcrit sans traduire. (Le cœur, sous la conversation ouverte, est
+ * `transcrireMessage` de `src/inbox/transcrire.ts`.)
+ */
+export async function transcrireVocal(
+  deps: Pick<InboxRouteDeps, 'ouvrirConversation'>, tenant: string, conversationId: string, messageId: string, traduire: unknown,
+): Promise<IssueTranscription> {
+  if (!estUuid(messageId)) return { ok: false, statut: 404, corps: { error: 'message inconnu' }, famille: 'not_found' };
+  // 🔴 La conversation est relue dans l'espace : c'est elle qui porte l'isolation, un identifiant de message
+  // seul ne dit pas à qui il appartient.
+  const conversation = await deps.ouvrirConversation(tenant, conversationId);
+  if (!conversation) return { ok: false, statut: 404, corps: { error: 'conversation inconnue' }, famille: 'not_found' };
+  if (!conversation.transcrire) return { ok: false, statut: 503, corps: { error: 'transcription indisponible sur cette instance' }, famille: 'unavailable' };
+  const cible = estLangueConsole(traduire) ? traduire : null;
+  try {
+    return { ok: true, valeur: await conversation.transcrire(messageId, cible) };
+  } catch (err) {
+    // 4xx, jamais 5xx (Cloudflare remplacerait le corps), et trois causes, trois actions : rien à transcrire,
+    // fichier trop lourd, panne du fournisseur (réessayer).
+    if (err instanceof RienATranscrire) return { ok: false, statut: 422, corps: { error: 'ce message ne porte aucun vocal à transcrire' }, famille: 'unsupported' };
+    // Le crédit IA paie la transcription (lot 6, C) : épuisé, recharger règle le problème, « réessayez » serait faux.
+    if (err instanceof CreditEpuise) {
+      return { ok: false, statut: 402, corps: { error: 'Le crédit IA de l’espace est épuisé : rechargez-le pour transcrire ce vocal.', cause: 'credit' }, famille: 'credit_required' };
+    }
+    // Une Entreprise à son plafond de sécurité du mois : rien à recharger, c'est nous qui le relevons.
+    if (err instanceof PlafondIaAtteint) {
+      return { ok: false, statut: 402, corps: { error: 'Le plafond de sécurité de l’IA de l’espace est atteint ce mois-ci : contactez-nous pour le relever.', cause: 'plafond' }, famille: 'quota_exceeded' };
+    }
+    // Le vocal a disparu chez Meta (sept jours) : rien ne le fera revenir, « réessayez » serait faux.
+    if (err instanceof MediaExpire) return { ok: false, statut: 410, corps: { error: err.message, code: 'media_expire' }, famille: 'not_found' };
+    if (err instanceof MediaTropGros) {
+      return { ok: false, statut: 422, corps: { error: `vocal trop long pour être transcrit (${Math.round(err.octets / 1024)} Ko, maximum ${Math.round(err.plafond / 1024)} Ko)` }, famille: 'too_large' };
+    }
+    // Journalisé ici, sous les trois cas métier : un vocal expiré n'est pas une erreur, et chaque clic sur
+    // l'un d'eux écrirait une ligne `error`. Même place que `media_illisible`.
+    journaliser('error', 'transcription_impossible', { err, tenantId: tenant, messageId });
+    return { ok: false, statut: 422, corps: { error: 'la transcription a échoué, réessayez dans un instant' }, famille: 'unavailable' };
+  }
+}
+
+/**
  * Boîte de réception : lister/lire une conversation, répondre (texte dans la fenêtre 24 h,
  * template hors fenêtre). Lectures + réponse ouvertes à tout compte authentifié.
  */
@@ -508,51 +562,12 @@ export function registerInbox(app: FastifyInstance, deps: InboxRouteDeps, garde:
     }
   });
 
-  /**
-   * Transcrire le vocal d'un message, à la demande : un bouton, pas un automatisme (un opérateur écoute le plus
-   * souvent, tout transcrire ferait payer un service non demandé). Idempotente : deux clics ne paient pas deux
-   * fois, et la réponse dit `deja`.
-   */
+  /** Transcrire le vocal d'un message, à la demande (`transcrireVocal`, que l'outil appelle aussi). */
   app.post('/tenants/:tenantId/conversations/:conversationId/messages/:messageId/transcrire', couteux, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { conversationId, messageId } = req.params as { conversationId: string; messageId: string };
-    if (!estUuid(messageId)) return reply.code(404).send({ error: 'message inconnu' });
-    // 🔴 La conversation est relue dans l'espace : c'est elle qui porte l'isolation, un identifiant de message
-    // seul ne dit pas à qui il appartient.
-    const conversation = await deps.ouvrirConversation(tenant, conversationId);
-    if (!conversation) return reply.code(404).send({ error: 'conversation inconnue' });
-    if (!conversation.transcrire) return reply.code(503).send({ error: 'transcription indisponible sur cette instance' });
-    /**
-     * `traduire` dans le corps : la langue de lecture vient du navigateur. Une valeur hors de nos deux langues est
-     * ignorée, et on transcrit sans traduire.
-     */
-    const demande = (req.body ?? {}) as { traduire?: unknown };
-    const cible = estLangueConsole(demande.traduire) ? demande.traduire : null;
-    try {
-      const r = await conversation.transcrire(messageId, cible);
-      return reply.code(200).send(r);
-    } catch (err) {
-      // 4xx, jamais 5xx (Cloudflare remplacerait le corps), et trois causes, trois actions : rien à transcrire,
-      // fichier trop lourd, panne du fournisseur (réessayer).
-      if (err instanceof RienATranscrire) return reply.code(422).send({ error: 'ce message ne porte aucun vocal à transcrire' });
-      // Le crédit IA paie la transcription (lot 6, C) : épuisé, recharger règle le problème, « réessayez » serait faux.
-      if (err instanceof CreditEpuise) {
-        return reply.code(402).send({ error: 'Le crédit IA de l’espace est épuisé : rechargez-le pour transcrire ce vocal.', cause: 'credit' });
-      }
-      // Une Entreprise à son plafond de sécurité du mois : rien à recharger, c'est nous qui le relevons.
-      if (err instanceof PlafondIaAtteint) {
-        return reply.code(402).send({ error: 'Le plafond de sécurité de l’IA de l’espace est atteint ce mois-ci : contactez-nous pour le relever.', cause: 'plafond' });
-      }
-      // Le vocal a disparu chez Meta (sept jours) : rien ne le fera revenir, « réessayez » serait faux.
-      if (err instanceof MediaExpire) return reply.code(410).send({ error: err.message, code: 'media_expire' });
-      if (err instanceof MediaTropGros) {
-        return reply.code(422).send({ error: `vocal trop long pour être transcrit (${Math.round(err.octets / 1024)} Ko, maximum ${Math.round(err.plafond / 1024)} Ko)` });
-      }
-      // Journalisé ici, sous les trois cas métier : un vocal expiré n'est pas une erreur, et chaque clic sur
-      // l'un d'eux écrirait une ligne `error`. Même place que `media_illisible`.
-      journaliser('error', 'transcription_impossible', { err, tenantId: tenant, messageId });
-      return reply.code(422).send({ error: 'la transcription a échoué, réessayez dans un instant' });
-    }
+    // `traduire` dans le corps : la langue de lecture vient du navigateur.
+    const r = await transcrireVocal(deps, espaceVerifie(req), conversationId, messageId, (req.body as { traduire?: unknown } | null)?.traduire);
+    return r.ok ? reply.code(200).send(r.valeur) : reply.code(r.statut).send(r.corps);
   });
 
   /**

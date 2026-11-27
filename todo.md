@@ -296,6 +296,19 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 2a, l'Inbox depuis Claude) : ce qui reste de la relecture (2026-11-27, aucun rouge)
+
+Corrigés avant de pousser : l'urgence avec Traité ou Archivé, la description de `done: false`, `read` et la langue de
+traduction bornés, la promesse de paiement unique, la transcription réservée à une personne, l'identifiant mal formé
+refusé par l'outil, les commentaires de module, le nom de la fonction extraite, des tests resserrés. Reste :
+- La route `POST .../transcrire` rend une 500 sur un identifiant de conversation mal formé (antérieur à ce lot, Postgres
+  en 22P02) : un `estUuid` dans `transcrireVocal`, avec les tests de route qui adressent la conversation par `c1`.
+- Le délai de reprise n'a aucun écran dans un espace Pro (il vit avec les réglages de l'agent de Meta), et
+  `get_inbox_settings` rend `null` pour le défaut sans dire sa valeur.
+- Le plafond des opérations coûteuses est partagé avec la console : un agent qui boucle sur `transcribe_message` mange
+  celui de l'équipe (même précédent que `preview_contacts_import`).
+- Aucun test ne fait passer ces quatre outils par le serveur MCP (garde d'offre, trace B0c, écran).
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 1c, la poussée des désabonnements au oui) : ce qui reste de la relecture (2026-11-27, aucun rouge)
 
 Corrigés avant de pousser : la Free qui ne pouvait pas aller au bout du clic, la reprise qui ne relisait pas le réglage,

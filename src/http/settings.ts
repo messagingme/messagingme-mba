@@ -87,13 +87,30 @@ export interface SettingsRouteDeps {
 }
 
 /**
- * Réglages tenant.
- * 🔴 Tout le module est monté avec la garde d'administration (`g.admin`, `src/server.ts`), lectures
- * comprises ; le paramètre s'appelle `garde`. Exceptions, toutes nommées ici : `GET /settings/mention-ia` et
- * `GET /settings/transfert-agent`, lectures ouvertes à l'encadrement (`gardeEncadrement`), et une seule
- * écriture ouverte à l'encadrement, `/settings/agents-peuvent-prendre` (un réglage d'équipe, pas une
- * décision de la marque).
+ * La borne haute de la reprise automatique : au-delà de 7 jours, c'est un abandon qui n'apparaîtrait nulle part, et la
+ * promesse « le client finit toujours par avoir une réponse » serait cassée en silence.
  */
+export const MAX_REPRISE_S = 7 * 24 * 3600;
+
+/**
+ * Règle la durée du gel d'une conversation après qu'un opérateur a pris la main : `null` remet le défaut du serveur, `0`
+ * supprime la reprise automatique (la conversation reste à l'humain jusqu'à ce qu'il la rende). Partagée par
+ * `PATCH .../settings/control-handback` et l'outil `update_inbox_settings` (B10, livraison 2a).
+ */
+export async function reglerReprise(
+  reglages: Pick<ReglagesDep, 'setControlHandbackSeconds'>, tenant: string, raw: unknown,
+): Promise<{ ok: true; valeur: number | null } | { ok: false; erreur: string }> {
+  if (raw === null) {
+    await reglages.setControlHandbackSeconds(tenant, null);
+    return { ok: true, valeur: null };
+  }
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 0 || raw > MAX_REPRISE_S) {
+    return { ok: false, erreur: `seconds invalide (entier 0..${MAX_REPRISE_S}, ou null pour le défaut)` };
+  }
+  await reglages.setControlHandbackSeconds(tenant, raw);
+  return { ok: true, valeur: raw };
+}
+
 /**
  * L'appel de connecteur de CET espace, ou `null` : 🔴 jamais accepté sur sa seule forme, un identifiant pris ailleurs ferait
  * partir la poussée des désabonnements chez un autre client, et la clé étrangère ignore l'espace. Partagée par
@@ -105,6 +122,14 @@ export async function appelDeLEspace(
   return (await source.lister(tenant)).find((r) => r.id === id) ?? null;
 }
 
+/**
+ * Réglages tenant.
+ * 🔴 Tout le module est monté avec la garde d'administration (`g.admin`, `src/server.ts`), lectures
+ * comprises ; le paramètre s'appelle `garde`. Exceptions, toutes nommées ici : `GET /settings/mention-ia` et
+ * `GET /settings/transfert-agent`, lectures ouvertes à l'encadrement (`gardeEncadrement`), et une seule
+ * écriture ouverte à l'encadrement, `/settings/agents-peuvent-prendre` (un réglage d'équipe, pas une
+ * décision de la marque).
+ */
 export function registerSettings(
   app: FastifyInstance,
   deps: SettingsRouteDeps,
@@ -361,18 +386,8 @@ export function registerSettings(
    * client finit toujours par avoir une réponse » serait cassée en silence.
    */
   app.patch('/tenants/:tenantId/settings/control-handback', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-    const raw = (req.body as { seconds?: unknown } | null)?.seconds;
-    if (raw === null) {
-      await deps.reglages.setControlHandbackSeconds(tenant, null);
-      return reply.code(200).send({ controlHandbackSeconds: null });
-    }
-    const MAX = 7 * 24 * 3600;
-    if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 0 || raw > MAX) {
-      return reply.code(400).send({ error: `seconds invalide (entier 0..${MAX}, ou null pour le défaut)` });
-    }
-    await deps.reglages.setControlHandbackSeconds(tenant, raw);
-    return reply.code(200).send({ controlHandbackSeconds: raw });
+    const r = await reglerReprise(deps.reglages, espaceVerifie(req), (req.body as { seconds?: unknown } | null)?.seconds);
+    return r.ok ? reply.code(200).send({ controlHandbackSeconds: r.valeur }) : reply.code(400).send({ error: r.erreur });
   });
 
   /**

@@ -9,7 +9,7 @@ import { OUTILS } from '../src/mcp/outils';
  * garde ce qu'on omet, un remplacement efface ce qu'on ne renvoie pas. Les deux existent ; chaque outil dit lequel il est,
  * et un outil de modification ajouté demain doit choisir sa famille ici.
  */
-const PARTIELS = ['update_agent', 'set_agent_limits', 'update_widget', 'update_webhook_endpoint', 'update_field'] as const;
+const PARTIELS = ['update_agent', 'set_agent_limits', 'update_widget', 'update_webhook_endpoint', 'update_field', 'update_conversation', 'update_inbox_settings'] as const;
 const REMPLACEMENTS = ['update_template', 'update_scenario'] as const;
 const description = (nom: string): string => OUTILS.find((o) => o.nom === nom)?.description.replace(/\s+/g, ' ') ?? '';
 

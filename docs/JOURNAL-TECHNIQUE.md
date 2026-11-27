@@ -5,6 +5,35 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, livraison 2a) : Claude marque une conversation, transcrit un vocal et règle la reprise
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 2 (l'Inbox), premier temps (2a) ; 2b
+(effacer les messages d'une conversation, au oui) et 2c (le média d'un message) suivent.
+
+**Quatre outils, fonction de l'Inbox comme ses boutons** (`src/mcp/outils-inbox.ts`). `update_conversation` archive,
+signale, marque urgente, traitée ou lue une conversation par les MÊMES écritures que les boutons, signées de la personne
+du jeton, ou de leur cause pour une clé (comme `assign_conversation`) ; seules les marques données changent, et l'urgence
+ne se pose pas avec Traité ou Archivé, qui la lèvent (posée ensemble, elle serait levée aussitôt ou survivrait au
+rangement, puis ferait remonter la conversation pour une raison périmée). `transcribe_message` passe par la
+transcription de la route, extraite en `transcrireVocal` (`src/http/inbox.ts`, avec sa cause dans le vocabulaire fermé
+des refus, que la route n'envoie pas) : payée sur le crédit IA de l'espace, la transcription une fois, une traduction dans
+une autre langue que la dernière à nouveau ; réservée à une personne, comme les autres outils qui dépensent ce crédit.
+`get_inbox_settings` et `update_inbox_settings` lisent et règlent qui peut prendre une conversation du pot commun et le
+délai de reprise (`reglerReprise`, extraite de sa route, bornée à 7 jours). Les compteurs de la console suivent au
+renouvellement de leur cache court. Aucune migration.
+
+**La relecture indépendante : aucun rouge.** Corrigés avant de pousser : l'urgence posée avec Traité ou Archivé, la
+description de `done: false` (la conversation retourne où son dernier message la range, pas forcément « à traiter »),
+`read` borné à `true` dans le schéma, une langue de traduction hors de la console refusée avant de payer, la promesse
+« une seule fois » réduite à la transcription, la transcription réservée à une personne, un identifiant de conversation
+mal formé refusé par l'outil, les commentaires de module remis au-dessus de `registerInbox` et `registerSettings`, le nom
+de la fonction extraite (un homonyme existait) et des tests resserrés (l'auteur d'une clé, l'expiration d'un vocal, les
+combinaisons interdites). Le reste est au `todo.md`.
+
+Preuves : 18 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint, l'auto-attaque, la suite
+racine et celle de la console ; sur l'arbre fusionné avec les pairs, avant le push : typecheck, lint, auto-attaque, les
+tests ciblés et la suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, livraison 1c) : Claude choisit l'appel prévenu à chaque désabonnement, au clic d'un admin
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 1, troisième temps (1c). Avec elle, la

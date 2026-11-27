@@ -44,6 +44,7 @@ import { OUTILS_MODELES, type DepsModelesMcp } from './outils-modeles';
 import { OUTILS_CAMPAGNES, type DepsCampagnesMcp } from './outils-campagnes';
 import { OUTILS_CHAMPS, type DepsChampsMcp } from './outils-champs';
 import { OUTILS_FICHES, type DepsFichesMcp } from './outils-fiches';
+import { OUTILS_INBOX, type DepsInboxMcp } from './outils-inbox';
 import { OUTILS_SUPPRESSION, type DepsSuppressionMcp } from './outils-suppression';
 import { OUTILS_SHOPIFY } from './outils-shopify';
 import type { DepsGestionShopify } from '../shopify/gestion';
@@ -59,6 +60,7 @@ export { RefusOutil } from './saisie';
 export { MAX_CONTACTS_TROUVES, LONGUEUR_MAX_NOM_MODELE, LONGUEUR_MAX_LANGUE, LONGUEUR_MAX_NOM_CAMPAGNE } from './outils-campagnes';
 export { LONGUEUR_MAX_LIBELLE_CHAMP, LONGUEUR_MAX_CLE_CHAMP, LONGUEUR_MAX_VALEUR_CHAMP } from './outils-champs';
 export { LONGUEUR_MAX_ETIQUETTE_OUTIL, LONGUEUR_MAX_NOM_CONTACT, LONGUEUR_MAX_CSV_OUTIL, LONGUEUR_MAX_ID_FICHE, LONGUEUR_MAX_ID_REQUETE } from './outils-fiches';
+export { MAX_REPRISE_S } from '../http/settings';
 export { MESSAGE_SUPPORT_MAX, SUJET_SUPPORT_MAX } from './outils-prerequis';
 
 /**
@@ -83,7 +85,7 @@ export type { ScopeMcp } from '../../web/lib/partage/catalogue-mcp';
 /** Les actions d'agent IA rendues par `get_conversation` : les plus récentes, la conversation en porte peu. */
 export const ACTIONS_DE_LA_CONVERSATION = 10;
 
-export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
+export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
   /**
@@ -1211,6 +1213,7 @@ export const OUTILS: OutilMcp[] = [
   ...OUTILS_CHAMPS,
   // Les étiquettes et la création d'un contact (lot 1 du CSM virtuel, B10) : `src/mcp/outils-fiches.ts`.
   ...OUTILS_FICHES,
+  ...OUTILS_INBOX,
   // Le connecteur Shopify (2026-10-21) : `src/mcp/outils-shopify.ts`.
   ...OUTILS_SHOPIFY,
   // Les chiffres de l'espace, pour les graphiques de Claude (2026-10-13) : leur fichier, `src/mcp/outils-chiffres.ts`.

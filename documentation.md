@@ -7752,7 +7752,10 @@ Ajouté par le lot 4 de l'API publique :
    possibles par `refusPossibles`
    et l'export RGPD par `exporterHistorique` (`src/http/contacts.ts`, la trace `contact.exporte` au nom de l'auteur) ;
    les désabonnés, les bloqués, l'historique et le bilan sont lus sur les MÊMES magasins que les routes (`contactStore`,
-   `contactHistoryStore`, `chiffrage`, câblés dans `src/index.ts`).
+   `contactHistoryStore`, `chiffrage`, câblés dans `src/index.ts`). L'Inbox depuis Claude (B10, livraison 2a) vit dans
+   `src/mcp/outils-inbox.ts` : les marques d'une conversation par les MÊMES écritures que ses boutons (`inboxStore`), la
+   transcription par `transcrireVocal` (`src/http/inbox.ts`, partagée avec la route, sa cause dans le vocabulaire fermé
+   des refus) et la reprise par `reglerReprise` (`src/http/settings.ts`, bornée à `MAX_REPRISE_S`).
 63. 🔴 **Une suppression de contacts en masse depuis l'assistant n'efface que les fiches montrées** (2026-10-26,
    `src/mcp/outils-suppression.ts`, plan `docs/superpowers/plans/2026-10-26-free-au-dela-de-100-contacts.md`). Deux
    outils ouverts à toutes les offres, au nom d'une personne : `prepare_contacts_deletion` (rien n'est écrit) rend le

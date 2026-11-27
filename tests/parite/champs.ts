@@ -128,6 +128,17 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'POST /conversations/:conversationId/send-template': A_LA_MAIN,
   'POST /conversations/:conversationId/workflow': A_LA_MAIN,
   'POST /conversations/:conversationId/release': SANS_CORPS,
+  // L'Inbox depuis Claude (B10, livraison 2a) : les marques n'ont pas de corps, `update_conversation` les porte.
+  'POST /conversations/:conversationId/archive': SANS_CORPS,
+  'POST /conversations/:conversationId/unarchive': SANS_CORPS,
+  'POST /conversations/:conversationId/signaler': SANS_CORPS,
+  'POST /conversations/:conversationId/ne-plus-signaler': SANS_CORPS,
+  'POST /conversations/:conversationId/urgent': SANS_CORPS,
+  'POST /conversations/:conversationId/ne-plus-urgent': SANS_CORPS,
+  'POST /conversations/:conversationId/traiter': SANS_CORPS,
+  'POST /conversations/:conversationId/ne-plus-traiter': SANS_CORPS,
+  'POST /conversations/:conversationId/read': SANS_CORPS,
+  'POST /conversations/:conversationId/messages/:messageId/transcrire': A_LA_MAIN,
 
   // Les contacts
   'PATCH /contacts/:contactId/blocked': A_LA_MAIN,
@@ -141,6 +152,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   // Les réglages
   'PATCH /settings/transfert-agent': A_LA_MAIN,
   'PATCH /settings/poussee-optout': A_LA_MAIN,
+  'PATCH /settings/agents-peuvent-prendre': A_LA_MAIN,
+  'PATCH /settings/control-handback': A_LA_MAIN,
   'PATCH /settings/business-hours': A_LA_MAIN,
 
   // Les modèles WhatsApp
