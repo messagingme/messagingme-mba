@@ -5,6 +5,27 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : campagnes, les scénarios et les modèles des automations Shopify et HubSpot, rangés par catégorie
+
+Plan : `docs/superpowers/plans/2026-11-26-campagne-scenarios-automations.md`. Seconde exception à la décision 1 du menu
+« Scénario » (cloisonnement des rayons), après l'Inbox. Deux commits, l'API d'abord : a0cfe1f7e (API, déployée par le run
+45903164978, `migration=aucune`, qui a aussi emporté la livraison 1a du CSM virtuel), puis b58c16a37 (console seule,
+publiée par Vercel), poussé par un script d'arrière-plan après le succès du déploiement et la fin de la CI d'un pair. CI
+des deux commits verte job par job. Avant eux, le même jour, 0d48bb449 : les infobulles « Modèle seul » / « Modèle et
+scénario » et l'aperçu du modèle en `{{1}}`, `{{2}}`.
+
+- `campagne_scenario` admet les trois rayons ; `campagne_bloc` reste au Builder.
+- Le résumé d'un scénario porte `modeles` (noms des modèles de son graphe en ligne, garde `jsonb_typeof` prouvée sur
+  PGlite) ; la console en déduit l'origine d'un modèle et range ses listes en `optgroup`, sauf quand un seul groupe existe.
+- Relecture indépendante : aucun rouge. Deux jaunes corrigés avant le déploiement parce qu'ils produisaient un envoi
+  faux : un scénario qui lit `{{shopify.…}}` plus loin dans son graphe partait avec un trou (refus à la création,
+  `donneesDEvenementLues`, valable console, `/v1/campaigns` et MCP) ; une ligne `var:` retombait sur le nom du contact
+  (gardée visible, et le récapitulatif bloque tant qu'elle n'est pas remappée).
+- Le premier script d'attente s'est arrêté au bout de six heures d'attente de l'approbation et a annoncé « déploiement non
+  réussi » sans rien pousser ; relancé avec un horizon de 24 heures.
+- **Reste** : l'essai réel sur SANDBOX (campagne vers le numéro d'essai qui lance « Commande expédiée », variables sur des
+  champs de la fiche, clic d'un bouton qui fait avancer le parcours).
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, livraison 2a) : Claude marque une conversation, transcrit un vocal et règle la reprise
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 2 (l'Inbox), premier temps (2a) ; 2b
