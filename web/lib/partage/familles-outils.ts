@@ -23,6 +23,9 @@ export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly t
       'set_ai_disclosure', 'get_agent_usage', 'delete_agent',
       // Les systèmes connectés des agents (B10, livraison 4a).
       'list_connector_systems', 'create_connector_system', 'update_connector_system', 'delete_connector_system', 'test_connector_system',
+      // Les appels des systèmes et leur branchement (B10, livraison 4b).
+      'list_connector_calls', 'create_connector_call', 'update_connector_call', 'delete_connector_call', 'test_connector_call',
+      'attach_connector_call',
     ],
   },
   { titre: 'Agent knowledge', titreFr: 'Connaissance de l’agent IA', outils: ['list_knowledge', 'add_knowledge', 'update_knowledge', 'delete_knowledge', 'preview_site', 'import_site', 'import_document_text'] },

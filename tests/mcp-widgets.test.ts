@@ -16,7 +16,7 @@ import { lienWaMe } from '../src/lib/wa-me';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { jamaisDesabonne } from './consentement';
-import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpAppelsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, scenariosApiInerte } from './routes-inertes';
 import { bornesDesChamps, champsDe, muettes as bornesMuettes } from './aide/bornes-zod';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
 import { DROITS, type Offre } from '../src/offres/offres';
@@ -149,7 +149,7 @@ function monter(o: { widgets?: WidgetRow[]; liens?: string[]; scenarios?: Array<
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
-    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes,
+    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes, ...mcpAppelsInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,

@@ -170,6 +170,12 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | update_connector_system | mcp:write OAuth connection required | Change, activate or disable a connected system; only what is given changes. |
 | delete_connector_system | mcp:write OAuth connection required | Delete a connected system, with its key; refused while active tools depend on it. |
 | test_connector_system | mcp:write OAuth connection required | Test a connected system: a real call, and whether it answers. |
+| list_connector_calls | mcp:read OAuth connection required | The calls saved on your connected systems: method, path, data sent, fields read. |
+| create_connector_call | mcp:write OAuth connection required | Save a call to a connected system, checked when saved. |
+| update_connector_call | mcp:write OAuth connection required | Change a saved call; only what is given changes. |
+| delete_connector_call | mcp:write OAuth connection required | Delete a saved call; refused while an agent or a scenario uses it. |
+| test_connector_call | mcp:write OAuth connection required | Try a call that reads, for real, and see what the system answers. |
+| attach_connector_call | mcp:write OAuth connection required | Give a call to an AI agent as a tool, disabled, with what it will send. |
 
 ### Agent knowledge
 

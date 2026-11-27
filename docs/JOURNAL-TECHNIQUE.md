@@ -5,6 +5,45 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, livraison 4b) : Claude enregistre, essaie et branche les appels des systèmes connectés
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 4 (les connecteurs), second temps (4b,
+les appels et leur branchement sur un agent) ; les serveurs MCP (4c) suivent.
+
+**Six outils, les offres qui ont la console, tous au nom d'une personne** (`src/mcp/outils-appels.ts`) : lister les
+appels avec les champs et origines qu'une variable peut prendre (`list_connector_calls`), en enregistrer un
+(`create_connector_call`, vérifié comme dans la console : variable non déclarée, en-tête réservé, chemin hors du système
+refusés), le modifier (`update_connector_call`, seul ce qui est donné change, sur l'état effectif ; les agents qui s'en
+servent suivent aussitôt, et une méthode qui écrit fait monter le risque de leurs outils), le supprimer
+(`delete_connector_call`, refusé tant qu'un outil, un bloc Appel API ou la poussée d'opt-out s'en sert), l'essayer
+(`test_connector_call`) et le donner à un agent comme outil (`attach_connector_call`, qui naît inactif et dit ce qu'il
+enverra ; `update_agent_tool` l'active). Les logiques des routes sont extraites (`listerAppels`, `creerAppel`,
+`modifierAppel`, `supprimerAppel`, `essayerAppel`, `brancherConnecteur`), sans changement de comportement ; leurs
+dépendances sortent en constantes du câblage, partagées par la route et l'outil.
+
+**🔴 Un essai exécute l'appel pour de vrai** : depuis Claude, seul un appel qui lit (`GET`) s'essaie ; un appel qui
+écrit (POST, PUT, PATCH, DELETE) s'essaie dans la console, sous les yeux de la personne, comme l'autonomie d'un outil
+irréversible se donne dans la console. **Un appel ne change pas de système depuis Claude** : son adresse se pose avec le
+système (4a). L'essai d'un brouillon, qui ne sert qu'à cocher les champs de sortie avant le premier enregistrement, reste
+une plomberie d'écran : depuis Claude, on enregistre l'appel, puis on l'essaie.
+
+Sept routes quittent les `aFaire` de la parité (six outils, une plomberie d'écran) ; des écarts voulus entrent dans
+`ECARTS` (le motif d'un uuid ; la clé d'une variable, fermée ou libre selon son origine) ; les tarifs comptent 146 outils
+en Pro. Aucune migration. Le plan gagne une livraison 8 : l'audit de la session Shopify (les paramètres des routes de
+lecture, et les routes hors espace, qu'aucune garde ne voyait).
+
+**La relecture indépendante : aucun rouge.** Corrigés avant de pousser : une clé tapée dans un appel (un en-tête
+`X-Api-Key`, un paramètre `api_key`, une valeur fixe ou d'essai) remontait en clair dans la liste et dans l'essai, et
+Claude pouvait en écrire une : elle est refusée à l'écriture et masquée à la lecture. Un appel EN SERVICE pouvait changer
+de méthode en un appel d'outil, une lecture devenant une annulation de commande pour l'agent qui s'en sert : depuis
+Claude, il ne change plus que son nom, ses champs lus et ses valeurs d'essai. Corrigés aussi : une description qui
+dictait sa conduite à Claude, les champs lus sans défaut, des refus de schéma sans détail, le code du refus de l'essai,
+des tests de la garde. Le reste est au `todo.md`.
+
+Preuves : 26 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint, l'auto-attaque, la suite racine et celle de la
+console ; sur l'arbre fusionné avec les pairs, avant le push : typecheck, lint, auto-attaque, les tests ciblés et la
+suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, livraison 4a) : Claude déclare les systèmes connectés des agents, sans jamais voir leur clé
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 4 (les connecteurs), premier temps (4a,

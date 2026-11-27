@@ -7,6 +7,7 @@ import { assemblerAppel, cheminsDeLaReponse, estEnTeteReserve, lireValeurJson, v
 import { CLES_SYSTEME, normaliserOrigine } from '../agent/variables';
 import { CHAMPS_FICHE_FIXES, CLES_FICHE_SORTIE, type CleFicheFixe } from '../crm/champs-fiche';
 import { espaceVerifie, estUuid } from './scope';
+import { corpsDuRefus, refus, type Issue } from '../lib/issue';
 import { transportConnecteurHttp, type TransportConnecteurHttp } from '../agent/transport-connecteur-http';
 import { lecteurDEssai, materialiserFormulaire } from '../agent/corps-formulaire';
 
@@ -113,7 +114,7 @@ const CHAMPS = {
   valeursTest: z.record(z.string(), z.union([z.string().max(2000), z.number(), z.boolean()])),
 };
 
-const corpsRequete = z.object({
+export const corpsRequete = z.object({
   ...CHAMPS,
   parametres: CHAMPS.parametres.default([]),
   entetes: CHAMPS.entetes.default([]),
@@ -121,8 +122,8 @@ const corpsRequete = z.object({
   variables: CHAMPS.variables.default([]),
   valeursTest: CHAMPS.valeursTest.default({}),
 });
-const patchSchema = z.object(CHAMPS).partial();
-const testSchema = z.object({
+export const patchSchema = z.object(CHAMPS).partial();
+export const testSchema = z.object({
   /** Valeurs d'essai fournies à ce test. Absentes -> celles enregistrées sur la requête. */
   valeurs: z.record(z.string(), z.union([z.string().max(2000), z.number(), z.boolean()])).optional(),
 });
@@ -241,222 +242,271 @@ function verifier(r: ARegler, clesDeChamps: readonly string[]): string | null {
   return null;
 }
 
+/**
+ * Ce que la console propose : les origines de variable, pour que l'écran ne recopie pas une liste serveur.
+ * `fiche` : les champs de la liste unique qui peuvent sortir, avec leurs libellés. ⚠️ `contact` reste, pour une
+ * console publiée AVANT cette API (elle lit `catalogue.contact` et planterait sans) : ses `contact:*` sont
+ * réécrits en `fiche:*` à l'enregistrement. À retirer quand plus aucune console ancienne ne tourne.
+ */
+const CATALOGUE = {
+  fiche: CHAMPS_FICHE_FIXES.filter((c) => c.sortieTiers).map((c) => ({ cle: c.cle, libelle: c.libelle, provenance: c.provenance })),
+  contact: ['wa_id', 'nom'] as const,
+  systeme: CLES_SYSTEME,
+  entetesReserves: EN_TETES_RESERVES,
+};
+
+const INTROUVABLE = 'requête introuvable';
+
+/** Ce qu'un essai rend : l'aller-retour (ou pourquoi il n'a pas eu lieu), jamais une erreur de la console. */
+export type ResultatEssaiAppel = Record<string, unknown>;
+
+/** La bibliothèque des appels, telle que la console la lit (la route `GET` et `list_connector_calls`, B10, livraison 4b). */
+export async function listerAppels(deps: Pick<AgentRequetesRouteDeps, 'requetes' | 'clesDeChamps'>, tenant: string) {
+  return { requetes: await deps.requetes.lister(tenant), champs: await deps.clesDeChamps(tenant), catalogue: CATALOGUE };
+}
+
+/** Déclarer un appel (la route `POST` et `create_connector_call`) : le gabarit est éprouvé à l'écriture (garde 1). */
+export async function creerAppel(deps: AgentRequetesRouteDeps, tenant: string, corps: unknown): Promise<Issue<RequeteConnecteur>> {
+  const parse = corpsRequete.safeParse(corps ?? {});
+  if (!parse.success) return refus(400, 'source, nom, méthode, chemin et champs à lire requis');
+  const pb = verifier(parse.data, await deps.clesDeChamps(tenant));
+  if (pb) return refus(400, pb);
+  try {
+    return { ok: true, valeur: await deps.requetes.creer(tenant, parse.data) };
+  } catch (err) {
+    if (err instanceof LabelRequeteDejaPris) return refus(409, err.message);
+    if (err instanceof SourceIntrouvable) return refus(400, err.message);
+    throw err;
+  }
+}
+
+export interface OptionsModificationAppel {
+  /**
+   * 🔴 Depuis Claude (B10, livraison 4b) : un appel EN SERVICE (un outil d'agent, un bloc Appel API, la poussée
+   * d'opt-out s'en sert) ne change que son nom, ses champs lus et ses valeurs d'essai. Tout outil branché, tout bloc
+   * publié le relit à chaque passage : une consigne glissée dans une conversation lue suffirait sinon à faire d'une
+   * lecture une annulation de commande, en un seul appel d'outil. La console le change sous les yeux de la personne.
+   */
+  readonly enServiceFige?: boolean;
+}
+
+/** Ce qu'un appel en service change encore depuis Claude : rien de ce qui part chez le client. */
+const LIBRES_EN_SERVICE: ReadonlySet<string> = new Set(['label', 'outputPaths', 'valeursTest']);
+
+/** Modifier un appel (la route `PATCH` et `update_connector_call`), vérifié sur son état EFFECTIF après écriture. */
+export async function modifierAppel(
+  deps: AgentRequetesRouteDeps, tenant: string, id: string, corps: unknown, options: OptionsModificationAppel = {},
+): Promise<Issue<RequeteConnecteur>> {
+  if (!estUuid(id)) return refus(404, INTROUVABLE);
+  const parse = patchSchema.safeParse(corps ?? {});
+  if (!parse.success) return refus(400, 'corps invalide');
+  const actuelle = await deps.requetes.parId(tenant, id);
+  if (!actuelle) return refus(404, INTROUVABLE);
+  if (options.enServiceFige === true) {
+    const touches = Object.keys(parse.data).filter((k) => !LIBRES_EN_SERVICE.has(k));
+    if (touches.length > 0 && (actuelle.outils > 0
+      || (await deps.requetes.scenariosQuiUtilisent(tenant, id)).length > 0
+      || await deps.brancheeSurConsentement(tenant, id))) {
+      return refus(403, `cet appel est en service (un agent, un bloc Appel API ou la poussée d’opt-out s’en sert) : ${touches.join(', ')} se `
+        + 'change dans la console (page Connecteurs API), sous les yeux de la personne ; depuis Claude, seuls son nom, ses champs lus et ses valeurs d’essai');
+    }
+  }
+  // L'état effectif après écriture (`patch ?? courant`), jamais le seul corps : sinon changer le corps sans
+  // renvoyer les variables passerait la garde « variable non déclarée » alors qu'elle devrait mordre.
+  const effectif = { ...actuelle, ...parse.data } as z.infer<typeof corpsRequete>;
+  const pb = verifier(effectif, await deps.clesDeChamps(tenant));
+  if (pb) return refus(400, pb);
+  /**
+   * Pas de garde contre le fait de vider les champs d'un appel déjà utilisé : ces champs ne gouvernent plus
+   * l'exécution. Chaque outil porte sa propre liste de champs LUS, copiée à sa création ; celle de l'appel n'est
+   * qu'un défaut de pré-remplissage, et la changer ne touche aucun agent en service. Les VARIABLES, elles, ne sont
+   * copiées nulle part : tout outil branché les relit sur la requête à chaque lecture (`paramsDuConnecteur`), donc
+   * un renommage ou une variable ajoutée atteint chaque agent tout de suite (2026-10-08). La MÉTHODE les touche
+   * aussi : le magasin monte le risque des outils branchés dans la transaction de l'écriture (`PgRequeteStore.patch`).
+   */
+  try {
+    const requete = await deps.requetes.patch(tenant, id, parse.data);
+    if (!requete) return refus(404, INTROUVABLE);
+    return { ok: true, valeur: requete };
+  } catch (err) {
+    if (err instanceof LabelRequeteDejaPris) return refus(409, err.message);
+    if (err instanceof SourceIntrouvable) return refus(400, err.message);
+    throw err;
+  }
+}
+
+/** Supprimer un appel (la route `DELETE` et `delete_connector_call`) : refusé tant qu'un outil, un bloc ou la poussée d'opt-out le désigne. */
+export async function supprimerAppel(deps: AgentRequetesRouteDeps, tenant: string, id: string): Promise<Issue<{ id: string; deleted: boolean }>> {
+  if (!estUuid(id)) return refus(404, INTROUVABLE);
+  const actuelle = await deps.requetes.parId(tenant, id);
+  if (!actuelle) return refus(404, INTROUVABLE);
+  // Même doctrine que les sources : la cascade emporterait les outils sans bruit, et l'agent deviendrait
+  // muet sur ces gestes-là, en production, sans que personne ne l'ait décidé.
+  if (actuelle.outils > 0) {
+    return refus(409, `${actuelle.outils} outil(s) d’agent utilisent cette requête : retirez-les d’abord`);
+  }
+  // Un bloc « Appel API » la désigne dans son graphe, sans clé étrangère : supprimée, le bloc appellerait une requête
+  // introuvable à chaque passage, champ vidé et parcours poursuivi, sans que personne le voie.
+  const scenarios = await deps.requetes.scenariosQuiUtilisent(tenant, id);
+  if (scenarios.length > 0) {
+    const noms = scenarios.map((n) => `« ${n} »`).join(', ');
+    return refus(409, `un bloc Appel API l’utilise dans ${scenarios.length === 1 ? 'le scénario' : 'les scénarios'} ${noms} : retirez-la de ces blocs d’abord`);
+  }
+  // Le second usage, hors de `outils` : la poussée d'opt-out du centre de Sécurité. Sans ce refus, la clé
+  // `on delete set null` débrancherait la conformité sans un mot.
+  if (await deps.brancheeSurConsentement(tenant, id)) {
+    return refus(409, 'cette requête prévient votre système à chaque désabonnement (Sécurité > Consentement) : débranchez-la d’abord');
+  }
+  return { ok: true, valeur: { id, deleted: await deps.requetes.supprimer(tenant, id) } };
+}
+
+/**
+ * L'exécution d'un essai, partagée par les deux routes ci-dessous (un brouillon, un appel enregistré). Elle
+ * passe par `assemblerAppel`, le même que l'exécution : deux constructions parallèles finiraient par diverger.
+ * L'essai rend la réponse entière (tronquée), pas les seuls `outputPaths` : le client doit voir ce que son
+ * système répond pour choisir ce que l'agent lira. Le filtre de sortie protège le modèle, pas le client de ses
+ * propres données.
+ */
+async function executerTest(
+  deps: AgentRequetesRouteDeps,
+  tenant: string,
+  r: RequetePourTest,
+  valeursSup: Record<string, ValeurVariable> | undefined,
+): Promise<Issue<ResultatEssaiAppel>> {
+  const transportHttp = deps.transportHttp ?? transportConnecteurHttp;
+  const source = await deps.sourcePourTest(tenant, r.sourceId);
+  if (!source) return refus(400, 'la source de cet appel n’existe plus');
+
+  // Une source en brouillon peut être testée (on éprouve, puis on active) ; une source désactivée non : elle a
+  // été coupée exprès, et la tester la ferait appeler quand même.
+  if (source.status === 'disabled') return refus(409, 'cette source est désactivée');
+  if (source.erreurAuth !== undefined) return { ok: true, valeur: { ok: false, erreur: source.erreurAuth } };
+
+  const valeurs: Record<string, ValeurVariable> = { ...r.valeursTest, ...(valeursSup ?? {}) };
+  // Une donnée JSON s'essaie avec un texte JSON (« Valeur d'essai »), relu comme à l'exécution.
+  const variablesJson = new Set(r.variables.filter((v) => v.type === 'json').map((v) => v.nom));
+  for (const nom of variablesJson) if (nom in valeurs) valeurs[nom] = lireValeurJson(valeurs[nom]);
+  const appel = assemblerAppel({
+    baseUrl: source.baseUrl, methode: r.methode, chemin: r.chemin,
+    parametres: r.parametres, entetes: r.entetes, corps: r.corps,
+    valeurs, variablesJson, construireCible,
+  });
+  // Un refus d'assemblage est une information pour le client, pas une panne : 200 avec `ok: false`.
+  if (!appel.ok) return { ok: true, valeur: { ok: false, erreur: appel.raison } };
+  // Un formulaire part tel quel ; une ligne « fichier » y envoie un petit fichier texte (l'essai n'a pas de pièce).
+  let corps: string | import('undici').FormData | null = null;
+  if (appel.corps !== null && typeof appel.corps === 'object') {
+    const f = await materialiserFormulaire(appel.corps, lecteurDEssai);
+    if (!f.ok) return { ok: true, valeur: { ok: false, erreur: f.raison } };
+    corps = f.formulaire;
+  } else {
+    corps = appel.corps;
+  }
+
+  // Le délai commence avant la résolution : les dix secondes bornent désormais tout le transport de l'adresse
+  // choisie par le client, pas seulement la connexion qui suit le DNS.
+  const echeance = AbortSignal.timeout(deps.delaiTestMs ?? DELAI_TEST_MS);
+  const transporte = await transportHttp.executer({
+    url: appel.url,
+    methode: appel.methode,
+    entetes: { ...appel.entetes, ...source.entetes },
+    corps,
+    signal: echeance,
+    lecture: { nature: 'texte', maxOctets: MAX_APERCU * 2 },
+  });
+  const echec = (erreur: string): Issue<ResultatEssaiAppel> => ({ ok: true, valeur: { ok: false, erreur } });
+  if (transporte.nature === 'adresse_refusee') return echec('cette adresse n’est pas joignable depuis notre infrastructure');
+  if (transporte.nature === 'redirection_refusee') return echec('le système du client a redirigé l’appel, ce qui n’est pas accepté sur un connecteur');
+  if (transporte.nature === 'abandon') return echec('le système n’a pas répondu dans le temps imparti');
+  if (transporte.nature === 'corps_interrompu') return echec('la réponse a été interrompue en cours de lecture');
+  if (transporte.nature === 'corps_trop_gros') return echec('réponse trop volumineuse pour l’aperçu');
+  // Aucun message natif : il peut contenir l'URL complète, donc un secret placé dans la query string.
+  if (transporte.nature === 'reseau') return echec('le système du client n’a pas répondu');
+  const brut = (transporte.texte ?? '').slice(0, MAX_APERCU);
+  let json: unknown;
+  try { json = JSON.parse(brut); } catch { json = undefined; }
+  return {
+    ok: true,
+    valeur: {
+      // `ok` décrit l'assemblage et l'aller-retour, pas le verdict du système du client : un 404 est une réponse
+      // valide à montrer, et la marquer en échec ferait chercher un problème chez nous.
+      ok: true,
+      httpStatus: transporte.httpStatus,
+      dureeMs: transporte.dureeMs,
+      // Ce qui est parti, pour que le client voie ce que sa configuration produit : les en-têtes de la requête,
+      // variables substituées, jamais ceux de la source (le secret), et moins ceux que la source écrase à l'envoi.
+      envoye: { url: appel.url, methode: appel.methode, corps: appel.corps, entetes: sansCeuxDeLaSource(appel.entetes, source.entetes) },
+      apercu: brut,
+      // Les chemins à cocher, dérivés de la réponse réelle : on n'écrit pas `livraison.date` de tête, et une faute
+      // de frappe ne se découvre pas en pleine conversation.
+      chemins: json === undefined ? [] : cheminsDeLaReponse(json),
+      risqueMinimum: risqueSelonMethode(r.methode),
+    },
+  };
+}
+
+export interface OptionsEssaiAppel {
+  /**
+   * 🔴 Depuis Claude (B10, livraison 4b) : un essai EXÉCUTE l'appel pour de vrai. Un appel qui écrit chez le client
+   * (POST, PUT, PATCH, DELETE) s'essaie dans la console, sous les yeux de la personne : une consigne glissée dans une
+   * conversation que Claude lit ne doit pas pouvoir y créer, modifier ou supprimer quoi que ce soit.
+   */
+  readonly lectureSeule?: boolean;
+}
+
+/**
+ * Rejouer un appel enregistré, tel qu'il est en base (la route `POST .../:id/test` et `test_connector_call`). Ce n'est
+ * pas ce que la console appelle (son bouton éprouve ce qui est à l'écran, `POST .../test`) ; c'est la seule façon
+ * d'éprouver ce qui est enregistré, et celle que la suite de sécurité emprunte.
+ */
+export async function essayerAppel(
+  deps: AgentRequetesRouteDeps, tenant: string, id: string, corps: unknown, options: OptionsEssaiAppel = {},
+): Promise<Issue<ResultatEssaiAppel>> {
+  if (!estUuid(id)) return refus(404, INTROUVABLE);
+  const parse = testSchema.safeParse(corps ?? {});
+  if (!parse.success) return refus(400, 'corps invalide');
+  const requete = await deps.requetes.parId(tenant, id);
+  if (!requete) return refus(404, INTROUVABLE);
+  if (options.lectureSeule === true && requete.methode !== 'GET') {
+    return refus(403, `un essai exécute l’appel pour de vrai : un appel ${requete.methode}, qui écrit chez le client, s’essaie dans la console (page Connecteurs API), sous les yeux de la personne`);
+  }
+  return executerTest(deps, tenant, requete, parse.data.valeurs);
+}
+
 export function registerAgentRequetes(app: FastifyInstance, deps: AgentRequetesRouteDeps, garde: Guard): void {
   const opts = { preHandler: garde };
   const base = '/tenants/:tenantId/agent-requetes';
-  const transportHttp = deps.transportHttp ?? transportConnecteurHttp;
 
-  /**
-   * Ce que la console propose : les origines de variable, pour que l'écran ne recopie pas une liste serveur.
-   * `fiche` : les champs de la liste unique qui peuvent sortir, avec leurs libellés. ⚠️ `contact` reste, pour une
-   * console publiée AVANT cette API (elle lit `catalogue.contact` et planterait sans) : ses `contact:*` sont
-   * réécrits en `fiche:*` à l'enregistrement. À retirer quand plus aucune console ancienne ne tourne.
-   */
-  const CATALOGUE = {
-    fiche: CHAMPS_FICHE_FIXES.filter((c) => c.sortieTiers).map((c) => ({ cle: c.cle, libelle: c.libelle, provenance: c.provenance })),
-    contact: ['wa_id', 'nom'] as const,
-    systeme: CLES_SYSTEME,
-    entetesReserves: EN_TETES_RESERVES,
-  };
-
-  app.get(base, opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-    return reply.code(200).send({
-      requetes: await deps.requetes.lister(tenant),
-      champs: await deps.clesDeChamps(tenant),
-      catalogue: CATALOGUE,
-    });
-  });
+  app.get(base, opts, async (req, reply) => reply.code(200).send(await listerAppels(deps, espaceVerifie(req))));
 
   app.post(base, opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-    const parse = corpsRequete.safeParse(req.body ?? {});
-    if (!parse.success) return reply.code(400).send({ error: 'source, nom, méthode, chemin et champs à lire requis' });
-    const pb = verifier(parse.data, await deps.clesDeChamps(tenant));
-    if (pb) return reply.code(400).send({ error: pb });
-    try {
-      return reply.code(201).send({ requete: await deps.requetes.creer(tenant, parse.data) });
-    } catch (err) {
-      if (err instanceof LabelRequeteDejaPris) return reply.code(409).send({ error: err.message });
-      if (err instanceof SourceIntrouvable) return reply.code(400).send({ error: err.message });
-      throw err;
-    }
+    const r = await creerAppel(deps, espaceVerifie(req), req.body);
+    return r.ok ? reply.code(201).send({ requete: r.valeur }) : reply.code(r.statut).send(corpsDuRefus(r));
   });
 
   app.patch(`${base}/:id`, opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { id } = req.params as { id: string };
-    if (!estUuid(id)) return reply.code(404).send({ error: 'requête introuvable' });
-    const parse = patchSchema.safeParse(req.body ?? {});
-    if (!parse.success) return reply.code(400).send({ error: 'corps invalide' });
-    const actuelle = await deps.requetes.parId(tenant, id);
-    if (!actuelle) return reply.code(404).send({ error: 'requête introuvable' });
-    // L'état effectif après écriture (`patch ?? courant`), jamais le seul corps : sinon changer le corps sans
-    // renvoyer les variables passerait la garde « variable non déclarée » alors qu'elle devrait mordre.
-    const effectif = { ...actuelle, ...parse.data } as z.infer<typeof corpsRequete>;
-    const pb = verifier(effectif, await deps.clesDeChamps(tenant));
-    if (pb) return reply.code(400).send({ error: pb });
-    /**
-     * Pas de garde contre le fait de vider les champs d'un appel déjà utilisé : ces champs ne gouvernent plus
-     * l'exécution. Chaque outil porte sa propre liste de champs LUS, copiée à sa création ; celle de l'appel n'est
-     * qu'un défaut de pré-remplissage, et la changer ne touche aucun agent en service. Les VARIABLES, elles, ne sont
-     * copiées nulle part : tout outil branché les relit sur la requête à chaque lecture (`paramsDuConnecteur`), donc
-     * un renommage ou une variable ajoutée atteint chaque agent tout de suite (2026-10-08). La MÉTHODE les touche
-     * aussi : le magasin monte le risque des outils branchés dans la transaction de l'écriture (`PgRequeteStore.patch`).
-     */
-    try {
-      const requete = await deps.requetes.patch(tenant, id, parse.data);
-      if (!requete) return reply.code(404).send({ error: 'requête introuvable' });
-      return reply.code(200).send({ requete });
-    } catch (err) {
-      if (err instanceof LabelRequeteDejaPris) return reply.code(409).send({ error: err.message });
-      if (err instanceof SourceIntrouvable) return reply.code(400).send({ error: err.message });
-      throw err;
-    }
+    const r = await modifierAppel(deps, espaceVerifie(req), id, req.body);
+    return r.ok ? reply.code(200).send({ requete: r.valeur }) : reply.code(r.statut).send(corpsDuRefus(r));
   });
 
   app.delete(`${base}/:id`, opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { id } = req.params as { id: string };
-    if (!estUuid(id)) return reply.code(404).send({ error: 'requête introuvable' });
-    const actuelle = await deps.requetes.parId(tenant, id);
-    if (!actuelle) return reply.code(404).send({ error: 'requête introuvable' });
-    // Même doctrine que les sources : la cascade emporterait les outils sans bruit, et l'agent deviendrait
-    // muet sur ces gestes-là, en production, sans que personne ne l'ait décidé.
-    if (actuelle.outils > 0) {
-      return reply.code(409).send({ error: `${actuelle.outils} outil(s) d’agent utilisent cette requête : retirez-les d’abord` });
-    }
-    // Un bloc « Appel API » la désigne dans son graphe, sans clé étrangère : supprimée, le bloc appellerait une requête
-    // introuvable à chaque passage, champ vidé et parcours poursuivi, sans que personne le voie.
-    const scenarios = await deps.requetes.scenariosQuiUtilisent(tenant, id);
-    if (scenarios.length > 0) {
-      const noms = scenarios.map((n) => `« ${n} »`).join(', ');
-      return reply.code(409).send({ error: `un bloc Appel API l’utilise dans ${scenarios.length === 1 ? 'le scénario' : 'les scénarios'} ${noms} : retirez-la de ces blocs d’abord` });
-    }
-    // Le second usage, hors de `outils` : la poussée d'opt-out du centre de Sécurité. Sans ce refus, la clé
-    // `on delete set null` débrancherait la conformité sans un mot.
-    if (await deps.brancheeSurConsentement(tenant, id)) {
-      return reply.code(409).send({ error: 'cette requête prévient votre système à chaque désabonnement (Sécurité > Consentement) : débranchez-la d’abord' });
-    }
-    return reply.code(200).send({ id, deleted: await deps.requetes.supprimer(tenant, id) });
+    const r = await supprimerAppel(deps, espaceVerifie(req), id);
+    return r.ok ? reply.code(200).send(r.valeur) : reply.code(r.statut).send(corpsDuRefus(r));
   });
 
-  /**
-   * L'exécution d'un essai, partagée par les deux routes ci-dessous (un brouillon, un appel enregistré). Elle
-   * passe par `assemblerAppel`, le même que l'exécution : deux constructions parallèles finiraient par diverger.
-   * L'essai rend la réponse entière (tronquée), pas les seuls `outputPaths` : le client doit voir ce que son
-   * système répond pour choisir ce que l'agent lira. Le filtre de sortie protège le modèle, pas le client de ses
-   * propres données.
-   */
-  async function executerTest(
-    tenant: string,
-    r: RequetePourTest,
-    valeursSup: Record<string, ValeurVariable> | undefined,
-  ): Promise<{ code: number; body: unknown }> {
-    const source = await deps.sourcePourTest(tenant, r.sourceId);
-    if (!source) return { code: 400, body: { error: 'la source de cet appel n’existe plus' } };
-
-    // Une source en brouillon peut être testée (on éprouve, puis on active) ; une source désactivée non : elle a
-    // été coupée exprès, et la tester la ferait appeler quand même.
-    if (source.status === 'disabled') return { code: 409, body: { error: 'cette source est désactivée' } };
-    if (source.erreurAuth !== undefined) return { code: 200, body: { ok: false, erreur: source.erreurAuth } };
-
-    const valeurs: Record<string, ValeurVariable> = { ...r.valeursTest, ...(valeursSup ?? {}) };
-    // Une donnée JSON s'essaie avec un texte JSON (« Valeur d'essai »), relu comme à l'exécution.
-    const variablesJson = new Set(r.variables.filter((v) => v.type === 'json').map((v) => v.nom));
-    for (const nom of variablesJson) if (nom in valeurs) valeurs[nom] = lireValeurJson(valeurs[nom]);
-    const appel = assemblerAppel({
-      baseUrl: source.baseUrl, methode: r.methode, chemin: r.chemin,
-      parametres: r.parametres, entetes: r.entetes, corps: r.corps,
-      valeurs, variablesJson, construireCible,
-    });
-    // Un refus d'assemblage est une information pour le client, pas une panne : 200 avec `ok: false`.
-    if (!appel.ok) return { code: 200, body: { ok: false, erreur: appel.raison } };
-    // Un formulaire part tel quel ; une ligne « fichier » y envoie un petit fichier texte (l'essai n'a pas de pièce).
-    let corps: string | import('undici').FormData | null = null;
-    if (appel.corps !== null && typeof appel.corps === 'object') {
-      const f = await materialiserFormulaire(appel.corps, lecteurDEssai);
-      if (!f.ok) return { code: 200, body: { ok: false, erreur: f.raison } };
-      corps = f.formulaire;
-    } else {
-      corps = appel.corps;
-    }
-
-    // Le délai commence avant la résolution : les dix secondes bornent désormais tout le transport de l'adresse
-    // choisie par le client, pas seulement la connexion qui suit le DNS.
-    const echeance = AbortSignal.timeout(deps.delaiTestMs ?? DELAI_TEST_MS);
-    const transporte = await transportHttp.executer({
-      url: appel.url,
-      methode: appel.methode,
-      entetes: { ...appel.entetes, ...source.entetes },
-      corps,
-      signal: echeance,
-      lecture: { nature: 'texte', maxOctets: MAX_APERCU * 2 },
-    });
-    if (transporte.nature === 'adresse_refusee') {
-      return { code: 200, body: { ok: false, erreur: 'cette adresse n’est pas joignable depuis notre infrastructure' } };
-    }
-    if (transporte.nature === 'redirection_refusee') {
-      return { code: 200, body: { ok: false, erreur: 'le système du client a redirigé l’appel, ce qui n’est pas accepté sur un connecteur' } };
-    }
-    if (transporte.nature === 'abandon') {
-      return { code: 200, body: { ok: false, erreur: 'le système n’a pas répondu dans le temps imparti' } };
-    }
-    if (transporte.nature === 'corps_interrompu') {
-      return { code: 200, body: { ok: false, erreur: 'la réponse a été interrompue en cours de lecture' } };
-    }
-    if (transporte.nature === 'corps_trop_gros') {
-      return { code: 200, body: { ok: false, erreur: 'réponse trop volumineuse pour l’aperçu' } };
-    }
-    if (transporte.nature === 'reseau') {
-      // Aucun message natif : il peut contenir l'URL complète, donc un secret placé dans la query string.
-      return { code: 200, body: { ok: false, erreur: 'le système du client n’a pas répondu' } };
-    }
-    const brut = (transporte.texte ?? '').slice(0, MAX_APERCU);
-    let json: unknown;
-    try { json = JSON.parse(brut); } catch { json = undefined; }
-    return {
-      code: 200,
-      body: {
-        // `ok` décrit l'assemblage et l'aller-retour, pas le verdict du système du client : un 404 est une réponse
-        // valide à montrer, et la marquer en échec ferait chercher un problème chez nous.
-        ok: true,
-        httpStatus: transporte.httpStatus,
-        dureeMs: transporte.dureeMs,
-        // Ce qui est parti, pour que le client voie ce que sa configuration produit : les en-têtes de la requête,
-        // variables substituées, jamais ceux de la source (le secret), et moins ceux que la source écrase à l'envoi.
-        envoye: { url: appel.url, methode: appel.methode, corps: appel.corps, entetes: sansCeuxDeLaSource(appel.entetes, source.entetes) },
-        apercu: brut,
-        // Les chemins à cocher, dérivés de la réponse réelle : on n'écrit pas `livraison.date` de tête, et une faute
-        // de frappe ne se découvre pas en pleine conversation.
-        chemins: json === undefined ? [] : cheminsDeLaReponse(json),
-        risqueMinimum: risqueSelonMethode(r.methode),
-      },
-    };
-  }
-
-  /**
-   * Rejouer un appel enregistré, tel qu'il est en base. Ce n'est pas ce que la console appelle (son bouton éprouve
-   * ce qui est à l'écran, `POST .../test`) ; c'est la seule façon d'éprouver ce qui est enregistré, et celle que
-   * la suite de sécurité emprunte. Les deux routes partagent `executerTest`.
-   */
   app.post(`${base}/:id/test`, opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { id } = req.params as { id: string };
-    if (!estUuid(id)) return reply.code(404).send({ error: 'requête introuvable' });
-    const parse = testSchema.safeParse(req.body ?? {});
-    if (!parse.success) return reply.code(400).send({ error: 'corps invalide' });
-    const requete = await deps.requetes.parId(tenant, id);
-    if (!requete) return reply.code(404).send({ error: 'requête introuvable' });
-    const r = await executerTest(tenant, requete, parse.data.valeurs);
-    return reply.code(r.code).send(r.body);
+    const r = await essayerAppel(deps, espaceVerifie(req), id, req.body);
+    return r.ok ? reply.code(200).send(r.valeur) : reply.code(r.statut).send(corpsDuRefus(r));
   });
 
   /**
    * Éprouver un brouillon, un appel qui n'existe pas encore en base : les champs de sortie se cochent dans la
    * réponse d'un essai, donc sans elle aucun premier appel ne pourrait être créé. Elle valide comme la création,
    * moins le nom et les champs de sortie : un essai qui accepterait ce que l'enregistrement refuse ferait mettre
-   * au point un appel impossible à sauver.
+   * au point un appel impossible à sauver. (Plomberie d'écran : depuis Claude, on enregistre l'appel, puis on l'essaie.)
    */
   app.post(`${base}/test`, opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
@@ -464,8 +514,7 @@ export function registerAgentRequetes(app: FastifyInstance, deps: AgentRequetesR
     if (!parse.success) return reply.code(400).send({ error: 'source, méthode et chemin requis' });
     const pb = verifier(parse.data, await deps.clesDeChamps(tenant));
     if (pb) return reply.code(400).send({ error: pb });
-    const r = await executerTest(tenant, parse.data, parse.data.valeurs);
-    return reply.code(r.code).send(r.body);
+    const r = await executerTest(deps, tenant, parse.data, parse.data.valeurs);
+    return r.ok ? reply.code(200).send(r.valeur) : reply.code(r.statut).send(corpsDuRefus(r));
   });
-
 }

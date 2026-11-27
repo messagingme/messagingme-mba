@@ -99,6 +99,13 @@ export const CATALOGUE_MCP = {
   update_connector_system: { scope: 'mcp:write', exigePersonne: true },
   delete_connector_system: { scope: 'mcp:write', exigePersonne: true },
   test_connector_system: { scope: 'mcp:write', exigePersonne: true },
+  /** Les appels des systèmes connectés et leur branchement sur un agent (B10, livraison 4b) : au nom d'une personne. */
+  list_connector_calls: { scope: 'mcp:read', exigePersonne: true },
+  create_connector_call: { scope: 'mcp:write', exigePersonne: true },
+  update_connector_call: { scope: 'mcp:write', exigePersonne: true },
+  delete_connector_call: { scope: 'mcp:write', exigePersonne: true },
+  test_connector_call: { scope: 'mcp:write', exigePersonne: true },
+  attach_connector_call: { scope: 'mcp:write', exigePersonne: true },
   activate_agent: { scope: 'mcp:write', exigePersonne: true },
   set_default_responder: { scope: 'mcp:write', exigePersonne: true },
   test_agent: { scope: 'mcp:write', exigePersonne: true },

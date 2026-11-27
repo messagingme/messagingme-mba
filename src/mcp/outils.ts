@@ -47,6 +47,7 @@ import { OUTILS_FICHES, type DepsFichesMcp } from './outils-fiches';
 import { OUTILS_INBOX, type DepsInboxMcp } from './outils-inbox';
 import { OUTILS_AGENT_REGLAGES, type DepsAgentReglagesMcp } from './outils-agent-reglages';
 import { OUTILS_CONNECTEURS, type DepsConnecteursMcp } from './outils-connecteurs';
+import { OUTILS_APPELS, type DepsAppelsMcp } from './outils-appels';
 import { OUTILS_SUPPRESSION, type DepsSuppressionMcp } from './outils-suppression';
 import { OUTILS_SHOPIFY } from './outils-shopify';
 import type { DepsGestionShopify } from '../shopify/gestion';
@@ -87,7 +88,7 @@ export type { ScopeMcp } from '../../web/lib/partage/catalogue-mcp';
 /** Les actions d'agent IA rendues par `get_conversation` : les plus récentes, la conversation en porte peu. */
 export const ACTIONS_DE_LA_CONVERSATION = 10;
 
-export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsAgentReglagesMcp, DepsConnecteursMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
+export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsAgentReglagesMcp, DepsConnecteursMcp, DepsAppelsMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
   /**
@@ -226,7 +227,8 @@ export interface ProprieteEntree {
   /** Les champs d'un objet (un élément de liste qui en est un : une fiche, un message, une règle d'arrêt). */
   properties?: Record<string, ProprieteEntree>;
   required?: string[];
-  additionalProperties?: false;
+  /** `false`, ou le schéma de chaque valeur d'un dictionnaire (des valeurs d'essai par nom de variable, B10, livraison 4b). */
+  additionalProperties?: false | Omit<ProprieteEntree, 'description'>;
 }
 
 /** Un schéma JSON d'entrée, tel que MCP l'attend (sous-ensemble volontairement pauvre : objet et propriétés). */
@@ -1220,6 +1222,7 @@ export const OUTILS: OutilMcp[] = [
   ...OUTILS_INBOX,
   ...OUTILS_AGENT_REGLAGES,
   ...OUTILS_CONNECTEURS,
+  ...OUTILS_APPELS,
   // Le connecteur Shopify (2026-10-21) : `src/mcp/outils-shopify.ts`.
   ...OUTILS_SHOPIFY,
   // Les chiffres de l'espace, pour les graphiques de Claude (2026-10-13) : leur fichier, `src/mcp/outils-chiffres.ts`.

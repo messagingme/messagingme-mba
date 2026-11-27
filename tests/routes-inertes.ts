@@ -1299,6 +1299,28 @@ export const mcpConnecteursInertes: Pick<DepsMcp, 'systemesApi'> = {
   },
 };
 
+/**
+ * Les appels des systèmes du MCP (B10, livraison 4b), pour les montages qui n'en parlent pas : les lectures rendent le
+ * vide, les écritures lèvent. Leurs outils ont leur propre fichier, `tests/mcp-appels.test.ts`.
+ */
+export const mcpAppelsInertes: Pick<DepsMcp, 'appelsApi' | 'branchementAppels'> = {
+  appelsApi: {
+    requetes: {
+      lister: async () => [], parId: async () => null, scenariosQuiUtilisent: async () => [],
+      creer: neDevraitPasEtreAppelee('appelsApi.creer'), patch: neDevraitPasEtreAppelee('appelsApi.patch'),
+      supprimer: neDevraitPasEtreAppelee('appelsApi.supprimer'),
+    },
+    sourcePourTest: neDevraitPasEtreAppelee('appelsApi.sourcePourTest'),
+    clesDeChamps: async () => [],
+    brancheeSurConsentement: async () => false,
+  },
+  branchementAppels: {
+    outils: { ajouterConnecteur: neDevraitPasEtreAppelee('branchementAppels.ajouterConnecteur') } as never,
+    requetes: { parId: async () => null },
+    sortiesDeLAgent: async () => null,
+  },
+};
+
 /** L'Inbox depuis Claude (B10, livraison 2a), pour les montages qui n'en parlent pas : les écritures lèvent. */
 export const mcpInboxInertes: Pick<DepsMcp, 'marquesConversation' | 'ouvrirConversation' | 'reglagesInbox' | 'lireImageRecue'> = {
   marquesConversation: {

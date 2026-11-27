@@ -272,6 +272,8 @@ import { PgDepenseStore } from './assistant/budget';
 import { PgHistoriqueStore } from './reglages/historique.pg';
 import { jetonsOAuth } from './agent/jeton-oauth';
 import { creerEprouverSource } from './agent/eprouver-source';
+import type { AgentToolsRouteDeps } from './http/agent-tools';
+import type { AgentRequetesRouteDeps } from './http/agent-requetes';
 import { GatewayChatClient } from './agent/llm/chat-client';
 import { consommateurAgent, consommateurMba } from './agent/consommateur';
 import { type OutilAPublier } from './mba/publication';
@@ -2471,6 +2473,58 @@ async function main(): Promise<void> {
    * vérifiée avant l'appel et à la connexion, redirection refusée) vivent dans `src/agent/eprouver-source.ts`, testé à part.
    */
   const depsSystemesApi = { audit: auditSink, sources: agentSources, eprouver: creerEprouverSource({ sources: agentSources }) };
+  /** Les outils d'un agent et le branchement d'un appel : les MÊMES dépendances pour la route et l'outil MCP (B10, livraison 4b). */
+  const depsOutilsAgent: AgentToolsRouteDeps = {
+    outils: toolCatalog,
+    requetes: agentRequetes,
+    // Les règles d'arrêt viennent de la fiche : c'est d'elles que dérive l'énumération de « terminer ».
+    sortiesDeLAgent: async (tenant, agentId) => {
+      const fiche = await agentStore.complet(tenant, agentId);
+      return fiche ? fiche.contenu.sorties : null;
+    },
+  };
+  /**
+   * Les requêtes de connecteur (les appels des systèmes) : les MÊMES dépendances pour leurs routes et leurs outils MCP
+   * (B10, livraison 4b).
+   */
+  const depsAppelsApi: AgentRequetesRouteDeps = {
+    requetes: agentRequetes,
+    /**
+     * Ce qu'il faut pour éprouver une requête : l'adresse de base et les en-têtes d'authentification, par
+     * le même point de passage que l'appel réel (`jetonsOAuth`, jeton OAuth compris), sinon le test dirait « ça répond »
+     * d'une source que les appels ne savent pas authentifier.
+     */
+    sourcePourTest: async (tenant, sourceId) => {
+      const src = await agentSources.pourAppel(tenant, sourceId);
+      // Sans sa clé (un brouillon déclaré depuis Claude, B10, livraison 4a), l'essai le dit au lieu de partir sans
+      // authentification, ou de prendre le mot de passe absent pour un refus du serveur d'autorisation.
+      if (src && src.kind === 'http' && src.authKind !== 'none' && !src.authSecret) {
+        return { baseUrl: src.baseUrl, entetes: {}, status: src.status, erreurAuth: 'aucun secret enregistré sur ce connecteur : collez-le sur la page Connecteurs API' };
+      }
+      /**
+       * 🔴 `kind === 'http'` : la route de test prend `sourceId` dans le corps, et sans ce filtre un
+       * administrateur pourrait y passer l'identifiant d'un serveur MCP et faire partir une requête de sa
+       * composition sur le point MCP du client, avec son secret déchiffré dans l'en-tête. Le repli sur
+       * `null` rend déjà un 400 lisible.
+       */
+      if (!src || src.kind !== 'http') return null;
+      // Le jeton OAuth se demande comme pour un appel réel (même fournisseur, même cache).
+      const auth = await jetonsOAuth.entetes(src);
+      return auth.ok
+        ? { baseUrl: src.baseUrl, entetes: auth.entetes, status: src.status }
+        : {
+          baseUrl: src.baseUrl, entetes: {}, status: src.status,
+          erreurAuth: auth.erreur === 'auth'
+            ? 'le serveur d’autorisation a refusé l’identifiant ou le mot de passe de ce connecteur'
+            : 'le jeton de ce connecteur n’a pas pu être obtenu',
+        };
+    },
+    // Les clés des champs déclarés : une variable `champ` doit en désigner une, sinon la faute de frappe ne
+    // se verrait qu'à l'appel, en pleine conversation.
+    clesDeChamps: async (tenant) => (await fieldStore.list(tenant)).map((f) => f.key),
+    // Le second usage d'une requête, que le compteur `outils` ne voit pas : la poussée d'opt-out.
+    brancheeSurConsentement: async (tenant, requestId) => (await settingsStore.get(tenant)).optoutRequestId === requestId,
+  };
 
   const app = buildServer({
     /**
@@ -3389,15 +3443,7 @@ async function main(): Promise<void> {
     agentKnowledge: connaissanceDeLaConsole,
     // Outils d'un agent. L'activation et l'autonomie portent le nom de qui les a posées (exigé en base) :
     // c'est ce qui rend un incident instruisable.
-    agentTools: {
-      outils: toolCatalog,
-      requetes: agentRequetes,
-      // Les règles d'arrêt viennent de la fiche : c'est d'elles que dérive l'énumération de « terminer ».
-      sortiesDeLAgent: async (tenant, agentId) => {
-        const fiche = await agentStore.complet(tenant, agentId);
-        return fiche ? fiche.contenu.sorties : null;
-      },
-    },
+    agentTools: depsOutilsAgent,
     // La bibliothèque d'outils de l'espace : les définitions, et qui s'en sert. Isolée par `scopeTenant` et
     // non par un agent dans l'URL, parce qu'une définition appartient à l'espace. Elle ne porte que la
     // lecture (la route n'appelle que `listCatalogue`) ; les routes de l'agent de Meta sont dans `mbaOutils`.
@@ -3496,44 +3542,7 @@ async function main(): Promise<void> {
     agentSources: depsSystemesApi,
     // Les requêtes de connecteur : un appel mis au point une fois dans la bibliothèque, que l'outil d'un
     // agent désigne au lieu de le redécrire.
-    agentRequetes: {
-      requetes: agentRequetes,
-      /**
-       * Ce qu'il faut pour éprouver une requête : l'adresse de base et les en-têtes d'authentification, par
-       * le même point de passage que l'appel réel (`jetonsOAuth`, jeton OAuth compris), sinon le test dirait « ça répond »
-       * d'une source que les appels ne savent pas authentifier.
-       */
-      sourcePourTest: async (tenant, sourceId) => {
-        const src = await agentSources.pourAppel(tenant, sourceId);
-        // Sans sa clé (un brouillon déclaré depuis Claude, B10, livraison 4a), l'essai le dit au lieu de partir sans
-        // authentification, ou de prendre le mot de passe absent pour un refus du serveur d'autorisation.
-        if (src && src.kind === 'http' && src.authKind !== 'none' && !src.authSecret) {
-          return { baseUrl: src.baseUrl, entetes: {}, status: src.status, erreurAuth: 'aucun secret enregistré sur ce connecteur : collez-le sur la page Connecteurs API' };
-        }
-        /**
-         * 🔴 `kind === 'http'` : la route de test prend `sourceId` dans le corps, et sans ce filtre un
-         * administrateur pourrait y passer l'identifiant d'un serveur MCP et faire partir une requête de sa
-         * composition sur le point MCP du client, avec son secret déchiffré dans l'en-tête. Le repli sur
-         * `null` rend déjà un 400 lisible.
-         */
-        if (!src || src.kind !== 'http') return null;
-        // Le jeton OAuth se demande comme pour un appel réel (même fournisseur, même cache).
-        const auth = await jetonsOAuth.entetes(src);
-        return auth.ok
-          ? { baseUrl: src.baseUrl, entetes: auth.entetes, status: src.status }
-          : {
-            baseUrl: src.baseUrl, entetes: {}, status: src.status,
-            erreurAuth: auth.erreur === 'auth'
-              ? 'le serveur d’autorisation a refusé l’identifiant ou le mot de passe de ce connecteur'
-              : 'le jeton de ce connecteur n’a pas pu être obtenu',
-          };
-      },
-      // Les clés des champs déclarés : une variable `champ` doit en désigner une, sinon la faute de frappe ne
-      // se verrait qu'à l'appel, en pleine conversation.
-      clesDeChamps: async (tenant) => (await fieldStore.list(tenant)).map((f) => f.key),
-      // Le second usage d'une requête, que le compteur `outils` ne voit pas : la poussée d'opt-out.
-      brancheeSurConsentement: async (tenant, requestId) => (await settingsStore.get(tenant)).optoutRequestId === requestId,
-    },
+    agentRequetes: depsAppelsApi,
     flows: {
       meta: metaFactory, // token par tenant, repli global
       repo,
@@ -4334,6 +4343,9 @@ async function main(): Promise<void> {
         sessionsAgents: agentSessions,
         // Les systèmes connectés des agents (B10, livraison 4a) : les MÊMES dépendances que leurs routes.
         systemesApi: depsSystemesApi,
+        // Les appels des systèmes et leur branchement sur un agent (B10, livraison 4b) : les MÊMES dépendances que leurs routes.
+        appelsApi: depsAppelsApi,
+        branchementAppels: depsOutilsAgent,
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),

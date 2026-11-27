@@ -69,6 +69,18 @@ paiement reste un geste de la personne.
    ce que `get_shopify_state` rend, l'écart `agent_id` de `set_shopify_message`) ; puis le test qui exige qu'il ne reste ni `aFaire` ni
    `reste`, dans `tests/parite/adresses.ts` comme dans `tests/parite/criteres.ts`. Les 116 routes Business et
    Entreprise (`tests/parite/offres-superieures.ts`) ne sont pas de ce lot : c'est la liste du lot 7.
+8. **Ce qu'aucune garde ne voyait** (audit de la session Shopify du 2026-11-27 sur `d44f95b1c`, à la demande de
+   Julien). (a) Les paramètres des routes de LECTURE, hors contacts : la parité des champs ne lit que le corps des
+   écritures, et une route `GET` marquée `outil(...)` passe pour servie même si l'outil ne prend pas ses filtres. Une
+   garde mécanique : au montage, un `preHandler` note chaque clé de `req.query` lue (comme l'inventaire des adresses), et
+   une table `tests/parite/lectures.ts` déclare pour chacune l'argument de l'outil, une exclusion motivée (pagination
+   d'écran, sondage) ou un `aFaire` ; limite écrite : une clé lue seulement après une branche que la sonde n'atteint pas
+   lui échappe. Trous déjà mesurés : `list_conversations` (urgentes, signalées, archivées, traitées, affectée, recherche),
+   `get_messages` (la traduction du fil, débitée), `list_agents` (les inactifs), `list_scenarios` (les rayons) ; puis à
+   passer au crible : `/historique`, `/audit`, `/stats` et ses sous-routes, `/nodes`, `/dossiers`, `/evenements`, les
+   aides des paramètres de modèle, `/hubspot/lists`, `DELETE /tags`. (b) Les routes HORS ESPACE (le module `auth`,
+   `oauth`) : une table qui les déclare humaines, chacune avec sa raison (identité, secret, second facteur, consentement
+   d'une application), ferme la liste. Le test final du lot exige alors aussi une table des lectures sans `aFaire`.
 
 Chaque livraison a sa relecture indépendante, ses mutations, son déploiement et la note de version du plugin.
 

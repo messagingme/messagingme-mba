@@ -166,7 +166,7 @@ function refusLecture(nature: 'pousse' | 'integre', champs: readonly string[]): 
  * Brancher une requête de la bibliothèque sur cet agent. L'appel n'est pas décrit ici : on ne saisit que les
  * mots (nom exposé au modèle, usage, quand ne pas l'appeler), le reste vient de la requête, déjà éprouvée.
  */
-const ajoutConnecteurSchema = z.object({
+export const ajoutConnecteurSchema = z.object({
   requeteId: z.string().uuid(),
   /**
    * Ce que cet agent fait de la réponse, et les champs qu'il lit. Obligatoires : l'ordre de déploiement est
@@ -182,6 +182,64 @@ const ajoutConnecteurSchema = z.object({
   risk: z.enum(['read', 'write', 'irreversible']).optional(),
 });
 
+/**
+ * L'outil, plus ce que le modèle en voit. Le client règle des mots qui pilotent un appel de fonction : lui
+ * montrer le schéma réel est le seul moyen honnête de lui faire vérifier ce qu'il a écrit.
+ *
+ * `expose: null` a un sens précis et l'écran doit le dire : l'outil est déclaré et actif, mais le modèle
+ * n'en voit rien. C'est le cas de « terminer » tant qu'aucune règle d'arrêt n'existe sur la fiche.
+ */
+export function vueOutilDAgent(outil: OutilComplet, sorties: SortieAgent[]): OutilComplet & { expose: OutilExpose | null } {
+  return { ...outil, expose: outilExpose(outil, sorties) };
+}
+
+/**
+ * Brancher une requête de la bibliothèque sur un agent (la route `POST .../tools/connecteur` et `attach_connector_call`,
+ * B10, livraison 4b). La requête est lue, pas crue sur parole : le risque plancher et le résumé de ce qui sera envoyé en
+ * dérivent, et ils doivent décrire l'appel réel. 🔴 Ce qui partira est rendu avec l'outil (`envoi`), pour que l'écran,
+ * ou Claude, le fasse lire : c'est là que le client voit qu'un connecteur enverra, par exemple, le dernier message de
+ * ses contacts à un tiers.
+ */
+export async function brancherConnecteur(
+  deps: Pick<AgentToolsRouteDeps, 'outils' | 'requetes' | 'sortiesDeLAgent'>, tenant: string, agentId: string, corps: unknown,
+): Promise<Issue<{ outil: OutilComplet & { expose: OutilExpose | null }; envoi: ReturnType<typeof resumeEnvoi> }>> {
+  if (!estUuid(agentId)) return refus(404, 'agent introuvable');
+  const parse = ajoutConnecteurSchema.safeParse(corps ?? {});
+  if (!parse.success) return refus(400, 'requête, nom et mots requis');
+  const d = parse.data;
+  const requete = await deps.requetes.parId(tenant, d.requeteId);
+  if (!requete) return refus(404, 'requête introuvable');
+  // Garde de cohérence de la lecture, la même que pour une modification (`refusLecture`).
+  const refusDeLecture = refusLecture(d.nature, d.outputPaths);
+  if (refusDeLecture) return refus(400, refusDeLecture);
+  const plancher = risqueSelonMethode(requete.methode as MethodeConnecteur);
+  const risk = d.risk ?? plancher;
+  if (!risqueAuMoins(plancher, risk)) {
+    return refus(400, `un appel ${requete.methode} vaut au moins « ${plancher} » : le risque ne peut pas être abaissé`);
+  }
+  // Ce que le modèle remplit n'est pas recopié ici : le catalogue le dérive des variables de la requête à chaque
+  // lecture de l'outil (`paramsDuConnecteur`, 2026-10-08), pour qu'un renommage dans Tools atteigne cet agent.
+  try {
+    const outil = await deps.outils.ajouterConnecteur(tenant, agentId, {
+      sourceId: requete.sourceId,
+      requestId: requete.id,
+      name: d.name,
+      title: d.title,
+      description: d.description,
+      nePasUtiliser: d.nePasUtiliser,
+      nature: d.nature,
+      outputPaths: d.outputPaths,
+      risk,
+    });
+    if (!outil) return refus(404, 'agent introuvable');
+    const sorties = (await deps.sortiesDeLAgent(tenant, agentId)) ?? [];
+    return { ok: true, valeur: { outil: vueOutilDAgent(outil, sorties), envoi: resumeEnvoi(requete) } };
+  } catch (err) {
+    if (err instanceof NomOutilDejaPris) return refus(409, err.message);
+    throw err;
+  }
+}
+
 export function registerAgentTools(app: FastifyInstance, deps: AgentToolsRouteDeps, garde: Guard): void {
   const opts = { preHandler: garde };
   const base = '/tenants/:tenantId/agents/:agentId/tools';
@@ -196,16 +254,7 @@ export function registerAgentTools(app: FastifyInstance, deps: AgentToolsRouteDe
     return { tenant, agentId, userId: req.auth?.userId ?? '' };
   }
 
-  /**
-   * L'outil, plus ce que le modèle en voit. Le client règle des mots qui pilotent un appel de fonction : lui
-   * montrer le schéma réel est le seul moyen honnête de lui faire vérifier ce qu'il a écrit.
-   *
-   * `expose: null` a un sens précis et l'écran doit le dire : l'outil est déclaré et actif, mais le modèle
-   * n'en voit rien. C'est le cas de « terminer » tant qu'aucune règle d'arrêt n'existe sur la fiche.
-   */
-  function vue(outil: OutilComplet, sorties: SortieAgent[]): OutilComplet & { expose: OutilExpose | null } {
-    return { ...outil, expose: outilExpose(outil, sorties) };
-  }
+  const vue = vueOutilDAgent;
 
   /** Le catalogue, tel que l'écran le propose. Rendu par la route de liste : le client ne devine pas ce qui
    *  existe, et le front n'a pas à recopier une liste qui vit côté serveur. */
@@ -257,48 +306,8 @@ export function registerAgentTools(app: FastifyInstance, deps: AgentToolsRouteDe
   app.post(`${base}/connecteur`, opts, async (req, reply) => {
     const ctx = contexte(req);
     if ('code' in ctx) return reply.code(ctx.code).send({ error: ctx.error });
-    const parse = ajoutConnecteurSchema.safeParse(req.body ?? {});
-    if (!parse.success) {
-      return reply.code(400).send({ error: 'requête, nom et mots requis' });
-    }
-    const d = parse.data;
-    // La requête est lue, pas crue sur parole : le risque plancher et le résumé de ce qui sera envoyé en
-    // dérivent, et ils doivent décrire l'appel réel.
-    const requete = await deps.requetes.parId(ctx.tenant, d.requeteId);
-    if (!requete) return reply.code(404).send({ error: 'requête introuvable' });
-
-    // Garde de cohérence de la lecture, la même que pour une modification (`refusLecture`).
-    const refus = refusLecture(d.nature, d.outputPaths);
-    if (refus) return reply.code(400).send({ error: refus });
-
-    const plancher = risqueSelonMethode(requete.methode as MethodeConnecteur);
-    const risk = d.risk ?? plancher;
-    if (!risqueAuMoins(plancher, risk)) {
-      return reply.code(400).send({ error: `un appel ${requete.methode} vaut au moins « ${plancher} » : le risque ne peut pas être abaissé` });
-    }
-    // Ce que le modèle remplit n'est pas recopié ici : le catalogue le dérive des variables de la requête à chaque
-    // lecture de l'outil (`paramsDuConnecteur`, 2026-10-08), pour qu'un renommage dans Tools atteigne cet agent.
-    try {
-      const outil = await deps.outils.ajouterConnecteur(ctx.tenant, ctx.agentId, {
-        sourceId: requete.sourceId,
-        requestId: requete.id,
-        name: d.name,
-        title: d.title,
-        description: d.description,
-        nePasUtiliser: d.nePasUtiliser,
-        nature: d.nature,
-        outputPaths: d.outputPaths,
-        risk,
-      });
-      if (!outil) return reply.code(404).send({ error: 'agent introuvable' });
-      const sorties = (await deps.sortiesDeLAgent(ctx.tenant, ctx.agentId)) ?? [];
-      // 🔴 Ce qui partira, rendu avec l'outil pour que l'écran le fasse confirmer : c'est là que le client voit
-      // qu'un connecteur enverra, par exemple, le dernier message de ses contacts à un tiers.
-      return reply.code(201).send({ outil: vue(outil, sorties), envoi: resumeEnvoi(requete) });
-    } catch (err) {
-      if (err instanceof NomOutilDejaPris) return reply.code(409).send({ error: err.message });
-      throw err;
-    }
+    const r = await brancherConnecteur(deps, ctx.tenant, ctx.agentId, req.body);
+    return r.ok ? reply.code(201).send(r.valeur) : reply.code(r.statut).send(corpsDuRefus(r));
   });
 
   app.patch(`${base}/:outilId`, opts, async (req, reply) => {

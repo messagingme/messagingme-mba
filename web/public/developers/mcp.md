@@ -170,6 +170,12 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | update_connector_system | mcp:write connexion OAuth requise | Modifier, activer ou désactiver un système connecté ; seul ce qui est donné change. |
 | delete_connector_system | mcp:write connexion OAuth requise | Supprimer un système connecté, avec sa clé ; refusé tant que des outils actifs en dépendent. |
 | test_connector_system | mcp:write connexion OAuth requise | Éprouver un système connecté : un appel réel, et s’il répond. |
+| list_connector_calls | mcp:read connexion OAuth requise | Les appels enregistrés sur vos systèmes connectés : méthode, chemin, données envoyées, champs lus. |
+| create_connector_call | mcp:write connexion OAuth requise | Enregistrer un appel vers un système connecté, vérifié à l’enregistrement. |
+| update_connector_call | mcp:write connexion OAuth requise | Modifier un appel enregistré ; seul ce qui est donné change. |
+| delete_connector_call | mcp:write connexion OAuth requise | Supprimer un appel enregistré ; refusé tant qu’un agent ou un scénario s’en sert. |
+| test_connector_call | mcp:write connexion OAuth requise | Essayer un appel qui lit, pour de vrai, et voir ce que le système répond. |
+| attach_connector_call | mcp:write connexion OAuth requise | Donner un appel à un agent IA comme outil, inactif, avec ce qu’il enverra. |
 
 ### Connaissance de l’agent IA
 

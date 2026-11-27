@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpAppelsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -144,7 +144,7 @@ function app(
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
-    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes,
+    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes, ...mcpAppelsInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
@@ -909,6 +909,12 @@ describe('serveur MCP : cohérence du catalogue', () => {
       update_connector_system: [true, true, false],
       delete_connector_system: [true, true, false],
       test_connector_system: [true, true, true],
+      // Les appels (B10, livraison 4b) : enregistrer et brancher en créent un de plus ; l'essai appelle pour de vrai.
+      create_connector_call: [true, false, false],
+      update_connector_call: [true, true, false],
+      delete_connector_call: [true, true, false],
+      test_connector_call: [true, true, true],
+      attach_connector_call: [true, false, false],
       set_ai_disclosure: [true, true, false],
       update_knowledge: [true, true, false],
       // Les limites d'une conversation (2026-10-23) : elles remplacent celles d'avant ; les rejouer ne change rien.
@@ -1221,6 +1227,9 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   // la page où la clé se colle.
   list_connector_systems: 'console', create_connector_system: 'console', update_connector_system: 'console',
   delete_connector_system: 'console', test_connector_system: 'console',
+  // Les appels des systèmes et leur branchement (CSM, B10, livraison 4b) : la fonction console, comme leurs routes.
+  list_connector_calls: 'console', create_connector_call: 'console', update_connector_call: 'console',
+  delete_connector_call: 'console', test_connector_call: 'console', attach_connector_call: 'console',
 };
 
 describe('serveur MCP : les outils et l’offre (lot 6, B2a)', () => {

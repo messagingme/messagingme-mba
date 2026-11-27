@@ -14,6 +14,8 @@ import { saisieDePaiement } from '../../src/stripe/paiement';
 import {
   creationSchema as creationSysteme, epreuveSchema as epreuveSysteme, patchSchema as patchSysteme,
 } from '../../src/http/agent-sources';
+import { corpsRequete as creationAppel, patchSchema as patchAppel, testSchema as essaiAppel } from '../../src/http/agent-requetes';
+import { ajoutConnecteurSchema } from '../../src/http/agent-tools';
 import { saisieAchatWhatsapp } from '../../src/stripe/achat-whatsapp';
 import { saisieDeCreation as creationWidget, saisieDeModification as modificationWidget } from '../../src/widgets/gestion';
 import type { Correspondance } from './schemas';
@@ -81,6 +83,16 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   },
   'DELETE /agent-sources/:id': SANS_CORPS,
   'POST /agent-sources/:id/epreuve': { schema: epreuveSysteme, noms: { chemin: 'path' } },
+
+  // Les appels des systèmes et leur branchement sur un agent (B10, livraison 4b).
+  'POST /agent-requetes': { schema: creationAppel, noms: { sourceId: 'system_id' } },
+  'PATCH /agent-requetes/:id': {
+    schema: patchAppel,
+    absents: { sourceId: '🔴 un appel enregistré ne change pas de système depuis Claude : son adresse se pose avec le système' },
+  },
+  'DELETE /agent-requetes/:id': SANS_CORPS,
+  'POST /agent-requetes/:id/test': { schema: essaiAppel },
+  'POST /agents/:agentId/tools/connecteur': { schema: ajoutConnecteurSchema, noms: { requeteId: 'call_id' } },
 
   // Shopify
   'DELETE /integrations/shopify': SANS_CORPS,
@@ -236,6 +248,12 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
 export const ECARTS: Readonly<Record<string, readonly string[]>> = {
   // B10, Shopify : l'identifiant de l'agent qui relance un panier, que la route exige au format uuid
   'PUT /integrations/shopify/lignes/:evenement': ['agentId : motif non annoncé'],
+  // B10, livraison 4b, voulus. Un identifiant annoncé `format: uuid` (le motif de zod n'apprend rien au modèle) ; la clé
+  // d'une variable, fermée pour `fiche` et `systeme`, libre pour `champ` (un champ de l'espace) : un schéma d'outil ne
+  // sait pas dire « fermée ou libre », sa description renvoie aux listes de `list_connector_calls`, la route refuse le reste.
+  'POST /agent-requetes': ['sourceId : motif non annoncé', 'variables[].origine.cle : valeurs permises non annoncées'],
+  'PATCH /agent-requetes/:id': ['variables[].origine.cle : valeurs permises non annoncées'],
+  'POST /agents/:agentId/tools/connecteur': ['requeteId : motif non annoncé'],
   // B10, agent IA : la fiche (le cadrage les dit « console seulement »)
   'PATCH /agents/:agentId': [
     'contactInconnu : absent de l’outil',

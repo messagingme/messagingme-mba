@@ -63,7 +63,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   // Outils de l'agent IA (agentTools)
   'GET /agents/:agentId/tools': enPartie(['get_agent'], 'les réglages communs et la cible de chaque outil'),
   'POST /agents/:agentId/tools': enPartie(['set_agent_tools', 'set_agent_action'], 'la cible des autres outils (tag, champ, bloc, scénario, enchaînement, qualification)'),
-  'POST /agents/:agentId/tools/connecteur': aFaire('B10', 'agent IA : donner à un agent un appel de connecteur API'),
+  'POST /agents/:agentId/tools/connecteur': outil('attach_connector_call'),
   'PATCH /agents/:agentId/tools/:outilId': enPartie(['set_agent_action'], 'les réglages communs des autres outils (nom vu par le modèle, quand l’appeler, quand ne pas l’appeler, gestes) et leur cible'),
   'PUT /agents/:agentId/tools/:outilId/activation': outil('update_agent_tool'),
   // L'outil la retire seulement : la donner reste un clic dans la console, outil par outil.
@@ -393,12 +393,13 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /account-status': outil('get_account_status'),
 
   // Les appels des connecteurs API (agentRequetes)
-  'GET /agent-requetes': aFaire('B10', 'agent IA, connecteurs API : lister les appels'),
-  'POST /agent-requetes': aFaire('B10', 'agent IA, connecteurs API : déclarer un appel'),
-  'PATCH /agent-requetes/:id': aFaire('B10', 'agent IA, connecteurs API : modifier un appel, son risque compris'),
-  'DELETE /agent-requetes/:id': aFaire('B10', 'agent IA, connecteurs API : supprimer un appel'),
-  'POST /agent-requetes/:id/test': aFaire('B10', 'agent IA, connecteurs API : essayer un appel'),
-  'POST /agent-requetes/test': aFaire('B10', 'agent IA, connecteurs API : essayer un appel avant de l’enregistrer'),
+  // B10, livraison 4b : 🔴 depuis Claude, seul un appel qui lit s'essaie (un essai écrit pour de vrai chez le client).
+  'GET /agent-requetes': outil('list_connector_calls'),
+  'POST /agent-requetes': outil('create_connector_call'),
+  'PATCH /agent-requetes/:id': outil('update_connector_call'),
+  'DELETE /agent-requetes/:id': outil('delete_connector_call'),
+  'POST /agent-requetes/:id/test': outil('test_connector_call'),
+  'POST /agent-requetes/test': ecran('l’essai d’un brouillon sert à cocher les champs de sortie avant le premier enregistrement ; depuis Claude, on enregistre l’appel, puis test_connector_call l’essaie'),
 
   // Le catalogue des outils d'agent (agentCatalogue)
   'GET /agent-tools': outil('list_agent_tool_library'),

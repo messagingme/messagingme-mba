@@ -6614,6 +6614,15 @@ chemin pour elle. Chacun devient un outil, qui appelle la fonction du bouton de 
   laquelle il partira (l'adresse du jeton pour un mot de passe). Depuis Claude, l'adresse d'un système et celle de son
   jeton se posent à la déclaration et ne changent plus, comme celle d'un webhook : elles se changent dans la console, où
   se retire aussi une clé.
+- **Les appels des systèmes connectés, et leur branchement sur un agent** (2026-11-27, les offres qui ont la console) :
+  les lister (`list_connector_calls`, avec les champs et origines qu'une variable peut prendre), en enregistrer un
+  (`create_connector_call`, vérifié à l'enregistrement comme dans la console : variable non déclarée, en-tête réservé,
+  chemin hors du système refusés), le modifier (`update_connector_call`, seul ce qui est donné change ; les agents qui
+  s'en servent suivent aussitôt), le supprimer (`delete_connector_call`, refusé tant qu'un agent, un bloc Appel API ou
+  la poussée d'opt-out s'en sert), l'essayer (`test_connector_call`) et le donner à un agent comme outil, inactif
+  (`attach_connector_call`, qui dit ce que l'outil enverra ; `update_agent_tool` l'active). 🔴 Un essai exécute l'appel
+  pour de vrai : depuis Claude, seul un appel qui lit (GET) s'essaie, un appel qui écrit s'essaie dans la console. Un
+  appel ne change pas de système depuis Claude.
 - `get_messages` rend l'identifiant de chaque message, que `get_message_status` lit.
 
 **Les garde-fous.** Tous exigent la connexion de Claude, sauf la main du fil. Corriger et supprimer un modèle comptent

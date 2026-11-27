@@ -296,6 +296,21 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 4b, les appels des systèmes connectés) : ce qui reste de la relecture (2026-11-28, aucun rouge)
+
+Corrigés avant de pousser : une description qui dictait sa conduite à Claude (la règle du répertoire) ; une clé tapée
+dans un appel (en-tête, paramètre, valeur fixe ou d'essai au nom de secret), désormais refusée à l'écriture et masquée à la
+lecture comme à l'essai ; un appel EN SERVICE (un outil, un bloc Appel API, la poussée d'opt-out) qui changeait de
+méthode, de chemin ou de corps en un appel d'outil, désormais figé depuis Claude sauf son nom, ses champs lus et ses
+valeurs d'essai ; `output_paths` exigé par la route sans défaut dans l'outil ; des refus de schéma sans détail ; le code
+du refus de l'essai d'un appel qui écrit (`forbidden`) ; la page de l'agent pour un refus de branchement ; les tests de
+la garde de l'essai (les quatre méthodes qui écrivent, la console qui essaie encore un POST). Reste :
+- Une course antérieure au lot, désormais jouable par deux appels d'outils en parallèle : le plancher de risque est lu
+  (`brancherConnecteur`) hors de la transaction qui écrit l'outil (`PgToolCatalog.ajouterConnecteur`) ; un passage de GET
+  à DELETE validé entre les deux laisse un outil `read` sur un DELETE, que `activer` ne revérifie pas.
+- Un GET à corps JSON s'enregistre (`verifier` ne le refuse pas) mais ne part jamais : undici refuse un corps sur un GET.
+- Le faux `branchementAppels.outils` de `tests/routes-inertes.ts` passe par `as never`.
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 4a, les systèmes connectés des agents) : ce qui reste de la relecture (2026-11-27)
 
 Le rouge est corrigé avant de pousser : tant qu'aucun mot de passe n'était enregistré, Claude pouvait fixer l'adresse du

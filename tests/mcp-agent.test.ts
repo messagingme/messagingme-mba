@@ -44,7 +44,7 @@ import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { bornesDesChamps, bornesZod, champsDe, muettes, type Borne } from './aide/bornes-zod';
 import { jamaisDesabonne } from './consentement';
-import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpAppelsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { SANS_MCP } from './outils-mcp';
 import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
@@ -417,7 +417,7 @@ function monter(o: Options & { usage?: GardeUsageMemoire } = {}) {
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
-    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes,
+    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes, ...mcpAppelsInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
@@ -554,13 +554,23 @@ const ARGS: Record<string, Record<string, unknown>> = {
   update_connector_system: { system_id: '55555555-5555-4555-8555-555555555555', label: 'CRM' },
   delete_connector_system: { system_id: '55555555-5555-4555-8555-555555555555' },
   test_connector_system: { system_id: '55555555-5555-4555-8555-555555555555' },
+  // Les appels (B10, livraison 4b).
+  list_connector_calls: {},
+  create_connector_call: { system_id: '55555555-5555-4555-8555-555555555555', label: 'Commande', methode: 'GET', chemin: '/commandes' },
+  update_connector_call: { call_id: '66666666-6666-4666-8666-666666666666', label: 'Commande' },
+  delete_connector_call: { call_id: '66666666-6666-4666-8666-666666666666' },
+  test_connector_call: { call_id: '66666666-6666-4666-8666-666666666666' },
+  attach_connector_call: {
+    agent_id: AG, call_id: '66666666-6666-4666-8666-666666666666', nature: 'pousse', name: 'commande', title: 'Commande',
+    description: 'Quand le client demande sa commande.', ne_pas_utiliser: 'Sinon.',
+  },
 };
 
 /** Les traces d'écriture et de lecture des dépendances de l'agent, mises bout à bout : vides = rien n'a été touché. */
 const touche = (cap: ReturnType<typeof monter>['cap']) => Object.entries(cap).filter(([, v]) => v.length > 0).map(([k]) => k);
 
 describe('🔴 la personne requise : une clé d’API ne voit ni n’appelle les outils qui écrivent au nom de quelqu’un', () => {
-  it('trente outils : quatre lectures sans personne, vingt-six outils qui l’exigent (le répondeur, les horaires, les actions, les limites, les réglages de 3a, la suppression et les systèmes connectés compris)', () => {
+  it('trente-six outils : quatre lectures sans personne, trente-deux outils qui l’exigent (le répondeur, les horaires, les actions, les limites, les réglages de 3a, la suppression, les systèmes connectés et leurs appels compris)', () => {
     const agent = OUTILS.filter((o) => Object.hasOwn(ARGS, o.nom));
     expect(agent.map((o) => o.nom).sort()).toEqual(Object.keys(ARGS).sort());
     expect(agent.filter((o) => o.exigePersonne !== true).map((o) => o.nom).sort())
