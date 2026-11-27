@@ -17,6 +17,15 @@ describe('l’annonce de la commande face à la dernière analyse (lot 7b)', () 
 });
 
 describe('suiviSegmentsDe', () => {
+  it('🔴 lot 7c : « a écrit », « a cliqué », « sans jamais écrire » ne s’annoncent que sur une date en texte', () => {
+    const base = { boutique: null, activiteCompleteDepuis: '2026-11-03' };
+    expect(suiviSegmentsDe({ ...base, reponsesCompletesDepuis: '2026-11-23' })).toMatchObject({ reponsesCompletesDepuis: '2026-11-23' });
+    for (const v of [true, 20261123, null, {}]) {
+      expect(suiviSegmentsDe({ ...base, reponsesCompletesDepuis: v }), JSON.stringify(v)).not.toHaveProperty('reponsesCompletesDepuis');
+    }
+    expect(suiviSegmentsDe(base)).not.toHaveProperty('reponsesCompletesDepuis');
+  });
+
   it('lit une boutique, ou son absence', () => {
     expect(suiviSegmentsDe({ boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: '2026-11-03' }))
       .toEqual({ boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: '2026-11-03' });

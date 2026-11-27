@@ -66,6 +66,9 @@ export const CRITERES: Readonly<Record<CleCritere, DecisionCritere>> = {
   [CLES_SEGMENT.clicSansCommande]: mcp('clicked_without_order'),
   [CLES_SEGMENT.actif]: mcp('active_within_days'),
   [CLES_SEGMENT.inactif]: mcp('inactive_for_days'),
+  [CLES_SEGMENT.reponse]: mcp('replied_within_days'),
+  [CLES_SEGMENT.clic]: mcp('clicked_within_days'),
+  [CLES_SEGMENT.clicSansReponse]: mcp('clicked_without_reply_days'),
   [CLES_SEGMENT.pays]: mcp('countries'),
   [CLES_SEGMENT.commandeVsAnalyse]: mcp('order_vs_analysis'),
 };
@@ -92,6 +95,9 @@ export const EXEMPLES_MCP: Readonly<Record<string, unknown>> = {
   clicked_without_order: true,
   active_within_days: 30,
   inactive_for_days: 90,
+  replied_within_days: 7,
+  clicked_within_days: 30,
+  clicked_without_reply_days: 30,
   countries: ['FR'],
   order_vs_analysis: 'aucune_apres',
 };

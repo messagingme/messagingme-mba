@@ -165,6 +165,48 @@ describe.skipIf(!url)('les critères de segment (Postgres)', () => {
     expect(await qui(F(seg(S.ecritSansCommande, true)), ailleurs)).toEqual([]);
   });
 
+  it('🔴 lot 7c : « a écrit », « a cliqué », « a cliqué sans jamais écrire » ; une réponse ancienne exclut du « jamais » ; rien d’un autre espace', async () => {
+    // Un espace à lui : les fiches du banc portent déjà des réponses et des clics (le test du lot 4 les pose).
+    const t = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-reponse-clic') returning id`)).rows[0]!.id;
+    const autre = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-reponse-clic-autre') returning id`)).rows[0]!.id;
+    try {
+      const poser = (tenant: string, phone: string, reponseIlYA: number | null, clicIlYA: number | null, supprimee = false) => pool.query(
+        `insert into contacts (tenant_id, phone_e164, derniere_reponse_le, dernier_clic_le, deleted_at)
+         values ($1, $2, case when $3::int is null then null else now() - $3::int * interval '1 day' end,
+                 case when $4::int is null then null else now() - $4::int * interval '1 day' end, case when $5::boolean then now() end)`,
+        [tenant, phone, reponseIlYA, clicIlYA, supprimee],
+      );
+      const R1 = '+33600700001'; // a écrit hier, jamais cliqué
+      const R2 = '+33600700002'; // a écrit il y a 40 jours, cliqué il y a 2 jours
+      const K1 = '+33600700003'; // cliqué il y a 3 jours, jamais écrit
+      const K2 = '+33600700004'; // cliqué il y a 100 jours, jamais écrit
+      const K3 = '+33600700005'; // cliqué il y a 5 jours, a écrit il y a un an
+      await poser(t, R1, 1, null);
+      await poser(t, R2, 40, 2);
+      await poser(t, K1, null, 3);
+      await poser(t, K2, null, 100);
+      await poser(t, K3, 365, 5);
+      await poser(t, '+33600700006', null, null); // jamais rien
+      await poser(t, '+33600700007', null, 1, true); // supprimée : nulle part
+      await poser(autre, K1, null, 1); // le même numéro ailleurs
+      await poser(autre, '+33600700008', 2, 2);
+
+      expect(await qui(F(seg(S.reponse, 7)), t)).toEqual([R1]);
+      expect(await qui(F(seg(S.reponse, 60)), t)).toEqual([R1, R2].sort());
+      expect(await qui(F(seg(S.clic, 30)), t)).toEqual([R2, K1, K3].sort());
+      // 🔴 « Sans JAMAIS écrire » : K3 a écrit il y a un an, il n'y est pas ; R2 non plus.
+      expect(await qui(F(seg(S.clicSansReponse, 30)), t)).toEqual([K1]);
+      expect(await qui(F(seg(S.clicSansReponse, 365)), t)).toEqual([K1, K2].sort());
+      // Les critères se cumulent : a écrit dans les 60 jours ET a cliqué dans les 30.
+      expect(await qui(F(seg(S.reponse, 60), seg(S.clic, 30)), t)).toEqual([R2]);
+      // L'autre espace ne voit que les siens.
+      expect(await qui(F(seg(S.clicSansReponse, 30)), autre)).toEqual([K1]);
+      expect(await qui(F(seg(S.reponse, 7)), autre)).toEqual(['+33600700008']);
+    } finally {
+      for (const x of [t, autre]) await pool.query('delete from tenants where id = $1', [x]);
+    }
+  });
+
   /** Lot 7b : le rapport à la dernière analyse, contre les fiches du banc (C1 : 3, 25 et 200 jours ; C2 : 10 et 5 ; C3 : aucune). */
   it('🔴 la commande et la dernière analyse (lot 7b) : aucune après, une après, l’analyse après la dernière ; sans analyse, nulle part ; rien d’un autre espace', async () => {
     const analyse = async (t: string, phone: string, ilYA: number | null) => pool.query(

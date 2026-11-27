@@ -156,6 +156,8 @@ describe('les critères de segment : dans fieldFilters, refusés au moindre déf
       filtreSegment(S.commandes, { min: 2, jours: 90 }), filtreSegment(S.depense, { min: 49.9, max: 500 }),
       filtreSegment(S.derniereCommande, { min: 180 }), filtreSegment(S.actif, 30), filtreSegment(S.inactif, 90),
       filtreSegment(S.pays, ['FR', 'BE']),
+      // Lot 7c : la réponse et le clic séparés.
+      filtreSegment(S.reponse, 7), filtreSegment(S.clic, 30), filtreSegment(S.clicSansReponse, 3650),
     ] };
     expect(roundTrip(tous)).toEqual(tous);
     for (const f of tous.fieldFilters!) expect(roundTrip({ fieldFilters: [f] }), f.key).toEqual({ fieldFilters: [f] });
@@ -180,6 +182,11 @@ describe('les critères de segment : dans fieldFilters, refusés au moindre déf
     ['jours au-delà de 3650', brut(S.actif, 3651)],
     ['jours non entiers', brut(S.inactif, 1.5)],
     ['jours en texte', brut(S.inactif, '"90"')],
+    ['« a écrit » à 0 jour', brut(S.reponse, 0)],
+    ['« a cliqué » au-delà de 3650', brut(S.clic, 3651)],
+    ['« a cliqué sans jamais écrire » non entier', brut(S.clicSansReponse, 2.5)],
+    ['« a cliqué sans jamais écrire » à true', brut(S.clicSansReponse, true)],
+    ['« a écrit » en texte', brut(S.reponse, '"7"')],
     ['clé inconnue', brut(S.commandes, { min: 1, depuis: 3 })],
     ['jours dans la dernière commande', brut(S.derniereCommande, { min: 1, jours: 3 })],
     ['pays inconnu', brut(S.pays, ['XX'])],

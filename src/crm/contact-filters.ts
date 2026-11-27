@@ -94,6 +94,7 @@ const NOMS_SEGMENT: Record<CleSegment, string> = {
   [CLES_SEGMENT.segmentShopify]: 'segment Shopify',
   [CLES_SEGMENT.ecritSansCommande]: 'a écrit sans commander', [CLES_SEGMENT.clicSansCommande]: 'a cliqué sans commander',
   [CLES_SEGMENT.actif]: 'actif', [CLES_SEGMENT.inactif]: 'inactif', [CLES_SEGMENT.pays]: 'pays',
+  [CLES_SEGMENT.reponse]: 'a écrit', [CLES_SEGMENT.clic]: 'a cliqué', [CLES_SEGMENT.clicSansReponse]: 'a cliqué sans jamais écrire',
   [CLES_SEGMENT.commandeVsAnalyse]: 'commande et dernière conversation',
 };
 
@@ -125,7 +126,10 @@ export function lireSegment(
       if (v !== true) throw new FiltreContactInvalide(`filtre « ${nom} » : la valeur true est attendue, et rien d’autre`);
       return true;
     case CLES_SEGMENT.actif:
-    case CLES_SEGMENT.inactif: return lireJours(v, nom);
+    case CLES_SEGMENT.inactif:
+    case CLES_SEGMENT.reponse:
+    case CLES_SEGMENT.clic:
+    case CLES_SEGMENT.clicSansReponse: return lireJours(v, nom);
     case CLES_SEGMENT.pays: return lirePays(v);
     case CLES_SEGMENT.commandeVsAnalyse:
       if (!estRapportAnalyseCommande(v)) {

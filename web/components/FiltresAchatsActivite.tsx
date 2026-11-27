@@ -5,7 +5,7 @@ import { useT } from '@/lib/i18n';
 import type { ContactFieldFilter } from '@/lib/api';
 import { inputClsAuto } from '@/lib/ui';
 import {
-  BORNES_SEGMENTS, CLES_ACTIVITE, CLES_SEGMENT, filtreSegment, valeurSegment,
+  BORNES_SEGMENTS, CLES_ACTIVITE, CLES_REPONSE_CLIC, CLES_SEGMENT, filtreSegment, valeurSegment,
   type CleSegment, type SuiviSegmentsVue,
 } from '@/lib/partage/segments';
 
@@ -25,7 +25,8 @@ export function FiltresAchatsActivite({ segments, onChange, suivi }: {
 }) {
   const t = useT();
   const activitePosee = segments.some((s) => (CLES_ACTIVITE as readonly string[]).includes(s.key));
-  if (suivi === null && !activitePosee) return null;
+  const reponseClicPose = segments.some((s) => (CLES_REPONSE_CLIC as readonly string[]).includes(s.key));
+  if (suivi === null && !activitePosee && !reponseClicPose) return null;
 
   /** Remplace (ou retire, `undefined`) le critère `cle`, sans toucher aux autres. */
   const ecrire = (cle: CleSegment, valeur: number | undefined) =>
@@ -47,8 +48,45 @@ export function FiltresAchatsActivite({ segments, onChange, suivi }: {
         <ChampJours valeur={jours(CLES_SEGMENT.inactif)} onChange={(n) => ecrire(CLES_SEGMENT.inactif, n)} testid="filtre-inactif-jours" />
         <span>{t('jours, jamais actifs compris', 'days, never active included')}</span>
       </div>
+      {(suivi?.reponsesCompletesDepuis !== undefined || reponseClicPose) && (
+        // Lot 7c : la réponse et le clic séparés. 🔴 Seulement si l'API l'annonce (ou déjà posé, pour pouvoir le retirer).
+        <div className="flex flex-col gap-1" data-testid="filtres-reponse-clic">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-700">
+            <span>{t('A écrit dans les', 'Wrote in the last')}</span>
+            <ChampJours valeur={jours(CLES_SEGMENT.reponse)} onChange={(n) => ecrire(CLES_SEGMENT.reponse, n)} testid="filtre-reponse-jours" />
+            <span>{t('derniers jours', 'days')}</span>
+            <span className="text-ink-300">·</span>
+            <span>{t('A cliqué un lien dans les', 'Clicked a link in the last')}</span>
+            <ChampJours valeur={jours(CLES_SEGMENT.clic)} onChange={(n) => ecrire(CLES_SEGMENT.clic, n)} testid="filtre-clic-jours" />
+            <span>{t('derniers jours', 'days')}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-ink-700">
+            <span>{t('A cliqué un lien dans les', 'Clicked a link in the last')}</span>
+            <ChampJours
+              valeur={jours(CLES_SEGMENT.clicSansReponse)} onChange={(n) => ecrire(CLES_SEGMENT.clicSansReponse, n)} testid="filtre-clic-sans-reponse-jours"
+            />
+            <span>{t('derniers jours, sans jamais avoir écrit', 'days, without ever writing')}</span>
+          </div>
+          {suivi?.reponsesCompletesDepuis !== undefined && (
+            <span className="text-xs text-ink-500" data-testid="note-reponses-completes">
+              {t(
+                `« Jamais » : aucun message connu. Chaque message est noté depuis le ${dateCourte(suivi.reponsesCompletesDepuis, 'fr')} ; avant, seuls ceux encore conservés.`,
+                `“Never”: no message known. Every message is recorded since ${dateCourte(suivi.reponsesCompletesDepuis, 'en')}; before that, only those still kept.`,
+              )}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+/** Une date `AAAA-MM-JJ` en toutes lettres, sans fuseau (elle est déjà un jour). */
+function dateCourte(iso: string, langue: 'fr' | 'en'): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleDateString(langue === 'fr' ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
 /**

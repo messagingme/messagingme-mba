@@ -5,7 +5,7 @@ import { lireCibleMcp, MAX_IDENTIFIANTS_CIBLE } from '../src/mcp/cible';
 import { DROITS, type Fonction } from '../src/offres/offres';
 import { corpsRefusFonction } from '../src/offres/refus';
 import type { BulkTarget, ContactFilters, ContactRow } from '../src/crm/contact-store.pg';
-import { ACTIVITE_COMPLETE_DEPUIS, type SuiviSegments } from '../src/crm/segments';
+import { ACTIVITE_COMPLETE_DEPUIS, REPONSES_COMPLETES_DEPUIS, type SuiviSegments } from '../src/crm/segments';
 import { BORNES_SEGMENTS, CLES_SEGMENT as S, MOTIF_ID_COLLECTION, filtreSegment } from '../web/lib/partage/segments';
 
 /**
@@ -171,6 +171,17 @@ describe('les segments de l’assistant', () => {
     });
   });
 
+  it('lot 7c : « a écrit », « a cliqué » et « a cliqué sans jamais écrire », sans boutique, traduits dans le contrat commun', async () => {
+    const { d, lus } = deps();
+    expect(await lireCibleMcp({ replied_within_days: 7, clicked_within_days: 30, clicked_without_reply_days: 14 }, PRO, d, T, { identifiants: false }))
+      .toEqual({
+        filters: { fieldFilters: [filtreSegment(S.reponse, 7), filtreSegment(S.clic, 30), filtreSegment(S.clicSansReponse, 14)] },
+        excludeIds: [],
+      });
+    // Aucune boutique n'est lue : ce ne sont pas des critères de commande.
+    expect(lus.map((l) => l.quoi)).not.toContain('suivi');
+  });
+
   it('🔴 un critère de commande sans boutique est refusé avant toute lecture des contacts', async () => {
     for (const args of [{ orders: { max: 0 } }, { spent: { min: 1 } }, { days_since_last_order: { min: 1 } }]) {
       const { d, lus } = deps();
@@ -187,6 +198,8 @@ describe('les segments de l’assistant', () => {
     { orders: { min: 0 } }, { orders: {} }, { orders: { min: 3, max: 2 } }, { orders: { min: 1, within_days: 0 } },
     { orders: { min: 1, jours: 30 } }, { orders: 3 }, { days_since_last_order: { min: 1, within_days: 3 } },
     { spent: { min: -1 } }, { active_within_days: 0 }, { inactive_for_days: BORNES_SEGMENTS.joursMax + 1 },
+    { replied_within_days: 0 }, { clicked_within_days: BORNES_SEGMENTS.joursMax + 1 }, { clicked_without_reply_days: 1.5 },
+    { clicked_without_reply_days: true }, { replied_within_days: '7' },
     { countries: [] }, { countries: 'FR' }, { countries: ['XX'] }, { countries: ['UK'] }, { countries: ['CA'] }, { countries: ['PR'] },
   ];
   it.each(malformes)('🔴 refusé, jamais ignoré : %j', async (args) => {
@@ -216,6 +229,21 @@ describe('les segments de l’assistant', () => {
     expect(Object.keys(r2).sort()).toEqual(['contacts', 'total']);
   });
 
+  it('🔴 lot 7c : find_contacts dit depuis quand chaque réponse est notée, seulement avec un des trois critères', async () => {
+    for (const args of [{ replied_within_days: 7 }, { clicked_without_reply_days: 30 }]) {
+      const r = (await outil.executer(deps().d, T, args, null)) as Record<string, unknown>;
+      expect(r, JSON.stringify(args)).toMatchObject({ reply_complete_since: REPONSES_COMPLETES_DEPUIS });
+      // Ces critères ne lisent pas `derniere_activite_le` : sa date n'a rien à dire d'eux.
+      expect(r, JSON.stringify(args)).not.toHaveProperty('activity_complete_since');
+    }
+    // « A cliqué » seul ne lit aucune réponse, et les clics sont complets : aucune date de profondeur.
+    const clic = (await outil.executer(deps().d, T, { clicked_within_days: 7 }, null)) as Record<string, unknown>;
+    expect(Object.keys(clic).sort()).toEqual(['contacts', 'total']);
+    const actif = (await outil.executer(deps().d, T, { active_within_days: 7 }, null)) as Record<string, unknown>;
+    expect(actif).toMatchObject({ activity_complete_since: ACTIVITE_COMPLETE_DEPUIS });
+    expect(actif).not.toHaveProperty('reply_complete_since');
+  });
+
   it('🔴 find_contacts dit la fenêtre du dernier rattrapage TERMINÉ des commandes, que le suivi lit ; sans rattrapage, rien', async () => {
     const rattrapage = { depuis: new Date('2026-09-24T00:00:00Z'), le: new Date('2026-11-23T12:05:00Z') };
     const avec = deps({ boutique: { ...BOUTIQUE, rattrapage } });
@@ -235,7 +263,9 @@ describe('les segments de l’assistant', () => {
     expect(p.spent!.properties!.max).toMatchObject({ type: 'number', minimum: 0, maximum: BORNES_SEGMENTS.depenseMax });
     expect(p.days_since_last_order!.properties).not.toHaveProperty('within_days');
     expect(p.days_since_last_order!.properties!.min).toMatchObject({ type: 'integer', maximum: BORNES_SEGMENTS.joursMax });
-    for (const k of ['active_within_days', 'inactive_for_days']) expect(p[k]).toMatchObject({ type: 'integer', minimum: 1, maximum: BORNES_SEGMENTS.joursMax });
+    for (const k of ['active_within_days', 'inactive_for_days', 'replied_within_days', 'clicked_within_days', 'clicked_without_reply_days']) {
+      expect(p[k], k).toMatchObject({ type: 'integer', minimum: 1, maximum: BORNES_SEGMENTS.joursMax });
+    }
     expect(p.countries).toMatchObject({ minItems: 1, maxItems: BORNES_SEGMENTS.paysMax, items: { pattern: '^[A-Za-z]{2}$' } });
     // Les outils qui prennent la même cible les annoncent aussi.
     for (const nom of ['tag_contacts', 'prepare_campaign', 'set_contact_field']) {

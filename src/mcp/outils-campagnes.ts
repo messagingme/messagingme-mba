@@ -4,8 +4,8 @@ import { RefusOutil, dateAvecFuseau, entierBorne, refusDuCoeur, texteObligatoire
 import { CHAMPS_CIBLE_FILTRES, CHAMPS_CIBLE_IDENTIFIANTS, lireCibleMcp } from './cible';
 import { ecriture, LOURDE, personneRequise, plafondCouteux, signataire } from './outils-agent';
 import type { AnalyseEtResume, ContactFilters } from '../crm/contact-store.pg';
-import { ACTIVITE_COMPLETE_DEPUIS, paysDuNumero } from '../crm/segments';
-import { CLES_ACTIVITE, CLES_COMMANDES, CLES_SEGMENT, OP_SEGMENT } from '../../web/lib/partage/segments';
+import { ACTIVITE_COMPLETE_DEPUIS, REPONSES_COMPLETES_DEPUIS, paysDuNumero } from '../crm/segments';
+import { CLES_ACTIVITE, CLES_COMMANDES, CLES_LISANT_LA_REPONSE, CLES_SEGMENT, OP_SEGMENT } from '../../web/lib/partage/segments';
 import { LONGUEUR_MAX_ETIQUETTE, nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { MAX_TAGS } from '../crm/contact-filters';
 import { estUuid } from '../http/scope';
@@ -139,6 +139,9 @@ async function suiviDeLaReponse(deps: DepsMcp, tenantId: string, f: ContactFilte
   const cles = (f.fieldFilters ?? []).filter((x) => x.op === OP_SEGMENT).map((x) => x.key);
   const commandes = cles.some((k) => (CLES_COMMANDES as readonly string[]).includes(k) || k === CLES_SEGMENT.commandeVsAnalyse);
   const activite = cles.some((k) => (CLES_ACTIVITE as readonly string[]).includes(k));
+  // Lot 7c : les critères qui lisent la réponse (« a écrit », « sans jamais écrire ») ; complète depuis cette date
+  // seulement, « jamais écrit » veut dire « aucun message connu ». « A cliqué » seul ne lit aucune réponse.
+  const reponses = cles.some((k) => (CLES_LISANT_LA_REPONSE as readonly string[]).includes(k));
   // Les étiquettes Shopify (lot 6b) : « telles que la dernière synchronisation les a lues », avec sa date.
   const etiquettes = cles.includes(CLES_SEGMENT.etiquetteShopify);
   const boutique = commandes || etiquettes ? (await deps.contacts.suiviSegments(tenantId)).boutique : null;
@@ -151,6 +154,7 @@ async function suiviDeLaReponse(deps: DepsMcp, tenantId: string, f: ContactFilte
     ...(commandes && boutique?.rattrapage ? { orders_backfilled_since: boutique.rattrapage.depuis.toISOString(), orders_backfilled_at: boutique.rattrapage.le.toISOString() } : {}),
     ...(boutique?.coupeeLe ? { shop_cut_at: boutique.coupeeLe.toISOString() } : {}),
     ...(activite ? { activity_complete_since: ACTIVITE_COMPLETE_DEPUIS } : {}),
+    ...(reponses ? { reply_complete_since: REPONSES_COMPLETES_DEPUIS } : {}),
   };
 }
 
@@ -190,7 +194,8 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       + 'Shopify, read by sync_shopify_customer_tags, date given: shopify_tags_synced_at; not the Messaging Me tags), the '
       + 'one-click "wrote without ordering" and "clicked without '
       + 'ordering", activity (wrote or clicked a tracked link '
-      + 'within N days, or not for N days), country by phone calling code, and on the Enterprise plan the fields of the '
+      + 'within N days, or not for N days), replies and clicks apart (wrote within N days, clicked within N days, clicked '
+      + 'within N days without ever writing), country by phone calling code, and on the Enterprise plan the fields of the '
       + 'latest conversation analysis (intent, sentiment, satisfaction, urgency, resolved...). Criteria combine: "customers '
       + 'with two orders in 90 days" is orders {"min":2,"within_days":90}; "Belgian customers inactive for 3 months" is '
       + 'countries ["BE"] and inactive_for_days 90. Orders are the paid orders recorded since orders_recorded_since (in '

@@ -25,6 +25,14 @@ import type { ContactFieldFilter } from '../../web/lib/partage/contact-filters';
 export const ACTIVITE_COMPLETE_DEPUIS = '2026-11-03';
 
 /**
+ * Depuis quand CHAQUE message reçu est noté sur la fiche (`derniere_reponse_le`) : le déploiement du lot 4 des segments
+ * Shopify (migration 0312, le 2026-11-23). Avant, 0312 n'a lu que les messages encore conservés par l'espace : « a cliqué
+ * sans jamais écrire » veut dire « aucun message connu », et l'outil le dit. Les clics, conservés 730 jours
+ * (`TRACKED_CLICKS_RETENTION_DAYS`), sont complets depuis leur début.
+ */
+export const REPONSES_COMPLETES_DEPUIS = '2026-11-23';
+
+/**
  * Ce qu'un espace permet de cibler en commandes : sa boutique (branchée ou coupée), sa devise, la date depuis laquelle
  * TOUTES ses commandes payées sont suivies, et sa coupure. `null` sans boutique : un critère de commande y est refusé.
  * `rattrapage` (segments Shopify enrichis, lot 5) : le dernier rattrapage terminé, les commandes créées depuis `depuis`
@@ -331,6 +339,21 @@ export function clauseSegment(cle: CleSegment, valeur: string, add: (v: unknown)
       // Jamais actif = inactif : une fiche importée qui n'a jamais rien fait est bien dans « inactif depuis 90 jours ».
       const n = jours(v);
       return n === null ? 'false' : `(derniere_activite_le is null or derniere_activite_le < ${ilYA(add(n))})`;
+    }
+    case CLES_SEGMENT.reponse: {
+      // Lot 7c : un message reçu (un appui de bouton en est un) dans les N jours. Une date nulle ne passe pas le `>=`.
+      const n = jours(v);
+      return n === null ? 'false' : `derniere_reponse_le >= ${ilYA(add(n))}`;
+    }
+    case CLES_SEGMENT.clic: {
+      const n = jours(v);
+      return n === null ? 'false' : `dernier_clic_le >= ${ilYA(add(n))}`;
+    }
+    case CLES_SEGMENT.clicSansReponse: {
+      // 🔴 « Sans JAMAIS écrire » : aucun message reçu connu (`is null`), pas « rien depuis N jours » (spec, chantier 7) :
+      // qui a écrit il y a un an n'y est pas.
+      const n = jours(v);
+      return n === null ? 'false' : `(dernier_clic_le >= ${ilYA(add(n))} and derniere_reponse_le is null)`;
     }
     case CLES_SEGMENT.commandeVsAnalyse: {
       // Lot 7b. La DERNIÈRE conversation analysée de la fiche face à ses commandes payées. 🔴 Le temps de l'analyse est son

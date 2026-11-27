@@ -47,10 +47,19 @@ export const CLES_SEGMENT = {
   clicSansCommande: 'segment_clic_sans_commande',
   actif: 'segment_actif',
   inactif: 'segment_inactif',
+  /**
+   * Segments Shopify enrichis, lot 7c (spec, chantier 7, « Pro, léger ») : un nombre de jours chacun. « A écrit » lit le
+   * dernier message reçu (`derniere_reponse_le`), « a cliqué » le dernier clic attribué (`dernier_clic_le`), et « a cliqué
+   * sans jamais écrire » le clic dans la fenêtre ET aucun message reçu connu. Sans boutique : ce ne sont pas des commandes.
+   */
+  reponse: 'segment_reponse',
+  clic: 'segment_clic',
+  clicSansReponse: 'segment_clic_sans_reponse',
   pays: 'segment_pays',
   /**
-   * Segments Shopify enrichis, lot 7b (Entreprise) : la dernière commande payée au regard de la DERNIÈRE analyse de la
-   * fiche (`analyse_le`), l'une des `RAPPORTS_ANALYSE_COMMANDE`. Il demande une boutique et la fonction `analyse`.
+   * Segments Shopify enrichis, lot 7b (Entreprise) : la dernière commande payée au regard de la DERNIÈRE conversation
+   * analysée, datée de son dernier message (`analyse_fenetre_fin`, jamais `analyse_le`), l'une des
+   * `RAPPORTS_ANALYSE_COMMANDE`. Il demande une boutique et la fonction `analyse`.
    */
   commandeVsAnalyse: 'segment_commande_vs_analyse',
 } as const;
@@ -76,7 +85,14 @@ export const CLES_SHOPIFY: readonly CleSegment[] = [
   // La commande face à la dernière conversation (lot 7b) : rangée dans le volet Shopify, elle ne marche qu'avec une boutique.
   CLES_SEGMENT.commandeVsAnalyse,
 ];
+/** Les critères qui lisent `derniere_activite_le` : leur réponse dit depuis quand l'activité est complète. */
 export const CLES_ACTIVITE: readonly CleSegment[] = [CLES_SEGMENT.actif, CLES_SEGMENT.inactif];
+/**
+ * Les trois critères de réponse et de clic (lot 7c), dans « Achats et activité ». Seuls ceux qui lisent la RÉPONSE
+ * (`CLES_LISANT_LA_REPONSE`) rendent sa profondeur : « a cliqué » seul ne lit aucune réponse, et les clics sont complets.
+ */
+export const CLES_REPONSE_CLIC: readonly CleSegment[] = [CLES_SEGMENT.reponse, CLES_SEGMENT.clic, CLES_SEGMENT.clicSansReponse];
+export const CLES_LISANT_LA_REPONSE: readonly CleSegment[] = [CLES_SEGMENT.reponse, CLES_SEGMENT.clicSansReponse];
 
 /**
  * Le rapport entre la dernière analyse et la dernière commande (lot 7b), trois valeurs fermées (spec, chantier 7) :
@@ -149,6 +165,13 @@ export interface SuiviSegmentsVue {
   boutique: { devise: string | null; commandesDepuis: string; coupeeLe: string | null; rattrapeesDepuis?: string } | null;
   /** Depuis quand l'activité (message reçu, clic attribué) est complète ; avant, seul ce qui restait conservé. */
   activiteCompleteDepuis: string;
+  /**
+   * L'API sait cibler « a écrit », « a cliqué » et « a cliqué sans jamais écrire » (lot 7c), et depuis quand chaque message
+   * reçu est noté (avant, seuls les messages encore conservés l'étaient : « jamais écrit » veut dire « aucun message
+   * connu »). 🔴 Absent d'une API plus ancienne : la console ne propose alors aucun des trois, qu'une telle API refuserait
+   * en 400 (l'opérateur `segment` sur une clé qu'elle ne réserve pas), et la liste ne se chargerait plus.
+   */
+  reponsesCompletesDepuis?: string;
   /**
    * L'API sait cibler par produit (lot 3). 🔴 Absent d'une API plus ancienne : la console ne propose alors aucun critère
    * produit, qu'une telle API chercherait dans les champs perso, où il n'est jamais (personne ne serait trouvé).

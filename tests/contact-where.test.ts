@@ -270,6 +270,19 @@ describe('buildContactWhere : les critères de segment', () => {
       .toContain("(derniere_activite_le is null or derniere_activite_le < now() - $2::int * interval '1 day')");
   });
 
+  it('lot 7c : « a écrit » et « a cliqué » lisent chacun leur date, le jamais fait n’y est pas', () => {
+    const r = ou(filtreSegment(S.reponse, 7));
+    expect(r.where).toContain("derniere_reponse_le >= now() - $2::int * interval '1 day'");
+    expect(r.params).toEqual(['t1', 7]);
+    expect(ou(filtreSegment(S.clic, 30)).where).toContain("dernier_clic_le >= now() - $2::int * interval '1 day'");
+  });
+
+  it('🔴 lot 7c : « a cliqué sans jamais écrire » exige AUCUN message connu, pas « rien depuis N jours »', () => {
+    const r = ou(filtreSegment(S.clicSansReponse, 30));
+    expect(r.where).toContain("(dernier_clic_le >= now() - $2::int * interval '1 day' and derniere_reponse_le is null)");
+    expect(r.params).toEqual(['t1', 30]);
+  });
+
   it('les pays deviennent des préfixes paramétrés, dédupliqués (US et CA partagent +1)', () => {
     const { where, params } = ou(filtreSegment(S.pays, ['US', 'CA', 'BE']));
     expect(where).toContain('(phone_e164 like $2 or phone_e164 like $3)');
@@ -280,6 +293,8 @@ describe('buildContactWhere : les critères de segment', () => {
     for (const f of [
       { key: S.pays, op: 'segment' as const, value: '["XX"]' }, { key: S.commandes, op: 'segment' as const, value: '{pas du json' },
       { key: S.commandes, op: 'segment' as const, value: '{}' }, { key: S.actif, op: 'segment' as const, value: '"30"' },
+      { key: S.reponse, op: 'segment' as const, value: '0' }, { key: S.clic, op: 'segment' as const, value: 'true' },
+      { key: S.clicSansReponse, op: 'segment' as const, value: '{pas du json' },
       { key: S.commandes, op: 'segment' as const, value: '{"min":0}' }, { key: S.depense, op: 'segment' as const, value: '{"min":-5}' },
     ]) {
       expect(buildContactWhere('t1', { fieldFilters: [f] }).where.split(' and '), f.value).toContain('false');

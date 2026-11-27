@@ -224,6 +224,24 @@ export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
     ...JOURS,
     description: `No message and no click for N days (1 to ${joursMax}), contacts never active included.`,
   },
+  // Lot 7c (spec, chantier 7, « Pro, léger ») : la réponse et le clic séparés, sans boutique.
+  replied_within_days: {
+    ...JOURS,
+    description: `Contacts who sent a message (a button tap counts) in the last N days (1 to ${joursMax}). In the console: `
+      + '"Wrote in the last N days". No Shopify store needed.',
+  },
+  clicked_within_days: {
+    ...JOURS,
+    description: `Contacts who clicked a tracked link in the last N days (1 to ${joursMax}). A click is not a reply. `
+      + 'No Shopify store needed.',
+  },
+  clicked_without_reply_days: {
+    ...JOURS,
+    description: `Contacts who clicked a tracked link in the last N days (1 to ${joursMax}) and NEVER sent a message: `
+      + 'not "no message in N days", someone who wrote a year ago is excluded. Never means no message known: every message '
+      + 'is recorded since reply_complete_since (in the answer of find_contacts), before that only the messages still kept '
+      + 'by the workspace. No Shopify store needed.',
+  },
   countries: {
     type: 'array', minItems: 1, maxItems: paysMax, items: { type: 'string', pattern: '^[A-Za-z]{2}$' },
     description: `Countries by ISO code (FR, BE, GB...), ${paysMax} at most, matched by the phone number calling code. A `
@@ -259,7 +277,8 @@ export const CHAMPS_CIBLE_FILTRES: Record<string, ProprieteEntree> = {
     description: `Enterprise plan only. Filters on each contact's latest conversation analysis: ${AIDE_ANALYSE}. `
       + `${MAX_FIELD_FILTERS} filters at most in all, the orders, spent, days_since_last_order, bought, not_bought, `
       + 'days_since_product, collections, shopify_tags, shopify_segments, wrote_without_order, clicked_without_order, order_vs_analysis, '
-      + 'active_within_days, inactive_for_days and countries criteria included.',
+      + 'active_within_days, inactive_for_days, replied_within_days, clicked_within_days, clicked_without_reply_days and '
+      + 'countries criteria included.',
   },
   ...CHAMPS_CIBLE_SEGMENTS,
 };
@@ -360,7 +379,8 @@ export async function lireCibleMcp(
 
 const CLES_SEGMENTS = [
   'orders', 'spent', 'days_since_last_order', 'bought', 'not_bought', 'days_since_product', 'collections', 'shopify_tags', 'shopify_segments',
-  'wrote_without_order', 'clicked_without_order', 'order_vs_analysis', 'active_within_days', 'inactive_for_days', 'countries',
+  'wrote_without_order', 'clicked_without_order', 'order_vs_analysis', 'active_within_days', 'inactive_for_days',
+  'replied_within_days', 'clicked_within_days', 'clicked_without_reply_days', 'countries',
 ] as const;
 /** Les critères qui demandent une boutique : ceux des commandes, les étiquettes Shopify (lot 6b) et ses segments (lot 6c). */
 const CLES_COMMANDES_MCP = [
@@ -476,6 +496,10 @@ async function lireSegmentsMcp(
     ...(present(args.order_vs_analysis) ? [entree(CLES_SEGMENT.commandeVsAnalyse, args.order_vs_analysis)] : []),
     ...(present(args.active_within_days) ? [entree(CLES_SEGMENT.actif, args.active_within_days)] : []),
     ...(present(args.inactive_for_days) ? [entree(CLES_SEGMENT.inactif, args.inactive_for_days)] : []),
+    // Lot 7c : le nombre passe tel quel ; `lireSegment` refuse tout ce qui n'est pas un entier de jours, en le nommant.
+    ...(present(args.replied_within_days) ? [entree(CLES_SEGMENT.reponse, args.replied_within_days)] : []),
+    ...(present(args.clicked_within_days) ? [entree(CLES_SEGMENT.clic, args.clicked_within_days)] : []),
+    ...(present(args.clicked_without_reply_days) ? [entree(CLES_SEGMENT.clicSansReponse, args.clicked_without_reply_days)] : []),
     ...(present(pays) ? [entree(CLES_SEGMENT.pays, pays)] : []),
   ];
 }

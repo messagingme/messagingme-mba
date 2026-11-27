@@ -12,7 +12,7 @@ import { gardeEtendue } from '../auth/middleware';
 import type { Guard, PreHandler } from '../auth/middleware';
 import { espaceVerifie } from './scope';
 import { buildContactFilters, normalizeFieldFilters } from '../crm/contact-filters';
-import { ACTIVITE_COMPLETE_DEPUIS, type SuiviSegments } from '../crm/segments';
+import { ACTIVITE_COMPLETE_DEPUIS, REPONSES_COMPLETES_DEPUIS, type SuiviSegments } from '../crm/segments';
 import {
   CLES_SEGMENT, filtreSegment, type BoutonsSansCommandeVue, type ProduitVuVue, type SuiviSegmentsVue,
 } from '../../web/lib/partage/segments';
@@ -286,6 +286,8 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
         ...(boutique.rattrapage ? { rattrapeesDepuis: boutique.rattrapage.depuis.toISOString() } : {}),
       },
       activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
+      // « A écrit », « a cliqué », « a cliqué sans jamais écrire » (lot 7c) : la console ne les propose qu'à une API qui le dit.
+      reponsesCompletesDepuis: REPONSES_COMPLETES_DEPUIS,
       // Les critères produit (lot 3) : la console ne les propose qu'à une API qui le dit ici.
       produits: true,
       // Le critère de collection et la liste des collections lues (lot 6a) : de même.

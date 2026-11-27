@@ -733,8 +733,12 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     texte libre). La section n'apparaît que si le serveur sait appliquer ces filtres.
   - **Dans les filtres de la liste des contacts**, donc aussi pour **cibler une campagne** (2026-11-03, segments) :
     une partie **Achats et activité** filtre les contacts **actifs** (qui ont écrit ou cliqué un lien suivi) dans les
-    N derniers jours, ou **inactifs** depuis N jours, ceux qui n'ont jamais rien fait compris. Elle marche dans tous
-    les espaces. Si l'espace a une boutique Shopify, un volet **Shopify** (2026-11-23), replié par défaut et ouvert dès
+    N derniers jours, ou **inactifs** depuis N jours, ceux qui n'ont jamais rien fait compris. Depuis le 2026-11-27
+    (lot 7c), elle sépare aussi la réponse et le clic : **a écrit** dans les N derniers jours, **a cliqué un lien** dans
+    les N derniers jours, et **a cliqué sans jamais avoir écrit** (le clic dans la fenêtre et aucun message connu :
+    chaque message est noté depuis le 23 novembre 2026, avant seuls ceux encore conservés, ce que la console dit sous le
+    critère). Claude Code a les mêmes (`replied_within_days`, `clicked_within_days`, `clicked_without_reply_days`). Elle
+    marche dans tous les espaces. Si l'espace a une boutique Shopify, un volet **Shopify** (2026-11-23), replié par défaut et ouvert dès
     qu'un de ses critères est posé, filtre par **commandes payées** (au moins, au plus, sur les N derniers jours ou
     depuis le début du suivi), par **dépense** (même forme, dans la devise de la boutique) et par **dernière commande**
     (il y a au moins ou au plus N jours). Depuis le 2026-11-23 (lot 3), il filtre aussi par **produit acheté** : « a

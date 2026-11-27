@@ -164,6 +164,56 @@ test.describe('Contacts : les filtres d’achats et d’activité', () => {
 });
 
 /**
+ * « A ÉCRIT », « A CLIQUÉ », « A CLIQUÉ SANS JAMAIS ÉCRIRE » (segments Shopify enrichis, lot 7c) : dans « Achats et
+ * activité », sans boutique. 🔴 Proposés seulement si l'API les annonce (`reponsesCompletesDepuis`) ; une saisie hors
+ * bornes n'envoie rien.
+ */
+test.describe('Contacts : la réponse et le clic séparés', () => {
+  test.use({ viewport: TREIZE_POUCES });
+  const ANNONCE = { ...SANS_BOUTIQUE, reponsesCompletesDepuis: '2026-11-23' };
+
+  test('🔴 sans l’annonce de l’API : aucun des trois', async ({ page }) => {
+    await mock(page, SANS_BOUTIQUE);
+    await ouvrir(page);
+    await expect(page.getByTestId('filtre-actif-jours')).toBeVisible();
+    await expect(page.getByTestId('filtres-reponse-clic')).toHaveCount(0);
+  });
+
+  test('🔴 chacun part à l’API sous sa clé, sans boutique, et la note dit depuis quand chaque message est noté', async ({ page }) => {
+    const requetes = await mock(page, ANNONCE);
+    await ouvrir(page);
+    await expect(page.getByTestId('filtres-shopify')).toHaveCount(0);
+    await expect(page.getByTestId('note-reponses-completes')).toContainText('23 novembre 2026');
+    await page.getByTestId('filtre-reponse-jours').fill('7');
+    await expect.poll(() => requetes.some((q) => segments(q).segment_reponse === '7')).toBe(true);
+    await page.getByTestId('filtre-clic-jours').fill('30');
+    await expect.poll(() => requetes.some((q) => segments(q).segment_clic === '30')).toBe(true);
+    await page.getByTestId('filtre-clic-sans-reponse-jours').fill('14');
+    await expect.poll(() => requetes.some((q) => segments(q).segment_clic_sans_reponse === '14')).toBe(true);
+    // Les trois se cumulent dans la même requête.
+    expect(segments(requetes.at(-1)!)).toMatchObject({ segment_reponse: '7', segment_clic: '30', segment_clic_sans_reponse: '14' });
+    // Vider le champ retire le critère, et lui seul.
+    await page.getByTestId('filtre-clic-jours').fill('');
+    await expect.poll(() => !('segment_clic' in segments(requetes.at(-1)!))).toBe(true);
+    expect(segments(requetes.at(-1)!)).toMatchObject({ segment_reponse: '7', segment_clic_sans_reponse: '14' });
+    await pasDeDebordement(page);
+  });
+
+  test('🔴 une saisie hors bornes n’envoie rien : le dernier critère valide reste', async ({ page }) => {
+    const requetes = await mock(page, ANNONCE);
+    await ouvrir(page);
+    await page.getByTestId('filtre-clic-sans-reponse-jours').fill('30');
+    await expect.poll(() => requetes.some((q) => segments(q).segment_clic_sans_reponse === '30')).toBe(true);
+    await page.getByTestId('filtre-clic-sans-reponse-jours').fill('0');
+    await page.getByTestId('filtre-clic-sans-reponse-jours').fill('4000');
+    await page.getByTestId('filtre-reponse-jours').fill('7');
+    await expect.poll(() => requetes.some((q) => segments(q).segment_reponse === '7')).toBe(true);
+    expect(requetes.some((q) => ['0', '4000'].includes(segments(q).segment_clic_sans_reponse ?? ''))).toBe(false);
+    expect(segments(requetes.at(-1)!).segment_clic_sans_reponse).toBe('30');
+  });
+});
+
+/**
  * LES CRITÈRES PRODUIT DU VOLET (segments Shopify enrichis, lot 3) : choisis parmi les produits déjà commandés, ils
  * partent à l'API dans `fields`. 🔴 L'exclusion n'est jamais seule, et une API qui ne les annonce pas n'en voit aucun.
  */

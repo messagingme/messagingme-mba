@@ -15,7 +15,7 @@ import { MIDI_ETIQUETTES, monterEtiquettes } from './etiquettes-faux';
 import { csvLent, retardPendant } from './boucle';
 import { LimiteOffreError } from '../src/offres/refus';
 import { DROITS, type Fonction } from '../src/offres/offres';
-import { ACTIVITE_COMPLETE_DEPUIS } from '../src/crm/segments';
+import { ACTIVITE_COMPLETE_DEPUIS, REPONSES_COMPLETES_DEPUIS } from '../src/crm/segments';
 import { CLES_SEGMENT, filtreSegment } from '../web/lib/partage/segments';
 
 const SECRET = 'test-secret';
@@ -255,6 +255,8 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
+      // 🔴 L'annonce de « a écrit », « a cliqué », « a cliqué sans jamais écrire » (lot 7c), avec la profondeur des réponses.
+      reponsesCompletesDepuis: REPONSES_COMPLETES_DEPUIS,
       // 🔴 L'annonce des critères produit (lot 3) : sans elle, la console ne les propose pas.
       produits: true,
       // 🔴 Et celle du critère de collection (lot 6a), de même.

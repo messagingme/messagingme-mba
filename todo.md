@@ -550,15 +550,19 @@ Les trois lots sont en ligne le 2026-11-24 (`9724f73e3`, `e54094364`, `38c6eec3a
 - La console jette `expedieeLe` (`lireCommande`, `web/lib/achats-shopify.ts`) : l'onglet Shopify de la fiche pourrait
   dire « expédiée le … ».
 
+## 🟡 Segments Shopify, lot 7c (« a écrit », « a cliqué », « sans jamais écrire ») : la relecture (2026-11-27, aucun rouge)
+
+Pris dans le lot : les dates rendues à Claude (chaque critère la sienne), le manuel, un commentaire, le plan. Restent :
+- **Une écriture ratée de la réponse classe à tort dans « a cliqué sans jamais écrire »** : `noterActivite` est au
+  mieux (journalisé `activite_non_notee`) ; sur l'unique message d'un contact, `derniere_reponse_le` resterait vide. La
+  clause pourrait vérifier aussi l'absence de message entrant conservé, comme `ficheNeeDeShopifySansWhatsapp`.
+- **La fiche « Lancer une campagne »** décrit encore « Achats et activité » comme « actifs ou inactifs » : incomplet, pas
+  faux. ⚠️ Son étape 4 frôle les 2 000 caractères (`decouperFiche`) : la phrase va dans une section à part.
+
 ## 🟡 Segments Shopify : ce que la feuille de route n'a pas porté (relevé le 2026-11-26, chantier fini)
 
 La feuille de route de la spec (`docs/superpowers/specs/2026-11-21-segments-shopify-enrichis.md`, lots 1 à 7) est
 livrée. En la relisant contre la spec entière, ceci n'est entré dans aucun lot :
-- **Les trois critères Pro du chantier 7 (« Pro, léger, coût IA nul »)** : « a répondu dans les N jours », « a cliqué un
-  lien suivi dans les N jours », « a cliqué dans les N jours et n'a jamais répondu », dans « Achats et activité » et en MCP
-  (`replied_within_days`, `clicked_within_days`, `clicked_without_reply_days`, bornes de `BORNES_SEGMENTS`). Les deux
-  dates existent depuis le lot 4 (`derniere_reponse_le`, `dernier_clic_le`) ; seuls les boutons sans période sont
-  livrés. Le lot 7 de la feuille de route a pris le rattrapage sur 24 mois et le rapport à l'analyse, pas ces critères.
 - **Ce que la spec laisse « en attente »** : l'appartenance à une collection au jour du paiement, l'historique des
   analyses (la fiche n'en garde qu'une), une intention « délai de livraison », la copie automatique des étiquettes Shopify
   vers les étiquettes Messaging Me. (Les remboursements déduits sont déjà plus bas, § Shopify.)

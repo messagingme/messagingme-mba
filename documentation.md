@@ -2150,7 +2150,14 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   les critères de segment et ne remplace que les siens. L'onglet « Shopify » de l'audience d'une campagne
   (`SourceAudience` `shopify`) est la liste de contacts, ce volet ouvert : `audienceParListe` (`web/lib/audience.ts`)
   décide du chargement et du compte pour `crm` et `shopify`, la création ne lit que filtres et sélection. L'outil MCP
-  refuse un critère de commande sans boutique, puisque « au plus 0 commande » y viserait tout l'espace.
+  refuse un critère de commande sans boutique, puisque « au plus 0 commande » y viserait tout l'espace. « A écrit »
+  (`segment_reponse`) et « a cliqué » (`segment_clic`, segments Shopify enrichis, lot 7c) lisent `derniere_reponse_le` et
+  `dernier_clic_le` (0312), un nombre de jours chacun, sans boutique ; 🔴 « a cliqué sans jamais écrire »
+  (`segment_clic_sans_reponse`) exige `derniere_reponse_le is null`, jamais « rien depuis N jours ». Les réponses ne sont
+  complètes que depuis `REPONSES_COMPLETES_DEPUIS` (avant, 0312 n'a lu que les messages encore conservés) : la console
+  le dit sous le critère, l'outil par `reply_complete_since` pour les deux critères qui lisent la réponse ; les clics,
+  conservés `TRACKED_CLICKS_RETENTION_DAYS`, le sont depuis leur début. La console ne les offre que sur
+  `reponsesCompletesDepuis` de `GET .../contacts/segments`.
 - 🔴 **Le déclencheur « un champ d'analyse devient » (`analyse_devient`) naît de la copie, jamais d'un balayage.**
   `save` rend la copie faite (ancienne et nouvelle valeurs, lues dans sa transaction), le job d'analyse la passe
   au point de sortie (`AnalyseTerminee`, un type à part de `StoredConversationAnalysis`, contrat de la poussée
