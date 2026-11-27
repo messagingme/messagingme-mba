@@ -92,12 +92,15 @@ describe('sources externes : déclarer', () => {
     expect(cap.creations).toEqual([]);
   });
 
-  it('🔴 une authentification incohérente est refusée avant la base', async () => {
-    // La contrainte de la 0088 refuserait de toute façon, mais en 500, dont Cloudflare remplace le corps.
-    const { srv } = app();
-    expect((await srv.inject({ method: 'POST', url: base(), ...h(adminTok), payload: corps({ authSecret: undefined }) })).statusCode).toBe(400);
+  it('🔴 une authentification incohérente est refusée avant la base ; la clé seule peut attendre (brouillon, 0331)', async () => {
+    // La contrainte de la base refuserait de toute façon, mais en 500, dont Cloudflare remplace le corps.
+    const { srv, cap } = app();
     expect((await srv.inject({ method: 'POST', url: base(), ...h(adminTok), payload: corps({ authKind: 'header', authSecret: 'x' }) })).statusCode).toBe(400);
     expect((await srv.inject({ method: 'POST', url: base(), ...h(adminTok), payload: corps({ authKind: 'none', authSecret: undefined }) })).statusCode).toBe(201);
+    // Sans la clé (déclaré depuis Claude, B10, livraison 4a) : créé, il naît en brouillon, et ne s'activera pas sans elle.
+    expect((await srv.inject({ method: 'POST', url: base(), ...h(adminTok), payload: corps({ authSecret: undefined }) })).statusCode).toBe(201);
+    expect(cap.creations.at(-1)).toMatchObject({ authKind: 'bearer' });
+    expect(cap.creations.at(-1)).not.toHaveProperty('authSecret');
   });
 
   it('un libellé en double rend 409, pas 500', async () => {
@@ -124,6 +127,12 @@ describe('sources externes : modifier', () => {
     // Mais une source SANS secret ne peut pas passer en bearer sans en fournir un.
     const sans = app({ authKind: 'none', aAuthentification: false });
     expect((await sans.srv.inject({ method: 'PATCH', url: `${base()}/${SRC}`, ...h(adminTok), payload: { authKind: 'bearer' } })).statusCode).toBe(400);
+    // En brouillon, la clé attend (0331) : il se corrige, mais il ne s'active pas sans elle ; avec elle, dans le même geste, oui.
+    const brouillon = app({ authKind: 'bearer', aAuthentification: false, status: 'draft' });
+    const url = `${base()}/${SRC}`;
+    expect((await brouillon.srv.inject({ method: 'PATCH', url, ...h(adminTok), payload: { label: 'ERP v2' } })).statusCode).toBe(200);
+    expect((await brouillon.srv.inject({ method: 'PATCH', url, ...h(adminTok), payload: { status: 'active' } })).statusCode).toBe(400);
+    expect((await brouillon.srv.inject({ method: 'PATCH', url, ...h(adminTok), payload: { status: 'active', authSecret: 'jeton' } })).statusCode).toBe(200);
   });
 
   it('une adresse refusée l’est aussi en modification', async () => {

@@ -24,6 +24,8 @@ export const LISTES = {
   campagnes: '/campaigns',
   champs: '/fields',
   cles: '/developers/keys',
+  /** Tools > Connecteurs API : les systèmes que les agents appellent, où la personne colle une clé (B10, livraison 4a). */
+  connecteurs: '/connecteurs',
   contacts: '/contacts',
   /** Contenu > Étiquettes (lot 1 du CSM virtuel, B10). */
   etiquettes: '/tags',

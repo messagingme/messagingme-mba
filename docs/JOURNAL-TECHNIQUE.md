@@ -5,6 +5,52 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, livraison 4a) : Claude déclare les systèmes connectés des agents, sans jamais voir leur clé
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 4 (les connecteurs), premier temps (4a,
+les systèmes) ; les appels (4b, avec le branchement d'un appel à un agent) et les serveurs MCP (4c) suivent.
+
+**Cinq outils, les offres qui ont la console, comme la page Connecteurs API** (`src/mcp/outils-connecteurs.ts`) : lister
+les systèmes (`list_connector_systems`), en déclarer un (`create_connector_system`), le modifier, l'activer ou le
+désactiver (`update_connector_system`), l'éprouver par un appel réel (`test_connector_system`) et le supprimer
+(`delete_connector_system`), tous au nom d'une personne (la liste comprise : une sortie vers un tiers se lit comme la
+liste des webhooks). Les logiques des routes sont extraites (`creerSystemeHttp`, `modifierSystemeHttp`,
+`supprimerSystemeHttp`, `eprouverSystemeHttp`, `systemesHttp`, `connecteurHttp`) ; la route et l'outil passent par
+elles, trace d'audit comprise, et un seul objet de dépendances les sert dans le câblage.
+
+**🔴 La clé ne passe jamais par Claude.** Aucun outil ne la prend, une clé proposée est refusée (jusque dans la connexion
+OAuth) ; un système se déclare sans elle, en brouillon, et la personne la colle sur la page Connecteurs API (le système
+déplié, « Nouveau jeton », puis « Remplacer »), puis clique « Activer ». La règle du service change pour cela : la clé
+n'est exigée que d'un système ACTIF, sur son statut effectif après écriture (un serveur MCP la garde exigée à la
+création), et la migration **0331** relâche `agent_tool_sources_auth_chk` de la même façon : un système actif sans clé
+reste refusé par la base. `migration=avant` : l'ancien code y survit, il n'écrit jamais de ligne sans clé. Seul changement
+de comportement des routes : une création ou un patch d'un système non actif sans clé est accepté (la console envoie
+toujours la clé à la création). La page montre désormais, sous le champ du secret, l'adresse vers laquelle il partira ;
+l'épreuve et le Test d'un appel disent qu'aucun secret n'est enregistré au lieu d'appeler sans authentification.
+
+**🔴 Une adresse ne change jamais depuis Claude.** L'adresse d'un système et celle de son jeton OAuth se posent à la
+déclaration, puis se changent dans la console seule, comme celle d'un webhook ; retirer la clé d'un système (passer en
+`none`) se fait aussi dans la console. Une consigne glissée dans une conversation que Claude lit ne peut donc ni détourner
+une clé, ni rediriger les données que les agents envoient.
+
+Cinq routes quittent les `aFaire` de la parité ; les tarifs comptent 140 outils en Pro. La description de `send_message`
+dit désormais qu'il ouvre un formulaire WhatsApp (`flow`), que l'API accepte depuis le lot du pair Hyundai.
+
+**La relecture indépendante : un rouge, corrigé avant de pousser.** Tant qu'aucun mot de passe n'était enregistré,
+Claude pouvait fixer l'adresse du jeton OAuth, que la page ne montrait que dans « Modifier », jamais là où le mot de passe
+se colle : une consigne injectée l'aurait fait partir vers un tiers. D'où les deux règles ci-dessus (l'adresse posée une
+fois ; la page qui montre où part le secret). Corrigés aussi : la clé qu'un passage en `none` détruisait en silence, la
+liste ouverte à une clé d'API, une clé glissée dans `oauth` jetée au lieu d'être refusée, des messages faux sur un
+brouillon sans clé, des textes inexacts, deux trous de tests. Le reste est au `todo.md`.
+
+Preuves : 28 mutations nommées, toutes rouges, dont six sur la migration jouées au banc PGlite (sans effet, trop large,
+pour chaque mode). Le banc joue aussi toute la suite d'intégration avec 0331 : ses 34 échecs (des tests de
+concurrence et de pg-boss qu'une session unique ne sait pas jouer, et un code d'erreur propre à PostgreSQL 18) sont les
+mêmes, test pour test, sans la livraison. Dans la copie de travail : typecheck et
+lint, l'auto-attaque, la suite racine et celle de la console, puis, après les corrections de la relecture, typecheck,
+lint et les tests touchés ; sur l'arbre fusionné avec les pairs, avant le push :
+typecheck, lint, auto-attaque, les tests ciblés et la suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, livraison 3b) : Claude supprime un agent au oui et retire l'autonomie d'un outil
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 3 (l'agent IA), second temps (3b). Le

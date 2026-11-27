@@ -5471,6 +5471,11 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | set_ai_disclosure | mcp:write OAuth connection required | Set how often the AI agents say they are an AI. |
 | get_agent_usage | mcp:read | What an AI agent consumed over 30 days: conversations, cost, messages. |
 | delete_agent | mcp:write OAuth connection required | Prepare the deletion of an AI agent; nothing goes before an admin clicks, and nothing brings it back. |
+| list_connector_systems | mcp:read OAuth connection required | The systems your AI agents call (CRM, ERP, booking tool): address, authentication mode, status. |
+| create_connector_system | mcp:write OAuth connection required | Declare a system your AI agents will call; its key is pasted in the console, never in Claude. |
+| update_connector_system | mcp:write OAuth connection required | Change, activate or disable a connected system; only what is given changes. |
+| delete_connector_system | mcp:write OAuth connection required | Delete a connected system, with its key; refused while active tools depend on it. |
+| test_connector_system | mcp:write OAuth connection required | Test a connected system: a real call, and whether it answers. |
 
 ### Agent knowledge
 

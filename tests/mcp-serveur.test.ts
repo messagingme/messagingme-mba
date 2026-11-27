@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -144,7 +144,7 @@ function app(
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
-    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes,
+    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
@@ -903,6 +903,12 @@ describe('serveur MCP : cohérence du catalogue', () => {
       update_agent_tool: [true, true, false],
       // Supprimer un agent (B10, livraison 3b) : chaque appel prépare un bouton de plus, rien ne part avant le clic.
       delete_agent: [true, false, false],
+      // Les systèmes connectés (B10, livraison 4a) : déclarer en crée un de plus ; modifier et supprimer reposent un état ;
+      // l'épreuve appelle pour de vrai le système du client.
+      create_connector_system: [true, false, false],
+      update_connector_system: [true, true, false],
+      delete_connector_system: [true, true, false],
+      test_connector_system: [true, true, true],
       set_ai_disclosure: [true, true, false],
       update_knowledge: [true, true, false],
       // Les limites d'une conversation (2026-10-23) : elles remplacent celles d'avant ; les rejouer ne change rien.
@@ -1211,6 +1217,10 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   simulate_scenario: 'scenarios',
   // Le lien de test et le déroulé (CSM, B6b) : des scénarios ; les deux journaux d'erreurs, ouverts comme dans la console.
   get_scenario_test_link: 'scenarios', get_contact_journey: 'scenarios',
+  // Les systèmes connectés des agents (CSM, B10, livraison 4a) : la fonction console, comme leurs routes ; la Free n'a pas
+  // la page où la clé se colle.
+  list_connector_systems: 'console', create_connector_system: 'console', update_connector_system: 'console',
+  delete_connector_system: 'console', test_connector_system: 'console',
 };
 
 describe('serveur MCP : les outils et l’offre (lot 6, B2a)', () => {

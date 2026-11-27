@@ -497,6 +497,14 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupp
               {t('Remplacer', 'Replace')}
             </Bouton>
           </div>
+          {/* 🔴 Où ce secret partira, sous les yeux de la personne qui le colle (B10, livraison 4a) : l'adresse d'un système
+              déclaré depuis Claude n'a encore été vue par personne, et une consigne glissée dans une conversation pourrait
+              l'avoir choisie. Un mot de passe OAuth part vers l'adresse du jeton, une clé vers l'adresse de base. */}
+          <p className="text-xs text-ink-700" data-testid={`source-secret-destination-${source.id}`}>
+            {source.authKind === 'oauth_password'
+              ? t(`Ce mot de passe sera envoyé à ${source.oauth?.tokenUrl ?? ''} pour obtenir le jeton.`, `This password will be sent to ${source.oauth?.tokenUrl ?? ''} to get the token.`)
+              : t(`Ce secret sera envoyé à ${source.baseUrl} avec chaque appel.`, `This secret will be sent to ${source.baseUrl} with each call.`)}
+          </p>
           <p className="text-xs text-ink-500" data-testid={`source-secret-aide-${source.id}`}>
             {source.aAuthentification
               ? t('Ce champ part toujours vide : un secret ne se relit jamais, pas même par nous. Le vôtre est bien enregistré. Tapez le nouveau, puis « Remplacer ».',

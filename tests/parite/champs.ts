@@ -11,6 +11,9 @@ import { saisieDEssai } from '../../src/agent/essai';
 import { saisieDeDocument, saisieDeFiche, saisieDePatchDeFiche, saisieDeSite, saisieDeSuppression } from '../../src/agent/connaissance';
 import { saisieCreation as creationAdresse, saisieModification as modificationAdresse } from '../../src/evenements/gestion';
 import { saisieDePaiement } from '../../src/stripe/paiement';
+import {
+  creationSchema as creationSysteme, epreuveSchema as epreuveSysteme, patchSchema as patchSysteme,
+} from '../../src/http/agent-sources';
 import { saisieAchatWhatsapp } from '../../src/stripe/achat-whatsapp';
 import { saisieDeCreation as creationWidget, saisieDeModification as modificationWidget } from '../../src/widgets/gestion';
 import type { Correspondance } from './schemas';
@@ -46,6 +49,13 @@ const A_LA_MAIN: Corps = { aLaMain: 'corps lu sans schéma : son schéma d’éc
 /** Le schéma l'accepte, le service le refuse (`DEVENIR_AGENT_A_VENIR`, décision de Julien du 2026-10-02). */
 const DEVENIR_AGENT = { valeurs: ['agent'], raison: 'refusé par le service tant que le devenir « agent IA » est à venir (décision du 2026-10-02)' };
 
+/** Les noms d'un système connecté dans ses outils (B10, livraison 4a), en snake_case comme les autres arguments. */
+const NOMS_SYSTEME = {
+  baseUrl: 'base_url', authKind: 'auth', authHeaderName: 'auth_header_name', 'oauth.tokenUrl': 'oauth.token_url', 'oauth.clientId': 'oauth.client_id',
+};
+const CLE_ABSENTE = '🔴 la clé ne passe jamais par Claude : la personne la colle sur la page Connecteurs API, puis active le système (0331)';
+const ADRESSE_ABSENTE = '🔴 l’adresse d’un système et celle de son jeton se posent à la déclaration, puis se changent dans la console seule, comme celle d’un webhook';
+
 export const CHAMPS: Readonly<Record<string, Corps>> = {
   // Les outils de l'agent IA
   'POST /agents/:agentId/tools': { schema: ajoutSchema, noms: { handler: 'outils[]' } },
@@ -62,6 +72,15 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'DELETE /agents/:agentId/tools/:outilId': SANS_CORPS,
   // Supprimer un agent (B10, livraison 3b) : au oui d'un admin, préparé par `delete_agent`.
   'DELETE /agents/:agentId': SANS_CORPS,
+
+  // Les systèmes connectés des agents (B10, livraison 4a) : 🔴 la clé ne passe jamais par Claude.
+  'POST /agent-sources': { schema: creationSysteme, noms: NOMS_SYSTEME, absents: { authSecret: CLE_ABSENTE } },
+  'PATCH /agent-sources/:id': {
+    schema: patchSysteme, noms: NOMS_SYSTEME,
+    absents: { authSecret: CLE_ABSENTE, baseUrl: ADRESSE_ABSENTE, oauth: ADRESSE_ABSENTE },
+  },
+  'DELETE /agent-sources/:id': SANS_CORPS,
+  'POST /agent-sources/:id/epreuve': { schema: epreuveSysteme, noms: { chemin: 'path' } },
 
   // Shopify
   'DELETE /integrations/shopify': SANS_CORPS,

@@ -23,6 +23,9 @@ const INTERNE = 'cette adresse n est pas joignable depuis notre infrastructure';
  * avant qu'un contact ne le découvre. Passe par les mêmes gardes que le résolveur (`construireCible`), sinon
  * l'épreuve validerait une adresse que l'appel refusera.
  */
+/** Un système déclaré sans sa clé (0331) : rien ne part, et l'épreuve le dit. */
+const SANS_SECRET = 'aucun secret enregistré : collez-le sur la page Connecteurs API, puis éprouvez à nouveau';
+
 export function creerEprouverSource(deps: EprouverSourceDeps): (tenant: string, id: string, chemin: string) => Promise<ResultatEpreuve> {
   const transportHttp = deps.transportHttp ?? transportConnecteurHttp;
   const jetons = deps.jetons ?? jetonsOAuth;
@@ -33,6 +36,12 @@ export function creerEprouverSource(deps: EprouverSourceDeps): (tenant: string, 
     if (!src || src.kind !== 'http') return { ok: false, erreur: 'source introuvable' };
     const cible = construireCible({ baseUrl: src.baseUrl, binding: { methode: 'GET', chemin }, args: {} });
     if (!cible.ok) return { ok: false, erreur: cible.raison };
+    // Sans sa clé (un brouillon déclaré depuis Claude, B10, livraison 4a), rien ne part : l'épreuve le dit au lieu
+    // d'appeler sans authentification, ou de prendre le mot de passe absent pour un refus du serveur d'autorisation.
+    if (src.authKind !== 'none' && !src.authSecret) {
+      await deps.sources.marquerEpreuve(tenant, id, false, SANS_SECRET);
+      return { ok: false, erreur: SANS_SECRET };
+    }
     // Même construction d'en-têtes que l'appel réel, sinon l'épreuve dirait « ça répond » d'une source que
     // les appels ne savent pas authentifier.
     const auth = await jetons.entetes(src);

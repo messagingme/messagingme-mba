@@ -42,6 +42,7 @@ describe('contrat commun des sources d outils', () => {
       authKind: 'none' as const,
       authHeaderName: null, oauth: null,
       aAuthentification: true,
+      status: 'active' as const,
     };
 
     expect(preparerPatchSource(actuelle, { authKind: 'bearer' })).toEqual({
@@ -54,12 +55,36 @@ describe('contrat commun des sources d outils', () => {
       .toMatchObject({ ok: false, motif: 'secret_requis' });
   });
 
+  it('🔴 la clé peut attendre tant que le système n’est pas actif (déclaré depuis Claude, B10, livraison 4a, 0331)', () => {
+    // À la création, seulement quand la route le dit (un connecteur HTTP naît en brouillon) ; sans l'option, exigée.
+    expect(preparerCreationSource({ baseUrl: 'https://api.client.fr/v1', authKind: 'bearer' }, { cleDifferee: true }))
+      .toEqual({ ok: true, hote: 'api.client.fr' });
+    expect(preparerCreationSource({ baseUrl: 'https://api.client.fr/v1', authKind: 'bearer' })).toMatchObject({ ok: false, motif: 'secret_requis' });
+    // La structure, elle, ne s'attend pas.
+    expect(preparerCreationSource({ baseUrl: 'https://api.client.fr/v1', authKind: 'header' }, { cleDifferee: true }))
+      .toMatchObject({ ok: false, motif: 'entete_requis' });
+    const brouillon = {
+      baseUrl: 'https://api.client.fr/v1', authKind: 'bearer' as const, authHeaderName: null, oauth: null,
+      aAuthentification: false, status: 'draft' as const,
+    };
+    expect(preparerPatchSource(brouillon, {}).ok).toBe(true);
+    // S'activer sans sa clé : refusé ; la clé et l'activation dans le même geste : accepté.
+    expect(preparerPatchSource(brouillon, { status: 'active' })).toMatchObject({ ok: false, motif: 'secret_requis' });
+    expect(preparerPatchSource(brouillon, { status: 'active', authSecret: 'jeton' }).ok).toBe(true);
+    // Un système ACTIF garde l'exigence : rien ne change pour la console.
+    expect(preparerPatchSource({ ...brouillon, status: 'active' }, {})).toMatchObject({ ok: false, motif: 'secret_requis' });
+    // Vers OAuth sans secret enregistré : aucun ne changerait de rôle, rien à ressaisir.
+    const oauth = { tokenUrl: 'https://auth.client.fr/token', clientId: 'api', username: 'demo', scope: '' };
+    expect(preparerPatchSource(brouillon, { authKind: 'oauth_password', oauth }).ok).toBe(true);
+  });
+
   it('calcule l en-tête effectif et les seuls faits utiles au journal', () => {
     const actuelle = {
       baseUrl: 'https://api.client.fr/v1',
       authKind: 'header' as const,
       authHeaderName: 'X-Api-Key', oauth: null,
       aAuthentification: true,
+      status: 'active' as const,
     };
 
     expect(preparerPatchSource(actuelle, { authHeaderName: null })).toMatchObject({

@@ -6592,8 +6592,9 @@ chemin pour elle. Chacun devient un outil, qui appelle la fonction du bouton de 
   échangez avec un assistant automatique. » et « You are chatting with an automated assistant. ». `get_agent` dit
   laquelle ; un texte libre se règle toujours dans la console.
 - **Les réglages d'un agent IA** (2026-11-27, toutes les offres, comme ses onglets) : la bibliothèque d'outils de
-  l'espace et ce qu'un agent peut encore recevoir (`list_agent_tool_library`) ; rattacher, détacher, activer ou
-  désactiver un de ses outils (`update_agent_tool`, au nom de la personne, seul ce qui est donné change) ; modifier une
+  l'espace et ce qu'un agent peut encore recevoir (`list_agent_tool_library`) ; rattacher, activer ou désactiver un de
+  ses outils (`update_agent_tool`, au nom de la personne, seul ce qui est donné change ; le détachement, qui peut
+  détruire une action et son historique, reste un geste confirmé dans la console) ; modifier une
   fiche de connaissance (`update_knowledge`) ; relire ses derniers essais (`list_agent_tests`) et ce qu'il a consommé sur
   30 jours (`get_agent_usage`) ; qui a changé quoi dans ses réglages ou dans ceux de l'agent de Meta
   (`get_settings_history`) ; et la fréquence à laquelle les agents disent qu'ils sont une IA, lue et réglée comme dans
@@ -6603,6 +6604,16 @@ chemin pour elle. Chacun devient un outil, qui appelle la fonction du bouton de 
   d'un agent (`delete_agent`) : comme une suppression de contacts, elle passe par le bouton qu'un administrateur clique
   dans la console, après avoir lu ce qui part avec lui (ses conversations, ses outils, sa connaissance, les blocs de
   scénario qui l'utilisent, son rôle de répondeur).
+- **Les systèmes connectés des agents** (2026-11-27, les offres qui ont la console, comme la page Connecteurs API) : les
+  lister (`list_connector_systems`), en déclarer un (`create_connector_system`), le modifier, l'activer ou le désactiver
+  (`update_connector_system`, seul ce qui est donné change), l'éprouver par un appel réel (`test_connector_system`) et le
+  supprimer (`delete_connector_system`, refusé tant que des outils actifs ou des appels en dépendent), chaque écriture
+  au nom de la personne. 🔴 Sa clé ne passe jamais par Claude : le système se déclare en brouillon, et la personne colle
+  la clé sur la page Connecteurs API (le système déplié, « Nouveau jeton », puis « Remplacer »), puis clique « Activer » ;
+  un système actif sans clé est refusé, jusque dans la base. La page montre, sous le champ du secret, l'adresse vers
+  laquelle il partira (l'adresse du jeton pour un mot de passe). Depuis Claude, l'adresse d'un système et celle de son
+  jeton se posent à la déclaration et ne changent plus, comme celle d'un webhook : elles se changent dans la console, où
+  se retire aussi une clé.
 - `get_messages` rend l'identifiant de chaque message, que `get_message_status` lit.
 
 **Les garde-fous.** Tous exigent la connexion de Claude, sauf la main du fil. Corriger et supprimer un modèle comptent

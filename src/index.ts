@@ -2465,6 +2465,13 @@ async function main(): Promise<void> {
     },
   };
 
+  /**
+   * Les systèmes connectés des agents : les MÊMES dépendances pour leurs routes et pour leurs outils MCP (B10, livraison
+   * 4a). Éprouver une source : un appel réel, le résultat écrit sur la ligne. Ses gardes (nature de la source, adresse
+   * vérifiée avant l'appel et à la connexion, redirection refusée) vivent dans `src/agent/eprouver-source.ts`, testé à part.
+   */
+  const depsSystemesApi = { audit: auditSink, sources: agentSources, eprouver: creerEprouverSource({ sources: agentSources }) };
+
   const app = buildServer({
     /**
      * 🔴 Le compteur des plafonds de débit, PARTAGÉ par toutes les copies de l'API (migration 0186). Oublié,
@@ -3486,14 +3493,7 @@ async function main(): Promise<void> {
     },
     // Les sources externes d'outils : l'adresse de base du système du client, son mode d'authentification et
     // son secret. Le secret est chiffré par le store, et aucune route ne le rend.
-    agentSources: {
-      audit: auditSink,
-      sources: agentSources,
-      // Éprouver une source : un appel réel, le résultat écrit sur la ligne. Ses gardes (nature de la source,
-      // adresse vérifiée avant l'appel et à la connexion, redirection refusée) vivent dans
-      // `src/agent/eprouver-source.ts`, testé à part.
-      eprouver: creerEprouverSource({ sources: agentSources }),
-    },
+    agentSources: depsSystemesApi,
     // Les requêtes de connecteur : un appel mis au point une fois dans la bibliothèque, que l'outil d'un
     // agent désigne au lieu de le redécrire.
     agentRequetes: {
@@ -3505,6 +3505,11 @@ async function main(): Promise<void> {
        */
       sourcePourTest: async (tenant, sourceId) => {
         const src = await agentSources.pourAppel(tenant, sourceId);
+        // Sans sa clé (un brouillon déclaré depuis Claude, B10, livraison 4a), l'essai le dit au lieu de partir sans
+        // authentification, ou de prendre le mot de passe absent pour un refus du serveur d'autorisation.
+        if (src && src.kind === 'http' && src.authKind !== 'none' && !src.authSecret) {
+          return { baseUrl: src.baseUrl, entetes: {}, status: src.status, erreurAuth: 'aucun secret enregistré sur ce connecteur : collez-le sur la page Connecteurs API' };
+        }
         /**
          * 🔴 `kind === 'http'` : la route de test prend `sourceId` dans le corps, et sans ce filtre un
          * administrateur pourrait y passer l'identifiant d'un serveur MCP et faire partir une requête de sa
@@ -4327,6 +4332,8 @@ async function main(): Promise<void> {
         mentionIa: settingsStore,
         agentsConformite: agentStore,
         sessionsAgents: agentSessions,
+        // Les systèmes connectés des agents (B10, livraison 4a) : les MÊMES dépendances que leurs routes.
+        systemesApi: depsSystemesApi,
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),

@@ -72,9 +72,13 @@ function verifierAuthentification(
   aSecret: boolean,
   authHeaderName: string | null | undefined,
   oauth: ConfigOAuth | null | undefined,
+  cleExigee: boolean,
 ): RefusConfigurationSource | null {
   if (authKind === 'none') return null;
-  if (!aSecret) return refuser('secret_requis');
+  // La clé peut attendre tant que le système n'est pas actif (B10, livraison 4a) : déclaré depuis Claude, qui ne la voit
+  // jamais, il reste en brouillon jusqu'à ce que la personne la colle sur la page Connecteurs. La structure, elle (le nom
+  // de l'en-tête, la configuration OAuth), ne s'attend pas.
+  if (!aSecret && cleExigee) return refuser('secret_requis');
   if (authKind === 'header' && !authHeaderName) return refuser('entete_requis');
   if (authKind === 'oauth_password') {
     if (!oauth || !oauth.tokenUrl || !oauth.clientId || !oauth.username) return refuser('oauth_requis');
@@ -90,10 +94,18 @@ export function preparerCreationSource(input: {
   authHeaderName?: string | null;
   oauth?: ConfigOAuth | null;
   authSecret?: string;
-}): PreparationCreationSource {
+}, options: {
+  /**
+   * La source naît en brouillon (un connecteur HTTP, défaut de 0088) et ne s'active qu'avec sa clé (`preparerPatchSource`) :
+   * elle peut se déclarer sans elle. Un serveur MCP la garde exigée (sa route ne passe pas l'option).
+   */
+  readonly cleDifferee?: boolean;
+} = {}): PreparationCreationSource {
   const adresse = verifierAdresseSource(input.baseUrl);
   if (!adresse.ok) return adresse;
-  const refusAuth = verifierAuthentification(input.authKind, Boolean(input.authSecret), input.authHeaderName, input.oauth);
+  const refusAuth = verifierAuthentification(
+    input.authKind, Boolean(input.authSecret), input.authHeaderName, input.oauth, options.cleDifferee !== true,
+  );
   return refusAuth ?? adresse;
 }
 
@@ -102,8 +114,8 @@ export function preparerCreationSource(input: {
  * et ne doit donc ni l'effacer ni refuser un changement de mode si la source en possède déjà un.
  */
 export function preparerPatchSource(
-  actuelle: Pick<SourceVue, 'baseUrl' | 'authKind' | 'authHeaderName' | 'aAuthentification' | 'oauth'>,
-  patch: Pick<PatchSource, 'baseUrl' | 'authKind' | 'authHeaderName' | 'authSecret' | 'oauth'>,
+  actuelle: Pick<SourceVue, 'baseUrl' | 'authKind' | 'authHeaderName' | 'aAuthentification' | 'oauth' | 'status'>,
+  patch: Pick<PatchSource, 'baseUrl' | 'authKind' | 'authHeaderName' | 'authSecret' | 'oauth' | 'status'>,
 ): PreparationPatchSource {
   let hote: string | null | undefined;
   if (patch.baseUrl !== undefined) {
@@ -117,9 +129,12 @@ export function preparerPatchSource(
   const aSecret = patch.authSecret !== undefined ? Boolean(patch.authSecret) : actuelle.aAuthentification;
   const versOuDepuisOAuth = authKind !== actuelle.authKind
     && (authKind === 'oauth_password' || actuelle.authKind === 'oauth_password');
-  if (versOuDepuisOAuth && authKind !== 'none' && !patch.authSecret) return refuser('oauth_mot_de_passe_requis');
+  // Sans secret enregistré (un brouillon déclaré sans sa clé), aucun ne changerait de rôle : rien à ressaisir.
+  if (versOuDepuisOAuth && authKind !== 'none' && !patch.authSecret && actuelle.aAuthentification) return refuser('oauth_mot_de_passe_requis');
   const oauth = patch.oauth !== undefined ? patch.oauth : (authKind === actuelle.authKind ? actuelle.oauth : null);
-  const refusAuth = verifierAuthentification(authKind, aSecret, authHeaderName, oauth);
+  // 🔴 La clé n'est exigée que d'un système ACTIF, sur son statut effectif après écriture : un brouillon déclaré sans elle
+  // se renomme ou se corrige, il ne s'active pas avant qu'elle soit collée.
+  const refusAuth = verifierAuthentification(authKind, aSecret, authHeaderName, oauth, (patch.status ?? actuelle.status) === 'active');
   if (refusAuth) return refusAuth;
 
   return {

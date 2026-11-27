@@ -54,6 +54,18 @@ describe('éprouver une source', () => {
     expect(m.epreuves).toEqual([{ ok: true, erreur: 'HTTP 200' }]);
   });
 
+  it('🔴 un système sans sa clé (un brouillon déclaré depuis Claude, 0331) : AUCUN appel, et l’épreuve le dit', async () => {
+    for (const source of [
+      { ...SOURCE, status: 'draft' as const, authSecret: null },
+      { ...SOURCE, status: 'draft' as const, authKind: 'oauth_password' as const, authSecret: null, oauth: { tokenUrl: 'https://auth.client.fr/token', clientId: 'api', username: 'demo', scope: '' } },
+    ]) {
+      const m = monter({ source });
+      expect(await m.eprouver('t1', 's1', '/ping')).toEqual({ ok: false, erreur: expect.stringMatching(/^aucun secret enregistré/) });
+      expect(m.appels).toEqual([]);
+      expect(m.epreuves).toEqual([{ ok: false, erreur: expect.stringMatching(/^aucun secret enregistré/) }]);
+    }
+  });
+
   it('un 401 se dit « authentification refusée », sur la ligne comme à l’écran', async () => {
     const m = monter({ reponse: async () => new Response('', { status: 401 }) });
     expect(await m.eprouver('t1', 's1', '/ping')).toEqual({ ok: false, httpStatus: 401, erreur: 'authentification refusee' });

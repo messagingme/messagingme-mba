@@ -5472,6 +5472,11 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | set_ai_disclosure | mcp:write connexion OAuth requise | Régler à quelle fréquence les agents IA disent qu’ils sont une IA. |
 | get_agent_usage | mcp:read | Ce qu’un agent IA a consommé sur 30 jours : conversations, coût, messages. |
 | delete_agent | mcp:write connexion OAuth requise | Préparer la suppression d’un agent IA ; rien ne part avant le clic d’un admin, et rien ne la rattrape. |
+| list_connector_systems | mcp:read connexion OAuth requise | Les systèmes que vos agents IA appellent (CRM, ERP, outil de réservation) : adresse, mode d’authentification, statut. |
+| create_connector_system | mcp:write connexion OAuth requise | Déclarer un système que vos agents IA appelleront ; sa clé se colle dans la console, jamais dans Claude. |
+| update_connector_system | mcp:write connexion OAuth requise | Modifier, activer ou désactiver un système connecté ; seul ce qui est donné change. |
+| delete_connector_system | mcp:write connexion OAuth requise | Supprimer un système connecté, avec sa clé ; refusé tant que des outils actifs en dépendent. |
+| test_connector_system | mcp:write connexion OAuth requise | Éprouver un système connecté : un appel réel, et s’il répond. |
 
 ### Connaissance de l’agent IA
 

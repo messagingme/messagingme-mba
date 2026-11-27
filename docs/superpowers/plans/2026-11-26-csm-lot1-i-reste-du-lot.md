@@ -83,6 +83,11 @@ des adresses et des champs (B1) passe chaque `aFaire` à son outil.
 Sans migration a priori (les outils appellent des services existants, et le oui garde ses actions dans
 `mises_en_ligne.actions`). Une livraison qui en demanderait une le dit dans son plan.
 
+La livraison 4a en demande une : 0331 relâche `agent_tool_sources_auth_chk` pour qu'un système connecté se déclare sans
+sa clé tant qu'il n'est pas actif (Claude ne voit jamais une clé ; la personne la colle sur la page Connecteurs API). Un
+système actif sans clé reste refusé par la base. `migration=avant` : l'ancien code y survit, il n'écrit jamais de ligne
+sans clé.
+
 ## Méthode de livraison
 
 Implémenteur par livraison, puis la relecture indépendante du diff avant chaque déploiement : la production emprunte ces

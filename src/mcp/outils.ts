@@ -46,6 +46,7 @@ import { OUTILS_CHAMPS, type DepsChampsMcp } from './outils-champs';
 import { OUTILS_FICHES, type DepsFichesMcp } from './outils-fiches';
 import { OUTILS_INBOX, type DepsInboxMcp } from './outils-inbox';
 import { OUTILS_AGENT_REGLAGES, type DepsAgentReglagesMcp } from './outils-agent-reglages';
+import { OUTILS_CONNECTEURS, type DepsConnecteursMcp } from './outils-connecteurs';
 import { OUTILS_SUPPRESSION, type DepsSuppressionMcp } from './outils-suppression';
 import { OUTILS_SHOPIFY } from './outils-shopify';
 import type { DepsGestionShopify } from '../shopify/gestion';
@@ -86,7 +87,7 @@ export type { ScopeMcp } from '../../web/lib/partage/catalogue-mcp';
 /** Les actions d'agent IA rendues par `get_conversation` : les plus récentes, la conversation en porte peu. */
 export const ACTIONS_DE_LA_CONVERSATION = 10;
 
-export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsAgentReglagesMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
+export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsAgentReglagesMcp, DepsConnecteursMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
   /**
@@ -808,7 +809,9 @@ export const OUTILS: OutilMcp[] = [
     description:
       'Sends a message in a conversation in META\'S FORMAT (the Cloud API message object, without recipient): text, '
       + 'image, video, audio, document (media through a public https URL, link), location, reaction, or interactive '
-      + '(button: 3 reply buttons at most; list; cta_url: one link button). ONLY within the 24-hour window '
+      + '(button: 3 reply buttons at most; list; cta_url: one link button; flow: opens a published WhatsApp Flow, by '
+      + 'flow_id or flow_name, version 3, with a flow_token, navigate only; the answers come back in nfm_reply). ONLY '
+      + 'within the 24-hour window '
       + '(get_conversation tells whether it is open). For plain text, reply_in_open_window is enough. Sending TAKES '
       + 'OVER the conversation, as with reply_in_open_window.',
     annotations: { title: 'Send a message in Meta\'s format', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
@@ -1216,6 +1219,7 @@ export const OUTILS: OutilMcp[] = [
   ...OUTILS_FICHES,
   ...OUTILS_INBOX,
   ...OUTILS_AGENT_REGLAGES,
+  ...OUTILS_CONNECTEURS,
   // Le connecteur Shopify (2026-10-21) : `src/mcp/outils-shopify.ts`.
   ...OUTILS_SHOPIFY,
   // Les chiffres de l'espace, pour les graphiques de Claude (2026-10-13) : leur fichier, `src/mcp/outils-chiffres.ts`.

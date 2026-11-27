@@ -136,7 +136,7 @@ describe('la configuration d’une source OAuth', () => {
   });
 
   it('passer vers ou depuis OAuth exige de ressaisir le secret (un mot de passe ne part jamais comme jeton)', () => {
-    const bearer = { baseUrl: 'https://api.exemple.com', authKind: 'bearer' as const, authHeaderName: null, aAuthentification: true, oauth: null };
+    const bearer = { baseUrl: 'https://api.exemple.com', authKind: 'bearer' as const, authHeaderName: null, aAuthentification: true, oauth: null, status: 'active' as const };
     expect(preparerPatchSource(bearer, { authKind: 'oauth_password', oauth })).toMatchObject({ ok: false, motif: 'oauth_mot_de_passe_requis' });
     expect(preparerPatchSource(bearer, { authKind: 'oauth_password', oauth, authSecret: 'x' }).ok).toBe(true);
     const enOAuth = { ...bearer, authKind: 'oauth_password' as const, oauth };

@@ -92,6 +92,13 @@ export const CATALOGUE_MCP = {
   get_agent_usage: { scope: 'mcp:read' },
   /** Supprimer un agent IA (B10, livraison 3b) : au oui d'un admin, préparé au nom d'une personne. */
   delete_agent: { scope: 'mcp:write', exigePersonne: true },
+  /** Les systèmes connectés des agents (B10, livraison 4a) : la clé ne passe jamais par Claude, les écritures signent. */
+  // Une sortie vers un tiers se lit au nom d'une personne, comme la liste des webhooks : adresses et identifiant OAuth.
+  list_connector_systems: { scope: 'mcp:read', exigePersonne: true },
+  create_connector_system: { scope: 'mcp:write', exigePersonne: true },
+  update_connector_system: { scope: 'mcp:write', exigePersonne: true },
+  delete_connector_system: { scope: 'mcp:write', exigePersonne: true },
+  test_connector_system: { scope: 'mcp:write', exigePersonne: true },
   activate_agent: { scope: 'mcp:write', exigePersonne: true },
   set_default_responder: { scope: 'mcp:write', exigePersonne: true },
   test_agent: { scope: 'mcp:write', exigePersonne: true },

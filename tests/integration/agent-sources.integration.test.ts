@@ -14,7 +14,7 @@ const url = process.env.DATABASE_URL ?? '';
  * 🔴 POURQUOI EN INTÉGRATION, ET PAS AVEC UN DOUBLE. Tout ce qui compte ici est du SQL ou de la cryptographie
  * au repos : que le secret soit RÉELLEMENT chiffré dans la colonne (un faux store dirait oui à tout), que les
  * projections publiques ne le sélectionnent jamais, que la contrainte d'authentification de la migration
- * refuse une source `bearer` sans secret, que deux clients soient étanches, et que supprimer une source
+ * refuse une source `bearer` ACTIVE sans secret (un brouillon l'attend, 0331), que deux clients soient étanches, et que supprimer une source
  * emporte ses outils.
  *
  * Jamais joué en local (le DATABASE_URL local pointe la PRODUCTION), joué par le job `integration`.
@@ -115,11 +115,22 @@ describe.skipIf(!url)('sources externes d outils (Postgres)', () => {
     expect((await sources.parId(tenantId, s.id))!.secretPublie).toBe(false);
   });
 
-  it('🔴 la base REFUSE une source « bearer » sans secret', async () => {
-    // Elle signerait avec une chaîne vide, et le système du client répondrait 401 qu'on mettrait sur le dos
-    // de ses identifiants.
-    await expect(sources.creer(tenantId, { kind: 'http', label: 'Sans jeton', baseUrl: 'https://api.client.fr/x', authKind: 'bearer' }))
-      .rejects.toThrow();
+  it('🔴 la base REFUSE une source « bearer » ACTIVE sans secret ; un brouillon l’attend (0331)', async () => {
+    // Active, elle signerait avec une chaîne vide, et le système du client répondrait 401 qu'on mettrait sur le dos de
+    // ses identifiants. En brouillon (déclarée depuis Claude, qui ne voit jamais une clé : B10, livraison 4a), elle attend
+    // que la personne colle sa clé sur la page Connecteurs API, et ne s'active pas avant.
+    const brouillon = await sources.creer(tenantId, { kind: 'http', label: 'Sans jeton', baseUrl: 'https://api.client.fr/x', authKind: 'bearer' });
+    expect(brouillon).toMatchObject({ status: 'draft', aAuthentification: false });
+    await expect(sources.patch(tenantId, brouillon.id, { status: 'active' })).rejects.toThrow();
+    expect(await sources.patch(tenantId, brouillon.id, { authSecret: 'jeton', status: 'active' })).toMatchObject({ status: 'active', aAuthentification: true });
+    await expect(pool.query(`insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, status)
+      values ($1, 'http', 'active-sans-jeton', 'https://x.fr', 'bearer', 'active')`, [tenantId])).rejects.toThrow();
+    // En-tête : la clé attend aussi en brouillon, jamais un système actif (0331).
+    await expect(pool.query(`insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_header_name)
+      values ($1, 'http', 'entete-brouillon', 'https://x.fr', 'header', 'X-Api-Key')`, [tenantId])).resolves.toBeDefined();
+    await expect(pool.query(`insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_header_name, status)
+      values ($1, 'http', 'entete-active', 'https://x.fr', 'header', 'X-Api-Key', 'active')`, [tenantId])).rejects.toThrow();
+    // La structure, elle, ne s'attend pas.
     await expect(sources.creer(tenantId, { kind: 'http', label: 'Header sans nom', baseUrl: 'https://api.client.fr/x', authKind: 'header', authSecret: 'v' }))
       .rejects.toThrow();
   });
@@ -230,11 +241,14 @@ describe.skipIf(!url)('sources externes d outils (Postgres)', () => {
     expect((await pool.query('select auth_oauth from agent_tool_sources where id = $1', [s.id])).rows[0].auth_oauth).toBeNull();
   });
 
-  it('🔴 la base REFUSE une source OAuth sans connexion ou sans mot de passe (0325)', async () => {
+  it('🔴 la base REFUSE une source OAuth sans connexion, ou ACTIVE sans mot de passe (0325, 0331)', async () => {
     await expect(pool.query(`insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_secret_enc)
       values ($1, 'http', 'sans-connexion', 'https://x.fr', 'oauth_password', 'chiffre')`, [tenantId])).rejects.toThrow();
+    await expect(pool.query(`insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_oauth, status)
+      values ($1, 'http', 'sans-secret', 'https://x.fr', 'oauth_password', '{}'::jsonb, 'active')`, [tenantId])).rejects.toThrow();
+    // En brouillon, le mot de passe attend (0331).
     await expect(pool.query(`insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_oauth)
-      values ($1, 'http', 'sans-secret', 'https://x.fr', 'oauth_password', '{}'::jsonb)`, [tenantId])).rejects.toThrow();
+      values ($1, 'http', 'sans-secret-brouillon', 'https://x.fr', 'oauth_password', '{}'::jsonb)`, [tenantId])).resolves.toBeDefined();
   });
 
   it('un corps « formulaire » se relit avec ses cases fichier (0325)', async () => {

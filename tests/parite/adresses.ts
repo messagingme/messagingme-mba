@@ -155,11 +155,12 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'DELETE /email/templates/:id': aFaire('B10', 'e-mail : supprimer un modèle d’e-mail'),
 
   // Les systèmes des connecteurs API (agentSources)
-  'GET /agent-sources': aFaire('B10', 'agent IA, connecteurs API : lister les systèmes'),
-  'POST /agent-sources': aFaire('B10', 'agent IA, connecteurs API : déclarer un système ; sa clé se saisit sur une page sécurisée, par lien signé'),
-  'PATCH /agent-sources/:id': aFaire('B10', 'agent IA, connecteurs API : modifier un système (même règle pour la clé)'),
-  'DELETE /agent-sources/:id': aFaire('B10', 'agent IA, connecteurs API : supprimer un système'),
-  'POST /agent-sources/:id/epreuve': aFaire('B10', 'agent IA, connecteurs API : éprouver un système'),
+  // B10, livraison 4a : 🔴 la clé ne passe jamais par Claude (elle se colle sur la page Connecteurs API de la console).
+  'GET /agent-sources': outil('list_connector_systems'),
+  'POST /agent-sources': outil('create_connector_system'),
+  'PATCH /agent-sources/:id': outil('update_connector_system'),
+  'DELETE /agent-sources/:id': outil('delete_connector_system'),
+  'POST /agent-sources/:id/epreuve': outil('test_connector_system'),
 
   // Bien démarrer (demarrage)
   'GET /demarrage': enPartie(['get_setup_state'], 'la progression « Bien démarrer » de la console, dont l’étape des premiers scénarios'),

@@ -296,6 +296,21 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 4a, les systèmes connectés des agents) : ce qui reste de la relecture (2026-11-27)
+
+Le rouge est corrigé avant de pousser : tant qu'aucun mot de passe n'était enregistré, Claude pouvait fixer l'adresse du
+jeton OAuth, que la page ne montrait pas là où le mot de passe se colle ; une consigne glissée dans une conversation
+l'aurait fait partir ailleurs. L'adresse d'un système et celle de son jeton se posent désormais à la déclaration et ne
+changent plus depuis Claude, et la page montre sous le champ du secret l'adresse vers laquelle il partira. Corrigés aussi :
+la clé qu'un passage en `none` détruisait en silence (refusé depuis Claude), la liste réservée à une personne, une clé
+glissée dans `oauth` refusée au lieu d'être jetée, l'épreuve et le Test d'un appel qui disent qu'aucun secret n'est
+enregistré, des textes inexacts, deux trous de tests. Reste :
+- Hors lot, vu par le banc PGlite (PostgreSQL 18) : un `on delete restrict` y rend 23001, que `surAppelsRestants`
+  (`src/agent/sources.pg.ts`) ne lit pas ; à la montée en version 18, supprimer un système qui porte des appels rendrait
+  500 au lieu de 409. La production est en 17, la CI en 16.
+- L'assistant de configuration annonce un brouillon sans clé comme « déclaré, il reste à y brancher l'appel »
+  (`src/agent/setup/conversation.ts`), sans dire que la clé manque.
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 3b, supprimer un agent au oui, retirer l'autonomie) : ce qui reste de la relecture (2026-11-27, aucun rouge)
 
 Corrigés avant de pousser : la parité des champs de la route de suppression ; un nom d'agent long qui dépassait la borne

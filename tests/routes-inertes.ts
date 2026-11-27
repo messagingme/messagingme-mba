@@ -1283,6 +1283,22 @@ export const mcpAgentReglagesInertes: Pick<DepsMcp, 'bibliothequeOutils' | 'hist
   },
 };
 
+/**
+ * Les systèmes connectés du MCP (B10, livraison 4a), pour les montages qui n'en parlent pas : les lectures rendent le vide,
+ * les écritures lèvent. Leurs outils ont leur propre fichier, `tests/mcp-connecteurs.test.ts`.
+ */
+export const mcpConnecteursInertes: Pick<DepsMcp, 'systemesApi'> = {
+  systemesApi: {
+    audit: async () => {},
+    sources: {
+      lister: async () => [], parId: async () => null,
+      creer: neDevraitPasEtreAppelee('systemesApi.creer'), patch: neDevraitPasEtreAppelee('systemesApi.patch'),
+      supprimer: neDevraitPasEtreAppelee('systemesApi.supprimer'),
+    },
+    eprouver: neDevraitPasEtreAppelee('systemesApi.eprouver'),
+  },
+};
+
 /** L'Inbox depuis Claude (B10, livraison 2a), pour les montages qui n'en parlent pas : les écritures lèvent. */
 export const mcpInboxInertes: Pick<DepsMcp, 'marquesConversation' | 'ouvrirConversation' | 'reglagesInbox' | 'lireImageRecue'> = {
   marquesConversation: {
