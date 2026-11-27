@@ -6,7 +6,7 @@
   "scaling_option": { "concurrent_requests_threshold": 35 },
   "liveness_probe": { "failure_threshold": 30, "interval": "10s", "timeout": "1s", "http": { "path": "/live" } },
   "environment_variables": {
-    "DB_POOL_MAX": "10",
+    "DB_POOL_MAX": "12",
     "DB_POOL_RECEPTION_MAX": "4",
     "API_COPIE": "auto",
     "API_PLAFOND_GLOBAL_PAR_10S": "3500"
