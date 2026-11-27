@@ -5,6 +5,22 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10) : les livraisons 1 et 2 en production, et ce que leurs essais réels ont trouvé
+
+Déployés : L1a par le run du pair (45903164978) ; 1b, 1c et 2a ensemble (45959666264) ; 2b et le correctif de la
+transcription ensemble (45973346391) ; 2c (45987128518). Plugin 0.3.81. Trois essais réels sur la SANDBOX
+(`docs/prive/ESSAIS-REELS.md`, 294 à 296) : les 21 outils des livraisons 1 et 2a, chaque écriture défaite ensuite ;
+l'effacement au oui (Julien clique, la conversation d'essai est vidée, un second effacement est refusé) ; un vocal
+transcrit et traduit ; une photo rendue en bloc image.
+
+**Ce que l'essai a trouvé et qu'aucun test ne voyait** : `transcribe_message` attendait l'identifiant INTERNE d'un
+message, quand `get_messages` rend son identifiant PUBLIC (wamid, ou `msg_<uuid>`). Aucune transcription ne pouvait partir
+de Claude, et les tests passaient sur un uuid inventé. La règle, gardée par les tests de 2c : l'identifiant qu'un outil
+prend se teste sous la forme exacte qu'un autre outil rend. Deux constats d'exploitation, sans défaut : une reconnexion du
+MCP faite avant que la nouvelle version de l'API serve ne montre pas l'outil neuf (refaire la reconnexion) ; un outil
+changé garde dans la session son ancien schéma (la description de `transcribe_message` y annonce encore 36 caractères),
+ce que le serveur ignore.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, livraison 2c) : Claude regarde la photo qu'un contact a envoyée
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 2 (l'Inbox), troisième et dernier temps.

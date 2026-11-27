@@ -60,8 +60,10 @@ plans de ses étapes vivent dans `docs/superpowers/plans/` (décision de Julien 
   (`57cbd2860`) ; 1b (l'import d'un CSV, les listes de conformité, l'historique, le bilan et l'export d'une fiche :
   8 outils) poussée (`e9eb3598e`) ; 1c (la poussée d'opt-out au oui : 2 outils, une action `poussee_optout` du oui)
   poussée (`733872f97`) : la livraison 1 est complète. Livraison 2 (l'Inbox) en trois temps : 2a (les marques d'une
-  conversation, la transcription, les réglages de prise et de reprise : 4 outils, 13 routes) écrite, en vérification ;
-  2b (effacer les messages d'une conversation, au oui) et 2c (le média d'un message) ensuite.
+  conversation, la transcription, les réglages de prise et de reprise : 4 outils, `566304ddb`, puis le correctif de la
+  transcription trouvé à l'essai réel, `7cab408c2`), 2b (effacer les messages d'une conversation au oui : `e4f4f7bb6`)
+  et 2c (la photo d'un message en bloc image : `4dfa2e9a0`). Les livraisons 1 et 2 sont en production le 2026-11-27
+  (plugin 0.3.81), essais réels 294, 295 et 296. Suite : la livraison 3, l'agent IA (15 routes).
 - Lot G (plan `2026-11-26-csm-lot1-g-prerequis.md`) : B7, les prérequis (`get_account_status`, `request_number_code`,
   `activate_number`, `contact_support`), en production le 2026-11-26 (`6fa36d7a3`, run 45819186413, plugin 0.3.71),
   essai réel fait (291, `docs/prive/ESSAIS-REELS.md`).
