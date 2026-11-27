@@ -11,7 +11,7 @@ import {
   creerRequeteAsynchrone, lirePageMembres, listerSegments, suivreRequeteAsynchrone, type ListeSegments, type PageMembres,
   type RequeteAsynchrone, type SuiviRequete,
 } from './segments-lues';
-import { abonnerWebhooks, SUJETS_ETIQUETTES, type IssueAbonnement } from './abonnements';
+import { abonnerWebhooks, SUJETS_ETIQUETTES, SUJETS_FUSION, type IssueAbonnement } from './abonnements';
 import type { CoutRequete } from './reprise';
 import type { OrigineBoutique, PgShopifyStore } from './store.pg';
 import type { Offre } from '../offres/offres';
@@ -387,6 +387,16 @@ async function passage(deps: DepsEtiquettes, tenantId: string, jeton: string, cu
       if (!a.ok) journaliser('warn', 'shopify_etiquettes_abonnement_refuse', { tenantId, message: a.message.slice(0, 200) });
     } catch (err) {
       journaliser('warn', 'shopify_etiquettes_abonnement_en_echec', { tenantId, erreur: messageDe(err) });
+    }
+    // Lot 7d : la fusion de deux clients, seulement si l'app a le droit (Shopify refuserait l'abonnement sans lui). À part
+    // des étiquettes : un refus de l'un ne prive pas l'autre.
+    if (d.droits.includes('read_customer_merge')) {
+      try {
+        const f = await deps.abonner(acces, SUJETS_FUSION);
+        if (!f.ok) journaliser('warn', 'shopify_fusion_abonnement_refuse', { tenantId, message: f.message.slice(0, 200) });
+      } catch (err) {
+        journaliser('warn', 'shopify_fusion_abonnement_en_echec', { tenantId, erreur: messageDe(err) });
+      }
     }
   }
 

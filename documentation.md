@@ -3645,7 +3645,19 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   ACTIVE reliée au client, synchronisation allumée et hors Free, en une écriture, sans appel à Shopify ni file ; il répond
   TOUJOURS 200 (une panne se journalise, la relecture quotidienne répare). Un sujet inconnu se journalise par son nom
   (`shopify_sujet_inconnu`). L'onglet
-  Shopify de la fiche lit ses étiquettes au mieux ;
+  Shopify de la fiche lit ses étiquettes au mieux. LA FUSION DE DEUX CLIENTS (lot 7d, sans migration) : le sujet
+  `CUSTOMERS_MERGE` (`SUJETS_FUSION`, droit `read_customer_merge`) s'abonne au même moment que les étiquettes, à part, et
+  SEULEMENT si l'app a le droit ; le récepteur lit `customers/merge` (les GID du client gardé et du client absorbé, le
+  statut) et n'agit que sur `completed` en toutes lettres (la doc ne dit pas quand l'événement part : tout autre statut
+  se journalise, un corps illisible journalise le NOM de ses clés). `fusionnerClients` fait passer au gardé, dans
+  l'espace et en une transaction, les liens de l'absorbé vers les fiches actives (sans doubler une fiche déjà liée au
+  gardé), leurs étiquettes, puis retire ces liens et fait passer ses commandes notées ; toujours 200. Elle verrouille
+  d'abord la ligne de `shopify_etiquettes_synchro` de l'espace, comme toute écriture de la synchronisation (sans elle,
+  rien à fusionner). La relecture par numéro fait foi : un lien recopié sur une fiche dont le numéro n'est pas resté dans
+  le client fusionné disparaît à la recherche suivante, et les étiquettes propres au gardé n'atteignent les fiches reçues
+  qu'à la relecture. ⚠️ Le droit n'est
+  pas encore dans `DROITS_SHOPIFY` ni dans la skill (tenus égaux par `tests/shopify-droits-parite.test.ts`) : il y entre
+  après sa mesure sur une vraie app ;
 - 🔴 **les segments natifs Shopify** (segments Shopify enrichis, lot 6c, migration 0327 ; `src/shopify/segments-lues.ts`,
   le troisième temps de `src/shopify/etiquettes.ts`) : les segments que le marchand construit DANS SHOPIFY, lus par la
   MÊME synchronisation que les étiquettes (le même interrupteur, le même bail et le même jeton, la même relecture

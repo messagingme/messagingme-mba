@@ -27,6 +27,11 @@ export const SUJETS_ABONNES = ['ORDERS_CREATE', 'ORDERS_PAID', 'FULFILLMENTS_CRE
  * (`./etiquettes.ts`) : un refus ne doit jamais faire échouer un branchement.
  */
 export const SUJETS_ETIQUETTES = ['CUSTOMER_TAGS_ADDED', 'CUSTOMER_TAGS_REMOVED'] as const;
+/**
+ * La fusion de deux clients (lot 7d) : sujet GraphQL, droit `read_customer_merge` (sans approbation de Shopify). Abonné
+ * comme les étiquettes, au même moment, et seulement quand l'app a le droit : sans lui, Shopify refuserait l'abonnement.
+ */
+export const SUJETS_FUSION = ['CUSTOMERS_MERGE'] as const;
 
 const DELAI_MS = 10_000;
 const CORPS_MAX = 64_000;

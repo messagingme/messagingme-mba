@@ -98,7 +98,7 @@ export interface DepsTraitementShopify {
    */
   ecrireLienDeSuivi(tenantId: string, contactId: string, lien: string): Promise<void>;
   /** Les étiquettes en direct (segments Shopify enrichis, lot 6d) : le magasin de la synchronisation, ENTIER. */
-  etiquettes: Pick<PgEtiquettesStore, 'appliquerDuWebhook'>;
+  etiquettes: Pick<PgEtiquettesStore, 'appliquerDuWebhook' | 'fusionnerClients'>;
 }
 
 /** La clé du champ de fiche qui porte le lien de suivi du dernier colis expédié. */
@@ -170,6 +170,8 @@ const SENS_DU_SUJET: Readonly<Record<string, SensEtiquettes>> = {
   'customer.tags_added': 'ajout', 'customers/tags_added': 'ajout',
   'customer.tags_removed': 'retrait', 'customers/tags_removed': 'retrait',
 };
+/** L'identifiant d'un client Shopify dans son GID (`gid://shopify/Customer/<n>`), ou rien. */
+const idClient = (gid: string): string | undefined => /^gid:\/\/shopify\/Customer\/(\d{1,19})$/.exec(gid)?.[1];
 /** Le corps d'un webhook d'étiquettes, d'après l'exemple de la doc : `{ customerId, tags, occurredAt }`. */
 const schemaEtiquettesClient = z.object({ customerId: z.string(), tags: z.array(z.unknown()) });
 
@@ -180,7 +182,7 @@ const schemaEtiquettesClient = z.object({ customerId: z.string(), tags: z.array(
  */
 async function etiquettesDuClient(deps: DepsTraitementShopify, b: BoutiqueRecue, sujet: string, sens: SensEtiquettes, corps: unknown): Promise<ReponseTraitement> {
   const e = schemaEtiquettesClient.safeParse(corps);
-  const clientId = e.success ? /^gid:\/\/shopify\/Customer\/(\d{1,19})$/.exec(e.data.customerId)?.[1] : undefined;
+  const clientId = e.success ? idClient(e.data.customerId) : undefined;
   if (!e.success || clientId === undefined) {
     journaliser('warn', 'shopify_etiquettes_webhook_illisible', { tenantId: b.tenantId, sujet });
     return OK;
@@ -190,6 +192,41 @@ async function etiquettesDuClient(deps: DepsTraitementShopify, b: BoutiqueRecue,
     if (n > 0) journaliser('info', 'shopify_etiquettes_webhook', { tenantId: b.tenantId, sujet, etiquettes: e.data.tags.length, lignes: n });
   } catch (err) {
     journaliser('warn', 'shopify_etiquettes_webhook_en_echec', { tenantId: b.tenantId, sujet, erreur: messageDe(err) });
+  }
+  return OK;
+}
+
+/**
+ * LA FUSION DE DEUX CLIENTS (lot 7d), d'après le corps d'exemple de la doc : les GID du client gardé et du client absorbé,
+ * et le statut de la demande. 🔴 La doc ne dit pas quand l'événement part : seul un statut `completed`, en toutes lettres,
+ * agit ; tout autre statut se journalise. Un corps illisible journalise le NOM de ses clés, jamais leurs valeurs (de quoi
+ * mesurer le vrai contrat sans rien garder d'un client). Toujours 200 : la relecture des étiquettes répare.
+ */
+const schemaFusion = z.object({
+  admin_graphql_api_customer_kept_id: z.string(),
+  admin_graphql_api_customer_deleted_id: z.string(),
+  status: z.string(),
+});
+
+async function fusionDeClients(deps: DepsTraitementShopify, b: BoutiqueRecue, corps: unknown): Promise<ReponseTraitement> {
+  const f = schemaFusion.safeParse(corps);
+  const garde = f.success ? idClient(f.data.admin_graphql_api_customer_kept_id) : undefined;
+  const absorbe = f.success ? idClient(f.data.admin_graphql_api_customer_deleted_id) : undefined;
+  if (!f.success || garde === undefined || absorbe === undefined) {
+    const cles = corps !== null && typeof corps === 'object' && !Array.isArray(corps) ? Object.keys(corps).slice(0, 20) : [];
+    journaliser('warn', 'shopify_fusion_illisible', { tenantId: b.tenantId, cles });
+    return OK;
+  }
+  const statut = f.data.status.slice(0, 40);
+  if (statut.toLowerCase() !== 'completed') {
+    journaliser('info', 'shopify_fusion_non_terminee', { tenantId: b.tenantId, statut });
+    return OK;
+  }
+  try {
+    const r = await deps.etiquettes.fusionnerClients(b.tenantId, garde, absorbe);
+    journaliser('info', 'shopify_fusion', { tenantId: b.tenantId, ...r });
+  } catch (err) {
+    journaliser('warn', 'shopify_fusion_en_echec', { tenantId: b.tenantId, erreur: messageDe(err) });
   }
   return OK;
 }
@@ -256,6 +293,8 @@ export async function traiterWebhookShopify(
       return OK;
     case 'customers/redact':
       return effacerClient(deps, b, corps);
+    case 'customers/merge':
+      return fusionDeClients(deps, b, corps);
     case 'customers/data_request': {
       const d = schemaDemandeDonnees.safeParse(corps);
       if (!d.success) return illisible(b, sujet, d.error);

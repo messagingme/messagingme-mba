@@ -699,6 +699,55 @@ export class PgEtiquettesStore implements MagasinEtiquettes {
     });
   }
 
+  /**
+   * LA FUSION DE DEUX CLIENTS SHOPIFY (lot 7d) : tout ce qui portait l'absorbé passe au gardé, dans l'espace, en une
+   * transaction. Les liens de l'absorbé recopiés sur le gardé (une fiche déjà liée au gardé ne se double pas), ses
+   * étiquettes aussi, puis ses liens retirés (la cascade emporte ses étiquettes), et ses commandes notées passent au gardé.
+   * Seules les fiches actives, verrouillées comme toute écriture d'étiquettes, reçoivent un lien ; une fiche purgée garde
+   * son lien jusqu'à sa purge, qui l'emporte. Un gardé égal à l'absorbé ne fait rien.
+   * 🔴 La ligne de synchronisation de l'espace se verrouille D'ABORD (`for share`), comme le fait toute écriture de la
+   * synchronisation (`for update`) : sans cela, une recherche par téléphone qui retire puis insère des liens et la fusion
+   * qui insère puis retire s'interbloqueraient, et un effacement du branchement concurrent laisserait survivre les liens
+   * neufs (relecture du lot). Sans cette ligne, l'espace n'a jamais synchronisé : rien à fusionner.
+   * La relecture par numéro fait foi : un lien recopié ici sur une fiche dont le numéro n'est pas resté dans le client
+   * fusionné disparaît à la recherche suivante.
+   */
+  async fusionnerClients(tenantId: string, garde: string, absorbe: string): Promise<{ liens: number; etiquettes: number; commandes: number }> {
+    if (garde === absorbe) return { liens: 0, etiquettes: 0, commandes: 0 };
+    return enTransaction(this.pool, async (client) => {
+      const synchro = await client.query('select 1 from shopify_etiquettes_synchro where tenant_id = $1 for share', [tenantId]);
+      if ((synchro.rowCount ?? 0) === 0) return { liens: 0, etiquettes: 0, commandes: 0 };
+      const fiches = (await client.query<{ contact_id: string }>(
+        'select contact_id from shopify_clients where tenant_id = $1 and client_id = $2',
+        [tenantId, absorbe],
+      )).rows.map((x) => x.contact_id);
+      const vivantes = [...(await verrouillerFiches(client, tenantId, fiches))];
+      const liens = vivantes.length === 0 ? 0 : (await client.query(
+        `insert into shopify_clients (tenant_id, client_id, contact_id, vu_le)
+         select tenant_id, $2, contact_id, vu_le from shopify_clients
+          where tenant_id = $1 and client_id = $3 and contact_id = any($4::uuid[])
+         on conflict (tenant_id, client_id, contact_id) do nothing`,
+        [tenantId, garde, absorbe, vivantes],
+      )).rowCount ?? 0;
+      const etiquettes = vivantes.length === 0 ? 0 : (await client.query(
+        `insert into shopify_etiquettes (tenant_id, contact_id, client_id, etiquette, vue_le)
+         select tenant_id, contact_id, $2, etiquette, vue_le from shopify_etiquettes
+          where tenant_id = $1 and client_id = $3 and contact_id = any($4::uuid[])
+         on conflict (tenant_id, contact_id, client_id, etiquette) do nothing`,
+        [tenantId, garde, absorbe, vivantes],
+      )).rowCount ?? 0;
+      await client.query(
+        'delete from shopify_clients where tenant_id = $1 and client_id = $2 and contact_id = any($3::uuid[])',
+        [tenantId, absorbe, vivantes],
+      );
+      const commandes = (await client.query(
+        'update shopify_commandes set client_id = $2 where tenant_id = $1 and client_id = $3',
+        [tenantId, garde, absorbe],
+      )).rowCount ?? 0;
+      return { liens, etiquettes, commandes };
+    });
+  }
+
   /** Les segments lus de l'espace : suivis d'abord, puis par nom ; les disparus à la fin. */
   async segments(tenantId: string): Promise<SegmentShopifyVue[]> {
     const res = await this.pool.query<{

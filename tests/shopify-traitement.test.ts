@@ -190,6 +190,8 @@ function monter(o: {
   lienLeve?: boolean;
   /** Lot 6d : l'écriture des étiquettes d'un webhook en panne. */
   etiquettesLeve?: boolean;
+  /** Lot 7d : la fusion de deux clients en panne. */
+  fusionLeve?: boolean;
 } = {}) {
   const journal = {
     reserve: [] as string[], issues: [] as Array<[string, string]>, liberes: [] as string[], liees: [] as unknown[],
@@ -206,6 +208,8 @@ function monter(o: {
     ordre: [] as string[],
     /** Lot 6d : les webhooks d'étiquettes appliqués (espace, client, étiquettes, sens). */
     etiquettes: [] as Array<[string, string, string[], string]>,
+    /** Lot 7d : les fusions appliquées (espace, client gardé, client absorbé). */
+    fusions: [] as Array<[string, string, string]>,
   };
   const messages = o.messages ?? [MESSAGE];
   const offres = new FauxOffres(o.offre ?? 'pro');
@@ -264,6 +268,11 @@ function monter(o: {
         if (o.etiquettesLeve) throw new Error('base indisponible');
         journal.etiquettes.push([t, client, [...etiquettes], sens]);
         return etiquettes.length;
+      },
+      fusionnerClients: async (t, garde, absorbe) => {
+        if (o.fusionLeve) throw new Error('base indisponible');
+        journal.fusions.push([t, garde, absorbe]);
+        return { liens: 1, etiquettes: 2, commandes: 3 };
       },
     },
   };
@@ -1083,5 +1092,50 @@ describe('les webhooks d’étiquettes (lot 6d)', () => {
     const { deps, journal } = monter();
     expect(await traiterWebhookShopify(deps, { ...BOUTIQUE, etat: 'coupee' }, 'customer.tags_added', corps(['A']))).toEqual({ statut: 200 });
     expect(journal.etiquettes).toEqual([]);
+  });
+});
+
+/**
+ * LA FUSION DE DEUX CLIENTS (segments Shopify enrichis, lot 7d) : `customers/merge`, d'après le corps d'exemple de la doc.
+ * 🔴 Seul un statut `completed` agit, toujours 200 ; l'écriture en base est éprouvée sur PGlite.
+ */
+describe('la fusion de deux clients Shopify (lot 7d)', () => {
+  const fusion = (status: string, garde = 'gid://shopify/Customer/5001', absorbe = 'gid://shopify/Customer/5002') => ({
+    admin_graphql_api_customer_kept_id: garde, admin_graphql_api_customer_deleted_id: absorbe, admin_graphql_api_job_id: null, status, errors: [],
+  });
+
+  it('🔴 terminée : tout ce qui portait l’absorbé passe au gardé, dans l’espace de la boutique, et 200', async () => {
+    const { deps, journal } = monter();
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'customers/merge', fusion('completed'))).toEqual({ statut: 200 });
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'customers/merge', fusion('COMPLETED', 'gid://shopify/Customer/7', 'gid://shopify/Customer/8'))).toEqual({ statut: 200 });
+    expect(journal.fusions).toEqual([[BOUTIQUE.tenantId, '5001', '5002'], [BOUTIQUE.tenantId, '7', '8']]);
+    expect(journal.envois).toEqual([]);
+  });
+
+  it('🔴 demandée, en cours ou échouée : rien ne bouge, et 200', async () => {
+    const { deps, journal } = monter();
+    for (const s of ['failed', 'requested', 'in_progress', 'FAILED', '']) {
+      expect(await traiterWebhookShopify(deps, BOUTIQUE, 'customers/merge', fusion(s)), s).toEqual({ statut: 200 });
+    }
+    expect(journal.fusions).toEqual([]);
+  });
+
+  it('🔴 un corps illisible ou un GID qui n’est pas celui d’un client : rien ne bouge, et 200', async () => {
+    const { deps, journal } = monter();
+    for (const c of [
+      {}, { status: 'completed' }, fusion('completed', '5001'), fusion('completed', 'gid://shopify/Order/5001'),
+      fusion('completed', 'gid://shopify/Customer/5001', 'gid://shopify/Customer/x'), { ...fusion('completed'), status: 1 }, null, 'completed',
+    ]) {
+      expect(await traiterWebhookShopify(deps, BOUTIQUE, 'customers/merge', c), JSON.stringify(c)).toEqual({ statut: 200 });
+    }
+    expect(journal.fusions).toEqual([]);
+  });
+
+  it('une écriture en panne : 200, rien de levé ; une boutique débranchée ne fusionne rien', async () => {
+    const panne = monter({ fusionLeve: true });
+    expect(await traiterWebhookShopify(panne.deps, BOUTIQUE, 'customers/merge', fusion('completed'))).toEqual({ statut: 200 });
+    const { deps, journal } = monter();
+    expect(await traiterWebhookShopify(deps, { ...BOUTIQUE, etat: 'coupee' }, 'customers/merge', fusion('completed'))).toEqual({ statut: 200 });
+    expect(journal.fusions).toEqual([]);
   });
 });

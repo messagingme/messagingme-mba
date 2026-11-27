@@ -7,7 +7,7 @@ import {
   MEMBRES_PAR_PAGE, NOM_SEGMENT_MAX, SEGMENTS_PAR_LISTE, creerRequeteAsynchrone, lirePageMembres, listerSegments, suivreRequeteAsynchrone,
 } from '../src/shopify/segments-lues';
 import { BORNES_SEGMENTS } from '../web/lib/partage/segments';
-import { BOUTIQUE_ETIQUETTES, MIDI_ETIQUETTES, T_ETIQUETTES as T, monterEtiquettes } from './etiquettes-faux';
+import { BOUTIQUE_ETIQUETTES, DROITS_ETIQUETTES, MIDI_ETIQUETTES, T_ETIQUETTES as T, monterEtiquettes } from './etiquettes-faux';
 
 /**
  * LES SEGMENTS NATIFS DE SHOPIFY (segments Shopify enrichis, lot 6c) : le troisième temps de la synchronisation sur un faux
@@ -449,6 +449,21 @@ describe('les étiquettes en direct : l’abonnement en début de synchronisatio
       const f = monterEtiquettes({ ...BASE, abonnement });
       await synchroniser(f);
       expect(f.trace.issues, JSON.stringify(abonnement)).toEqual([{ issue: 'lue', message: null }]);
+    }
+  });
+
+  it('🔴 lot 7d : avec le droit read_customer_merge, la fusion s’abonne aussi, à part ; sans lui, jamais', async () => {
+    const avec = monterEtiquettes({ ...BASE, droits: [...DROITS_ETIQUETTES, 'read_customer_merge'] });
+    await synchroniser(avec);
+    expect(avec.trace.abonnements).toEqual([['CUSTOMER_TAGS_ADDED', 'CUSTOMER_TAGS_REMOVED'], ['CUSTOMERS_MERGE']]);
+    const sans = monterEtiquettes({ ...BASE });
+    await synchroniser(sans);
+    expect(sans.trace.abonnements).toEqual([['CUSTOMER_TAGS_ADDED', 'CUSTOMER_TAGS_REMOVED']]);
+    // Ni en Free, ni pour une boutique de Claude Code (la skill déclare le sujet dans son app).
+    for (const o of [{ offre: 'base' as const }, { boutique: { ...BOUTIQUE_ETIQUETTES, origine: 'claude_code' as const } }]) {
+      const f = monterEtiquettes({ ...BASE, ...o, droits: [...DROITS_ETIQUETTES, 'read_customer_merge'] });
+      await synchroniser(f);
+      expect(f.trace.abonnements, JSON.stringify(o)).toEqual([]);
     }
   });
 
