@@ -1,7 +1,9 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { OutilMcp } from './outils';
 import { RefusOutil, familleDuRefus, texteObligatoire, valeurOuRefus } from './saisie';
-import { AGENT_ID, ecriture, lecture, signataire } from './outils-agent';
+import { AGENT_ID, ecriture, lecture, personneRequise, signataire } from './outils-agent';
+import { proposer } from '../mise-en-ligne/mise-en-ligne';
+import { boutonDuOui } from './outils-mise-en-ligne';
 import { drapeauDOutil, rattachementDOutil, type OutilsAgentDep } from '../http/agent-tools';
 import type { AgentCatalogueRouteDeps } from '../http/agent-catalogue';
 import { lireHistorique } from '../http/historique';
@@ -15,7 +17,7 @@ import { MAX_CORPS, MAX_TITRE } from '../agent/scrape';
 import { ESSAIS_AFFICHES } from '../agent/test-runs';
 import { FREQUENCES_MENTION_IA } from '../agent/agent-store';
 import { MAX_LIGNES_HISTORIQUE, type HistoriqueStore } from '../reglages/historique';
-import { ECRANS, LISTES } from './ecran';
+import { adresseEcran, ECRANS, LISTES } from './ecran';
 
 /**
  * LES RÉGLAGES DE L'AGENT IA DEPUIS CLAUDE (lot 1 du CSM virtuel, B10, livraison 3a, plan
@@ -23,12 +25,12 @@ import { ECRANS, LISTES } from './ecran';
  * et les outils d'un agent sont le MÊME catalogue que ses onglets (`rattachementDOutil`, `drapeauDOutil`, extraites de
  * leurs routes) ; l'historique, la mention d'IA et la fiche de connaissance passent par les fonctions de leurs routes
  * (`lireHistorique`, `reglerMentionIa`, `modifierFiche`) ; les essais gardés et la consommation sont les MÊMES lectures que
- * la page de l'agent. L'autonomie sur un appel irréversible, le branchement d'un connecteur et la suppression d'un agent
- * suivent (livraison 3b).
+ * la page de l'agent. Livraison 3b : retirer l'autonomie d'un outil (la donner reste un clic dans la console), et
+ * supprimer un agent sur le OUI d'un admin (l'action `suppression_agent`, `src/mise-en-ligne/envois.ts`).
  */
 export interface DepsAgentReglagesMcp {
   /** La bibliothèque d'outils de l'espace et les outils d'un agent : le MÊME catalogue que les onglets (`PgToolCatalog`). */
-  bibliothequeOutils: Pick<OutilsAgentDep, 'offrablesPour' | 'rattacher' | 'detacher' | 'activer'> & AgentCatalogueRouteDeps;
+  bibliothequeOutils: Pick<OutilsAgentDep, 'offrablesPour' | 'rattacher' | 'detacher' | 'activer' | 'autonomie'> & AgentCatalogueRouteDeps;
   /** L'historique des réglages, le MÊME que l'écran (`PgHistoriqueStore`). */
   historiqueReglages: Pick<HistoriqueStore, 'lister'>;
   /** La mention d'IA : le MÊME réglage que Sécurité > IA (`PgSettingsStore`). */
@@ -97,10 +99,12 @@ export const OUTILS_AGENT_REGLAGES: OutilMcp[] = [
     description: 'Changes one tool of an AI agent, as its Tools tab does: attached true attaches a tool of the workspace '
       + 'library to this agent, disabled (list_agent_tool_library with agent_id gives them); enabled true exposes a tool '
       + 'of the agent to the model under the signed-in person\'s name, false withdraws it without deleting anything '
-      + '(get_agent gives the ids of its tools). Only the fields provided change, what is omitted is not touched; attaching '
-      + 'comes before enabling. Detaching is done in the console, which says what goes with it (an action and its history, '
-      + 'a connector call without another agent); an action is deleted by delete_agent_action. Autonomy on an '
-      + 'irreversible call is set in the console.',
+      + '(get_agent gives the ids of its tools); autonomous false withdraws its autonomy on an irreversible action: its '
+      + 'calls by the agent are then refused, every time (giving autonomy stays a click in the console, tool by tool). '
+      + 'Only the fields provided change, what is omitted is not touched; the writes go in this order: attach, withdraw '
+      + 'autonomy, enable or disable, and a refusal says what this call already wrote. Detaching is done in the '
+      + 'console, which says what goes with it (an action and its history, a connector call without another agent); an '
+      + 'action is deleted by delete_agent_action.',
     annotations: ecriture('Update a tool of an AI agent', true, false),
     entree: {
       type: 'object',
@@ -109,6 +113,7 @@ export const OUTILS_AGENT_REGLAGES: OutilMcp[] = [
         tool_id: OUTIL_ID,
         attached: { type: 'boolean', enum: [true], description: 'true attaches a library tool to this agent, disabled.' },
         enabled: { type: 'boolean', description: 'true enables the tool for this agent, false disables it.' },
+        autonomous: { type: 'boolean', enum: [false], description: 'false withdraws the autonomy of an irreversible tool: its calls by the agent are refused.' },
       },
       required: ['agent_id', 'tool_id'],
       additionalProperties: false,
@@ -120,7 +125,15 @@ export const OUTILS_AGENT_REGLAGES: OutilMcp[] = [
       const outil = texteObligatoire(args, 'tool_id', 100);
       const attache = booleen(args, 'attached');
       const actif = booleen(args, 'enabled');
-      if (attache === undefined && actif === undefined) throw new RefusOutil('rien à changer : attached ou enabled', 'invalid_args');
+      const autonome = booleen(args, 'autonomous');
+      if (attache === undefined && actif === undefined && autonome === undefined) {
+        throw new RefusOutil('rien à changer : attached, enabled ou autonomous', 'invalid_args');
+      }
+      // 🔴 L'autonomie laisse l'agent agir seul sur une action irréversible : elle se donne dans la console, outil par outil.
+      if (autonome === true) {
+        throw new RefusOutil('autonomous : false seulement. L’autonomie sur une action irréversible se donne dans la console, '
+          + 'outil par outil (onglet Outils de l’agent).', 'invalid_args', { action: adresseEcran(ECRANS.agent(id, 'outils')) });
+      }
       // 🔴 Détacher détruit une action et son historique, ou un appel de connecteur dont c'est le dernier agent : depuis
       // Claude, on retire un outil en le désactivant, ce qui ne détruit rien ; la console fait confirmer le reste.
       if (attache === false) {
@@ -139,13 +152,45 @@ export const OUTILS_AGENT_REGLAGES: OutilMcp[] = [
         const r = await rattachementDOutil(b, tenantId, id, outil, true);
         if (!r.ok && r.erreur !== DEJA_RATTACHE) valeurOuRefus(r);
       }
+      // 🔴 L'autonomie se retire AVANT d'activer : une activation refusée ne fait pas sauter le retrait demandé, et une panne
+      // entre les deux écritures ne laisse jamais un outil actif ET autonome.
+      if (autonome === false) valeurOuRefus(await drapeauDOutil((t, a, i, v, p) => b.autonomie(t, a, i, v, p), tenantId, id, outil, false, par));
       if (actif !== undefined) {
         const r = await drapeauDOutil((t, a, i, v, p) => b.activer(t, a, i, v, p), tenantId, id, outil, actif, par);
-        // Rattaché dans ce même appel puis refusé à l'activation : le refus le dit, l'outil reste rattaché, inactif.
-        if (!r.ok && attache === true) throw new RefusOutil(`outil rattaché à l’agent, inactif ; son activation est refusée : ${r.erreur}`, familleDuRefus(r.statut));
+        // Ce que ce même appel a déjà écrit reste écrit (rattaché, inactif ; autonomie retirée) : le refus le dit.
+        const deja = [attache === true ? 'outil rattaché à l’agent, inactif' : null, autonome === false ? 'autonomie retirée' : null].filter((x) => x !== null);
+        if (!r.ok && deja.length > 0) {
+          throw new RefusOutil(`${deja.join(' ; ')} ; ${actif ? 'son activation' : 'sa désactivation'} est refusée : ${r.erreur}`, familleDuRefus(r.statut));
+        }
         valeurOuRefus(r);
       }
-      return { agent_id: id, tool_id: outil, ...(attache === undefined ? {} : { attached: attache }), ...(actif === undefined ? {} : { enabled: actif }) };
+      return {
+        agent_id: id, tool_id: outil, ...(attache === undefined ? {} : { attached: attache }),
+        ...(actif === undefined ? {} : { enabled: actif }), ...(autonome === undefined ? {} : { autonomous: autonome }),
+      };
+    },
+  },
+  {
+    ...ficheOutilMcp('delete_agent'),
+    fonction: null,
+    description: 'Prepares the deletion of an AI agent, for good: its conversations, its tools and its knowledge base go '
+      + 'with it, and the scenario blocks that use it stop answering; if it answers the customers of the workspace, its '
+      + 'messages go to the team. Nothing is deleted until an administrator clicks the button of the go_live link in the '
+      + 'console, after reading this. The click reads again the agent, its name and whether it answers the customers. '
+      + 'get_go_live with go_live_id then tells what was done. Deactivating it (activate_agent false) keeps everything.',
+    annotations: ecriture('Delete an AI agent', false, false),
+    entree: { type: 'object', properties: { agent_id: AGENT_ID }, required: ['agent_id'], additionalProperties: false },
+    ecran: () => LISTES.agents,
+    async executer(deps, tenantId, args, personne) {
+      signataire(personne);
+      const id = texteObligatoire(args, 'agent_id', 100);
+      // 🔴 Au oui : rien ne rattrape une suppression. L'outil prépare (le relevé refuse un agent hors de l'espace), l'admin clique.
+      const oui = valeurOuRefus(await proposer(deps.misesEnLigne, tenantId, personneRequise(personne), [{ type: 'suppression_agent', agent: id }]));
+      return {
+        go_live: boutonDuOui(oui),
+        a_savoir: `Rien n’est supprimé : un administrateur clique « ${oui.libelle} » dans la console, après avoir lu ce qui part. `
+          + 'Après le clic, get_go_live avec go_live_id dit ce qui a été fait.',
+      };
     },
   },
   {

@@ -2206,6 +2206,9 @@ async function main(): Promise<void> {
       // L'effacement des messages d'une conversation (B10, livraison 2b) : le MÊME dépôt que le bouton « Effacer le
       // contenu » de l'Inbox, passé entier (ses méthodes lisent `this`).
       effacementMessages: inboxStore,
+      // La suppression d'un agent IA (B10, livraison 3b) : le MÊME dépôt que le bouton de sa page, passé entier, et le
+      // répondeur de l'espace, que le récapitulatif nomme.
+      suppressionAgent: { agents: agentStore, reglages: settingsStore },
     },
     audit: auditSink,
     maintenant: () => Date.now(),

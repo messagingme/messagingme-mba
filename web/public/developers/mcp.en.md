@@ -158,12 +158,13 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | set_transfer_mode | mcp:write OAuth connection required | Set what AI agents promise about team availability when they hand over. |
 | set_business_hours | mcp:write OAuth connection required | Set the workspace’s opening hours and time zone: the ones AI agents announce outside hours. |
 | list_agent_tool_library | mcp:read | The workspace tool library, or what an AI agent can still be given. |
-| update_agent_tool | mcp:write OAuth connection required | Attach, detach, enable or disable a tool of an AI agent; only what is given changes. |
+| update_agent_tool | mcp:write OAuth connection required | Attach, enable or disable a tool of an AI agent, or withdraw its autonomy; only what is given changes. |
 | list_agent_tests | mcp:read | The last kept tests of an AI agent: the conversation, the answer, the tools called, the cost. |
 | get_settings_history | mcp:read | Who changed what in the settings of an AI agent, or of Meta’s agent (Business and Enterprise). |
 | get_ai_disclosure | mcp:read | How often the AI agents say they are an AI, and what each one says. |
 | set_ai_disclosure | mcp:write OAuth connection required | Set how often the AI agents say they are an AI. |
 | get_agent_usage | mcp:read | What an AI agent consumed over 30 days: conversations, cost, messages. |
+| delete_agent | mcp:write OAuth connection required | Prepare the deletion of an AI agent; nothing goes before an admin clicks, and nothing brings it back. |
 
 ### Agent knowledge
 

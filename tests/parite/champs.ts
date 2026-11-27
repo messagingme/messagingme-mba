@@ -51,6 +51,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'POST /agents/:agentId/tools': { schema: ajoutSchema, noms: { handler: 'outils[]' } },
   // Les réglages de l'agent IA (B10, livraison 3a) : un même drapeau, deux noms dans l'outil.
   'PUT /agents/:agentId/tools/:outilId/activation': { schema: drapeauSchema, noms: { valeur: 'enabled' } },
+  // `autonomous` n'accepte que false : la donner reste un clic dans la console (B10, livraison 3b).
+  'PUT /agents/:agentId/tools/:outilId/autonomie': { schema: drapeauSchema, noms: { valeur: 'autonomous' } },
   // `attached` n'accepte que true : détacher détruit une action et son historique, ou un appel de connecteur sans autre
   // agent ; depuis Claude on désactive (enabled false), la console fait confirmer le détachement.
   'PUT /agents/:agentId/tools/:outilId/rattachement': { schema: drapeauSchema, noms: { valeur: 'attached' } },
@@ -58,6 +60,8 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'PATCH /settings/mention-ia': A_LA_MAIN,
   'PATCH /agents/:agentId/tools/:outilId': { schema: patchSchema },
   'DELETE /agents/:agentId/tools/:outilId': SANS_CORPS,
+  // Supprimer un agent (B10, livraison 3b) : au oui d'un admin, préparé par `delete_agent`.
+  'DELETE /agents/:agentId': SANS_CORPS,
 
   // Shopify
   'DELETE /integrations/shopify': SANS_CORPS,

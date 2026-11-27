@@ -38,7 +38,9 @@ import type { MagasinScenariosApi } from '../workflow/scenarios-api';
  *    tiers (la table de parité le marque « au clic ») ;
  *  - `effacement_messages` (B10, livraison 2b) : effacer les messages d'une conversation, par la MÊME écriture que le
  *    bouton « Effacer le contenu » de l'Inbox (`effacerMessages`) : rien ne les rattrape, et la fenêtre de 24 heures se
- *    ferme avec eux.
+ *    ferme avec eux ;
+ *  - `suppression_agent` (B10, livraison 3b) : supprimer un agent IA, par la MÊME écriture que le bouton de sa page
+ *    (`remove`) : ses conversations, ses outils et sa connaissance partent avec lui.
  * 🔴 Une campagne, une suppression et un effacement ne gardent aucune donnée de contact (0316) : des identifiants, l'état
  * d'une campagne, des compteurs. Un envoi à une personne garde, le temps du clic seulement, son numéro (ou sa fiche), les
  * valeurs de ses variables et le numéro masqué que le récapitulatif montre : ils s'effacent quand le oui se ferme
@@ -78,6 +80,14 @@ export interface DepsEnvoisAuOui {
    * de l'Inbox (`PgInboxStore`, passé entier : ses méthodes lisent `this`).
    */
   effacementMessages: Pick<PgInboxStore, 'etatDesMessages' | 'effacerMessages'>;
+  /**
+   * La suppression d'un agent IA (B10, livraison 3b) : le MÊME dépôt que le bouton de sa page (`PgAgentStore`, passé
+   * entier), et qui répond au client aujourd'hui (`PgSettingsStore`), que le récapitulatif dit.
+   */
+  suppressionAgent: {
+    agents: { complet(tenantId: string, id: string): Promise<{ label: string } | null>; remove(tenantId: string, id: string): Promise<boolean> };
+    reglages: { get(tenantId: string): Promise<{ repondeurAgentId: string | null }> };
+  };
   /** Les envois à une personne (livraison 2) : le cycle de `POST /v1/sends`, ses MÊMES dépendances que l'API. */
   individuels: {
     /** La cible jugée sans rien écrire (`jugerCible`) : à la préparation et au clic. */
@@ -136,6 +146,7 @@ export type DemandeEnvoi =
   /** `requete` : l'appel de connecteur à prévenir, `null` pour n'en prévenir aucun. */
   | { type: 'poussee_optout'; requete: string | null }
   | { type: 'effacement_messages'; conversation: string }
+  | { type: 'suppression_agent'; agent: string }
   | DemandeIndividuelle;
 
 /** Ce qui est gardé, montré, et ce qui partira tel quel. */
@@ -154,9 +165,14 @@ export type EnvoiGarde =
    * annoncé, et le même nombre peut être fait d'autres messages).
    */
   | { type: 'effacement_messages'; conversation: string; messages: number; dernier: string; nom: string }
+  /**
+   * `label` : le nom montré, relu au clic (renommé depuis, le clic est refusé) ; `repondeur` : il répond au client
+   * aujourd'hui, ce que le récapitulatif dit (la clé étrangère lui retire ce rôle, ses messages vont à l'équipe).
+   */
+  | { type: 'suppression_agent'; agent: string; label: string; nom: string; repondeur: boolean }
   | EnvoiIndividuelGarde;
 
-const TYPES_D_ENVOI: ReadonlySet<string> = new Set(['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout', 'effacement_messages']);
+const TYPES_D_ENVOI: ReadonlySet<string> = new Set(['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout', 'effacement_messages', 'suppression_agent']);
 export const estDemandeEnvoi = (d: { type: string }): d is DemandeEnvoi => TYPES_D_ENVOI.has(d.type);
 export const estEnvoiGarde = (g: { type: string }): g is EnvoiGarde => TYPES_D_ENVOI.has(g.type);
 
@@ -178,6 +194,7 @@ export async function releverEnvoi(
   if (d.type === 'modele' || d.type === 'envoi_scenario') return releverIndividuel(deps, tenant, fonctions, d);
   if (d.type === 'poussee_optout') return releverPoussee(deps, tenant, d.requete);
   if (d.type === 'effacement_messages') return releverEffacement(deps, tenant, fonctions, d.conversation);
+  if (d.type === 'suppression_agent') return releverSuppressionAgent(deps, tenant, d.agent);
   if (d.type === 'campagne') {
     // Les campagnes sont une fonction de la console (Pro et au-delà), comme le bouton « Lancer » : relue au clic aussi.
     if (!fonctions.has('console')) return refusFonction('console');
@@ -296,6 +313,35 @@ async function executerEffacement(
   return { ok: true, etat: 'effacee', messages: effaces };
 }
 
+const AGENT_INCONNU = 'agent introuvable dans cet espace (list_agents)';
+
+/** La suppression relue : l'agent est DANS l'espace ; son nom et son rôle de répondeur sont ce que l'admin lira. */
+async function releverSuppressionAgent(deps: DepsEnvoisAuOui, tenant: string, agent: string): Promise<Issue<EnvoiGarde>> {
+  if (!estUuid(agent)) return refus(404, AGENT_INCONNU);
+  const a = await deps.suppressionAgent.agents.complet(tenant, agent);
+  if (!a) return refus(404, AGENT_INCONNU);
+  const repondeur = (await deps.suppressionAgent.reglages.get(tenant)).repondeurAgentId === agent;
+  return { ok: true, valeur: { type: 'suppression_agent', agent, label: a.label, nom: `l’agent IA « ${a.label} »`, repondeur } };
+}
+
+/**
+ * Supprime l'agent montré. 🔴 Relu d'abord (une reprise ne repasse pas par le relevé) : déjà parti (l'exécution coupée l'a
+ * supprimé, ou un admin depuis sa page), rien à refaire ; renommé depuis, ou son rôle de répondeur changé (ce que l'admin a
+ * lu ne vaut plus), rien n'est supprimé. Puis la MÊME écriture que le bouton de sa page.
+ */
+async function executerSuppressionAgent(deps: DepsEnvoisAuOui, tenant: string, g: Extract<EnvoiGarde, { type: 'suppression_agent' }>): Promise<ResultatAction> {
+  const a = await deps.suppressionAgent.agents.complet(tenant, g.agent);
+  if (!a) return { ok: true, etat: 'agent_deja_supprime' };
+  const repondeur = (await deps.suppressionAgent.reglages.get(tenant)).repondeurAgentId === g.agent;
+  if (a.label !== g.label || repondeur !== g.repondeur) {
+    return {
+      ok: false, code: 'modifiee',
+      message: 'l’agent a changé depuis votre clic (son nom, ou qui répond au client) : ce bouton n’a rien supprimé. Demandez à Claude un nouveau bouton.',
+    };
+  }
+  return (await deps.suppressionAgent.agents.remove(tenant, g.agent)) ? { ok: true, etat: 'agent_supprime' } : { ok: true, etat: 'agent_deja_supprime' };
+}
+
 /** La personne seule, sans le reste de l'action : un numéro, ou une fiche. */
 export const personneDe = (p: PersonneDEnvoi): PersonneDEnvoi => ('telephone' in p ? { telephone: p.telephone } : { contact: p.contact });
 
@@ -384,6 +430,9 @@ export function libelleEnvoi(g: EnvoiGarde): string {
   if (g.type === 'envoi_scenario') return 'Lancer le scénario pour 1 contact';
   if (g.type === 'poussee_optout') return g.requete === null ? 'Couper la poussée des désabonnements' : 'Prévenir cet appel à chaque désabonnement';
   if (g.type === 'effacement_messages') return `Effacer ${pluriel(g.messages, 'message')}`;
+  // Le bouton nomme l'effet, pas l'agent : un nom (jusqu'à 120 caractères) dépasserait la borne du libellé (80, 0316), et
+  // le récapitulatif le nomme en entier.
+  if (g.type === 'suppression_agent') return 'Supprimer l’agent';
   const n = pluriel(g.etat.recipientCount, 'contact');
   if (g.reprise) return `Reprendre l’envoi à ${n}`;
   return g.etat.prevueLe === null ? `Envoyer à ${n}` : `Programmer l’envoi à ${n}`;
@@ -435,6 +484,15 @@ export function recapitulatifEnvoi(g: EnvoiGarde): string[] {
       'Claude vous a montré laquelle dans la conversation, avant de vous envoyer ici. L’effacement ne se rattrape pas.',
     ];
   }
+  if (g.type === 'suppression_agent') {
+    // Les mots de la confirmation de sa page (`web/app/agents/page.tsx`), rôle de répondeur compris.
+    return [
+      `L’agent IA « ${g.label} » est supprimé pour de bon : ses conversations, ses outils et sa base de connaissance partent `
+        + 'avec lui, et les blocs de scénario qui l’utilisent cesseront de répondre.',
+      ...(g.repondeur ? ['C’est lui qui répond au client : les messages que personne ne tient iront à l’équipe.'] : []),
+      'Claude vous a montré lequel dans la conversation, avant de vous envoyer ici. La suppression ne se rattrape pas.',
+    ];
+  }
   const e = g.etat;
   const modele = `le modèle « ${e.templateName} » (${e.templateLanguage}, ${e.category})`;
   const n = pluriel(e.recipientCount, 'contact');
@@ -461,6 +519,7 @@ export async function executerEnvoi(
   if (g.type === 'modele' || g.type === 'envoi_scenario') return executerIndividuel(deps, tenant, g, ctx);
   if (g.type === 'poussee_optout') return executerPoussee(deps, tenant, g, auteur, audit);
   if (g.type === 'effacement_messages') return executerEffacement(deps, tenant, g, auteur, audit);
+  if (g.type === 'suppression_agent') return executerSuppressionAgent(deps, tenant, g);
   if (g.type === 'campagne') {
     const destinataires = g.etat.recipientCount;
     const etat = await deps.campagnes.repo.etatPourConfirmation(tenant, g.campagne);

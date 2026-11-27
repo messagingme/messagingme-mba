@@ -90,6 +90,8 @@ export const CATALOGUE_MCP = {
   get_ai_disclosure: { scope: 'mcp:read' },
   set_ai_disclosure: { scope: 'mcp:write', exigePersonne: true },
   get_agent_usage: { scope: 'mcp:read' },
+  /** Supprimer un agent IA (B10, livraison 3b) : au oui d'un admin, préparé au nom d'une personne. */
+  delete_agent: { scope: 'mcp:write', exigePersonne: true },
   activate_agent: { scope: 'mcp:write', exigePersonne: true },
   set_default_responder: { scope: 'mcp:write', exigePersonne: true },
   test_agent: { scope: 'mcp:write', exigePersonne: true },

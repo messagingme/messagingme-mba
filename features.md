@@ -6597,8 +6597,12 @@ chemin pour elle. Chacun devient un outil, qui appelle la fonction du bouton de 
   fiche de connaissance (`update_knowledge`) ; relire ses derniers essais (`list_agent_tests`) et ce qu'il a consommé sur
   30 jours (`get_agent_usage`) ; qui a changé quoi dans ses réglages ou dans ceux de l'agent de Meta
   (`get_settings_history`) ; et la fréquence à laquelle les agents disent qu'ils sont une IA, lue et réglée comme dans
-  Sécurité > IA (`get_ai_disclosure`, `set_ai_disclosure`, tracé au nom de la personne). L'autonomie sur un appel
-  irréversible reste un clic dans la console.
+  Sécurité > IA (`get_ai_disclosure`, `set_ai_disclosure`, tracé au nom de la personne). Il retire l'autonomie d'un
+  outil sur une action irréversible : l'agent ne peut plus la lancer, chaque appel est refusé, comme quand sa case est
+  décochée dans la console ; la donner reste un clic dans la console, outil par outil. Il prépare enfin la suppression
+  d'un agent (`delete_agent`) : comme une suppression de contacts, elle passe par le bouton qu'un administrateur clique
+  dans la console, après avoir lu ce qui part avec lui (ses conversations, ses outils, sa connaissance, les blocs de
+  scénario qui l'utilisent, son rôle de répondeur).
 - `get_messages` rend l'identifiant de chaque message, que `get_message_status` lit.
 
 **Les garde-fous.** Tous exigent la connexion de Claude, sauf la main du fil. Corriger et supprimer un modèle comptent

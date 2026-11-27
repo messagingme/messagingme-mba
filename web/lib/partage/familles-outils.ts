@@ -20,7 +20,7 @@ export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly t
       'list_agents', 'get_agent', 'create_agent', 'update_agent', 'set_agent_limits', 'set_agent_tools', 'set_agent_action', 'delete_agent_action',
       'test_agent', 'activate_agent', 'set_default_responder', 'set_transfer_mode', 'set_business_hours',
       'list_agent_tool_library', 'update_agent_tool', 'list_agent_tests', 'get_settings_history', 'get_ai_disclosure',
-      'set_ai_disclosure', 'get_agent_usage',
+      'set_ai_disclosure', 'get_agent_usage', 'delete_agent',
     ],
   },
   { titre: 'Agent knowledge', titreFr: 'Connaissance de l’agent IA', outils: ['list_knowledge', 'add_knowledge', 'update_knowledge', 'delete_knowledge', 'preview_site', 'import_site', 'import_document_text'] },

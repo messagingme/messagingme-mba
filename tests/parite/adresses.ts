@@ -66,7 +66,8 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /agents/:agentId/tools/connecteur': aFaire('B10', 'agent IA : donner à un agent un appel de connecteur API'),
   'PATCH /agents/:agentId/tools/:outilId': enPartie(['set_agent_action'], 'les réglages communs des autres outils (nom vu par le modèle, quand l’appeler, quand ne pas l’appeler, gestes) et leur cible'),
   'PUT /agents/:agentId/tools/:outilId/activation': outil('update_agent_tool'),
-  'PUT /agents/:agentId/tools/:outilId/autonomie': aFaire('B10', 'agent IA : l’autonomie d’un outil ; sur un appel DELETE, elle reste un clic dans la console'),
+  // L'outil la retire seulement : la donner reste un clic dans la console, outil par outil.
+  'PUT /agents/:agentId/tools/:outilId/autonomie': outil('update_agent_tool'),
   'DELETE /agents/:agentId/tools/:outilId': enPartie(['delete_agent_action'], 'détacher les outils qui ne sont pas des actions'),
   'PUT /agents/:agentId/tools/:outilId/rattachement': outil('update_agent_tool'),
   'GET /agents/:agentId/tools/offrables': outil('list_agent_tool_library'),
@@ -415,7 +416,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /agents/:agentId/manques': outil('get_agent'),
   'GET /agents/modeles': outil('get_agent'),
   'PATCH /agents/:agentId': enPartie(['update_agent', 'set_agent_limits', 'activate_agent'], 'le nom donné au contact, l’inactivité et le contact inconnu'),
-  'DELETE /agents/:agentId': aFaire('B10', 'agent IA : supprimer un agent'),
+  'DELETE /agents/:agentId': outil('delete_agent'),
 
   // La médiathèque (rcsMedia)
   'POST /rcs/media': aFaire('B10', 'médiathèque : déposer un fichier (image, vidéo, PDF)'),

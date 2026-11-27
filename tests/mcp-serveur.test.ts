@@ -901,6 +901,8 @@ describe('serveur MCP : cohérence du catalogue', () => {
       set_agent_tools: [true, true, false],
       // Les réglages de l'agent IA (B10, livraison 3a) : reposer le même état ne change rien, et rien ne sort de l'espace.
       update_agent_tool: [true, true, false],
+      // Supprimer un agent (B10, livraison 3b) : chaque appel prépare un bouton de plus, rien ne part avant le clic.
+      delete_agent: [true, false, false],
       set_ai_disclosure: [true, true, false],
       update_knowledge: [true, true, false],
       // Les limites d'une conversation (2026-10-23) : elles remplacent celles d'avant ; les rejouer ne change rien.

@@ -296,6 +296,22 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 3b, supprimer un agent au oui, retirer l'autonomie) : ce qui reste de la relecture (2026-11-27, aucun rouge)
+
+Corrigés avant de pousser : la parité des champs de la route de suppression ; un nom d'agent long qui dépassait la borne
+du libellé du oui (le bouton nomme désormais l'effet, « Supprimer l'agent », et le récapitulatif nomme l'agent) ; la
+description de l'autonomie (sans elle, l'outil est refusé à chaque appel, l'agent ne redemande rien) ; la reprise, qui
+relit aussi le rôle de répondeur ; l'ordre des écritures de `update_agent_tool` (l'autonomie se retire avant d'activer, et
+un refus dit ce que l'appel a déjà écrit) ; le test de `autonomous: true` accompagné d'un autre champ. Reste :
+- Décision pour Julien, sur les deux écrans ensemble (la confirmation de la page de l'agent et le récapitulatif du oui) :
+  ce que la suppression emporte et qu'aucun des deux ne dit. L'historique des actions déclenchées (`agent_actions`, en
+  cascade depuis 0232, champs recueillis compris) ; les automations déclenchées par ses actions, qui ne partent plus,
+  sans bruit (`src/automation/match.ts`) ; un étage de campagne qui le désignait comme répondeur, qui retombe sur le
+  répondeur de l'espace (0263) ; un appel de connecteur de la bibliothèque dont il était le dernier agent, qui part
+  (`PgAgentStore.remove`).
+- Retour arrière vers une image antérieure à la 3b : un bouton `suppression_agent` encore proposé rend 500 au clic, et un
+  oui interrompu se conclut `echouee` (`action_inconnue`) ; rien n'est supprimé, comme pour les types ajoutés avant.
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 3a, les réglages de l'agent IA) : ce qui reste de la relecture (2026-11-27)
 
 Le rouge est corrigé avant de pousser : `update_agent_tool` détachait, et détacher une action la supprime avec son

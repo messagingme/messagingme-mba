@@ -47,6 +47,10 @@ class FauxCatalogue {
     if (this.activationImpossible) throw new OutilNonActivable(this.activationImpossible);
     return tenant === T ? ({ id: outilId } as never) : null;
   }
+  async autonomie(tenant: string, agentId: string, outilId: string, autonome: boolean, par: string) {
+    this.noter('autonomie', tenant, agentId, outilId, autonome, par);
+    return tenant === T ? ({ id: outilId } as never) : null;
+  }
 }
 
 function monter() {
@@ -157,6 +161,33 @@ describe('les réglages de l’agent IA depuis Claude (CSM, B10, livraison 3a)',
     catalogue.activationImpossible = null;
     await expect(outil('update_agent_tool').executer(deps, 't2', { agent_id: AGENT, tool_id: OUTIL, enabled: true }, MOI)).rejects.toMatchObject({ code: 'not_found' });
     await expect(outil('update_agent_tool').executer(deps, T, { agent_id: AGENT, tool_id: 'outil-1', enabled: true }, MOI)).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('🔴 update_agent_tool retire l’autonomie d’un outil au nom de la personne ; la donner reste un clic dans la console', async () => {
+    const { deps, catalogue } = monter();
+    expect(await outil('update_agent_tool').executer(deps, T, { agent_id: AGENT, tool_id: OUTIL, enabled: false, autonomous: false }, MOI))
+      .toEqual({ agent_id: AGENT, tool_id: OUTIL, enabled: false, autonomous: false });
+    // L'autonomie se retire d'abord : jamais un outil actif ET autonome entre deux écritures.
+    expect(catalogue.appels).toEqual([`autonomie:${T}:${AGENT}:${OUTIL}:false:u1`, `activer:${T}:${AGENT}:${OUTIL}:false:u1`]);
+    // La donner : refusé avant toute écriture, avec l'onglet Outils de l'agent pour la donner soi-même.
+    const refus = await outil('update_agent_tool').executer(deps, T, { agent_id: AGENT, tool_id: OUTIL, autonomous: true }, MOI).catch((e: unknown) => e);
+    expect(refus).toMatchObject({ code: 'invalid_args', message: expect.stringMatching(/se donne dans la console/) });
+    expect((refus as { precisions: { action: string } }).precisions.action).toMatch(new RegExp(`/agents\\?id=${AGENT}&tab=outils$`));
+    expect(catalogue.appels).toHaveLength(2);
+    // Accompagnée d'un autre champ, la donner est refusée de même : rien n'est écrit, pas même l'autre champ.
+    await expect(outil('update_agent_tool').executer(deps, T, { agent_id: AGENT, tool_id: OUTIL, enabled: true, autonomous: true }, MOI))
+      .rejects.toMatchObject({ code: 'invalid_args' });
+    expect(catalogue.appels).toHaveLength(2);
+    // Un outil ou un agent d'un autre espace : introuvable.
+    await expect(outil('update_agent_tool').executer(deps, 't2', { agent_id: AGENT, tool_id: OUTIL, autonomous: false }, MOI)).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('update_agent_tool : l’autonomie retirée puis l’activation refusée, le refus dit ce qui est déjà écrit', async () => {
+    const { deps, catalogue } = monter();
+    catalogue.activationImpossible = 'schéma non représentable';
+    await expect(outil('update_agent_tool').executer(deps, T, { agent_id: AGENT, tool_id: OUTIL, enabled: true, autonomous: false }, MOI))
+      .rejects.toMatchObject({ code: 'conflict', message: 'autonomie retirée ; son activation est refusée : schéma non représentable' });
+    expect(catalogue.appels).toEqual([`autonomie:${T}:${AGENT}:${OUTIL}:false:u1`, `activer:${T}:${AGENT}:${OUTIL}:true:u1`]);
   });
 
   it('🔴 drapeauDOutil (la route et l’outil) : poser un drapeau sans personne identifiée est refusé, sans rien écrire', async () => {

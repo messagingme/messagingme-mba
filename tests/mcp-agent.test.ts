@@ -547,13 +547,14 @@ const ARGS: Record<string, Record<string, unknown>> = {
   update_agent_tool: { agent_id: AG, tool_id: '66666666-6666-4666-8666-666666666666', enabled: true },
   set_ai_disclosure: { frequency: 'session' },
   update_knowledge: { agent_id: AG, fiche_id: '44444444-4444-4444-8444-444444444444', titre: 'Horaires' },
+  delete_agent: { agent_id: AG },
 };
 
 /** Les traces d'écriture et de lecture des dépendances de l'agent, mises bout à bout : vides = rien n'a été touché. */
 const touche = (cap: ReturnType<typeof monter>['cap']) => Object.entries(cap).filter(([, v]) => v.length > 0).map(([k]) => k);
 
 describe('🔴 la personne requise : une clé d’API ne voit ni n’appelle les outils qui écrivent au nom de quelqu’un', () => {
-  it('vingt-quatre outils : quatre lectures sans personne, vingt outils qui l’exigent (le répondeur, les horaires, les actions, les limites et les réglages de 3a compris)', () => {
+  it('vingt-cinq outils : quatre lectures sans personne, vingt et un outils qui l’exigent (le répondeur, les horaires, les actions, les limites, les réglages de 3a et la suppression compris)', () => {
     const agent = OUTILS.filter((o) => Object.hasOwn(ARGS, o.nom));
     expect(agent.map((o) => o.nom).sort()).toEqual(Object.keys(ARGS).sort());
     expect(agent.filter((o) => o.exigePersonne !== true).map((o) => o.nom).sort())

@@ -158,12 +158,13 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | set_transfer_mode | mcp:write connexion OAuth requise | Régler ce que les agents IA promettent de la disponibilité de l’équipe quand ils passent la main. |
 | set_business_hours | mcp:write connexion OAuth requise | Régler les heures d’ouverture de l’espace et son fuseau : celles que les agents IA annoncent hors des heures. |
 | list_agent_tool_library | mcp:read | La bibliothèque d’outils de l’espace, ou ce qu’on peut encore donner à un agent IA. |
-| update_agent_tool | mcp:write connexion OAuth requise | Rattacher, détacher, activer ou désactiver un outil d’un agent IA ; seul ce qui est donné change. |
+| update_agent_tool | mcp:write connexion OAuth requise | Rattacher, activer ou désactiver un outil d’un agent IA, ou lui retirer son autonomie ; seul ce qui est donné change. |
 | list_agent_tests | mcp:read | Les derniers essais gardés d’un agent IA : la conversation, la réponse, les outils appelés, le coût. |
 | get_settings_history | mcp:read | Qui a changé quoi dans les réglages d’un agent IA, ou de l’agent de Meta (Business et Entreprise). |
 | get_ai_disclosure | mcp:read | À quelle fréquence les agents IA disent qu’ils sont une IA, et ce que chacun en dit. |
 | set_ai_disclosure | mcp:write connexion OAuth requise | Régler à quelle fréquence les agents IA disent qu’ils sont une IA. |
 | get_agent_usage | mcp:read | Ce qu’un agent IA a consommé sur 30 jours : conversations, coût, messages. |
+| delete_agent | mcp:write connexion OAuth requise | Préparer la suppression d’un agent IA ; rien ne part avant le clic d’un admin, et rien ne la rattrape. |
 
 ### Connaissance de l’agent IA
 

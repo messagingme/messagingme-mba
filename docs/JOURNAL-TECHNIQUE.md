@@ -5,6 +5,42 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, livraison 3b) : Claude supprime un agent au oui et retire l'autonomie d'un outil
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 3 (l'agent IA), second temps (3b). Le
+branchement d'un connecteur à un agent (`POST tools/connecteur`) part avec les connecteurs, à la livraison 4.
+
+**Supprimer un agent, au oui d'un administrateur** (`delete_agent`, toutes les offres comme le bouton de sa page). Rien ne
+rattrape une suppression : ses conversations, ses outils et sa base de connaissance partent avec lui, et les blocs de
+scénario qui l'utilisent cessent de répondre. L'outil prépare donc une action `suppression_agent` du oui
+(`src/mise-en-ligne/envois.ts`) et rend son bouton, « Supprimer l'agent » ; un administrateur le clique dans la console
+après avoir lu les mots de la confirmation de la page de l'agent, qui le nomment, et, si l'agent répond au client, que ses
+messages iront à l'équipe (la clé étrangère lui retire ce rôle). Le clic relit l'agent dans l'espace, son nom et son rôle
+de répondeur : renommé, devenu répondeur ou déjà parti, le clic est refusé. Une reprise après une coupure relit les mêmes :
+déjà supprimé, rien n'est refait ; renommé ou rôle changé, rien n'est supprimé. L'écriture est celle du bouton de sa page
+(`remove`).
+
+**Retirer l'autonomie d'un outil** (`update_agent_tool`, `autonomous: false`), au nom de la personne, par la même fonction
+que la route (`drapeauDOutil`) : l'agent ne peut plus lancer l'action irréversible, chaque appel est refusé, comme quand sa
+case est décochée dans la console. La donner reste un clic dans la console, outil par outil : `autonomous: true` est refusé
+avec l'adresse de l'onglet Outils de l'agent. Les écritures d'un même appel vont dans cet ordre : rattacher, retirer
+l'autonomie, activer ; un refus dit ce que l'appel a déjà écrit.
+
+Deux routes quittent les `aFaire` de la parité ; les tarifs comptent 109 outils en Free et 135 en Pro. Aucune migration.
+
+**La relecture indépendante : aucun rouge.** Corrigés avant de pousser : la parité des champs de la route de suppression ;
+un nom d'agent long (jusqu'à 120 caractères) qui dépassait la borne du libellé du oui (80, 0316) et faisait échouer l'outil,
+d'où un bouton qui nomme l'effet et un récapitulatif qui nomme l'agent ; la description de l'autonomie, qui annonçait que
+l'agent redemanderait à l'équipe quand l'outil est en fait refusé à chaque appel ; la reprise, qui ne relisait que le nom ;
+l'ordre des écritures (l'autonomie retirée après l'activation, une activation refusée faisait sauter le retrait demandé) ;
+le test de `autonomous: true` accompagné d'un autre champ. Ce que la suppression emporte sans que ni la console ni le oui
+le disent (l'historique des actions, les automations qu'elles déclenchent, un étage de campagne, un appel de connecteur
+sans autre agent) attend une décision, au `todo.md`.
+
+Preuves : 20 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint, l'auto-attaque, la suite
+racine et celle de la console ; sur l'arbre fusionné avec les pairs, avant le push : typecheck, lint, auto-attaque, les
+tests ciblés et la suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-27 : segments Shopify, lot 7d : deux clients fusionnés dans Shopify restent un seul client chez nous
 
 Plan : `docs/superpowers/plans/2026-11-27-segments-shopify-lot-7d-fusion-de-clients.md` (question 15 de la spec,

@@ -96,6 +96,9 @@ function MiseEnLigneInner({ session }: { session: Session }) {
       // Les messages d'une conversation (B10, livraison 2b).
       case 'effacee': return t(`${r.messages} message(s) effacé(s)`, `${r.messages} message(s) erased`);
       case 'deja_effacee': return t('déjà effacés : rien n’a été effacé de plus', 'already erased: nothing more was erased');
+      // Un agent IA (B10, livraison 3b).
+      case 'agent_supprime': return t('supprimé', 'deleted');
+      case 'agent_deja_supprime': return t('déjà supprimé : rien n’a été refait', 'already deleted: nothing was done again');
       // Un modèle ou un scénario envoyé à une personne (B8, livraison 2).
       case 'envoye': return t('envoyé', 'sent');
     }

@@ -654,6 +654,10 @@ export const envoisAuOuiInertes: DepsEnvoisAuOui = {
     effacement: { contacts: {}, suppressionsDuJour: {}, listeDeLAgent: {}, enVol: {} } as unknown as DepsEnvoisAuOui['suppression']['effacement'],
   },
   pousseeOptout: { lister: async () => [], actuelle: async () => null, choisir: neDevraitPasEtreAppelee('envois.pousseeOptout.choisir') },
+  suppressionAgent: {
+    agents: { complet: neDevraitPasEtreAppelee('envois.suppressionAgent.complet'), remove: neDevraitPasEtreAppelee('envois.suppressionAgent.remove') },
+    reglages: { get: neDevraitPasEtreAppelee('envois.suppressionAgent.reglages.get') },
+  },
   effacementMessages: {
     etatDesMessages: neDevraitPasEtreAppelee('envois.effacementMessages.etatDesMessages'),
     effacerMessages: neDevraitPasEtreAppelee('envois.effacementMessages.effacerMessages'),
@@ -1268,7 +1272,7 @@ export const mcpAgentReglagesInertes: Pick<DepsMcp, 'bibliothequeOutils' | 'hist
   bibliothequeOutils: {
     listCatalogue: async () => [], offrablesPour: async () => [],
     rattacher: neDevraitPasEtreAppelee('bibliothequeOutils.rattacher'), detacher: neDevraitPasEtreAppelee('bibliothequeOutils.detacher'),
-    activer: neDevraitPasEtreAppelee('bibliothequeOutils.activer'),
+    activer: neDevraitPasEtreAppelee('bibliothequeOutils.activer'), autonomie: neDevraitPasEtreAppelee('bibliothequeOutils.autonomie'),
   },
   historiqueReglages: { lister: async () => [] },
   mentionIa: { get: async () => ({ mentionIaFrequence: null }) as never, setMentionIaFrequence: neDevraitPasEtreAppelee('mentionIa.setMentionIaFrequence') },

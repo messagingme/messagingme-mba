@@ -10,11 +10,12 @@ export const TYPES_ACTION = ['publier', 'restaurer', 'repondeur'] as const;
  * Les envois au oui (lot 1 du CSM virtuel, B8) : lancer, programmer ou reprendre une campagne, effacer des contacts,
  * envoyer un modèle ou faire partir un scénario vers UNE personne, choisir l'appel de connecteur prévenu à chaque
  * désabonnement (B10, livraison 1c : des données partent chez un tiers), et effacer les messages d'une conversation (B10,
- * livraison 2b : rien ne les rattrape). Ils sont préparés par LEURS outils (`prepare_campaign`, `control_campaign`,
- * `prepare_contacts_deletion`, `send_template_to_contact`, `send_scenario_to_contact`, `set_optout_push`,
- * `erase_conversation_messages`), jamais par `propose_go_live`, et chacun est SEUL dans sa mise en ligne.
+ * livraison 2b : rien ne les rattrape), et supprimer un agent IA (B10, livraison 3b). Ils sont préparés par LEURS outils
+ * (`prepare_campaign`, `control_campaign`, `prepare_contacts_deletion`, `send_template_to_contact`,
+ * `send_scenario_to_contact`, `set_optout_push`, `erase_conversation_messages`, `delete_agent`), jamais par
+ * `propose_go_live`, et chacun est SEUL dans sa mise en ligne.
  */
-export const TYPES_ENVOI = ['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout', 'effacement_messages'] as const;
+export const TYPES_ENVOI = ['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout', 'effacement_messages', 'suppression_agent'] as const;
 export type TypeAction = (typeof TYPES_ACTION)[number] | (typeof TYPES_ENVOI)[number];
 
 /**
@@ -37,6 +38,8 @@ export type ResultatAction =
    */
   | { ok: true; etat: 'effacee'; messages: number }
   | { ok: true; etat: 'deja_effacee' }
+  /** Un agent IA : supprimé par CETTE exécution, ou déjà parti (une reprise, ou sa page entre-temps). */
+  | { ok: true; etat: 'agent_supprime' | 'agent_deja_supprime' }
   /**
    * Un envoi à UNE personne (un modèle, un scénario) : `envoi`, son identifiant (`send_id`, sa ligne dans Campagnes). Une
    * reprise après une coupure rend le même, sans rien renvoyer.
