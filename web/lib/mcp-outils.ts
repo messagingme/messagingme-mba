@@ -76,6 +76,7 @@ const TEXTES_MCP = {
   transcribe_message: ['Transcrire le vocal d’un message, et le traduire si besoin ; payé sur le crédit IA, une seule fois.', 'Transcribe the voice message of a message, and translate it if needed; paid from the AI credit, once.'],
   get_inbox_settings: ['Qui peut prendre une conversation du pot commun, et le délai avant que l’automatique reprenne la main.', 'Who can take a conversation from the shared pool, and the delay before the automation takes it back.'],
   update_inbox_settings: ['Régler qui peut prendre une conversation et le délai de reprise ; seul ce qui est donné change.', 'Set who can take a conversation and the handback delay; only what is given changes.'],
+  erase_conversation_messages: ['Préparer l’effacement des messages d’une conversation ; rien ne part avant le clic d’un admin, et rien ne les rattrape.', 'Prepare the erasure of the messages of a conversation; nothing goes before an admin clicks, and nothing brings them back.'],
   assign_conversation: ['Confier un fil à un membre, ou le libérer.', 'Assign a thread to a member, or release it.'],
   control_conversation: ['Prendre la main sur un fil, ou la rendre au répondeur automatique, qui répondra au message suivant.', 'Take over a thread, or hand it back to the automatic responder, which answers the next message.'],
   get_plan: ['L’offre de l’espace, ses limites et ce qui en est consommé, avec le lien pour passer en formule Pro.', 'The workspace plan, its limits and current usage, with the link to upgrade.'],

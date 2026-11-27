@@ -1,7 +1,9 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, OutilMcp } from './outils';
-import { RefusOutil, texteObligatoire } from './saisie';
-import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
+import { RefusOutil, texteObligatoire, valeurOuRefus } from './saisie';
+import { ecriture, LOURDE, personneRequise, plafondCouteux, signataire } from './outils-agent';
+import { proposer } from '../mise-en-ligne/mise-en-ligne';
+import { boutonDuOui } from './outils-mise-en-ligne';
 import { transcrireVocal, type InboxDep, type InboxRouteDeps } from '../http/inbox';
 import { MAX_REPRISE_S, reglerReprise, type ReglagesDep } from '../http/settings';
 import { estUuid } from '../http/scope';
@@ -15,7 +17,9 @@ import { ECRANS, LISTES } from './ecran';
  * `marquerTraitee`, `marquerLue`), signées de qui les demande ; la transcription est celle du bouton (`transcrireVocal`,
  * payée sur le crédit IA, idempotente) ; les réglages de prise et de reprise passent par les MÊMES écritures que l'écran
  * (`setAgentsPeuventPrendre`, `reglerReprise`). Les compteurs de la console, en cache court par copie de l'API, suivent au
- * renouvellement suivant, comme entre deux copies.
+ * renouvellement suivant, comme entre deux copies. 🔴 Effacer les messages d'une conversation (livraison 2b) part sur le
+ * OUI d'un admin, comme le bouton « Effacer le contenu » lui est réservé : rien ne les rattrape (l'action
+ * `effacement_messages` du oui de mise en ligne, `src/mise-en-ligne/envois.ts`).
  */
 export interface DepsInboxMcp {
   /** Les marques d'une conversation : le MÊME dépôt que les boutons (`PgInboxStore`, passé entier). */
@@ -134,6 +138,37 @@ export const OUTILS_INBOX: OutilMcp[] = [
       const r = await transcrireVocal(deps, tenantId, id, message, langue);
       if (!r.ok) throw new RefusOutil(typeof r.corps.error === 'string' ? r.corps.error : 'transcription refusée', r.famille);
       return r.valeur;
+    },
+  },
+  {
+    ...ficheOutilMcp('erase_conversation_messages'),
+    fonction: 'inbox',
+    description: 'Prepares the erasure of all the messages of a conversation, received and sent, for good: nothing brings '
+      + 'them back. Nothing is erased until an administrator clicks the button of the go_live link in the console, after '
+      + 'reading how many messages go. The conversation stays in the inbox, empty; with no message from the contact left, '
+      + 'the 24-hour window closes until they write again. The click reads again that the conversation still has the same '
+      + 'number of messages. get_go_live with go_live_id then tells what was done.',
+    annotations: ecriture('Erase the messages of a conversation', false, false),
+    entree: {
+      type: 'object',
+      properties: { conversation_id: CONVERSATION },
+      required: ['conversation_id'],
+      additionalProperties: false,
+    },
+    ecran: (args) => ECRANS.conversation(args.conversation_id),
+    async executer(deps, tenantId, args, personne) {
+      signataire(personne);
+      const id = texteObligatoire(args, 'conversation_id', 100);
+      // 🔴 Au oui : rien ne rattrape un effacement. L'outil prépare (le relevé refuse un identifiant mal formé avant la
+      // base), l'admin clique.
+      const oui = valeurOuRefus(await proposer(
+        deps.misesEnLigne, tenantId, personneRequise(personne), [{ type: 'effacement_messages', conversation: id }],
+      ));
+      return {
+        go_live: boutonDuOui(oui),
+        a_savoir: `Rien n’est effacé : un administrateur clique « ${oui.libelle} » dans la console, après avoir lu ce qui part. `
+          + 'Après le clic, get_go_live avec go_live_id dit ce qui a été fait.',
+      };
     },
   },
   {

@@ -296,6 +296,18 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 2b, l'effacement des messages au oui) : ce qui reste de la relecture (2026-11-27)
+
+Le rouge est corrigé avant de pousser : une reprise après une coupure qui suivait l'effacement effaçait, au même nombre, des
+messages arrivés depuis, que personne n'avait annoncés ; le plus récent est désormais gardé avec le nombre. Corrigés aussi :
+« déjà effacés » pour une reprise qui ne trouve plus rien, l'accord au singulier, le lien vers la conversation sur la page du
+oui, `get_go_live` qui cite l'outil, un test qui fige l'absence de donnée de contact. Reste :
+- Une reprise après une coupure qui suivait l'effacement, puis des messages neufs : elle rend « modifiée, rien effacé de
+  plus » (exact) et le oui « échoué », alors que l'effacement annoncé a bien eu lieu ; un espace redescendu entre-temps la
+  rend « fonction indisponible » pour la même raison (l'offre est relue avant l'action).
+- Les compteurs de la console (non-lus, À traiter) suivent au renouvellement de leur cache court, comme pour les autres
+  outils de l'Inbox : le oui ne les invalide pas.
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 2a, l'Inbox depuis Claude) : ce qui reste de la relecture (2026-11-27, aucun rouge)
 
 Corrigés avant de pousser : l'urgence avec Traité ou Archivé, la description de `done: false`, `read` et la langue de

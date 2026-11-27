@@ -5490,6 +5490,7 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | transcribe_message | mcp:write connexion OAuth requise | Transcrire le vocal d’un message, et le traduire si besoin ; payé sur le crédit IA, une seule fois. |
 | get_inbox_settings | mcp:read | Qui peut prendre une conversation du pot commun, et le délai avant que l’automatique reprenne la main. |
 | update_inbox_settings | mcp:write connexion OAuth requise | Régler qui peut prendre une conversation et le délai de reprise ; seul ce qui est donné change. |
+| erase_conversation_messages | mcp:write connexion OAuth requise | Préparer l’effacement des messages d’une conversation ; rien ne part avant le clic d’un admin, et rien ne les rattrape. |
 | get_conversation_insights | mcp:read | Ce que l’analyse a compris des conversations : sentiment, intentions, résolution, sujets, et la satisfaction et l’urgence par maille. |
 
 ### Modèles

@@ -190,6 +190,7 @@ const demandeDe = (g: ActionGardee): DemandeAction => {
     case 'modele': return { type: 'modele', modele: g.modele, langue: g.langue, valeurs: g.valeurs, declarePar: g.declarePar, ...personneDe(g) };
     case 'envoi_scenario': return { type: 'envoi_scenario', scenario: g.scenario, valeurs: g.valeurs, declarePar: g.declarePar, ...personneDe(g) };
     case 'poussee_optout': return { type: 'poussee_optout', requete: g.requete };
+    case 'effacement_messages': return { type: 'effacement_messages', conversation: g.conversation };
   }
 };
 
@@ -247,6 +248,7 @@ async function recapitulatifDe(deps: DepsMisesEnLigne, tenant: string, gardees: 
       case 'modele':
       case 'envoi_scenario':
       case 'poussee_optout':
+      case 'effacement_messages':
         lignes.push(...recapitulatifEnvoi(g));
         break;
     }
@@ -271,6 +273,7 @@ export function vueDe(l: LigneMiseEnLigne): VueMiseEnLigne {
       nom: a.nom,
       ...('scenario' in a ? { scenario: a.scenario } : {}),
       ...(a.type === 'campagne' ? { campagne: a.campagne } : {}),
+      ...(a.type === 'effacement_messages' ? { conversation: a.conversation } : {}),
       ...(a.type === 'restaurer' ? { version: a.version } : {}),
       resultat: l.resultat[i] ?? null,
     })),
@@ -422,7 +425,8 @@ async function executer(deps: DepsMisesEnLigne, tenant: string, id: string): Pro
 
 /**
  * La fonction de l'offre qu'exige une action : les scénarios pour une publication et un scénario envoyé à une personne,
- * la console pour une campagne ; une suppression et un modèle envoyé, aucune (toutes les offres).
+ * la console pour une campagne, l'Inbox pour l'effacement des messages d'une conversation ; une suppression et un modèle
+ * envoyé, aucune (toutes les offres).
  */
 function fonctionDe(a: ActionGardee): Fonction | null {
   // Exhaustif, sans `default` : un type d'action de plus ne compile pas tant que sa fonction n'est pas dite ici. La poussée
@@ -434,6 +438,8 @@ function fonctionDe(a: ActionGardee): Fonction | null {
       return null;
     case 'campagne':
       return 'console';
+    case 'effacement_messages':
+      return 'inbox';
     case 'publier':
     case 'restaurer':
     case 'repondeur':

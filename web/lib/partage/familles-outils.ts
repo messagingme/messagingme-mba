@@ -27,7 +27,7 @@ export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly t
     outils: [
       'list_conversations', 'get_conversation', 'get_messages', 'reply_in_open_window', 'send_message', 'control_conversation',
       'tag_conversation', 'assign_conversation', 'update_conversation', 'transcribe_message', 'get_inbox_settings',
-      'update_inbox_settings', 'get_conversation_insights',
+      'update_inbox_settings', 'erase_conversation_messages', 'get_conversation_insights',
     ],
   },
   { titre: 'Templates', titreFr: 'Modèles', outils: ['list_templates', 'get_template_status', 'create_template', 'update_template', 'delete_template', 'send_template_to_contact', 'get_message_status'] },

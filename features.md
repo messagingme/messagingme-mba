@@ -3572,7 +3572,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   (`transcribe_message`, au nom d'une personne, payé sur le crédit IA de l'espace : la transcription une seule fois, une
   traduction dans une autre langue que la dernière à nouveau), et lit ou règle qui peut prendre une
   conversation du pot commun et le délai avant que l'automatique reprenne la main (`get_inbox_settings`,
-  `update_inbox_settings`, au nom d'une personne).
+  `update_inbox_settings`, au nom d'une personne). Il prépare aussi l'effacement de tous les messages d'une conversation
+  (`erase_conversation_messages`) : comme pour le bouton « Effacer le contenu », réservé aux administrateurs, rien ne les
+  rattrape, donc l'effacement passe par le bouton qu'un administrateur clique dans la console, après avoir lu combien de
+  messages partent et que la fenêtre de 24 heures se fermera.
 - ✅ **Envoyer un message simple** : un texte, à une personne, tout de suite, visible dans l'Inbox. Deux routes,
   parce que leurs règles n'ont presque rien en commun : `POST /v1/messages/whatsapp` (dans la fenêtre de 24 h)
   et `POST /v1/messages/rcs` (sans fenêtre, mais seulement vers quelqu'un qui a consenti ou qui vous a déjà

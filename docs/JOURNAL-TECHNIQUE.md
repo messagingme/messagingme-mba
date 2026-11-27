@@ -5,6 +5,36 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, livraison 2b) : Claude prépare l'effacement des messages d'une conversation, au clic d'un admin
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 2 (l'Inbox), deuxième temps (2b) ; 2c (le
+média d'un message) suit.
+
+**Une action de plus au oui de mise en ligne** (`effacement_messages`, `src/mise-en-ligne/envois.ts`) : la table de parité
+marque l'effacement « au clic », comme le bouton « Effacer le contenu » de l'Inbox est réservé aux admins et que rien ne le
+rattrape. `erase_conversation_messages` prépare : le bouton dit combien de messages partent, le récapitulatif que la
+fenêtre de 24 heures se ferme (les mots du bouton de l'Inbox), et la page du oui lie la conversation, que l'admin voit
+avant de cliquer. Le relevé exige l'Inbox de l'offre (relue au clic et à chaque reprise, par `fonctionDe`), une
+conversation DANS l'espace, au moins un message. Le nombre et l'identifiant du plus récent, lus par `etatDesMessages`
+(neuf, `src/inbox/store.pg.ts`), entrent dans l'empreinte : un message reçu entre la préparation et le clic fait refuser le
+clic. L'exécution les relit (une reprise ne repasse pas par le relevé) : plus aucun message, « déjà effacés » ; un autre
+nombre ou un autre plus récent, rien n'est effacé ; sinon le MÊME `effacerMessages` que la route, et la même trace
+`conversation.effacee`, signée de l'admin qui a cliqué. Aucune donnée de contact gardée (un test fige les clés de
+l'action). Aucune migration.
+
+**La relecture indépendante : un rouge, corrigé avant de pousser.** La première version ne gardait que le nombre : une
+coupure APRÈS l'effacement (la lecture qui suit ou la mise à jour de l'aperçu qui échoue), puis autant de messages neufs
+qu'annoncé, et la reprise les effaçait, sans que personne les ait vus annoncés ; la même faille passait par deux boutons
+préparés pour la même conversation. Le plus récent est désormais gardé avec le nombre, et un test rejoue chacun des deux
+chemins. Corrigés aussi : « déjà effacés », l'accord au singulier, le lien vers la conversation, `get_go_live` qui cite
+l'outil, le test des clés gardées. Accepté tel quel : la fenêtre entre la relecture du nombre et l'effacement (un aller-retour
+en base), plus étroite que celle du bouton de la console. Le reste est au `todo.md`.
+
+Preuves : 20 mutations nommées, toutes rouges, dont quatre sur la requête de `etatDesMessages`, jouées sur le banc PGlite (le
+vrai `pg`, toutes les migrations). Dans la copie de travail : typecheck et lint, l'auto-attaque, la suite racine et celle
+de la console ; sur l'arbre fusionné avec les pairs, avant le push : typecheck, lint, auto-attaque, les tests ciblés et la
+suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-27 : campagnes, les scénarios et les modèles des automations Shopify et HubSpot, rangés par catégorie
 
 Plan : `docs/superpowers/plans/2026-11-26-campagne-scenarios-automations.md`. Seconde exception à la décision 1 du menu

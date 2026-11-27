@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { Bouton } from '@/components/Bouton';
 import { IntroPage, TitrePage } from '@/components/TitrePage';
@@ -92,6 +93,9 @@ function MiseEnLigneInner({ session }: { session: Session }) {
       case 'reprise': return t(`reprise : ${r.destinataires} contact(s) en attente la reçoivent`, `resumed: ${r.destinataires} waiting contact(s) receive it`);
       case 'deja_partie': return t('déjà partie : rien n’a été renvoyé', 'had already left: nothing was sent again');
       case 'supprimes': return t(`${r.contacts} contact(s) supprimé(s)`, `${r.contacts} contact(s) deleted`);
+      // Les messages d'une conversation (B10, livraison 2b).
+      case 'effacee': return t(`${r.messages} message(s) effacé(s)`, `${r.messages} message(s) erased`);
+      case 'deja_effacee': return t('déjà effacés : rien n’a été effacé de plus', 'already erased: nothing more was erased');
       // Un modèle ou un scénario envoyé à une personne (B8, livraison 2).
       case 'envoye': return t('envoyé', 'sent');
     }
@@ -121,6 +125,15 @@ function MiseEnLigneInner({ session }: { session: Session }) {
           <ul className="list-disc space-y-2 pl-5 text-sm text-ink-700" data-testid="mise-en-ligne-recapitulatif">
             {vue.recapitulatif.map((ligne) => <li key={ligne}>{ligne}</li>)}
           </ul>
+
+          {/* L'effacement des messages d'une conversation (B10, livraison 2b) : l'admin la voit avant de cliquer. */}
+          {vue.actions.filter((a) => a.conversation !== undefined).map((a) => (
+            <p key={a.conversation} className="text-sm">
+              <Link href={`/inbox?c=${a.conversation}`} className="font-medium text-brand-600 hover:underline" data-testid="mise-en-ligne-conversation">
+                {t('Voir la conversation dans l’Inbox', 'See the conversation in the inbox')}
+              </Link>
+            </p>
+          ))}
 
           {vue.etat === 'proposee' && (
             <div className="space-y-2">

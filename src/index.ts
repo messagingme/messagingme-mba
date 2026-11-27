@@ -2192,6 +2192,9 @@ async function main(): Promise<void> {
         actuelle: async (tenant) => (await settingsStore.get(tenant)).optoutRequestId,
         choisir: (tenant, requestId) => settingsStore.setOptoutRequestId(tenant, requestId),
       },
+      // L'effacement des messages d'une conversation (B10, livraison 2b) : le MÊME dépôt que le bouton « Effacer le
+      // contenu » de l'Inbox, passé entier (ses méthodes lisent `this`).
+      effacementMessages: inboxStore,
     },
     audit: auditSink,
     maintenant: () => Date.now(),

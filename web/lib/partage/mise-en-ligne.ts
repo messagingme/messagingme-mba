@@ -8,12 +8,13 @@
 export const TYPES_ACTION = ['publier', 'restaurer', 'repondeur'] as const;
 /**
  * Les envois au oui (lot 1 du CSM virtuel, B8) : lancer, programmer ou reprendre une campagne, effacer des contacts,
- * envoyer un modèle ou faire partir un scénario vers UNE personne, et choisir l'appel de connecteur prévenu à chaque
- * désabonnement (B10, livraison 1c : des données partent chez un tiers). Ils sont préparés par LEURS outils
- * (`prepare_campaign`, `control_campaign`, `prepare_contacts_deletion`, `send_template_to_contact`,
- * `send_scenario_to_contact`, `set_optout_push`), jamais par `propose_go_live`, et chacun est SEUL dans sa mise en ligne.
+ * envoyer un modèle ou faire partir un scénario vers UNE personne, choisir l'appel de connecteur prévenu à chaque
+ * désabonnement (B10, livraison 1c : des données partent chez un tiers), et effacer les messages d'une conversation (B10,
+ * livraison 2b : rien ne les rattrape). Ils sont préparés par LEURS outils (`prepare_campaign`, `control_campaign`,
+ * `prepare_contacts_deletion`, `send_template_to_contact`, `send_scenario_to_contact`, `set_optout_push`,
+ * `erase_conversation_messages`), jamais par `propose_go_live`, et chacun est SEUL dans sa mise en ligne.
  */
-export const TYPES_ENVOI = ['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout'] as const;
+export const TYPES_ENVOI = ['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout', 'effacement_messages'] as const;
 export type TypeAction = (typeof TYPES_ACTION)[number] | (typeof TYPES_ENVOI)[number];
 
 /**
@@ -30,6 +31,12 @@ export type ResultatAction =
   | { ok: true; etat: 'envoyee' | 'programmee' | 'reprise' | 'deja_partie'; destinataires: number }
   /** Une suppression : ce que CETTE exécution a effacé (une reprise après une coupure ne recompte pas le déjà fait). */
   | { ok: true; etat: 'supprimes'; contacts: number; conversations: number; messages: number }
+  /**
+   * Les messages d'une conversation : `effacee`, ceux que CETTE exécution a effacés ; `deja_effacee`, une reprise les trouve
+   * déjà partis (par l'exécution qu'une coupure a interrompue, ou depuis l'Inbox) et n'efface rien.
+   */
+  | { ok: true; etat: 'effacee'; messages: number }
+  | { ok: true; etat: 'deja_effacee' }
   /**
    * Un envoi à UNE personne (un modèle, un scénario) : `envoi`, son identifiant (`send_id`, sa ligne dans Campagnes). Une
    * reprise après une coupure rend le même, sans rien renvoyer.
@@ -54,8 +61,9 @@ export interface VueMiseEnLigne {
   accepteeLe: string | null;
   termineeLe: string | null;
   /**
-   * `scenario` pour une publication, le répondeur ou un scénario envoyé à une personne, `campagne` pour une campagne ; une
-   * suppression et un modèle envoyé n'ont que leur nom.
+   * `scenario` pour une publication, le répondeur ou un scénario envoyé à une personne, `campagne` pour une campagne,
+   * `conversation` pour l'effacement de ses messages (la page la lie : l'admin la voit avant de cliquer) ; une suppression
+   * et un modèle envoyé n'ont que leur nom.
    */
-  actions: Array<{ type: TypeAction; nom: string; scenario?: string; campagne?: string; version?: number; resultat: ResultatAction | null }>;
+  actions: Array<{ type: TypeAction; nom: string; scenario?: string; campagne?: string; conversation?: string; version?: number; resultat: ResultatAction | null }>;
 }

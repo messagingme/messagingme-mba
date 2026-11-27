@@ -185,6 +185,7 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | transcribe_message | mcp:write OAuth connection required | Transcribe the voice message of a message, and translate it if needed; paid from the AI credit, once. |
 | get_inbox_settings | mcp:read | Who can take a conversation from the shared pool, and the delay before the automation takes it back. |
 | update_inbox_settings | mcp:write OAuth connection required | Set who can take a conversation and the handback delay; only what is given changes. |
+| erase_conversation_messages | mcp:write OAuth connection required | Prepare the erasure of the messages of a conversation; nothing goes before an admin clicks, and nothing brings them back. |
 | get_conversation_insights | mcp:read | What the analysis understood of conversations: sentiment, intents, resolution, topics, and satisfaction and urgency over time. |
 
 ### Templates

@@ -257,7 +257,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'GET /conversations/todo-count': ecran('le compteur « À traiter » de la barre'),
   'GET /conversations/unread-count': ecran('le compteur des non-lus de la barre'),
   'POST /conversations/:conversationId/read': outil('update_conversation'),
-  'DELETE /conversations/:conversationId/messages': aFaire('B10', 'Inbox : effacer les messages d’une conversation, au clic (ne se rattrape pas)'),
+  'DELETE /conversations/:conversationId/messages': outil('erase_conversation_messages'),
   'GET /conversations/:conversationId/messages': outil('get_messages'),
   'GET /conversations/:conversationId/detail': outil('get_conversation'),
   'GET /conversations/membres-affectables': outil('list_members'),

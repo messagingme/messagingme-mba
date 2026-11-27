@@ -35,6 +35,8 @@ export const CATALOGUE_MCP = {
   transcribe_message: { scope: 'mcp:write', exigePersonne: true },
   get_inbox_settings: { scope: 'mcp:read' },
   update_inbox_settings: { scope: 'mcp:write', exigePersonne: true },
+  /** Effacer les messages d'une conversation (B10, livraison 2b) : au oui d'un admin, préparé au nom d'une personne. */
+  erase_conversation_messages: { scope: 'mcp:write', exigePersonne: true },
   /** Prendre et rendre la main sur un fil (2026-10-22), sans personne exigée : `reply_in_open_window` prend déjà le fil. */
   control_conversation: { scope: 'mcp:write' },
   list_widgets: { scope: 'mcp:read' },

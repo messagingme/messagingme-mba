@@ -130,6 +130,7 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'POST /conversations/:conversationId/release': SANS_CORPS,
   // L'Inbox depuis Claude (B10, livraison 2a) : les marques n'ont pas de corps, `update_conversation` les porte.
   'POST /conversations/:conversationId/archive': SANS_CORPS,
+  'DELETE /conversations/:conversationId/messages': SANS_CORPS,
   'POST /conversations/:conversationId/unarchive': SANS_CORPS,
   'POST /conversations/:conversationId/signaler': SANS_CORPS,
   'POST /conversations/:conversationId/ne-plus-signaler': SANS_CORPS,

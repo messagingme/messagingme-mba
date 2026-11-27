@@ -14,6 +14,7 @@ import { effacerContacts, type DepsEffacement } from '../crm/effacement';
 import { numeroMasque } from '../emails-produit/alertes';
 import { estUuid } from '../http/scope';
 import { appelDeLEspace } from '../http/settings';
+import type { PgInboxStore } from '../inbox/store.pg';
 import { refus, type Issue, type StatutRefus } from '../lib/issue';
 import { journaliser } from '../lib/journal';
 import type { Fonction } from '../offres/offres';
@@ -34,9 +35,12 @@ import type { MagasinScenariosApi } from '../workflow/scenarios-api';
  *    cycle de `POST /v1/sends`, sous une clé d'idempotence tirée du oui : une reprise ne renvoie rien ;
  *  - `poussee_optout` (B10, livraison 1c) : choisir l'appel de connecteur prévenu à chaque désabonnement, ou n'en prévenir
  *    aucun, par le MÊME réglage que l'écran des paramètres : brancher un appel fait partir des données de contact chez un
- *    tiers (la table de parité le marque « au clic »).
- * 🔴 Une campagne et une suppression ne gardent aucune donnée de contact (0316) : des identifiants, l'état d'une
- * campagne, des compteurs. Un envoi à une personne garde, le temps du clic seulement, son numéro (ou sa fiche), les
+ *    tiers (la table de parité le marque « au clic ») ;
+ *  - `effacement_messages` (B10, livraison 2b) : effacer les messages d'une conversation, par la MÊME écriture que le
+ *    bouton « Effacer le contenu » de l'Inbox (`effacerMessages`) : rien ne les rattrape, et la fenêtre de 24 heures se
+ *    ferme avec eux.
+ * 🔴 Une campagne, une suppression et un effacement ne gardent aucune donnée de contact (0316) : des identifiants, l'état
+ * d'une campagne, des compteurs. Un envoi à une personne garde, le temps du clic seulement, son numéro (ou sa fiche), les
  * valeurs de ses variables et le numéro masqué que le récapitulatif montre : ils s'effacent quand le oui se ferme
  * (`terminer`) et, pour un bouton expiré ou un clic trop ancien pour reprendre, au balayage horaire du worker
  * (`expurgerEchues`).
@@ -69,6 +73,11 @@ export interface DepsEnvoisAuOui {
     /** Le MÊME réglage que la route de la console (`setOptoutRequestId`). */
     choisir(tenantId: string, requestId: string | null): Promise<void>;
   };
+  /**
+   * L'effacement des messages d'une conversation (B10, livraison 2b) : le MÊME dépôt que le bouton « Effacer le contenu »
+   * de l'Inbox (`PgInboxStore`, passé entier : ses méthodes lisent `this`).
+   */
+  effacementMessages: Pick<PgInboxStore, 'etatDesMessages' | 'effacerMessages'>;
   /** Les envois à une personne (livraison 2) : le cycle de `POST /v1/sends`, ses MÊMES dépendances que l'API. */
   individuels: {
     /** La cible jugée sans rien écrire (`jugerCible`) : à la préparation et au clic. */
@@ -126,6 +135,7 @@ export type DemandeEnvoi =
   | { type: 'suppression'; contacts: string[] }
   /** `requete` : l'appel de connecteur à prévenir, `null` pour n'en prévenir aucun. */
   | { type: 'poussee_optout'; requete: string | null }
+  | { type: 'effacement_messages'; conversation: string }
   | DemandeIndividuelle;
 
 /** Ce qui est gardé, montré, et ce qui partira tel quel. */
@@ -138,14 +148,21 @@ export type EnvoiGarde =
    * le clic refuse si le réglage a changé.
    */
   | { type: 'poussee_optout'; requete: string | null; nom: string; actuelle: string | null; nomActuel: string | null }
+  /**
+   * `messages` (le nombre montré) et `dernier` (l'identifiant du plus récent) : ils entrent dans l'empreinte, et le clic
+   * comme une reprise refusent si la conversation a reçu ou perdu un message depuis (l'admin n'efface que ce qu'on lui a
+   * annoncé, et le même nombre peut être fait d'autres messages).
+   */
+  | { type: 'effacement_messages'; conversation: string; messages: number; dernier: string; nom: string }
   | EnvoiIndividuelGarde;
 
-const TYPES_D_ENVOI: ReadonlySet<string> = new Set(['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout']);
+const TYPES_D_ENVOI: ReadonlySet<string> = new Set(['campagne', 'suppression', 'modele', 'envoi_scenario', 'poussee_optout', 'effacement_messages']);
 export const estDemandeEnvoi = (d: { type: string }): d is DemandeEnvoi => TYPES_D_ENVOI.has(d.type);
 export const estEnvoiGarde = (g: { type: string }): g is EnvoiGarde => TYPES_D_ENVOI.has(g.type);
 
 const CAMPAGNE_INCONNUE = 'campagne introuvable dans cet espace';
 const SCENARIO_INCONNU = 'scénario introuvable dans cet espace (list_scenarios)';
+const CONVERSATION_INCONNUE = 'conversation introuvable dans cet espace (list_conversations)';
 const pluriel = (n: number, mot: string): string => `${n} ${mot}${n > 1 ? 's' : ''}`;
 const dateDeParis = (iso: string): string => new Intl.DateTimeFormat('fr-FR', {
   timeZone: 'Europe/Paris', dateStyle: 'full', timeStyle: 'short',
@@ -160,6 +177,7 @@ export async function releverEnvoi(
 ): Promise<Issue<EnvoiGarde>> {
   if (d.type === 'modele' || d.type === 'envoi_scenario') return releverIndividuel(deps, tenant, fonctions, d);
   if (d.type === 'poussee_optout') return releverPoussee(deps, tenant, d.requete);
+  if (d.type === 'effacement_messages') return releverEffacement(deps, tenant, fonctions, d.conversation);
   if (d.type === 'campagne') {
     // Les campagnes sont une fonction de la console (Pro et au-delà), comme le bouton « Lancer » : relue au clic aussi.
     if (!fonctions.has('console')) return refusFonction('console');
@@ -235,6 +253,47 @@ async function executerPoussee(
   await deps.pousseeOptout.choisir(tenant, g.requete);
   await makeJournal(audit)(tenant, auteur, 'settings.poussee_optout', { kind: 'settings', id: 'poussee_optout' }, { requestId: g.requete, avant: g.actuelle });
   return fait;
+}
+
+/**
+ * L'effacement relu : l'Inbox est une fonction de l'offre, comme le bouton « Effacer le contenu » (relue au clic aussi) ;
+ * la conversation est DANS l'espace, et elle a des messages à effacer. Leur nombre est ce que l'admin lira.
+ */
+async function releverEffacement(
+  deps: DepsEnvoisAuOui, tenant: string, fonctions: ReadonlySet<Fonction>, conversation: string,
+): Promise<Issue<EnvoiGarde>> {
+  if (!fonctions.has('inbox')) return refusFonction('inbox');
+  if (!estUuid(conversation)) return refus(404, CONVERSATION_INCONNUE);
+  const etat = await deps.effacementMessages.etatDesMessages(tenant, conversation);
+  if (etat === null) return refus(404, CONVERSATION_INCONNUE);
+  if (etat.dernier === null) return refus(409, 'cette conversation n’a aucun message : rien à effacer');
+  return { ok: true, valeur: { type: 'effacement_messages', conversation, messages: etat.nombre, dernier: etat.dernier, nom: 'une conversation' } };
+}
+
+/**
+ * Efface les messages montrés. 🔴 Relu d'abord, comme la poussée : une REPRISE (après une coupure) ne repasse pas par le
+ * relevé. Plus aucun message (l'exécution coupée les avait effacés, ou un admin l'a fait depuis l'Inbox) : rien à refaire ;
+ * un autre nombre, ou un autre message le plus récent : un message est arrivé (ou parti) depuis le clic, et rien n'est
+ * effacé que l'admin n'ait vu annoncé. 🔴 Le nombre seul ne suffit pas : une coupure APRÈS l'effacement, puis autant de
+ * messages neufs qu'annoncé, et la reprise les effacerait. La trace est celle de la route de la console, signée de l'admin
+ * qui a cliqué.
+ */
+async function executerEffacement(
+  deps: DepsEnvoisAuOui, tenant: string, g: Extract<EnvoiGarde, { type: 'effacement_messages' }>, auteur: { auth: { userId: string } }, audit: AuditSink,
+): Promise<ResultatAction> {
+  const etat = await deps.effacementMessages.etatDesMessages(tenant, g.conversation);
+  if (etat === null) return { ok: false, code: 'not_found', message: CONVERSATION_INCONNUE };
+  if (etat.nombre === 0) return { ok: true, etat: 'deja_effacee' };
+  if (etat.nombre !== g.messages || etat.dernier !== g.dernier) {
+    return {
+      ok: false, code: 'modifiee',
+      message: 'la conversation a changé depuis votre clic (un message reçu ou envoyé) : ce bouton n’a rien effacé de plus. Demandez à Claude un nouveau bouton.',
+    };
+  }
+  const effaces = await deps.effacementMessages.effacerMessages(tenant, g.conversation);
+  if (effaces === null) return { ok: false, code: 'not_found', message: CONVERSATION_INCONNUE };
+  await makeJournal(audit)(tenant, auteur, 'conversation.effacee', { kind: 'conversation', id: g.conversation }, { messages: effaces, via: 'mise_en_ligne' });
+  return { ok: true, etat: 'effacee', messages: effaces };
 }
 
 /** La personne seule, sans le reste de l'action : un numéro, ou une fiche. */
@@ -324,6 +383,7 @@ export function libelleEnvoi(g: EnvoiGarde): string {
   if (g.type === 'modele') return 'Envoyer à 1 contact';
   if (g.type === 'envoi_scenario') return 'Lancer le scénario pour 1 contact';
   if (g.type === 'poussee_optout') return g.requete === null ? 'Couper la poussée des désabonnements' : 'Prévenir cet appel à chaque désabonnement';
+  if (g.type === 'effacement_messages') return `Effacer ${pluriel(g.messages, 'message')}`;
   const n = pluriel(g.etat.recipientCount, 'contact');
   if (g.reprise) return `Reprendre l’envoi à ${n}`;
   return g.etat.prevueLe === null ? `Envoyer à ${n}` : `Programmer l’envoi à ${n}`;
@@ -363,6 +423,18 @@ export function recapitulatifEnvoi(g: EnvoiGarde): string[] {
       ...(g.nomActuel === null ? [] : [`Il remplace l’appel « ${g.nomActuel} », prévenu jusqu’ici.`]),
     ];
   }
+  if (g.type === 'effacement_messages') {
+    // Les mots du bouton de l'Inbox : irréversible, et la fenêtre fermée, qui ne se devine pas.
+    const ceux = g.messages === 1
+      ? 'Le seul message de cette conversation est effacé pour de bon.'
+      : `Les ${g.messages} messages de cette conversation sont effacés pour de bon, reçus comme envoyés.`;
+    return [
+      `${ceux} La conversation reste dans l’Inbox, vide.`,
+      'La fenêtre de 24 heures se calcule sur le dernier message reçu : après l’effacement, elle est fermée, et vous ne '
+        + 'pourrez plus répondre librement à ce contact tant qu’il ne vous aura pas réécrit.',
+      'Claude vous a montré laquelle dans la conversation, avant de vous envoyer ici. L’effacement ne se rattrape pas.',
+    ];
+  }
   const e = g.etat;
   const modele = `le modèle « ${e.templateName} » (${e.templateLanguage}, ${e.category})`;
   const n = pluriel(e.recipientCount, 'contact');
@@ -388,6 +460,7 @@ export async function executerEnvoi(
 ): Promise<ResultatAction> {
   if (g.type === 'modele' || g.type === 'envoi_scenario') return executerIndividuel(deps, tenant, g, ctx);
   if (g.type === 'poussee_optout') return executerPoussee(deps, tenant, g, auteur, audit);
+  if (g.type === 'effacement_messages') return executerEffacement(deps, tenant, g, auteur, audit);
   if (g.type === 'campagne') {
     const destinataires = g.etat.recipientCount;
     const etat = await deps.campagnes.repo.etatPourConfirmation(tenant, g.campagne);

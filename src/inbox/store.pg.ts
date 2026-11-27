@@ -1959,6 +1959,25 @@ export class PgInboxStore implements InboxStore {
   }
 
   /**
+   * Le nombre de messages d'une conversation et l'identifiant du plus récent, ou `null` si elle n'est pas de cet espace.
+   * Lus par l'effacement au oui (B10, livraison 2b) : le récapitulatif dit combien partent, et le clic comme une reprise
+   * refusent si l'un ou l'autre a changé depuis (le même nombre peut être fait d'autres messages). L'ordre est celui du
+   * fil (`created_at`, puis `id`), servi par `conversation_messages_conv_idx`.
+   */
+  async etatDesMessages(tenantId: string, conversationId: string): Promise<{ nombre: number; dernier: string | null } | null> {
+    const res = await this.pool.query<{ n: string; dernier: string | null }>(
+      `select (select count(*) from conversation_messages m where m.conversation_id = c.id) as n,
+              (select m.id from conversation_messages m where m.conversation_id = c.id
+                order by m.created_at desc, m.id desc limit 1) as dernier
+         from conversations c
+        where c.id = $1 and c.tenant_id = $2`,
+      [conversationId, tenantId],
+    );
+    const ligne = res.rows[0];
+    return ligne === undefined ? null : { nombre: Number(ligne.n), dernier: ligne.dernier };
+  }
+
+  /**
    * Efface le contenu d'une conversation : ses messages et l'aperçu. Rend le nombre de messages effacés, ou
    * `null` si la conversation n'est pas de cet espace.
    *

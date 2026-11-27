@@ -977,6 +977,9 @@ describe('serveur MCP : cohérence du catalogue', () => {
       update_conversation: [true, true, false],
       transcribe_message: [true, true, true],
       update_inbox_settings: [true, true, false],
+      // L'effacement des messages (B10, livraison 2b) : chaque appel prépare un bouton de plus, rien ne part avant le clic
+      // d'un admin, et rien ne sort de l'espace.
+      erase_conversation_messages: [true, false, false],
       // Depuis B8 (2026-11-26), le clic d'un admin envoie ; l'outil prend l'identifiant de ce oui et rend toujours le même
       // résultat, une reprise coupée ne renvoie rien ; une reprise repart chez Meta.
       launch_campaign: [true, true, true],
@@ -1181,6 +1184,7 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   tag_conversation: 'inbox', assign_conversation: 'inbox',
   // L'Inbox depuis Claude (B10, livraison 2a) : la fonction de l'Inbox, comme ses boutons.
   update_conversation: 'inbox', transcribe_message: 'inbox', get_inbox_settings: 'inbox', update_inbox_settings: 'inbox',
+  erase_conversation_messages: 'inbox',
   // Les chiffres du Pro (2026-10-13) : la fonction statistiques ; get_message_stats reste ouvert (l'essentiel en Free).
   // Ce que l'analyse a compris suit la fonction analyse (spec offres v2).
   get_campaign_stats: 'statistiques', get_conversation_insights: 'analyse', get_ai_stats: 'statistiques',
