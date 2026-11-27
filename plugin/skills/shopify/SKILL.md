@@ -79,7 +79,7 @@ application_url = "https://app.messagingme.fr/shopify/installe/"
 embedded = false
 
 [access_scopes]
-scopes = "read_customers,read_orders,read_checkouts,read_fulfillments,read_products,read_all_orders"
+scopes = "read_customers,read_orders,read_checkouts,read_fulfillments,read_products,read_all_orders,read_customer_merge"
 
 [webhooks]
 api_version = "2026-10"

@@ -25,8 +25,11 @@ import { TEXTE_ATTESTATION_SHOPIFY } from '@/lib/partage/shopify-messages';
  * depuis le 2026-11-24 : le rattrapage des commandes en a besoin (le produit d'une ligne, par l'API), et la lecture des
  * collections. `read_all_orders` depuis le lot 6a des segments : le rattrapage sur 24 mois en Pro s'en sert (lot 7a) ; sans
  * approbation de Shopify pour une app de l'organisation du marchand, et à retirer si Shopify refuse la version.
+ * `read_customer_merge` depuis le lot 7d : deux clients fusionnés dans Shopify restent un seul client chez nous, tout de
+ * suite (sujet `CUSTOMERS_MERGE`). Mesuré le 2026-11-27 sur l'app de « Messaging Me demo » : Shopify l'accepte sans
+ * approbation. `tests/shopify-droits-parite.test.ts` tient cette liste égale à celle de la skill.
  */
-export const DROITS_SHOPIFY = 'read_customers,read_orders,read_checkouts,read_fulfillments,read_products,read_all_orders';
+export const DROITS_SHOPIFY = 'read_customers,read_orders,read_checkouts,read_fulfillments,read_products,read_all_orders,read_customer_merge';
 
 /**
  * LA CASE DE L'ATTESTATION (Julien, 2026-11-20) : le marchand atteste que les clients de sa boutique consentent à recevoir

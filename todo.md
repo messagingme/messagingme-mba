@@ -602,13 +602,11 @@ livrée. En la relisant contre la spec entière, ceci n'est entré dans aucun lo
 - 🔵 **Les questions ouvertes de la spec sont toutes tranchées (Julien, le 2026-11-27, réponses écrites sous chacune)** :
   ni instantané des collections, ni historique des analyses, ni intention « délai de livraison », ni copie automatique
   des étiquettes Shopify, ni remboursements déduits dans les segments, ni segments Shopify en direct, ni critère en `/v1`.
-- **`read_customer_merge` (question 15, tranchée le 2026-11-27)** : le traitement de la fusion est livré (lot 7d), actif
-  seulement quand l'app a le droit. Reste, dans l'ordre : 1. la mesure sur « Messaging Me demo » (Julien ajoute le droit,
-  « Synchroniser maintenant », fusionne deux clients de test ; on lit `shopify_fusion` ou les clés d'un corps illisible,
-  et si `customers/delete` ou `customers/redact` part aussi pour l'absorbé ; un `customers/redact` de l'absorbé reçu
-  APRÈS la fusion ne retrouve plus ses fiches par `client_id`, ses commandes étant passées au gardé : à regarder alors) ; 2. le droit dans `DROITS_SHOPIFY` et la skill (`tests/shopify-droits-parite.test.ts`
-  les tient égaux), plugin monté ; 3. pour une boutique de Claude Code, le sujet `customers/merge` dans son
-  `shopify.app.toml`, une fois vérifié par la CLI (une ligne fausse ferait échouer `shopify app deploy`).
+- **`read_customer_merge` (question 15, tranchée le 2026-11-27)** : livré (lot 7d), mesuré le même jour sur « Messaging
+  Me demo » (Shopify accepte le droit, la fusion de deux clients arrive en `completed` et passe tout au client gardé),
+  proposé aux marchands (carte et skill). Reste : pour une boutique de Claude Code, le sujet `customers/merge` dans son
+  `shopify.app.toml`, une fois vérifié par la CLI (une ligne fausse ferait échouer `shopify app deploy`) ; et savoir si
+  Shopify envoie d'autres statuts avant `completed` (lisible dans le journal : `shopify_fusion_non_terminee`).
   🟡 De la relecture du lot 7d (aucun rouge) : la fusion n'est gardée ni par l'offre ni par l'interrupteur (un espace
   repassé en Free reste abonné chez Shopify, aucun désabonnement n'existe) ; un `orders/paid` en retard de l'absorbé
   réécrit `client_id` ; la première lecture des liens de l'absorbé précède le verrou des fiches (un lien posé entre les

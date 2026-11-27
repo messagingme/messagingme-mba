@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
  * (`DROITS_SHOPIFY`, l'app créée à la main) et le `shopify.app.toml` de la skill du plugin (l'app créée par la CLI) sont
  * la même app. Un droit ajouté d'un côté sans l'autre ferait qu'une boutique branchée par une voie n'aurait pas ce que le
  * code attend. Lus en texte : le composant de la console ne s'importe pas côté serveur.
- * ⚠️ `read_customer_merge` (la fusion de deux clients) n'y entre qu'une fois MESURÉ sur une vraie app (`todo.md`) : un
- * droit que Shopify refuserait ferait échouer la publication de l'app de chaque nouveau marchand.
+ * 🔴 Un droit n'y entre qu'une fois MESURÉ sur une vraie app : un droit que Shopify refuserait ferait échouer la
+ * publication de l'app de chaque nouveau marchand (`read_customer_merge`, mesuré le 2026-11-27 sur l'app de démo).
  */
 const lire = (chemin: string): string => readFileSync(new URL(`../${chemin}`, import.meta.url), 'utf8');
 const liste = (texte: string, motif: RegExp, ou: string): string[] => {
@@ -22,5 +22,6 @@ describe('les droits de l’app Shopify', () => {
     const skill = liste(lire('plugin/skills/shopify/SKILL.md'), /^scopes = "([^"]+)"$/m, 'la skill shopify');
     expect(console_.length).toBeGreaterThan(0);
     expect(console_).toEqual(skill);
+    expect(console_).toContain('read_customer_merge');
   });
 });

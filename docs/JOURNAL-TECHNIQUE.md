@@ -5,6 +5,27 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : segments Shopify, lot 7d : deux clients fusionnés dans Shopify restent un seul client chez nous
+
+Plan : `docs/superpowers/plans/2026-11-27-segments-shopify-lot-7d-fusion-de-clients.md` (question 15 de la spec,
+tranchée par Julien le jour même : « demander le droit » `read_customer_merge`). Le webhook `customers/merge` fait passer
+au client gardé, dans l'espace et en une transaction, les liens de l'absorbé vers les fiches actives, les étiquettes qu'il
+leur donnait et ses commandes notées. La doc de Shopify donne le corps mais ne dit pas quand l'événement part : le code
+n'agit que sur `completed`, et journalise le reste (le statut, ou le nom des clés d'un corps illisible). La relecture
+indépendante n'a trouvé aucun rouge ; son jaune principal, un interblocage possible avec une recherche par téléphone
+(ordre de verrous inverse), est fermé en verrouillant d'abord la ligne de synchronisation de l'espace, comme toute
+écriture de la synchronisation. PGlite contre de vraies lignes, 11 mutations rouges. En production le 2026-11-27 (run
+45983911356, `935a6a805`, aucune migration).
+
+Le droit est resté HORS de la liste proposée aux marchands jusqu'à sa mesure : un droit refusé par Shopify ferait échouer
+la publication de l'app de chaque nouveau marchand (la même prudence qu'au lot 6d pour le toml). Mesuré avec Julien sur
+« Messaging Me demo », relu à chaque geste par l'API et en base, en lecture seule : Shopify accepte `read_customer_merge`
+et `read_all_orders` sur une app créée à la main ; « Synchroniser maintenant » a posé l'abonnement `CUSTOMERS_MERGE` ;
+les deux clients reliés à la fiche de Julien fusionnés dans Shopify (Clients, les cocher, « Fusionner les clients »), la
+fiche n'est plus reliée qu'au client gardé, avec les deux étiquettes (la sienne et celle de l'absorbé), les 6 commandes
+notées sont au gardé, l'absorbé n'a plus aucun lien. L'événement arrive donc bien en `completed`. Le droit entre alors
+dans la carte et la skill (plugin 0.3.83), tenues égales par un test.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, livraison 3a) : Claude règle les outils, la connaissance et la mention d'IA d'un agent
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 3 (l'agent IA), premier temps (3a) ; 3b

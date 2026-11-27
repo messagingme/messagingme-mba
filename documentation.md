@@ -3655,9 +3655,9 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   d'abord la ligne de `shopify_etiquettes_synchro` de l'espace, comme toute écriture de la synchronisation (sans elle,
   rien à fusionner). La relecture par numéro fait foi : un lien recopié sur une fiche dont le numéro n'est pas resté dans
   le client fusionné disparaît à la recherche suivante, et les étiquettes propres au gardé n'atteignent les fiches reçues
-  qu'à la relecture. ⚠️ Le droit n'est
-  pas encore dans `DROITS_SHOPIFY` ni dans la skill (tenus égaux par `tests/shopify-droits-parite.test.ts`) : il y entre
-  après sa mesure sur une vraie app ;
+  qu'à la relecture. Le droit est dans `DROITS_SHOPIFY` et la skill depuis sa mesure du 2026-11-27 (Shopify l'accepte sans approbation,
+  `tests/shopify-droits-parite.test.ts` tient les deux listes égales) ; une boutique de Claude Code a le droit mais pas le
+  sujet, que son `shopify.app.toml` ne déclare pas tant que la CLI ne l'a pas vérifié ;
 - 🔴 **les segments natifs Shopify** (segments Shopify enrichis, lot 6c, migration 0327 ; `src/shopify/segments-lues.ts`,
   le troisième temps de `src/shopify/etiquettes.ts`) : les segments que le marchand construit DANS SHOPIFY, lus par la
   MÊME synchronisation que les étiquettes (le même interrupteur, le même bail et le même jeton, la même relecture

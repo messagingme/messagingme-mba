@@ -3402,7 +3402,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   attend la relecture quotidienne, qui reste le filet partout. Depuis le lot 7d (2026-11-27), deux clients fusionnés
   dans Shopify redeviennent tout de suite un seul client chez nous (les fiches et les commandes de l'absorbé, et les
   étiquettes qu'il leur donnait, passent au client gardé ; le reste suit à la relecture), quand l'app de la boutique a le
-  droit `read_customer_merge` (pas encore proposé aux marchands : il le sera après sa mesure). Elle cherche
+  droit `read_customer_merge` (dans la liste des droits de la carte et de la skill depuis le même jour, après sa mesure ;
+  une boutique déjà branchée l'ajoute à son app, publie la nouvelle version et la réinstalle). Elle cherche
   chaque fiche par son numéro chez Shopify : une fiche reçoit les étiquettes de CHAQUE client qui porte ce numéro, dans ses
   coordonnées ou ses adresses, et un client les donne à chaque fiche de ses numéros (lot 6b bis,
   2026-11-25, décision de Julien : « le max de numéros ») ; jamais par une commande notée. « Synchroniser maintenant »,
