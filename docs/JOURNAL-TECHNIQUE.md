@@ -5,6 +5,37 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, livraison 2c) : Claude regarde la photo qu'un contact a envoyée
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 2 (l'Inbox), troisième et dernier temps.
+
+**Le serveur MCP rend des blocs, et plus seulement du JSON** (`BlocsMcp`, `src/mcp/saisie.ts`) : un outil qui en rend voit
+ses blocs partir tels quels, avant l'écran et les rappels ; tout autre résultat reste sérialisé comme avant. Décision prise
+sur la question que le plan laissait ouverte (« bloc image, ou autre ») : une photo se REGARDE, une base64 dans du texte ne
+se lit pas, et un lien vers la console demanderait une session que l'agent n'a pas.
+
+**`get_message_media`** (lecture, fonction de l'Inbox, ouverte à une clé comme `get_messages` et comme le média de l'API
+publique) traduit l'identifiant public de `get_messages` par le dépôt de `get_message_status`, exige le message dans la
+conversation donnée, et refuse AVANT de télécharger : un message sans fichier ou un fichier périmé (Meta le garde 7 jours),
+un vocal (vers `transcribe_message`), tout fichier annoncé autrement qu'en image (vers la conversation de la console, dont
+l'adresse part aussi en `action`). Puis la MÊME lecture que l'Inbox et l'API (`lireMediaRecu`), câblée pour Claude avec
+son plafond (`lireImageRecue`) : une image plus lourde que `TAILLE_MAX_IMAGE_MCP` (750 Ko, pour que la base64 reste sous
+le 1 Mo qu'acceptent les clients MCP) est refusée sur la taille que Meta annonce, avant le téléchargement. Le type qui
+fait foi est celui que révèlent les OCTETS (`signatureImage`, jpeg, png, gif, webp), jamais celui qu'annonce l'expéditeur.
+Aucune migration.
+
+**La relecture indépendante : aucun rouge.** Corrigés avant de pousser : le type des octets (la première version relisait
+le type annoncé par l'expéditeur, que `lireMediaRecu` rend : un « .png » fait de HTML partait en bloc image, et l'API
+aurait refusé chaque tour suivant de la session de l'opérateur, jusqu'à `/clear`) ; le plafond, d'abord de 3,5 Mo, que
+Claude Desktop et claude.ai auraient refusé ; la lecture plafonnée avant le téléchargement (elle prenait les 25 Mo de
+l'Inbox) ; des refus qui disent juste (un contact bloqué, un vocal derrière une clé d'API) ; la documentation de
+`RefusOutil`, que l'insertion de `BlocsMcp` avait détachée ; le test de câblage du média (un nouveau lecteur, sa garde
+propre). Le reste est au `todo.md`.
+
+Preuves : 14 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint, l'auto-attaque, la suite
+racine et celle de la console ; sur l'arbre fusionné avec les pairs, avant le push : typecheck, lint, auto-attaque, les
+tests ciblés et la suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-27 : segments Shopify, lot 7c : « a écrit », « a cliqué », « a cliqué sans jamais écrire »
 
 Plan : `docs/superpowers/plans/2026-11-27-segments-shopify-lot-7c-reponses-et-clics.md` (spec, chantier 7, « Pro, léger,

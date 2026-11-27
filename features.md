@@ -3573,7 +3573,9 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   Dans l'Inbox (fonction de l'Inbox, comme ses boutons), il archive, signale, marque urgente, traitée ou lue une
   conversation (`update_conversation`, seules les marques données changent), transcrit un vocal et le traduit au besoin
   (`transcribe_message`, au nom d'une personne, payé sur le crédit IA de l'espace : la transcription une seule fois, une
-  traduction dans une autre langue que la dernière à nouveau), et lit ou règle qui peut prendre une
+  traduction dans une autre langue que la dernière à nouveau), regarde la photo qu'un contact a envoyée
+  (`get_message_media` : elle revient comme une image ; un autre fichier s'ouvre dans la conversation de la console, et
+  Meta ne garde un fichier reçu que 7 jours), et lit ou règle qui peut prendre une
   conversation du pot commun et le délai avant que l'automatique reprenne la main (`get_inbox_settings`,
   `update_inbox_settings`, au nom d'une personne). Il prépare aussi l'effacement de tous les messages d'une conversation
   (`erase_conversation_messages`) : comme pour le bouton « Effacer le contenu », réservé aux administrateurs, rien ne les

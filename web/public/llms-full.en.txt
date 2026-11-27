@@ -5487,6 +5487,7 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | assign_conversation | mcp:write | Assign a thread to a member, or release it. |
 | update_conversation | mcp:write | Archive, flag, mark urgent, done or read a conversation, as its buttons do. |
 | transcribe_message | mcp:write OAuth connection required | Transcribe the voice message of a message, and translate it if needed; paid from the AI credit, once. |
+| get_message_media | mcp:read | See the photo a contact sent; any other file opens in the console. |
 | get_inbox_settings | mcp:read | Who can take a conversation from the shared pool, and the delay before the automation takes it back. |
 | update_inbox_settings | mcp:write OAuth connection required | Set who can take a conversation and the handback delay; only what is given changes. |
 | erase_conversation_messages | mcp:write OAuth connection required | Prepare the erasure of the messages of a conversation; nothing goes before an admin clicks, and nothing brings them back. |

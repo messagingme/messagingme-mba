@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { OUTILS, RefusOutil, outilsPour, type DepsMcp } from '../src/mcp/outils';
+import { BlocsMcp } from '../src/mcp/saisie';
+import { TAILLE_MAX_IMAGE_MCP } from '../src/mcp/outils-inbox';
 import { CreditEpuise, PlafondIaAtteint, RienATranscrire } from '../src/inbox/transcrire';
 import { MediaTropGros } from '../src/meta/media';
 import { MediaExpire } from '../src/inbox/media-entrant';
@@ -183,5 +185,106 @@ describe('l’Inbox depuis Claude (CSM, B10, livraison 2a)', () => {
       await expect(outil('update_inbox_settings').executer(deps, T, args, MOI), JSON.stringify(args)).rejects.toMatchObject({ code: 'invalid_args' });
     }
     expect(reglages.ecrits).toEqual([`${T}:reprise:3600`, `${T}:reprise:null`, `${T}:prendre:true`]);
+  });
+});
+
+/**
+ * LE FICHIER D'UN MESSAGE (B10, livraison 2c) : la MÊME lecture que l'Inbox et l'API (`lireMediaRecu`), par l'identifiant
+ * interne que le dépôt de get_message_status traduit ; une image revient en bloc image, tout le reste est refusé AVANT
+ * de télécharger, avec ce qu'il faut faire à la place.
+ */
+describe('le fichier d’un message depuis Claude (CSM, B10, livraison 2c)', () => {
+  const PHOTO = 'wamid.photo';
+  const PHOTO_PARAMS = 'wamid.photo-params';
+  /** De vrais débuts de fichier : la reconnaissance lit les OCTETS. */
+  const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00]);
+  const VOCAL = 'wamid.vocal';
+  const PDF = 'wamid.pdf';
+  const TEXTE = 'wamid.texte';
+  const PERIME = 'wamid.perime';
+  const ICI = '00000000-0000-4000-8000-0000000000e1';
+  const media = (mimeType: string | null, expired = false) => ({ mimeType, filename: null, expired });
+  const lus: Record<string, { idInterne: string; conversationId: string; media: ReturnType<typeof media> | null }> = {
+    [PHOTO]: { idInterne: ICI, conversationId: CONV, media: media('image/jpeg') },
+    [PHOTO_PARAMS]: { idInterne: ICI, conversationId: CONV, media: media('image/jpeg; charset=binary') },
+    [VOCAL]: { idInterne: ICI, conversationId: CONV, media: media('audio/ogg; codecs=opus') },
+    [PDF]: { idInterne: ICI, conversationId: CONV, media: media('application/pdf') },
+    [TEXTE]: { idInterne: ICI, conversationId: CONV, media: null },
+    [PERIME]: { idInterne: ICI, conversationId: CONV, media: media('image/jpeg', true) },
+    [WAMID_AILLEURS]: { idInterne: ICI, conversationId: '00000000-0000-4000-8000-0000000000c2', media: media('image/jpeg') },
+  };
+  function monterMedia(lire: () => Promise<{ bytes: Buffer; mime: string | null } | null> = async () => ({ bytes: JPEG, mime: 'image/jpeg' })) {
+    const lectures: Array<{ tenant: string; id: string; conversation: string | undefined }> = [];
+    const deps = {
+      messagesApi: { message: async (tenant: string, idPublic: string) => (tenant === T ? lus[idPublic] ?? null : null) },
+      lireImageRecue: async (tenant: string, id: string, conversation?: string) => { lectures.push({ tenant, id, conversation }); return lire(); },
+    } as unknown as DepsMcp;
+    return { deps, lectures };
+  }
+  const voir = (deps: DepsMcp, args: Record<string, unknown>, tenant = T) => outil('get_message_media').executer(deps, tenant, args, null);
+
+  it('🔴 une photo revient en bloc image, lue par l’identifiant interne, dans la conversation', async () => {
+    const { deps, lectures } = monterMedia();
+    const r = await voir(deps, { conversation_id: CONV, message_id: PHOTO });
+    expect(r).toBeInstanceOf(BlocsMcp);
+    expect((r as BlocsMcp).blocs).toEqual([{ type: 'image', data: JPEG.toString('base64'), mimeType: 'image/jpeg' }]);
+    expect(lectures).toEqual([{ tenant: T, id: ICI, conversation: CONV }]);
+    // Un type annoncé avec ses paramètres est une image comme une autre.
+    expect(await voir(deps, { conversation_id: CONV, message_id: PHOTO_PARAMS })).toBeInstanceOf(BlocsMcp);
+  });
+
+  it('🔴 un message d’une autre conversation, d’un autre espace, ou inconnu est introuvable, sans rien lire', async () => {
+    const { deps, lectures } = monterMedia();
+    for (const [tenant, message] of [[T, WAMID_AILLEURS], ['autre', PHOTO], [T, 'wamid.inconnu']] as const) {
+      await expect(voir(deps, { conversation_id: CONV, message_id: message }, tenant), `${tenant} ${message}`).rejects.toMatchObject({ code: 'not_found' });
+    }
+    await expect(voir(deps, { conversation_id: 'cv-1', message_id: PHOTO })).rejects.toMatchObject({ code: 'not_found' });
+    expect(lectures).toEqual([]);
+  });
+
+  it('un vocal renvoie vers transcribe_message ; un autre fichier, vers la console ; sans fichier ou périmé : introuvable ; rien n’est lu', async () => {
+    const { deps, lectures } = monterMedia();
+    await expect(voir(deps, { conversation_id: CONV, message_id: VOCAL })).rejects.toMatchObject({ code: 'unsupported', message: expect.stringMatching(/transcribe_message/) });
+    await expect(voir(deps, { conversation_id: CONV, message_id: PDF }))
+      .rejects.toMatchObject({ code: 'unsupported', message: expect.stringMatching(/\/inbox\?c=/), precisions: { action: expect.stringMatching(/\/inbox\?c=/) } });
+    await expect(voir(deps, { conversation_id: CONV, message_id: TEXTE })).rejects.toMatchObject({ code: 'not_found' });
+    await expect(voir(deps, { conversation_id: CONV, message_id: PERIME })).rejects.toMatchObject({ code: 'not_found' });
+    expect(lectures).toEqual([]);
+  });
+
+  it('🔴 le type des OCTETS fait foi, jamais celui annoncé ; une image trop lourde et les pannes de lecture se disent dans le vocabulaire fermé', async () => {
+    const cas: Array<[() => Promise<{ bytes: Buffer; mime: string | null } | null>, string]> = [
+      // Le cas de la relecture : annoncé « image/png » par l'expéditeur, fait de HTML. Rendu en bloc image, il ferait
+      // refuser chaque tour suivant de la session de l'opérateur.
+      [async () => ({ bytes: Buffer.from('<html><script>alert(1)</script></html>'), mime: 'image/png' }), 'unsupported'],
+      [async () => ({ bytes: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'), mime: 'image/jpeg' }), 'unsupported'],
+      [async () => ({ bytes: Buffer.concat([JPEG, Buffer.alloc(TAILLE_MAX_IMAGE_MCP + 1 - JPEG.length)]), mime: 'image/jpeg' }), 'too_large'],
+      [async () => { throw new MediaTropGros(30_000_000, 26_000_000); }, 'too_large'],
+      [async () => { throw new MediaExpire(); }, 'not_found'],
+      [async () => { throw new Error('panne de Meta'); }, 'unavailable'],
+      [async () => null, 'not_found'],
+    ];
+    for (const [lire, code] of cas) {
+      const { deps } = monterMedia(lire);
+      await expect(voir(deps, { conversation_id: CONV, message_id: PHOTO }), code).rejects.toMatchObject({ code });
+    }
+    // À la borne, l'image passe ; et son type est celui de ses octets (un PNG annoncé JPEG part en PNG).
+    const { deps } = monterMedia(async () => ({ bytes: Buffer.concat([PNG, Buffer.alloc(TAILLE_MAX_IMAGE_MCP - PNG.length)]), mime: 'image/jpeg' }));
+    expect(((await voir(deps, { conversation_id: CONV, message_id: PHOTO })) as BlocsMcp).blocs[0]).toMatchObject({ type: 'image', mimeType: 'image/png' });
+  });
+
+  it('les quatre images que WhatsApp transmet passent, chacune avec le type de ses octets', async () => {
+    const GIF = Buffer.from('GIF89a', 'latin1');
+    const WEBP = Buffer.concat([Buffer.from('RIFF', 'latin1'), Buffer.alloc(4), Buffer.from('WEBPVP8 ', 'latin1')]);
+    for (const [octets, type] of [[JPEG, 'image/jpeg'], [PNG, 'image/png'], [GIF, 'image/gif'], [WEBP, 'image/webp']] as const) {
+      const { deps } = monterMedia(async () => ({ bytes: octets, mime: 'image/jpeg' }));
+      expect(((await voir(deps, { conversation_id: CONV, message_id: PHOTO })) as BlocsMcp).blocs[0], type).toMatchObject({ type: 'image', mimeType: type });
+    }
+  });
+
+  it('une lecture, ouverte à une clé comme get_messages', () => {
+    const cle = outilsPour({ scopes: ['mcp:read'], personne: null }).map((o) => o.nom);
+    expect(cle).toContain('get_message_media');
   });
 });

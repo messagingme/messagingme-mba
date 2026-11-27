@@ -65,6 +65,20 @@ describe('le câblage de la lecture des pièces jointes', () => {
     for (const r of lecteurs) expect(sousLaTranscription(r)).toBe(false);
   });
 
+  it('🔴 la lecture des images pour Claude (`lireImageRecue`, B10 livraison 2c) est câblée une fois, hors du bloc de la transcription', () => {
+    const definitions: ts.VariableDeclaration[] = [];
+    const visiter = (n: ts.Node): void => {
+      if (ts.isVariableDeclaration(n) && n.name.getText(fichier) === 'lireImageRecue') definitions.push(n);
+      ts.forEachChild(n, visiter);
+    };
+    visiter(fichier);
+    expect(definitions).toHaveLength(1);
+    expect(sousLaTranscription(definitions[0]!)).toBe(false);
+    // Plafonnée à ce qu'un client MCP accepte, et non aux 25 Mo de l'Inbox : une image plus lourde est refusée sur la taille
+    // que Meta annonce, AVANT d'être téléchargée.
+    expect(definitions[0]!.initializer?.getText(fichier)).toContain('tailleMaxOctets: TAILLE_MAX_IMAGE_MCP');
+  });
+
   it('🔴 le câblage transmet la CONVERSATION de la route jusqu’à la relecture du message', () => {
     // Une flèche à deux paramètres reste assignable à un contrat qui en déclare trois : un câblage qui
     // avalerait `conversationId` compilerait, et la route ne ferait plus ce que dit son URL. On compte donc

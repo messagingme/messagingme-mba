@@ -5440,6 +5440,14 @@ l'activer, et d'ouvrir une recharge du crédit.
   `CODES_REFUS`, jamais à un site (`tests/mcp-refus-codes.test.ts`, `tests/mcp-serveur.test.ts`). 🔴 Aucun outil ne
   déclare d'`outputSchema` qui n'admette la forme d'un refus : le SDK TypeScript valide `structuredContent` contre lui,
   refus compris (`rendreRefus`, `src/mcp/serveur.ts`).
+- **Un résultat d'outil est du JSON dans un bloc texte, sauf des blocs** (B10, livraison 2c) : un outil qui rend
+  `BlocsMcp` (`src/mcp/saisie.ts`) voit ses blocs partir tels quels, avant l'écran et les rappels. Seul
+  `get_message_media` s'en sert : une photo reçue revient en bloc image, son type reconnu à ses OCTETS (`signatureImage`,
+  les signatures de `reconnaitre` sans rien décompresser, une des `MIMES_AFFICHABLES`), jamais à ce qu'annonce l'expéditeur, sous `TAILLE_MAX_IMAGE_MCP` (750 Ko : la base64
+  reste sous le 1 Mo qu'acceptent les clients MCP), par la MÊME lecture que l'Inbox et l'API (`lireMediaRecu`), câblée
+  avec ce plafond (`lireImageRecue`, refus sur la taille annoncée par Meta avant le téléchargement), et l'identifiant
+  interne que traduit le dépôt de `get_message_status` ; un vocal renvoie vers `transcribe_message`, tout autre fichier
+  vers la conversation de la console, avant tout téléchargement.
 - 🔴 **Une écriture rend l'écran de ce qu'elle a fait** (lot 1 du CSM virtuel, B0b) : chaque outil d'écriture déclare
   `ecran` (un chemin de la console, `src/mcp/ecran.ts` : la fiche d'un agent et son onglet, un scénario, une conversation,
   sinon la liste de l'objet), et le serveur ajoute `{ "ecran": <adresse sur APP_URL> }` dans un bloc entre le résultat,

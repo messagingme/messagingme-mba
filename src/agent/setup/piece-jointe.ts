@@ -212,11 +212,24 @@ function texteDocx(bytes: Buffer): string | null {
  * du texte. Seule exception, un CSV en Windows-1252 (l'export d'Excel) : n'importe quelle suite d'octets se lit
  * dans cet encodage, donc il n'est accepté que sans caractère de contrôle ET avec la forme régulière d'un CSV.
  */
+/** `RIFF`, puis `WEBP` à l'octet 8 : une image WebP (un autocollant WhatsApp). */
+const estWebp = (bytes: Buffer): boolean => commencePar(bytes, WEBP_RIFF) && commencePar(bytes, WEBP_TAG, 8);
+
+/**
+ * Le type d'une IMAGE à sa signature seule (jpeg, png, gif, webp), ou `null`. Les mêmes signatures que `reconnaitre`,
+ * sans rien décompresser ni lire de texte : quelques octets, que la boucle d'événements tient (`get_message_media`, B10
+ * livraison 2c). Ce n'est pas une lecture de `tests/lecture-hors-boucle-inventaire.test.ts`.
+ */
+export function signatureImage(bytes: Buffer): string | null {
+  for (const s of SIGNATURES) if (s.nature === 'image' && commencePar(bytes, s.octets)) return s.mime;
+  return estWebp(bytes) ? 'image/webp' : null;
+}
+
 export function reconnaitre(bytes: Buffer): PieceJointeReconnue | null {
   for (const s of SIGNATURES) {
     if (commencePar(bytes, s.octets)) return { nature: s.nature, mime: s.mime };
   }
-  if (commencePar(bytes, WEBP_RIFF) && commencePar(bytes, WEBP_TAG, 8)) {
+  if (estWebp(bytes)) {
     return { nature: 'image', mime: 'image/webp' };
   }
   if (commencePar(bytes, ZIP)) {

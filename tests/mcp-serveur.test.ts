@@ -1184,6 +1184,7 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   tag_conversation: 'inbox', assign_conversation: 'inbox',
   // L'Inbox depuis Claude (B10, livraison 2a) : la fonction de l'Inbox, comme ses boutons.
   update_conversation: 'inbox', transcribe_message: 'inbox', get_inbox_settings: 'inbox', update_inbox_settings: 'inbox',
+  get_message_media: 'inbox',
   erase_conversation_messages: 'inbox',
   // Les chiffres du Pro (2026-10-13) : la fonction statistiques ; get_message_stats reste ouvert (l'essentiel en Free).
   // Ce que l'analyse a compris suit la fonction analyse (spec offres v2).
@@ -1635,6 +1636,30 @@ describe('serveur MCP : chaque écriture réussie laisse sa trace au journal d�
     const c = contenu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('tag_conversation', { conversation_id: 'cv1', tags: ['chaud'] }) }));
     expect(c.isError).toBe(false);
     expect(traces.poses).toHaveLength(1);
+    await server.close();
+  });
+});
+
+describe('serveur MCP : un outil qui rend des blocs (B10, livraison 2c)', () => {
+  const CONV = '00000000-0000-4000-8000-0000000000c1';
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00]);
+  const avecPhoto = {
+    messagesApi: { message: async () => ({ id: 'wamid.photo', idInterne: '00000000-0000-4000-8000-0000000000e1', conversationId: CONV, media: { mimeType: 'image/png', filename: null, expired: false } }) },
+    lireImageRecue: async () => ({ bytes: PNG, mime: 'image/png' }),
+  } as unknown as Partial<CablageMcp>;
+
+  it('🔴 une image part en bloc image, tel quel, et non en texte sérialisé ; les rappels de l’espace la suivent', async () => {
+    const suspendu = {
+      abonnementId: 'sub_1', etat: 'suspendu' as const, finPrevueLe: null, coupureLe: null,
+      finiLe: new Date('2026-10-06T15:14:51Z'), liberationLe: new Date('2026-10-13T15:14:51Z'), libereLe: null,
+    };
+    const { server } = app({ ...avecPhoto, numero: { ...mcpNumeroInerte.numero, abonnement: async () => suspendu } });
+    const res = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_LECTURE), payload: appeler('get_message_media', { conversation_id: CONV, message_id: 'wamid.photo' }) });
+    const r = res.json<{ result: { content: Array<Record<string, unknown>>; isError: boolean } }>().result;
+    expect(r.isError).toBe(false);
+    expect(r.content[0]).toEqual({ type: 'image', data: PNG.toString('base64'), mimeType: 'image/png' });
+    expect(r.content).toHaveLength(2);
+    expect(r.content[1]).toMatchObject({ type: 'text', text: expect.stringMatching(/resubscribe_number/) });
     await server.close();
   });
 });

@@ -35,6 +35,15 @@ export interface PrecisionsRefus {
 }
 
 /**
+ * UN RÉSULTAT QUI N'EST PAS DU JSON (B10, livraison 2c) : des blocs MCP tels quels, que le serveur rend sans les sérialiser
+ * (`traiterMessage`), avant l'écran et les rappels. Aujourd'hui une image, que l'agent regarde au lieu de lire sa base64.
+ */
+export type BlocMcp = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
+export class BlocsMcp {
+  constructor(readonly blocs: readonly BlocMcp[]) {}
+}
+
+/**
  * Refus métier d'un outil (fenêtre fermée, conversation inconnue), par opposition à une panne. MCP le veut dans le
  * résultat avec `isError: true` : le modèle lit la raison et change de stratégie au lieu de croire l'outil cassé.
  * 🔴 Le code est OBLIGATOIRE : le type force chaque site à dire sa cause, et un refus ajouté demain ne part pas sans.

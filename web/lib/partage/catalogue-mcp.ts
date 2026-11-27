@@ -33,6 +33,8 @@ export const CATALOGUE_MCP = {
   // branchée sur un agent qui lit des messages de clients s'exposerait à une injection) ; les réglages, une personne.
   update_conversation: { scope: 'mcp:write' },
   transcribe_message: { scope: 'mcp:write', exigePersonne: true },
+  /** Le fichier d'un message (B10, livraison 2c) : une lecture, comme `get_messages` et le média de l'API publique. */
+  get_message_media: { scope: 'mcp:read' },
   get_inbox_settings: { scope: 'mcp:read' },
   update_inbox_settings: { scope: 'mcp:write', exigePersonne: true },
   /** Effacer les messages d'une conversation (B10, livraison 2b) : au oui d'un admin, préparé au nom d'une personne. */

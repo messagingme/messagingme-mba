@@ -4,7 +4,7 @@ import { rappelDeLAbonnement, rappelDeLaSuiteDuPro } from './outils-numero';
 import { corpsRefusFonction } from '../offres/refus';
 import { phraseOutilSansObjet, sansObjetSurApplication } from '../application/garde-outils';
 import { FiltreContactInvalide } from '../crm/contact-filters';
-import type { CodeRefus, PrecisionsRefus } from './saisie';
+import { BlocsMcp, type CodeRefus, type PrecisionsRefus } from './saisie';
 import { adresseEcran } from './ecran';
 import { tenter } from '../lib/tenter';
 
@@ -199,7 +199,9 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
         }
         const adresse = ecran === undefined ? undefined : sansPanne(() => adresseEcran(ecran));
         const blocEcran = adresse === undefined ? [] : [{ type: 'text', text: JSON.stringify({ ecran: adresse }) }];
-        return ok(id, { content: [{ type: 'text', text: JSON.stringify(resultat, null, 2) }, ...blocEcran, ...blocsRappels], isError: false });
+        // Des blocs (une image, B10 livraison 2c) partent tels quels ; tout autre résultat, sérialisé comme toujours.
+        const contenu = resultat instanceof BlocsMcp ? [...resultat.blocs] : [{ type: 'text', text: JSON.stringify(resultat, null, 2) }];
+        return ok(id, { content: [...contenu, ...blocEcran, ...blocsRappels], isError: false });
       } catch (err) {
         // Un filtre de contacts refusé par le magasin (un critère de collection sans lecture aboutie, segments Shopify
         // enrichis, lot 6a) est un refus, avec sa phrase, comme sur les routes (400), jamais une « panne ».

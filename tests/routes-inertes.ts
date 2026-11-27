@@ -1261,7 +1261,7 @@ export const mcpFichesInertes: Pick<
 };
 
 /** L'Inbox depuis Claude (B10, livraison 2a), pour les montages qui n'en parlent pas : les écritures lèvent. */
-export const mcpInboxInertes: Pick<DepsMcp, 'marquesConversation' | 'ouvrirConversation' | 'reglagesInbox'> = {
+export const mcpInboxInertes: Pick<DepsMcp, 'marquesConversation' | 'ouvrirConversation' | 'reglagesInbox' | 'lireImageRecue'> = {
   marquesConversation: {
     archiverConversation: neDevraitPasEtreAppelee('inbox.archiverConversation'),
     signalerConversation: neDevraitPasEtreAppelee('inbox.signalerConversation'),
@@ -1274,6 +1274,7 @@ export const mcpInboxInertes: Pick<DepsMcp, 'marquesConversation' | 'ouvrirConve
     setAgentsPeuventPrendre: neDevraitPasEtreAppelee('reglagesInbox.setAgentsPeuventPrendre'),
     setControlHandbackSeconds: neDevraitPasEtreAppelee('reglagesInbox.setControlHandbackSeconds'),
   },
+  lireImageRecue: neDevraitPasEtreAppelee('lireImageRecue'),
 };
 
 /**

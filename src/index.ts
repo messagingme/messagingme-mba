@@ -250,6 +250,7 @@ import { creerDuplicationScenario } from './ops/duplication/service';
 import { PgDuplicationStore } from './ops/duplication/store.pg';
 import { CompteChez360dialog, TokenInvalidError } from './meta/credentials';
 import { lireMediaRecu } from './inbox/media-entrant';
+import { TAILLE_MAX_IMAGE_MCP } from './mcp/outils-inbox';
 import { creerOuvertureConversationInbox } from './inbox/ouverture';
 import { PgConversationsV1 } from './api/conversations-v1.pg';
 import type { DepsRepondre } from './inbox/repondre';
@@ -697,6 +698,16 @@ async function main(): Promise<void> {
     messages: inboxStore,
     media: mediasRecus,
     tailleMaxOctets: config.MEDIA_ENTRANT_TAILLE_MAX_KO * 1024,
+  }, tenant, messageId, conversationId);
+  /**
+   * La même lecture pour Claude (`get_message_media`, B10 livraison 2c), plafonnée à ce qu'un client MCP accepte : une
+   * image plus lourde est refusée sur la taille que Meta annonce, avant le téléchargement. Hors du bloc de la
+   * transcription, comme la lecture de l'Inbox (`tests/media-cablage.test.ts`).
+   */
+  const lireImageRecue = (tenant: string, messageId: string, conversationId?: string) => lireMediaRecu({
+    messages: inboxStore,
+    media: mediasRecus,
+    tailleMaxOctets: TAILLE_MAX_IMAGE_MCP,
   }, tenant, messageId, conversationId);
 
   const brouillonsPub = new PgBrouillonsPubStore(pool);
@@ -4305,6 +4316,8 @@ async function main(): Promise<void> {
         marquesConversation: inboxStore,
         ouvrirConversation: ouvrirConversationInbox,
         reglagesInbox: settingsStore,
+        // Le fichier d'un message (B10, livraison 2c) : la MÊME lecture que l'Inbox et l'API, plafonnée pour Claude.
+        lireImageRecue,
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),

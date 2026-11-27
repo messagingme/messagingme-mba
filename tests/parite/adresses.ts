@@ -251,7 +251,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /conversations/:conversationId/ne-plus-traiter': outil('update_conversation'),
   'POST /contacts/:contactId/conversation': ecran('ouvrir le fil d’un contact depuis sa fiche ; un envoi crée le fil de lui-même'),
   'POST /conversations/:conversationId/prendre': outil('control_conversation'),
-  'GET /conversations/:conversationId/messages/:messageId/media': aFaire('B10', 'Inbox : lire le média d’un message'),
+  'GET /conversations/:conversationId/messages/:messageId/media': outil('get_message_media'),
   'POST /conversations/:conversationId/messages/:messageId/transcrire': outil('transcribe_message'),
   'POST /conversations/:conversationId/traduire': exclue('traduction à l’écran : le modèle qui pilote lit la conversation dans sa langue'),
   'GET /conversations/todo-count': ecran('le compteur « À traiter » de la barre'),

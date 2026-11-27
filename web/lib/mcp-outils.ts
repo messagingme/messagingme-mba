@@ -74,6 +74,7 @@ const TEXTES_MCP = {
   tag_conversation: ['Poser des tags sur le contact d’un fil.', 'Add tags to a thread’s contact.'],
   update_conversation: ['Archiver, signaler, marquer urgente, traitée ou lue une conversation, comme ses boutons.', 'Archive, flag, mark urgent, done or read a conversation, as its buttons do.'],
   transcribe_message: ['Transcrire le vocal d’un message, et le traduire si besoin ; payé sur le crédit IA, une seule fois.', 'Transcribe the voice message of a message, and translate it if needed; paid from the AI credit, once.'],
+  get_message_media: ['Voir la photo qu’un contact a envoyée ; un autre fichier s’ouvre dans la console.', 'See the photo a contact sent; any other file opens in the console.'],
   get_inbox_settings: ['Qui peut prendre une conversation du pot commun, et le délai avant que l’automatique reprenne la main.', 'Who can take a conversation from the shared pool, and the delay before the automation takes it back.'],
   update_inbox_settings: ['Régler qui peut prendre une conversation et le délai de reprise ; seul ce qui est donné change.', 'Set who can take a conversation and the handback delay; only what is given changes.'],
   erase_conversation_messages: ['Préparer l’effacement des messages d’une conversation ; rien ne part avant le clic d’un admin, et rien ne les rattrape.', 'Prepare the erasure of the messages of a conversation; nothing goes before an admin clicks, and nothing brings them back.'],

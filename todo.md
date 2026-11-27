@@ -296,6 +296,16 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 2c, la photo d'un message) : ce qui reste de la relecture (2026-11-27, aucun rouge)
+
+Corrigés avant de pousser : le type des OCTETS fait foi (un « .png » fait de HTML ne part plus en image), un plafond que
+tout client MCP accepte (750 Ko), la lecture plafonnée avant le téléchargement, des refus qui disent juste (contact
+bloqué, vocal derrière une clé, l'adresse de la console en `action`), le test de câblage du média. Reste :
+- Sur la filière application, aucun fichier reçu n'est stocké : `get_message_media` y répond « ce message ne porte aucun
+  fichier reçu » pour une photo, ce qui se lit faux ; le dire (la filière, pas le message).
+- Un fichier reçu se lit en Free par `GET /v1/messages/{id}/media`, quand l'outil exige l'Inbox comme ses boutons : à
+  trancher si l'écart gêne.
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 2b, l'effacement des messages au oui) : ce qui reste de la relecture (2026-11-27)
 
 Le rouge est corrigé avant de pousser : une reprise après une coupure qui suivait l'effacement effaçait, au même nombre, des

@@ -26,7 +26,7 @@ export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly t
     titre: 'Conversations', titreFr: 'Conversations',
     outils: [
       'list_conversations', 'get_conversation', 'get_messages', 'reply_in_open_window', 'send_message', 'control_conversation',
-      'tag_conversation', 'assign_conversation', 'update_conversation', 'transcribe_message', 'get_inbox_settings',
+      'tag_conversation', 'assign_conversation', 'update_conversation', 'transcribe_message', 'get_message_media', 'get_inbox_settings',
       'update_inbox_settings', 'erase_conversation_messages', 'get_conversation_insights',
     ],
   },

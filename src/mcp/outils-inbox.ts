@@ -1,6 +1,6 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { AnnotationsMcp, OutilMcp } from './outils';
-import { RefusOutil, texteObligatoire, valeurOuRefus } from './saisie';
+import { BlocsMcp, RefusOutil, texteObligatoire, valeurOuRefus } from './saisie';
 import { ecriture, LOURDE, personneRequise, plafondCouteux, signataire } from './outils-agent';
 import { proposer } from '../mise-en-ligne/mise-en-ligne';
 import { boutonDuOui } from './outils-mise-en-ligne';
@@ -8,7 +8,12 @@ import { transcrireVocal, type InboxDep, type InboxRouteDeps } from '../http/inb
 import { MAX_REPRISE_S, reglerReprise, type ReglagesDep } from '../http/settings';
 import { estUuid } from '../http/scope';
 import { parCause } from '../inbox/evenements';
-import { ECRANS, LISTES } from './ecran';
+import { MediaExpire, MIMES_AFFICHABLES, typeNu } from '../inbox/media-entrant';
+import { signatureImage } from '../agent/setup/piece-jointe';
+import { MediaTropGros } from '../meta/media';
+import { journaliser } from '../lib/journal';
+import type { V1ConversationsRouteDeps } from '../http/v1-conversations';
+import { adresseEcran, ECRANS, LISTES } from './ecran';
 
 /**
  * L'INBOX DEPUIS CLAUDE (lot 1 du CSM virtuel, B10, livraison 2a, plan
@@ -19,7 +24,9 @@ import { ECRANS, LISTES } from './ecran';
  * (`setAgentsPeuventPrendre`, `reglerReprise`). Les compteurs de la console, en cache court par copie de l'API, suivent au
  * renouvellement suivant, comme entre deux copies. 🔴 Effacer les messages d'une conversation (livraison 2b) part sur le
  * OUI d'un admin, comme le bouton « Effacer le contenu » lui est réservé : rien ne les rattrape (l'action
- * `effacement_messages` du oui de mise en ligne, `src/mise-en-ligne/envois.ts`).
+ * `effacement_messages` du oui de mise en ligne, `src/mise-en-ligne/envois.ts`). Le fichier qu'un contact a envoyé
+ * (livraison 2c) se lit par la MÊME lecture que l'Inbox et l'API (`lireMediaRecu`), plafonnée pour un client MCP : une
+ * image, reconnue à ses OCTETS, revient en bloc image.
  */
 export interface DepsInboxMcp {
   /** Les marques d'une conversation : le MÊME dépôt que les boutons (`PgInboxStore`, passé entier). */
@@ -28,7 +35,20 @@ export interface DepsInboxMcp {
   ouvrirConversation: InboxRouteDeps['ouvrirConversation'];
   /** Les réglages de la prise et de la reprise : le MÊME magasin que l'écran (`PgSettingsStore`, passé entier). */
   reglagesInbox: Pick<ReglagesDep, 'get' | 'setAgentsPeuventPrendre' | 'setControlHandbackSeconds'>;
+  /**
+   * La lecture d'une image reçue pour Claude : `lireMediaRecu`, la MÊME que l'Inbox et l'API, mais plafonnée à
+   * `TAILLE_MAX_IMAGE_MCP` (`lireImageRecue`, `src/index.ts`) : une image trop lourde est refusée sur la taille que Meta
+   * annonce, AVANT d'être téléchargée. Par l'identifiant INTERNE.
+   */
+  lireImageRecue: V1ConversationsRouteDeps['lireMediaMessage'];
 }
+
+/**
+ * 750 Ko : en base64 (un tiers de plus), l'image reste sous le 1 Mo qu'acceptent les clients MCP (Claude Desktop et
+ * claude.ai refusent un résultat d'outil plus gros ; un modèle accepte 5 Mo). Une photo WhatsApp, compressée à l'envoi,
+ * y tient ; une photo « HD » ou plus lourde s'ouvre dans la console.
+ */
+export const TAILLE_MAX_IMAGE_MCP = 750_000;
 
 const lecture = (title: string): AnnotationsMcp => ({ title, readOnlyHint: true, openWorldHint: false });
 const CONVERSATION = { type: 'string' as const, minLength: 1, maxLength: 100, description: 'The conversation id (list_conversations).' };
@@ -138,7 +158,7 @@ export const OUTILS_INBOX: OutilMcp[] = [
       // interne. Le même dépôt que get_message_status le traduit, dans l'espace, et le message doit être de CETTE
       // conversation (comme la route, qui le relit dans la conversation de son adresse).
       const lu = await deps.messagesApi.message(tenantId, message);
-      if (!lu || lu.conversationId !== id) throw new RefusOutil('message inconnu dans cette conversation (get_messages)', 'not_found');
+      if (!lu || lu.conversationId !== id) throw new RefusOutil('message inconnu dans cette conversation, ou d’un contact bloqué (get_messages)', 'not_found');
       await plafondCouteux(deps, tenantId);
       const r = await transcrireVocal(deps, tenantId, id, lu.idInterne, langue);
       if (!r.ok) throw new RefusOutil(typeof r.corps.error === 'string' ? r.corps.error : 'transcription refusée', r.famille);
@@ -174,6 +194,58 @@ export const OUTILS_INBOX: OutilMcp[] = [
         a_savoir: `Rien n’est effacé : un administrateur clique « ${oui.libelle} » dans la console, après avoir lu ce qui part. `
           + 'Après le clic, get_go_live avec go_live_id dit ce qui a été fait.',
       };
+    },
+  },
+  {
+    ...ficheOutilMcp('get_message_media'),
+    fonction: 'inbox',
+    description: 'Shows the file a contact sent in a message (its message_id from get_messages): a photo or a sticker comes '
+      + 'back as an image to look at. A voice message is read by transcribe_message; any other file (a video, a document) '
+      + 'opens in the conversation screen of the console, whose address the refusal gives. Meta keeps a received file 7 '
+      + 'days.',
+    annotations: lecture('Show the file of a message'),
+    entree: {
+      type: 'object',
+      properties: {
+        conversation_id: CONVERSATION,
+        message_id: { type: 'string', minLength: 1, maxLength: 200, description: 'The message id from get_messages: wamid... or msg_....' },
+      },
+      required: ['conversation_id', 'message_id'],
+      additionalProperties: false,
+    },
+    async executer(deps, tenantId, args) {
+      const id = texteObligatoire(args, 'conversation_id', 100);
+      const message = texteObligatoire(args, 'message_id', 200);
+      if (!estUuid(id)) throw new RefusOutil(INCONNUE, 'not_found');
+      // L'identifiant public de get_messages, traduit dans l'espace par le dépôt de get_message_status ; le message doit
+      // être de CETTE conversation.
+      const lu = await deps.messagesApi.message(tenantId, message);
+      if (!lu || lu.conversationId !== id) throw new RefusOutil('message inconnu dans cette conversation, ou d’un contact bloqué (get_messages)', 'not_found');
+      if (lu.media === null) throw new RefusOutil('ce message ne porte aucun fichier reçu', 'not_found');
+      if (lu.media.expired) throw new RefusOutil('Meta ne garde un fichier reçu que 7 jours : celui-ci n’existe plus', 'not_found');
+      const pageConsole = adresseEcran(ECRANS.conversation(id));
+      const dansLaConsole = `ce fichier s’ouvre dans la conversation de la console : ${pageConsole}`;
+      // Avant de rien télécharger : un vocal a son outil, et un fichier annoncé autrement qu'en image ne se montre pas ici.
+      if (lu.media.mimeType?.startsWith('audio/')) {
+        throw new RefusOutil('un vocal se lit par transcribe_message (avec une connexion de personne, pas une clé d’API)', 'unsupported');
+      }
+      if (!MIMES_AFFICHABLES.has(typeNu(lu.media.mimeType) ?? '')) throw new RefusOutil(dansLaConsole, 'unsupported', { action: pageConsole });
+      let f: Awaited<ReturnType<DepsInboxMcp['lireImageRecue']>>;
+      try {
+        f = await deps.lireImageRecue(tenantId, lu.idInterne, id);
+      } catch (err) {
+        if (err instanceof MediaExpire) throw new RefusOutil(err.message, 'not_found');
+        if (err instanceof MediaTropGros) throw new RefusOutil(`image trop lourde pour être montrée ici : ${dansLaConsole}`, 'too_large', { action: pageConsole });
+        journaliser('error', 'mcp_media_illisible', { err, tenantId, messageId: lu.idInterne });
+        throw new RefusOutil('Meta n’a pas rendu ce fichier : réessayez dans un instant', 'unavailable');
+      }
+      if (!f) throw new RefusOutil('ce message ne porte aucun fichier reçu', 'not_found');
+      // 🔴 Le type des OCTETS fait foi, jamais celui qu'annonce l'expéditeur (`lireMediaRecu` rend celui du message) : un
+      // « .png » fait de HTML, rendu en bloc image, ferait refuser chaque tour suivant de la session de l'opérateur.
+      const image = signatureImage(f.bytes);
+      if (image === null || !MIMES_AFFICHABLES.has(image)) throw new RefusOutil(dansLaConsole, 'unsupported', { action: pageConsole });
+      if (f.bytes.length > TAILLE_MAX_IMAGE_MCP) throw new RefusOutil(`image trop lourde pour être montrée ici : ${dansLaConsole}`, 'too_large', { action: pageConsole });
+      return new BlocsMcp([{ type: 'image', data: f.bytes.toString('base64'), mimeType: image }]);
     },
   },
   {
