@@ -9,7 +9,7 @@ import {
   OUTILS_MAISON, exigeUneCible, handlerMaison, outilExpose, outilMaison, type CibleOutilAgent, type OutilExpose,
 } from '../agent/outils-maison';
 import { CIBLE_REQUISE, ajouterOutilMaison, lireCibleSaisie } from '../agent/reglages';
-import { corpsDuRefus } from '../lib/issue';
+import { corpsDuRefus, refus, type Issue } from '../lib/issue';
 import { risqueAuMoins, risqueSelonMethode, type MethodeConnecteur } from '../agent/http-cible';
 import type { SortieAgent } from '../agent/agent-store';
 import { espaceVerifie, estUuid } from './scope';
@@ -110,7 +110,44 @@ export const patchSchema = z.object({
   nature: z.enum(['pousse', 'integre']).optional(),
   outputPaths: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
 });
-const drapeauSchema = z.object({ valeur: z.boolean() });
+export const drapeauSchema = z.object({ valeur: z.boolean() });
+
+/**
+ * Poser ou lever un drapeau d'un outil d'agent (la mise en service, l'autonomie) : la route et `update_agent_tool` (B10,
+ * livraison 3a) passent par elle. Poser exige de savoir qui (la base l'exige, et un actif sans activateur ferait un 500
+ * illisible) ; le refus d'un outil non activable porte sa raison, venue du serveur distant.
+ */
+export async function drapeauDOutil(
+  ecrire: (tenant: string, agentId: string, id: string, valeur: boolean, par: string) => Promise<OutilComplet | null>,
+  tenant: string, agentId: string, outilId: string, valeur: boolean, par: string,
+): Promise<Issue<OutilComplet>> {
+  if (!estUuid(outilId)) return refus(404, 'outil introuvable');
+  if (valeur && par === '') return refus(403, 'activation impossible sans utilisateur identifié');
+  try {
+    const outil = await ecrire(tenant, agentId, outilId, valeur, par);
+    return outil ? { ok: true, valeur: outil } : refus(404, 'outil introuvable');
+  } catch (err) {
+    if (err instanceof OutilNonActivable) return refus(409, err.raison);
+    throw err;
+  }
+}
+
+/**
+ * Rattacher un outil de la bibliothèque à un agent (inactif), ou l'en détacher : la route et `update_agent_tool` passent
+ * par elle. Le refus de la porte porte sa raison : non enregistré, mort, réservé à l'agent de Meta, déjà donné, ou nom
+ * déjà porté par un autre outil de cet agent (0211).
+ */
+export async function rattachementDOutil(
+  outils: Pick<OutilsAgentDep, 'rattacher' | 'detacher'>, tenant: string, agentId: string, outilId: string, valeur: boolean,
+): Promise<Issue<{ rattache: boolean }>> {
+  if (!estUuid(outilId)) return refus(404, 'outil introuvable');
+  if (valeur) {
+    const r = await outils.rattacher(tenant, agentId, outilId);
+    return r.ok ? { ok: true, valeur: { rattache: true } } : refus(refusIntrouvable(r) ? 404 : 409, messageDuRefus(r));
+  }
+  // « agent OU outil » : un détachement rend aussi `false` quand l'agent vient d'être supprimé.
+  return (await outils.detacher(tenant, agentId, outilId)) ? { ok: true, valeur: { rattache: false } } : refus(404, 'agent ou outil introuvable');
+}
 
 /**
  * La cohérence de ce qu'un appel fait de la réponse, LA MÊME à la création et à la modification : « intègre » sans
@@ -346,25 +383,10 @@ export function registerAgentTools(app: FastifyInstance, deps: AgentToolsRouteDe
     if (!estUuid(outilId)) return reply.code(404).send({ error: 'outil introuvable' });
     const parse = drapeauSchema.safeParse(corps ?? {});
     if (!parse.success) return reply.code(400).send({ error: 'valeur booléenne requise' });
-    // Poser le drapeau exige de savoir qui : la base l'exige, et une route qui écrirait un actif sans activateur
-    // remonterait un 500 illisible au lieu d'un refus explicable.
-    if (parse.data.valeur && ctx.userId === '') {
-      return reply.code(403).send({ error: 'activation impossible sans utilisateur identifié' });
-    }
-    /**
-     * Le refus porte sa raison, venue du serveur distant (schéma non représentable, outil disparu) : le client ne
-     * peut pas corriger ça lui-même, mais doit pouvoir le dire à son fournisseur.
-     */
-    let outil: OutilComplet | null;
-    try {
-      outil = await ecrire(ctx.tenant, ctx.agentId, outilId, parse.data.valeur, ctx.userId);
-    } catch (err) {
-      if (err instanceof OutilNonActivable) return reply.code(409).send({ error: err.raison });
-      throw err;
-    }
-    if (!outil) return reply.code(404).send({ error: 'outil introuvable' });
+    const r = await drapeauDOutil(ecrire, ctx.tenant, ctx.agentId, outilId, parse.data.valeur, ctx.userId);
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
     const sorties = (await deps.sortiesDeLAgent(ctx.tenant, ctx.agentId)) ?? [];
-    return reply.code(200).send({ outil: vue(outil, sorties) });
+    return reply.code(200).send({ outil: vue(r.valeur, sorties) });
   }
 
   app.put(`${base}/:outilId/activation`, opts, async (req, reply) => {
@@ -400,18 +422,9 @@ export function registerAgentTools(app: FastifyInstance, deps: AgentToolsRouteDe
     if (!estUuid(outilId)) return reply.code(404).send({ error: 'outil introuvable' });
     const parse = drapeauSchema.safeParse(req.body ?? {});
     if (!parse.success) return reply.code(400).send({ error: 'valeur booléenne requise' });
-    if (parse.data.valeur) {
-      // Le refus de la porte porte sa raison : non enregistré, mort, réservé à l'agent de Meta, déjà donné, ou nom
-      // déjà porté par un autre outil de cet agent (0211).
-      const r = await deps.outils.rattacher(ctx.tenant, ctx.agentId, outilId);
-      if (!r.ok) return reply.code(refusIntrouvable(r) ? 404 : 409).send({ error: messageDuRefus(r) });
-      return reply.code(200).send({ rattache: true });
-    }
-    // « agent OU outil » : un détachement rend aussi `false` quand l'agent vient d'être supprimé.
-    if (!(await deps.outils.detacher(ctx.tenant, ctx.agentId, outilId))) {
-      return reply.code(404).send({ error: 'agent ou outil introuvable' });
-    }
-    return reply.code(200).send({ rattache: false });
+    const r = await rattachementDOutil(deps.outils, ctx.tenant, ctx.agentId, outilId, parse.data.valeur);
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
+    return reply.code(200).send(r.valeur);
   });
 
   /**

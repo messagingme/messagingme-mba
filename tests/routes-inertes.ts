@@ -1260,6 +1260,25 @@ export const mcpFichesInertes: Pick<
   bilanContact: { getBilanContact: async () => null },
 };
 
+/**
+ * Les réglages de l'agent IA du MCP (B10, livraison 3a), pour les montages qui n'en parlent pas : les LECTURES rendent le
+ * vide, les ÉCRITURES lèvent. Leurs outils ont leur propre fichier, `tests/mcp-agent-reglages.test.ts`.
+ */
+export const mcpAgentReglagesInertes: Pick<DepsMcp, 'bibliothequeOutils' | 'historiqueReglages' | 'mentionIa' | 'agentsConformite' | 'sessionsAgents'> = {
+  bibliothequeOutils: {
+    listCatalogue: async () => [], offrablesPour: async () => [],
+    rattacher: neDevraitPasEtreAppelee('bibliothequeOutils.rattacher'), detacher: neDevraitPasEtreAppelee('bibliothequeOutils.detacher'),
+    activer: neDevraitPasEtreAppelee('bibliothequeOutils.activer'),
+  },
+  historiqueReglages: { lister: async () => [] },
+  mentionIa: { get: async () => ({ mentionIaFrequence: null }) as never, setMentionIaFrequence: neDevraitPasEtreAppelee('mentionIa.setMentionIaFrequence') },
+  agentsConformite: { listerPourConformite: async () => [] },
+  sessionsAgents: {
+    consommation: async (_t, _a, jours) => ({ sessions: 0, tokensEntree: 0, tokensSortie: 0, coutMicroEur: 0, jours }),
+    messagesTenus: async () => 0,
+  },
+};
+
 /** L'Inbox depuis Claude (B10, livraison 2a), pour les montages qui n'en parlent pas : les écritures lèvent. */
 export const mcpInboxInertes: Pick<DepsMcp, 'marquesConversation' | 'ouvrirConversation' | 'reglagesInbox' | 'lireImageRecue'> = {
   marquesConversation: {

@@ -5,6 +5,39 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-27 : CSM virtuel, lot I (B10, livraison 3a) : Claude règle les outils, la connaissance et la mention d'IA d'un agent
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 3 (l'agent IA), premier temps (3a) ; 3b
+(l'autonomie sur un appel irréversible, le branchement d'un connecteur, la suppression d'un agent au oui) suit.
+
+**Huit outils, toutes les offres comme les onglets d'un agent** (`src/mcp/outils-agent-reglages.ts`). Lectures, ouvertes à
+une clé comme `get_agent` : la bibliothèque d'outils de l'espace, ou ce qu'un agent peut encore recevoir
+(`list_agent_tool_library`) ; ses derniers essais gardés (`list_agent_tests`) ; ce qu'il a consommé sur 30 jours
+(`get_agent_usage`, deux routes) ; qui a changé quoi dans ses réglages ou dans ceux de l'agent de Meta
+(`get_settings_history`) ; la fréquence de la mention d'IA et ce que chaque agent en dit (`get_ai_disclosure`). Écritures,
+au nom d'une personne : rattacher, détacher, activer ou désactiver un outil d'un agent (`update_agent_tool`, seul ce qui
+est donné change, rattacher avant d'activer) ; régler la mention d'IA (`set_ai_disclosure`, tracée comme l'écran) ;
+modifier une fiche de connaissance (`update_knowledge`). Chaque lecture qui suppose un agent le vérifie dans l'espace
+d'abord : une liste vide ne dirait pas « inconnu ».
+
+**Quatre logiques de route extraites, sans changement de comportement** : `modifierFiche`, `reglerMentionIa`,
+`lireHistorique`, `drapeauDOutil` et `rattachementDOutil` ; la route et l'outil passent par elles. `GET
+/settings/transfert-agent` est attribuée à `get_agent` : depuis 0330, la promesse se choisit par agent, et `get_agent` la
+rend. Douze routes quittent les `aFaire` de la parité. Aucune migration.
+
+**La relecture indépendante : un rouge, corrigé avant de pousser.** La première version détachait (`attached: false`) :
+`detacher` supprime une action avec ses déclenchements (la clé étrangère en cascade emporte les champs recueillis auprès
+des contacts) et un appel de connecteur dont c'est le dernier agent, quand la description promettait que la bibliothèque
+le gardait. Depuis Claude, on retire un outil en le désactivant, ce qui ne détruit rien ; la console fait confirmer le
+détachement, et une action se supprime par `delete_agent_action`, qui prévient. Le rattachement est réservé à la
+bibliothèque (une action d'un autre agent n'en est pas). Corrigés aussi : un rattachement déjà fait vaut succès, l'état
+partiel dit, les identifiants des outils rendus par `get_agent`, des descriptions exactes, la lecture de la mention
+extraite (`lireMentionIa`), l'historique borné à 50 lignes par défaut. Le reste est au `todo.md`.
+
+Preuves : 20 mutations nommées, toutes rouges. Dans la copie de travail : typecheck et lint, l'auto-attaque, la suite
+racine et celle de la console ; sur l'arbre fusionné avec les pairs, avant le push : typecheck, lint, auto-attaque, les
+tests ciblés et la suite de la console. L'essai réel suit le déploiement.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10) : les livraisons 1 et 2 en production, et ce que leurs essais réels ont trouvé
 
 Déployés : L1a par le run du pair (45903164978) ; 1b, 1c et 2a ensemble (45959666264) ; 2b et le correctif de la

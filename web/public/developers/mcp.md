@@ -157,6 +157,13 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | set_default_responder | mcp:write connexion OAuth requise | Choisir qui répond au client (à un nouveau contact, et à tout message que personne ne tient) : l’agent de Meta, un agent IA actif, un scénario publié, l’équipe, ou votre application (une adresse de webhooks sortants). Hors du mode agent de Meta, celui-ci reste en veille. |
 | set_transfer_mode | mcp:write connexion OAuth requise | Régler ce que les agents IA promettent de la disponibilité de l’équipe quand ils passent la main. |
 | set_business_hours | mcp:write connexion OAuth requise | Régler les heures d’ouverture de l’espace et son fuseau : celles que les agents IA annoncent hors des heures. |
+| list_agent_tool_library | mcp:read | La bibliothèque d’outils de l’espace, ou ce qu’on peut encore donner à un agent IA. |
+| update_agent_tool | mcp:write connexion OAuth requise | Rattacher, détacher, activer ou désactiver un outil d’un agent IA ; seul ce qui est donné change. |
+| list_agent_tests | mcp:read | Les derniers essais gardés d’un agent IA : la conversation, la réponse, les outils appelés, le coût. |
+| get_settings_history | mcp:read | Qui a changé quoi dans les réglages d’un agent IA, ou de l’agent de Meta (Business et Entreprise). |
+| get_ai_disclosure | mcp:read | À quelle fréquence les agents IA disent qu’ils sont une IA, et ce que chacun en dit. |
+| set_ai_disclosure | mcp:write connexion OAuth requise | Régler à quelle fréquence les agents IA disent qu’ils sont une IA. |
+| get_agent_usage | mcp:read | Ce qu’un agent IA a consommé sur 30 jours : conversations, coût, messages. |
 
 ### Connaissance de l’agent IA
 
@@ -164,6 +171,7 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | --- | --- | --- |
 | list_knowledge | mcp:read | Les fiches de connaissance d’un agent IA, avec leur provenance. |
 | add_knowledge | mcp:write connexion OAuth requise | Ajouter des fiches de connaissance écrites, 50 au plus par appel. |
+| update_knowledge | mcp:write connexion OAuth requise | Modifier le titre ou le corps d’une fiche de connaissance ; seul ce qui est donné change. |
 | delete_knowledge | mcp:write connexion OAuth requise | Supprimer des fiches de connaissance ; leur contenu reste dans l’historique. |
 | preview_site | mcp:read connexion OAuth requise | Lire un site depuis le serveur et voir ce qu’un import en ferait, sans rien écrire. |
 | import_site | mcp:write connexion OAuth requise | Importer les pages d’un site en connaissance ; une page relue remplace ses fiches. |

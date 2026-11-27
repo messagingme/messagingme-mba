@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { ajoutSchema, patchSchema } from '../../src/http/agent-tools';
+import { ajoutSchema, drapeauSchema, patchSchema } from '../../src/http/agent-tools';
 import {
   corpsAttestation, corpsBranchement, corpsEtiquettes, corpsImport, corpsLigne, corpsRattrapage, corpsReglage, corpsSegments, corpsSynchroEtiquettes,
 } from '../../src/http/shopify';
@@ -8,7 +8,7 @@ import { corpsQuiRepond, corpsRepondeur } from '../../src/http/agents';
 import { CORPS_OPTION } from '../../src/http/credit-whatsapp';
 import { saisieDeCreation as creationAgent, saisieDeModification as modificationAgent } from '../../src/agent/gestion';
 import { saisieDEssai } from '../../src/agent/essai';
-import { saisieDeDocument, saisieDeFiche, saisieDeSite, saisieDeSuppression } from '../../src/agent/connaissance';
+import { saisieDeDocument, saisieDeFiche, saisieDePatchDeFiche, saisieDeSite, saisieDeSuppression } from '../../src/agent/connaissance';
 import { saisieCreation as creationAdresse, saisieModification as modificationAdresse } from '../../src/evenements/gestion';
 import { saisieDePaiement } from '../../src/stripe/paiement';
 import { saisieAchatWhatsapp } from '../../src/stripe/achat-whatsapp';
@@ -49,6 +49,13 @@ const DEVENIR_AGENT = { valeurs: ['agent'], raison: 'refusé par le service tant
 export const CHAMPS: Readonly<Record<string, Corps>> = {
   // Les outils de l'agent IA
   'POST /agents/:agentId/tools': { schema: ajoutSchema, noms: { handler: 'outils[]' } },
+  // Les réglages de l'agent IA (B10, livraison 3a) : un même drapeau, deux noms dans l'outil.
+  'PUT /agents/:agentId/tools/:outilId/activation': { schema: drapeauSchema, noms: { valeur: 'enabled' } },
+  // `attached` n'accepte que true : détacher détruit une action et son historique, ou un appel de connecteur sans autre
+  // agent ; depuis Claude on désactive (enabled false), la console fait confirmer le détachement.
+  'PUT /agents/:agentId/tools/:outilId/rattachement': { schema: drapeauSchema, noms: { valeur: 'attached' } },
+  'PATCH /agents/:agentId/knowledge/:ficheId': { schema: saisieDePatchDeFiche },
+  'PATCH /settings/mention-ia': A_LA_MAIN,
   'PATCH /agents/:agentId/tools/:outilId': { schema: patchSchema },
   'DELETE /agents/:agentId/tools/:outilId': SANS_CORPS,
 

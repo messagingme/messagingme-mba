@@ -6,7 +6,7 @@ import { espaceVerifie } from './scope';
 import { estFrequenceMention, FREQUENCES_MENTION_IA, type FrequenceMentionIa } from '../agent/agent-store';
 import { MODE_TRANSFERT_DEFAUT, type ModeTransfert } from '../agent/disponibilite-equipe';
 import { isValidTimeZone, normalizeBusinessHours, reglerModeTransfert } from '../agent/reglages';
-import { corpsDuRefus } from '../lib/issue';
+import { corpsDuRefus, refus, type Issue } from '../lib/issue';
 import { valideGrille, BORNES_GRILLE } from '../stats/prix';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { ConnecteurEnReveil } from '../crm/hubspot-service';
@@ -109,6 +109,40 @@ export async function reglerReprise(
   }
   await reglages.setControlHandbackSeconds(tenant, raw);
   return { ok: true, valeur: raw };
+}
+
+/**
+ * Lire la mention d'IA de l'espace et ce que chaque agent dit (la route `GET .../settings/mention-ia` et
+ * `get_ai_disclosure`, B10 livraison 3a). `null` en base = rien n'a été réglé : le défaut effectif, celui que le runtime
+ * appliquera, jamais une case vide.
+ */
+export async function lireMentionIa(
+  deps: { reglages: Pick<ReglagesDep, 'get'>; agents: { listerPourConformite(tenantId: string): Promise<Array<{ id: string; label: string; status: string; mentionIa: string }>> } },
+  tenant: string,
+): Promise<{ frequence: FrequenceMentionIa; reglee: boolean; agents: Array<{ id: string; label: string; status: string; mentionIa: string }> }> {
+  const [{ mentionIaFrequence }, agents] = await Promise.all([deps.reglages.get(tenant), deps.agents.listerPourConformite(tenant)]);
+  return { frequence: mentionIaFrequence ?? 'session', reglee: mentionIaFrequence !== null, agents };
+}
+
+/**
+ * Régler la fréquence à laquelle les agents IA se déclarent comme tels : une des valeurs fermées, et la trace
+ * `ia.mention_reglee` quand elle change (au nom de qui règle). Partagée par `PATCH .../settings/mention-ia` et l'outil
+ * `set_ai_disclosure` (B10, livraison 3a). `jamais` est un choix explicite du client, jamais un défaut posé en silence ;
+ * pas de retour à « non réglé », qui ferait retomber le client sur un défaut qu'il n'a pas choisi.
+ */
+export async function reglerMentionIa(
+  deps: { reglages: Pick<ReglagesDep, 'get' | 'setMentionIaFrequence'>; audit?: AuditSink },
+  tenant: string, brut: unknown, auteur: Parameters<ReturnType<typeof makeJournal>>[1],
+): Promise<Issue<{ frequence: FrequenceMentionIa }>> {
+  if (!estFrequenceMention(brut)) return refus(400, `frequence requise (${FREQUENCES_MENTION_IA.join(' | ')})`);
+  // La valeur d'avant, pour la trace seulement : sa lecture en échec ne bloque pas le réglage, elle saute la trace.
+  const avant = await deps.reglages.get(tenant).then((r) => r.mentionIaFrequence, () => undefined);
+  await deps.reglages.setMentionIaFrequence(tenant, brut);
+  if (avant !== undefined && avant !== brut) {
+    // `null` = rien n'était réglé (le défaut s'appliquait).
+    await makeJournal(deps.audit)(tenant, auteur, 'ia.mention_reglee', { kind: 'tenant', id: tenant }, { frequence: brut, frequenceAvant: avant });
+  }
+  return { ok: true, valeur: { frequence: brut } };
 }
 
 /**
@@ -266,15 +300,7 @@ export function registerSettings(
    * « IA » sous ses messages, et l'écran le dit.
    */
   app.get('/tenants/:tenantId/settings/mention-ia', optsEncadrement, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-    const { mentionIaFrequence } = await deps.reglages.get(tenant);
-    return reply.code(200).send({
-      // `null` en base = rien n'a été réglé : l'écran montre le défaut effectif, celui que le runtime
-      // appliquera, pas une case vide.
-      frequence: mentionIaFrequence ?? 'session',
-      reglee: mentionIaFrequence !== null,
-      agents: await deps.agents.listerPourConformite(tenant),
-    });
+    return reply.code(200).send(await lireMentionIa(deps, espaceVerifie(req)));
   });
 
   /**
@@ -284,18 +310,9 @@ export function registerSettings(
    */
   app.patch('/tenants/:tenantId/settings/mention-ia', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const brut = (req.body as { frequence?: unknown } | null)?.frequence;
-    if (!estFrequenceMention(brut)) {
-      return reply.code(400).send({ error: `frequence requise (${FREQUENCES_MENTION_IA.join(' | ')})` });
-    }
-    // La valeur d'avant, pour la trace seulement : sa lecture en échec ne bloque pas le réglage, elle saute la trace.
-    const avant = await deps.reglages.get(tenant).then((r) => r.mentionIaFrequence, () => undefined);
-    await deps.reglages.setMentionIaFrequence(tenant, brut);
-    if (avant !== undefined && avant !== brut) {
-      // `null` = rien n'était réglé (le défaut s'appliquait).
-      await makeJournal(deps.audit)(tenant, req, 'ia.mention_reglee', { kind: 'tenant', id: tenant }, { frequence: brut, frequenceAvant: avant });
-    }
-    return reply.code(200).send({ frequence: brut });
+    const r = await reglerMentionIa(deps, tenant, (req.body as { frequence?: unknown } | null)?.frequence, req);
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
+    return reply.code(200).send(r.valeur);
   });
 
   /**

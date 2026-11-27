@@ -4318,6 +4318,12 @@ async function main(): Promise<void> {
         reglagesInbox: settingsStore,
         // Le fichier d'un message (B10, livraison 2c) : la MÊME lecture que l'Inbox et l'API, plafonnée pour Claude.
         lireImageRecue,
+        // Les réglages de l'agent IA (B10, livraison 3a) : les MÊMES objets que ses onglets, Sécurité > IA et sa page.
+        bibliothequeOutils: toolCatalog,
+        historiqueReglages: historiqueStore,
+        mentionIa: settingsStore,
+        agentsConformite: agentStore,
+        sessionsAgents: agentSessions,
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),

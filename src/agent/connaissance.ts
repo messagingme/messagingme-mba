@@ -68,6 +68,21 @@ const CORPS = z.string().trim().min(1).max(MAX_CORPS);
  */
 export const saisieDeFiche = z.object({ titre: TITRE, corps: CORPS });
 export const saisieDePatchDeFiche = z.object({ titre: TITRE.optional(), corps: CORPS.optional() });
+
+/**
+ * Modifier une fiche (son titre, son corps, ou les deux) : la route `PATCH .../knowledge/:ficheId` et `update_knowledge`
+ * (B10, livraison 3a) passent par elle. Une fiche d'un autre agent ou d'un autre espace est introuvable.
+ */
+export async function modifierFiche(
+  deps: Pick<DepsConnaissance, 'connaissance'>, tenantId: string, agentId: string, ficheId: string, corps: unknown,
+): Promise<Issue<FicheConnaissance>> {
+  if (!estUuid(ficheId)) return refus(404, 'fiche introuvable');
+  const parse = saisieDePatchDeFiche.safeParse(corps ?? {});
+  if (!parse.success) return refus(400, `titre ou corps invalide (corps : ${MAX_CORPS} caractères au plus)`);
+  if (parse.data.titre === undefined && parse.data.corps === undefined) return refus(400, 'aucun champ à modifier');
+  const fiche = await deps.connaissance.modifier(tenantId, agentId, ficheId, parse.data);
+  return fiche ? { ok: true, valeur: fiche } : refus(404, 'fiche introuvable');
+}
 export const saisieDeDocument = z.object({
   nom: z.string().trim().min(1).max(MAX_TITRE),
   /** Le fichier, en data URL base64. Même transport que le téléversement d'image, déjà éprouvé. */

@@ -45,6 +45,7 @@ import { OUTILS_CAMPAGNES, type DepsCampagnesMcp } from './outils-campagnes';
 import { OUTILS_CHAMPS, type DepsChampsMcp } from './outils-champs';
 import { OUTILS_FICHES, type DepsFichesMcp } from './outils-fiches';
 import { OUTILS_INBOX, type DepsInboxMcp } from './outils-inbox';
+import { OUTILS_AGENT_REGLAGES, type DepsAgentReglagesMcp } from './outils-agent-reglages';
 import { OUTILS_SUPPRESSION, type DepsSuppressionMcp } from './outils-suppression';
 import { OUTILS_SHOPIFY } from './outils-shopify';
 import type { DepsGestionShopify } from '../shopify/gestion';
@@ -85,7 +86,7 @@ export type { ScopeMcp } from '../../web/lib/partage/catalogue-mcp';
 /** Les actions d'agent IA rendues par `get_conversation` : les plus récentes, la conversation en porte peu. */
 export const ACTIONS_DE_LA_CONVERSATION = 10;
 
-export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
+export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsAgentReglagesMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
   /**
@@ -1214,6 +1215,7 @@ export const OUTILS: OutilMcp[] = [
   // Les étiquettes et la création d'un contact (lot 1 du CSM virtuel, B10) : `src/mcp/outils-fiches.ts`.
   ...OUTILS_FICHES,
   ...OUTILS_INBOX,
+  ...OUTILS_AGENT_REGLAGES,
   // Le connecteur Shopify (2026-10-21) : `src/mcp/outils-shopify.ts`.
   ...OUTILS_SHOPIFY,
   // Les chiffres de l'espace, pour les graphiques de Claude (2026-10-13) : leur fichier, `src/mcp/outils-chiffres.ts`.

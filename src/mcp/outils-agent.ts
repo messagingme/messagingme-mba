@@ -164,13 +164,13 @@ export const ACTION_WEBHOOK_EN = 'The action goes to the customer\'s application
 /** Ce qu'un outil coûteux dit de son plafond, une fois pour toutes les descriptions. */
 export const LOURDE = 'Counts toward the workspace\'s heavy operations, capped per minute (as in the console).';
 
-const lecture = (title: string, openWorldHint = false): AnnotationsMcp => ({ title, readOnlyHint: true, openWorldHint });
+export const lecture = (title: string, openWorldHint = false): AnnotationsMcp => ({ title, readOnlyHint: true, openWorldHint });
 /** Une écriture est toujours `destructiveHint: true` (règle du répertoire de Claude, voir `AnnotationsMcp`). */
 export const ecriture = (title: string, idempotentHint: boolean, openWorldHint: boolean): AnnotationsMcp =>
   ({ title, readOnlyHint: false, destructiveHint: true, idempotentHint, openWorldHint });
 
 /** L'identifiant d'agent, tel que les outils le lisent (`texteObligatoire(args, 'agent_id', 100)`). */
-const AGENT_ID: ProprieteEntree = {
+export const AGENT_ID: ProprieteEntree = {
   type: 'string', format: 'uuid', minLength: 1, maxLength: 100,
   description: 'The agent id, returned by list_agents or create_agent.',
 };
@@ -378,10 +378,13 @@ export const OUTILS_AGENT: OutilMcp[] = [
         limites: vueLimites(agent),
         // Le mode de CET agent, sinon celui de l'espace, sinon le défaut : celui que son tour applique (`lireContexteAgentComplet`).
         transfer_mode: agent.transfertMode ?? reglages.agentTransfertMode ?? MODE_TRANSFERT_DEFAUT,
-        outils: maison.filter((o) => !estAction(o)).map((o) => ({ code: handlerMaison(o), nom: o.name, titre: o.title, actif: o.actif })),
+        // L'identifiant de chaque outil : `update_agent_tool` l'active ou le désactive (B10, livraison 3a).
+        outils: maison.filter((o) => !estAction(o)).map((o) => ({ id: o.id, code: handlerMaison(o), nom: o.name, titre: o.title, actif: o.actif })),
         // Les actions à part, avec leur cible : c'est ce que set_agent_action modifie.
         actions: maison.filter(estAction).map(vueAction),
         connecteurs: outils.length - maison.length,
+        // Les appels de connecteur et les outils MCP de l'agent, par leur identifiant (B10, livraison 3a).
+        outils_connecteurs: outils.filter((o) => handlerMaison(o) === '').map((o) => ({ id: o.id, nom: o.name, titre: o.title, actif: o.actif })),
         fiches_connaissance: lint?.etat.fichesConnaissance ?? null,
         manques: lint?.manques ?? null,
         avertissements: lint?.avertissements ?? null,

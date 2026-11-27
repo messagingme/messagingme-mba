@@ -1,10 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { gardeEtendue, type Guard, type PreHandler } from '../auth/middleware';
 import type { FicheConnaissance } from '../agent/knowledge';
-import { MAX_CORPS } from '../agent/scrape';
 import { TAILLE_DOCUMENT_MAX } from '../agent/setup/piece-jointe';
 import {
-  ajouterFiches, apercuSite, importerDocument, importerSite, journaliserFicheSupprimee, saisieDePatchDeFiche,
+  ajouterFiches, apercuSite, importerDocument, importerSite, journaliserFicheSupprimee, modifierFiche,
   supprimerFiches, type DepsConnaissance,
 } from '../agent/connaissance';
 import { corpsDuRefus, type Issue } from '../lib/issue';
@@ -70,15 +69,9 @@ export function registerAgentKnowledge(
     const ctx = contexte(req);
     if ('code' in ctx) return reply.code(ctx.code).send({ error: ctx.error });
     const { ficheId } = req.params as { ficheId: string };
-    if (!estUuid(ficheId)) return reply.code(404).send({ error: 'fiche introuvable' });
-    const parse = saisieDePatchDeFiche.safeParse(req.body ?? {});
-    if (!parse.success) return reply.code(400).send({ error: `titre ou corps invalide (corps : ${MAX_CORPS} caractères au plus)` });
-    if (parse.data.titre === undefined && parse.data.corps === undefined) {
-      return reply.code(400).send({ error: 'aucun champ à modifier' });
-    }
-    const fiche = await deps.connaissance.modifier(ctx.tenant, ctx.agentId, ficheId, parse.data);
-    if (!fiche) return reply.code(404).send({ error: 'fiche introuvable' });
-    return reply.code(200).send({ fiche });
+    const r = await modifierFiche(deps, ctx.tenant, ctx.agentId, ficheId, req.body);
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
+    return reply.code(200).send({ fiche: r.valeur });
   });
 
   /**

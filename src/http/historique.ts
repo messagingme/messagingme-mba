@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Guard } from '../auth/middleware';
 import { espaceVerifie, estUuid } from './scope';
-import { MAX_LIGNES_HISTORIQUE, type HistoriqueStore } from '../reglages/historique';
+import { MAX_LIGNES_HISTORIQUE, type HistoriqueStore, type LigneHistoriqueLue } from '../reglages/historique';
+import { corpsDuRefus, refus, type Issue } from '../lib/issue';
 
 /**
  * L'historique des réglages, en lecture. Meta n'a pas de corbeille : une FAQ ou une compétence supprimée n'existe
@@ -31,29 +32,33 @@ export function registerHistorique(app: FastifyInstance, deps: HistoriqueRouteDe
   const opts = { preHandler: garde };
 
   app.get('/tenants/:tenantId/historique', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-
-    const parse = requete.safeParse(req.query ?? {});
-    if (!parse.success) return reply.code(400).send({ error: 'surface invalide (mba|agent)' });
-    const { surface, agentId, limite } = parse.data;
-
-    /**
-     * La forme est vérifiée ici : le CHECK en base refuserait en 500 sur une écriture, et sur une lecture il ne
-     * refuserait rien, il rendrait zéro ligne (« il ne s'est rien passé »).
-     */
-    if (surface === 'agent' && !estUuid(agentId ?? '')) {
-      return reply.code(400).send({ error: 'agentId requis pour la surface agent' });
-    }
-    if (surface === 'mba' && agentId) {
-      return reply.code(400).send({ error: 'le Meta Business Agent est unique par espace' });
-    }
-
-    const plafond = limite ?? LIGNES_HISTORIQUE_PAR_DEFAUT;
-    const lignes = await deps.historique.lister(tenant, {
-      surface,
-      ...(surface === 'agent' ? { surfaceId: agentId ?? null } : {}),
-      limite: plafond,
-    });
-    return reply.code(200).send({ lignes, tronquee: lignes.length >= plafond });
+    const r = await lireHistorique(deps, espaceVerifie(req), req.query);
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
+    return reply.code(200).send(r.valeur);
   });
+}
+
+/**
+ * Lire l'historique des réglages d'une surface (l'agent de Meta, ou un agent IA) : la route `GET .../historique` et
+ * `get_settings_history` (B10, livraison 3a) passent par elle.
+ */
+export async function lireHistorique(
+  deps: { historique: Pick<HistoriqueStore, 'lister'> }, tenant: string, brut: unknown,
+): Promise<Issue<{ lignes: LigneHistoriqueLue[]; tronquee: boolean }>> {
+  const parse = requete.safeParse(brut ?? {});
+  if (!parse.success) return refus(400, 'surface invalide (mba|agent)');
+  const { surface, agentId, limite } = parse.data;
+  /**
+   * La forme est vérifiée ici : le CHECK en base refuserait en 500 sur une écriture, et sur une lecture il ne
+   * refuserait rien, il rendrait zéro ligne (« il ne s'est rien passé »).
+   */
+  if (surface === 'agent' && !estUuid(agentId ?? '')) return refus(400, 'agentId requis pour la surface agent');
+  if (surface === 'mba' && agentId) return refus(400, 'le Meta Business Agent est unique par espace');
+  const plafond = limite ?? LIGNES_HISTORIQUE_PAR_DEFAUT;
+  const lignes = await deps.historique.lister(tenant, {
+    surface,
+    ...(surface === 'agent' ? { surfaceId: agentId ?? null } : {}),
+    limite: plafond,
+  });
+  return { ok: true, valeur: { lignes, tronquee: lignes.length >= plafond } };
 }

@@ -65,11 +65,11 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /agents/:agentId/tools': enPartie(['set_agent_tools', 'set_agent_action'], 'la cible des autres outils (tag, champ, bloc, scénario, enchaînement, qualification)'),
   'POST /agents/:agentId/tools/connecteur': aFaire('B10', 'agent IA : donner à un agent un appel de connecteur API'),
   'PATCH /agents/:agentId/tools/:outilId': enPartie(['set_agent_action'], 'les réglages communs des autres outils (nom vu par le modèle, quand l’appeler, quand ne pas l’appeler, gestes) et leur cible'),
-  'PUT /agents/:agentId/tools/:outilId/activation': aFaire('B10', 'agent IA : activer ou désactiver un outil'),
+  'PUT /agents/:agentId/tools/:outilId/activation': outil('update_agent_tool'),
   'PUT /agents/:agentId/tools/:outilId/autonomie': aFaire('B10', 'agent IA : l’autonomie d’un outil ; sur un appel DELETE, elle reste un clic dans la console'),
   'DELETE /agents/:agentId/tools/:outilId': enPartie(['delete_agent_action'], 'détacher les outils qui ne sont pas des actions'),
-  'PUT /agents/:agentId/tools/:outilId/rattachement': aFaire('B10', 'agent IA : rattacher un outil de la bibliothèque à un agent, ou l’en détacher'),
-  'GET /agents/:agentId/tools/offrables': aFaire('B10', 'agent IA : les outils qu’on peut encore donner à l’agent'),
+  'PUT /agents/:agentId/tools/:outilId/rattachement': outil('update_agent_tool'),
+  'GET /agents/:agentId/tools/offrables': outil('list_agent_tool_library'),
 
   // Shopify
   'GET /integrations/shopify': outil('get_shopify_state'),
@@ -175,7 +175,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /media': aFaire('B10', 'modèles : déposer un média d’en-tête'),
 
   // Le bac à sable de l'agent IA (agentTest)
-  'GET /agents/:agentId/tests': aFaire('B10', 'agent IA : relire les essais gardés du bac à sable'),
+  'GET /agents/:agentId/tests': outil('list_agent_tests'),
   'POST /agents/:agentId/test': outil('test_agent'),
 
   // Les étiquettes (tags)
@@ -311,7 +311,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /contacts/purge': outil('prepare_contacts_deletion', 'delete_contacts'),
 
   // L'historique des réglages (historique)
-  'GET /historique': aFaire('B10', 'agent IA : l’historique des réglages (qui a changé quoi)'),
+  'GET /historique': outil('get_settings_history'),
 
   // Les chiffres (stats)
   'GET /stats': outil('get_message_stats'),
@@ -342,7 +342,7 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   // La connaissance de l'agent IA (agentKnowledge)
   'GET /agents/:agentId/knowledge': outil('list_knowledge'),
   'POST /agents/:agentId/knowledge': outil('add_knowledge'),
-  'PATCH /agents/:agentId/knowledge/:ficheId': aFaire('B10', 'agent IA : modifier une fiche de connaissance'),
+  'PATCH /agents/:agentId/knowledge/:ficheId': outil('update_knowledge'),
   'DELETE /agents/:agentId/knowledge/:ficheId': outil('delete_knowledge'),
   'POST /agents/:agentId/knowledge/supprimer': outil('delete_knowledge'),
   'POST /agents/:agentId/knowledge/document': enPartie(['import_document_text'], 'le fichier lui-même : seul son texte, extrait sur le poste, passe par l’outil'),
@@ -354,9 +354,10 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'PUT /settings': lot7('l’agent de Meta (son interrupteur)'),
   'GET /settings/poussee-optout': outil('get_optout_push'),
   'PATCH /settings/poussee-optout': outil('set_optout_push'),
-  'GET /settings/mention-ia': aFaire('B10', 'agent IA : lire la fréquence de la mention d’IA'),
-  'PATCH /settings/mention-ia': aFaire('B10', 'agent IA : régler la fréquence de la mention d’IA'),
-  'GET /settings/transfert-agent': aFaire('B10', 'agent IA : lire ce que les agents promettent au transfert'),
+  'GET /settings/mention-ia': outil('get_ai_disclosure'),
+  'PATCH /settings/mention-ia': outil('set_ai_disclosure'),
+  // Depuis 0330 la promesse se choisit par agent : `get_agent` la rend (transfer_mode), `set_transfer_mode` l'écrit.
+  'GET /settings/transfert-agent': outil('get_agent'),
   'PATCH /settings/transfert-agent': outil('set_transfer_mode'),
   'GET /settings/agents-peuvent-prendre': outil('get_inbox_settings'),
   'PATCH /settings/agents-peuvent-prendre': outil('update_inbox_settings'),
@@ -398,13 +399,13 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /agent-requetes/test': aFaire('B10', 'agent IA, connecteurs API : essayer un appel avant de l’enregistrer'),
 
   // Le catalogue des outils d'agent (agentCatalogue)
-  'GET /agent-tools': aFaire('B10', 'agent IA : le catalogue des outils d’agent'),
+  'GET /agent-tools': outil('list_agent_tool_library'),
 
   // Les agents IA et le répondeur (agents)
   'GET /agents/solde': outil('get_credit'),
   'GET /agents/mouvements': outil('get_credit'),
-  'GET /agents/:agentId/consommation': aFaire('B10', 'agent IA : la consommation d’un agent'),
-  'GET /agents/:agentId/messages': aFaire('B10', 'agent IA : l’historique des messages d’un agent'),
+  'GET /agents/:agentId/consommation': outil('get_agent_usage'),
+  'GET /agents/:agentId/messages': outil('get_agent_usage'),
   'GET /agents': outil('list_agents'),
   'GET /repondeur': outil('get_setup_state'),
   'PUT /repondeur': outil('set_default_responder'),

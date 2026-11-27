@@ -44,7 +44,7 @@ import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { bornesDesChamps, bornesZod, champsDe, muettes, type Borne } from './aide/bornes-zod';
 import { jamaisDesabonne } from './consentement';
-import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { SANS_MCP } from './outils-mcp';
 import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
@@ -417,7 +417,7 @@ function monter(o: Options & { usage?: GardeUsageMemoire } = {}) {
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
-    ...mcpFichesInertes, ...mcpInboxInertes,
+    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
@@ -543,13 +543,17 @@ const ARGS: Record<string, Record<string, unknown>> = {
   set_default_responder: { agent_id: AG },
   get_credit: {},
   buy_credit: { offre: 'refill_50' },
+  // Les réglages de l'agent IA (B10, livraison 3a) : leurs écritures exigent une personne, comme les autres.
+  update_agent_tool: { agent_id: AG, tool_id: '66666666-6666-4666-8666-666666666666', enabled: true },
+  set_ai_disclosure: { frequency: 'session' },
+  update_knowledge: { agent_id: AG, fiche_id: '44444444-4444-4444-8444-444444444444', titre: 'Horaires' },
 };
 
 /** Les traces d'écriture et de lecture des dépendances de l'agent, mises bout à bout : vides = rien n'a été touché. */
 const touche = (cap: ReturnType<typeof monter>['cap']) => Object.entries(cap).filter(([, v]) => v.length > 0).map(([k]) => k);
 
 describe('🔴 la personne requise : une clé d’API ne voit ni n’appelle les outils qui écrivent au nom de quelqu’un', () => {
-  it('vingt et un outils : quatre lectures sans personne, dix-sept outils qui l’exigent (le répondeur, les horaires, les actions et les limites compris)', () => {
+  it('vingt-quatre outils : quatre lectures sans personne, vingt outils qui l’exigent (le répondeur, les horaires, les actions, les limites et les réglages de 3a compris)', () => {
     const agent = OUTILS.filter((o) => Object.hasOwn(ARGS, o.nom));
     expect(agent.map((o) => o.nom).sort()).toEqual(Object.keys(ARGS).sort());
     expect(agent.filter((o) => o.exigePersonne !== true).map((o) => o.nom).sort())
@@ -1103,7 +1107,7 @@ describe('les outils de l’agent appellent les fonctions de la console, dans l�
     const r = (await appeler(server, CLE_ECRITURE, 'get_agent', { agent_id: AG })).json();
     expect(r.agent).toEqual({ id: AG, label: 'Conseiller', status: 'draft', modele: 'modele-config', fiche: FICHE_COMPLETE, fiche_version: 4, mention_ia: 'fr' });
     expect(r).toMatchObject({ transfer_mode: 'business_hours', connecteurs: 0, fiches_connaissance: 0 });
-    expect(r.outils).toEqual([{ code: 'terminer', nom: 'mba_terminer', titre: 'terminer', actif: true }]);
+    expect(r.outils).toEqual([{ id: 'id-terminer', code: 'terminer', nom: 'mba_terminer', titre: 'terminer', actif: true }]);
     expect(r.manques).toHaveLength(1);
     expect(r.modeles).toHaveLength(2);
     // Les limites d'une conversation (2026-10-23) : à côté de l'agent et pas dedans, la vue que rendent create_agent et

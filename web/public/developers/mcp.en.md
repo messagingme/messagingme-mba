@@ -157,6 +157,13 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | set_default_responder | mcp:write OAuth connection required | Choose who answers the customer (a new contact, and every message nobody handles): Meta’s agent, an active AI agent, a published scenario, the team, or your app (an outgoing webhook address). Outside Meta’s agent mode, it stays on standby. |
 | set_transfer_mode | mcp:write OAuth connection required | Set what AI agents promise about team availability when they hand over. |
 | set_business_hours | mcp:write OAuth connection required | Set the workspace’s opening hours and time zone: the ones AI agents announce outside hours. |
+| list_agent_tool_library | mcp:read | The workspace tool library, or what an AI agent can still be given. |
+| update_agent_tool | mcp:write OAuth connection required | Attach, detach, enable or disable a tool of an AI agent; only what is given changes. |
+| list_agent_tests | mcp:read | The last kept tests of an AI agent: the conversation, the answer, the tools called, the cost. |
+| get_settings_history | mcp:read | Who changed what in the settings of an AI agent, or of Meta’s agent (Business and Enterprise). |
+| get_ai_disclosure | mcp:read | How often the AI agents say they are an AI, and what each one says. |
+| set_ai_disclosure | mcp:write OAuth connection required | Set how often the AI agents say they are an AI. |
+| get_agent_usage | mcp:read | What an AI agent consumed over 30 days: conversations, cost, messages. |
 
 ### Agent knowledge
 
@@ -164,6 +171,7 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | --- | --- | --- |
 | list_knowledge | mcp:read | An AI agent’s knowledge entries, with their source. |
 | add_knowledge | mcp:write OAuth connection required | Add written knowledge entries, up to 50 per call. |
+| update_knowledge | mcp:write OAuth connection required | Change the title or body of a knowledge entry; only what is given changes. |
 | delete_knowledge | mcp:write OAuth connection required | Delete knowledge entries; their content stays in the history. |
 | preview_site | mcp:read OAuth connection required | Read a site from the server and see what an import would make of it, without writing anything. |
 | import_site | mcp:write OAuth connection required | Import a site’s pages as knowledge; a page read again replaces its entries. |

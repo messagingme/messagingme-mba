@@ -296,6 +296,20 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 3a, les réglages de l'agent IA) : ce qui reste de la relecture (2026-11-27)
+
+Le rouge est corrigé avant de pousser : `update_agent_tool` détachait, et détacher une action la supprime avec son
+historique (ou un appel de connecteur dont c'est le dernier agent), quand la description annonçait le contraire ; depuis
+Claude on désactive (`enabled: false`), et le rattachement est réservé à la bibliothèque. Corrigés aussi : un rattachement
+déjà fait vaut succès, l'état partiel dit (rattaché puis refusé à l'activation), les identifiants des outils rendus par
+`get_agent`, les descriptions, la lecture de la mention extraite, l'historique borné à 50 lignes par défaut, les faux des
+montages, un import mort. Reste :
+- Les refus des fonctions partagées parlent avec les noms de la route (« agentId requis », « surface invalide » pour un
+  `limit` hors bornes, « frequence requise » quand l'argument s'appelle `frequency`).
+- Aucun test de route ne couvre le détachement par `PUT .../rattachement` (antérieur au lot).
+- `GET /settings/transfert-agent` est attribuée à `get_agent`, qui rend la promesse de chaque agent ; la valeur d'espace
+  (un onglet ancien) n'a pas d'outil propre.
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 2c, la photo d'un message) : ce qui reste de la relecture (2026-11-27, aucun rouge)
 
 Corrigés avant de pousser : le type des OCTETS fait foi (un « .png » fait de HTML ne part plus en image), un plafond que

@@ -6590,6 +6590,14 @@ chemin pour elle. Chacun devient un outil, qui appelle la fonction du bouton de 
 - **La mention d'IA en anglais** : `create_agent` et `update_agent` choisissent entre deux phrases relues, « Vous
   échangez avec un assistant automatique. » et « You are chatting with an automated assistant. ». `get_agent` dit
   laquelle ; un texte libre se règle toujours dans la console.
+- **Les réglages d'un agent IA** (2026-11-27, toutes les offres, comme ses onglets) : la bibliothèque d'outils de
+  l'espace et ce qu'un agent peut encore recevoir (`list_agent_tool_library`) ; rattacher, détacher, activer ou
+  désactiver un de ses outils (`update_agent_tool`, au nom de la personne, seul ce qui est donné change) ; modifier une
+  fiche de connaissance (`update_knowledge`) ; relire ses derniers essais (`list_agent_tests`) et ce qu'il a consommé sur
+  30 jours (`get_agent_usage`) ; qui a changé quoi dans ses réglages ou dans ceux de l'agent de Meta
+  (`get_settings_history`) ; et la fréquence à laquelle les agents disent qu'ils sont une IA, lue et réglée comme dans
+  Sécurité > IA (`get_ai_disclosure`, `set_ai_disclosure`, tracé au nom de la personne). L'autonomie sur un appel
+  irréversible reste un clic dans la console.
 - `get_messages` rend l'identifiant de chaque message, que `get_message_status` lit.
 
 **Les garde-fous.** Tous exigent la connexion de Claude, sauf la main du fil. Corriger et supprimer un modèle comptent
