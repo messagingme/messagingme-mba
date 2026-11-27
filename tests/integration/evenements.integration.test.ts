@@ -99,7 +99,7 @@ describe.skipIf(!url)('webhooks sortants : adresses et envois (Postgres)', () =>
   });
 
   it('le message reçu se relit par l’espace, jamais par le seul identifiant de Meta', async () => {
-    expect(await envois.messageRecu(tenantId, 'wamid.itest.evenements.1')).toEqual({ type: 'text', text: 'Bonjour, mon colis ?', transcription: null });
+    expect(await envois.messageRecu(tenantId, 'wamid.itest.evenements.1')).toEqual({ type: 'text', text: 'Bonjour, mon colis ?', transcription: null, formulaire: null });
     expect(await envois.messageRecu(autreTenantId, 'wamid.itest.evenements.1')).toBeNull();
   });
 
