@@ -117,7 +117,8 @@ Scope: `sends:create`
 
 Meta’s body as is, within the 24-hour window: an example from Meta’s documentation (Cloud API, messages) goes through, for the types below and with its media as link. to is the number with its country code, found on its record; contactId or externalId can replace it.
 
-- Types: text, image, video, audio, document, location, reaction, interactive (button, list, cta_url).
+- Types: text, image, video, audio, document, location, reaction, interactive (button, list, cta_url, flow).
+- A WhatsApp form (flow) opens by its published flow_id or flow_name, with flow_message_version "3" and the navigate action: its answers come back in conversation.needs_reply (form_response).
 - A media goes through a public https URL (link): Meta fetches the file.
 - The bounds are Meta’s (3 buttons, 20-character title, 10 list rows); an unknown field is refused as invalid_body, naming the field.
 - The contact who taps a button comes back in the message.received event, with its id.

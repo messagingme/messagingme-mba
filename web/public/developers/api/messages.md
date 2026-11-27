@@ -117,7 +117,8 @@ Droit : `sends:create`
 
 Le corps de Meta tel quel, dans la fenêtre de 24 h : un exemple de la documentation de Meta (Cloud API, messages) passe, pour les types ci-dessous et avec ses médias en link. to est le numéro avec l’indicatif du pays, retrouvé sur sa fiche ; contactId ou externalId peuvent le remplacer.
 
-- Types : text, image, video, audio, document, location, reaction, interactive (button, list, cta_url).
+- Types : text, image, video, audio, document, location, reaction, interactive (button, list, cta_url, flow).
+- Un formulaire WhatsApp (flow) s’ouvre par son flow_id ou son flow_name, publié, avec flow_message_version "3" et l’action navigate : ses réponses reviennent dans conversation.needs_reply (form_response).
 - Un média passe par une URL https publique (link) : Meta va chercher le fichier.
 - Les bornes sont celles de Meta (3 boutons, titre de 20 caractères, 10 lignes de liste) ; un champ inconnu est refusé en invalid_body, avec le champ fautif.
 - Le contact qui touche un bouton revient dans l’événement message.received, avec son id.

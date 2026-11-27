@@ -102,7 +102,7 @@ Chaque adresse choisit ses types. Les accusés de livraison sont décochés par 
 | `contact.risk_changed` | Le risque de désengagement d’un contact a changé de niveau (calcul de nuit). | contact, level, previous_level, score, reasons |
 | `template.status_changed` | Meta a tranché sur un de vos modèles (approuvé, refusé, en pause, désactivé). Aucune donnée de contact. | template, status, reason |
 | `agent.action` | Un agent IA a déclenché une de vos actions en pleine conversation (une fois par jour, par contact et par action) : les champs recueillis sont dans fields. (décoché par défaut) | contact, conversation_id, agent, action, fields, channel |
-| `conversation.needs_reply` | Mode « mon application répond » : un message attend la réponse de votre application, à l’adresse désignée par le répondeur. | contact, conversation_id, channel, message_id, message_type, text, transcription, reply_with |
+| `conversation.needs_reply` | Mode « mon application répond » : un message attend la réponse de votre application, à l’adresse désignée par le répondeur. | contact, conversation_id, channel, message_id, message_type, text, transcription, form_response, reply_with |
 | `test` | Le bouton « Envoyer un essai », ou l’outil MCP send_test_event. | message |
 
 Le contact porte son id, son numéro (phone), son nom, son identifiant externe et ses désabonnements.
@@ -125,5 +125,6 @@ _POST /v1/messages/whatsapp_
 - Répondez 2xx tout de suite au webhook, puis envoyez la réponse : la conversation reste à votre application, hors de la file « À traiter » de l’équipe.
 - La fenêtre de 24 h s’applique : la réponse part tant que le client a écrit dans les 24 dernières heures.
 - Répondez à conversation.needs_reply seulement : si l’adresse reçoit aussi message.received, le même message y arrive deux fois, et une réponse aux deux partirait deux fois. La clé d’API doit porter le droit sends:create.
+- Un formulaire WhatsApp que le client vient d’envoyer arrive avec ses réponses dans form_response (null pour tout autre message), jusqu’à 2 000 caractères : au-delà, form_response vaut null.
 - Ces réponses ne comptent dans aucun quota quotidien de l’API ; le plafond par minute s’applique.
 - Aucun repli : si votre application ne répond pas, personne ne le fait à sa place. Une adresse en pause, supprimée ou au-delà de votre offre rend les messages à l’équipe.

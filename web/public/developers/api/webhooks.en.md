@@ -102,7 +102,7 @@ Each address picks its types. Delivery receipts are unchecked by default: a camp
 | `contact.risk_changed` | A contact’s disengagement risk changed level (nightly run). | contact, level, previous_level, score, reasons |
 | `template.status_changed` | Meta ruled on one of your templates (approved, rejected, paused, disabled). No contact data. | template, status, reason |
 | `agent.action` | An AI agent triggered one of your actions during a conversation (once a day per contact and action): the collected fields are in fields. (unchecked by default) | contact, conversation_id, agent, action, fields, channel |
-| `conversation.needs_reply` | “My app answers” mode: a message awaits your app’s answer, at the address set as the responder. | contact, conversation_id, channel, message_id, message_type, text, transcription, reply_with |
+| `conversation.needs_reply` | “My app answers” mode: a message awaits your app’s answer, at the address set as the responder. | contact, conversation_id, channel, message_id, message_type, text, transcription, form_response, reply_with |
 | `test` | The “Send a test” button, or the send_test_event MCP tool. | message |
 
 The contact carries its id, number (phone), name, external id and opt-outs.
@@ -125,5 +125,6 @@ _POST /v1/messages/whatsapp_
 - Answer the webhook 2xx right away, then send the reply: the conversation stays with your app, out of the team’s “To handle” queue.
 - The 24-hour window applies: the reply goes out as long as the customer wrote in the last 24 hours.
 - Answer conversation.needs_reply only: if the address also receives message.received, the same message arrives twice, and answering both would reply twice. The API key needs the sends:create scope.
+- A WhatsApp form the customer just submitted arrives with its answers in form_response (null for any other message), up to 2,000 characters: beyond that, form_response is null.
 - These replies count toward no API daily quota; the per-minute cap applies.
 - No fallback: if your app does not answer, nobody does in its place. A paused or deleted address, or one beyond your plan, hands the messages back to the team.

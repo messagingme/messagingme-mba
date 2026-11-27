@@ -1109,7 +1109,8 @@ Scope: `sends:create`
 
 Meta’s body as is, within the 24-hour window: an example from Meta’s documentation (Cloud API, messages) goes through, for the types below and with its media as link. to is the number with its country code, found on its record; contactId or externalId can replace it.
 
-- Types: text, image, video, audio, document, location, reaction, interactive (button, list, cta_url).
+- Types: text, image, video, audio, document, location, reaction, interactive (button, list, cta_url, flow).
+- A WhatsApp form (flow) opens by its published flow_id or flow_name, with flow_message_version "3" and the navigate action: its answers come back in conversation.needs_reply (form_response).
 - A media goes through a public https URL (link): Meta fetches the file.
 - The bounds are Meta’s (3 buttons, 20-character title, 10 list rows); an unknown field is refused as invalid_body, naming the field.
 - The contact who taps a button comes back in the message.received event, with its id.
@@ -4233,7 +4234,7 @@ Each address picks its types. Delivery receipts are unchecked by default: a camp
 | `contact.risk_changed` | A contact’s disengagement risk changed level (nightly run). | contact, level, previous_level, score, reasons |
 | `template.status_changed` | Meta ruled on one of your templates (approved, rejected, paused, disabled). No contact data. | template, status, reason |
 | `agent.action` | An AI agent triggered one of your actions during a conversation (once a day per contact and action): the collected fields are in fields. (unchecked by default) | contact, conversation_id, agent, action, fields, channel |
-| `conversation.needs_reply` | “My app answers” mode: a message awaits your app’s answer, at the address set as the responder. | contact, conversation_id, channel, message_id, message_type, text, transcription, reply_with |
+| `conversation.needs_reply` | “My app answers” mode: a message awaits your app’s answer, at the address set as the responder. | contact, conversation_id, channel, message_id, message_type, text, transcription, form_response, reply_with |
 | `test` | The “Send a test” button, or the send_test_event MCP tool. | message |
 
 The contact carries its id, number (phone), name, external id and opt-outs.
@@ -4256,6 +4257,7 @@ _POST /v1/messages/whatsapp_
 - Answer the webhook 2xx right away, then send the reply: the conversation stays with your app, out of the team’s “To handle” queue.
 - The 24-hour window applies: the reply goes out as long as the customer wrote in the last 24 hours.
 - Answer conversation.needs_reply only: if the address also receives message.received, the same message arrives twice, and answering both would reply twice. The API key needs the sends:create scope.
+- A WhatsApp form the customer just submitted arrives with its answers in form_response (null for any other message), up to 2,000 characters: beyond that, form_response is null.
 - These replies count toward no API daily quota; the per-minute cap applies.
 - No fallback: if your app does not answer, nobody does in its place. A paused or deleted address, or one beyond your plan, hands the messages back to the team.
 
