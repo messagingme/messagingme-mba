@@ -368,13 +368,33 @@ export class PgMcpStore {
       };
     });
 
+    /**
+     * 🔴 L'autonomie TOMBE quand ce réglage rend l'outil irréversible : elle avait été cochée sur une écriture (la route
+     * de l'onglet Outils l'accepte sur tout risque), et l'exécuteur ne la lit que sur un outil irréversible. Sans ça, un
+     * outil autonome dont on montait le risque restait autonome, au nom d'un oui donné pour autre chose (B10, livraison
+     * 4c : Claude peut monter ce risque). Même règle que la montée de risque d'un connecteur (`requetes.pg.ts`) et d'un
+     * outil du catalogue (`catalog.pg.ts`), dans la MÊME instruction que l'écriture : `avant` lit le risque d'avant
+     * (toutes les sous-requêtes voient le même instantané), et une seconde requête hors transaction pourrait manquer
+     * après la première. `autonome_par` reste, pour l'instruction.
+     */
     const res = await client.query(
-      `update agent_tools
-          set params = $3::jsonb,
-              risk = coalesce($4, risk),
-              ne_pas_utiliser = coalesce($5, ne_pas_utiliser),
-              updated_at = now()
-        where tenant_id = $1 and id = $2 and origin = 'mcp'`,
+      `with avant as (
+         select risk from agent_tools where tenant_id = $1 and id = $2 and origin = 'mcp'
+       ), maj as (
+         update agent_tools
+            set params = $3::jsonb,
+                risk = coalesce($4, risk),
+                ne_pas_utiliser = coalesce($5, ne_pas_utiliser),
+                updated_at = now()
+          where tenant_id = $1 and id = $2 and origin = 'mcp'
+         returning id, risk
+       ), autonomie as (
+         update agent_tool_consommateurs c set autonome = false, updated_at = now()
+           from maj, avant
+          where c.tenant_id = $1 and c.tool_id = maj.id and c.autonome
+            and maj.risk = 'irreversible' and avant.risk <> 'irreversible'
+       )
+       select id from maj`,
       [tenantId, outilId, JSON.stringify(apres), patch.risk ?? null, patch.nePasUtiliser ?? null],
     );
     return (res.rowCount ?? 0) > 0;

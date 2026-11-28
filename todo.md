@@ -296,6 +296,27 @@ de `features.md`. Reste, avec le prochain lot qui touche la page :
 - `web/app/securite/consentement/page.tsx` (vers la ligne 132) : le lien `/contacts?c=` ouvre la liste, la page des
   contacts ne lisant aucun paramètre (relevé en B0b).
 
+## 🟡 CSM virtuel, lot I (B10, livraison 4c, les serveurs MCP des agents) : ce qui reste de la relecture (2026-11-28)
+
+Le rouge (un outil en service changeait de paramètres depuis Claude) et sept jaunes sont corrigés avant le push. Reste :
+- **Le réglage d'un outil MCP lit puis écrit hors transaction** (`PgMcpStore.reglerOutil`, `src/agent/mcp/store.pg.ts`) :
+  il relit `params`, fusionne, puis réécrit `params` même quand le réglage n'en porte pas. Un import qui change le schéma
+  pendant ce temps serait écrasé par l'ancienne liste (l'annonce garde la nouvelle, l'import suivant dit « inchangé »). Et
+  le plancher de risque de `update_mcp_tool` se lit dans l'outil avant l'écriture : une montée faite dans la console entre
+  les deux serait défaite. Correction : `enTransaction`, `select params, risk ... for update`, `params = coalesce($3,
+  params)` nul quand le réglage n'en porte pas, le plancher revérifié sous le verrou.
+- **Le journal d'audit ne voit ni le réglage, ni la proposition, ni l'import d'un outil MCP** (`reglerOutilMcp`,
+  `proposerOutilMcp`, `rafraichirServeurMcp`, `src/http/agent-mcp.ts`) : depuis la console, aucune trace (c'était déjà
+  le cas) ; depuis Claude, seulement la trace générique de B0c. Journaliser `connecteur.modifie` avec l'outil et les noms
+  touchés (risque avant et après, paramètres), jamais les valeurs.
+- **Un système connecté (4a) montre son adresse entière à Claude** (`list_connector_systems`), et `create_connector_system`
+  accepte une adresse qui porte une clé dans sa requête : la règle des serveurs MCP (l'hôte seulement, une clé dans
+  l'adresse refusée à la déclaration) ne s'y applique pas encore. Plus rare que pour un serveur MCP (une adresse d'API
+  porte rarement sa clé), mais même famille.
+- **Une clé dans le CHEMIN d'une adresse ne se détecte pas** à la déclaration depuis Claude (une adresse de serveur
+  Zapier, `/s/<secret>/mcp`) : la description renvoie un tel serveur à la console, et Claude n'en relit que l'hôte ;
+  rien ne l'empêche de taper une telle adresse qu'on lui donnerait.
+
 ## 🟡 CSM virtuel, lot I (B10, livraison 4b, les appels des systèmes connectés) : ce qui reste de la relecture (2026-11-28, aucun rouge)
 
 Corrigés avant de pousser : une description qui dictait sa conduite à Claude (la règle du répertoire) ; une clé tapée

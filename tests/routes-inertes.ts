@@ -1321,6 +1321,28 @@ export const mcpAppelsInertes: Pick<DepsMcp, 'appelsApi' | 'branchementAppels'> 
   },
 };
 
+/**
+ * Les serveurs MCP des agents (B10, livraison 4c), pour les montages qui n'en parlent pas : les lectures rendent le vide,
+ * les écritures et les appels au serveur distant lèvent. Leurs outils ont leur propre fichier, `tests/mcp-serveurs-mcp.test.ts`.
+ */
+export const mcpServeursMcpInertes: Pick<DepsMcp, 'serveursMcpApi'> = {
+  serveursMcpApi: {
+    audit: async () => {},
+    mcp: {
+      listerServeurs: async () => [], outilsPourEcran: async () => [],
+      supprimerServeur: neDevraitPasEtreAppelee('serveursMcpApi.supprimerServeur'),
+      reglerOutil: neDevraitPasEtreAppelee('serveursMcpApi.reglerOutil'),
+      proposer: neDevraitPasEtreAppelee('serveursMcpApi.proposer'),
+    },
+    rafraichissement: {
+      apercevoir: neDevraitPasEtreAppelee('serveursMcpApi.apercevoir'),
+      importer: neDevraitPasEtreAppelee('serveursMcpApi.importer'),
+    },
+    creerServeur: neDevraitPasEtreAppelee('serveursMcpApi.creerServeur'),
+    clesDeChamps: async () => [],
+  },
+};
+
 /** L'Inbox depuis Claude (B10, livraison 2a), pour les montages qui n'en parlent pas : les écritures lèvent. */
 export const mcpInboxInertes: Pick<DepsMcp, 'marquesConversation' | 'ouvrirConversation' | 'reglagesInbox' | 'lireImageRecue'> = {
   marquesConversation: {

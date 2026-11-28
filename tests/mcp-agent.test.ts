@@ -44,7 +44,7 @@ import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { bornesDesChamps, bornesZod, champsDe, muettes, type Borne } from './aide/bornes-zod';
 import { jamaisDesabonne } from './consentement';
-import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpAppelsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
+import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpDerouleInerte, mcpPrerequisInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpFichesInertes, mcpInboxInertes, mcpAgentReglagesInertes, mcpConnecteursInertes, mcpAppelsInertes, mcpServeursMcpInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpJournalMuet, mcpMisesEnLigneInertes, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { SANS_MCP } from './outils-mcp';
 import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
@@ -417,7 +417,7 @@ function monter(o: Options & { usage?: GardeUsageMemoire } = {}) {
     ...mcpOffreInerte,
     ...mcpCampagnesInertes,
     ...mcpChampsInertes,
-    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes, ...mcpAppelsInertes,
+    ...mcpFichesInertes, ...mcpInboxInertes, ...mcpAgentReglagesInertes, ...mcpConnecteursInertes, ...mcpAppelsInertes, ...mcpServeursMcpInertes,
     ...mcpSuppressionInerte,
     ...mcpShopifyInerte,
     ...mcpFilInerte,
@@ -564,13 +564,22 @@ const ARGS: Record<string, Record<string, unknown>> = {
     agent_id: AG, call_id: '66666666-6666-4666-8666-666666666666', nature: 'pousse', name: 'commande', title: 'Commande',
     description: 'Quand le client demande sa commande.', ne_pas_utiliser: 'Sinon.',
   },
+  // Les serveurs MCP (B10, livraison 4c).
+  list_mcp_servers: {},
+  create_mcp_server: { label: 'Notion', base_url: 'https://mcp.client.fr/mcp' },
+  delete_mcp_server: { server_id: '77777777-7777-4777-8777-777777777777' },
+  list_mcp_server_tools: { server_id: '77777777-7777-4777-8777-777777777777' },
+  preview_mcp_import: { server_id: '77777777-7777-4777-8777-777777777777' },
+  import_mcp_tools: { server_id: '77777777-7777-4777-8777-777777777777' },
+  update_mcp_tool: { server_id: '77777777-7777-4777-8777-777777777777', tool_id: '88888888-8888-4888-8888-888888888888', risk: 'write' },
+  set_mcp_tool_proposed: { tool_id: '88888888-8888-4888-8888-888888888888', propose: true },
 };
 
 /** Les traces d'écriture et de lecture des dépendances de l'agent, mises bout à bout : vides = rien n'a été touché. */
 const touche = (cap: ReturnType<typeof monter>['cap']) => Object.entries(cap).filter(([, v]) => v.length > 0).map(([k]) => k);
 
 describe('🔴 la personne requise : une clé d’API ne voit ni n’appelle les outils qui écrivent au nom de quelqu’un', () => {
-  it('trente-six outils : quatre lectures sans personne, trente-deux outils qui l’exigent (le répondeur, les horaires, les actions, les limites, les réglages de 3a, la suppression, les systèmes connectés et leurs appels compris)', () => {
+  it('quarante-quatre outils : quatre lectures sans personne, quarante outils qui l’exigent (le répondeur, les horaires, les actions, les limites, les réglages de 3a, la suppression, les systèmes connectés, leurs appels et les serveurs MCP compris)', () => {
     const agent = OUTILS.filter((o) => Object.hasOwn(ARGS, o.nom));
     expect(agent.map((o) => o.nom).sort()).toEqual(Object.keys(ARGS).sort());
     expect(agent.filter((o) => o.exigePersonne !== true).map((o) => o.nom).sort())
@@ -635,8 +644,8 @@ describe('🔴 le plafond des opérations coûteuses est celui de la console', (
     await server.close();
   });
 
-  it('chacun des sept outils coûteux le consomme, et aucun autre', async () => {
-    const couteux = ['test_agent', 'add_knowledge', 'delete_knowledge', 'preview_site', 'import_site', 'import_document_text', 'buy_credit'];
+  it('chacun des neuf outils coûteux le consomme, et aucun autre (l’aperçu et l’import d’un serveur MCP compris, B10, livraison 4c)', async () => {
+    const couteux = ['test_agent', 'add_knowledge', 'delete_knowledge', 'preview_site', 'import_site', 'import_document_text', 'buy_credit', 'preview_mcp_import', 'import_mcp_tools'];
     for (const nom of Object.keys(ARGS)) {
       const { server, cap } = monter({ couteux: 1 });
       await appeler(server, JETON.brut, nom, ARGS[nom]);

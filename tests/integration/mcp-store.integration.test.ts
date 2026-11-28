@@ -372,6 +372,46 @@ describe.skipIf(!url)('l écriture d un import MCP (Postgres)', () => {
     expect(lu.rows[0]!.risk).toBe('write');
   });
 
+  it('🔴 le risque qui MONTE à irréversible fait tomber l’autonomie ; un autre réglage la garde (B10, livraison 4c)', async () => {
+    // Le même invariant que la montée de risque d'un connecteur API : un oui donné à une écriture ne vaut pas pour une
+    // action irréversible. Le réglage précédent a laissé « search » en écriture.
+    const cible = (await store.outilsDuServeur(tenantId, sourceMcp)).find((o) => o.nomDistant === 'search')!;
+    await pool.query(`update agent_tools set risk = 'write' where tenant_id = $1 and id = $2`, [tenantId, cible.id]);
+    await pool.query(
+      `insert into agent_tool_consommateurs (tenant_id, tool_id, consommateur, tool_name, actif, autonome, autonome_par)
+       values ($1, $2, $3, (select name from agent_tools where id = $2), false, true, $4)
+       on conflict (tool_id, consommateur) do update set autonome = true, autonome_par = excluded.autonome_par`,
+      [tenantId, cible.id, `agent:${agentId}`, userId],
+    );
+    // Un VOISIN irréversible et autonome, sur le même agent : la chute ne doit toucher que l'outil réglé.
+    await store.appliquer(tenantId, sourceMcp, {
+      nouveaux: [aImporter('voisin', 'notion_voisin', { risk: 'irreversible' })], changes: [], disparus: [], vus: [],
+    });
+    const voisin = (await store.outilsDuServeur(tenantId, sourceMcp)).find((o) => o.nomDistant === 'voisin')!;
+    await pool.query(
+      `insert into agent_tool_consommateurs (tenant_id, tool_id, consommateur, tool_name, actif, autonome, autonome_par)
+       values ($1, $2, $3, (select name from agent_tools where id = $2), false, true, $4)`,
+      [tenantId, voisin.id, `agent:${agentId}`, userId],
+    );
+    const autonomeDe = async (outil: string) => (await pool.query<{ autonome: boolean }>(
+      'select autonome from agent_tool_consommateurs where tenant_id = $1 and tool_id = $2 and consommateur = $3',
+      [tenantId, outil, `agent:${agentId}`],
+    )).rows[0]!.autonome;
+    const autonome = () => autonomeDe(cible.id);
+    // Un réglage qui ne rend pas l'outil irréversible n'y touche pas.
+    expect(await store.reglerOutil(tenantId, cible.id, { nePasUtiliser: 'jamais la nuit' })).toBe(true);
+    expect(await autonome()).toBe(true);
+    // La montée à irréversible la fait tomber, dans la même écriture.
+    expect(await store.reglerOutil(tenantId, cible.id, { risk: 'irreversible' })).toBe(true);
+    expect(await autonome()).toBe(false);
+    expect(await autonomeDe(voisin.id)).toBe(true);
+    // Redonnée sur l'outil devenu irréversible, un nouveau réglage qui le LAISSE irréversible ne la retire pas.
+    await pool.query('update agent_tool_consommateurs set autonome = true where tenant_id = $1 and tool_id = $2', [tenantId, cible.id]);
+    expect(await store.reglerOutil(tenantId, cible.id, { risk: 'irreversible', nePasUtiliser: 'jamais' })).toBe(true);
+    expect(await autonome()).toBe(true);
+    await pool.query(`update agent_tools set risk = 'write' where tenant_id = $1 and id = $2`, [tenantId, cible.id]);
+  });
+
   it('🔴 ON NE PEUT PAS ACTIVER un outil declare NON ACTIVABLE', async () => {
     /**
      * 🔴 CE REFUS N EXISTAIT NULLE PART. `mcp_non_activable` etait ecrit par l import, rendu par le store,

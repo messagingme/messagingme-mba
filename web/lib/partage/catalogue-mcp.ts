@@ -106,6 +106,16 @@ export const CATALOGUE_MCP = {
   delete_connector_call: { scope: 'mcp:write', exigePersonne: true },
   test_connector_call: { scope: 'mcp:write', exigePersonne: true },
   attach_connector_call: { scope: 'mcp:write', exigePersonne: true },
+  /** Les serveurs MCP des agents et leurs outils importés (B10, livraison 4c) : au nom d'une personne, la clé jamais. */
+  // Une sortie vers un tiers se lit au nom d'une personne, comme les systèmes connectés.
+  list_mcp_servers: { scope: 'mcp:read', exigePersonne: true },
+  create_mcp_server: { scope: 'mcp:write', exigePersonne: true },
+  delete_mcp_server: { scope: 'mcp:write', exigePersonne: true },
+  list_mcp_server_tools: { scope: 'mcp:read', exigePersonne: true },
+  preview_mcp_import: { scope: 'mcp:write', exigePersonne: true },
+  import_mcp_tools: { scope: 'mcp:write', exigePersonne: true },
+  update_mcp_tool: { scope: 'mcp:write', exigePersonne: true },
+  set_mcp_tool_proposed: { scope: 'mcp:write', exigePersonne: true },
   activate_agent: { scope: 'mcp:write', exigePersonne: true },
   set_default_responder: { scope: 'mcp:write', exigePersonne: true },
   test_agent: { scope: 'mcp:write', exigePersonne: true },

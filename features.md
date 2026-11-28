@@ -6623,6 +6623,20 @@ chemin pour elle. Chacun devient un outil, qui appelle la fonction du bouton de 
   (`attach_connector_call`, qui dit ce que l'outil enverra ; `update_agent_tool` l'active). 🔴 Un essai exécute l'appel
   pour de vrai : depuis Claude, seul un appel qui lit (GET) s'essaie, un appel qui écrit s'essaie dans la console. Un
   appel ne change pas de système depuis Claude.
+- **Les serveurs MCP des agents, et leurs outils importés** (2026-11-28, les offres qui ont la console, comme la page
+  Connecteurs MCP) : les lister (`list_mcp_servers`), en déclarer un sans clé (`create_mcp_server`), le supprimer
+  (`delete_mcp_server`, refusé tant qu'un agent en a un outil actif), voir ce que son import ajoutera, changera ou
+  retirera (`preview_mcp_import`), l'importer (`import_mcp_tools`, qui active un serveur en brouillon), lire ses outils
+  (`list_mcp_server_tools`), en régler un (`update_mcp_tool` : d'où chaque paramètre tire sa valeur, son risque, quand ne
+  pas l'appeler ; seul ce qui est donné change) et le proposer aux agents ou le leur retirer (`set_mcp_tool_proposed`).
+  Un outil importé ne sert un agent qu'une fois rattaché à cet agent et activé (`update_agent_tool`). 🔴 La clé ne passe
+  jamais par Claude : un serveur qui en demande une (dans un en-tête ou dans son adresse) se déclare dans la console, sa
+  clé avec lui, et Claude ne lit d'un serveur que son hôte, jamais son adresse complète. Un outil qu'un agent a déjà,
+  actif ou non, ne change depuis Claude que son risque et quand ne pas l'appeler : ses paramètres, qui décident de ce
+  qui part chez le serveur, se règlent dans la console ; de même, un serveur dont un agent a un outil ne se supprime pas
+  depuis Claude. Le risque d'un outil importé ne fait que monter depuis Claude, l'abaisser se fait dans la console ; et
+  qu'il monte à « irréversible », depuis Claude comme depuis la console, l'autonomie que les agents avaient sur cet outil
+  tombe (sa case se décoche), comme pour un appel de connecteur.
 - `get_messages` rend l'identifiant de chaque message, que `get_message_status` lit.
 
 **Les garde-fous.** Tous exigent la connexion de Claude, sauf la main du fil. Corriger et supprimer un modèle comptent

@@ -5482,6 +5482,14 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | delete_connector_call | mcp:write OAuth connection required | Delete a saved call; refused while an agent or a scenario uses it. |
 | test_connector_call | mcp:write OAuth connection required | Try a call that reads, for real, and see what the system answers. |
 | attach_connector_call | mcp:write OAuth connection required | Give a call to an AI agent as a tool, disabled, with what it will send. |
+| list_mcp_servers | mcp:read OAuth connection required | The MCP servers your AI agents may call: address, authentication mode, status. |
+| create_mcp_server | mcp:write OAuth connection required | Declare an MCP server without a key; a server with a key is declared in the console, never in Claude. |
+| delete_mcp_server | mcp:write OAuth connection required | Delete an MCP server and its imported tools; refused while an agent has one enabled. |
+| list_mcp_server_tools | mcp:read OAuth connection required | The tools imported from an MCP server: their parameters, their risk, the agents that have them. |
+| preview_mcp_import | mcp:write OAuth connection required | See what importing an MCP server will add, change or remove, without writing anything. |
+| import_mcp_tools | mcp:write OAuth connection required | Import the tools of an MCP server; none serves an agent before it is enabled there. |
+| update_mcp_tool | mcp:write OAuth connection required | Set an imported tool: its parameters, its risk (only raised), when not to call it. |
+| set_mcp_tool_proposed | mcp:write OAuth connection required | Offer an imported tool to your AI agents, or withdraw it. |
 
 ### Agent knowledge
 

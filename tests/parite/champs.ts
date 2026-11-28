@@ -16,6 +16,7 @@ import {
 } from '../../src/http/agent-sources';
 import { corpsRequete as creationAppel, patchSchema as patchAppel, testSchema as essaiAppel } from '../../src/http/agent-requetes';
 import { ajoutConnecteurSchema } from '../../src/http/agent-tools';
+import { creationSchema as creationServeurMcp, proposeSchema as proposeOutilMcp, reglageSchema as reglageOutilMcp } from '../../src/http/agent-mcp';
 import { saisieAchatWhatsapp } from '../../src/stripe/achat-whatsapp';
 import { saisieDeCreation as creationWidget, saisieDeModification as modificationWidget } from '../../src/widgets/gestion';
 import type { Correspondance } from './schemas';
@@ -56,6 +57,9 @@ const NOMS_SYSTEME = {
   baseUrl: 'base_url', authKind: 'auth', authHeaderName: 'auth_header_name', 'oauth.tokenUrl': 'oauth.token_url', 'oauth.clientId': 'oauth.client_id',
 };
 const CLE_ABSENTE = '🔴 la clé ne passe jamais par Claude : la personne la colle sur la page Connecteurs API, puis active le système (0331)';
+/** Le mode d'authentification d'un serveur MCP déclaré depuis Claude (B10, livraison 4c). */
+const SERVEUR_A_CLE = '🔴 la clé ne passe jamais par Claude, et aucune route n’en ajoute une à un serveur MCP déclaré : un serveur à clé '
+  + 'se déclare dans la console, sa clé avec lui ; create_mcp_server pose authKind none';
 const ADRESSE_ABSENTE = '🔴 l’adresse d’un système et celle de son jeton se posent à la déclaration, puis se changent dans la console seule, comme celle d’un webhook';
 
 export const CHAMPS: Readonly<Record<string, Corps>> = {
@@ -93,6 +97,14 @@ export const CHAMPS: Readonly<Record<string, Corps>> = {
   'DELETE /agent-requetes/:id': SANS_CORPS,
   'POST /agent-requetes/:id/test': { schema: essaiAppel },
   'POST /agents/:agentId/tools/connecteur': { schema: ajoutConnecteurSchema, noms: { requeteId: 'call_id' } },
+
+  // Les serveurs MCP des agents (B10, livraison 4c) : 🔴 Claude ne déclare qu'un serveur sans clé.
+  'POST /mcp': { schema: creationServeurMcp, absents: { authKind: SERVEUR_A_CLE, authHeaderName: SERVEUR_A_CLE, authSecret: SERVEUR_A_CLE } },
+  'DELETE /mcp/:sourceId': SANS_CORPS,
+  'POST /mcp/:sourceId/apercu': SANS_CORPS,
+  'POST /mcp/:sourceId/importer': SANS_CORPS,
+  'PATCH /mcp/outils/:outilId': { schema: reglageOutilMcp },
+  'PUT /mcp/outils/:outilId/propose': { schema: proposeOutilMcp },
 
   // Shopify
   'DELETE /integrations/shopify': SANS_CORPS,

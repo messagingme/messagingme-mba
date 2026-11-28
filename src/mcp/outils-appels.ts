@@ -160,9 +160,16 @@ function refusDuSchema(erreur: ZodError): RefusOutil {
   return new RefusOutil(`champs refusés : ${details}`, 'invalid_args', { action: page() });
 }
 
-/** Un nom qui porte un secret (une clé, un jeton, un mot de passe), dans un en-tête, un paramètre ou une variable. */
-const NOM_DE_SECRET = /secret|token|jeton|password|passwd|mot.?de.?passe|api.?key|apikey|(^|[^a-z])(cle|clef|key)([^a-z]|$)/i;
-const VALEUR_MASQUEE = '••••';
+/**
+ * Un nom qui porte un secret (une clé, un jeton, un mot de passe), dans un en-tête, un paramètre ou une variable : par
+ * `estNomDeSecret`, jamais par ce motif seul. Élargi à la relecture de la livraison 4c (mesuré) : `authorization`, `auth`,
+ * `bearer`, `credentials`, `passphrase` et `pwd` passaient.
+ */
+const NOM_DE_SECRET = /secret|token|jeton|password|passwd|passphrase|pwd|mot.?de.?passe|api.?key|apikey|authori[sz]ation|bearer|credentials?|(^|[^a-z])(auth|cle|clef|key)([^a-z]|$)/i;
+/** Une clé en camelCase (`accessKey`, `privateKey`, `licenseKey`) : insensible à la casse, le motif n'y voit qu'un mot. */
+const CLE_EN_CAMEL = /[a-z0-9](Key|Cle|Clef)(?![a-z])/;
+export const estNomDeSecret = (nom: string): boolean => NOM_DE_SECRET.test(nom) || CLE_EN_CAMEL.test(nom);
+export const VALEUR_MASQUEE = '••••';
 const REFUS_CLE = 'une clé ne passe jamais par Claude : elle se déclare sur le système (mode en-tête ou jeton, '
   + 'create_connector_system) et la personne la colle sur la page Connecteurs API ; refusé dans cet appel : ';
 
@@ -179,7 +186,7 @@ function secretsDe(corps: Record<string, unknown>): string[] {
     : [];
   const essais = corps.valeursTest !== null && typeof corps.valeursTest === 'object' ? Object.keys(corps.valeursTest as object) : [];
   return [...noms(corps.entetes, 'nom'), ...noms(corps.parametres, 'cle'), ...noms(champs, 'cle'), ...fixes, ...essais]
-    .filter((n) => NOM_DE_SECRET.test(n));
+    .filter((n) => estNomDeSecret(n));
 }
 
 /** Un texte qui n'est qu'une variable (`{token}`) ne porte aucun secret : il est gardé. */
@@ -193,17 +200,17 @@ const masquer = (valeur: unknown): unknown => (typeof valeur === 'string' && /^\
 function masquerAppel<T extends object>(objet: T): T {
   const appel = objet as Record<string, unknown>;
   const paires = (liste: unknown, cle: string): unknown => (Array.isArray(liste)
-    ? liste.map((x) => (x !== null && typeof x === 'object' && NOM_DE_SECRET.test(String((x as Record<string, unknown>)[cle] ?? ''))
+    ? liste.map((x) => (x !== null && typeof x === 'object' && estNomDeSecret(String((x as Record<string, unknown>)[cle] ?? ''))
       ? { ...(x as object), valeur: masquer((x as Record<string, unknown>).valeur) } : x))
     : liste);
   const variables = Array.isArray(appel.variables)
     ? appel.variables.map((v) => {
       const o = (v as { nom?: unknown; origine?: { type?: unknown; valeur?: unknown } });
-      return o.origine?.type === 'fixe' && NOM_DE_SECRET.test(String(o.nom ?? '')) ? { ...o, origine: { ...o.origine, valeur: VALEUR_MASQUEE } } : v;
+      return o.origine?.type === 'fixe' && estNomDeSecret(String(o.nom ?? '')) ? { ...o, origine: { ...o.origine, valeur: VALEUR_MASQUEE } } : v;
     })
     : appel.variables;
   const essais = appel.valeursTest !== null && typeof appel.valeursTest === 'object'
-    ? Object.fromEntries(Object.entries(appel.valeursTest as Record<string, unknown>).map(([k, v]) => [k, NOM_DE_SECRET.test(k) ? VALEUR_MASQUEE : v]))
+    ? Object.fromEntries(Object.entries(appel.valeursTest as Record<string, unknown>).map(([k, v]) => [k, estNomDeSecret(k) ? VALEUR_MASQUEE : v]))
     : appel.valeursTest;
   return { ...appel, entetes: paires(appel.entetes, 'nom'), parametres: paires(appel.parametres, 'cle'), variables, valeursTest: essais } as T;
 }
@@ -214,13 +221,13 @@ function masquerEssai(resultat: Record<string, unknown>): Record<string, unknown
   if (envoye === null || typeof envoye !== 'object') return resultat;
   const e = envoye as { url?: unknown; entetes?: unknown };
   const entetes = e.entetes !== null && typeof e.entetes === 'object'
-    ? Object.fromEntries(Object.entries(e.entetes as Record<string, unknown>).map(([k, v]) => [k, NOM_DE_SECRET.test(k) ? VALEUR_MASQUEE : v]))
+    ? Object.fromEntries(Object.entries(e.entetes as Record<string, unknown>).map(([k, v]) => [k, estNomDeSecret(k) ? VALEUR_MASQUEE : v]))
     : e.entetes;
   let url = e.url;
   if (typeof url === 'string') {
     try {
       const u = new URL(url);
-      for (const k of [...u.searchParams.keys()]) if (NOM_DE_SECRET.test(k)) u.searchParams.set(k, VALEUR_MASQUEE);
+      for (const k of [...u.searchParams.keys()]) if (estNomDeSecret(k)) u.searchParams.set(k, VALEUR_MASQUEE);
       url = u.toString();
     } catch { /* une adresse illisible reste telle quelle : elle ne vient que de l'assemblage */ }
   }

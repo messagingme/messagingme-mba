@@ -10,6 +10,7 @@ import { CHAMPS_CONTACT_AUTORISES, estChampContact } from '../agent/champs-conta
 import { preparerCreationSource } from '../agent/source-configuration';
 import { espaceVerifie, estUuid } from './scope';
 import { makeJournal, type AuditSink } from '../audit/journal';
+import { corpsDuRefus, refus, type Issue } from '../lib/issue';
 
 /**
  * Les connecteurs MCP : prévisualiser et importer le catalogue d'un serveur, régler ce qu'on en expose. Un serveur MCP est
@@ -104,7 +105,7 @@ export interface AgentMcpRouteDeps {
   clesDeChamps(tenantId: string): Promise<string[]>;
 }
 
-const creationSchema = z.object({
+export const creationSchema = z.object({
   label: z.string().trim().min(1).max(80),
   /** L'adresse du point MCP : une adresse unique, pas une racine sous laquelle on compose des chemins. */
   baseUrl: z.string().trim().min(1).max(500),
@@ -114,7 +115,7 @@ const creationSchema = z.object({
 });
 
 const CLE_CHAMP = z.string().trim().min(1).max(64);
-const reglageSchema = z.object({
+export const reglageSchema = z.object({
   risk: z.enum(['read', 'write', 'irreversible']).optional(),
   nePasUtiliser: z.string().trim().max(2000).optional(),
   params: z.array(z.object({
@@ -126,7 +127,136 @@ const reglageSchema = z.object({
   })).max(100).optional(),
 });
 
-const proposeSchema = z.object({ propose: z.boolean() }).strict();
+export const proposeSchema = z.object({ propose: z.boolean() }).strict();
+
+/** L'auteur d'une écriture : la requête de la console, ou la personne d'un outil MCP (`{ auth: { userId } }`). */
+type Auteur = Parameters<ReturnType<typeof makeJournal>>[1];
+
+const IDENTIFIANT_INVALIDE = 'identifiant invalide';
+
+/** Les serveurs MCP de l'espace (la route `GET` et `list_mcp_servers`, B10, livraison 4c). */
+export async function serveursMcp(deps: Pick<AgentMcpRouteDeps, 'mcp'>, tenant: string): Promise<ServeurMcpVue[]> {
+  return deps.mcp.listerServeurs(tenant);
+}
+
+/**
+ * Déclarer un serveur MCP (la route `POST` et `create_mcp_server`). L'adresse est validée à l'écriture, par la même
+ * fonction que les connecteurs API. Le secret est chiffré par le store, jamais ici.
+ */
+export async function creerServeurMcp(deps: AgentMcpRouteDeps, tenant: string, corps: unknown, auteur: Auteur): Promise<Issue<ServeurMcpVue>> {
+  const parse = creationSchema.safeParse(corps ?? {});
+  if (!parse.success) return refus(400, 'libellé, adresse et mode d’authentification requis');
+  const { label, baseUrl, authKind, authHeaderName, authSecret } = parse.data;
+  const preparation = preparerCreationSource({ baseUrl, authKind, authHeaderName, authSecret });
+  if (!preparation.ok) return refus(400, preparation.erreur);
+  /**
+   * Un libellé déjà pris rend 409, pas 500 : l'index unique `(tenant_id, lower(label))` porte sur tous les
+   * `kind`, connecteurs API compris.
+   */
+  let serveur: ServeurMcpVue;
+  try {
+    serveur = await deps.creerServeur(tenant, {
+      label, baseUrl, authKind,
+      ...(authHeaderName ? { authHeaderName } : {}),
+      ...(authSecret ? { authSecret } : {}),
+    });
+  } catch (err) {
+    if (err instanceof LabelSourceDejaPris) return refus(409, `le nom « ${label} » est déjà pris par un autre connecteur`);
+    throw err;
+  }
+  await makeJournal(deps.audit)(tenant, auteur, 'connecteur.cree', { kind: 'connecteur', id: serveur.id }, {
+    mcp: true, authKind: parse.data.authKind, hote: preparation.hote,
+  });
+  return { ok: true, valeur: serveur };
+}
+
+/**
+ * Supprimer un serveur (la route `DELETE` et `delete_mcp_server`) : refusé tant qu'un outil actif en dépend (409), comme
+ * un connecteur API. La garde vit dans la même transaction que la suppression.
+ */
+export async function supprimerServeurMcp(deps: AgentMcpRouteDeps, tenant: string, sourceId: string, auteur: Auteur): Promise<Issue<{ id: string; deleted: true }>> {
+  if (!estUuid(sourceId)) return refus(400, IDENTIFIANT_INVALIDE);
+  const verdict = await deps.mcp.supprimerServeur(tenant, sourceId);
+  if (verdict === 'introuvable') return refus(404, 'serveur introuvable');
+  if (verdict === 'outils_actifs') return refus(409, 'ce serveur porte encore des outils actifs : désactivez-les d’abord');
+  await makeJournal(deps.audit)(tenant, auteur, 'connecteur.supprime', { kind: 'connecteur', id: sourceId }, { mcp: true });
+  return { ok: true, valeur: { id: sourceId, deleted: true } };
+}
+
+/**
+ * Les outils importés d'un serveur (la route `GET .../outils` et `list_mcp_server_tools`) : sans cette lecture, l'écran ne
+ * pourrait ni les voir ni les clouer. Les deux listes de clouage partent avec : l'écran propose un choix, pas un champ
+ * libre, et les recopier côté navigateur ferait diverger la liste proposée de la liste acceptée.
+ */
+export async function outilsDuServeurMcp(deps: Pick<AgentMcpRouteDeps, 'mcp' | 'clesDeChamps'>, tenant: string, sourceId: string) {
+  if (!estUuid(sourceId)) return refus(400, IDENTIFIANT_INVALIDE);
+  const [outils, champs] = await Promise.all([deps.mcp.outilsPourEcran(tenant, sourceId), deps.clesDeChamps(tenant)]);
+  return { ok: true as const, valeur: { outils, champs, champsContact: [...CHAMPS_CONTACT_AUTORISES] } };
+}
+
+/**
+ * L'aperçu (la route `POST .../apercu` et `preview_mcp_import`) : le plan, sans rien écrire dans le catalogue ; ou
+ * l'import (`POST .../importer` et `import_mcp_tools`) : le même plan, appliqué, qui active un serveur en brouillon.
+ */
+export async function rafraichirServeurMcp(
+  deps: Pick<AgentMcpRouteDeps, 'rafraichissement'>, tenant: string, sourceId: string, geste: 'apercevoir' | 'importer',
+): Promise<Issue<{ plan: unknown; tronque: unknown }>> {
+  if (!estUuid(sourceId)) return refus(400, IDENTIFIANT_INVALIDE);
+  const r = geste === 'apercevoir' ? await deps.rafraichissement.apercevoir(tenant, sourceId) : await deps.rafraichissement.importer(tenant, sourceId);
+  if (!r.ok && r.cause === 'introuvable') return refus(404, 'serveur introuvable');
+  if (!r.ok) return refus(422, r.erreur);
+  return { ok: true, valeur: { plan: r.plan, tronque: r.tronque } };
+}
+
+/**
+ * Le réglage d'un outil importé (la route `PATCH` et `update_mcp_tool`) : la source de chaque paramètre, le risque, et
+ * quand ne pas l'appeler. Un clouage désigne un champ qui existe, vérifié ici : sinon le paramètre partirait vide à
+ * chaque appel.
+ */
+export async function reglerOutilMcp(deps: Pick<AgentMcpRouteDeps, 'mcp' | 'clesDeChamps'>, tenant: string, outilId: string, corps: unknown): Promise<Issue<{ ok: true }>> {
+  if (!estUuid(outilId)) return refus(400, IDENTIFIANT_INVALIDE);
+  const parse = reglageSchema.safeParse(corps);
+  if (!parse.success) return refus(400, 'réglage invalide');
+  const d = parse.data;
+  if (d.params) {
+    const cles = await deps.clesDeChamps(tenant);
+    for (const p of d.params) {
+      if (p.source === 'champ') {
+        if (!p.cle) return refus(400, `le paramètre « ${p.name} » doit désigner un champ`);
+        if (!cles.includes(p.cle)) return refus(400, `le champ « ${p.cle} » n’existe pas dans cet espace`);
+      }
+      /**
+       * 🔴 Un clouage `contact` désigne un attribut de la liste fermée (`champs-contact.ts`), rien d'autre :
+       * sinon `contactPath: 'champs'` enverrait tout le jsonb des champs du contact au serveur tiers. Et sans
+       * `contactPath`, l'exécuteur chercherait `p.name` sur le contact et enverrait `null`.
+       */
+      if (p.source === 'contact') {
+        if (!p.contactPath) return refus(400, `le paramètre « ${p.name} » doit désigner un attribut de la fiche`);
+        if (!estChampContact(p.contactPath)) return refus(400, `« ${p.contactPath} » n’est pas un attribut de fiche autorisé`);
+      }
+      // `fixe` sans valeur est refusé, comme un `champ` sans clé : le paramètre partirait vide à chaque appel.
+      if (p.source === 'fixe' && p.value === undefined) return refus(400, `le paramètre « ${p.name} » doit porter une valeur`);
+    }
+  }
+  return (await deps.mcp.reglerOutil(tenant, outilId, d)) ? { ok: true, valeur: { ok: true } } : refus(404, 'outil introuvable');
+}
+
+/**
+ * Proposer un outil importé aux agents de l'espace, ou le retirer (la route `PUT .../propose` et `set_mcp_tool_proposed` ;
+ * Julien, 2026-10-02 : on choisit d'abord ici, puis sur chaque agent). Retirer un outil qu'un agent a déjà est refusé en
+ * 409, avec les noms.
+ */
+export async function proposerOutilMcp(deps: Pick<AgentMcpRouteDeps, 'mcp'>, tenant: string, outilId: string, corps: unknown): Promise<Issue<{ propose: boolean }>> {
+  if (!estUuid(outilId)) return refus(400, IDENTIFIANT_INVALIDE);
+  const parse = proposeSchema.safeParse(corps);
+  if (!parse.success) return refus(400, 'valeur booléenne requise');
+  const r = await deps.mcp.proposer(tenant, outilId, parse.data.propose);
+  if (r === null) return refus(404, 'outil introuvable');
+  if ('utilisePar' in r) {
+    return refus(409, `utilisé par ${r.utilisePar.join(', ')} : retirez-le d’abord de ${r.utilisePar.length > 1 ? 'ces agents' : 'cet agent'}`, { utilisePar: r.utilisePar });
+  }
+  return { ok: true, valeur: { propose: parse.data.propose } };
+}
 
 export function registerAgentMcp(
   app: FastifyInstance,
@@ -135,81 +265,28 @@ export function registerAgentMcp(
   limiteCouteuse?: PreHandler,
 ): void {
   const opts = { preHandler: garde };
-  const journal = makeJournal(deps.audit);
   // L'aperçu et l'import sont lourds (session vers un serveur tiers, catalogue paginé) : ils portent
   // `RATE_LIMIT_COUTEUX_PAR_MINUTE`, comme l'import CSV et l'aperçu d'un site.
   const lourd = gardeEtendue(garde, limiteCouteuse);
+  type Reponse = { code(n: number): { send(b?: unknown): unknown } };
+  const repondre = <T>(reply: Reponse, r: Issue<T>, code = 200) => (r.ok ? reply.code(code).send(r.valeur) : reply.code(r.statut).send(corpsDuRefus(r)));
 
-  app.get('/tenants/:tenantId/mcp', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-    return reply.code(200).send({ serveurs: await deps.mcp.listerServeurs(tenant) });
-  });
+  app.get('/tenants/:tenantId/mcp', opts, async (req, reply) => reply.code(200).send({ serveurs: await serveursMcp(deps, espaceVerifie(req)) }));
 
-  /**
-   * Déclarer un serveur MCP. L'adresse est validée à l'écriture, par la même fonction que les connecteurs API.
-   * Le secret est chiffré par le store, jamais ici.
-   */
   app.post('/tenants/:tenantId/mcp', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
-    const parse = creationSchema.safeParse(req.body ?? {});
-    if (!parse.success) return reply.code(400).send({ error: 'libellé, adresse et mode d’authentification requis' });
-    const { label, baseUrl, authKind, authHeaderName, authSecret } = parse.data;
-    const preparation = preparerCreationSource({ baseUrl, authKind, authHeaderName, authSecret });
-    if (!preparation.ok) return reply.code(400).send({ error: preparation.erreur });
-    /**
-     * Un libellé déjà pris rend 409, pas 500 : l'index unique `(tenant_id, lower(label))` porte sur tous les
-     * `kind`, connecteurs API compris.
-     */
-    let serveur: ServeurMcpVue;
-    try {
-      serveur = await deps.creerServeur(tenant, {
-        label, baseUrl, authKind,
-        ...(authHeaderName ? { authHeaderName } : {}),
-        ...(authSecret ? { authSecret } : {}),
-      });
-    } catch (err) {
-      if (err instanceof LabelSourceDejaPris) {
-        return reply.code(409).send({ error: `le nom « ${label} » est déjà pris par un autre connecteur` });
-      }
-      throw err;
-    }
-    await journal(tenant, req, 'connecteur.cree', { kind: 'connecteur', id: serveur.id }, {
-      mcp: true, authKind: parse.data.authKind, hote: preparation.hote,
-    });
-    return reply.code(201).send({ serveur });
+    const r = await creerServeurMcp(deps, espaceVerifie(req), req.body, req);
+    return r.ok ? reply.code(201).send({ serveur: r.valeur }) : reply.code(r.statut).send(corpsDuRefus(r));
   });
 
-  /**
-   * Supprimer un serveur : refusé tant qu'un outil actif en dépend (409), comme un connecteur API. La garde vit
-   * dans la même transaction que la suppression.
-   */
   app.delete('/tenants/:tenantId/mcp/:sourceId', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { sourceId } = req.params as { sourceId: string };
-    if (!estUuid(sourceId)) return reply.code(400).send({ error: 'identifiant invalide' });
-    const verdict = await deps.mcp.supprimerServeur(tenant, sourceId);
-    if (verdict === 'introuvable') return reply.code(404).send({ error: 'serveur introuvable' });
-    if (verdict === 'outils_actifs') {
-      return reply.code(409).send({ error: 'ce serveur porte encore des outils actifs : désactivez-les d’abord' });
-    }
-    await journal(tenant, req, 'connecteur.supprime', { kind: 'connecteur', id: sourceId }, { mcp: true });
-    return reply.code(204).send();
+    const r = await supprimerServeurMcp(deps, espaceVerifie(req), sourceId, req);
+    return r.ok ? reply.code(204).send() : reply.code(r.statut).send(corpsDuRefus(r));
   });
 
-  /** Les outils importés d'un serveur : sans cette lecture, l'écran ne pourrait ni les voir ni les clouer. */
   app.get('/tenants/:tenantId/mcp/:sourceId/outils', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { sourceId } = req.params as { sourceId: string };
-    if (!estUuid(sourceId)) return reply.code(400).send({ error: 'identifiant invalide' });
-    /**
-     * Les deux listes de clouage partent avec : l'écran propose un choix, pas un champ libre, et les recopier côté
-     * navigateur ferait diverger la liste proposée de la liste acceptée.
-     */
-    const [outils, champs] = await Promise.all([
-      deps.mcp.outilsPourEcran(tenant, sourceId),
-      deps.clesDeChamps(tenant),
-    ]);
-    return reply.code(200).send({ outils, champs, champsContact: [...CHAMPS_CONTACT_AUTORISES] });
+    return repondre(reply, await outilsDuServeurMcp(deps, espaceVerifie(req), sourceId));
   });
 
   /**
@@ -217,86 +294,23 @@ export function registerAgentMcp(
    * écrit `marquerEpreuve`, et en `GET` un préchargement ou un robot suffirait à le déclencher.
    */
   app.post('/tenants/:tenantId/mcp/:sourceId/apercu', lourd, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { sourceId } = req.params as { sourceId: string };
-    if (!estUuid(sourceId)) return reply.code(400).send({ error: 'identifiant invalide' });
-    const r = await deps.rafraichissement.apercevoir(tenant, sourceId);
-    if (!r.ok && r.cause === 'introuvable') return reply.code(404).send({ error: 'serveur introuvable' });
-    if (!r.ok) return reply.code(422).send({ error: r.erreur });
-    return reply.code(200).send({ plan: r.plan, tronque: r.tronque });
+    return repondre(reply, await rafraichirServeurMcp(deps, espaceVerifie(req), sourceId, 'apercevoir'));
   });
 
   /** L'import : le même plan, appliqué. */
   app.post('/tenants/:tenantId/mcp/:sourceId/importer', lourd, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { sourceId } = req.params as { sourceId: string };
-    if (!estUuid(sourceId)) return reply.code(400).send({ error: 'identifiant invalide' });
-    const r = await deps.rafraichissement.importer(tenant, sourceId);
-    if (!r.ok && r.cause === 'introuvable') return reply.code(404).send({ error: 'serveur introuvable' });
-    if (!r.ok) return reply.code(422).send({ error: r.erreur });
-    return reply.code(200).send({ plan: r.plan, tronque: r.tronque });
+    return repondre(reply, await rafraichirServeurMcp(deps, espaceVerifie(req), sourceId, 'importer'));
   });
 
-  /**
-   * Le réglage d'un outil importé : la source de chaque paramètre, le risque, et quand ne pas l'appeler. Un
-   * clouage désigne un champ qui existe, vérifié ici : sinon le paramètre partirait vide à chaque appel.
-   */
   app.patch('/tenants/:tenantId/mcp/outils/:outilId', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { outilId } = req.params as { outilId: string };
-    if (!estUuid(outilId)) return reply.code(400).send({ error: 'identifiant invalide' });
-
-    const parse = reglageSchema.safeParse(req.body);
-    if (!parse.success) return reply.code(400).send({ error: 'réglage invalide' });
-    const d = parse.data;
-
-    if (d.params) {
-      const cles = await deps.clesDeChamps(tenant);
-      for (const p of d.params) {
-        if (p.source === 'champ') {
-          if (!p.cle) return reply.code(400).send({ error: `le paramètre « ${p.name} » doit désigner un champ` });
-          if (!cles.includes(p.cle)) return reply.code(400).send({ error: `le champ « ${p.cle} » n’existe pas dans cet espace` });
-        }
-        /**
-         * 🔴 Un clouage `contact` désigne un attribut de la liste fermée (`champs-contact.ts`), rien d'autre :
-         * sinon `contactPath: 'champs'` enverrait tout le jsonb des champs du contact au serveur tiers. Et sans
-         * `contactPath`, l'exécuteur chercherait `p.name` sur le contact et enverrait `null`.
-         */
-        if (p.source === 'contact') {
-          if (!p.contactPath) return reply.code(400).send({ error: `le paramètre « ${p.name} » doit désigner un attribut de la fiche` });
-          if (!estChampContact(p.contactPath)) {
-            return reply.code(400).send({ error: `« ${p.contactPath} » n’est pas un attribut de fiche autorisé` });
-          }
-        }
-        // `fixe` sans valeur est refusé, comme un `champ` sans clé : le paramètre partirait vide à chaque appel.
-        if (p.source === 'fixe' && p.value === undefined) {
-          return reply.code(400).send({ error: `le paramètre « ${p.name} » doit porter une valeur` });
-        }
-      }
-    }
-
-    const ok = await deps.mcp.reglerOutil(tenant, outilId, d);
-    return ok ? reply.code(200).send({ ok: true }) : reply.code(404).send({ error: 'outil introuvable' });
+    return repondre(reply, await reglerOutilMcp(deps, espaceVerifie(req), outilId, req.body));
   });
 
-  /**
-   * Proposer un outil importé aux agents de l'espace, ou le retirer (Julien, 2026-10-02 : on choisit d'abord ici, puis
-   * sur chaque agent). Retirer un outil qu'un agent a déjà est refusé en 409, avec les noms.
-   */
   app.put('/tenants/:tenantId/mcp/outils/:outilId/propose', opts, async (req, reply) => {
-    const tenant = espaceVerifie(req);
     const { outilId } = req.params as { outilId: string };
-    if (!estUuid(outilId)) return reply.code(400).send({ error: 'identifiant invalide' });
-    const parse = proposeSchema.safeParse(req.body);
-    if (!parse.success) return reply.code(400).send({ error: 'valeur booléenne requise' });
-    const r = await deps.mcp.proposer(tenant, outilId, parse.data.propose);
-    if (r === null) return reply.code(404).send({ error: 'outil introuvable' });
-    if ('utilisePar' in r) {
-      return reply.code(409).send({
-        error: `utilisé par ${r.utilisePar.join(', ')} : retirez-le d’abord de ${r.utilisePar.length > 1 ? 'ces agents' : 'cet agent'}`,
-        utilisePar: r.utilisePar,
-      });
-    }
-    return reply.code(200).send({ propose: parse.data.propose });
+    return repondre(reply, await proposerOutilMcp(deps, espaceVerifie(req), outilId, req.body));
   });
 }

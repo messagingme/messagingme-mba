@@ -5,6 +5,63 @@
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
 
+## 2026-11-28 : CSM virtuel, lot I (B10, livraison 4c) : Claude déclare, importe et règle les serveurs MCP des agents
+
+Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 4 (les connecteurs), troisième temps
+(4c, les serveurs MCP et leurs outils importés), après les systèmes (4a) et leurs appels (4b).
+
+**Huit outils, les offres qui ont la console, tous au nom d'une personne** (`src/mcp/outils-serveurs-mcp.ts`) : lister
+les serveurs (`list_mcp_servers`), en déclarer un (`create_mcp_server`), le supprimer (`delete_mcp_server`), lire ses
+outils importés avec les clés de clouage permises (`list_mcp_server_tools`), voir le plan de l'import sans rien écrire
+(`preview_mcp_import`), l'appliquer (`import_mcp_tools`, qui active un serveur en brouillon), régler un outil
+(`update_mcp_tool` : d'où chaque paramètre tire sa valeur, son risque, quand ne pas l'appeler) et le proposer aux agents
+ou le leur retirer (`set_mcp_tool_proposed`). Les logiques des routes sont extraites (`serveursMcp`, `creerServeurMcp`,
+`supprimerServeurMcp`, `outilsDuServeurMcp`, `rafraichirServeurMcp`, `reglerOutilMcp`, `proposerOutilMcp`), sans
+changement de comportement ; leurs dépendances sortent en une constante du câblage (`depsServeursMcp`), partagée par la
+route et l'outil. L'aperçu et l'import comptent dans les opérations lourdes de l'espace, comme dans la console.
+
+**Les règles, toutes tenues dans le code de l'outil.** 🔴 La clé ne passe jamais par Claude, et aucune route n'en ajoute
+une à un serveur déjà déclaré : Claude ne déclare qu'un serveur sans clé (ni en-tête, ni paramètre de son adresse au nom
+de secret), un serveur à clé se déclare dans la console, sa clé avec lui (contrairement à un système connecté, que Claude
+déclare en brouillon et dont la personne colle la clé ensuite, 4a) ; et Claude ne lit d'un serveur que son hôte, jamais
+son adresse complète, qui peut porter une clé dans son chemin ou sa requête (la règle du journal d'audit). 🔴 Le risque
+d'un outil importé ne descend pas depuis Claude : un outil qui n'est plus irréversible s'appelle sans autonomie, et
+l'autonomie se donne dans la console. 🔴 Une valeur fixe au nom de secret est refusée à l'écriture, masquée à la lecture,
+et une clé posée dans la console ne se retire pas depuis Claude. 🔴 Un outil qu'un agent a déjà (actif ou non, l'agent de
+Meta compris) ne change depuis Claude que son risque, vers le haut, et quand ne pas l'appeler, et un serveur dont un agent
+a un outil ne s'y supprime pas.
+
+**Un défaut corrigé au passage, qui valait aussi pour la console** : régler un outil MCP (`PgMcpStore.reglerOutil`, la
+route `PATCH /mcp/outils/:outilId`) ne faisait pas tomber l'autonomie quand son risque montait à irréversible. Or
+l'autonomie se coche sur tout risque, et l'exécuteur ne la lit que sur un outil irréversible : un outil autonome dont on
+montait le risque restait autonome, au nom d'un oui donné pour autre chose. C'était déjà la règle des appels de
+connecteur (`requetes.pg.ts`) et du catalogue (`catalog.pg.ts`), et le commentaire du catalogue l'annonçait pour les
+outils MCP. Elle est désormais dans la même instruction que l'écriture.
+
+**La relecture indépendante : un rouge, corrigé avant le push.** Un outil MCP qu'un agent avait déjà pouvait changer de
+paramètres depuis Claude : un numéro cloué sur celui du contact, repassé « rempli par l'agent », et n'importe quel contact
+obtenait de l'agent les commandes d'un autre ; une consigne glissée dans une conversation lue suffisait. C'est le défaut
+qu'un appel en service avait en 4b, fermé là-bas et pas repris ici. Corrigés aussi : l'adresse complète d'un serveur
+remontait à Claude, et une adresse portant une clé dans sa requête passait à la déclaration ; une clé posée dans la
+console se retirait depuis Claude (sans retour possible) ; un serveur dont un agent avait un outil inactif se supprimait,
+et le redéclarer remettait ses outils décloués ; l'annonce brute du serveur (sa description d'origine, son schéma)
+remontait à Claude sans dire que c'est de la donnée ; un paramètre ou un serveur inconnu rendait un succès muet ; le
+motif des noms de secret, partagé avec la 4b, manquait `authorization`, `auth`, `bearer`, `credentials`, `passphrase`,
+`pwd` et les clés en camelCase ; deux descriptions nommaient `set_agent_tools`, qui ne donne que les outils maison (un
+outil MCP se rattache par `update_agent_tool`) ; le test d'intégration ne prouvait pas que la chute d'autonomie reste sur
+l'outil réglé. Le reste est au `todo.md` (le réglage hors transaction, le journal du réglage, la règle de l'adresse à
+étendre aux systèmes de la 4a).
+
+Huit routes quittent les `aFaire` de la parité ; les tarifs comptent 154 outils en Pro et en Business, 155 en Entreprise.
+Aucune migration.
+
+Preuves : 35 mutations nommées, toutes rouges (deux mutations de la parité des champs allaient dans le mauvais sens et
+restaient vertes : la parité ne compare qu'un sens, de la route vers l'outil, et un outil plus strict que sa route n'est
+pas un écart ; retournées, elles rougissent). Le test d'intégration du store joué sur le banc PGlite. Dans la copie de
+travail : typecheck et lint, l'auto-attaque, la suite racine et celle de la console ; sur l'arbre fusionné avec les pairs,
+avant le push : typecheck, lint, auto-attaque, les tests ciblés et la suite de la console. L'essai réel suit le
+déploiement.
+
 ## 2026-11-27 : CSM virtuel, lot I (B10, livraison 4b) : Claude enregistre, essaie et branche les appels des systèmes connectés
 
 Plan : `docs/superpowers/plans/2026-11-26-csm-lot1-i-reste-du-lot.md`, livraison 4 (les connecteurs), second temps (4b,

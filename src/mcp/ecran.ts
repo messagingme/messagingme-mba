@@ -26,6 +26,8 @@ export const LISTES = {
   cles: '/developers/keys',
   /** Tools > Connecteurs API : les systèmes que les agents appellent, où la personne colle une clé (B10, livraison 4a). */
   connecteurs: '/connecteurs',
+  /** Tools > Connecteurs MCP : les serveurs MCP des agents et leurs outils importés (B10, livraison 4c). */
+  connecteursMcp: '/connecteurs-mcp',
   contacts: '/contacts',
   /** Contenu > Étiquettes (lot 1 du CSM virtuel, B10). */
   etiquettes: '/tags',

@@ -471,14 +471,16 @@ export const ADRESSES: Readonly<Record<string, Decision>> = {
   'POST /mises-en-ligne/:id/accepter': humain('le clic d’un admin sur la page vaut accord (décision du 24 novembre) : le CSM ne peut pas se le donner, aucun outil ne clique'),
 
   // Les connecteurs MCP de l'agent IA (agentMcp)
-  'GET /mcp': aFaire('B10', 'agent IA, connecteurs MCP : lister'),
-  'POST /mcp': aFaire('B10', 'agent IA, connecteurs MCP : déclarer un serveur ; sa clé se saisit sur une page sécurisée, par lien signé'),
-  'DELETE /mcp/:sourceId': aFaire('B10', 'agent IA, connecteurs MCP : supprimer un serveur'),
-  'GET /mcp/:sourceId/outils': aFaire('B10', 'agent IA, connecteurs MCP : lister les outils d’un serveur'),
-  'POST /mcp/:sourceId/apercu': aFaire('B10', 'agent IA, connecteurs MCP : l’aperçu des outils d’un serveur'),
-  'POST /mcp/:sourceId/importer': aFaire('B10', 'agent IA, connecteurs MCP : importer des outils'),
-  'PATCH /mcp/outils/:outilId': aFaire('B10', 'agent IA, connecteurs MCP : régler un outil importé'),
-  'PUT /mcp/outils/:outilId/propose': aFaire('B10', 'agent IA, connecteurs MCP : proposer un outil importé aux agents, ou le retirer'),
+  // B10, livraison 4c : 🔴 la clé ne passe jamais par Claude (un serveur à clé se déclare dans la console, sa clé avec
+  // lui : aucune route n'en ajoute une après) ; le risque d'un outil importé ne fait que monter depuis Claude.
+  'GET /mcp': outil('list_mcp_servers'),
+  'POST /mcp': outil('create_mcp_server'),
+  'DELETE /mcp/:sourceId': outil('delete_mcp_server'),
+  'GET /mcp/:sourceId/outils': outil('list_mcp_server_tools'),
+  'POST /mcp/:sourceId/apercu': outil('preview_mcp_import'),
+  'POST /mcp/:sourceId/importer': outil('import_mcp_tools'),
+  'PATCH /mcp/outils/:outilId': outil('update_mcp_tool'),
+  'PUT /mcp/outils/:outilId/propose': outil('set_mcp_tool_proposed'),
 
   // La ligne de crédit WhatsApp (creditWhatsapp)
   'GET /credit-whatsapp/etat': aFaire('B10', 'offre : l’état de la ligne de crédit (cartes chez Meta, numéros)'),

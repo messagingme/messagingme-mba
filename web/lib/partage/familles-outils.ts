@@ -26,6 +26,9 @@ export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly t
       // Les appels des systèmes et leur branchement (B10, livraison 4b).
       'list_connector_calls', 'create_connector_call', 'update_connector_call', 'delete_connector_call', 'test_connector_call',
       'attach_connector_call',
+      // Les serveurs MCP des agents et leurs outils importés (B10, livraison 4c).
+      'list_mcp_servers', 'create_mcp_server', 'delete_mcp_server', 'list_mcp_server_tools', 'preview_mcp_import',
+      'import_mcp_tools', 'update_mcp_tool', 'set_mcp_tool_proposed',
     ],
   },
   { titre: 'Agent knowledge', titreFr: 'Connaissance de l’agent IA', outils: ['list_knowledge', 'add_knowledge', 'update_knowledge', 'delete_knowledge', 'preview_site', 'import_site', 'import_document_text'] },

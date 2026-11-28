@@ -176,6 +176,14 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | delete_connector_call | mcp:write connexion OAuth requise | Supprimer un appel enregistré ; refusé tant qu’un agent ou un scénario s’en sert. |
 | test_connector_call | mcp:write connexion OAuth requise | Essayer un appel qui lit, pour de vrai, et voir ce que le système répond. |
 | attach_connector_call | mcp:write connexion OAuth requise | Donner un appel à un agent IA comme outil, inactif, avec ce qu’il enverra. |
+| list_mcp_servers | mcp:read connexion OAuth requise | Les serveurs MCP que vos agents IA peuvent appeler : adresse, mode d’authentification, statut. |
+| create_mcp_server | mcp:write connexion OAuth requise | Déclarer un serveur MCP sans clé ; un serveur à clé se déclare dans la console, jamais dans Claude. |
+| delete_mcp_server | mcp:write connexion OAuth requise | Supprimer un serveur MCP et ses outils importés ; refusé tant qu’un agent en a un actif. |
+| list_mcp_server_tools | mcp:read connexion OAuth requise | Les outils importés d’un serveur MCP : leurs paramètres, leur risque, les agents qui les ont. |
+| preview_mcp_import | mcp:write connexion OAuth requise | Voir ce que l’import d’un serveur MCP ajoutera, changera ou retirera, sans rien écrire. |
+| import_mcp_tools | mcp:write connexion OAuth requise | Importer les outils d’un serveur MCP ; aucun ne sert un agent avant d’y être activé. |
+| update_mcp_tool | mcp:write connexion OAuth requise | Régler un outil importé : ses paramètres, son risque (qui ne fait que monter), quand ne pas l’appeler. |
+| set_mcp_tool_proposed | mcp:write connexion OAuth requise | Proposer un outil importé à vos agents IA, ou le leur retirer. |
 
 ### Connaissance de l’agent IA
 

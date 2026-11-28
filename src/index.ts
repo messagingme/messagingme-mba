@@ -274,6 +274,7 @@ import { jetonsOAuth } from './agent/jeton-oauth';
 import { creerEprouverSource } from './agent/eprouver-source';
 import type { AgentToolsRouteDeps } from './http/agent-tools';
 import type { AgentRequetesRouteDeps } from './http/agent-requetes';
+import type { AgentMcpRouteDeps } from './http/agent-mcp';
 import { GatewayChatClient } from './agent/llm/chat-client';
 import { consommateurAgent, consommateurMba } from './agent/consommateur';
 import { type OutilAPublier } from './mba/publication';
@@ -2484,6 +2485,23 @@ async function main(): Promise<void> {
     },
   };
   /**
+   * Les connecteurs MCP : les MÊMES dépendances pour leurs routes et leurs outils MCP (B10, livraison 4c). La route reste
+   * un adaptateur HTTP ; le rafraîchissement possède la lecture sécurisée de la source, la session distante, le plan et
+   * l'écriture transactionnelle.
+   */
+  const depsServeursMcp: AgentMcpRouteDeps = {
+    audit: auditSink,
+    // 🔴 La suppression d'un serveur passe par `PgMcpStore`, jamais par `agentSources.supprimer`, un `delete` nu
+    // qui emporterait les outils et les consentements par cascade en rendant `true`.
+    mcp: mcpStore,
+    rafraichissement: creerRafraichissementMcp({ mcp: mcpStore, sources: agentSources }),
+    // Le même store que les connecteurs API : même table, secret chiffré au même endroit.
+    creerServeur: (tenant, input) => agentSources.creer(tenant, { kind: 'mcp', ...input }),
+    // La même lecture que pour les variables de requête : deux définitions de « ce champ existe »
+    // finiraient par diverger.
+    clesDeChamps: async (tenant) => (await fieldStore.list(tenant)).map((f) => f.key),
+  };
+  /**
    * Les requêtes de connecteur (les appels des systèmes) : les MÊMES dépendances pour leurs routes et leurs outils MCP
    * (B10, livraison 4b).
    */
@@ -3521,22 +3539,8 @@ async function main(): Promise<void> {
      * notre serveur ; les valeurs du mini-CRM sont remplies par le relais (`src/http/mba-relais.ts`).
      */
     mbaPublication: publicationMba,
-    /**
-     * Les connecteurs MCP. La route reste un adaptateur HTTP ; le rafraîchissement possède la lecture sécurisée
-     * de la source, la session distante, le plan et l'écriture transactionnelle.
-     */
-    agentMcp: {
-      audit: auditSink,
-      // 🔴 La suppression d'un serveur passe par `PgMcpStore`, jamais par `agentSources.supprimer`, un `delete` nu
-      // qui emporterait les outils et les consentements par cascade en rendant `true`.
-      mcp: mcpStore,
-      rafraichissement: creerRafraichissementMcp({ mcp: mcpStore, sources: agentSources }),
-      // Le même store que les connecteurs API : même table, secret chiffré au même endroit.
-      creerServeur: (tenant, input) => agentSources.creer(tenant, { kind: 'mcp', ...input }),
-      // La même lecture que pour les variables de requête : deux définitions de « ce champ existe »
-      // finiraient par diverger.
-      clesDeChamps: async (tenant) => (await fieldStore.list(tenant)).map((f) => f.key),
-    },
+    // Les connecteurs MCP : les MÊMES dépendances que leurs outils MCP (B10, livraison 4c).
+    agentMcp: depsServeursMcp,
     // Les sources externes d'outils : l'adresse de base du système du client, son mode d'authentification et
     // son secret. Le secret est chiffré par le store, et aucune route ne le rend.
     agentSources: depsSystemesApi,
@@ -4346,6 +4350,8 @@ async function main(): Promise<void> {
         // Les appels des systèmes et leur branchement sur un agent (B10, livraison 4b) : les MÊMES dépendances que leurs routes.
         appelsApi: depsAppelsApi,
         branchementAppels: depsOutilsAgent,
+        // Les serveurs MCP des agents et leurs outils importés (B10, livraison 4c) : les MÊMES dépendances que leurs routes.
+        serveursMcpApi: depsServeursMcp,
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),

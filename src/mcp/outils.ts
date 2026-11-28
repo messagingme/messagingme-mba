@@ -48,6 +48,7 @@ import { OUTILS_INBOX, type DepsInboxMcp } from './outils-inbox';
 import { OUTILS_AGENT_REGLAGES, type DepsAgentReglagesMcp } from './outils-agent-reglages';
 import { OUTILS_CONNECTEURS, type DepsConnecteursMcp } from './outils-connecteurs';
 import { OUTILS_APPELS, type DepsAppelsMcp } from './outils-appels';
+import { OUTILS_SERVEURS_MCP, type DepsServeursMcp } from './outils-serveurs-mcp';
 import { OUTILS_SUPPRESSION, type DepsSuppressionMcp } from './outils-suppression';
 import { OUTILS_SHOPIFY } from './outils-shopify';
 import type { DepsGestionShopify } from '../shopify/gestion';
@@ -88,7 +89,7 @@ export type { ScopeMcp } from '../../web/lib/partage/catalogue-mcp';
 /** Les actions d'agent IA rendues par `get_conversation` : les plus récentes, la conversation en porte peu. */
 export const ACTIONS_DE_LA_CONVERSATION = 10;
 
-export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsAgentReglagesMcp, DepsConnecteursMcp, DepsAppelsMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
+export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsFichesMcp, DepsInboxMcp, DepsAgentReglagesMcp, DepsConnecteursMcp, DepsAppelsMcp, DepsServeursMcp, DepsScenariosMcp, DepsMiseEnLigneMcp, DepsPrerequisMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
   /**
@@ -1223,6 +1224,7 @@ export const OUTILS: OutilMcp[] = [
   ...OUTILS_AGENT_REGLAGES,
   ...OUTILS_CONNECTEURS,
   ...OUTILS_APPELS,
+  ...OUTILS_SERVEURS_MCP,
   // Le connecteur Shopify (2026-10-21) : `src/mcp/outils-shopify.ts`.
   ...OUTILS_SHOPIFY,
   // Les chiffres de l'espace, pour les graphiques de Claude (2026-10-13) : leur fichier, `src/mcp/outils-chiffres.ts`.
